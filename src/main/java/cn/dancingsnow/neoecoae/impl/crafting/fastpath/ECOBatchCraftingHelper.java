@@ -46,21 +46,44 @@ public final class ECOBatchCraftingHelper {
 
     public static long maxCraftsFromInventory(ListCraftingInventory inventory, List<GenericStack> perCraft,
             long requested) {
-        long max = requested;
+        return inventoryBatchLimit(inventory, perCraft, requested).crafts();
+    }
+
+    public static InventoryBatchLimit inventoryBatchLimit(
+            ListCraftingInventory inventory,
+            List<GenericStack> perCraft,
+            long requested) {
+        long max = Math.max(0L, requested);
+        AEKey limitingKey = null;
+        long limitingAvailable = 0L;
+        long limitingPerCraft = 0L;
         for (GenericStack stack : perCraft) {
             if (stack.amount() <= 0) {
-                return 0;
+                return new InventoryBatchLimit(0L, stack.what(), 0L, stack.amount());
             }
             // The CPU inventory is already an in-memory KeyCounter. Reading it directly avoids one
             // simulated crafting-inventory transaction per ingredient while preserving the exact
             // same concrete-input semantics as the verified fast-path key.
             long available = inventory.list.get(stack.what());
-            max = Math.min(max, available / stack.amount());
+            long ingredientLimit = available / stack.amount();
+            if (ingredientLimit < max) {
+                max = ingredientLimit;
+                limitingKey = stack.what();
+                limitingAvailable = available;
+                limitingPerCraft = stack.amount();
+            }
             if (max <= 0) {
-                return 0;
+                break;
             }
         }
-        return max;
+        return new InventoryBatchLimit(max, limitingKey, limitingAvailable, limitingPerCraft);
+    }
+
+    public record InventoryBatchLimit(
+            long crafts,
+            AEKey limitingKey,
+            long available,
+            long perCraft) {
     }
 
     /**

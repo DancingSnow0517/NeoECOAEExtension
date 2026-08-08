@@ -1,13 +1,17 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import org.slf4j.Logger;
@@ -18,6 +22,7 @@ public final class ECOFastPathDiagnostics {
     private static final int MAX_RETAINED_ENTRIES = 4_096;
     private static final int MAX_LOGS_PER_TICK = 32;
     private static final Set<DiagnosticKey> LOGGED = new LinkedHashSet<>();
+    private static final Set<BatchDecisionKey> BATCH_DECISIONS = new LinkedHashSet<>();
 
     private static long budgetTick = Long.MIN_VALUE;
     private static int logsThisTick;
@@ -62,6 +67,98 @@ public final class ECOFastPathDiagnostics {
         }
         logFailure(request.details(), reason, stage, ownerPos, tick,
             "batch=" + request.batchSize() + " " + context);
+    }
+
+    public static void logBatchDecision(
+        ECOExtractedPatternExecution execution,
+        BlockPos ownerPos,
+        long tick,
+        long taskRemaining,
+        long requested,
+        long laneLimit,
+        long safeLimit,
+        long energyLimit,
+        long coolantLimit,
+        long inventoryLimit,
+        String inventoryConstraint,
+        long finalBatch
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        PatternDescription pattern = describe(execution.details());
+        BatchDecisionKey key = new BatchDecisionKey(tick, pattern.definition(), pattern.identityHash());
+        synchronized (LOGGED) {
+            if (!BATCH_DECISIONS.add(key)) {
+                return;
+            }
+            trimBatchDecisions();
+        }
+        LOGGER.info(
+            "ECO FastPath batch decision: definition={} definitionHash={} primaryOutput={} owner={} tick={} taskRemaining={} requested={} laneLimit={} safeLimit={} energyLimit={} coolantLimit={} inventoryLimit={} inventoryConstraint={} finalBatch={}",
+            pattern.definition(),
+            Integer.toUnsignedString(pattern.identityHash(), 16),
+            pattern.primaryOutput(),
+            ownerPos.toShortString(),
+            tick,
+            taskRemaining,
+            requested,
+            laneLimit,
+            safeLimit,
+            energyLimit,
+            coolantLimit,
+            inventoryLimit,
+            inventoryConstraint,
+            finalBatch
+        );
+    }
+
+    public static void logCpuReservation(
+        ICraftingPlan plan,
+        KeyCounter reservedItems,
+        BlockPos ownerPos,
+        long tick
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        long patternCrafts = 0L;
+        for (long count : plan.patternTimes().values()) {
+            patternCrafts = saturatingAdd(patternCrafts, count);
+        }
+        LOGGER.info(
+            "ECO CPU job reservation: finalOutput={} owner={} tick={} patternCrafts={} patternCount={} usedItems={} reservedItems={}",
+            plan.finalOutput(),
+            ownerPos.toShortString(),
+            tick,
+            patternCrafts,
+            plan.patternTimes().size(),
+            describeCounter(plan.usedItems()),
+            describeCounter(reservedItems)
+        );
+    }
+
+    public static void logCpuPreflightFailure(
+        IPatternDetails details,
+        BlockPos ownerPos,
+        long tick,
+        long taskRemaining,
+        boolean plannedInputsPresent,
+        long plannedInputCount
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        logFailure(
+            details,
+            ECOFastPathFallbackReason.INVENTORY_LIMIT,
+            ECOFastPathStage.INPUT_RESERVATION,
+            ownerPos,
+            tick,
+            "first_input_unavailable taskRemaining=" + taskRemaining
+                + " plannedInputsPresent=" + plannedInputsPresent
+                + " plannedInputCount=" + plannedInputCount
+        );
     }
 
     private static void logFailure(
@@ -112,6 +209,7 @@ public final class ECOFastPathDiagnostics {
     public static void clear() {
         synchronized (LOGGED) {
             LOGGED.clear();
+            BATCH_DECISIONS.clear();
             budgetTick = Long.MIN_VALUE;
             logsThisTick = 0;
         }
@@ -151,12 +249,35 @@ public final class ECOFastPathDiagnostics {
         }
     }
 
+    private static long saturatingAdd(long left, long right) {
+        if (right <= 0L) {
+            return Math.max(0L, left);
+        }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
     private static String describeKey(AEKey key) {
         try {
             return key.getId().toString();
         } catch (Throwable ignored) {
             return key.getClass().getName();
         }
+    }
+
+    private static String describeCounter(KeyCounter counter) {
+        List<String> entries = new ArrayList<>();
+        int total = 0;
+        for (var entry : counter) {
+            total++;
+            if (entries.size() < 32) {
+                entries.add("key=" + entry.getKey() + " amount=" + entry.getLongValue());
+            }
+        }
+        entries.sort(String::compareTo);
+        if (total > entries.size()) {
+            entries.add("... total=" + total);
+        }
+        return entries.toString();
     }
 
     private static ECOFastPathStage stageFor(ECOFastPathFallbackReason reason) {
@@ -187,6 +308,14 @@ public final class ECOFastPathDiagnostics {
         iterator.remove();
     }
 
+    private static void trimBatchDecisions() {
+        while (BATCH_DECISIONS.size() > MAX_RETAINED_ENTRIES) {
+            Iterator<BatchDecisionKey> iterator = BATCH_DECISIONS.iterator();
+            iterator.next();
+            iterator.remove();
+        }
+    }
+
     private record PatternDescription(
         String definition,
         int identityHash,
@@ -204,5 +333,8 @@ public final class ECOFastPathDiagnostics {
         String implementation,
         String context
     ) {
+    }
+
+    private record BatchDecisionKey(long tick, String definition, int identityHash) {
     }
 }

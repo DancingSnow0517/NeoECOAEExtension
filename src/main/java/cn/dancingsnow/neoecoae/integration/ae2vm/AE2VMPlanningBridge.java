@@ -6,7 +6,6 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +27,7 @@ public final class AE2VMPlanningBridge {
     }
 
     public static boolean isEnabled() {
-        return NEConfig.useAE2VMPlanning && ModList.get().isLoaded("ae2vm");
+        return ModList.get().isLoaded("ae2vm");
     }
 
     public static Future<ICraftingPlan> planVMOrNative(

@@ -189,6 +189,9 @@ final class ECOAE2PatternMaterializer {
             }
             while (!pending.isEmpty()) {
                 Candidate current = pending.removeFirst();
+                if (!current.hasStateTransition()) {
+                    continue;
+                }
                 Optional<AEKey> next = current.remainingKey();
                 if (next.isEmpty() || slot.visited().contains(next.get())) {
                     continue;
@@ -200,9 +203,6 @@ final class ECOAE2PatternMaterializer {
                     break;
                 }
                 AEKey nextKey = next.get();
-                if (!isValid(slot.input(), nextKey, level, slotIndex)) {
-                    throw reject("remaining_key_rejected slot=" + slotIndex + " key=" + nextKey);
-                }
                 Candidate nextCandidate = captureCandidate(
                     slot.input(), new GenericStack(nextKey, 1L), level, slotIndex
                 );
@@ -576,7 +576,11 @@ final class ECOAE2PatternMaterializer {
         } catch (RuntimeException | LinkageError failure) {
             throw reject("remaining_key_exception slot=" + slot, failure);
         }
-        return new Candidate(template, remaining == null ? Optional.empty() : Optional.of(remaining));
+        Optional<AEKey> remainingKey = remaining == null ? Optional.empty() : Optional.of(remaining);
+        boolean stateTransition = remainingKey.isPresent()
+            && !remainingKey.get().equals(template.what())
+            && isValid(input, remainingKey.get(), level, slot);
+        return new Candidate(template, remainingKey, stateTransition);
     }
 
     private static boolean isValid(
@@ -786,7 +790,7 @@ final class ECOAE2PatternMaterializer {
                     }
                     candidate.remainingKey().ifPresent(remaining -> {
                         outputs.merge(remaining, alternative.multiplier(), Math::addExact);
-                        if (!remaining.equals(template.what())) {
+                        if (candidate.hasStateTransition()) {
                             stateTransitions.add(template.what());
                         }
                     });
@@ -856,14 +860,14 @@ final class ECOAE2PatternMaterializer {
         return new PatternRejection(ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE, context, cause);
     }
 
-    record Candidate(GenericStack template, Optional<AEKey> remainingKey) {
+    record Candidate(GenericStack template, Optional<AEKey> remainingKey, boolean stateTransition) {
         Candidate {
             Objects.requireNonNull(template, "template");
             remainingKey = Objects.requireNonNull(remainingKey, "remainingKey");
         }
 
         boolean hasStateTransition() {
-            return remainingKey.isPresent() && !remainingKey.get().equals(template.what());
+            return stateTransition;
         }
     }
 

@@ -7,31 +7,35 @@
   },
   "inputItems": [
     {
-      "count": 4,
+      "count": 8,
       "item": "neoecoae:crafting_network_switch"
     },
     {
+      "count": 8,
+      "item": "neoecoae:crafting_parallel_core_l9"
+    },
+    {
       "count": 16,
-      "item": "ae2:singularity"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:superconducting_processor"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:energized_superconductive_ingot"
-    },
-    {
-      "count": 32,
-      "item": "neoecoae:black_tungsten_alloy_block"
+      "item": "neoecoae:crafting_worker"
     },
     {
       "count": 4,
+      "item": "neoecoae:crafting_system_l9"
+    },
+    {
+      "count": 8,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:black_tungsten_alloy_block"
+    },
+    {
+      "count": 1,
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 64,
+      "count": 16,
       "item": "ae2:cell_component_256k"
     }
   ],

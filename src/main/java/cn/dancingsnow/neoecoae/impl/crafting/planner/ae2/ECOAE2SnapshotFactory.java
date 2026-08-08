@@ -315,7 +315,10 @@ public final class ECOAE2SnapshotFactory {
         synchronized (GRAPH_CACHE) {
             CachedGraphs current = GRAPH_CACHE.get(craftingService);
             if (current == cached && current.generation() == craftableGeneration) {
-                if (graph.cacheable()) {
+                // AE2 reports provider changes using the current server tick. A provider can
+                // appear later in the same tick that produced an empty lookup, so negative
+                // results must not survive as a supposedly current graph.
+                if (graph.cacheable() && graph.targetHasProducer()) {
                     current.graphs().put(requestedKey, graph);
                 } else if (graph.inventoryDependent()
                     && graph.inventoryCacheable()

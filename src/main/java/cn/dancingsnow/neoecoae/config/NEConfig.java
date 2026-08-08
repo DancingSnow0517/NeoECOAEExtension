@@ -17,7 +17,6 @@ public class NEConfig {
     public static final int CAPACITY_POWER_MIN = 0;
     public static final int CAPACITY_POWER_MAX = 16;
     private static final int CAPACITY_POWER_DEFAULT = 0;
-    private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
     public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
     public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = ECO_CPU_PUSH_TICK_LIMIT_MAX;
@@ -57,6 +56,32 @@ public class NEConfig {
             "Maximum allowed length of the storage system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
         .defineInRange("storageSystemMaxLength", 15, 4, Integer.MAX_VALUE);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER
+            .comment(
+                "ECO 任务规划器诊断选项。",
+                "ECO crafting planner diagnostic options.")
+            .push("debug");
+    }
+
+    private static final ModConfigSpec.BooleanValue ECO_PLANNER_DIFFERENTIAL_VERIFICATION = BUILDER
+        .comment(
+            "Run AE2's planner alongside ECO's planner and use AE2 if their observable plans differ.",
+            "Debug only: this approximately doubles planning cost for supported requests.")
+        .define("ecoPlannerDifferentialVerification", false);
+
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
+        .comment(
+            "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
+            "日志会去重并限频；仅建议在排查规划问题时临时开启。",
+            "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
+            "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
+        .define("debugECOPlanner", false);
 
     static {
         BUILDER.pop();
@@ -123,49 +148,6 @@ public class NEConfig {
             CAPACITY_POWER_DEFAULT,
             CAPACITY_POWER_DEFAULT
         );
-
-    static {
-        BUILDER.pop();
-    }
-
-    static {
-        BUILDER
-            .comment(
-                "ECO 主机调试超频选项。",
-                "ECO host debug overdrive options.")
-            .push("debug");
-    }
-
-    private static final ModConfigSpec.BooleanValue DEBUG_ECO_HOST_OVERDRIVE = BUILDER
-        .comment(
-            "开启后，计算主机总 CPU 存储固定为 9.2E；计算并行核心、合成并行核心和合成工作器单次执行量均为原始值的 2^15 倍（x32768）。",
-            "仅用于调试，不应作为正常游戏平衡配置。",
-            "When enabled, computation hosts use a fixed 9.2E total CPU storage; computation parallel cores,",
-            "crafting parallel cores, and crafting-worker batch size are multiplied by 2^15 (x32768).",
-            "Debug only. This is not intended for normal gameplay balance.")
-        .define("debugECOHostOverdrive", false);
-
-    private static final ModConfigSpec.BooleanValue ECO_PLANNER_DIFFERENTIAL_VERIFICATION = BUILDER
-        .comment(
-            "Run AE2's planner alongside ECO's planner and use AE2 if their observable plans differ.",
-            "Debug only: this approximately doubles planning cost for supported requests.")
-        .define("ecoPlannerDifferentialVerification", false);
-
-    private static final ModConfigSpec.BooleanValue USE_AE2_VM_PLANNING = BUILDER
-        .comment(
-            "安装 AE2-VM 时，优先使用其虚拟机任务规划器为 ECO 合成主机生成计划。",
-            "关闭后始终使用 ECO 自己的任务规划器；未安装 AE2-VM 时此选项不生效。",
-            "Prefer AE2-VM's virtual-machine planner for ECO crafting hosts when AE2-VM is installed.",
-            "When disabled, ECO always uses its own planner. This option has no effect without AE2-VM.")
-        .define("useAE2VMPlanning", true);
-
-    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
-        .comment(
-            "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
-            "日志会去重并限频；仅建议在排查规划问题时临时开启。",
-            "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
-            "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
-        .define("debugECOPlanner", false);
 
     static {
         BUILDER.pop();
@@ -263,9 +245,7 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
-    public static boolean debugECOHostOverdrive;
     public static boolean ecoPlannerDifferentialVerification;
-    public static boolean useAE2VMPlanning = true;
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
@@ -292,9 +272,7 @@ public class NEConfig {
         // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
         CRAFTING_CAPACITY_POWER.get();
         COMPUTATION_PARALLEL_CORE_POWER.get();
-        debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
-        useAE2VMPlanning = USE_AE2_VM_PLANNING.get();
         boolean wasDebugECOPlanner = debugECOPlanner;
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
         if (debugECOPlanner && !wasDebugECOPlanner) {
@@ -331,25 +309,21 @@ public class NEConfig {
     }
 
     public static int getCraftingWorkerBaseCrafts() {
-        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, getDebugOverdrivePower());
+        return CRAFTING_WORKER_BASE_CRAFTS;
     }
 
     public static int getCraftingParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, getDebugOverdrivePower());
+        return baseCount;
     }
 
     public static int getComputationParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, getDebugOverdrivePower());
+        return baseCount;
     }
 
     static int multiplyByPowerOfTwo(int baseValue, int power) {
         int clampedPower = Math.clamp(power, CAPACITY_POWER_MIN, CAPACITY_POWER_MAX);
         long result = (long) Math.max(0, baseValue) << clampedPower;
         return (int) Math.min(Integer.MAX_VALUE, result);
-    }
-
-    private static int getDebugOverdrivePower() {
-        return debugECOHostOverdrive ? DEBUG_OVERDRIVE_CAPACITY_POWER : CAPACITY_POWER_DEFAULT;
     }
 
     public static boolean isInfiniteStorageEnabled() {

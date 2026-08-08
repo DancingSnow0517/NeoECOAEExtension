@@ -258,7 +258,9 @@ public final class ECOComponentDemandSolver {
             balances,
             executions,
             problem.requested(),
-            expandableMaterials,
+            ECOPlannerMath.findStartableMaterials(
+                graph, expandableMaterials, balances, problem.requested()
+            ),
             graph.materials(),
             expansions
         );

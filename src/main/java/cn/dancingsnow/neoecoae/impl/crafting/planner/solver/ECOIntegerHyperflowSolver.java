@@ -369,7 +369,8 @@ public final class ECOIntegerHyperflowSolver {
                     return null;
                 }
                 long present = Math.max(0, available.getOrDefault(request.getKey(), 0L));
-                if (present < request.getValue() && hasPositiveProducer(request.getKey())) {
+                if (present < request.getValue()
+                    && hasStartableProducer(request.getKey(), bootstrapSupply)) {
                     requestedShortfall = ECOPlannerMath.saturatedAdd(
                         requestedShortfall, request.getValue() - present);
                 }
@@ -392,7 +393,7 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 if (balance.getValue() < 0) {
                     long missing = ECOPlannerMath.saturatedNegate(balance.getValue());
-                    if (hasPositiveProducer(balance.getKey())) {
+                    if (hasStartableProducer(balance.getKey(), bootstrapSupply)) {
                         if (!problem.requested().containsKey(balance.getKey())) {
                             dependencyShortfall = ECOPlannerMath.saturatedAdd(dependencyShortfall, missing);
                         }

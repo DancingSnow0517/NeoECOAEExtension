@@ -136,7 +136,13 @@ public final class ECOCondensedCycleSolver {
         graph.operations().forEach(operation -> expandable.addAll(operation.selectableOutputs()));
         expandable.removeAll(terminalBoundaryDeficits);
         ECOHyperflowResult<R> built = ECOPlannerMath.buildResult(
-            balances, executions, problem.requested(), expandable, graph.materials(), expansions);
+            balances,
+            executions,
+            problem.requested(),
+            ECOPlannerMath.findStartableMaterials(graph, expandable, balances, problem.requested()),
+            graph.materials(),
+            expansions
+        );
         ECOPlanCandidate<R> candidate = built.candidate();
         var originalSchedule = ECOInventoryScheduler.schedule(problem, candidate);
         Set<R> effectiveMissingSeedStarters = originalSchedule.executable()

@@ -132,6 +132,12 @@ public class ECOCraftingCPULogic {
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
+        ECOFastPathDiagnostics.logCpuReservation(
+            plan,
+            inventory.list,
+            cpu.getOwner() == null ? net.minecraft.core.BlockPos.ZERO : cpu.getOwner().getBlockPos(),
+            TickHandler.instance().getCurrentTick()
+        );
 
         // 设置 CPU 链接与任务。
         var playerId = src.player()
@@ -339,17 +345,21 @@ public class ECOCraftingCPULogic {
                     long plannedInputCount = plannedInputs == null
                         ? 0L
                         : job.peekPlannedInputCount(details);
-                    // A fragmented planner result must not turn the ECO CPU into a one-craft
-                    // dispatcher. When the planned selections do not cover the task as a whole,
-                    // let AE2 choose from the live inventory, exactly like external CPU paths do.
-                    boolean usePlannedInputs = plannedInputs != null
-                        && shouldUsePlannedInputs(task.getValue().value, plannedInputCount);
+                    // ECO workers use the CPU's live inventory and the complete remaining task.
+                    // Planned selections are planner bookkeeping and may describe an exact key
+                    // that is no longer identical to the reserved stack's components.
+                    boolean usePlannedInputs = shouldUsePlannedInputsForDispatch(
+                        fastPathCandidate,
+                        plannedInputs != null,
+                        task.getValue().value,
+                        plannedInputCount
+                    );
                     @Nullable ECOSelectedInputPatternDetails selectedDetails = usePlannedInputs
                         ? new ECOSelectedInputPatternDetails(details, plannedInputs)
                         : null;
                     boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
-                    long batchTaskRemaining = plannedInputs == null
+                    long batchTaskRemaining = fastPathCandidate || plannedInputs == null
                         ? task.getValue().value
                         : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
                             : task.getValue().value;
@@ -359,6 +369,16 @@ public class ECOCraftingCPULogic {
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             extractionDetails, inventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
+                        if (fastPathCandidate) {
+                            ECOFastPathDiagnostics.logCpuPreflightFailure(
+                                details,
+                                cpu.getOwner() == null ? net.minecraft.core.BlockPos.ZERO : cpu.getOwner().getBlockPos(),
+                                currentTick,
+                                task.getValue().value,
+                                plannedInputs != null,
+                                plannedInputCount
+                            );
+                        }
                         continue taskLoop;
                     }
                     if (selectedDetails != null) {
@@ -756,22 +776,11 @@ public class ECOCraftingCPULogic {
         if (taskRemaining < minimumBatchSize) {
             return 0;
         }
-        // Spread immutable-catalyst work across the free FX threads. The accepted batch returns
-        // the catalyst lease to the CPU immediately, allowing the next scheduler iteration to
-        // dispatch another share without creating additional catalyst items.
+        // Offer the complete remaining task. The selected ECO controller/worker applies its
+        // actual lane capacity (for example 4096) and the next scheduler pass fills the next
+        // free lane. Dividing by the number of free lanes here makes a 44-slot controller submit
+        // batches of 1 when only 44 crafts remain, defeating FastPath batching.
         long requested = calculateBatchRequestSize(taskRemaining);
-        if (reusableLease) {
-            int availableSlots = 0;
-            boolean virtualCraftingAvailable = false;
-            for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
-                availableSlots = Math.max(availableSlots, patternBus.getAvailableThreadSlots());
-                ECOCraftingSystemBlockEntity candidateController = patternBus.getCraftingController();
-                virtualCraftingAvailable |= candidateController != null && candidateController.isVirtualCraftingMode();
-            }
-            if (!virtualCraftingAvailable) {
-                requested = calculateReusableBatchShare(requested, availableSlots);
-            }
-        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -815,6 +824,9 @@ public class ECOCraftingCPULogic {
         long batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
             reusablePlan.consumedInputsPerCraft(), execution.expectedOutputs(),
             reusablePlan.ordinaryRemainingPerCraft(), offeredBatchSize);
+        long safeBatchSize = batchSize;
+        long energyBatchSize = -1L;
+        long coolantBatchSize = -1L;
         if (batchSize < minimumBatchSize) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.BATCH_AMOUNT_OVERFLOW,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -824,7 +836,7 @@ public class ECOCraftingCPULogic {
         if (!virtualCrafting) {
             int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, batchSize);
             batchSize = normalOfferedBatchSize;
-            int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
+            energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
             if (energyBatchSize < minimumBatchSize) {
                 selectedOffer.worker().getFastPathCache().recordCoolantReject();
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
@@ -834,8 +846,8 @@ public class ECOCraftingCPULogic {
                         + " affordable=" + energyBatchSize + " patternPower=" + patternPower);
                 return 0;
             }
-            int coolantBatchSize = workerController.getCraftingCoolantCraftLimit(
-                5, workerController.getCoolingRequirementForCurrentNetwork(), energyBatchSize
+            coolantBatchSize = workerController.getCraftingCoolantCraftLimit(
+                5, workerController.getCoolingRequirementForCurrentNetwork(), (int) energyBatchSize
             );
             batchSize = Math.min(batchSize, Math.min(energyBatchSize, coolantBatchSize));
             if (coolantBatchSize < minimumBatchSize) {
@@ -853,8 +865,9 @@ public class ECOCraftingCPULogic {
         }
 
         long extraCrafts = batchSize - 1L;
-        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+        var inventoryBatchLimit = ECOBatchCraftingHelper.inventoryBatchLimit(
             inventory, reusablePlan.consumedInputsPerCraft(), extraCrafts);
+        long availableExtraCrafts = inventoryBatchLimit.crafts();
         long inventoryBatchSize;
         try {
             inventoryBatchSize = Math.addExact(availableExtraCrafts, 1L);
@@ -870,6 +883,21 @@ public class ECOCraftingCPULogic {
                     + " availableExtraCrafts=" + availableExtraCrafts);
             return 0;
         }
+
+        ECOFastPathDiagnostics.logBatchDecision(
+            execution,
+            selectedOffer.worker().getBlockPos(),
+            TickHandler.instance().getCurrentTick(),
+            taskRemaining,
+            requested,
+            selectedOffer.maxBatchSize(),
+            safeBatchSize,
+            energyBatchSize,
+            coolantBatchSize,
+            inventoryBatchSize,
+            describeInventoryConstraint(inventoryBatchLimit),
+            batchSize
+        );
 
         var extraInputs = reusablePlan.extraInputs(batchSize - 1);
         boolean extraInputsExtracted = false;
@@ -1001,12 +1029,26 @@ public class ECOCraftingCPULogic {
         return taskRemaining <= 0L || plannedInputCount >= taskRemaining;
     }
 
-    static long calculateReusableBatchShare(long taskRemaining, int availableSlots) {
-        long requested = calculateBatchRequestSize(taskRemaining);
-        if (requested <= 1L || availableSlots <= 1) {
-            return requested;
+    static boolean shouldUsePlannedInputsForDispatch(
+        boolean ecoFastPathCandidate,
+        boolean plannedInputsPresent,
+        long taskRemaining,
+        long plannedInputCount
+    ) {
+        return !ecoFastPathCandidate
+            && plannedInputsPresent
+            && shouldUsePlannedInputs(taskRemaining, plannedInputCount);
+    }
+
+    private static String describeInventoryConstraint(
+        ECOBatchCraftingHelper.InventoryBatchLimit limit
+    ) {
+        if (limit.limitingKey() == null) {
+            return "none";
         }
-        return 1L + (requested - 1L) / availableSlots;
+        return limit.limitingKey()
+            + " available=" + limit.available()
+            + " perCraft=" + limit.perCraft();
     }
 
     private void rollbackBatchInputs(

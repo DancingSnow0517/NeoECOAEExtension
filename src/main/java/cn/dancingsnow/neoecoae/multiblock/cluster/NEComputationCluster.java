@@ -35,7 +35,6 @@ import java.util.Map;
 
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
-    private static final long DEBUG_OVERDRIVE_CPU_BYTES = 9_200_000_000_000_000_000L;
 
     @Getter
     private final List<ECOComputationDriveBlockEntity> upperDrives = new ArrayList<>();
@@ -60,7 +59,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
-    private boolean lastDebugOverdriveState;
 
     @Getter
     @Nullable
@@ -176,7 +174,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public long getLocalTotalStorage() {
-        ensureDebugOverdriveState();
         return totalStorage;
     }
 
@@ -191,7 +188,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public long getLocalAvailableStorage() {
-        ensureDebugOverdriveState();
         return availableStorage;
     }
 
@@ -210,7 +206,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public long getEffectiveAvailableStorage() {
-        ensureDebugOverdriveState();
         long effectiveTotal = networkCluster != null && networkCluster.hasUltimateAggregateCapacity()
             ? Long.MAX_VALUE
             : saturatingMultiply(totalStorage, getNetworkMultiplier());
@@ -377,10 +372,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void recalculateRemainingStorage() {
-        lastDebugOverdriveState = NEConfig.debugECOHostOverdrive;
-        this.totalStorage = NEConfig.debugECOHostOverdrive
-            ? DEBUG_OVERDRIVE_CPU_BYTES
-            : collectStorage(upperDrives) + collectStorage(lowerDrives);
+        this.totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = Math.max(0L, totalStorage - usedStorage);
@@ -400,12 +392,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
 
         this.availableStorage = Math.max(0L, totalStorage - getActiveJobBytes());
-    }
-
-    private void ensureDebugOverdriveState() {
-        if (lastDebugOverdriveState != NEConfig.debugECOHostOverdrive) {
-            recalculateRemainingStorage();
-        }
     }
 
     long getLocalActiveJobBytes() {

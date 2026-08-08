@@ -352,7 +352,7 @@ public final class ECOAE2PlanAssembler {
             }));
     }
 
-    private static Optional<KeyCounter> calculateUsedItems(
+    static Optional<KeyCounter> calculateUsedItems(
         ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         ECOPlanCandidate<ECOAE2PatternVariant> candidate,
         Map<AEKey, Long> missing,

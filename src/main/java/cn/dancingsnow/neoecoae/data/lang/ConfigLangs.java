@@ -44,14 +44,7 @@ public class ConfigLangs {
         );
 
         provider.add("neoecoae.configuration.debug", "Debug");
-        provider.add("neoecoae.configuration.debug.tooltip", "ECO host debug overdrive options.");
-        provider.add("neoecoae.configuration.debugECOHostOverdrive", "ECO Host Debug Overdrive");
-        provider.add(
-            "neoecoae.configuration.debugECOHostOverdrive.tooltip",
-            "Set computation host CPU storage to 9.2E and multiply computation parallel cores, " +
-                "crafting parallel cores, and crafting-worker batch size by 32768.\n" +
-                "Debug only; not intended for normal gameplay balance."
-        );
+        provider.add("neoecoae.configuration.debug.tooltip", "ECO crafting planner diagnostic options.");
 
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
@@ -77,12 +70,6 @@ public class ConfigLangs {
             "neoecoae.configuration.debugECOPlanner.tooltip",
             "Log the exact ECO planning failure stage, reason, request, solver result and fallback context.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing planning issues."
-        );
-        provider.add("neoecoae.configuration.useAE2VMPlanning", "Use AE2-VM Planning");
-        provider.add(
-            "neoecoae.configuration.useAE2VMPlanning.tooltip",
-            "Prefer AE2-VM's task planner for ECO crafting hosts when AE2-VM is installed.\n" +
-                "Disable this option to always use ECO's own planner."
         );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(

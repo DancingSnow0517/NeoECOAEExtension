@@ -8,10 +8,8 @@ import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
 import cn.dancingsnow.neoecoae.gui.widget.UploadButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Debug(export = true)
 @Mixin(PatternEncodingTermScreen.class)
 public class PatternEncodingTermScreenMixin<C extends PatternEncodingTermMenu> extends MEStorageScreen<C> {
 

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Set;
@@ -91,14 +92,15 @@ final class ECOPlannerMath {
     }
 
     /**
-     * Builds a hyperflow result from balances, executions, and expandable materials.
-     * Used by ECOComponentDemandSolver and ECOIntegerHyperflowSolver.
+     * Builds a hyperflow result from balances and executions.
+     * A material whose only positive producers require an unavailable self-growth seed is a
+     * missing source, rather than an unresolvable dependency.
      */
     static <K, R> ECOHyperflowResult<R> buildResult(
         Map<K, Long> balances,
         Map<R, Long> executions,
         Map<K, Long> requested,
-        Set<K> expandableMaterials,
+        Set<K> startableMaterials,
         Set<K> relevantMaterials,
         long expansions
     ) {
@@ -108,15 +110,16 @@ final class ECOPlannerMath {
         long surplus = 0;
 
         for (var entry : balances.entrySet()) {
-            if (!requested.containsKey(entry.getKey()) && !relevantMaterials.contains(entry.getKey())) {
+            K material = entry.getKey();
+            if (!requested.containsKey(material) && !relevantMaterials.contains(material)) {
                 continue;
             }
             long balance = entry.getValue();
             if (balance < 0) {
                 long missing = balance == Long.MIN_VALUE ? Long.MAX_VALUE : -balance;
-                if (requested.containsKey(entry.getKey()) && expandableMaterials.contains(entry.getKey())) {
+                if (requested.containsKey(material) && startableMaterials.contains(material)) {
                     requestedShortfall = saturatedAdd(requestedShortfall, missing);
-                } else if (expandableMaterials.contains(entry.getKey())) {
+                } else if (startableMaterials.contains(material)) {
                     dependencyShortfall = saturatedAdd(dependencyShortfall, missing);
                 } else {
                     sourceShortfall = saturatedAdd(sourceShortfall, missing);
@@ -141,5 +144,24 @@ final class ECOPlannerMath {
                 : ECOHyperflowResult.Status.COMPLETE;
 
         return new ECOHyperflowResult<>(status, candidate, expansions);
+    }
+
+    static <K, R> Set<K> findStartableMaterials(
+        ECOPlanningGraph<K, R> graph,
+        Set<K> expandableMaterials,
+        Map<K, Long> balances,
+        Map<K, Long> requested
+    ) {
+        java.util.LinkedHashSet<K> startable = new java.util.LinkedHashSet<>();
+        for (K material : expandableMaterials) {
+            boolean canStart = graph.producersOf(material).stream().anyMatch(operation ->
+                positiveNet(operation, material) > 0L
+                    && ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)
+            );
+            if (canStart) {
+                startable.add(material);
+            }
+        }
+        return Set.copyOf(startable);
     }
 }

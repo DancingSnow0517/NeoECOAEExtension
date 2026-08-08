@@ -29,6 +29,14 @@
     {
       "count": 4,
       "item": "ae2:256k_crafting_storage"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:crafting_parallel_core_l9"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:crafting_worker"
     }
   ],
   "itemOutput": {
