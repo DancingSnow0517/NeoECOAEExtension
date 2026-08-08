@@ -7,35 +7,35 @@
   },
   "inputItems": [
     {
-      "count": 32,
+      "count": 8,
       "item": "neoecoae:crafting_network_switch"
     },
     {
-      "count": 32,
+      "count": 8,
       "item": "neoecoae:crafting_parallel_core_l9"
     },
     {
-      "count": 64,
+      "count": 16,
       "item": "neoecoae:crafting_worker"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:crafting_system_l9"
     },
     {
-      "count": 32,
+      "count": 8,
       "item": "ae2:singularity"
     },
     {
-      "count": 32,
+      "count": 8,
       "item": "neoecoae:black_tungsten_alloy_block"
     },
     {
-      "count": 4,
+      "count": 1,
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 64,
+      "count": 16,
       "item": "ae2:cell_component_256k"
     }
   ],

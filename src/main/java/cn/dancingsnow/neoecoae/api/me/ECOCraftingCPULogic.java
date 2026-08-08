@@ -95,6 +95,8 @@ public class ECOCraftingCPULogic {
     private boolean batchedFullStatusChange = false;
     private final List<AggressiveSimulatedCraft> aggressiveSimulatedCrafts = new ArrayList<>();
     private final Set<AggressivePoolReservation> aggressivePoolReservations = new HashSet<>();
+    private final Map<AggressivePoolReservation, Integer> aggressivePoolSlotTotals = new HashMap<>();
+    private boolean aggressivePoolSyncDirty = false;
     private boolean flushingAggressiveSimulatedOutput = false;
     private boolean recoverAggressiveAfterFlush = false;
     private boolean deliveringBufferedFinalOutput = false;
@@ -678,7 +680,7 @@ public class ECOCraftingCPULogic {
                 return PushResult.notPushed();
             }
 
-            aggressiveSimulatedCrafts.add(new AggressiveSimulatedCraft(
+            AggressiveSimulatedCraft work = new AggressiveSimulatedCraft(
                     controller.getBlockPos(),
                     job.link.getCraftingID(),
                     inputTotal,
@@ -687,8 +689,9 @@ public class ECOCraftingCPULogic {
                     1,
                     0,
                     Math.max(1, controller.getNetworkMultiplier()),
-                    false));
-            syncAggressivePoolSlots();
+                    false);
+            aggressiveSimulatedCrafts.add(work);
+            reserveAggressivePoolSlot(work);
             recordPushedPattern(accounting);
             executionProgress.recordBatchPush(batchSize);
             cpu.markDirty();
@@ -1244,7 +1247,10 @@ public class ECOCraftingCPULogic {
             syncAggressivePoolSlots();
             return;
         }
-        syncAggressivePoolSlots();
+        if (aggressivePoolSlotTotals.isEmpty()) {
+            rebuildAggressivePoolSlotTotals();
+            syncAggressivePoolSlots();
+        }
 
         double totalNeed = 0.0D;
         for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
@@ -1280,6 +1286,7 @@ public class ECOCraftingCPULogic {
                 flushingAggressiveSimulatedOutput = false;
             }
             if (flushed) {
+                releaseAggressivePoolSlot(work);
                 it.remove();
                 cpu.markDirty();
             }
@@ -1298,34 +1305,81 @@ public class ECOCraftingCPULogic {
             }
             return;
         }
+        // Progress is visible in the controller UI. Rebuild those snapshots once after all
+        // works have advanced, rather than once for every scheduled work.
+        aggressivePoolSyncDirty = true;
         syncAggressivePoolSlots();
     }
 
     private void syncAggressivePoolSlots() {
-        Map<AggressivePoolReservation, Integer> totals = new HashMap<>();
+        if (!aggressivePoolSyncDirty) {
+            return;
+        }
         Map<AggressivePoolReservation, List<AggressiveSimulatedCraftSnapshot>> snapshots = new HashMap<>();
         for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
             AggressivePoolReservation reservation =
                     new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
-            totals.merge(reservation, work.occupiedSlots, Integer::sum);
             snapshots.computeIfAbsent(reservation, ignored -> new ArrayList<>()).addAll(work.uiSnapshots());
         }
 
-        Set<AggressivePoolReservation> nextReservations = new HashSet<>(totals.keySet());
+        Set<AggressivePoolReservation> nextReservations = new HashSet<>(aggressivePoolSlotTotals.keySet());
+        boolean synchronizedAllReservations = true;
         for (AggressivePoolReservation reservation : aggressivePoolReservations) {
-            if (!totals.containsKey(reservation)
+            if (!aggressivePoolSlotTotals.containsKey(reservation)
                     && (!setAggressivePoolSlots(reservation, 0)
                             || !setAggressivePoolTaskSnapshots(reservation, List.of()))) {
                 nextReservations.add(reservation);
+                synchronizedAllReservations = false;
             }
         }
-        for (Map.Entry<AggressivePoolReservation, Integer> entry : totals.entrySet()) {
+        for (Map.Entry<AggressivePoolReservation, Integer> entry : aggressivePoolSlotTotals.entrySet()) {
             AggressivePoolReservation reservation = entry.getKey();
-            setAggressivePoolSlots(reservation, Math.max(1, entry.getValue()));
-            setAggressivePoolTaskSnapshots(reservation, snapshots.getOrDefault(reservation, List.of()));
+            boolean slotsSet = setAggressivePoolSlots(reservation, Math.max(1, entry.getValue()));
+            boolean snapshotsSet =
+                    setAggressivePoolTaskSnapshots(reservation, snapshots.getOrDefault(reservation, List.of()));
+            if (!slotsSet || !snapshotsSet) {
+                synchronizedAllReservations = false;
+            }
         }
         aggressivePoolReservations.clear();
         aggressivePoolReservations.addAll(nextReservations);
+        aggressivePoolSyncDirty = !synchronizedAllReservations;
+    }
+
+    /** Reserves capacity immediately so several schedules in one tick cannot overfill a host. */
+    private void reserveAggressivePoolSlot(AggressiveSimulatedCraft work) {
+        AggressivePoolReservation reservation =
+                new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
+        int slots = aggressivePoolSlotTotals.merge(reservation, work.occupiedSlots, Integer::sum);
+        aggressivePoolReservations.add(reservation);
+        setAggressivePoolSlots(reservation, Math.max(1, slots));
+        aggressivePoolSyncDirty = true;
+    }
+
+    private void rebuildAggressivePoolSlotTotals() {
+        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+            AggressivePoolReservation reservation =
+                    new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
+            aggressivePoolSlotTotals.merge(reservation, work.occupiedSlots, Integer::sum);
+            aggressivePoolReservations.add(reservation);
+        }
+        aggressivePoolSyncDirty = true;
+    }
+
+    /** Releases capacity immediately; UI snapshots are coalesced into the end-of-tick sync. */
+    private void releaseAggressivePoolSlot(AggressiveSimulatedCraft work) {
+        AggressivePoolReservation reservation =
+                new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
+        int remaining = Math.max(0, aggressivePoolSlotTotals.getOrDefault(reservation, 0) - work.occupiedSlots);
+        if (remaining == 0) {
+            aggressivePoolSlotTotals.remove(reservation);
+            // Keep the reservation until the coalesced sync clears its task snapshots too.
+            setAggressivePoolSlots(reservation, 0);
+        } else {
+            aggressivePoolSlotTotals.put(reservation, remaining);
+            setAggressivePoolSlots(reservation, remaining);
+        }
+        aggressivePoolSyncDirty = true;
     }
 
     private boolean setAggressivePoolSlots(AggressivePoolReservation reservation, int slots) {
@@ -1380,6 +1434,8 @@ public class ECOCraftingCPULogic {
                     inventory, work.outputsReady ? work.completionStacks() : work.inputStacks);
         }
         aggressiveSimulatedCrafts.clear();
+        aggressivePoolSlotTotals.clear();
+        aggressivePoolSyncDirty = true;
         syncAggressivePoolSlots();
         cpu.markDirty();
     }
@@ -2129,6 +2185,8 @@ public class ECOCraftingCPULogic {
             aggressiveSimulatedCrafts.add(AggressiveSimulatedCraft.read(aggressiveWorks.getCompound(i)));
         }
         aggressivePoolReservations.clear();
+        aggressivePoolSlotTotals.clear();
+        aggressivePoolSyncDirty = !aggressiveSimulatedCrafts.isEmpty();
         if (data.contains("job")) {
             try {
                 this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);

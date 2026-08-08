@@ -23,6 +23,7 @@ import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -304,6 +305,26 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             }
         }
         return count;
+    }
+
+    /**
+     * Adds occupied lanes to the supplied bit set and returns busy tasks without a valid lane.
+     * Keeping both values in one pass avoids allocating an index list during every CPU dispatch.
+     */
+    public int collectLaneOccupancy(BitSet occupied, int laneCount) {
+        int unassigned = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.isFree()) {
+                continue;
+            }
+            int index = thread.getAssignedLaneIndex();
+            if (index >= 0 && index < laneCount) {
+                occupied.set(index);
+            } else {
+                unassigned++;
+            }
+        }
+        return unassigned;
     }
 
     public int getRunningTaskCount() {

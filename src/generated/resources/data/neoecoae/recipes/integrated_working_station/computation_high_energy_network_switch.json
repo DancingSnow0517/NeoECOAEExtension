@@ -7,39 +7,39 @@
   },
   "inputItems": [
     {
-      "count": 32,
+      "count": 8,
       "item": "neoecoae:computation_network_switch"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:energy_cell_l9"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:computation_threading_core_l9"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:computation_parallel_core_l9"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:computation_cooling_controller_l9"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "neoecoae:computation_system_l9"
     },
     {
-      "count": 32,
+      "count": 8,
       "item": "ae2:singularity"
     },
     {
-      "count": 32,
+      "count": 8,
       "item": "neoecoae:black_tungsten_alloy_block"
     },
     {
-      "count": 64,
+      "count": 16,
       "item": "ae2:cell_component_256k"
     }
   ],

@@ -140,7 +140,10 @@ public class NEConfig {
     public static int computationSystemMaxLength = 15;
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
-    public static boolean enableEcoAe2FastPath;
+    // Keep the runtime defaults aligned with the Forge config defaults. These values can be
+    // queried before the first config-load event, so Java's implicit false would otherwise
+    // disable the normal fast path during startup.
+    public static boolean enableEcoAe2FastPath = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;

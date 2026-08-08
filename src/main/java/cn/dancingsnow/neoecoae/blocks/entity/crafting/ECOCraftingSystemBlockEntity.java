@@ -38,6 +38,7 @@ import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.CoolingTransferMath;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -394,10 +395,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             } else {
                 if (overclocked) {
                     perCore += tier.getOverclockedCrafterParallel();
-                    threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
-                } else {
-                    threadCountPerWorker = 32;
                 }
+                threadCountPerWorker = 32;
                 threadCount = parallelCount * perCore;
             }
             recalculateRunningThreadCountFromWorkers();
@@ -441,8 +440,25 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             perCore += tier.getOverclockedCrafterParallel();
         }
         long parallelCapacity = saturatingMultiply(parallelCount, perCore);
-        long workerCapacity = saturatingMultiply(threadCountPerWorker, workerCount);
-        overlockTimes = calculateOverclockTimes(parallelCapacity, workerCapacity);
+        // Overflow compares the structural parallel capacity with the complete FX throughput.
+        // Each FX worker contributes its maximum batch (512 on an overclocked F9), so the
+        // denominator must match the "maximum synthesis efficiency" displayed in the UI.
+        long maxSynthesisEfficiency = getMaxSynthesisEfficiency();
+        overlockTimes = calculateOverclockTimes(parallelCapacity, maxSynthesisEfficiency);
+    }
+
+    private long getMaxSynthesisEfficiency() {
+        return calculateMaxSynthesisEfficiency(
+                workerCount,
+                calculateWorkerBatchCapacity(
+                        BASE_CRAFTS_PER_WORKER,
+                        getTier().getOverclockedCrafterQueueMultiply(),
+                        overclocked,
+                        Math.max(1, getNetworkMultiplier())));
+    }
+
+    static long calculateMaxSynthesisEfficiency(int workerCount, int maxBatchPerWorker) {
+        return saturatingMultiply(Math.max(0, workerCount), Math.max(0, maxBatchPerWorker));
     }
 
     static int calculateOverclockTimes(long threadCount, long availableThreads) {
@@ -682,7 +698,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getOverflowThreads() {
         ensureCraftingStatsCurrent();
-        return Math.max(0, threadCount - getAvailableThreads());
+        long overflow = Math.max(0L, (long) threadCount - getMaxSynthesisEfficiency());
+        return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 
     public int getAvailableThreads() {
@@ -719,32 +736,26 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (getCurrentBatchSlots() <= 0) {
             return null;
         }
-        List<Integer> capacities = getLocalLaneBatchCapacities();
-        if (capacities.isEmpty()) {
+        int laneCount = getLocalLaneCount();
+        int capacity = getLocalLaneBatchCapacity();
+        if (laneCount <= 0 || capacity < Math.max(1, requiredBatchSize)) {
             return null;
         }
 
-        LaneOccupancy laneOccupancy = collectLaneOccupancy(capacities.size());
-        Set<Integer> occupied = laneOccupancy.occupied();
+        LaneOccupancy laneOccupancy = collectLaneOccupancy(laneCount);
+        BitSet occupied = laneOccupancy.occupied();
         int unassignedBusy = laneOccupancy.unassignedBusy();
-        for (int index = 0; index < capacities.size() && unassignedBusy > 0; index++) {
-            if (occupied.add(index)) {
+        for (int index = occupied.nextClearBit(0);
+                index < laneCount && unassignedBusy > 0;
+                index = occupied.nextClearBit(index + 1)) {
+            if (!occupied.get(index)) {
+                occupied.set(index);
                 unassignedBusy--;
             }
         }
 
-        int required = Math.max(1, requiredBatchSize);
-        CraftingLane selected = null;
-        for (int index = 0; index < capacities.size(); index++) {
-            int capacity = capacities.get(index);
-            if (occupied.contains(index) || capacity < required) {
-                continue;
-            }
-            if (selected == null || capacity < selected.batchCapacity()) {
-                selected = new CraftingLane(index, capacity);
-            }
-        }
-        return selected;
+        int selected = occupied.nextClearBit(0);
+        return selected < laneCount ? new CraftingLane(selected, capacity) : null;
     }
 
     /** Returns the largest batch that can be accepted by one currently free lane. */
@@ -752,35 +763,28 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (getCurrentBatchSlots() <= 0) {
             return 0;
         }
-        List<Integer> capacities = getLocalLaneBatchCapacities();
-        if (capacities.isEmpty()) {
+        int laneCount = getLocalLaneCount();
+        int capacity = getLocalLaneBatchCapacity();
+        if (laneCount <= 0 || capacity <= 0) {
             return 0;
         }
 
-        LaneOccupancy laneOccupancy = collectLaneOccupancy(capacities.size());
-        Set<Integer> occupied = laneOccupancy.occupied();
+        LaneOccupancy laneOccupancy = collectLaneOccupancy(laneCount);
+        BitSet occupied = laneOccupancy.occupied();
         int unassignedBusy = laneOccupancy.unassignedBusy();
-        for (int index = 0; index < capacities.size() && unassignedBusy > 0; index++) {
-            if (occupied.add(index)) {
+        for (int index = occupied.nextClearBit(0);
+                index < laneCount && unassignedBusy > 0;
+                index = occupied.nextClearBit(index + 1)) {
+            if (!occupied.get(index)) {
+                occupied.set(index);
                 unassignedBusy--;
             }
         }
-
-        int largest = 0;
-        for (int index = 0; index < capacities.size(); index++) {
-            if (!occupied.contains(index)) {
-                largest = Math.max(largest, capacities.get(index));
-            }
-        }
-        return largest;
+        return occupied.nextClearBit(0) < laneCount ? capacity : 0;
     }
 
     public int getLocalMaxBatchPerThread() {
-        int largest = 0;
-        for (int capacity : getLocalLaneBatchCapacities()) {
-            largest = Math.max(largest, capacity);
-        }
-        return largest;
+        return getLocalLaneCount() > 0 ? getLocalLaneBatchCapacity() : 0;
     }
 
     public int getMaxBatchPerThread() {
@@ -819,48 +823,34 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private LaneOccupancy collectLaneOccupancy(int laneCount) {
-        Set<Integer> occupied = new HashSet<>();
+        BitSet occupied = new BitSet(laneCount);
         int unassignedBusy = simulatedPoolThreadCount;
         if (cluster != null) {
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                for (int index : worker.getAssignedLaneIndices()) {
-                    if (index >= 0 && index < laneCount) {
-                        occupied.add(index);
-                    } else {
-                        unassignedBusy++;
-                    }
-                }
-                unassignedBusy += worker.getUnassignedBusyTaskCount();
+                unassignedBusy += worker.collectLaneOccupancy(occupied, laneCount);
             }
         }
         return new LaneOccupancy(occupied, Math.max(0, unassignedBusy));
     }
 
-    private List<Integer> getLocalLaneBatchCapacities() {
+    private int getLocalLaneCount() {
         if (cluster == null || threadCountPerWorker <= 0 || cluster.getWorkers().isEmpty()) {
-            return List.of();
+            return 0;
         }
+        return (int) Math.min(
+                Integer.MAX_VALUE, saturatingMultiply(cluster.getWorkers().size(), threadCountPerWorker));
+    }
 
-        // In the 1.20.1 controller, threadCountPerWorker already includes the overclock queue
-        // multiplier. Keep that expansion in the lane count and apply only the network switch
-        // multiplier to each lane, avoiding a second queue multiplication.
-        boolean networkMode = cluster.getNetworkCluster() != null;
-        int capacity = isVirtualCraftingMode()
+    private int getLocalLaneBatchCapacity() {
+        // Overclocking increases the craft count of each lane. It must not turn one worker into
+        // extra task lanes; network exchange contributes lanes independently.
+        return isVirtualCraftingMode()
                 ? 1
                 : calculateWorkerBatchCapacity(
                         BASE_CRAFTS_PER_WORKER,
-                        networkMode ? getTier().getOverclockedCrafterQueueMultiply() : 1,
-                        networkMode && overclocked,
+                        getTier().getOverclockedCrafterQueueMultiply(),
+                        overclocked,
                         Math.max(1, getNetworkMultiplier()));
-        List<Integer> capacities = new ArrayList<>();
-        cluster.getWorkers().stream()
-                .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))
-                .forEach(worker -> {
-                    for (int lane = 0; lane < threadCountPerWorker; lane++) {
-                        capacities.add(capacity);
-                    }
-                });
-        return List.copyOf(capacities);
     }
 
     private int getExchangeHostCount() {
@@ -882,7 +872,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public record CraftingLane(int index, int batchCapacity) {}
 
-    private record LaneOccupancy(Set<Integer> occupied, int unassignedBusy) {}
+    private record LaneOccupancy(BitSet occupied, int unassignedBusy) {}
 
     private static long saturatingMultiply(long left, long right) {
         if (left <= 0L || right <= 0L) {
