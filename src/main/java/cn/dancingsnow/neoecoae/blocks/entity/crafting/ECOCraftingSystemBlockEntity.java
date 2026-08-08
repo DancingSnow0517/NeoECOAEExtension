@@ -1240,7 +1240,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 Integer.MAX_VALUE, saturatingMultiply(Math.max(0, displayWorkerCount), displayThreadsPerWorker));
         int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, totalRunningThreads));
         int batchParallel = Math.max(0, effParallel);
-        int maxBatchPerThread = getMaxBatchPerThread();
+        long maxBatchPerThread = isVirtualCraftingMode()
+                ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
+                : getMaxBatchPerThread();
         List<NECraftingHostBatchInfo> hostBatchInfos = getDisplayedHostBatchInfos(network, networkMemberCount);
         List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
 

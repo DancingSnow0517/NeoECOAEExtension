@@ -7,20 +7,24 @@
   },
   "inputItems": [
     {
-      "count": 4,
+      "count": 32,
       "item": "neoecoae:crafting_network_switch"
     },
     {
+      "count": 32,
+      "item": "neoecoae:crafting_parallel_core_l9"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:crafting_worker"
+    },
+    {
       "count": 16,
+      "item": "neoecoae:crafting_system_l9"
+    },
+    {
+      "count": 32,
       "item": "ae2:singularity"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:superconducting_processor"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 32,

@@ -75,7 +75,7 @@ public final class NECraftingStatsPanel {
                 .append(Component.literal(NELDLibText.usedTotal(state.occupiedRecipeSlots(), state.maxRecipeSlots()))));
         lines.add(Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread")
                 .append(": ")
-                .append(Component.literal(NELDLibText.number(state.maxBatchPerThread()))));
+                .append(amountText(state.maxBatchPerThread(), NELDLibStyle.DARK_TEXT_VALUE)));
         lines.add(Component.literal(formatPerformanceLine(state.performanceAverageNanos())));
         context.graphics().renderTooltip(context.font(), lines, Optional.empty(), mouseX, mouseY);
         return true;
@@ -190,8 +190,10 @@ public final class NECraftingStatsPanel {
 
     private void drawValue(NECraftingRenderContext context, String label, long value, int x, int y) {
         int cursor = context.draw(label, x, y, NELDLibStyle.DARK_TEXT_MUTED);
-        context.drawAbsolute(
-                NELDLibText.number(value), context.x(x) + cursor, context.y(y), NELDLibStyle.DARK_TEXT_VALUE);
+        String text = value == Long.MAX_VALUE
+                ? Component.translatable("gui.neoecoae.storage.infinite_value").getString()
+                : NELDLibText.number(value);
+        context.drawAbsolute(text, context.x(x) + cursor, context.y(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
     private void drawOverflow(NECraftingRenderContext context, NECraftingUiState state, int x, int y) {

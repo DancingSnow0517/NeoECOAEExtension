@@ -467,7 +467,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 acceleratorCount,
                 acceleratorLimit,
                 getParallelAccelerators(),
-                hasInfiniteCapacityUpgrade(),
+                hasInfiniteCapacityUpgrade() || network != null && network.isInfiniteCapacity(),
                 mode,
                 collectComputationRecipeEntries());
     }

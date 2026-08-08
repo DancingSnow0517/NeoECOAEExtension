@@ -44,9 +44,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.pattern_bus.page", "Page %s / %s");
 
         // crafting planner status and fallback messages
-        provider.add("gui.neoecoae.planning.overflow_title", "Overflow - ECO fast crafting - %s ms - %s");
+        provider.add("gui.neoecoae.planning.overflow_title", "Overflow - ECO fast - %s ms - %s");
         provider.add("gui.neoecoae.planning.title", "Crafting Plan");
-        provider.add("gui.neoecoae.planning.eco_fast_suffix", " - ECO fast crafting - %s ms");
+        provider.add("gui.neoecoae.planning.eco_fast_suffix", " - ECO fast - %s ms");
         provider.add("gui.neoecoae.planning.partial_plan_cycle", "Partial crafting plan (insufficient materials%s)");
         provider.add(
                 "gui.neoecoae.planning.partial_plan_cycle.warning", "- cycle detected - insufficient starting seed");

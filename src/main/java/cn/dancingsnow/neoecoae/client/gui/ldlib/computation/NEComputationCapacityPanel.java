@@ -70,7 +70,8 @@ public final class NEComputationCapacityPanel {
                 screenX.applyAsInt(PROGRESS_VALUE_X),
                 screenY.applyAsInt(STORAGE_DETAIL_Y),
                 usedStorage(state),
-                state.totalStorage());
+                state.totalStorage(),
+                state.infiniteCapacity());
         g.drawString(
                 font,
                 Component.translatable("gui.neoecoae.computation.threads"),
@@ -94,7 +95,7 @@ public final class NEComputationCapacityPanel {
                         "gui.neoecoae.computation.accelerators", NELDLibText.number(state.accelerators())),
                 ACCELERATOR_Y,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
-        drawAvailableStorage(g, font, screenX, screenY, state.availableStorage());
+        drawAvailableStorage(g, font, screenX, screenY, state.availableStorage(), state.infiniteCapacity());
     }
 
     public boolean drawTooltip(
@@ -111,8 +112,9 @@ public final class NEComputationCapacityPanel {
                     font,
                     List.of(
                             Component.translatable("gui.neoecoae.computation.storage_used"),
-                            Component.literal(
-                                    NELDLibText.usedTotal(usedStorage(state), state.totalStorage()) + " bytes")),
+                            Component.literal(NELDLibText.number(usedStorage(state)) + " / ")
+                                    .append(capacityText(state.totalStorage(), state.infiniteCapacity()))
+                                    .append(" bytes")),
                     Optional.empty(),
                     mouseX,
                     mouseY);
@@ -140,9 +142,10 @@ public final class NEComputationCapacityPanel {
         }
     }
 
-    private static void drawStoragePair(GuiGraphics g, Font font, int x, int y, long used, long max) {
+    private static void drawStoragePair(
+            GuiGraphics g, Font font, int x, int y, long used, long max, boolean infiniteCapacity) {
         String usedText = NELDLibText.computationBytesCompact(used);
-        String maxText = NELDLibText.computationBytesCompact(max);
+        String maxText = capacityText(max, infiniteCapacity).getString();
         drawPair(g, font, x, y, usedText, maxText, used, max);
     }
 
@@ -178,10 +181,15 @@ public final class NEComputationCapacityPanel {
     }
 
     private static void drawAvailableStorage(
-            GuiGraphics g, Font font, IntUnaryOperator screenX, IntUnaryOperator screenY, long availableStorage) {
+            GuiGraphics g,
+            Font font,
+            IntUnaryOperator screenX,
+            IntUnaryOperator screenY,
+            long availableStorage,
+            boolean infiniteCapacity) {
         Component label = Component.translatable("gui.neoecoae.computation.available_storage")
                 .append(": ");
-        String value = NELDLibText.computationBytesCompact(availableStorage);
+        String value = capacityText(availableStorage, infiniteCapacity).getString();
         int labelWidth = font.width(label);
         int fullWidth = labelWidth + font.width(value);
         float scale = Math.min(1.0F, (float) CAPACITY_CONTENT_W / Math.max(1, fullWidth));
@@ -196,6 +204,12 @@ public final class NEComputationCapacityPanel {
         NELDLibClientStyle.drawSegment(g, font, value, labelWidth, 0, NELDLibStyle.DARK_TEXT_VALUE);
         g.pose().popPose();
         g.disableScissor();
+    }
+
+    private static Component capacityText(long storage, boolean infiniteCapacity) {
+        return infiniteCapacity
+                ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                : Component.literal(NELDLibText.computationBytesCompact(storage));
     }
 
     private static long usedStorage(NEComputationUiState state) {

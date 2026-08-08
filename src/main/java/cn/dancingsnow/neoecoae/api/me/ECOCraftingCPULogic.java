@@ -138,7 +138,7 @@ public class ECOCraftingCPULogic {
         // Check that the node is active.
         if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
         // Check bytes.
-        if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
+        if (!cpu.hasAvailableStorage(plan.bytes())) return CraftingSubmitResult.CPU_TOO_SMALL;
 
         if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 

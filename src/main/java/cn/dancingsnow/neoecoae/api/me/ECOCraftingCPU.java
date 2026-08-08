@@ -89,6 +89,13 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return this.plan != null ? this.plan.bytes() : fakeStorage;
     }
 
+    public boolean hasAvailableStorage(long requiredStorage) {
+        if (requiredStorage < 0L) {
+            return false;
+        }
+        return this.plan == null ? fakeStorage >= requiredStorage : cluster.getAvailableStorage() >= requiredStorage;
+    }
+
     @Override
     public int getCoProcessors() {
         return cluster.getCPUAccelerators();

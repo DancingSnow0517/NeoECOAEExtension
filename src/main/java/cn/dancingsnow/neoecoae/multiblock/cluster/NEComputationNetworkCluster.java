@@ -21,6 +21,7 @@ import java.util.List;
  * and cancellation semantics identical to a standalone controller.
  */
 public final class NEComputationNetworkCluster {
+    private static final int INFINITE_CAPACITY_HOSTS = 8;
     private static final Comparator<NEComputationCluster> HOST_ORDER =
             Comparator.comparingLong(cluster -> cluster.getController() == null
                     ? Long.MAX_VALUE
@@ -62,6 +63,11 @@ public final class NEComputationNetworkCluster {
         return members.size();
     }
 
+    public boolean isInfiniteCapacity() {
+        return members.size() == INFINITE_CAPACITY_HOSTS
+                && members.stream().allMatch(NEComputationCluster::isHighEnergyNetworkMode);
+    }
+
     public int getCPUAccelerators() {
         long total = 0;
         for (NEComputationCluster member : members) {
@@ -79,6 +85,9 @@ public final class NEComputationNetworkCluster {
     }
 
     public long getTotalStorageBytes() {
+        if (isInfiniteCapacity()) {
+            return Long.MAX_VALUE;
+        }
         long total = 0;
         for (NEComputationCluster member : members) {
             total = saturatingAdd(total, multiplied(member.getLocalTotalStorageBytes(), member.getNetworkMultiplier()));
@@ -87,6 +96,9 @@ public final class NEComputationNetworkCluster {
     }
 
     public long getAvailableStorage() {
+        if (isInfiniteCapacity()) {
+            return Long.MAX_VALUE;
+        }
         long total = 0;
         long used = 0;
         for (NEComputationCluster member : members) {
