@@ -133,7 +133,10 @@ public final class ECOFastPathStacks {
             return false;
         }
         ItemStack itemStack = itemKey.toStack(1);
-        if (!itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
+        // AEItemKey includes the complete component map in its identity. Static NBT/components
+        // are therefore safe to snapshot and reproduce; only mutable/damageable inputs need
+        // additional restrictions below.
+        if (itemStack.isEmpty() || itemKey.isDamaged()) {
             return false;
         }
         if (input) {

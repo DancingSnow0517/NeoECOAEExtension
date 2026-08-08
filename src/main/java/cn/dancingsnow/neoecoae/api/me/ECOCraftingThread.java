@@ -465,6 +465,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var output = ECOFastPathStacks.toSingleItemStack(cached.outputEntries());
         var inputs = ECOFastPathStacks.toItemStacks(cached.inputEntries());
         var remaining = ECOFastPathStacks.toItemStacks(cached.remainingEntries());
+        // A recipe may legitimately have no consumed inputs or no crafting-container return
+        // items. Optional.empty() means conversion failure; an empty converted list is valid.
         if (output.isEmpty() || inputs.isEmpty() || remaining.isEmpty()) {
             return null;
         }

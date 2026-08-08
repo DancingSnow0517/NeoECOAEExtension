@@ -117,7 +117,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         markForUpdate();
     }
 
-    public Component getPatternTransferStatus() {
+    public Component getPatternTransferPrimaryStatus() {
         if (!patternTransferPerformed) {
             return Component.translatable("gui.neoecoae.host.crafting.pattern_transfer.ready");
         }
@@ -128,9 +128,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return Component.translatable("gui.neoecoae.host.crafting.pattern_transfer.no_target");
         }
         return Component.translatable(
-                "gui.neoecoae.host.crafting.pattern_transfer.result",
+                "gui.neoecoae.host.crafting.pattern_transfer.result_primary",
                 patternTransferInserted,
-                patternTransferAlreadyPresent,
+                patternTransferAlreadyPresent);
+    }
+
+    public Component getPatternTransferSecondaryStatus() {
+        if (!patternTransferPerformed || patternTransferUnavailable
+                || (patternTransferInserted == 0 && patternTransferAlreadyPresent == 0 && patternTransferNoTarget > 0)) {
+            return Component.empty();
+        }
+        return Component.translatable(
+                "gui.neoecoae.host.crafting.pattern_transfer.result_secondary",
                 patternTransferNoSpace,
                 patternTransferIncompatible);
     }

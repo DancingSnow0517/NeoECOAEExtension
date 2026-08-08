@@ -191,7 +191,14 @@ public class ExecutingCraftingJob {
     long peekPlannedInputCount(IPatternDetails details) {
         ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
         ECOPlannedInputs.PlannedInputBatch batch = batches == null ? null : batches.peekFirst();
-        return batch == null ? 0L : batch.remaining();
+        if (batch == null) {
+            return 0L;
+        }
+
+        // The planner may emit the same exact input selection in multiple segments when
+        // dependencies are scheduled in waves. FastPath can safely combine those segments;
+        // it must never cross into a different selection of alternatives.
+        return compatiblePlannedInputCount(batches);
     }
 
     void consumePlannedInputs(IPatternDetails details) {
@@ -207,18 +214,60 @@ public class ExecutingCraftingJob {
             return;
         }
 
-        while (crafts > 0L && !batches.isEmpty()) {
-            ECOPlannedInputs.PlannedInputBatch batch = batches.getFirst();
+        consumeCompatiblePlannedInputs(batches, crafts);
+        if (batches.isEmpty()) {
+            plannedInputs.remove(details);
+        }
+    }
+
+    void discardPlannedInputs(IPatternDetails details) {
+        plannedInputs.remove(details);
+    }
+
+    static long compatiblePlannedInputCount(
+        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches
+    ) {
+        if (batches == null || batches.isEmpty()) {
+            return 0L;
+        }
+        List<ECOAE2InputSelection> selectedInputs = batches.getFirst().selectedInputs();
+        long total = 0L;
+        for (ECOPlannedInputs.PlannedInputBatch batch : batches) {
+            if (batch.selectedInputs().equals(selectedInputs)) {
+                total = saturatingAdd(total, batch.remaining());
+            }
+        }
+        return total;
+    }
+
+    static void consumeCompatiblePlannedInputs(
+        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches,
+        long crafts
+    ) {
+        if (batches == null || batches.isEmpty() || crafts <= 0L) {
+            return;
+        }
+        List<ECOAE2InputSelection> selectedInputs = batches.getFirst().selectedInputs();
+        var iterator = batches.iterator();
+        while (crafts > 0L && iterator.hasNext()) {
+            ECOPlannedInputs.PlannedInputBatch batch = iterator.next();
+            if (!batch.selectedInputs().equals(selectedInputs)) {
+                continue;
+            }
             long consumed = Math.min(crafts, batch.remaining());
             batch.consume(consumed);
             crafts -= consumed;
             if (batch.remaining() == 0L) {
-                batches.removeFirst();
+                iterator.remove();
             }
         }
-        if (batches.isEmpty()) {
-            plannedInputs.remove(details);
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right <= 0L) {
+            return Math.max(0L, left);
         }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     private static void writePlannedInputs(

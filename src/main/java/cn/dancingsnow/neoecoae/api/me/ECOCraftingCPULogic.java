@@ -336,13 +336,23 @@ public class ECOCraftingCPULogic {
                     }
 
                     @Nullable List<ECOAE2InputSelection> plannedInputs = job.peekPlannedInputs(details);
-                    @Nullable ECOSelectedInputPatternDetails selectedDetails = plannedInputs == null
-                        ? null
-                        : new ECOSelectedInputPatternDetails(details, plannedInputs);
+                    long plannedInputCount = plannedInputs == null
+                        ? 0L
+                        : job.peekPlannedInputCount(details);
+                    // A fragmented planner result must not turn the ECO CPU into a one-craft
+                    // dispatcher. When the planned selections do not cover the task as a whole,
+                    // let AE2 choose from the live inventory, exactly like external CPU paths do.
+                    boolean usePlannedInputs = plannedInputs != null
+                        && shouldUsePlannedInputs(task.getValue().value, plannedInputCount);
+                    @Nullable ECOSelectedInputPatternDetails selectedDetails = usePlannedInputs
+                        ? new ECOSelectedInputPatternDetails(details, plannedInputs)
+                        : null;
+                    boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
                     long batchTaskRemaining = plannedInputs == null
                         ? task.getValue().value
-                        : Math.min(task.getValue().value, job.peekPlannedInputCount(details));
+                        : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
+                            : task.getValue().value;
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     @Nullable
@@ -378,6 +388,9 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         task.getValue().value -= batchResult;
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
                         job.consumePlannedInputs(details, batchResult);
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
@@ -420,6 +433,9 @@ public class ECOCraftingCPULogic {
                             );
                         }
                         task.getValue().value -= ae2ltBatchResult;
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
                         job.consumePlannedInputs(details, ae2ltBatchResult);
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
@@ -458,6 +474,9 @@ public class ECOCraftingCPULogic {
                             );
                         }
                         task.getValue().value -= megacellsBatchResult;
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
                         job.consumePlannedInputs(details, megacellsBatchResult);
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
@@ -520,6 +539,9 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         recordPushedPattern(job, execution, 1);
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
                         job.consumePlannedInputs(details);
 
                         task.getValue().value--;
@@ -973,6 +995,10 @@ public class ECOCraftingCPULogic {
 
     static long calculateBatchRequestSize(long taskRemaining) {
         return Math.max(0L, taskRemaining);
+    }
+
+    static boolean shouldUsePlannedInputs(long taskRemaining, long plannedInputCount) {
+        return taskRemaining <= 0L || plannedInputCount >= taskRemaining;
     }
 
     static long calculateReusableBatchShare(long taskRemaining, int availableSlots) {

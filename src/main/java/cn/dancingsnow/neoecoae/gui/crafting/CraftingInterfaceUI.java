@@ -41,7 +41,7 @@ public final class CraftingInterfaceUI {
                 .widthPercent(100)
                 .flex(1)
                 .paddingAll(8)
-                .gapAll(5)
+                .gapAll(3)
                 .flexDirection(dev.vfyjxf.taffy.style.FlexDirection.COLUMN))
                 .style(style -> style.backgroundTexture(Sprites.BORDER_THICK_RT1));
         contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.storage_interface.network")
@@ -51,9 +51,8 @@ public final class CraftingInterfaceUI {
                         : "gui.neoecoae.storage_interface.disconnected")
                         .withColor(craftingInterface.isTargetOnline() ? STATUS_CONNECTED : STATUS_DISCONNECTED))));
         contentFrame.addChild(transferButton(craftingInterface));
-        contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.crafting_interface.last_transfer")
-                .append(": ")
-                .append(craftingInterface.getPatternTransferStatus())));
+        contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferPrimaryStatus));
+        contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferSecondaryStatus));
         root.addChild(contentFrame);
 
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);

@@ -132,7 +132,7 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             AEItemKey itemKey = (AEItemKey) stack.what();
             ItemStack itemStack = itemKey.toStack(1);
-            if (itemStack.isEmpty() || !itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
+            if (itemStack.isEmpty() || itemKey.isDamaged()) {
                 return false;
             }
         }
