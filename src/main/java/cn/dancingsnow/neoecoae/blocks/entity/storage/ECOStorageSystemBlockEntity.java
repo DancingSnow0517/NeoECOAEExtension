@@ -1213,6 +1213,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (sourceStack == null || sourceStack.isEmpty()) {
             return;
         }
+        // OmniCells keeps its inventory in world SavedData. Flush the delegate before taking the
+        // migration snapshot so the transfer receipt describes the latest durable source state.
+        cell.persist();
         // The matrix identity must survive conversion to a member and later retries. A block position is not
         // unique when a domain is moved between dimensions or a drive is replaced.
         ECOInfiniteStorageMember.ensureMatrixId(sourceStack);
@@ -1255,14 +1258,52 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             );
             return;
         }
-        if (cell instanceof ECOStorageCell storageCell) {
-            storageCell.clearAllStoredStacks();
+        if (!drainMigratedSource(cell, pending)) {
+            LOGGER.error(
+                "Unable to durably clear ECO storage matrix at {}; keeping the source cell",
+                drive.getBlockPos()
+            );
+            return;
         }
         drive.convertCellToInfiniteMember(domainId);
         IStorageProvider.requestUpdate(drive.getMainNode());
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         setChanged();
         markForUpdate();
+    }
+
+    /**
+     * Drain exactly the snapshot that was transferred. Using the same delegate instance is important for
+     * world-backed cells such as OmniCells; constructing a second handler can observe a different cache.
+     */
+    private boolean drainMigratedSource(IECOStorageCell cell, List<ECOInfiniteStorageEngine.HugeStack> pending) {
+        if (pending.isEmpty()) {
+            return true;
+        }
+        List<ECOInfiniteStorageEngine.HugeStack> drained = new ArrayList<>();
+        for (ECOInfiniteStorageEngine.HugeStack stack : pending) {
+            long expected = stack.amount().toLongSaturated();
+            long removed = cell.extract(stack.key(), expected, Actionable.MODULATE, IActionSource.empty());
+            if (removed != expected) {
+                for (ECOInfiniteStorageEngine.HugeStack rollback : drained) {
+                    cell.insert(rollback.key(), rollback.amount().toLongSaturated(), Actionable.MODULATE, IActionSource.empty());
+                }
+                cell.persist();
+                return false;
+            }
+            drained.add(new ECOInfiniteStorageEngine.HugeStack(stack.key(), HugeAmount.of(removed)));
+        }
+        cell.persist();
+        KeyCounter remaining = new KeyCounter();
+        cell.getAvailableStacks(remaining);
+        if (!remaining.isEmpty()) {
+            for (ECOInfiniteStorageEngine.HugeStack rollback : drained) {
+                cell.insert(rollback.key(), rollback.amount().toLongSaturated(), Actionable.MODULATE, IActionSource.empty());
+            }
+            cell.persist();
+            return false;
+        }
+        return true;
     }
 
     private void restoreInfiniteDomainToNormalStorage() {

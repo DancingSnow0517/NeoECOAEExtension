@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath.external;
 
 import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
@@ -10,6 +11,8 @@ import appeng.core.AELog;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
+import cn.dancingsnow.neoecoae.integration.megacells.MEGACellsBatchCraftingBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
@@ -32,6 +35,8 @@ public final class ECOExternalCpuFastPathExecutor {
             IEnergyService energyService,
             Level level,
             ECOExternalCpuJobView job) {
+        var ae2ltBatchBridge = new AE2LTBatchCraftingBridge();
+        var megacellsBatchBridge = new MEGACellsBatchCraftingBridge();
         var taskIterator = job.tasks();
         while (taskIterator.hasNext()) {
             var task = taskIterator.next();
@@ -42,9 +47,10 @@ public final class ECOExternalCpuFastPathExecutor {
             }
 
             IPatternDetails details = task.details();
-            List<ECOCraftingPatternBusBlockEntity> patternBuses = findPatternBuses(
-                    craftingService.getProviders(details));
-            if (patternBuses.isEmpty() || taskRemaining < 2L) {
+            List<ICraftingProvider> providers = new ArrayList<>();
+            craftingService.getProviders(details).forEach(providers::add);
+            List<ECOCraftingPatternBusBlockEntity> patternBuses = findPatternBuses(providers);
+            if (taskRemaining < 2L) {
                 continue;
             }
 
@@ -70,6 +76,34 @@ public final class ECOExternalCpuFastPathExecutor {
 
                 var selection = selectOffer(patternBuses, execution, taskRemaining);
                 if (selection == null) {
+                    double powerPerCraft = CraftingCpuHelper.calculatePatternPower(firstInputs);
+                    int externalBatchResult = ae2ltBatchBridge.tryPushBatch(
+                            providers, details, firstInputs, job.inventory(), energyService,
+                            powerPerCraft, taskRemaining);
+                    if (externalBatchResult <= 0) {
+                        externalBatchResult = megacellsBatchBridge.tryPushBatch(
+                                providers, details, firstInputs, job.inventory(), energyService,
+                                powerPerCraft, taskRemaining);
+                    }
+                    if (externalBatchResult > 0) {
+                        energyService.extractAEPower(
+                                powerPerCraft * externalBatchResult,
+                                Actionable.MODULATE, PowerMultiplier.CONFIG);
+                        var reusablePlan = ECOReusableCraftingPlan.of(
+                                execution.inputItems(), execution.expectedContainerItems());
+                        providerAccepted = true;
+                        firstInputsOwned = false;
+                        task.remaining(taskRemaining - externalBatchResult);
+                        if (task.remaining() <= 0L) {
+                            taskIterator.remove();
+                        }
+                        ECOBatchCraftingHelper.insertAll(
+                                job.inventory(), reusablePlan.reusableInputs());
+                        recordExpectedOutputs(job, execution, reusablePlan, externalBatchResult);
+                        job.markDirty();
+                        return true;
+                    }
+
                     double bootstrapPower = CraftingCpuHelper.calculatePatternPower(firstInputs);
                     energyReservation = ECOBatchEnergyReservation.tryReserve(
                             energyService, bootstrapPower, false);

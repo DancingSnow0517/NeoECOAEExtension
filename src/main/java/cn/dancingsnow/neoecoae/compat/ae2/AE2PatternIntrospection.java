@@ -44,13 +44,20 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        return details instanceof AECraftingPattern;
+        return details instanceof AECraftingPattern || isExternalProcessingPattern(details);
     }
 
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
-        if (!(details instanceof AECraftingPattern pattern)
-                || !(pattern instanceof AECraftingPatternAccessor accessor)) {
-            return PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
+        if (!(details instanceof AECraftingPattern pattern)) {
+            // External CPUs can batch provider-owned processing patterns (AdvancedAE/AE2LT)
+            // without relying on AE2's vanilla CraftingRecipe internals. They still need a stable
+            // definition and pass the later concrete input/output safety checks.
+            return isExternalProcessingPattern(details) && details.getDefinition() != null
+                ? PatternEligibility.ELIGIBLE
+                : PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
+        }
+        if (!(pattern instanceof AECraftingPatternAccessor accessor)) {
+            return PatternEligibility.RECIPE_UNAVAILABLE;
         }
         try {
             CraftingRecipe recipe = accessor.neoecoae$getRecipe();
@@ -110,6 +117,15 @@ public final class AE2PatternIntrospection {
             }
         }
         return details.getDefinition();
+    }
+
+    private static boolean isExternalProcessingPattern(IPatternDetails details) {
+        if (details == null) {
+            return false;
+        }
+        String name = details.getClass().getName();
+        return name.contains("ProcessingPattern")
+            || name.endsWith("OverloadedProviderOnlyPatternDetails");
     }
 
     private static synchronized void selfCheck() {

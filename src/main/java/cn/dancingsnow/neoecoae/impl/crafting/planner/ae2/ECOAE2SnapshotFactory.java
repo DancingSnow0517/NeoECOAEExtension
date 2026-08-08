@@ -264,8 +264,13 @@ public final class ECOAE2SnapshotFactory {
                 craftingService, requestedKey, inventory, level, requestedAmount, strategy
             );
         }
+        CachedGraphs cached;
+        InventoryGraphKey inventoryKey = new InventoryGraphKey(
+            requestedKey,
+            Set.copyOf(inventory.keySet())
+        );
         synchronized (GRAPH_CACHE) {
-            CachedGraphs cached = GRAPH_CACHE.get(craftingService);
+            cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
                 cached = new CachedGraphs(
                     craftableGeneration,
@@ -286,10 +291,6 @@ public final class ECOAE2SnapshotFactory {
                 );
                 return graph;
             }
-            InventoryGraphKey inventoryKey = new InventoryGraphKey(
-                requestedKey,
-                Set.copyOf(inventory.keySet())
-            );
             graph = cached.inventoryDependentGraphs().get(inventoryKey);
             if (graph != null) {
                 trace(
@@ -303,19 +304,28 @@ public final class ECOAE2SnapshotFactory {
                 );
                 return graph;
             }
-            graph = buildGraph(
-                craftingService, requestedKey, inventory, level, requestedAmount, strategy
-            );
-            if (graph.cacheable()) {
-                cached.graphs().put(requestedKey, graph);
-            } else if (graph.inventoryDependent()
-                && graph.inventoryCacheable()
-                && !graph.stateful()
-                && !graph.excludedDynamicPaths()) {
-                cached.inventoryDependentGraphs().put(inventoryKey, graph);
-            }
-            return graph;
         }
+
+        // Build outside the global lock: pattern discovery may invoke callbacks that
+        // block or re-enter this factory. The generation is checked again before
+        // publishing so an older in-flight build cannot replace a newer cache.
+        PatternGraph graph = buildGraph(
+            craftingService, requestedKey, inventory, level, requestedAmount, strategy
+        );
+        synchronized (GRAPH_CACHE) {
+            CachedGraphs current = GRAPH_CACHE.get(craftingService);
+            if (current == cached && current.generation() == craftableGeneration) {
+                if (graph.cacheable()) {
+                    current.graphs().put(requestedKey, graph);
+                } else if (graph.inventoryDependent()
+                    && graph.inventoryCacheable()
+                    && !graph.stateful()
+                    && !graph.excludedDynamicPaths()) {
+                    current.inventoryDependentGraphs().put(inventoryKey, graph);
+                }
+            }
+        }
+        return graph;
     }
 
     private static Map<InventoryGraphKey, PatternGraph> newInventoryDependentGraphCache() {
