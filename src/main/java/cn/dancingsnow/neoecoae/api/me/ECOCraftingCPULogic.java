@@ -901,7 +901,13 @@ public class ECOCraftingCPULogic {
         long normalRequested = calculateBatchRequestSize(
                 taskRemaining, Math.min(totalBudgetRemaining, batchBudgetRemaining), effectiveFastPathTickLimit());
         normalRequested = Math.min(normalRequested, maxCraftsNeededForFinalOutput(execution));
-        long virtualRequested = Math.min(taskRemaining, maxCraftsNeededForFinalOutputLong(execution));
+        // Virtual x8 exchange work is completed as ledger output, but it still has to pass
+        // through AE2's long-based in-flight/output accounting. Keep each dispatch bounded
+        // like the regular fast path instead of allowing a single request to consume an
+        // entire multi-billion-item job.
+        long virtualRequested = Math.min(
+                Math.min(taskRemaining, maxCraftsNeededForFinalOutputLong(execution)),
+                ECOBatchCraftingHelper.MAX_BATCH_SIZE);
         if (normalRequested <= 1 && virtualRequested <= 1) {
             return 0;
         }

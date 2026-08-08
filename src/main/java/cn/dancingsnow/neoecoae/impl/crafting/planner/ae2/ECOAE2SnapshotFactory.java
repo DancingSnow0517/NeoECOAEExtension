@@ -36,59 +36,53 @@ public final class ECOAE2SnapshotFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     /** Leaves headroom when third-party infinite cells expose infinity as Long.MAX_VALUE. */
     private static final long INFINITE_STORAGE_PLANNING_AMOUNT = Long.MAX_VALUE / 4L;
+
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 8_192;
     private static final int MAX_INVENTORY_DEPENDENT_GRAPHS = 64;
     private static final long NO_GENERATION = Long.MIN_VALUE;
     private static final Map<ICraftingService, CachedGraphs> GRAPH_CACHE = new WeakHashMap<>();
 
-    private ECOAE2SnapshotFactory() {
-    }
+    private ECOAE2SnapshotFactory() {}
 
     public static Optional<ECOAE2PlanningSnapshot> capture(
-        IGrid grid,
-        ICraftingSimulationRequester requester,
-        AEKey requestedKey,
-        long requestedAmount,
-        CalculationStrategy strategy
-    ) {
+            IGrid grid,
+            ICraftingSimulationRequester requester,
+            AEKey requestedKey,
+            long requestedAmount,
+            CalculationStrategy strategy) {
         return capture(grid, requester, requestedKey, requestedAmount, strategy, NO_GENERATION, null);
     }
 
     public static Optional<ECOAE2PlanningSnapshot> capture(
-        IGrid grid,
-        ICraftingSimulationRequester requester,
-        AEKey requestedKey,
-        long requestedAmount,
-        CalculationStrategy strategy,
-        long craftableGeneration
-    ) {
-        return capture(
-            grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, null
-        );
+            IGrid grid,
+            ICraftingSimulationRequester requester,
+            AEKey requestedKey,
+            long requestedAmount,
+            CalculationStrategy strategy,
+            long craftableGeneration) {
+        return capture(grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, null);
     }
 
     /** Captures a snapshot with the server level required for exact input validation. */
     public static Optional<ECOAE2PlanningSnapshot> capture(
-        IGrid grid,
-        ICraftingSimulationRequester requester,
-        AEKey requestedKey,
-        long requestedAmount,
-        CalculationStrategy strategy,
-        long craftableGeneration,
-        Level level
-    ) {
+            IGrid grid,
+            ICraftingSimulationRequester requester,
+            AEKey requestedKey,
+            long requestedAmount,
+            CalculationStrategy strategy,
+            long craftableGeneration,
+            Level level) {
         if (requestedAmount <= 0
-            || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
-                && strategy != CalculationStrategy.CRAFT_LESS)) {
+                || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
+                        && strategy != CalculationStrategy.CRAFT_LESS)) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
-                requestedKey,
-                requestedAmount,
-                strategy,
-                "invalid_request_or_unsupported_strategy"
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                    ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "invalid_request_or_unsupported_strategy");
             return Optional.empty();
         }
         long captureStarted = System.nanoTime();
@@ -96,212 +90,191 @@ public final class ECOAE2SnapshotFactory {
             long inventoryStarted = System.nanoTime();
             Map<AEKey, Long> inventory = copyInventory(grid, requester);
             ECOPlanningFailureDiagnostics.logTiming(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                requestedKey, requestedAmount, strategy,
-                "inventory_copy", inventoryStarted, "inventoryKeys=" + inventory.size()
-            );
-            ECOPlanningFailureDiagnostics.logTrace(
-                requestedKey,
-                requestedAmount,
-                strategy,
-                "snapshot_start generation=" + craftableGeneration
-                    + " inventoryKeys=" + inventory.size()
-                    + " level=" + (level == null ? "missing" : level.dimension().location())
-            );
-            ICraftingService craftingService = Objects.requireNonNull(
-                grid.getCraftingService(), "craftingService"
-            );
-            long graphStarted = System.nanoTime();
-            PatternGraph graph = graphFor(
-                craftingService,
-                requestedKey,
-                inventory,
-                level,
-                craftableGeneration,
-                requestedAmount,
-                strategy
-            );
-            ECOPlanningFailureDiagnostics.logTiming(
-                ECOPlanningFailureDiagnostics.Stage.GRAPH,
-                requestedKey, requestedAmount, strategy,
-                "graph_build", graphStarted,
-                "operations=" + graph.operations().size()
-                    + " materials=" + graph.materialCount()
-                    + " cacheable=" + graph.cacheable()
-            );
-            List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = graph.operations();
-            if (operations.isEmpty()) {
-                ECOPlanningFailureDiagnostics.logFailure(
-                    ECOPlanningFailureDiagnostics.Stage.GRAPH,
-                    ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
                     requestedKey,
                     requestedAmount,
                     strategy,
-                    "graph_empty generation=" + craftableGeneration
-                        + " targetHasProducer=" + graph.targetHasProducer()
-                        + " visitedMaterials=" + graph.materialCount()
-                        + " unresolvedMaterials=" + summarizeKeys(graph.unresolvedMaterials())
-                );
+                    "inventory_copy",
+                    inventoryStarted,
+                    "inventoryKeys=" + inventory.size());
+            ECOPlanningFailureDiagnostics.logTrace(
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "snapshot_start generation=" + craftableGeneration
+                            + " inventoryKeys=" + inventory.size()
+                            + " level="
+                            + (level == null ? "missing" : level.dimension().location()));
+            ICraftingService craftingService = Objects.requireNonNull(grid.getCraftingService(), "craftingService");
+            long graphStarted = System.nanoTime();
+            PatternGraph graph = graphFor(
+                    craftingService, requestedKey, inventory, level, craftableGeneration, requestedAmount, strategy);
+            ECOPlanningFailureDiagnostics.logTiming(
+                    ECOPlanningFailureDiagnostics.Stage.GRAPH,
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "graph_build",
+                    graphStarted,
+                    "operations=" + graph.operations().size()
+                            + " materials=" + graph.materialCount()
+                            + " cacheable=" + graph.cacheable());
+            List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = graph.operations();
+            if (operations.isEmpty()) {
+                ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.GRAPH,
+                        ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "graph_empty generation=" + craftableGeneration
+                                + " targetHasProducer=" + graph.targetHasProducer()
+                                + " visitedMaterials=" + graph.materialCount()
+                                + " unresolvedMaterials=" + summarizeKeys(graph.unresolvedMaterials()));
                 ECOPlanningFailureDiagnostics.logTiming(
-                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                    requestedKey, requestedAmount, strategy,
-                    "snapshot_capture_total", captureStarted,
-                    "result=failure reason=graph_empty"
-                );
+                        ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "snapshot_capture_total",
+                        captureStarted,
+                        "result=failure reason=graph_empty");
                 return Optional.empty();
             }
 
             // Existing copies of the requested output must not short-circuit a normal request,
             // but they remain valid seed material for a self-increasing target.
-            boolean requestedIsInput = operations.stream()
-                .anyMatch(operation -> operation.inputs().containsKey(requestedKey));
+            boolean requestedIsInput =
+                    operations.stream().anyMatch(operation -> operation.inputs().containsKey(requestedKey));
             if (!requestedIsInput) {
                 inventory.remove(requestedKey);
             }
             retainRelevantInventory(inventory, operations, requestedKey);
 
-            var problem = new ECOPlanningProblem<>(
-                operations,
-                inventory,
-                Map.of(requestedKey, requestedAmount)
-            );
+            var problem = new ECOPlanningProblem<>(operations, inventory, Map.of(requestedKey, requestedAmount));
             LOGGER.debug(
-                "Captured ECO planning snapshot for {} x{}: generation={}, operations={}, "
-                    + "materials={}, inventoryKeys={}, truncatedStateExpansion={}",
-                requestedKey,
-                requestedAmount,
-                craftableGeneration,
-                operations.size(),
-                graph.materialCount(),
-                inventory.size(),
-                graph.truncatedStateExpansion()
-            );
+                    "Captured ECO planning snapshot for {} x{}: generation={}, operations={}, "
+                            + "materials={}, inventoryKeys={}, truncatedStateExpansion={}",
+                    requestedKey,
+                    requestedAmount,
+                    craftableGeneration,
+                    operations.size(),
+                    graph.materialCount(),
+                    inventory.size(),
+                    graph.truncatedStateExpansion());
             Optional<ECOAE2PlanningSnapshot> snapshot = Optional.of(new ECOAE2PlanningSnapshot(
-                problem,
-                requestedKey,
-                requestedAmount,
-                graph.multiplePaths(),
-                graph.inputSlotCounts(),
-                graph.truncatedStateExpansion(),
-                graph.excludedDynamicPaths(),
-                graph.dynamicSmithing(),
-                ECOPlanningFailureDiagnostics.currentRequestId()
-            ));
-            if (ECOPlanningFailureDiagnostics.canLogDetail(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT
-            )) {
+                    problem,
+                    requestedKey,
+                    requestedAmount,
+                    graph.multiplePaths(),
+                    graph.inputSlotCounts(),
+                    graph.truncatedStateExpansion(),
+                    graph.excludedDynamicPaths(),
+                    graph.dynamicSmithing(),
+                    ECOPlanningFailureDiagnostics.currentRequestId()));
+            if (ECOPlanningFailureDiagnostics.canLogDetail(ECOPlanningFailureDiagnostics.Stage.SNAPSHOT)) {
                 ECOPlanningFailureDiagnostics.logDetail(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                "snapshot_ready operations=" + operations.size()
-                    + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
-                    + " unresolved=" + summarizeKeys(graph.unresolvedMaterials())
-                    + " multiplePaths=" + graph.multiplePaths()
-                    + " truncatedStateExpansion=" + graph.truncatedStateExpansion()
-                    + " excludedDynamicPaths=" + graph.excludedDynamicPaths()
-                );
+                        ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                        "snapshot_ready operations=" + operations.size()
+                                + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
+                                + " unresolved=" + summarizeKeys(graph.unresolvedMaterials())
+                                + " multiplePaths=" + graph.multiplePaths()
+                                + " truncatedStateExpansion=" + graph.truncatedStateExpansion()
+                                + " excludedDynamicPaths=" + graph.excludedDynamicPaths());
             }
             ECOPlanningFailureDiagnostics.logTiming(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                requestedKey, requestedAmount, strategy,
-                "snapshot_capture_total", captureStarted,
-                "result=success operations=" + operations.size()
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "snapshot_capture_total",
+                    captureStarted,
+                    "result=success operations=" + operations.size());
             return snapshot;
         } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
-                rejection.reason(),
-                requestedKey,
-                requestedAmount,
-                strategy,
-                rejection.context(),
-                rejection
-            );
+                    ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
+                    rejection.reason(),
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    rejection.context(),
+                    rejection);
             logCaptureFailureTiming(requestedKey, requestedAmount, strategy, captureStarted, rejection.reason());
             return Optional.empty();
         } catch (SnapshotRejection rejection) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.GRAPH,
-                rejection.reason(),
-                requestedKey,
-                requestedAmount,
-                strategy,
-                rejection.context(),
-                rejection
-            );
+                    ECOPlanningFailureDiagnostics.Stage.GRAPH,
+                    rejection.reason(),
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    rejection.context(),
+                    rejection);
             logCaptureFailureTiming(requestedKey, requestedAmount, strategy, captureStarted, rejection.reason());
             return Optional.empty();
         } catch (RuntimeException | LinkageError failure) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
-                requestedKey,
-                requestedAmount,
-                strategy,
-                "snapshot_capture_exception",
-                failure
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                    ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "snapshot_capture_exception",
+                    failure);
             LOGGER.debug("ECO AE2 snapshot capture failed; the caller will use AE2 crafting calculation", failure);
             logCaptureFailureTiming(
-                requestedKey, requestedAmount, strategy, captureStarted,
-                ECOPlannerFallbackReason.SNAPSHOT_REJECTED
-            );
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    captureStarted,
+                    ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
             return Optional.empty();
         }
     }
 
     private static PatternGraph graphFor(
-        ICraftingService craftingService,
-        AEKey requestedKey,
-        Map<AEKey, Long> inventory,
-        Level level,
-        long craftableGeneration,
-        long requestedAmount,
-        CalculationStrategy strategy
-    ) {
+            ICraftingService craftingService,
+            AEKey requestedKey,
+            Map<AEKey, Long> inventory,
+            Level level,
+            long craftableGeneration,
+            long requestedAmount,
+            CalculationStrategy strategy) {
         if (craftableGeneration == NO_GENERATION) {
-            return buildGraph(
-                craftingService, requestedKey, inventory, level, requestedAmount, strategy
-            );
+            return buildGraph(craftingService, requestedKey, inventory, level, requestedAmount, strategy);
         }
         CachedGraphs cached;
-        InventoryGraphKey inventoryKey = new InventoryGraphKey(
-            requestedKey,
-            Set.copyOf(inventory.keySet())
-        );
+        InventoryGraphKey inventoryKey = new InventoryGraphKey(requestedKey, Set.copyOf(inventory.keySet()));
         synchronized (GRAPH_CACHE) {
             cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
-                cached = new CachedGraphs(
-                    craftableGeneration,
-                    new LinkedHashMap<>(),
-                    newInventoryDependentGraphCache()
-                );
+                cached =
+                        new CachedGraphs(craftableGeneration, new LinkedHashMap<>(), newInventoryDependentGraphCache());
                 GRAPH_CACHE.put(craftingService, cached);
             }
             PatternGraph graph = cached.graphs().get(requestedKey);
             if (graph != null) {
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "graph_cache_hit generation=" + craftableGeneration
-                        + " operations=" + graph.operations().size()
-                        + " materials=" + graph.materialCount()
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "graph_cache_hit generation=" + craftableGeneration
+                                + " operations=" + graph.operations().size()
+                                + " materials=" + graph.materialCount());
                 return graph;
             }
             graph = cached.inventoryDependentGraphs().get(inventoryKey);
             if (graph != null) {
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "inventory_graph_cache_hit generation=" + craftableGeneration
-                        + " operations=" + graph.operations().size()
-                        + " materials=" + graph.materialCount()
-                        + " inventoryKeys=" + inventoryKey.availableKeys().size()
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "inventory_graph_cache_hit generation=" + craftableGeneration
+                                + " operations=" + graph.operations().size()
+                                + " materials=" + graph.materialCount()
+                                + " inventoryKeys="
+                                + inventoryKey.availableKeys().size());
                 return graph;
             }
         }
@@ -309,18 +282,16 @@ public final class ECOAE2SnapshotFactory {
         // Build outside the global lock: pattern discovery may invoke callbacks that
         // block or re-enter this factory. The generation is checked again before
         // publishing so an older in-flight build cannot replace a newer cache.
-        PatternGraph graph = buildGraph(
-            craftingService, requestedKey, inventory, level, requestedAmount, strategy
-        );
+        PatternGraph graph = buildGraph(craftingService, requestedKey, inventory, level, requestedAmount, strategy);
         synchronized (GRAPH_CACHE) {
             CachedGraphs current = GRAPH_CACHE.get(craftingService);
             if (current == cached && current.generation() == craftableGeneration) {
                 if (graph.cacheable()) {
                     current.graphs().put(requestedKey, graph);
                 } else if (graph.inventoryDependent()
-                    && graph.inventoryCacheable()
-                    && !graph.stateful()
-                    && !graph.excludedDynamicPaths()) {
+                        && graph.inventoryCacheable()
+                        && !graph.stateful()
+                        && !graph.excludedDynamicPaths()) {
                     current.inventoryDependentGraphs().put(inventoryKey, graph);
                 }
             }
@@ -338,13 +309,12 @@ public final class ECOAE2SnapshotFactory {
     }
 
     private static PatternGraph buildGraph(
-        ICraftingService craftingService,
-        AEKey requestedKey,
-        Map<AEKey, Long> inventory,
-        Level level,
-        long requestedAmount,
-        CalculationStrategy strategy
-    ) {
+            ICraftingService craftingService,
+            AEKey requestedKey,
+            Map<AEKey, Long> inventory,
+            Level level,
+            long requestedAmount,
+            CalculationStrategy strategy) {
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new LinkedHashSet<>();
         Set<AEKey> unresolvedMaterials = new LinkedHashSet<>();
@@ -367,10 +337,7 @@ public final class ECOAE2SnapshotFactory {
                 continue;
             }
             if (visitedMaterials.size() > MAX_MATERIALS) {
-                throw reject(
-                    ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED,
-                    "material_limit=" + MAX_MATERIALS
-                );
+                throw reject(ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED, "material_limit=" + MAX_MATERIALS);
             }
 
             List<IPatternDetails> producers;
@@ -378,73 +345,62 @@ public final class ECOAE2SnapshotFactory {
                 var rawProducers = craftingService.getCraftingFor(material);
                 if (rawProducers == null) {
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "crafting_for_returned_null material=" + material
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "crafting_for_returned_null material=" + material);
                 }
                 producers = new ArrayList<>(rawProducers);
             } catch (RuntimeException | LinkageError failure) {
                 throw reject(
-                    ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                    "crafting_for_exception material=" + material,
-                    failure
-                );
+                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                        "crafting_for_exception material=" + material,
+                        failure);
             }
             if (producers.isEmpty()) {
                 unresolvedMaterials.add(material);
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "material_no_producer material=" + material
-                        + " target=" + material.equals(requestedKey)
-                        + " visitedMaterials=" + visitedMaterials.size()
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "material_no_producer material=" + material
+                                + " target=" + material.equals(requestedKey)
+                                + " visitedMaterials=" + visitedMaterials.size());
                 continue;
             }
             trace(
-                requestedKey,
-                requestedAmount,
-                strategy,
-                "material_producers material=" + material
-                    + " target=" + material.equals(requestedKey)
-                    + " producerCount=" + producers.size()
-                    + " visitedMaterials=" + visitedMaterials.size()
-            );
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "material_producers material=" + material
+                            + " target=" + material.equals(requestedKey)
+                            + " producerCount=" + producers.size()
+                            + " visitedMaterials=" + visitedMaterials.size());
             Set<AEItemKey> logicalProducerIdentities = new HashSet<>();
             boolean retainedProducer = false;
             for (int producerIndex = 0; producerIndex < producers.size(); producerIndex++) {
                 IPatternDetails details = producers.get(producerIndex);
                 if (details == null) {
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "null_pattern_details material=" + material
-                            + " producerIndex=" + producerIndex
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "null_pattern_details material=" + material + " producerIndex=" + producerIndex);
                 }
                 AEItemKey definition;
                 try {
                     definition = details.getDefinition();
                 } catch (RuntimeException | LinkageError failure) {
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "definition_read_exception pattern=" + details.getClass().getName(),
-                        failure
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "definition_read_exception pattern="
+                                    + details.getClass().getName(),
+                            failure);
                 }
                 if (definition == null) {
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "pattern_definition_missing pattern=" + details.getClass().getName()
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "pattern_definition_missing pattern="
+                                    + details.getClass().getName());
                 }
                 String patternContext = patternContext(material, producerIndex, details, definition);
-                trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "pattern_discovered " + patternContext
-                );
+                trace(requestedKey, requestedAmount, strategy, "pattern_discovered " + patternContext);
                 logicalProducerIdentities.add(definition);
 
                 CapturedPattern existing = canonicalPatterns.get(definition);
@@ -457,39 +413,35 @@ public final class ECOAE2SnapshotFactory {
                         continue;
                     }
                     ECOAE2PatternCompatibility.Assessment duplicateAssessment =
-                        ECOAE2PatternCompatibility.assess(details, craftingService, level);
+                            ECOAE2PatternCompatibility.assess(details, craftingService, level);
                     if (!duplicateAssessment.compatible()) {
                         if ("provider_scoped_nbt".equals(duplicateAssessment.rejection())) {
                             excludedDynamicPaths = true;
                             cacheable = false;
                             trace(
-                                requestedKey,
-                                requestedAmount,
-                                strategy,
-                                "pattern_excluded " + patternContext
-                                    + " context=provider_scoped_nbt duplicate=true"
-                            );
+                                    requestedKey,
+                                    requestedAmount,
+                                    strategy,
+                                    "pattern_excluded " + patternContext
+                                            + " context=provider_scoped_nbt duplicate=true");
                             continue;
                         }
                         throw reject(
-                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                            "duplicate_pattern_incompatible " + patternContext
-                                + " context=" + duplicateAssessment.rejection()
-                        );
+                                ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                                "duplicate_pattern_incompatible " + patternContext + " context="
+                                        + duplicateAssessment.rejection());
                     }
                     ECOAE2PatternMaterializer.PatternExpansion duplicateExpansion;
                     try {
                         duplicateExpansion = ECOAE2PatternMaterializer.expand(
-                            details, duplicateAssessment, inventory, craftingService, level
-                        );
+                                details, duplicateAssessment, inventory, craftingService, level);
                     } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
                         throw rejection.withContext(patternContext + " phase=duplicate_materialization");
                     }
                     if (!sameMaterialization(existing.expansion(), duplicateExpansion)) {
                         throw reject(
-                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                            "one_pattern_definition_has_multiple_shapes definition=" + definition
-                        );
+                                ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                                "one_pattern_definition_has_multiple_shapes definition=" + definition);
                     }
                     cacheable &= cacheablePattern(details, duplicateExpansion);
                     inventoryDependent |= duplicateExpansion.inventoryDependent();
@@ -499,73 +451,64 @@ public final class ECOAE2SnapshotFactory {
                     continue;
                 }
                 ECOAE2PatternCompatibility.Assessment assessment =
-                    ECOAE2PatternCompatibility.assess(details, craftingService, level);
+                        ECOAE2PatternCompatibility.assess(details, craftingService, level);
                 if (!assessment.compatible()) {
                     if ("provider_scoped_nbt".equals(assessment.rejection())) {
                         excludedDynamicPaths = true;
                         cacheable = false;
                         trace(
-                            requestedKey,
-                            requestedAmount,
-                            strategy,
-                            "pattern_excluded " + patternContext
-                                + " context=provider_scoped_nbt"
-                        );
+                                requestedKey,
+                                requestedAmount,
+                                strategy,
+                                "pattern_excluded " + patternContext + " context=provider_scoped_nbt");
                         continue;
                     }
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "pattern_incompatible " + patternContext
-                            + " context=" + assessment.rejection()
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "pattern_incompatible " + patternContext + " context=" + assessment.rejection());
                 }
                 dynamicSmithing |= dynamicSmithingPattern(details);
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "pattern_compatible " + patternContext
-                        + " inputSemantics=" + assessment.inputSemantics()
-                        + " fuzzy=" + assessment.includeFuzzyInventory()
-                        + " stateExpansionAllowed=" + assessment.stateExpansionAllowed()
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "pattern_compatible " + patternContext
+                                + " inputSemantics=" + assessment.inputSemantics()
+                                + " fuzzy=" + assessment.includeFuzzyInventory()
+                                + " stateExpansionAllowed=" + assessment.stateExpansionAllowed());
                 ECOAE2PatternMaterializer.PatternExpansion expansion;
                 try {
-                    expansion = ECOAE2PatternMaterializer.expand(
-                        details, assessment, inventory, craftingService, level
-                    );
+                    expansion =
+                            ECOAE2PatternMaterializer.expand(details, assessment, inventory, craftingService, level);
                 } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
                     if (dynamicSmithingPattern(details)
-                        && rejection.reason() == ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED) {
+                            && rejection.reason() == ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED) {
                         expansion = ECOAE2PatternMaterializer.expand(
-                            details,
-                            canonicalAssessment(assessment),
-                            inventory,
-                            craftingService,
-                            level
-                        );
+                                details, canonicalAssessment(assessment), inventory, craftingService, level);
                     } else {
                         throw rejection.withContext(patternContext + " phase=materialization");
                     }
                 }
                 if (expansion.operations().isEmpty()) {
                     throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "pattern_materialized_without_operations definition=" + definition
-                    );
+                            ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                            "pattern_materialized_without_operations definition=" + definition);
                 }
                 if (expansion.operations().size() > MAX_OPERATIONS - operations.size()) {
                     throw reject(
-                        ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED,
-                        "materialized_operation_limit=" + MAX_OPERATIONS
-                            + " attempted=" + (operations.size() + expansion.operations().size())
-                            + " definition=" + definition
-                    );
+                            ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED,
+                            "materialized_operation_limit=" + MAX_OPERATIONS
+                                    + " attempted="
+                                    + (operations.size()
+                                            + expansion.operations().size())
+                                    + " definition=" + definition);
                 }
                 canonicalPatterns.put(definition, new CapturedPattern(details, expansion));
                 operations.addAll(expansion.operations());
                 for (var operation : expansion.operations()) {
-                    inputSlotCounts.put(operation.reference(), operation.reference().selectedInputs().size());
+                    inputSlotCounts.put(
+                            operation.reference(),
+                            operation.reference().selectedInputs().size());
                 }
                 pending.addAll(expansion.dependencyKeys());
                 multiplePaths |= expansion.operations().size() > 1;
@@ -576,47 +519,45 @@ public final class ECOAE2SnapshotFactory {
                 cacheable &= cacheablePattern(details, expansion);
                 retainedProducer = true;
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "pattern_materialized " + patternContext
-                        + " variants=" + expansion.operations().size()
-                        + " dependencyCount=" + expansion.dependencyKeys().size()
-                        + " dependencies=" + summarizeKeys(expansion.dependencyKeys())
-                        + " inventoryDependent=" + expansion.inventoryDependent()
-                        + " stateful=" + expansion.stateful()
-                        + " truncatedStateExpansion=" + expansion.truncatedStateExpansion()
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "pattern_materialized " + patternContext
+                                + " variants=" + expansion.operations().size()
+                                + " dependencyCount="
+                                + expansion.dependencyKeys().size()
+                                + " dependencies=" + summarizeKeys(expansion.dependencyKeys())
+                                + " inventoryDependent=" + expansion.inventoryDependent()
+                                + " stateful=" + expansion.stateful()
+                                + " truncatedStateExpansion=" + expansion.truncatedStateExpansion());
             }
             if (!retainedProducer) {
                 unresolvedMaterials.add(material);
                 trace(
-                    requestedKey,
-                    requestedAmount,
-                    strategy,
-                    "material_no_eco_provider material=" + material
-                        + " target=" + material.equals(requestedKey)
-                        + " excludedDynamicPaths=" + excludedDynamicPaths
-                );
+                        requestedKey,
+                        requestedAmount,
+                        strategy,
+                        "material_no_eco_provider material=" + material
+                                + " target=" + material.equals(requestedKey)
+                                + " excludedDynamicPaths=" + excludedDynamicPaths);
             }
             multiplePaths |= logicalProducerIdentities.size() > 1;
             multiplePaths |= producers.size() > 1;
         }
         return new PatternGraph(
-            List.copyOf(operations),
-            Map.copyOf(inputSlotCounts),
-            multiplePaths,
-            truncatedStateExpansion,
-            excludedDynamicPaths,
-            cacheable,
-            inventoryDependent,
-            inventoryCacheable,
-            stateful,
-            visitedMaterials.size(),
-            unresolvedMaterials,
-            !unresolvedMaterials.contains(requestedKey),
-            dynamicSmithing
-        );
+                List.copyOf(operations),
+                Map.copyOf(inputSlotCounts),
+                multiplePaths,
+                truncatedStateExpansion,
+                excludedDynamicPaths,
+                cacheable,
+                inventoryDependent,
+                inventoryCacheable,
+                stateful,
+                visitedMaterials.size(),
+                unresolvedMaterials,
+                !unresolvedMaterials.contains(requestedKey),
+                dynamicSmithing);
     }
 
     private static boolean dynamicSmithingPattern(IPatternDetails details) {
@@ -624,55 +565,44 @@ public final class ECOAE2SnapshotFactory {
     }
 
     private static ECOAE2PatternCompatibility.Assessment canonicalAssessment(
-        ECOAE2PatternCompatibility.Assessment assessment
-    ) {
+            ECOAE2PatternCompatibility.Assessment assessment) {
         return new ECOAE2PatternCompatibility.Assessment(
-            true,
-            IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
-            false,
-            false,
-            true,
-            ""
-        );
+                true, IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false, true, "");
     }
 
     /** Compatibility helper retained for input-selection execution tests. */
     static List<List<ECOAE2InputSelection>> inputSelections(
-        IPatternDetails details,
-        IPatternDetails.IInput[] inputs,
-        List<List<GenericStack>> choices,
-        IECOPlannerCompatiblePattern.InputSemantics semantics
-    ) {
+            IPatternDetails details,
+            IPatternDetails.IInput[] inputs,
+            List<List<GenericStack>> choices,
+            IECOPlannerCompatiblePattern.InputSemantics semantics) {
         Objects.requireNonNull(details, "details");
         List<List<ECOAE2InputSelection>> result = new ArrayList<>(inputs.length);
         for (int slot = 0; slot < inputs.length; slot++) {
             long multiplier = inputs[slot].getMultiplier();
             List<GenericStack> slotChoices = choices.get(slot);
-            result.add(semantics == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
-                ? mixedSelections(slotChoices, multiplier)
-                : slotChoices.stream()
-                    .map(choice -> ECOAE2InputSelection.single(choice, multiplier))
-                    .toList());
+            result.add(
+                    semantics == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                            ? mixedSelections(slotChoices, multiplier)
+                            : slotChoices.stream()
+                                    .map(choice -> ECOAE2InputSelection.single(choice, multiplier))
+                                    .toList());
         }
         return List.copyOf(result);
     }
 
-    private static List<ECOAE2InputSelection> mixedSelections(
-        List<GenericStack> choices,
-        long multiplier
-    ) {
+    private static List<ECOAE2InputSelection> mixedSelections(List<GenericStack> choices, long multiplier) {
         List<ECOAE2InputSelection> result = new ArrayList<>();
         enumerateMixedSelections(choices, 0, multiplier, new ArrayList<>(), result);
         return List.copyOf(result);
     }
 
     private static void enumerateMixedSelections(
-        List<GenericStack> choices,
-        int choiceIndex,
-        long remaining,
-        List<ECOAE2InputSelection.Alternative> selected,
-        List<ECOAE2InputSelection> result
-    ) {
+            List<GenericStack> choices,
+            int choiceIndex,
+            long remaining,
+            List<ECOAE2InputSelection.Alternative> selected,
+            List<ECOAE2InputSelection> result) {
         if (choiceIndex == choices.size() - 1) {
             if (remaining > 0L) {
                 selected.add(new ECOAE2InputSelection.Alternative(choices.get(choiceIndex), remaining));
@@ -697,10 +627,7 @@ public final class ECOAE2SnapshotFactory {
         }
     }
 
-    private static Map<AEKey, Long> copyInventory(
-        IGrid grid,
-        ICraftingSimulationRequester requester
-    ) {
+    private static Map<AEKey, Long> copyInventory(IGrid grid, ICraftingSimulationRequester requester) {
         KeyCounter source;
         var actionSource = requester.getActionSource();
         if (actionSource != null && actionSource.player().isPresent()) {
@@ -722,20 +649,18 @@ public final class ECOAE2SnapshotFactory {
         }
         if (!infiniteStorageKeys.isEmpty()) {
             ECOPlanningFailureDiagnostics.logDetail(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                "infinite_storage_sentinel keys="
-                    + ECOPlanningFailureDiagnostics.describeMap(infiniteStorageKeys)
-                    + " planningAmount=" + INFINITE_STORAGE_PLANNING_AMOUNT
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                    "infinite_storage_sentinel keys="
+                            + ECOPlanningFailureDiagnostics.describeMap(infiniteStorageKeys)
+                            + " planningAmount=" + INFINITE_STORAGE_PLANNING_AMOUNT);
         }
         return inventory;
     }
 
     private static void retainRelevantInventory(
-        Map<AEKey, Long> inventory,
-        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
-        AEKey requestedKey
-    ) {
+            Map<AEKey, Long> inventory,
+            List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
+            AEKey requestedKey) {
         Set<AEKey> relevant = new LinkedHashSet<>();
         relevant.add(requestedKey);
         for (var operation : operations) {
@@ -746,14 +671,12 @@ public final class ECOAE2SnapshotFactory {
     }
 
     private static boolean sameMaterialization(
-        ECOAE2PatternMaterializer.PatternExpansion left,
-        ECOAE2PatternMaterializer.PatternExpansion right
-    ) {
+            ECOAE2PatternMaterializer.PatternExpansion left, ECOAE2PatternMaterializer.PatternExpansion right) {
         if (left.inventoryDependent() != right.inventoryDependent()
-            || left.stateful() != right.stateful()
-            || left.truncatedStateExpansion() != right.truncatedStateExpansion()
-            || !left.dependencyKeys().equals(right.dependencyKeys())
-            || left.operations().size() != right.operations().size()) {
+                || left.stateful() != right.stateful()
+                || left.truncatedStateExpansion() != right.truncatedStateExpansion()
+                || !left.dependencyKeys().equals(right.dependencyKeys())
+                || left.operations().size() != right.operations().size()) {
             return false;
         }
         for (int i = 0; i < left.operations().size(); i++) {
@@ -762,11 +685,11 @@ public final class ECOAE2SnapshotFactory {
             var leftVariant = leftOperation.reference();
             var rightVariant = rightOperation.reference();
             if (leftVariant.ordinal() != rightVariant.ordinal()
-                || !leftVariant.selectedInputs().equals(rightVariant.selectedInputs())
-                || !leftOperation.inputs().equals(rightOperation.inputs())
-                || !leftOperation.outputs().equals(rightOperation.outputs())
-                || !leftOperation.selectableOutputs().equals(rightOperation.selectableOutputs())
-                || !leftOperation.stateTransitionInputs().equals(rightOperation.stateTransitionInputs())) {
+                    || !leftVariant.selectedInputs().equals(rightVariant.selectedInputs())
+                    || !leftOperation.inputs().equals(rightOperation.inputs())
+                    || !leftOperation.outputs().equals(rightOperation.outputs())
+                    || !leftOperation.selectableOutputs().equals(rightOperation.selectableOutputs())
+                    || !leftOperation.stateTransitionInputs().equals(rightOperation.stateTransitionInputs())) {
                 return false;
             }
         }
@@ -774,34 +697,24 @@ public final class ECOAE2SnapshotFactory {
     }
 
     private static boolean cacheablePattern(
-        IPatternDetails details,
-        ECOAE2PatternMaterializer.PatternExpansion expansion
-    ) {
-        return (details instanceof IECOPlannerCompatiblePattern
-                || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
-            && !expansion.inventoryDependent()
-            && !expansion.stateful();
+            IPatternDetails details, ECOAE2PatternMaterializer.PatternExpansion expansion) {
+        return (details instanceof IECOPlannerCompatiblePattern || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
+                && !expansion.inventoryDependent()
+                && !expansion.stateful();
     }
 
     private static boolean inventoryCacheablePattern(
-        IPatternDetails details,
-        ECOAE2PatternMaterializer.PatternExpansion expansion
-    ) {
-        return (details instanceof IECOPlannerCompatiblePattern
-                || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
-            && !expansion.stateful();
+            IPatternDetails details, ECOAE2PatternMaterializer.PatternExpansion expansion) {
+        return (details instanceof IECOPlannerCompatiblePattern || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
+                && !expansion.stateful();
     }
 
     private static String patternContext(
-        AEKey material,
-        int producerIndex,
-        IPatternDetails details,
-        AEItemKey definition
-    ) {
+            AEKey material, int producerIndex, IPatternDetails details, AEItemKey definition) {
         return "material=" + material
-            + " producerIndex=" + producerIndex
-            + " patternClass=" + details.getClass().getName()
-            + " definition=" + definition;
+                + " producerIndex=" + producerIndex
+                + " patternClass=" + details.getClass().getName()
+                + " definition=" + definition;
     }
 
     private static String summarizeKeys(Iterable<? extends AEKey> keys) {
@@ -821,65 +734,50 @@ public final class ECOAE2SnapshotFactory {
         return result.append(']').toString();
     }
 
-    private static void trace(
-        AEKey requestedKey,
-        long requestedAmount,
-        CalculationStrategy strategy,
-        String context
-    ) {
-        ECOPlanningFailureDiagnostics.logTrace(
-            requestedKey, requestedAmount, strategy, context
-        );
+    private static void trace(AEKey requestedKey, long requestedAmount, CalculationStrategy strategy, String context) {
+        ECOPlanningFailureDiagnostics.logTrace(requestedKey, requestedAmount, strategy, context);
     }
 
     private static void logCaptureFailureTiming(
-        AEKey requestedKey,
-        long requestedAmount,
-        CalculationStrategy strategy,
-        long captureStarted,
-        ECOPlannerFallbackReason reason
-    ) {
+            AEKey requestedKey,
+            long requestedAmount,
+            CalculationStrategy strategy,
+            long captureStarted,
+            ECOPlannerFallbackReason reason) {
         ECOPlanningFailureDiagnostics.logTiming(
-            ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-            requestedKey, requestedAmount, strategy,
-            "snapshot_capture_total", captureStarted,
-            "result=failure reason=" + reason.id()
-        );
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                requestedKey,
+                requestedAmount,
+                strategy,
+                "snapshot_capture_total",
+                captureStarted,
+                "result=failure reason=" + reason.id());
     }
 
     private static SnapshotRejection reject(ECOPlannerFallbackReason reason, String context) {
         return new SnapshotRejection(reason, context);
     }
 
-    private static SnapshotRejection reject(
-        ECOPlannerFallbackReason reason,
-        String context,
-        Throwable cause
-    ) {
+    private static SnapshotRejection reject(ECOPlannerFallbackReason reason, String context, Throwable cause) {
         return new SnapshotRejection(reason, context, cause);
     }
 
-    private record CapturedPattern(
-        IPatternDetails details,
-        ECOAE2PatternMaterializer.PatternExpansion expansion
-    ) {
-    }
+    private record CapturedPattern(IPatternDetails details, ECOAE2PatternMaterializer.PatternExpansion expansion) {}
 
     private record PatternGraph(
-        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
-        Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
-        boolean multiplePaths,
-        boolean truncatedStateExpansion,
-        boolean excludedDynamicPaths,
-        boolean cacheable,
-        boolean inventoryDependent,
-        boolean inventoryCacheable,
-        boolean stateful,
-        int materialCount,
-        Set<AEKey> unresolvedMaterials,
-        boolean targetHasProducer,
-        boolean dynamicSmithing
-    ) {
+            List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
+            Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+            boolean multiplePaths,
+            boolean truncatedStateExpansion,
+            boolean excludedDynamicPaths,
+            boolean cacheable,
+            boolean inventoryDependent,
+            boolean inventoryCacheable,
+            boolean stateful,
+            int materialCount,
+            Set<AEKey> unresolvedMaterials,
+            boolean targetHasProducer,
+            boolean dynamicSmithing) {
         private PatternGraph {
             operations = List.copyOf(operations);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
@@ -901,11 +799,7 @@ public final class ECOAE2SnapshotFactory {
             this.reason = reason;
         }
 
-        private SnapshotRejection(
-            ECOPlannerFallbackReason reason,
-            String context,
-            Throwable cause
-        ) {
+        private SnapshotRejection(ECOPlannerFallbackReason reason, String context, Throwable cause) {
             super(context, cause);
             this.reason = reason;
         }
@@ -920,9 +814,7 @@ public final class ECOAE2SnapshotFactory {
     }
 
     private record CachedGraphs(
-        long generation,
-        Map<AEKey, PatternGraph> graphs,
-        Map<InventoryGraphKey, PatternGraph> inventoryDependentGraphs
-    ) {
-    }
+            long generation,
+            Map<AEKey, PatternGraph> graphs,
+            Map<InventoryGraphKey, PatternGraph> inventoryDependentGraphs) {}
 }

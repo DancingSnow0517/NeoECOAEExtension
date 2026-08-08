@@ -8,13 +8,9 @@ import java.util.Set;
 
 /** Builds the target-reachable maximal structure used by the ECO solvers. */
 public final class ECOGraphPruner {
-    private ECOGraphPruner() {
-    }
+    private ECOGraphPruner() {}
 
-    public static <K, R> ECOPlanningGraph<K, R> targetReachable(
-        ECOPlanningGraph<K, R> source,
-        Set<K> requested
-    ) {
+    public static <K, R> ECOPlanningGraph<K, R> targetReachable(ECOPlanningGraph<K, R> source, Set<K> requested) {
         ArrayDeque<K> pending = new ArrayDeque<>(requested);
         Set<K> visitedMaterials = new LinkedHashSet<>();
         Set<ECOPlanningOperation<K, R>> retained = new LinkedHashSet<>();
@@ -34,6 +30,8 @@ public final class ECOGraphPruner {
 
     /** Convenience overload that extracts operations and requested keys from a problem. */
     public static <K, R> ECOPlanningGraph<K, R> targetReachable(ECOPlanningProblem<K, R> problem) {
-        return targetReachable(new ECOPlanningGraph<>(problem.operations()), problem.requested().keySet());
+        return targetReachable(
+                new ECOPlanningGraph<>(problem.operations()),
+                problem.requested().keySet());
     }
 }

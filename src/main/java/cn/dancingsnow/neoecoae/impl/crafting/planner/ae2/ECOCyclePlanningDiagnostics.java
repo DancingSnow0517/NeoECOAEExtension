@@ -3,18 +3,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /** Client-facing explanation of one ojAlgo cycle result. */
-public record ECOCyclePlanningDiagnostics(
-    Map<AEKey, MaterialStats> materials,
-    Map<AEKey, Long> missingSeeds
-) {
+public record ECOCyclePlanningDiagnostics(Map<AEKey, MaterialStats> materials, Map<AEKey, Long> missingSeeds) {
     public static final ECOCyclePlanningDiagnostics EMPTY = new ECOCyclePlanningDiagnostics(Map.of(), Map.of());
 
     public ECOCyclePlanningDiagnostics {
@@ -27,9 +22,7 @@ public record ECOCyclePlanningDiagnostics(
     }
 
     public static ECOCyclePlanningDiagnostics from(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOHyperflowResult<ECOAE2PatternVariant> result
-    ) {
+            ECOAE2PlanningSnapshot snapshot, ECOHyperflowResult<ECOAE2PatternVariant> result) {
         var trace = result.cycleTrace();
         if (trace.isEmpty()) {
             return EMPTY;
@@ -43,13 +36,14 @@ public record ECOCyclePlanningDiagnostics(
         Map<AEKey, Long> missingSeeds = new LinkedHashMap<>();
         if (!trace.get().missingSeedStarters().isEmpty()) {
             snapshot.problem().operations().stream()
-                .filter(operation -> trace.get().missingSeedStarters().contains(operation.reference()))
-                .forEach(operation -> operation.inputs().forEach((key, amount) -> {
-                long deficit = Math.max(0L, amount - snapshot.problem().inventory().getOrDefault(key, 0L));
-                if (deficit > 0L) {
-                    missingSeeds.merge(key, deficit, Math::max);
-                }
-            }));
+                    .filter(operation -> trace.get().missingSeedStarters().contains(operation.reference()))
+                    .forEach(operation -> operation.inputs().forEach((key, amount) -> {
+                        long deficit = Math.max(
+                                0L, amount - snapshot.problem().inventory().getOrDefault(key, 0L));
+                        if (deficit > 0L) {
+                            missingSeeds.merge(key, deficit, Math::max);
+                        }
+                    }));
         }
 
         Map<AEKey, long[]> totals = new LinkedHashMap<>();
@@ -80,20 +74,19 @@ public record ECOCyclePlanningDiagnostics(
     }
 
     private static Set<AEKey> tracedCycleMaterials(
-        ECOAE2PlanningSnapshot snapshot,
-        Set<ECOAE2PatternVariant> tracedOperations
-    ) {
+            ECOAE2PlanningSnapshot snapshot, Set<ECOAE2PatternVariant> tracedOperations) {
         ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph =
-            new ECOPlanningGraph<>(snapshot.problem().operations());
+                new ECOPlanningGraph<>(snapshot.problem().operations());
         Set<AEKey> materials = new java.util.LinkedHashSet<>();
         ECOStrongComponents.find(graph).stream()
-            .filter(component -> component.size() > 1 || graph.operations().stream().anyMatch(operation ->
-                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
-                    && operation.outputs().containsKey(material))))
-            .filter(component -> graph.operations().stream().anyMatch(operation ->
-                tracedOperations.contains(operation.reference())
-                    && operation.selectableOutputs().stream().anyMatch(component::contains)))
-            .forEach(materials::addAll);
+                .filter(component -> component.size() > 1
+                        || graph.operations().stream().anyMatch(operation -> component.stream()
+                                .anyMatch(material -> operation.inputs().containsKey(material)
+                                        && operation.outputs().containsKey(material))))
+                .filter(component -> graph.operations().stream()
+                        .anyMatch(operation -> tracedOperations.contains(operation.reference())
+                                && operation.selectableOutputs().stream().anyMatch(component::contains)))
+                .forEach(materials::addAll);
         return Set.copyOf(materials);
     }
 
@@ -119,6 +112,5 @@ public record ECOCyclePlanningDiagnostics(
         }
     }
 
-    public record MaterialStats(long initial, long consumed, long produced, long remaining) {
-    }
+    public record MaterialStats(long initial, long consumed, long produced, long remaining) {}
 }

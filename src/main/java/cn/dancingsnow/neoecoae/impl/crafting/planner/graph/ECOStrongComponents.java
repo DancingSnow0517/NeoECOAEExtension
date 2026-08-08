@@ -10,8 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class ECOStrongComponents {
-    private ECOStrongComponents() {
-    }
+    private ECOStrongComponents() {}
 
     public static <K, R> List<Set<K>> find(ECOPlanningGraph<K, R> graph) {
         Map<K, Set<K>> edges = new LinkedHashMap<>();
@@ -21,13 +20,13 @@ public final class ECOStrongComponents {
         for (var operation : graph.operations()) {
             for (K input : operation.inputs().keySet()) {
                 edges.computeIfAbsent(input, ignored -> new LinkedHashSet<>())
-                    .addAll(operation.outputs().keySet());
+                        .addAll(operation.outputs().keySet());
             }
         }
         Map<K, Set<K>> reverse = new LinkedHashMap<>();
         edges.keySet().forEach(node -> reverse.put(node, new LinkedHashSet<>()));
         edges.forEach((from, targets) -> targets.forEach(to ->
-            reverse.computeIfAbsent(to, ignored -> new LinkedHashSet<>()).add(from)));
+                reverse.computeIfAbsent(to, ignored -> new LinkedHashSet<>()).add(from)));
 
         // Kosaraju's two passes are iterative so a long recipe chain cannot
         // consume the JVM call stack while the graph is being classified.
@@ -44,7 +43,8 @@ public final class ECOStrongComponents {
                 if (frame.neighbors().hasNext()) {
                     K adjacent = frame.neighbors().next();
                     if (visited.add(adjacent)) {
-                        stack.push(new Frame<>(adjacent, edges.getOrDefault(adjacent, Set.of()).iterator()));
+                        stack.push(new Frame<>(
+                                adjacent, edges.getOrDefault(adjacent, Set.of()).iterator()));
                     }
                 } else {
                     finishOrder.add(frame.node());
@@ -77,6 +77,5 @@ public final class ECOStrongComponents {
         return List.copyOf(components);
     }
 
-    private record Frame<K>(K node, java.util.Iterator<K> neighbors) {
-    }
+    private record Frame<K>(K node, java.util.Iterator<K> neighbors) {}
 }

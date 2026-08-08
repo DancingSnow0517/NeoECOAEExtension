@@ -3,14 +3,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
-import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /** Shared arithmetic utilities for ECO planning solvers. */
 final class ECOPlannerMath {
-    private ECOPlannerMath() {
-    }
+    private ECOPlannerMath() {}
 
     /** Returns ceil(numerator / denominator) without overflow. */
     static long ceilDiv(long numerator, long denominator) {
@@ -54,10 +53,7 @@ final class ECOPlannerMath {
      * Returns how many batches of a state-transition operation can start from the current
      * balances. Ordinary operations are not capacity-limited by this helper.
      */
-    static <K, R> long immediatelySupportedStateBatches(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> balances
-    ) {
+    static <K, R> long immediatelySupportedStateBatches(ECOPlanningOperation<K, R> operation, Map<K, Long> balances) {
         if (operation.stateTransitionInputs().isEmpty()) {
             return Long.MAX_VALUE;
         }
@@ -95,13 +91,12 @@ final class ECOPlannerMath {
      * Used by ECOComponentDemandSolver and ECOIntegerHyperflowSolver.
      */
     static <K, R> ECOHyperflowResult<R> buildResult(
-        Map<K, Long> balances,
-        Map<R, Long> executions,
-        Map<K, Long> requested,
-        Set<K> expandableMaterials,
-        Set<K> relevantMaterials,
-        long expansions
-    ) {
+            Map<K, Long> balances,
+            Map<R, Long> executions,
+            Map<K, Long> requested,
+            Set<K> expandableMaterials,
+            Set<K> relevantMaterials,
+            long expansions) {
         long requestedShortfall = 0;
         long dependencyShortfall = 0;
         long sourceShortfall = 0;
@@ -126,19 +121,12 @@ final class ECOPlannerMath {
             }
         }
 
-        ECOPlanCandidate<R> candidate = new ECOPlanCandidate<>(
-            executions,
-            requestedShortfall,
-            dependencyShortfall,
-            sourceShortfall,
-            surplus
-        );
+        ECOPlanCandidate<R> candidate =
+                new ECOPlanCandidate<>(executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus);
 
         ECOHyperflowResult.Status status = requestedShortfall > 0 || dependencyShortfall > 0
-            ? ECOHyperflowResult.Status.NO_ROUTE
-            : sourceShortfall > 0
-                ? ECOHyperflowResult.Status.MISSING_SOURCES
-                : ECOHyperflowResult.Status.COMPLETE;
+                ? ECOHyperflowResult.Status.NO_ROUTE
+                : sourceShortfall > 0 ? ECOHyperflowResult.Status.MISSING_SOURCES : ECOHyperflowResult.Status.COMPLETE;
 
         return new ECOHyperflowResult<>(status, candidate, expansions);
     }

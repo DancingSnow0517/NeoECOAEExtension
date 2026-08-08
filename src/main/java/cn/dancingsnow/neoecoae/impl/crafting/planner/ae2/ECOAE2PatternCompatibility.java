@@ -14,14 +14,9 @@ import net.minecraft.world.level.Level;
 
 /** Defines the PatternDetails semantics that can be represented by ECO's immutable operation model. */
 final class ECOAE2PatternCompatibility {
-    private ECOAE2PatternCompatibility() {
-    }
+    private ECOAE2PatternCompatibility() {}
 
-    static Assessment assess(
-        IPatternDetails details,
-        ICraftingService craftingService,
-        Level level
-    ) {
+    static Assessment assess(IPatternDetails details, ICraftingService craftingService, Level level) {
         IPatternDetails.IInput[] inputs;
         try {
             inputs = details.getInputs();
@@ -32,11 +27,7 @@ final class ECOAE2PatternCompatibility {
     }
 
     static Assessment assess(
-        IPatternDetails details,
-        IPatternDetails.IInput[] inputs,
-        ICraftingService craftingService,
-        Level level
-    ) {
+            IPatternDetails details, IPatternDetails.IInput[] inputs, ICraftingService craftingService, Level level) {
         Objects.requireNonNull(details, "details");
         if (inputs == null) {
             return Assessment.rejected("pattern returned null inputs");
@@ -47,9 +38,9 @@ final class ECOAE2PatternCompatibility {
 
         try {
             if (details instanceof AECraftingPattern crafting
-                && crafting.canSubstitute()
-                && AE2PatternIntrospection.classifyPatternEligibility(details)
-                    == AE2PatternIntrospection.PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE) {
+                    && crafting.canSubstitute()
+                    && AE2PatternIntrospection.classifyPatternEligibility(details)
+                            == AE2PatternIntrospection.PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE) {
                 return Assessment.rejected("substitution_special_recipe");
             }
         } catch (RuntimeException | LinkageError failure) {
@@ -68,21 +59,15 @@ final class ECOAE2PatternCompatibility {
             }
             return Assessment.accepted(semantics, false, true);
         } else if (details.getClass() == AEProcessingPattern.class) {
-            return Assessment.accepted(
-                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, true
-            );
+            return Assessment.accepted(IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, true);
         } else if (isKnownBuiltIn(details)) {
             return assessBuiltInAlternatives(details, inputs);
         } else if (hasOnlyCanonicalInputs(inputs, level)) {
             // A third-party pattern may be accepted only while it remains a fixed strict pattern.
-            return Assessment.accepted(
-                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false
-            );
+            return Assessment.accepted(IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false);
         } else {
-            return Assessment.rejected(
-                "third-party pattern with dynamic or alternative inputs must implement "
-                + IECOPlannerCompatiblePattern.class.getName()
-            );
+            return Assessment.rejected("third-party pattern with dynamic or alternative inputs must implement "
+                    + IECOPlannerCompatiblePattern.class.getName());
         }
     }
 
@@ -96,19 +81,16 @@ final class ECOAE2PatternCompatibility {
 
     static boolean isKnownBuiltIn(IPatternDetails details) {
         return details.getClass() == AEProcessingPattern.class
-            || details.getClass() == AECraftingPattern.class
-            || details.getClass() == AESmithingTablePattern.class
-            || details.getClass() == AEStonecuttingPattern.class;
+                || details.getClass() == AECraftingPattern.class
+                || details.getClass() == AESmithingTablePattern.class
+                || details.getClass() == AEStonecuttingPattern.class;
     }
 
     private static Assessment assessBuiltInAlternatives(IPatternDetails.IInput[] inputs) {
         return assessBuiltInAlternatives(null, inputs);
     }
 
-    private static Assessment assessBuiltInAlternatives(
-        IPatternDetails details,
-        IPatternDetails.IInput[] inputs
-    ) {
+    private static Assessment assessBuiltInAlternatives(IPatternDetails details, IPatternDetails.IInput[] inputs) {
         boolean hasSubstitutes = false;
         try {
             for (IPatternDetails.IInput input : inputs) {
@@ -133,12 +115,11 @@ final class ECOAE2PatternCompatibility {
             return Assessment.rejected("built-in input alternatives could not be read");
         }
         return Assessment.accepted(
-            hasSubstitutes
-                ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
-                : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
-            hasSubstitutes,
-            true
-        );
+                hasSubstitutes
+                        ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                        : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
+                hasSubstitutes,
+                true);
     }
 
     private static boolean hasOnlyCanonicalInputs(IPatternDetails.IInput[] inputs, Level level) {
@@ -146,9 +127,9 @@ final class ECOAE2PatternCompatibility {
             for (IPatternDetails.IInput input : inputs) {
                 GenericStack[] possible = input.getPossibleInputs();
                 if (possible.length != 1
-                    || possible[0] == null
-                    || possible[0].amount() <= 0L
-                    || !input.isValid(possible[0].what(), level)) {
+                        || possible[0] == null
+                        || possible[0].amount() <= 0L
+                        || !input.isValid(possible[0].what(), level)) {
                     return false;
                 }
             }
@@ -159,21 +140,17 @@ final class ECOAE2PatternCompatibility {
     }
 
     record Assessment(
-        boolean compatible,
-        IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
-        boolean includeFuzzyInventory,
-        boolean requireUnitMultiplierForAlternatives,
-        boolean stateExpansionAllowed,
-        String rejection
-    ) {
-        private static Assessment accepted(
-            IECOPlannerCompatiblePattern.InputSemantics semantics,
+            boolean compatible,
+            IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
             boolean includeFuzzyInventory,
-            boolean stateExpansionAllowed
-        ) {
-            return new Assessment(
-                true, semantics, includeFuzzyInventory, false, stateExpansionAllowed, ""
-            );
+            boolean requireUnitMultiplierForAlternatives,
+            boolean stateExpansionAllowed,
+            String rejection) {
+        private static Assessment accepted(
+                IECOPlannerCompatiblePattern.InputSemantics semantics,
+                boolean includeFuzzyInventory,
+                boolean stateExpansionAllowed) {
+            return new Assessment(true, semantics, includeFuzzyInventory, false, stateExpansionAllowed, "");
         }
 
         private static Assessment rejected(String rejection) {

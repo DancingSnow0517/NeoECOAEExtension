@@ -22,32 +22,21 @@ import java.util.Set;
  * It optimizes requested output first, then missing source material, operation count and surplus.
  */
 public final class ECOIntegerHyperflowSolver {
-    private ECOIntegerHyperflowSolver() {
-    }
+    private ECOIntegerHyperflowSolver() {}
 
-    public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOSolveBudget budget
-    ) {
+    public static <K, R> ECOHyperflowResult<R> solve(ECOPlanningProblem<K, R> problem, ECOSolveBudget budget) {
         long deadlineNanos = budget.deadlineNanos();
         ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
         return solve(problem, graph, budget, deadlineNanos);
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget) {
         return solve(problem, graph, budget, budget.deadlineNanos());
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget,
-        long deadlineNanos
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget, long deadlineNanos) {
         Search<K, R> search = new Search<>(problem, graph, budget, deadlineNanos);
         return search.run();
     }
@@ -70,11 +59,10 @@ public final class ECOIntegerHyperflowSolver {
         private Termination termination = Termination.NONE;
 
         private Search(
-            ECOPlanningProblem<K, R> problem,
-            ECOPlanningGraph<K, R> graph,
-            ECOSolveBudget budget,
-            long deadlineNanos
-        ) {
+                ECOPlanningProblem<K, R> problem,
+                ECOPlanningGraph<K, R> graph,
+                ECOSolveBudget budget,
+                long deadlineNanos) {
             this.problem = problem;
             this.graph = graph;
             this.budget = budget;
@@ -94,16 +82,15 @@ public final class ECOIntegerHyperflowSolver {
         private ECOHyperflowResult<R> run() {
             explore(new long[operations.size()], 0);
             if (completeBest != null) {
-                return new ECOHyperflowResult<>(
-                    ECOHyperflowResult.Status.COMPLETE,
-                    completeBest,
-                    expandedStates
-                );
+                return new ECOHyperflowResult<>(ECOHyperflowResult.Status.COMPLETE, completeBest, expandedStates);
             }
             if (best == null) {
                 best = new ECOPlanCandidate<>(
-                    Map.of(), ECOPlannerMath.saturatedSum(problem.requested().values()), 0, 0, 0
-                );
+                        Map.of(),
+                        ECOPlannerMath.saturatedSum(problem.requested().values()),
+                        0,
+                        0,
+                        0);
             }
             ECOHyperflowResult.Status status;
             if (exhausted) {
@@ -117,29 +104,27 @@ public final class ECOIntegerHyperflowSolver {
             }
             ECOHyperflowResult<R> result = new ECOHyperflowResult<>(status, best, expandedStates);
             ECOPlanningFailureDiagnostics.logSolverResult(
-                ECOPlanningFailureDiagnostics.Stage.INTEGER_SOLVER,
-                problem,
-                result,
-                "budgetMaxExpandedStates=" + budget.maxExpandedStates()
-                    + " maxDepth=" + budget.maxDepth()
-                    + " extraBatchChoices=" + budget.extraBatchChoices()
-                    + " exhausted=" + exhausted
-                    + " termination=" + termination
-                    + " overflowBranches=" + overflowBranches
-                    + " prunedBranches=" + prunedBranches
-                    + " visitedStates=" + visited.size()
-            );
+                    ECOPlanningFailureDiagnostics.Stage.INTEGER_SOLVER,
+                    problem,
+                    result,
+                    "budgetMaxExpandedStates=" + budget.maxExpandedStates()
+                            + " maxDepth=" + budget.maxDepth()
+                            + " extraBatchChoices=" + budget.extraBatchChoices()
+                            + " exhausted=" + exhausted
+                            + " termination=" + termination
+                            + " overflowBranches=" + overflowBranches
+                            + " prunedBranches=" + prunedBranches
+                            + " visitedStates=" + visited.size());
             if (exhausted) {
                 ECOPlanningFailureDiagnostics.logFailure(
-                    ECOPlanningFailureDiagnostics.Stage.INTEGER_SOLVER,
-                    ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
-                    problem.requested().keySet().stream().findFirst().orElse(null),
-                    problem.requested().values().stream().findFirst().orElse(0L),
-                    "integer",
-                    "termination=" + termination
-                        + " expandedStates=" + expandedStates
-                        + " maxExpandedStates=" + budget.maxExpandedStates()
-                );
+                        ECOPlanningFailureDiagnostics.Stage.INTEGER_SOLVER,
+                        ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                        problem.requested().keySet().stream().findFirst().orElse(null),
+                        problem.requested().values().stream().findFirst().orElse(0L),
+                        "integer",
+                        "termination=" + termination
+                                + " expandedStates=" + expandedStates
+                                + " maxExpandedStates=" + budget.maxExpandedStates());
             }
             return result;
         }
@@ -147,9 +132,7 @@ public final class ECOIntegerHyperflowSolver {
         private void explore(long[] counts, int depth) {
             if (shouldStop()) {
                 exhausted = true;
-                termination = Thread.currentThread().isInterrupted()
-                    ? Termination.INTERRUPTED
-                    : Termination.DEADLINE;
+                termination = Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                 return;
             }
             if (expandedStates >= budget.maxExpandedStates() || depth > budget.maxDepth()) {
@@ -175,9 +158,10 @@ public final class ECOIntegerHyperflowSolver {
                 best = evaluation.candidate;
             }
             if (evaluation.candidate.requestedShortfall() == 0
-                && evaluation.candidate.dependencyShortfall() == 0
-                && evaluation.candidate.sourceShortfall() == 0
-                && ECOInventoryScheduler.schedule(problem, evaluation.candidate).executable()) {
+                    && evaluation.candidate.dependencyShortfall() == 0
+                    && evaluation.candidate.sourceShortfall() == 0
+                    && ECOInventoryScheduler.schedule(problem, evaluation.candidate)
+                            .executable()) {
                 if (completeBest == null || compare(evaluation.candidate, completeBest) < 0) {
                     completeBest = evaluation.candidate;
                 }
@@ -185,8 +169,7 @@ public final class ECOIntegerHyperflowSolver {
                     return;
                 }
             }
-            Deficiency<K> deficiency = chooseExpandableDeficiency(
-                evaluation.balances, evaluation.bootstrapSupply);
+            Deficiency<K> deficiency = chooseExpandableDeficiency(evaluation.balances, evaluation.bootstrapSupply);
             if (deficiency == null) {
                 return;
             }
@@ -194,31 +177,24 @@ public final class ECOIntegerHyperflowSolver {
             List<ECOPlanningOperation<K, R>> producers = new ArrayList<>(graph.producersOf(deficiency.material));
             producers.sort((left, right) -> {
                 int priority = Integer.compare(
-                    statePriority(left, evaluation.balances),
-                    statePriority(right, evaluation.balances)
-                );
+                        statePriority(left, evaluation.balances), statePriority(right, evaluation.balances));
                 if (priority != 0) {
                     return priority;
                 }
                 return Long.compare(
-                    -ECOPlannerMath.positiveNet(left, deficiency.material),
-                    -ECOPlannerMath.positiveNet(right, deficiency.material)
-                );
+                        -ECOPlannerMath.positiveNet(left, deficiency.material),
+                        -ECOPlannerMath.positiveNet(right, deficiency.material));
             });
             long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                deficiency.material, producers, evaluation.bootstrapSupply, Map.of()
-            );
+                    deficiency.material, producers, evaluation.bootstrapSupply, Map.of());
             if (producers.size() == 1) {
                 ECOPlanningOperation<K, R> producer = producers.get(0);
                 if (ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
                     long net = ECOPlannerMath.positiveNet(producer, deficiency.material);
                     if (net > 0L) {
                         long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                        long increment = stateAwareMinimum(
-                            producer,
-                            ECOPlannerMath.ceilDiv(demand, net),
-                            evaluation.balances
-                        );
+                        long increment =
+                                stateAwareMinimum(producer, ECOPlannerMath.ceilDiv(demand, net), evaluation.balances);
                         int index = operationIndices.get(producer);
                         long[] branch = counts.clone();
                         try {
@@ -240,9 +216,8 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return;
                 }
                 if (!ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
@@ -253,11 +228,7 @@ public final class ECOIntegerHyperflowSolver {
                     continue;
                 }
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                long minimum = stateAwareMinimum(
-                    producer,
-                    ECOPlannerMath.ceilDiv(demand, net),
-                    evaluation.balances
-                );
+                long minimum = stateAwareMinimum(producer, ECOPlannerMath.ceilDiv(demand, net), evaluation.balances);
                 int index = operationIndices.get(producer);
                 long[] branch = counts.clone();
                 try {
@@ -273,9 +244,8 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return;
                 }
                 if (!ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
@@ -286,22 +256,17 @@ public final class ECOIntegerHyperflowSolver {
                     continue;
                 }
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                long minimum = stateAwareMinimum(
-                    producer,
-                    ECOPlannerMath.ceilDiv(demand, net),
-                    evaluation.balances
-                );
+                long minimum = stateAwareMinimum(producer, ECOPlannerMath.ceilDiv(demand, net), evaluation.balances);
                 int index = operationIndices.get(producer);
-                for (long increment : branchIncrements(
-                    producer, minimum, producers.size(), evaluation.bootstrapSupply)) {
+                for (long increment :
+                        branchIncrements(producer, minimum, producers.size(), evaluation.bootstrapSupply)) {
                     if (increment == minimum) {
                         continue;
                     }
                     if (shouldStop()) {
                         exhausted = true;
-                        termination = Thread.currentThread().isInterrupted()
-                            ? Termination.INTERRUPTED
-                            : Termination.DEADLINE;
+                        termination =
+                                Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                         return;
                     }
                     long[] branch = counts.clone();
@@ -319,9 +284,7 @@ public final class ECOIntegerHyperflowSolver {
         private Evaluation<K, R> evaluate(long[] counts) {
             if (shouldStop()) {
                 exhausted = true;
-                termination = Thread.currentThread().isInterrupted()
-                    ? Termination.INTERRUPTED
-                    : Termination.DEADLINE;
+                termination = Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                 return null;
             }
             Map<K, Long> available = new LinkedHashMap<>(problem.inventory());
@@ -329,9 +292,8 @@ public final class ECOIntegerHyperflowSolver {
             for (int i = 0; i < operations.size(); i++) {
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return null;
                 }
                 long count = counts[i];
@@ -363,15 +325,13 @@ public final class ECOIntegerHyperflowSolver {
             for (var request : problem.requested().entrySet()) {
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return null;
                 }
                 long present = Math.max(0, available.getOrDefault(request.getKey(), 0L));
                 if (present < request.getValue() && hasPositiveProducer(request.getKey())) {
-                    requestedShortfall = ECOPlannerMath.saturatedAdd(
-                        requestedShortfall, request.getValue() - present);
+                    requestedShortfall = ECOPlannerMath.saturatedAdd(requestedShortfall, request.getValue() - present);
                 }
                 if (!mergeScaled(balances, request.getKey(), request.getValue(), -1L)) {
                     overflowBranches++;
@@ -385,9 +345,8 @@ public final class ECOIntegerHyperflowSolver {
             for (var balance : balances.entrySet()) {
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return null;
                 }
                 if (balance.getValue() < 0) {
@@ -400,29 +359,25 @@ public final class ECOIntegerHyperflowSolver {
                         sourceShortfall = ECOPlannerMath.saturatedAdd(sourceShortfall, missing);
                     }
                 } else if (balance.getValue() > 0
-                    && (graph.materials().contains(balance.getKey())
-                        || problem.requested().containsKey(balance.getKey()))) {
+                        && (graph.materials().contains(balance.getKey())
+                                || problem.requested().containsKey(balance.getKey()))) {
                     surplus = ECOPlannerMath.saturatedAdd(surplus, balance.getValue());
                 }
             }
             return new Evaluation<>(
-                balances,
-                bootstrapSupply,
-                new ECOPlanCandidate<>(executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus)
-            );
+                    balances,
+                    bootstrapSupply,
+                    new ECOPlanCandidate<>(
+                            executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus));
         }
 
-        private Deficiency<K> chooseExpandableDeficiency(
-            Map<K, Long> balances,
-            Map<K, Long> bootstrapSupply
-        ) {
+        private Deficiency<K> chooseExpandableDeficiency(Map<K, Long> balances, Map<K, Long> bootstrapSupply) {
             Deficiency<K> selected = null;
             for (var entry : balances.entrySet()) {
                 if (shouldStop()) {
                     exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
+                    termination =
+                            Thread.currentThread().isInterrupted() ? Termination.INTERRUPTED : Termination.DEADLINE;
                     return null;
                 }
                 if (entry.getValue() >= 0 || !hasStartableProducer(entry.getKey(), bootstrapSupply)) {
@@ -442,17 +397,15 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 for (var producer : graph.producersOf(requested)) {
                     if (ECOPlannerMath.positiveNet(producer, requested) <= 0L
-                        || ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply, Map.of())) {
+                            || ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply, Map.of())) {
                         continue;
                     }
                     for (var input : producer.inputs().entrySet()) {
                         if (producer.outputs().containsKey(input.getKey())
-                            && hasStartableProducer(input.getKey(), bootstrapSupply)) {
+                                && hasStartableProducer(input.getKey(), bootstrapSupply)) {
                             return new Deficiency<>(
-                                input.getKey(),
-                                Math.max(1L, input.getValue()
-                                    - bootstrapSupply.getOrDefault(input.getKey(), 0L))
-                            );
+                                    input.getKey(),
+                                    Math.max(1L, input.getValue() - bootstrapSupply.getOrDefault(input.getKey(), 0L)));
                         }
                     }
                 }
@@ -461,23 +414,16 @@ public final class ECOIntegerHyperflowSolver {
         }
 
         private boolean hasStartableProducer(K material, Map<K, Long> bootstrapSupply) {
-            return graph.producersOf(material).stream().anyMatch(operation ->
-                ECOPlannerMath.positiveNet(operation, material) > 0L
-                    && ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply, Map.of()));
+            return graph.producersOf(material).stream()
+                    .anyMatch(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L
+                            && ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply, Map.of()));
         }
 
         private List<Long> branchIncrements(
-            ECOPlanningOperation<K, R> producer,
-            long minimum,
-            int producerCount,
-            Map<K, Long> bootstrapSupply
-        ) {
+                ECOPlanningOperation<K, R> producer, long minimum, int producerCount, Map<K, Long> bootstrapSupply) {
             Set<Long> increments = new java.util.LinkedHashSet<>();
             increments.add(minimum);
-            long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(
-                producer,
-                bootstrapSupply
-            );
+            long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(producer, bootstrapSupply);
             if (stateCapacity > 0L && stateCapacity < Long.MAX_VALUE) {
                 increments.add(Math.min(minimum, stateCapacity));
             }
@@ -505,27 +451,19 @@ public final class ECOIntegerHyperflowSolver {
             return List.copyOf(increments);
         }
 
-        private long immediatelyExecutable(
-            ECOPlanningOperation<K, R> operation,
-            Map<K, Long> bootstrapSupply
-        ) {
+        private long immediatelyExecutable(ECOPlanningOperation<K, R> operation, Map<K, Long> bootstrapSupply) {
             long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, bootstrapSupply);
             if (stateCapacity != Long.MAX_VALUE) {
                 return stateCapacity;
             }
             long result = Long.MAX_VALUE;
             for (var input : operation.inputs().entrySet()) {
-                result = Math.min(result,
-                    bootstrapSupply.getOrDefault(input.getKey(), 0L) / input.getValue());
+                result = Math.min(result, bootstrapSupply.getOrDefault(input.getKey(), 0L) / input.getValue());
             }
             return operation.inputs().isEmpty() ? Long.MAX_VALUE : result;
         }
 
-        private long stateAwareMinimum(
-            ECOPlanningOperation<K, R> operation,
-            long minimum,
-            Map<K, Long> balances
-        ) {
+        private long stateAwareMinimum(ECOPlanningOperation<K, R> operation, long minimum, Map<K, Long> balances) {
             long capacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, balances);
             if (capacity == Long.MAX_VALUE) {
                 return minimum;
@@ -533,10 +471,7 @@ public final class ECOIntegerHyperflowSolver {
             return capacity > 0L ? Math.min(minimum, capacity) : 1L;
         }
 
-        private int statePriority(
-            ECOPlanningOperation<K, R> operation,
-            Map<K, Long> balances
-        ) {
+        private int statePriority(ECOPlanningOperation<K, R> operation, Map<K, Long> balances) {
             if (operation.stateTransitionInputs().isEmpty()) {
                 return 2;
             }
@@ -553,9 +488,7 @@ public final class ECOIntegerHyperflowSolver {
                 var operation = operations.get(index);
                 for (var output : operation.outputs().entrySet()) {
                     long input = operation.inputAmount(output.getKey());
-                    long perBatch = input == 0L
-                        ? output.getValue()
-                        : Math.max(0L, output.getValue() - input);
+                    long perBatch = input == 0L ? output.getValue() : Math.max(0L, output.getValue() - input);
                     if (perBatch == 0L) {
                         continue;
                     }
@@ -581,9 +514,9 @@ public final class ECOIntegerHyperflowSolver {
                 if (candidate.executions().getOrDefault(operation.reference(), 0L) <= 0L) {
                     return false;
                 }
-                return operation.inputs().keySet().stream().anyMatch(material ->
-                    operation.outputs().containsKey(material)
-                        && ECOPlannerMath.positiveNet(operation, material) > 0L);
+                return operation.inputs().keySet().stream()
+                        .anyMatch(material -> operation.outputs().containsKey(material)
+                                && ECOPlannerMath.positiveNet(operation, material) > 0L);
             });
         }
 
@@ -593,7 +526,9 @@ public final class ECOIntegerHyperflowSolver {
             if (result == 0) result = Long.compare(left.sourceShortfall(), right.sourceShortfall());
             if (result == 0) result = Long.compare(left.totalExecutions(), right.totalExecutions());
             if (result == 0) result = Long.compare(left.surplus(), right.surplus());
-            if (result == 0) result = Integer.compare(left.executions().size(), right.executions().size());
+            if (result == 0)
+                result = Integer.compare(
+                        left.executions().size(), right.executions().size());
             return result;
         }
     }
@@ -609,14 +544,9 @@ public final class ECOIntegerHyperflowSolver {
     }
 
     private record Evaluation<K, R>(
-        Map<K, Long> balances,
-        Map<K, Long> bootstrapSupply,
-        ECOPlanCandidate<R> candidate
-    ) {
-    }
+            Map<K, Long> balances, Map<K, Long> bootstrapSupply, ECOPlanCandidate<R> candidate) {}
 
-    private record Deficiency<K>(K material, long amount) {
-    }
+    private record Deficiency<K>(K material, long amount) {}
 
     private enum Termination {
         NONE,

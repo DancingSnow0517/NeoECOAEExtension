@@ -4,12 +4,11 @@ import java.util.List;
 import java.util.Map;
 
 public record ECOInventorySchedule<K, R>(
-    boolean executable,
-    List<ECOScheduledStep<R>> steps,
-    Map<K, Long> remainingInventory,
-    Map<K, Long> blockedBy,
-    Map<K, Long> syntheticSources
-) {
+        boolean executable,
+        List<ECOScheduledStep<R>> steps,
+        Map<K, Long> remainingInventory,
+        Map<K, Long> blockedBy,
+        Map<K, Long> syntheticSources) {
     public ECOInventorySchedule {
         steps = List.copyOf(steps);
         remainingInventory = Map.copyOf(remainingInventory);
@@ -18,11 +17,10 @@ public record ECOInventorySchedule<K, R>(
     }
 
     public ECOInventorySchedule(
-        boolean executable,
-        List<ECOScheduledStep<R>> steps,
-        Map<K, Long> remainingInventory,
-        Map<K, Long> blockedBy
-    ) {
+            boolean executable,
+            List<ECOScheduledStep<R>> steps,
+            Map<K, Long> remainingInventory,
+            Map<K, Long> blockedBy) {
         this(executable, steps, remainingInventory, blockedBy, Map.of());
     }
 }

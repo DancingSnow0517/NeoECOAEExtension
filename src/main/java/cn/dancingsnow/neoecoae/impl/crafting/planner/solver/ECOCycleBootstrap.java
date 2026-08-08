@@ -13,14 +13,10 @@ import java.util.Map;
 public final class ECOCycleBootstrap {
     private static final long BOOTSTRAP_PENALTY = 1_000_000L;
 
-    private ECOCycleBootstrap() {
-    }
+    private ECOCycleBootstrap() {}
 
     public static <K, R> boolean canPotentiallyStart(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> balances,
-        Map<K, Long> requested
-    ) {
+            ECOPlanningOperation<K, R> operation, Map<K, Long> balances, Map<K, Long> requested) {
         for (var input : operation.inputs().entrySet()) {
             K material = input.getKey();
             if (!operation.outputs().containsKey(material)) {
@@ -37,12 +33,11 @@ public final class ECOCycleBootstrap {
 
     /** Scores a missing self-input without treating future loop output as a source. */
     public static <K, R> long missingBootstrapAmount(
-        ECOPlanningOperation<K, R> operation,
-        K material,
-        long required,
-        Map<K, Long> balances,
-        Map<K, Long> requested
-    ) {
+            ECOPlanningOperation<K, R> operation,
+            K material,
+            long required,
+            Map<K, Long> balances,
+            Map<K, Long> requested) {
         if (!operation.outputs().containsKey(material)) {
             return required;
         }
@@ -59,11 +54,7 @@ public final class ECOCycleBootstrap {
 
     /** Returns the minimum seed deficit needed to activate a positive self-growth operation. */
     public static <K, R> long bootstrapDeficit(
-        K material,
-        List<ECOPlanningOperation<K, R>> producers,
-        Map<K, Long> balances,
-        Map<K, Long> requested
-    ) {
+            K material, List<ECOPlanningOperation<K, R>> producers, Map<K, Long> balances, Map<K, Long> requested) {
         long available = availableBeforeRequest(material, balances, requested);
         long required = 0L;
         for (var producer : producers) {
@@ -77,10 +68,7 @@ public final class ECOCycleBootstrap {
     }
 
     public static <K, R> long bootstrapDeficit(
-        K material,
-        List<ECOPlanningOperation<K, R>> producers,
-        Map<K, Long> balances
-    ) {
+            K material, List<ECOPlanningOperation<K, R>> producers, Map<K, Long> balances) {
         long available = Math.max(0L, balances.getOrDefault(material, 0L));
         long required = Long.MAX_VALUE;
         for (var producer : producers) {
@@ -93,11 +81,7 @@ public final class ECOCycleBootstrap {
         return required == Long.MAX_VALUE ? 0L : required;
     }
 
-    public static <K> long availableBeforeRequest(
-        K material,
-        Map<K, Long> balances,
-        Map<K, Long> requested
-    ) {
+    public static <K> long availableBeforeRequest(K material, Map<K, Long> balances, Map<K, Long> requested) {
         long balance = balances.getOrDefault(material, 0L);
         long requestedAmount = requested.getOrDefault(material, 0L);
         try {
@@ -106,5 +90,4 @@ public final class ECOCycleBootstrap {
             return balance < 0L ? 0L : Long.MAX_VALUE;
         }
     }
-
 }

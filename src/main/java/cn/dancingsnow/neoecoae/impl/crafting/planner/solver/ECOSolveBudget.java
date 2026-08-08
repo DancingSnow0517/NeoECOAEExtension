@@ -1,11 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
-public record ECOSolveBudget(
-    long maxExpandedStates,
-    int maxDepth,
-    int extraBatchChoices,
-    long maxDurationNanos
-) {
+public record ECOSolveBudget(long maxExpandedStates, int maxDepth, int extraBatchChoices, long maxDurationNanos) {
     private static final long DEFAULT_MAX_DURATION_NANOS = 4_000_000_000L;
     private static final long DEBUG_MAX_DURATION_NANOS = 30_000_000_000L;
     public static final ECOSolveBudget DEFAULT = new ECOSolveBudget(50_000, 256, 2);
@@ -29,11 +24,10 @@ public record ECOSolveBudget(
     /** Expands diagnostic runs without changing normal server planning limits. */
     public ECOSolveBudget forDebug() {
         return new ECOSolveBudget(
-            Math.max(maxExpandedStates, 5_000_000L),
-            Math.max(maxDepth, 1_024),
-            Math.max(extraBatchChoices, 16),
-            Math.max(maxDurationNanos, DEBUG_MAX_DURATION_NANOS)
-        );
+                Math.max(maxExpandedStates, 5_000_000L),
+                Math.max(maxDepth, 1_024),
+                Math.max(extraBatchChoices, 16),
+                Math.max(maxDurationNanos, DEBUG_MAX_DURATION_NANOS));
     }
 
     public boolean extendedForDebug() {
@@ -42,7 +36,7 @@ public record ECOSolveBudget(
 
     public static boolean shouldStop(long deadlineNanos) {
         return Thread.currentThread().isInterrupted()
-            || (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0L);
+                || (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0L);
     }
 
     static long phaseDeadline(long overallDeadlineNanos, long phaseDurationNanos) {

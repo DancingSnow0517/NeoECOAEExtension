@@ -805,7 +805,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.of(new NECraftingHostBatchInfo(
                 cluster != null && cluster.isHighEnergyNetworkMode(),
                 getLocalThreadCount(),
-                isVirtualCraftingMode() ? Long.MAX_VALUE : getLocalMaxBatchPerThread()));
+                isVirtualCraftingMode()
+                        ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
+                        : getLocalMaxBatchPerThread()));
     }
 
     /** A complete eight-host x8 exchange executes one whole recipe task as virtual ledger work. */
@@ -844,7 +846,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         // multiplier to each lane, avoiding a second queue multiplication.
         boolean networkMode = cluster.getNetworkCluster() != null;
         int capacity = isVirtualCraftingMode()
-                ? Integer.MAX_VALUE
+                ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
                 : calculateWorkerBatchCapacity(
                         BASE_CRAFTS_PER_WORKER,
                         networkMode ? getTier().getOverclockedCrafterQueueMultiply() : 1,

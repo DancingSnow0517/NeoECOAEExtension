@@ -16,20 +16,16 @@ import java.util.Map;
 public final class ECOPlannedInputs {
     private static final ReferenceQueue<ICraftingPlan> STALE_PLANS = new ReferenceQueue<>();
     private static final Map<IdentityWeakReference, Map<IPatternDetails, ArrayDeque<PlannedInputBatch>>> PENDING =
-        new HashMap<>();
+            new HashMap<>();
 
-    private ECOPlannedInputs() {
-    }
+    private ECOPlannedInputs() {}
 
-    public static void register(
-        CraftingPlan plan,
-        List<ECOScheduledStep<ECOAE2PatternVariant>> steps
-    ) {
+    public static void register(CraftingPlan plan, List<ECOScheduledStep<ECOAE2PatternVariant>> steps) {
         Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = new LinkedHashMap<>();
         for (var step : steps) {
             ECOAE2PatternVariant variant = step.operation();
-            ArrayDeque<PlannedInputBatch> batches = selections.computeIfAbsent(
-                variant.pattern(), ignored -> new ArrayDeque<>());
+            ArrayDeque<PlannedInputBatch> batches =
+                    selections.computeIfAbsent(variant.pattern(), ignored -> new ArrayDeque<>());
             PlannedInputBatch last = batches.peekLast();
             if (last != null && last.selectedInputs().equals(variant.selectedInputs())) {
                 last.add(step.batches());
@@ -46,9 +42,8 @@ public final class ECOPlannedInputs {
     public static Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> take(ICraftingPlan plan) {
         synchronized (PENDING) {
             removeStalePlans();
-            Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = PENDING.remove(
-                new IdentityWeakReference(plan)
-            );
+            Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections =
+                    PENDING.remove(new IdentityWeakReference(plan));
             return selections == null ? Map.of() : selections;
         }
     }
@@ -79,9 +74,7 @@ public final class ECOPlannedInputs {
                 return true;
             }
             ICraftingPlan plan = get();
-            return other instanceof IdentityWeakReference reference
-                && plan != null
-                && plan == reference.get();
+            return other instanceof IdentityWeakReference reference && plan != null && plan == reference.get();
         }
 
         @Override

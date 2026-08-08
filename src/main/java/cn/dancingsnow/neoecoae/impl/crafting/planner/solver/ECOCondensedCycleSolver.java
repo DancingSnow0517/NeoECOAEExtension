@@ -30,17 +30,14 @@ public final class ECOCondensedCycleSolver {
     private static final int MAX_COMPONENT_MATERIALS = 32;
     private static final int MAX_COMPONENT_OPERATIONS = 64;
     private static final long MAX_COMPONENT_SOLVE_MILLIS = 2_000L;
-    private static final BigDecimal EXTERNAL_INPUT_WEIGHT = BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE);
+    private static final BigDecimal EXTERNAL_INPUT_WEIGHT =
+            BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE);
     private static final BigDecimal BOUNDARY_DEFICIT_WEIGHT = BigDecimal.TEN.pow(40);
 
-    private ECOCondensedCycleSolver() {
-    }
+    private ECOCondensedCycleSolver() {}
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        long deadlineNanos
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, long deadlineNanos) {
         Components<K> components = Components.build(graph);
         if (!components.hasCycle()) {
             return Optional.empty();
@@ -63,7 +60,8 @@ public final class ECOCondensedCycleSolver {
         problem.requested().keySet().forEach(key -> enqueue(key, balances, graph, queue, queued));
 
         long expansions = 0L;
-        long maxExpansions = Math.max(64L, graph.materials().size() * 4L + graph.operations().size() * 2L);
+        long maxExpansions =
+                Math.max(64L, graph.materials().size() * 4L + graph.operations().size() * 2L);
         try {
             while (!queue.isEmpty()) {
                 if (ECOSolveBudget.shouldStop(deadlineNanos) || ++expansions > maxExpansions) {
@@ -79,53 +77,58 @@ public final class ECOCondensedCycleSolver {
                 Set<K> component = components.of(material);
                 if (component == null || !components.isCyclic(component)) {
                     if (!expandAcyclic(material, balances, executions, graph, queue, queued)) {
-                        logFailure(problem, "no_acyclic_producer material=" + material
-                            + " producerCount=" + graph.producersOf(material).size());
+                        logFailure(
+                                problem,
+                                "no_acyclic_producer material=" + material + " producerCount="
+                                        + graph.producersOf(material).size());
                         return Optional.empty();
                     }
                     continue;
                 }
 
                 List<ECOPlanningOperation<K, R>> localOperations = graph.operations().stream()
-                    .filter(operation -> operation.selectableOutputs().stream().anyMatch(component::contains))
-                    .toList();
+                        .filter(operation ->
+                                operation.selectableOutputs().stream().anyMatch(component::contains))
+                        .toList();
                 if (component.size() > MAX_COMPONENT_MATERIALS
-                    || localOperations.isEmpty()
-                    || localOperations.size() > MAX_COMPONENT_OPERATIONS) {
-                    logFailure(problem, "cycle_component_limit materials=" + component.size()
-                        + " operations=" + localOperations.size());
+                        || localOperations.isEmpty()
+                        || localOperations.size() > MAX_COMPONENT_OPERATIONS) {
+                    logFailure(
+                            problem,
+                            "cycle_component_limit materials=" + component.size() + " operations="
+                                    + localOperations.size());
                     return Optional.empty();
                 }
 
-                LocalSolution<K, R> local = solveProductiveSelfCycle(
-                    component, localOperations, material, balances, problem.inventory());
+                LocalSolution<K, R> local =
+                        solveProductiveSelfCycle(component, localOperations, material, balances, problem.inventory());
                 if (local == null) {
                     local = solveComponent(
-                        component, localOperations, material, balances, problem.inventory(), deadlineNanos);
+                            component, localOperations, material, balances, problem.inventory(), deadlineNanos);
                 }
                 if (local == null) {
-                    logFailure(problem, "local_milp_no_result materials=" + component.size()
-                        + " operations=" + localOperations.size()
-                        + " deficitMaterial=" + material
-                        + " deficit=" + Math.negateExact(balances.get(material)));
+                    logFailure(
+                            problem,
+                            "local_milp_no_result materials=" + component.size()
+                                    + " operations=" + localOperations.size()
+                                    + " deficitMaterial=" + material
+                                    + " deficit=" + Math.negateExact(balances.get(material)));
                     return Optional.empty();
                 }
-                local.executions().forEach((reference, count) ->
-                    executions.merge(reference, count, Math::addExact));
+                local.executions().forEach((reference, count) -> executions.merge(reference, count, Math::addExact));
                 cycleOperations.addAll(local.operationReferences());
                 if (local.missingSeedStarter() != null) {
                     missingSeedStarters.add(local.missingSeedStarter().reference());
                 }
-                local.missingSeedAmounts().forEach((key, amount) ->
-                    missingSeedAmounts.merge(key, amount, Math::max));
+                local.missingSeedAmounts().forEach((key, amount) -> missingSeedAmounts.merge(key, amount, Math::max));
                 apply(localOperations, local.executions(), balances);
                 terminalBoundaryDeficits.addAll(local.boundaryDeficits().keySet());
-                local.boundaryDeficits().forEach((key, amount) ->
-                    boundaryDeficitAmounts.merge(key, amount, Math::addExact));
+                local.boundaryDeficits()
+                        .forEach((key, amount) -> boundaryDeficitAmounts.merge(key, amount, Math::addExact));
                 for (var operation : localOperations) {
                     operation.inputs().keySet().stream()
-                        .filter(key -> !terminalBoundaryDeficits.contains(key))
-                        .forEach(key -> enqueue(key, balances, graph, queue, queued));
+                            .filter(key -> !terminalBoundaryDeficits.contains(key))
+                            .forEach(key -> enqueue(key, balances, graph, queue, queued));
                 }
             }
         } catch (ArithmeticException overflow) {
@@ -136,22 +139,22 @@ public final class ECOCondensedCycleSolver {
         graph.operations().forEach(operation -> expandable.addAll(operation.selectableOutputs()));
         expandable.removeAll(terminalBoundaryDeficits);
         ECOHyperflowResult<R> built = ECOPlannerMath.buildResult(
-            balances, executions, problem.requested(), expandable, graph.materials(), expansions);
+                balances, executions, problem.requested(), expandable, graph.materials(), expansions);
         ECOPlanCandidate<R> candidate = built.candidate();
         var originalSchedule = ECOInventoryScheduler.schedule(problem, candidate);
-        Set<R> effectiveMissingSeedStarters = originalSchedule.executable()
-            ? Set.of()
-            : Set.copyOf(missingSeedStarters);
+        Set<R> effectiveMissingSeedStarters =
+                originalSchedule.executable() ? Set.of() : Set.copyOf(missingSeedStarters);
         ECOHyperflowResult.Status status = built.status();
         if (!effectiveMissingSeedStarters.isEmpty() && status == ECOHyperflowResult.Status.COMPLETE) {
             status = ECOHyperflowResult.Status.MISSING_SOURCES;
         }
-        if (status != ECOHyperflowResult.Status.COMPLETE
-            && status != ECOHyperflowResult.Status.MISSING_SOURCES) {
-            logFailure(problem, "unresolved_balances status=" + status
-                + " requestedShortfall=" + built.candidate().requestedShortfall()
-                + " dependencyShortfall=" + built.candidate().dependencyShortfall()
-                + " sourceShortfall=" + built.candidate().sourceShortfall());
+        if (status != ECOHyperflowResult.Status.COMPLETE && status != ECOHyperflowResult.Status.MISSING_SOURCES) {
+            logFailure(
+                    problem,
+                    "unresolved_balances status=" + status
+                            + " requestedShortfall=" + built.candidate().requestedShortfall()
+                            + " dependencyShortfall=" + built.candidate().dependencyShortfall()
+                            + " sourceShortfall=" + built.candidate().sourceShortfall());
             return Optional.empty();
         }
 
@@ -166,32 +169,32 @@ public final class ECOCondensedCycleSolver {
         }
         ECOPlanningProblem<K, R> schedulableProblem = withSyntheticInventory(problem, schedulingSources);
         var schedule = originalSchedule.executable()
-            ? originalSchedule
-            : ECOInventoryScheduler.schedule(schedulableProblem, candidate);
+                ? originalSchedule
+                : ECOInventoryScheduler.schedule(schedulableProblem, candidate);
         if (!schedule.executable()) {
-            logFailure(problem, "scheduler_blocked blockedBy=" + schedule.blockedBy()
-                + " steps=" + schedule.steps().size());
+            logFailure(
+                    problem,
+                    "scheduler_blocked blockedBy=" + schedule.blockedBy() + " steps="
+                            + schedule.steps().size());
             return Optional.empty();
         }
         return Optional.of(new ECOHyperflowResult<>(
-            status,
-            candidate,
-            expansions,
-            Optional.of(new ECOCycleTrace<>(cycleOperations, effectiveMissingSeedStarters))
-        ));
+                status,
+                candidate,
+                expansions,
+                Optional.of(new ECOCycleTrace<>(cycleOperations, effectiveMissingSeedStarters))));
     }
 
     private static <K, R> boolean expandAcyclic(
-        K material,
-        Map<K, Long> balances,
-        Map<R, Long> executions,
-        ECOPlanningGraph<K, R> graph,
-        ArrayDeque<K> queue,
-        Set<K> queued
-    ) {
+            K material,
+            Map<K, Long> balances,
+            Map<R, Long> executions,
+            ECOPlanningGraph<K, R> graph,
+            ArrayDeque<K> queue,
+            Set<K> queued) {
         List<ECOPlanningOperation<K, R>> producers = graph.producersOf(material).stream()
-            .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
-            .toList();
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                .toList();
         if (producers.isEmpty()) {
             return true;
         }
@@ -208,11 +211,7 @@ public final class ECOCondensedCycleSolver {
     }
 
     private static <K, R> ECOPlanningOperation<K, R> chooseAcyclicProducer(
-        K material,
-        long deficit,
-        List<ECOPlanningOperation<K, R>> producers,
-        Map<K, Long> balances
-    ) {
+            K material, long deficit, List<ECOPlanningOperation<K, R>> producers, Map<K, Long> balances) {
         ECOPlanningOperation<K, R> best = null;
         long bestMissingInputs = Long.MAX_VALUE;
         long bestBatches = Long.MAX_VALUE;
@@ -228,13 +227,14 @@ public final class ECOCondensedCycleSolver {
                 long required = ECOPlannerMath.saturatedMultiply(input.getValue(), batches);
                 long available = Math.max(0L, balances.getOrDefault(input.getKey(), 0L));
                 missingInputs = ECOPlannerMath.saturatedAdd(
-                    missingInputs, Math.max(0L, required - Math.min(required, available)));
+                        missingInputs, Math.max(0L, required - Math.min(required, available)));
             }
             if (best == null
-                || missingInputs < bestMissingInputs
-                || (missingInputs == bestMissingInputs && batches < bestBatches)
-                || (missingInputs == bestMissingInputs && batches == bestBatches
-                    && producer.inputs().size() < bestInputKinds)) {
+                    || missingInputs < bestMissingInputs
+                    || (missingInputs == bestMissingInputs && batches < bestBatches)
+                    || (missingInputs == bestMissingInputs
+                            && batches == bestBatches
+                            && producer.inputs().size() < bestInputKinds)) {
                 best = producer;
                 bestMissingInputs = missingInputs;
                 bestBatches = batches;
@@ -245,13 +245,12 @@ public final class ECOCondensedCycleSolver {
     }
 
     private static <K, R> LocalSolution<K, R> solveComponent(
-        Set<K> component,
-        List<ECOPlanningOperation<K, R>> operations,
-        K deficientMaterial,
-        Map<K, Long> balances,
-        Map<K, Long> initialInventory,
-        long deadlineNanos
-    ) {
+            Set<K> component,
+            List<ECOPlanningOperation<K, R>> operations,
+            K deficientMaterial,
+            Map<K, Long> balances,
+            Map<K, Long> initialInventory,
+            long deadlineNanos) {
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
             return null;
         }
@@ -260,47 +259,55 @@ public final class ECOCondensedCycleSolver {
         Map<K, Variable> boundaryDeficits = new LinkedHashMap<>();
         for (int i = 0; i < operations.size(); i++) {
             long externalInput = operations.get(i).inputs().entrySet().stream()
-                .filter(entry -> !component.contains(entry.getKey()))
-                .map(Map.Entry::getValue)
-                .reduce(0L, ECOPlannerMath::saturatedAdd);
-            BigDecimal weight = BigDecimal.ONE.add(
-                EXTERNAL_INPUT_WEIGHT.multiply(BigDecimal.valueOf(externalInput)));
-            variables.put(operations.get(i), model.addVariable("operation_" + i)
-                .integer(true).lower(BigDecimal.ZERO).weight(weight));
+                    .filter(entry -> !component.contains(entry.getKey()))
+                    .map(Map.Entry::getValue)
+                    .reduce(0L, ECOPlannerMath::saturatedAdd);
+            BigDecimal weight = BigDecimal.ONE.add(EXTERNAL_INPUT_WEIGHT.multiply(BigDecimal.valueOf(externalInput)));
+            variables.put(
+                    operations.get(i),
+                    model.addVariable("operation_" + i)
+                            .integer(true)
+                            .lower(BigDecimal.ZERO)
+                            .weight(weight));
         }
         int materialIndex = 0;
         for (K material : component) {
-            BigDecimal minimumNetChange = BigDecimal.valueOf(balances.getOrDefault(material, 0L)).negate();
-            Expression expression = model.addExpression("material_" + materialIndex++).lower(minimumNetChange);
+            BigDecimal minimumNetChange =
+                    BigDecimal.valueOf(balances.getOrDefault(material, 0L)).negate();
+            Expression expression =
+                    model.addExpression("material_" + materialIndex++).lower(minimumNetChange);
             for (var entry : variables.entrySet()) {
                 long coefficient = Math.subtractExact(
-                    entry.getKey().outputAmount(material), entry.getKey().inputAmount(material));
+                        entry.getKey().outputAmount(material), entry.getKey().inputAmount(material));
                 if (coefficient != 0L) {
                     expression.set(entry.getValue(), coefficient);
                 }
             }
             if (!material.equals(deficientMaterial)) {
                 Variable deficit = model.addVariable("boundary_deficit_" + materialIndex)
-                    .integer(true).lower(BigDecimal.ZERO).weight(BOUNDARY_DEFICIT_WEIGHT);
+                        .integer(true)
+                        .lower(BigDecimal.ZERO)
+                        .weight(BOUNDARY_DEFICIT_WEIGHT);
                 boundaryDeficits.put(material, deficit);
                 expression.set(deficit, BigDecimal.ONE);
             }
         }
         for (K material : component) {
             long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
-            boolean needsSeed = operations.stream().anyMatch(operation ->
-                operation.inputAmount(material) > 0L
-                    && operation.outputAmount(material) > operation.inputAmount(material)
-                    && available < operation.inputAmount(material));
+            boolean needsSeed = operations.stream()
+                    .anyMatch(operation -> operation.inputAmount(material) > 0L
+                            && operation.outputAmount(material) > operation.inputAmount(material)
+                            && available < operation.inputAmount(material));
             if (!needsSeed) {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> inboundStarters = operations.stream()
-                .filter(operation -> operation.inputAmount(material) == 0L)
-                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
-                .toList();
+                    .filter(operation -> operation.inputAmount(material) == 0L)
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                    .toList();
             if (!inboundStarters.isEmpty()) {
-                Expression bootstrap = model.addExpression("external_bootstrap_" + material).lower(BigDecimal.ONE);
+                Expression bootstrap =
+                        model.addExpression("external_bootstrap_" + material).lower(BigDecimal.ONE);
                 inboundStarters.forEach(operation -> bootstrap.set(variables.get(operation), BigDecimal.ONE));
             }
         }
@@ -326,9 +333,13 @@ public final class ECOCondensedCycleSolver {
             exactBoundaryDeficits.put(entry.getKey(), deficit);
         }
         if (!satisfiesExactComponentConstraints(
-            component, operations, exactCounts, exactBoundaryDeficits,
-            deficientMaterial, balances, initialInventory
-        )) {
+                component,
+                operations,
+                exactCounts,
+                exactBoundaryDeficits,
+                deficientMaterial,
+                balances,
+                initialInventory)) {
             return null;
         }
         Map<R, Long> executions = new LinkedHashMap<>();
@@ -344,8 +355,8 @@ public final class ECOCondensedCycleSolver {
             }
         }
         ECOPlanningOperation<K, R> starter = operations.stream()
-            .filter(operation -> executions.containsKey(operation.reference()))
-            .anyMatch(operation -> canStart(operation, initialInventory))
+                        .filter(operation -> executions.containsKey(operation.reference()))
+                        .anyMatch(operation -> canStart(operation, initialInventory))
                 ? null
                 : preferredStarter(component, operations, executions, deficientMaterial, initialInventory);
         Map<K, Long> missingSeedAmounts = new LinkedHashMap<>();
@@ -368,8 +379,12 @@ public final class ECOCondensedCycleSolver {
                 }
             }
         }
-        return new LocalSolution<>(executions, Set.copyOf(references), starter,
-            Map.copyOf(missingSeedAmounts), Map.copyOf(usedBoundaryDeficits));
+        return new LocalSolution<>(
+                executions,
+                Set.copyOf(references),
+                starter,
+                Map.copyOf(missingSeedAmounts),
+                Map.copyOf(usedBoundaryDeficits));
     }
 
     private static BigInteger exactInteger(BigDecimal value) {
@@ -377,25 +392,22 @@ public final class ECOCondensedCycleSolver {
             return null;
         }
         BigDecimal nearest = value.setScale(0, RoundingMode.HALF_EVEN);
-        return value.subtract(nearest).abs().compareTo(INTEGER_TOLERANCE) <= 0
-            ? nearest.toBigIntegerExact()
-            : null;
+        return value.subtract(nearest).abs().compareTo(INTEGER_TOLERANCE) <= 0 ? nearest.toBigIntegerExact() : null;
     }
 
     private static <K, R> boolean satisfiesExactComponentConstraints(
-        Set<K> component,
-        List<ECOPlanningOperation<K, R>> operations,
-        Map<ECOPlanningOperation<K, R>, BigInteger> counts,
-        Map<K, BigInteger> boundaryDeficits,
-        K deficientMaterial,
-        Map<K, Long> balances,
-        Map<K, Long> initialInventory
-    ) {
+            Set<K> component,
+            List<ECOPlanningOperation<K, R>> operations,
+            Map<ECOPlanningOperation<K, R>, BigInteger> counts,
+            Map<K, BigInteger> boundaryDeficits,
+            K deficientMaterial,
+            Map<K, Long> balances,
+            Map<K, Long> initialInventory) {
         for (K material : component) {
             BigInteger net = BigInteger.ZERO;
             for (var operation : operations) {
-                long coefficient = Math.subtractExact(
-                    operation.outputAmount(material), operation.inputAmount(material));
+                long coefficient =
+                        Math.subtractExact(operation.outputAmount(material), operation.inputAmount(material));
                 if (coefficient != 0L) {
                     net = net.add(counts.get(operation).multiply(BigInteger.valueOf(coefficient)));
                 }
@@ -403,7 +415,8 @@ public final class ECOCondensedCycleSolver {
             if (!material.equals(deficientMaterial)) {
                 net = net.add(boundaryDeficits.getOrDefault(material, BigInteger.ZERO));
             }
-            BigInteger minimum = BigInteger.valueOf(balances.getOrDefault(material, 0L)).negate();
+            BigInteger minimum =
+                    BigInteger.valueOf(balances.getOrDefault(material, 0L)).negate();
             if (net.compareTo(minimum) < 0) {
                 return false;
             }
@@ -411,21 +424,21 @@ public final class ECOCondensedCycleSolver {
 
         for (K material : component) {
             long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
-            boolean needsSeed = operations.stream().anyMatch(operation ->
-                operation.inputAmount(material) > 0L
-                    && operation.outputAmount(material) > operation.inputAmount(material)
-                    && available < operation.inputAmount(material));
+            boolean needsSeed = operations.stream()
+                    .anyMatch(operation -> operation.inputAmount(material) > 0L
+                            && operation.outputAmount(material) > operation.inputAmount(material)
+                            && available < operation.inputAmount(material));
             if (!needsSeed) {
                 continue;
             }
             BigInteger starters = operations.stream()
-                .filter(operation -> operation.inputAmount(material) == 0L)
-                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
-                .map(counts::get)
-                .reduce(BigInteger.ZERO, BigInteger::add);
-            boolean hasInboundStarter = operations.stream().anyMatch(operation ->
-                operation.inputAmount(material) == 0L
-                    && ECOPlannerMath.positiveNet(operation, material) > 0L);
+                    .filter(operation -> operation.inputAmount(material) == 0L)
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                    .map(counts::get)
+                    .reduce(BigInteger.ZERO, BigInteger::add);
+            boolean hasInboundStarter = operations.stream()
+                    .anyMatch(operation -> operation.inputAmount(material) == 0L
+                            && ECOPlannerMath.positiveNet(operation, material) > 0L);
             if (hasInboundStarter && starters.signum() <= 0) {
                 return false;
             }
@@ -435,12 +448,11 @@ public final class ECOCondensedCycleSolver {
 
     /** Handles A + external inputs -> nA without paying the MILP setup cost. */
     private static <K, R> LocalSolution<K, R> solveProductiveSelfCycle(
-        Set<K> component,
-        List<ECOPlanningOperation<K, R>> operations,
-        K deficientMaterial,
-        Map<K, Long> balances,
-        Map<K, Long> initialInventory
-    ) {
+            Set<K> component,
+            List<ECOPlanningOperation<K, R>> operations,
+            K deficientMaterial,
+            Map<K, Long> balances,
+            Map<K, Long> initialInventory) {
         if (component.size() != 1) {
             return null;
         }
@@ -448,15 +460,15 @@ public final class ECOCondensedCycleSolver {
         // self-cycle shortcut must leave that upstream route to the SCC model.
         // Otherwise the shortcut reports a source deficit before the seed
         // producer has a chance to be scheduled.
-        if (operations.stream().anyMatch(operation ->
-            operation.inputAmount(deficientMaterial) == 0L
-                && ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)) {
+        if (operations.stream()
+                .anyMatch(operation -> operation.inputAmount(deficientMaterial) == 0L
+                        && ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)) {
             return null;
         }
         List<ECOPlanningOperation<K, R>> producers = operations.stream()
-            .filter(operation -> operation.inputAmount(deficientMaterial) > 0L)
-            .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)
-            .toList();
+                .filter(operation -> operation.inputAmount(deficientMaterial) > 0L)
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)
+                .toList();
         if (producers.size() != 1) {
             return null;
         }
@@ -469,48 +481,42 @@ public final class ECOCondensedCycleSolver {
         }
         long batches = ECOPlannerMath.ceilDiv(deficit, net);
         Map<K, Long> missingSeedAmounts = new LinkedHashMap<>();
-        long seedMissing = Math.max(0L,
-            operation.inputAmount(deficientMaterial) - initialInventory.getOrDefault(deficientMaterial, 0L));
+        long seedMissing = Math.max(
+                0L, operation.inputAmount(deficientMaterial) - initialInventory.getOrDefault(deficientMaterial, 0L));
         if (seedMissing > 0L) {
             missingSeedAmounts.put(deficientMaterial, seedMissing);
         }
         return new LocalSolution<>(
-            Map.of(operation.reference(), batches),
-            Set.of(operation.reference()),
-            seedMissing > 0L ? operation : null,
-            Map.copyOf(missingSeedAmounts),
-            Map.of()
-        );
+                Map.of(operation.reference(), batches),
+                Set.of(operation.reference()),
+                seedMissing > 0L ? operation : null,
+                Map.copyOf(missingSeedAmounts),
+                Map.of());
     }
 
     private static <K, R> ECOPlanningOperation<K, R> preferredStarter(
-        Set<K> component,
-        List<ECOPlanningOperation<K, R>> operations,
-        Map<R, Long> executions,
-        K deficientMaterial,
-        Map<K, Long> inventory
-    ) {
+            Set<K> component,
+            List<ECOPlanningOperation<K, R>> operations,
+            Map<R, Long> executions,
+            K deficientMaterial,
+            Map<K, Long> inventory) {
         return operations.stream()
-            .filter(operation -> executions.containsKey(operation.reference()))
-            .filter(operation -> operation.inputs().keySet().stream().anyMatch(component::contains))
-            .filter(operation -> component.stream().anyMatch(material ->
-                ECOPlannerMath.positiveNet(operation, material) > 0L))
-            .min((left, right) -> {
-                boolean leftConsumesDeficit = left.inputs().containsKey(deficientMaterial);
-                boolean rightConsumesDeficit = right.inputs().containsKey(deficientMaterial);
-                if (leftConsumesDeficit != rightConsumesDeficit) {
-                    return leftConsumesDeficit ? -1 : 1;
-                }
-                return Long.compare(
-                    missingInputTotal(left, inventory), missingInputTotal(right, inventory));
-            })
-            .orElse(null);
+                .filter(operation -> executions.containsKey(operation.reference()))
+                .filter(operation -> operation.inputs().keySet().stream().anyMatch(component::contains))
+                .filter(operation ->
+                        component.stream().anyMatch(material -> ECOPlannerMath.positiveNet(operation, material) > 0L))
+                .min((left, right) -> {
+                    boolean leftConsumesDeficit = left.inputs().containsKey(deficientMaterial);
+                    boolean rightConsumesDeficit = right.inputs().containsKey(deficientMaterial);
+                    if (leftConsumesDeficit != rightConsumesDeficit) {
+                        return leftConsumesDeficit ? -1 : 1;
+                    }
+                    return Long.compare(missingInputTotal(left, inventory), missingInputTotal(right, inventory));
+                })
+                .orElse(null);
     }
 
-    private static <K, R> long missingInputTotal(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> inventory
-    ) {
+    private static <K, R> long missingInputTotal(ECOPlanningOperation<K, R> operation, Map<K, Long> inventory) {
         long total = 0L;
         for (var input : operation.inputs().entrySet()) {
             long available = inventory.getOrDefault(input.getKey(), 0L);
@@ -519,18 +525,13 @@ public final class ECOCondensedCycleSolver {
         return total;
     }
 
-    private static <K, R> boolean canStart(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> inventory
-    ) {
-        return operation.inputs().entrySet().stream().allMatch(input ->
-            inventory.getOrDefault(input.getKey(), 0L) >= input.getValue());
+    private static <K, R> boolean canStart(ECOPlanningOperation<K, R> operation, Map<K, Long> inventory) {
+        return operation.inputs().entrySet().stream()
+                .allMatch(input -> inventory.getOrDefault(input.getKey(), 0L) >= input.getValue());
     }
 
     private static <K, R> ECOPlanningProblem<K, R> withSyntheticInventory(
-        ECOPlanningProblem<K, R> problem,
-        Map<K, Long> deficits
-    ) {
+            ECOPlanningProblem<K, R> problem, Map<K, Long> deficits) {
         if (deficits.isEmpty()) {
             return problem;
         }
@@ -540,38 +541,27 @@ public final class ECOCondensedCycleSolver {
     }
 
     private static <K, R> void enqueue(
-        K material,
-        Map<K, Long> balances,
-        ECOPlanningGraph<K, R> graph,
-        ArrayDeque<K> queue,
-        Set<K> queued
-    ) {
+            K material, Map<K, Long> balances, ECOPlanningGraph<K, R> graph, ArrayDeque<K> queue, Set<K> queued) {
         if (balances.getOrDefault(material, 0L) < 0L
-            && !graph.producersOf(material).isEmpty()
-            && queued.add(material)) {
+                && !graph.producersOf(material).isEmpty()
+                && queued.add(material)) {
             queue.addLast(material);
         }
     }
 
     private static <K, R> void apply(
-        List<ECOPlanningOperation<K, R>> operations,
-        Map<R, Long> executions,
-        Map<K, Long> balances
-    ) {
-        operations.forEach(operation -> apply(
-            operation, executions.getOrDefault(operation.reference(), 0L), balances));
+            List<ECOPlanningOperation<K, R>> operations, Map<R, Long> executions, Map<K, Long> balances) {
+        operations.forEach(operation -> apply(operation, executions.getOrDefault(operation.reference(), 0L), balances));
     }
 
-    private static <K, R> void apply(
-        ECOPlanningOperation<K, R> operation,
-        long count,
-        Map<K, Long> balances
-    ) {
+    private static <K, R> void apply(ECOPlanningOperation<K, R> operation, long count, Map<K, Long> balances) {
         if (count <= 0L) return;
-        operation.inputs().forEach((key, amount) ->
-            balances.merge(key, Math.multiplyExact(amount, -count), Math::addExact));
-        operation.outputs().forEach((key, amount) ->
-            balances.merge(key, Math.multiplyExact(amount, count), Math::addExact));
+        operation
+                .inputs()
+                .forEach((key, amount) -> balances.merge(key, Math.multiplyExact(amount, -count), Math::addExact));
+        operation
+                .outputs()
+                .forEach((key, amount) -> balances.merge(key, Math.multiplyExact(amount, count), Math::addExact));
     }
 
     private static long remainingMillis(long deadlineNanos) {
@@ -583,23 +573,20 @@ public final class ECOCondensedCycleSolver {
 
     private static <K, R> void logFailure(ECOPlanningProblem<K, R> problem, String context) {
         ECOPlanningFailureDiagnostics.logFailure(
-            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
-            ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
-            problem.requested().keySet().stream().findFirst().orElse(null),
-            problem.requested().values().stream().findFirst().orElse(0L),
-            "scc_ojalgo",
-            context
-        );
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "scc_ojalgo",
+                context);
     }
 
     private record LocalSolution<K, R>(
-        Map<R, Long> executions,
-        Set<R> operationReferences,
-        ECOPlanningOperation<K, R> missingSeedStarter,
-        Map<K, Long> missingSeedAmounts,
-        Map<K, Long> boundaryDeficits
-    ) {
-    }
+            Map<R, Long> executions,
+            Set<R> operationReferences,
+            ECOPlanningOperation<K, R> missingSeedStarter,
+            Map<K, Long> missingSeedAmounts,
+            Map<K, Long> boundaryDeficits) {}
 
     private record Components<K>(Map<K, Set<K>> byMaterial, Set<Set<K>> cyclic) {
         private static <K, R> Components<K> build(ECOPlanningGraph<K, R> graph) {
@@ -607,9 +594,10 @@ public final class ECOCondensedCycleSolver {
             Set<Set<K>> cyclic = new HashSet<>();
             for (Set<K> component : ECOStrongComponents.find(graph)) {
                 component.forEach(material -> byMaterial.put(material, component));
-                if (component.size() > 1 || graph.operations().stream().anyMatch(operation ->
-                    component.stream().anyMatch(material -> operation.inputs().containsKey(material)
-                        && operation.outputs().containsKey(material)))) {
+                if (component.size() > 1
+                        || graph.operations().stream().anyMatch(operation -> component.stream()
+                                .anyMatch(material -> operation.inputs().containsKey(material)
+                                        && operation.outputs().containsKey(material)))) {
                     cyclic.add(component);
                 }
             }

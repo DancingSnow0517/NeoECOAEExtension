@@ -12,8 +12,7 @@ final class ECOAE2NbtTearCompatibility {
     private static final boolean INTEGRATION_PRESENT = classPresent(TEAR_CARD_CLASS);
     private static final Optional<Bindings> BINDINGS = findBindings();
 
-    private ECOAE2NbtTearCompatibility() {
-    }
+    private ECOAE2NbtTearCompatibility() {}
 
     /**
      * NBT Tear validity depends on the provider selected by AE2. ECO snapshots patterns globally,
@@ -39,8 +38,8 @@ final class ECOAE2NbtTearCompatibility {
                 }
                 Object card = bindings.getEffectiveTearCard().invoke(provider);
                 if (card instanceof ItemStack stack
-                    && !stack.isEmpty()
-                    && bindings.tearCardType().isInstance(stack.getItem())) {
+                        && !stack.isEmpty()
+                        && bindings.tearCardType().isInstance(stack.getItem())) {
                     return true;
                 }
             }
@@ -63,27 +62,24 @@ final class ECOAE2NbtTearCompatibility {
         try {
             ClassLoader loader = ECOAE2NbtTearCompatibility.class.getClassLoader();
             Class<?> craftingService = Class.forName("appeng.me.service.CraftingService", false, loader);
-            Class<?> logicAccess = Class.forName(
-                "com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess", false, loader);
+            Class<?> logicAccess =
+                    Class.forName("com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess", false, loader);
             Class<?> tearCard = Class.forName(TEAR_CARD_CLASS, false, loader);
             return Optional.of(new Bindings(
-                craftingService,
-                logicAccess,
-                tearCard,
-                craftingService.getMethod("getProviders", IPatternDetails.class),
-                logicAccess.getMethod("ae2utility$getEffectiveTearCardStack")
-            ));
+                    craftingService,
+                    logicAccess,
+                    tearCard,
+                    craftingService.getMethod("getProviders", IPatternDetails.class),
+                    logicAccess.getMethod("ae2utility$getEffectiveTearCardStack")));
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return Optional.empty();
         }
     }
 
     private record Bindings(
-        Class<?> craftingServiceType,
-        Class<?> logicAccessType,
-        Class<?> tearCardType,
-        Method getProviders,
-        Method getEffectiveTearCard
-    ) {
-    }
+            Class<?> craftingServiceType,
+            Class<?> logicAccessType,
+            Class<?> tearCardType,
+            Method getProviders,
+            Method getEffectiveTearCard) {}
 }

@@ -24,90 +24,81 @@ public final class ECOPlanningSolver {
     private static final long DEBUG_CYCLE_PHASE_NANOS = 10_000_000_000L;
     private static final long DEBUG_COMPONENT_PHASE_NANOS = 5_000_000_000L;
 
-    private ECOPlanningSolver() {
-    }
+    private ECOPlanningSolver() {}
 
-    public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOSolveBudget budget
-    ) {
+    public static <K, R> ECOHyperflowResult<R> solve(ECOPlanningProblem<K, R> problem, ECOSolveBudget budget) {
         long deadlineNanos = budget.deadlineNanos();
         ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
         return solve(problem, graph, budget, deadlineNanos);
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOSolveBudget budget,
-        long deadlineNanos
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOSolveBudget budget, long deadlineNanos) {
         ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
         return solve(problem, graph, budget, deadlineNanos);
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget) {
         return solve(problem, graph, budget, budget.deadlineNanos());
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget,
-        long deadlineNanos
-    ) {
-        if (ECOPlanningFailureDiagnostics.canLogDetail(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION
-        )) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget, long deadlineNanos) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION)) {
             ECOPlanningFailureDiagnostics.logDetail(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            "solver_start materials=" + graph.materials().size()
-                + " operations=" + graph.operations().size()
-                + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(problem.inventory())
-                + " requested=" + ECOPlanningFailureDiagnostics.describeMap(problem.requested())
-                + " statefulOperations=" + graph.operations().stream()
-                    .filter(operation -> !operation.stateTransitionInputs().isEmpty()).count()
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                    "solver_start materials=" + graph.materials().size()
+                            + " operations=" + graph.operations().size()
+                            + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(problem.inventory())
+                            + " requested=" + ECOPlanningFailureDiagnostics.describeMap(problem.requested())
+                            + " statefulOperations="
+                            + graph.operations().stream()
+                                    .filter(operation ->
+                                            !operation.stateTransitionInputs().isEmpty())
+                                    .count());
         }
         // A DAG can be balanced algebraically while still over-consuming a finite state prefix.
         // Route stateful variants through the capacity-aware component solver instead.
         long phaseStarted = System.nanoTime();
-        var dag = graph.operations().stream().anyMatch(
-            operation -> !operation.stateTransitionInputs().isEmpty()
-        )
-            ? Optional.<ECOHyperflowResult<R>>empty()
-            : ECODagDemandSolver.trySolve(problem, graph);
-        logPhase(problem, "dag", phaseStarted, "result=" + (dag.isPresent() ? dag.get().status() : "empty"));
+        var dag = graph.operations().stream()
+                        .anyMatch(
+                                operation -> !operation.stateTransitionInputs().isEmpty())
+                ? Optional.<ECOHyperflowResult<R>>empty()
+                : ECODagDemandSolver.trySolve(problem, graph);
+        logPhase(
+                problem,
+                "dag",
+                phaseStarted,
+                "result=" + (dag.isPresent() ? dag.get().status() : "empty"));
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
             logSelected(problem, "dag", dag.get());
             return dag.get();
         }
         ECOPlanningFailureDiagnostics.logFailure(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
-            problem.requested().keySet().stream().findFirst().orElse(null),
-            problem.requested().values().stream().findFirst().orElse(0L),
-            "solver",
-            dag.isEmpty() ? "dag_no_result_or_cycle; switch_to_component" : "dag_result_not_selected_due_to_deadline"
-        );
-        if (ECOSolveBudget.shouldStop(deadlineNanos)) {
-            ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-                ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
                 problem.requested().keySet().stream().findFirst().orElse(null),
                 problem.requested().values().stream().findFirst().orElse(0L),
                 "solver",
-                "deadline_before_component; switch_to_integer"
-            );
+                dag.isEmpty()
+                        ? "dag_no_result_or_cycle; switch_to_component"
+                        : "dag_result_not_selected_due_to_deadline");
+        if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                    ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                    problem.requested().keySet().stream().findFirst().orElse(null),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "solver",
+                    "deadline_before_component; switch_to_integer");
             phaseStarted = System.nanoTime();
-            ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(
-                problem, graph, budget, deadlineNanos
-            );
-            logPhase(problem, "integer_after_expired_deadline", phaseStarted,
-                "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
+            ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
+            logPhase(
+                    problem,
+                    "integer_after_expired_deadline",
+                    phaseStarted,
+                    "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
             return integer;
         }
         // Reversible packing recipes frequently add a back-edge to an otherwise ordinary
@@ -116,162 +107,156 @@ public final class ECOPlanningSolver {
         ECOPlanningGraph<K, R> acyclicProjection = acyclicProjection(problem, graph);
         if (acyclicProjection.operations().size() < graph.operations().size()) {
             phaseStarted = System.nanoTime();
-            var projected = ECOComponentDemandSolver.trySolve(
-                problem, acyclicProjection, componentDeadline(deadlineNanos)
-            );
-            logPhase(problem, "component_acyclic_projection", phaseStarted,
-                "result=" + (projected.isPresent() ? projected.get().status() : "empty")
-                    + " originalOperations=" + graph.operations().size()
-                    + " projectedOperations=" + acyclicProjection.operations().size());
-            if (projected.isPresent()
-                && projected.get().status() == ECOHyperflowResult.Status.COMPLETE) {
+            var projected =
+                    ECOComponentDemandSolver.trySolve(problem, acyclicProjection, componentDeadline(deadlineNanos));
+            logPhase(
+                    problem,
+                    "component_acyclic_projection",
+                    phaseStarted,
+                    "result=" + (projected.isPresent() ? projected.get().status() : "empty")
+                            + " originalOperations=" + graph.operations().size()
+                            + " projectedOperations="
+                            + acyclicProjection.operations().size());
+            if (projected.isPresent() && projected.get().status() == ECOHyperflowResult.Status.COMPLETE) {
                 logSelected(problem, "component_acyclic_projection", projected.get());
                 return projected.get();
             }
         }
         long cycleDeadline = ECOSolveBudget.phaseDeadline(
-            deadlineNanos, NEConfig.debugECOPlanner ? DEBUG_CYCLE_PHASE_NANOS : CYCLE_PHASE_NANOS
-        );
+                deadlineNanos, NEConfig.debugECOPlanner ? DEBUG_CYCLE_PHASE_NANOS : CYCLE_PHASE_NANOS);
         Optional<ECOHyperflowResult<R>> cycle;
         phaseStarted = System.nanoTime();
         try {
             cycle = ECOCondensedCycleSolver.trySolve(problem, graph, cycleDeadline);
         } catch (StackOverflowError overflow) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
-                ECOPlannerFallbackReason.PLANNING_FAILURE,
-                problem.requested().keySet().stream().findFirst().orElse(null),
-                problem.requested().values().stream().findFirst().orElse(0L),
-                "scc_ojalgo",
-                "stack_overflow_switch_to_component",
-                overflow
-            );
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                    ECOPlannerFallbackReason.PLANNING_FAILURE,
+                    problem.requested().keySet().stream().findFirst().orElse(null),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "scc_ojalgo",
+                    "stack_overflow_switch_to_component",
+                    overflow);
             cycle = Optional.empty();
         }
-        logPhase(problem, "scc_cycle", phaseStarted,
-            "result=" + (cycle.isPresent() ? cycle.get().status() : "empty"));
+        logPhase(
+                problem,
+                "scc_cycle",
+                phaseStarted,
+                "result=" + (cycle.isPresent() ? cycle.get().status() : "empty"));
         if (cycle.isPresent()) {
             logSelected(problem, "scc_cycle", cycle.get());
             return cycle.get();
         }
         long componentDeadline = ECOSolveBudget.phaseDeadline(
-            deadlineNanos,
-            NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS
-        );
+                deadlineNanos, NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS);
         phaseStarted = System.nanoTime();
         Optional<ECOHyperflowResult<R>> component;
         try {
             component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
         } catch (StackOverflowError overflow) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
-                ECOPlannerFallbackReason.PLANNING_FAILURE,
-                problem.requested().keySet().stream().findFirst().orElse(null),
-                problem.requested().values().stream().findFirst().orElse(0L),
-                "component",
-                "stack_overflow_fallback_to_integer graphMaterials=" + graph.materials().size()
-                    + " graphOperations=" + graph.operations().size(),
-                overflow
-            );
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                    ECOPlannerFallbackReason.PLANNING_FAILURE,
+                    problem.requested().keySet().stream().findFirst().orElse(null),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "component",
+                    "stack_overflow_fallback_to_integer graphMaterials="
+                            + graph.materials().size() + " graphOperations="
+                            + graph.operations().size(),
+                    overflow);
             component = Optional.empty();
         }
-        logPhase(problem, "component", phaseStarted,
-            "result=" + (component.isPresent() ? component.get().status() : "empty"));
+        logPhase(
+                problem,
+                "component",
+                phaseStarted,
+                "result=" + (component.isPresent() ? component.get().status() : "empty"));
         long integerGateStarted = System.nanoTime();
         ECOPlanningGraph<K, R> integerGraph = graph;
         InventoryRoute<K, R> inventoryRoute = null;
         if (component.isPresent()
-            && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
-            && !problem.inventory().isEmpty()) {
-            ECOPlanningProblem<K, R> residualProblem = residualProblem(
-                problem, graph, component.get()
-            );
+                && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
+                && !problem.inventory().isEmpty()) {
+            ECOPlanningProblem<K, R> residualProblem = residualProblem(problem, graph, component.get());
             inventoryRoute = inventoryExecutableTargetRoute(residualProblem, graph);
             integerGraph = inventoryRoute.graph();
         }
         boolean componentMissingIsConclusive = component.isPresent()
-            && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
-            && (problem.inventory().isEmpty()
-                || inventoryRoute == null
-                || !inventoryRoute.reachesTarget()
-                || optimisticCapacityProvesShortage(problem, graph));
-        if (component.isPresent()
-            && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES) {
+                && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
+                && (problem.inventory().isEmpty()
+                        || inventoryRoute == null
+                        || !inventoryRoute.reachesTarget()
+                        || optimisticCapacityProvesShortage(problem, graph));
+        if (component.isPresent() && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES) {
             logPhase(
-                problem,
-                "integer_gate",
-                integerGateStarted,
-                "searchRequired=" + !componentMissingIsConclusive
-                    + " reason=" + (problem.inventory().isEmpty()
-                        ? "empty_inventory"
-                        : componentMissingIsConclusive
-                            ? inventoryRoute == null || !inventoryRoute.reachesTarget()
-                                ? "requested_output_not_inventory_reachable"
-                                : "optimistic_capacity_below_request"
-                            : "residual_inventory_reachable_alternative")
-                    + " originalOperations=" + graph.operations().size()
-                    + " retainedOperations=" + integerGraph.operations().size()
-            );
+                    problem,
+                    "integer_gate",
+                    integerGateStarted,
+                    "searchRequired=" + !componentMissingIsConclusive
+                            + " reason="
+                            + (problem.inventory().isEmpty()
+                                    ? "empty_inventory"
+                                    : componentMissingIsConclusive
+                                            ? inventoryRoute == null || !inventoryRoute.reachesTarget()
+                                                    ? "requested_output_not_inventory_reachable"
+                                                    : "optimistic_capacity_below_request"
+                                            : "residual_inventory_reachable_alternative")
+                            + " originalOperations=" + graph.operations().size()
+                            + " retainedOperations=" + integerGraph.operations().size());
         }
         if (component.isPresent()
-            && (component.get().status() == ECOHyperflowResult.Status.COMPLETE
-                || componentMissingIsConclusive)) {
+                && (component.get().status() == ECOHyperflowResult.Status.COMPLETE || componentMissingIsConclusive)) {
             logSelected(problem, "component", component.get());
             return component.get();
         }
         ECOPlanningFailureDiagnostics.logFailure(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            component.isEmpty()
-                ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
-                : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
-            problem.requested().keySet().stream().findFirst().orElse(null),
-            problem.requested().values().stream().findFirst().orElse(0L),
-            "solver",
-            component.isEmpty()
-                ? "component_no_result_or_limit; switch_to_integer"
-                : "component_status=" + component.get().status() + "; switch_to_integer"
-        );
+                ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                component.isEmpty()
+                        ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
+                        : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "solver",
+                component.isEmpty()
+                        ? "component_no_result_or_limit; switch_to_integer"
+                        : "component_status=" + component.get().status() + "; switch_to_integer");
         phaseStarted = System.nanoTime();
-        ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(
-            problem, integerGraph, budget, deadlineNanos
-        );
-        logPhase(problem, "integer", phaseStarted,
-            "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
+        ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(problem, integerGraph, budget, deadlineNanos);
+        logPhase(
+                problem,
+                "integer",
+                phaseStarted,
+                "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
         logSelected(problem, "integer", integer);
         return integer;
     }
 
     private static long componentDeadline(long deadlineNanos) {
         return ECOSolveBudget.phaseDeadline(
-            deadlineNanos,
-            NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS
-        );
+                deadlineNanos, NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS);
     }
 
     private static <K, R> ECOPlanningGraph<K, R> acyclicProjection(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
         List<ECOPlanningOperation<K, R>> selected = new ArrayList<>();
         Set<K> expanded = new HashSet<>();
         Set<K> active = new HashSet<>();
         for (K requested : problem.requested().keySet()) {
             collectAcyclic(requested, graph, active, expanded, selected);
         }
-        if (selected.size() == graph.operations().size()
-            || containsCycle(new ECOPlanningGraph<>(selected))) {
+        if (selected.size() == graph.operations().size() || containsCycle(new ECOPlanningGraph<>(selected))) {
             return graph;
         }
         return new ECOPlanningGraph<>(selected);
     }
 
     private static <K, R> void collectAcyclic(
-        K material,
-        ECOPlanningGraph<K, R> graph,
-        Set<K> active,
-        Set<K> expanded,
-        List<ECOPlanningOperation<K, R>> selected
-    ) {
+            K material,
+            ECOPlanningGraph<K, R> graph,
+            Set<K> active,
+            Set<K> expanded,
+            List<ECOPlanningOperation<K, R>> selected) {
         if (!active.add(material)) {
             return;
         }
@@ -281,15 +266,12 @@ public final class ECOPlanningSolver {
         }
         for (var operation : graph.producersOf(material)) {
             boolean backEdge = operation.inputs().keySet().stream().anyMatch(active::contains)
-                || operation.selectableOutputs().stream().anyMatch(
-                    output -> !output.equals(material) && active.contains(output)
-                );
+                    || operation.selectableOutputs().stream()
+                            .anyMatch(output -> !output.equals(material) && active.contains(output));
             if (backEdge) {
                 continue;
             }
-            operation.inputs().keySet().forEach(
-                input -> collectAcyclic(input, graph, active, expanded, selected)
-            );
+            operation.inputs().keySet().forEach(input -> collectAcyclic(input, graph, active, expanded, selected));
             if (!selected.contains(operation)) {
                 selected.add(operation);
             }
@@ -299,38 +281,29 @@ public final class ECOPlanningSolver {
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
         return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
-            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
-                .anyMatch(operation.outputs()::containsKey));
+                || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                        .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void logSelected(
-        ECOPlanningProblem<K, R> problem,
-        String solver,
-        ECOHyperflowResult<R> result
-    ) {
-        if (ECOPlanningFailureDiagnostics.canLogDetail(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION
-        )) {
+            ECOPlanningProblem<K, R> problem, String solver, ECOHyperflowResult<R> result) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION)) {
             ECOPlanningFailureDiagnostics.logDetail(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            "solver_selected=" + solver
-                + " status=" + result.status()
-                + " expandedStates=" + result.expandedStates()
-                + " executions=" + ECOPlanningFailureDiagnostics.describeMap(
-                    result.candidate().executions()
-                )
-                + " requestedShortfall=" + result.candidate().requestedShortfall()
-                + " dependencyShortfall=" + result.candidate().dependencyShortfall()
-                + " sourceShortfall=" + result.candidate().sourceShortfall()
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                    "solver_selected=" + solver
+                            + " status=" + result.status()
+                            + " expandedStates=" + result.expandedStates()
+                            + " executions="
+                            + ECOPlanningFailureDiagnostics.describeMap(
+                                    result.candidate().executions())
+                            + " requestedShortfall=" + result.candidate().requestedShortfall()
+                            + " dependencyShortfall=" + result.candidate().dependencyShortfall()
+                            + " sourceShortfall=" + result.candidate().sourceShortfall());
         }
     }
 
     private static <K, R> ECOPlanningProblem<K, R> residualProblem(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOHyperflowResult<R> component
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOHyperflowResult<R> component) {
         Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
         Map<R, ECOPlanningOperation<K, R>> byReference = new HashMap<>();
         for (var operation : graph.operations()) {
@@ -341,12 +314,14 @@ public final class ECOPlanningSolver {
             if (operation == null || batches <= 0L) {
                 return;
             }
-            operation.inputs().forEach((key, amount) -> balances.merge(
-                key, ECOPlannerMath.saturatedMultiply(amount, -batches), ECOPlannerMath::saturatedAdd
-            ));
-            operation.outputs().forEach((key, amount) -> balances.merge(
-                key, ECOPlannerMath.saturatedMultiply(amount, batches), ECOPlannerMath::saturatedAdd
-            ));
+            operation
+                    .inputs()
+                    .forEach((key, amount) -> balances.merge(
+                            key, ECOPlannerMath.saturatedMultiply(amount, -batches), ECOPlannerMath::saturatedAdd));
+            operation
+                    .outputs()
+                    .forEach((key, amount) -> balances.merge(
+                            key, ECOPlannerMath.saturatedMultiply(amount, batches), ECOPlannerMath::saturatedAdd));
         });
         Map<K, Long> residualInventory = new HashMap<>();
         balances.forEach((key, amount) -> {
@@ -363,15 +338,11 @@ public final class ECOPlanningSolver {
      * what is craftable. A bound below the request is therefore a safe reason to skip integer DFS.
      */
     private static <K, R> boolean optimisticCapacityProvesShortage(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
         Map<K, Long> memo = new HashMap<>();
         Set<K> visiting = new HashSet<>();
         for (var requested : problem.requested().entrySet()) {
-            long capacity = optimisticMaterialCapacity(
-                requested.getKey(), problem, graph, memo, visiting
-            );
+            long capacity = optimisticMaterialCapacity(requested.getKey(), problem, graph, memo, visiting);
             if (capacity < requested.getValue()) {
                 return true;
             }
@@ -380,12 +351,11 @@ public final class ECOPlanningSolver {
     }
 
     private static <K, R> long optimisticMaterialCapacity(
-        K material,
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        Map<K, Long> memo,
-        Set<K> visiting
-    ) {
+            K material,
+            ECOPlanningProblem<K, R> problem,
+            ECOPlanningGraph<K, R> graph,
+            Map<K, Long> memo,
+            Set<K> visiting) {
         Long cached = memo.get(material);
         if (cached != null) {
             return cached;
@@ -394,8 +364,8 @@ public final class ECOPlanningSolver {
             return Long.MAX_VALUE;
         }
         long capacity = problem.requested().containsKey(material)
-            ? 0L
-            : Math.max(0L, problem.inventory().getOrDefault(material, 0L));
+                ? 0L
+                : Math.max(0L, problem.inventory().getOrDefault(material, 0L));
         for (var producer : graph.producersOf(material)) {
             long netOutput = ECOPlannerMath.positiveNet(producer, material);
             if (netOutput <= 0L) {
@@ -405,19 +375,14 @@ public final class ECOPlanningSolver {
             boolean constrained = false;
             for (var input : producer.inputs().entrySet()) {
                 long returned = producer.outputs().getOrDefault(input.getKey(), 0L);
-                if (!producer.stateTransitionInputs().contains(input.getKey())
-                    && returned >= input.getValue()) {
+                if (!producer.stateTransitionInputs().contains(input.getKey()) && returned >= input.getValue()) {
                     continue;
                 }
                 constrained = true;
-                long inputCapacity = optimisticMaterialCapacity(
-                    input.getKey(), problem, graph, memo, visiting
-                );
+                long inputCapacity = optimisticMaterialCapacity(input.getKey(), problem, graph, memo, visiting);
                 batches = Math.min(batches, inputCapacity / input.getValue());
             }
-            long produced = constrained
-                ? ECOPlannerMath.saturatedMultiply(batches, netOutput)
-                : Long.MAX_VALUE;
+            long produced = constrained ? ECOPlannerMath.saturatedMultiply(batches, netOutput) : Long.MAX_VALUE;
             capacity = ECOPlannerMath.saturatedAdd(capacity, produced);
         }
         visiting.remove(material);
@@ -431,9 +396,7 @@ public final class ECOPlanningSolver {
      * turn a source-shortage result into a complete plan, while a true result keeps the fallback.
      */
     private static <K, R> InventoryRoute<K, R> inventoryExecutableTargetRoute(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
         Set<K> reachable = new HashSet<>();
         ArrayDeque<K> newlyReachable = new ArrayDeque<>();
         problem.inventory().forEach((key, amount) -> {
@@ -452,7 +415,9 @@ public final class ECOPlanningSolver {
             for (K input : operations.get(index).inputs().keySet()) {
                 if (!reachable.contains(input)) {
                     missingInputs[index]++;
-                    waitingByInput.computeIfAbsent(input, ignored -> new ArrayList<>()).add(index);
+                    waitingByInput
+                            .computeIfAbsent(input, ignored -> new ArrayList<>())
+                            .add(index);
                 }
             }
             if (missingInputs[index] == 0) {
@@ -494,30 +459,24 @@ public final class ECOPlanningSolver {
         }
         ECOPlanningGraph<K, R> executableGraph = new ECOPlanningGraph<>(executable);
         ECOPlanningGraph<K, R> targetRoute = ECOGraphPruner.targetReachable(
-            executableGraph, problem.requested().keySet());
+                executableGraph, problem.requested().keySet());
         boolean reachesTarget = reachable.containsAll(problem.requested().keySet())
-            && problem.requested().keySet().stream().allMatch(key ->
-                !targetRoute.producersOf(key).isEmpty());
+                && problem.requested().keySet().stream()
+                        .allMatch(key -> !targetRoute.producersOf(key).isEmpty());
         return new InventoryRoute<>(targetRoute, reachesTarget);
     }
 
-    private record InventoryRoute<K, R>(ECOPlanningGraph<K, R> graph, boolean reachesTarget) {
-    }
+    private record InventoryRoute<K, R>(ECOPlanningGraph<K, R> graph, boolean reachesTarget) {}
 
     private static <K, R> void logPhase(
-        ECOPlanningProblem<K, R> problem,
-        String phase,
-        long startedNanos,
-        String context
-    ) {
+            ECOPlanningProblem<K, R> problem, String phase, long startedNanos, String context) {
         ECOPlanningFailureDiagnostics.logTiming(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            problem.requested().keySet().stream().findFirst().orElse(null),
-            problem.requested().values().stream().findFirst().orElse(0L),
-            "solver",
-            phase,
-            startedNanos,
-            context
-        );
+                ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "solver",
+                phase,
+                startedNanos,
+                context);
     }
 }

@@ -15,7 +15,7 @@ import net.minecraft.network.chat.MutableComponent;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ByteAmountFormatter {
     private static final long AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD = 1_000_000_000_000L;
-    private static final String[] LARGE_BYTE_UNITS = { "TB", "PB", "EB", "ZB", "YB", "RB", "QB" };
+    private static final String[] LARGE_BYTE_UNITS = {"TB", "PB", "EB", "ZB", "YB", "RB", "QB"};
 
     public static String format(long bytes) {
         if (bytes < AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD) {
@@ -45,21 +45,18 @@ public final class ByteAmountFormatter {
         if (bytes.signum() < 0) {
             throw new IllegalArgumentException("Byte amount cannot be negative");
         }
-        if (bytes.bitLength() < Long.SIZE
-            && bytes.longValue() < AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD) {
+        if (bytes.bitLength() < Long.SIZE && bytes.longValue() < AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD) {
             return format(bytes.longValue());
         }
 
         BigDecimal scaled = new BigDecimal(bytes).movePointLeft(12);
         int unitIndex = 0;
-        while (scaled.compareTo(BigDecimal.valueOf(1_000L)) >= 0
-            && unitIndex < LARGE_BYTE_UNITS.length - 1) {
+        while (scaled.compareTo(BigDecimal.valueOf(1_000L)) >= 0 && unitIndex < LARGE_BYTE_UNITS.length - 1) {
             scaled = scaled.movePointLeft(3);
             unitIndex++;
         }
         BigDecimal rounded = scaled.round(new MathContext(3, RoundingMode.HALF_UP));
-        if (rounded.compareTo(BigDecimal.valueOf(1_000L)) >= 0
-            && unitIndex < LARGE_BYTE_UNITS.length - 1) {
+        if (rounded.compareTo(BigDecimal.valueOf(1_000L)) >= 0 && unitIndex < LARGE_BYTE_UNITS.length - 1) {
             rounded = rounded.movePointLeft(3).round(new MathContext(3, RoundingMode.HALF_UP));
             unitIndex++;
         }

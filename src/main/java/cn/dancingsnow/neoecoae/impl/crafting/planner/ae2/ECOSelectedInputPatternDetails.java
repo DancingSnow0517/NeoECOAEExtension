@@ -17,14 +17,9 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
     private final int[] originalSlots;
     private final int originalInputCount;
 
-    public ECOSelectedInputPatternDetails(
-        IPatternDetails delegate,
-        List<ECOAE2InputSelection> selectedInputs
-    ) {
+    public ECOSelectedInputPatternDetails(IPatternDetails delegate, List<ECOAE2InputSelection> selectedInputs) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
-        List<ECOAE2InputSelection> selected = List.copyOf(
-            Objects.requireNonNull(selectedInputs, "selectedInputs")
-        );
+        List<ECOAE2InputSelection> selected = List.copyOf(Objects.requireNonNull(selectedInputs, "selectedInputs"));
         IInput[] sourceInputs = delegate.getInputs();
         if (sourceInputs.length != selected.size()) {
             throw new IllegalArgumentException("Selected input count does not match pattern input count");
@@ -39,9 +34,8 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
                 throw new IllegalArgumentException("Selected input multiplier does not match pattern input");
             }
             for (ECOAE2InputSelection.Alternative alternative : selection.alternatives()) {
-                expandedInputs.add(new SelectedInput(
-                    sourceInputs[i], alternative.template(), alternative.multiplier()
-                ));
+                expandedInputs.add(
+                        new SelectedInput(sourceInputs[i], alternative.template(), alternative.multiplier()));
                 expandedSlots.add(i);
             }
         }
@@ -102,11 +96,8 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
         delegate.pushInputsToExternalInventory(collapseInputHolder(inputHolder), inputSink);
     }
 
-    private record SelectedInput(
-        IPatternDetails.IInput delegate,
-        GenericStack selected,
-        long multiplier
-    ) implements IInput {
+    private record SelectedInput(IPatternDetails.IInput delegate, GenericStack selected, long multiplier)
+            implements IInput {
         private SelectedInput {
             Objects.requireNonNull(delegate, "delegate");
             Objects.requireNonNull(selected, "selected");
@@ -117,7 +108,7 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
 
         @Override
         public GenericStack[] getPossibleInputs() {
-            return new GenericStack[] { selected };
+            return new GenericStack[] {selected};
         }
 
         @Override

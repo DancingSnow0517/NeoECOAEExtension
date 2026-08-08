@@ -26,7 +26,9 @@ public final class ECOPlanningGraph<K, R> {
             allMaterials.addAll(operation.inputs().keySet());
             allMaterials.addAll(operation.outputs().keySet());
             for (K output : operation.selectableOutputs()) {
-                producerIndex.computeIfAbsent(output, ignored -> new ArrayList<>()).add(operation);
+                producerIndex
+                        .computeIfAbsent(output, ignored -> new ArrayList<>())
+                        .add(operation);
             }
         }
         Map<K, List<ECOPlanningOperation<K, R>>> frozenIndex = new LinkedHashMap<>();

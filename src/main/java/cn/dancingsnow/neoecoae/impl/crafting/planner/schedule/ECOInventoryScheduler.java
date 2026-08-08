@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.schedule;
 
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
@@ -17,13 +17,10 @@ import java.util.Set;
 
 /** Validates that integer operation counts have an inventory-enabled execution order. */
 public final class ECOInventoryScheduler {
-    private ECOInventoryScheduler() {
-    }
+    private ECOInventoryScheduler() {}
 
     public static <K, R> ECOInventorySchedule<K, R> schedule(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanCandidate<R> candidate
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanCandidate<R> candidate) {
         Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
         Map<R, Long> remaining = new LinkedHashMap<>(candidate.executions());
         List<ECOScheduledStep<R>> steps = new ArrayList<>();
@@ -96,40 +93,38 @@ public final class ECOInventoryScheduler {
         boolean executable = blockedBy.isEmpty();
         if (!executable) {
             ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
-                ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
-                problem.requested().keySet().stream().findFirst().orElse(null),
-                problem.requested().values().stream().findFirst().orElse(0L),
-                "scheduler",
-                "blockedBy=" + blockedBy
-                    + " steps=" + steps.size()
-                    + " pendingOperations=" + remaining.values().stream().filter(value -> value > 0).count()
-                    + " pendingDetail=" + describePending(problem, remaining, inventory)
-                    + " blockedProducers=" + describeBlockedProducers(problem, blockedBy)
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+                    ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+                    problem.requested().keySet().stream().findFirst().orElse(null),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "scheduler",
+                    "blockedBy=" + blockedBy
+                            + " steps=" + steps.size()
+                            + " pendingOperations="
+                            + remaining.values().stream()
+                                    .filter(value -> value > 0)
+                                    .count()
+                            + " pendingDetail=" + describePending(problem, remaining, inventory)
+                            + " blockedProducers=" + describeBlockedProducers(problem, blockedBy));
         }
-        if (ECOPlanningFailureDiagnostics.canLogDetail(
-            ECOPlanningFailureDiagnostics.Stage.SCHEDULER
-        )) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(ECOPlanningFailureDiagnostics.Stage.SCHEDULER)) {
             ECOPlanningFailureDiagnostics.logDetail(
-                ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
-            "scheduler_result sequenceSchedulable=" + executable
-                + " steps=" + steps.size()
-                + " stepSample=" + ECOPlanningFailureDiagnostics.describeIterable(steps, steps.size())
-                + " blockedBy=" + ECOPlanningFailureDiagnostics.describeMap(blockedBy)
-                + " remainingInventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
-            );
+                    ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+                    "scheduler_result sequenceSchedulable=" + executable
+                            + " steps=" + steps.size()
+                            + " stepSample=" + ECOPlanningFailureDiagnostics.describeIterable(steps, steps.size())
+                            + " blockedBy=" + ECOPlanningFailureDiagnostics.describeMap(blockedBy)
+                            + " remainingInventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory));
         }
         return new ECOInventorySchedule<>(executable, steps, inventory, blockedBy);
     }
 
     /** Compatibility scheduling mode that supplies only the initial seed for a self-growing input. */
     public static <K, R> ECOInventorySchedule<K, R> scheduleWithSyntheticSources(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanCandidate<R> candidate,
-        long deadlineNanos,
-        long maxExpandedStates
-    ) {
+            ECOPlanningProblem<K, R> problem,
+            ECOPlanCandidate<R> candidate,
+            long deadlineNanos,
+            long maxExpandedStates) {
         Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
         Map<K, Long> synthetic = new LinkedHashMap<>();
         for (var operation : problem.operations()) {
@@ -149,21 +144,21 @@ public final class ECOInventoryScheduler {
                 }
             }
         }
-        ECOInventorySchedule<K, R> scheduled = schedule(
-            new ECOPlanningProblem<>(problem.operations(), inventory, problem.requested()), candidate
-        );
+        ECOInventorySchedule<K, R> scheduled =
+                schedule(new ECOPlanningProblem<>(problem.operations(), inventory, problem.requested()), candidate);
         return new ECOInventorySchedule<>(
-            scheduled.executable(), scheduled.steps(), scheduled.remainingInventory(),
-            scheduled.blockedBy(), synthetic
-        );
+                scheduled.executable(),
+                scheduled.steps(),
+                scheduled.remainingInventory(),
+                scheduled.blockedBy(),
+                synthetic);
     }
 
     private static <K, R> void enqueue(
-        ECOPlanningOperation<K, R> operation,
-        ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations,
-        Set<R> queued,
-        Set<R> cycleOperations
-    ) {
+            ECOPlanningOperation<K, R> operation,
+            ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations,
+            Set<R> queued,
+            Set<R> cycleOperations) {
         if (queued.add(operation.reference())) {
             if (cycleOperations.contains(operation.reference())) {
                 pendingOperations.addFirst(operation);
@@ -177,9 +172,10 @@ public final class ECOInventoryScheduler {
         ECOPlanningGraph<K, R> graph = new ECOPlanningGraph<>(problem.operations());
         Set<K> cycleMaterials = new HashSet<>();
         for (Set<K> component : ECOStrongComponents.find(graph)) {
-            if (component.size() > 1 || graph.operations().stream().anyMatch(operation ->
-                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
-                    && operation.outputs().containsKey(material)))) {
+            if (component.size() > 1
+                    || graph.operations().stream().anyMatch(operation -> component.stream()
+                            .anyMatch(material -> operation.inputs().containsKey(material)
+                                    && operation.outputs().containsKey(material)))) {
                 cycleMaterials.addAll(component);
             }
         }
@@ -193,10 +189,7 @@ public final class ECOInventoryScheduler {
     }
 
     private static <K, R> long maxExecutable(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> inventory,
-        long pending
-    ) {
+            ECOPlanningOperation<K, R> operation, Map<K, Long> inventory, long pending) {
         long result = pending;
         for (var input : operation.inputs().entrySet()) {
             long available = inventory.getOrDefault(input.getKey(), 0L);
@@ -213,10 +206,7 @@ public final class ECOInventoryScheduler {
     }
 
     private static <K, R> String describePending(
-        ECOPlanningProblem<K, R> problem,
-        Map<R, Long> remaining,
-        Map<K, Long> inventory
-    ) {
+            ECOPlanningProblem<K, R> problem, Map<R, Long> remaining, Map<K, Long> inventory) {
         List<String> details = new ArrayList<>();
         int total = 0;
         for (var operation : problem.operations()) {
@@ -227,26 +217,19 @@ public final class ECOInventoryScheduler {
             total++;
             if (details.size() < 12) {
                 Map<K, Long> availableInputs = new LinkedHashMap<>();
-                operation.inputs().keySet().forEach(key ->
-                    availableInputs.put(key, inventory.getOrDefault(key, 0L))
-                );
-                details.add(
-                    "{operation=" + operation.reference()
+                operation.inputs().keySet().forEach(key -> availableInputs.put(key, inventory.getOrDefault(key, 0L)));
+                details.add("{operation=" + operation.reference()
                         + ",pending=" + batches
                         + ",inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
                         + ",available=" + ECOPlanningFailureDiagnostics.describeMap(availableInputs)
                         + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs())
-                        + ",transitionInputs=" + operation.stateTransitionInputs() + "}"
-                );
+                        + ",transitionInputs=" + operation.stateTransitionInputs() + "}");
             }
         }
         return ECOPlanningFailureDiagnostics.describeIterable(details, total);
     }
 
-    private static <K, R> String describeBlockedProducers(
-        ECOPlanningProblem<K, R> problem,
-        Map<K, Long> blockedBy
-    ) {
+    private static <K, R> String describeBlockedProducers(ECOPlanningProblem<K, R> problem, Map<K, Long> blockedBy) {
         List<String> details = new ArrayList<>();
         int total = 0;
         for (K material : blockedBy.keySet()) {
@@ -256,24 +239,17 @@ public final class ECOInventoryScheduler {
                 }
                 total++;
                 if (details.size() < 12) {
-                    details.add(
-                        "{material=" + material
+                    details.add("{material=" + material
                             + ",operation=" + operation.reference()
                             + ",inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
-                            + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs()) + "}"
-                    );
+                            + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs()) + "}");
                 }
             }
         }
         return ECOPlanningFailureDiagnostics.describeIterable(details, total);
     }
 
-    private static <K> void apply(
-        Map<K, Long> amounts,
-        Map<K, Long> inventory,
-        long batches,
-        boolean add
-    ) {
+    private static <K> void apply(Map<K, Long> amounts, Map<K, Long> inventory, long batches, boolean add) {
         amounts.forEach((key, amount) -> {
             long delta = Math.multiplyExact(amount, batches);
             inventory.merge(key, add ? delta : -delta, Math::addExact);

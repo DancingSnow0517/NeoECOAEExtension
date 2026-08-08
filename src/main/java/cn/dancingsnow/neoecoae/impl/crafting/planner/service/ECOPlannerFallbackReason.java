@@ -36,8 +36,8 @@ public enum ECOPlannerFallbackReason {
 
     public static ECOPlannerFallbackReason fromId(String id) {
         return Arrays.stream(values())
-            .filter(reason -> reason.id.equals(id))
-            .findFirst()
-            .orElse(PLANNING_FAILURE);
+                .filter(reason -> reason.id.equals(id))
+                .findFirst()
+                .orElse(PLANNING_FAILURE);
     }
 }

@@ -9,24 +9,20 @@ import java.util.Optional;
 public final class ECOOversizedPlanEstimator {
     private static final BigInteger EIGHT = BigInteger.valueOf(8L);
 
-    private ECOOversizedPlanEstimator() {
-    }
+    private ECOOversizedPlanEstimator() {}
 
     public static Optional<BigInteger> estimateBytes(ECOAE2PlanningSnapshot snapshot) {
         var graph = ECOGraphPruner.targetReachable(snapshot.problem());
         return ECOBigIntegerDagSolver.trySolve(snapshot.problem(), graph)
-            .map(result -> estimateBytes(snapshot, result));
+                .map(result -> estimateBytes(snapshot, result));
     }
 
     private static BigInteger estimateBytes(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOBigIntegerDagSolver.Result<ECOAE2PatternVariant> result
-    ) {
+            ECOAE2PlanningSnapshot snapshot, ECOBigIntegerDagSolver.Result<ECOAE2PatternVariant> result) {
         Fraction bytes = new Fraction();
         bytes.add(
-            BigInteger.valueOf(snapshot.requestedAmount()).multiply(EIGHT),
-            snapshot.requestedKey().getType().getAmountPerByte()
-        );
+                BigInteger.valueOf(snapshot.requestedAmount()).multiply(EIGHT),
+                snapshot.requestedKey().getType().getAmountPerByte());
 
         long graphNodes = 1L;
         for (var operation : snapshot.problem().operations()) {
@@ -35,15 +31,15 @@ public final class ECOOversizedPlanEstimator {
                 continue;
             }
             bytes.add(count, 1L);
-            graphNodes += 1L + snapshot.inputSlotCounts().getOrDefault(
-                operation.reference(),
-                operation.reference().selectedInputs().size()
-            );
+            graphNodes += 1L
+                    + snapshot.inputSlotCounts()
+                            .getOrDefault(
+                                    operation.reference(),
+                                    operation.reference().selectedInputs().size());
             for (var input : operation.inputs().entrySet()) {
                 bytes.add(
-                    BigInteger.valueOf(input.getValue()).multiply(count).multiply(EIGHT),
-                    input.getKey().getType().getAmountPerByte()
-                );
+                        BigInteger.valueOf(input.getValue()).multiply(count).multiply(EIGHT),
+                        input.getKey().getType().getAmountPerByte());
             }
         }
         bytes.add(BigInteger.valueOf(graphNodes).multiply(EIGHT), 1L);

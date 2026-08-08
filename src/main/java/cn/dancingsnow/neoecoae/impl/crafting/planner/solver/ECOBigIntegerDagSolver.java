@@ -15,13 +15,9 @@ import java.util.Set;
 
 /** Exact replay of the DAG fast path, used only after its long arithmetic overflows. */
 public final class ECOBigIntegerDagSolver {
-    private ECOBigIntegerDagSolver() {
-    }
+    private ECOBigIntegerDagSolver() {}
 
-    public static <K, R> Optional<Result<R>> trySolve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph
-    ) {
+    public static <K, R> Optional<Result<R>> trySolve(ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
         if (containsCycle(graph)) {
             return Optional.empty();
         }
@@ -29,9 +25,9 @@ public final class ECOBigIntegerDagSolver {
         Map<K, BigInteger> balances = new LinkedHashMap<>();
         problem.inventory().forEach((key, amount) -> balances.put(key, BigInteger.valueOf(amount)));
         problem.requested().keySet().forEach(balances::remove);
-        problem.requested().forEach((key, amount) -> balances.merge(
-            key, BigInteger.valueOf(amount).negate(), BigInteger::add
-        ));
+        problem.requested()
+                .forEach((key, amount) ->
+                        balances.merge(key, BigInteger.valueOf(amount).negate(), BigInteger::add));
 
         Map<R, BigInteger> executions = new LinkedHashMap<>();
         ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
@@ -48,8 +44,9 @@ public final class ECOBigIntegerDagSolver {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> producers = graph.producersOf(deficientMaterial).stream()
-                .filter(operation -> positiveNet(operation, deficientMaterial).signum() > 0)
-                .toList();
+                    .filter(operation ->
+                            positiveNet(operation, deficientMaterial).signum() > 0)
+                    .toList();
             if (producers.size() != 1) {
                 return Optional.empty();
             }
@@ -72,13 +69,13 @@ public final class ECOBigIntegerDagSolver {
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
         return ECOStrongComponents.find(graph).stream().anyMatch(component -> component.size() > 1)
-            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
-                .anyMatch(operation.outputs()::containsKey));
+                || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                        .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> BigInteger positiveNet(ECOPlanningOperation<K, R> operation, K material) {
         return BigInteger.valueOf(operation.outputAmount(material))
-            .subtract(BigInteger.valueOf(operation.inputAmount(material)));
+                .subtract(BigInteger.valueOf(operation.inputAmount(material)));
     }
 
     private static BigInteger ceilDiv(BigInteger numerator, BigInteger denominator) {
@@ -87,28 +84,21 @@ public final class ECOBigIntegerDagSolver {
     }
 
     private static <K, R> void enqueueIfDeficient(
-        K material,
-        Map<K, BigInteger> balances,
-        ECOPlanningGraph<K, R> graph,
-        ArrayDeque<K> deficientMaterials,
-        Set<K> queued
-    ) {
+            K material,
+            Map<K, BigInteger> balances,
+            ECOPlanningGraph<K, R> graph,
+            ArrayDeque<K> deficientMaterials,
+            Set<K> queued) {
         if (balances.getOrDefault(material, BigInteger.ZERO).signum() < 0
-            && !graph.producersOf(material).isEmpty()
-            && queued.add(material)) {
+                && !graph.producersOf(material).isEmpty()
+                && queued.add(material)) {
             deficientMaterials.addLast(material);
         }
     }
 
-    private static <K> void mergeScaled(
-        Map<K, BigInteger> balances,
-        K key,
-        long amount,
-        BigInteger batches
-    ) {
+    private static <K> void mergeScaled(Map<K, BigInteger> balances, K key, long amount, BigInteger batches) {
         balances.merge(key, BigInteger.valueOf(amount).multiply(batches), BigInteger::add);
     }
 
-    public record Result<R>(Map<R, BigInteger> executions) {
-    }
+    public record Result<R>(Map<R, BigInteger> executions) {}
 }

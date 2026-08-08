@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.event.ECOStorageCommands;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.NELightningTransformEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.network.ECOPlannerNetwork;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import java.util.List;
@@ -69,6 +70,7 @@ public class NeoECOAE {
         NECellTypes.register();
         NERecipeTypes.register(modBus);
         IWSUpgradeCompat.initialize();
+        ECOPlannerNetwork.register();
 
         // Data components are a 1.20.5+ API. The 1.20.1 port will restore this
         // behavior through item NBT or Forge capabilities later.

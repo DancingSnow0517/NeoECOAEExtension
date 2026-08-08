@@ -18,6 +18,7 @@ import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import java.util.Set;
@@ -83,7 +84,12 @@ public abstract class CraftingServiceMixin {
             return;
         }
 
-        cir.setReturnValue(ECOPlanningService.submit(snapshot.get(), strategy, lease.get(), fallback::run));
+        cir.setReturnValue(ECOPlanningService.submit(
+                snapshot.get(),
+                strategy,
+                lease.get(),
+                ECOPlannerNoticeDispatcher.targetFor(simRequester),
+                fallback::run));
     }
 
     @Inject(method = "addNode", at = @At("TAIL"))

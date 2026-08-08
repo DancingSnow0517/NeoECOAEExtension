@@ -6,16 +6,15 @@ import java.util.Map;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
-    ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
-    AEKey requestedKey,
-    long requestedAmount,
-    boolean multiplePaths,
-    Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
-    boolean truncatedStateExpansion,
-    boolean excludedDynamicPaths,
-    boolean dynamicSmithing,
-    String diagnosticRequestId
-) {
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        AEKey requestedKey,
+        long requestedAmount,
+        boolean multiplePaths,
+        Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+        boolean truncatedStateExpansion,
+        boolean excludedDynamicPaths,
+        boolean dynamicSmithing,
+        String diagnosticRequestId) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
         Objects.requireNonNull(requestedKey, "requestedKey");
@@ -27,18 +26,23 @@ public record ECOAE2PlanningSnapshot(
     }
 
     public ECOAE2PlanningSnapshot(
-        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
-        AEKey requestedKey,
-        long requestedAmount,
-        boolean multiplePaths,
-        Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
-        boolean truncatedStateExpansion,
-        boolean excludedDynamicPaths
-    ) {
+            ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+            AEKey requestedKey,
+            long requestedAmount,
+            boolean multiplePaths,
+            Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+            boolean truncatedStateExpansion,
+            boolean excludedDynamicPaths) {
         this(
-            problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts,
-            truncatedStateExpansion, excludedDynamicPaths, false, "unscoped"
-        );
+                problem,
+                requestedKey,
+                requestedAmount,
+                multiplePaths,
+                inputSlotCounts,
+                truncatedStateExpansion,
+                excludedDynamicPaths,
+                false,
+                "unscoped");
     }
 
     public ECOAE2PlanningSnapshot forAmount(long amount) {
@@ -46,19 +50,14 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("amount must be positive");
         }
         return new ECOAE2PlanningSnapshot(
-            new ECOPlanningProblem<>(
-                problem.operations(),
-                problem.inventory(),
-                Map.of(requestedKey, amount)
-            ),
-            requestedKey,
-            amount,
-            multiplePaths,
-            inputSlotCounts,
-            truncatedStateExpansion,
-            excludedDynamicPaths,
-            dynamicSmithing,
-            diagnosticRequestId
-        );
+                new ECOPlanningProblem<>(problem.operations(), problem.inventory(), Map.of(requestedKey, amount)),
+                requestedKey,
+                amount,
+                multiplePaths,
+                inputSlotCounts,
+                truncatedStateExpansion,
+                excludedDynamicPaths,
+                dynamicSmithing,
+                diagnosticRequestId);
     }
 }
