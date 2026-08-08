@@ -10,24 +10,25 @@ import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /** Control surface for browsing network patterns and moving compatible ones into ECO crafting buses. */
@@ -41,7 +42,6 @@ public final class CraftingInterfaceUI {
     private static final int PLAYER_INVENTORY_WIDTH = 9 * 18;
     private static final int ROOT_SIDE_MARGIN = 7;
     private static final int TOOL_BUTTON_SIZE = 16;
-    private static final int PREVIEW_SCROLLBAR_WIDTH = ROOT_SIDE_MARGIN;
 
     private CraftingInterfaceUI() {
     }
@@ -49,11 +49,10 @@ public final class CraftingInterfaceUI {
     public static ModularUI create(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
             Player player) {
-        craftingInterface.refreshPatternPreview();
+        craftingInterface.ensurePatternPreview();
 
         UIElement root = new UIElement().layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH + ROOT_SIDE_MARGIN * 2)
-                .height(344)
                 .paddingLeft(ROOT_SIDE_MARGIN)
                 .paddingRight(ROOT_SIDE_MARGIN)
                 .paddingTop(8)
@@ -108,12 +107,62 @@ public final class CraftingInterfaceUI {
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER)
                 .gapAll(2));
-        Label title = boundLabel(() -> Component.translatable("gui.neoecoae.crafting_interface.preview"));
-        title.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
-        header.addChild(title);
+        header.addChild(patternSearchField(craftingInterface));
+        header.addChild(patternFilterButton(
+                craftingInterface,
+                craftingInterface::showsSubstitutionPatterns,
+                Icon.S_SUBSTITUTION_ENABLED,
+                Icon.S_SUBSTITUTION_DISABLED,
+                craftingInterface::toggleSubstitutionPatterns,
+                "gui.neoecoae.crafting_interface.preview.filter_substitutions"));
+        header.addChild(patternFilterButton(
+                craftingInterface,
+                craftingInterface::showsFluidSubstitutionPatterns,
+                Icon.S_FLUID_SUBSTITUTION_ENABLED,
+                Icon.S_FLUID_SUBSTITUTION_DISABLED,
+                craftingInterface::toggleFluidSubstitutionPatterns,
+                "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
         header.addChild(iconButton(Icon.PATTERN_TERMINAL_ALL, "gui.neoecoae.crafting_interface.preview.refresh",
                 () -> craftingInterface.refreshPatternPreview()));
         return header;
+    }
+
+    private static TextField patternSearchField(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+        TextField field = new TextField();
+        field.setTextResponder(craftingInterface::setPatternPreviewSearch);
+        field.bind(DataBindingBuilder.string(
+                craftingInterface::getPatternPreviewSearch,
+                craftingInterface::setPatternPreviewSearch).build());
+        field.textFieldStyle(style -> style
+                .textColor(0xFFFFFF)
+                .textShadow(false)
+                .placeholder(Component.translatable("gui.neoecoae.crafting_interface.preview.search")));
+        field.style(style -> style.backgroundTexture(Sprites.RECT_RD));
+        field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
+        return field;
+    }
+
+    private static Button patternFilterButton(
+            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
+            BooleanSupplier enabled,
+            Icon enabledIcon,
+            Icon disabledIcon,
+            Runnable action,
+            String tooltip) {
+        Button button = new Button()
+                .noText()
+                .addPreIcon(AETextures.icon(enabled.getAsBoolean() ? enabledIcon : disabledIcon))
+                .setOnServerClick(event -> action.run());
+        button.buttonStyle(style -> style
+                .baseTexture(Sprites.RECT_RD)
+                .hoverTexture(Sprites.RECT_RD_LIGHT)
+                .pressedTexture(Sprites.RECT_RD_DARK));
+        button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
+        BindableValue<Boolean> syncedEnabled = HostElements.syncedBoolean(enabled);
+        syncedEnabled.registerValueListener(value -> button.getChildren().getFirst()
+                .style(style -> style.backgroundTexture(AETextures.icon(Boolean.TRUE.equals(value) ? enabledIcon : disabledIcon))));
+        button.addChild(syncedEnabled);
+        return HostElements.tooltips(button, Component.translatable(tooltip));
     }
 
     private static UIElement previewSection(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
@@ -135,10 +184,6 @@ public final class CraftingInterfaceUI {
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER));
         row.addChild(patternPreview(craftingInterface));
-        row.addChild(previewScrollbar(craftingInterface).layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(PREVIEW_WIDTH)
-                .top(0)));
         return row;
     }
 
@@ -148,6 +193,20 @@ public final class CraftingInterfaceUI {
                 .height(PREVIEW_HEIGHT)
                 .alignItems(AlignItems.CENTER))
                 .addClass("panel_border");
+        // Consume the wheel on the client before AE2 sees it. Without this, AE2's
+        // inventory-scroll shortcut moves the pattern under the cursor into the
+        // player inventory while this panel is being scrolled.
+        preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY != 0) {
+                event.stopImmediatePropagation();
+            }
+        });
+        preview.addServerEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY != 0) {
+                craftingInterface.scrollPatternPreview(event.deltaY < 0 ? 1 : -1);
+                event.stopImmediatePropagation();
+            }
+        });
         for (int row = 0; row < PREVIEW_ROWS; row++) {
             UIElement previewRow = new UIElement().layout(layout -> layout
                     .width(PREVIEW_WIDTH)
@@ -162,29 +221,6 @@ public final class CraftingInterfaceUI {
             preview.addChild(previewRow);
         }
         return preview;
-    }
-
-    private static Scroller previewScrollbar(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
-        Scroller scrollbar = new Scroller.Vertical()
-                .setRange(0F, 1F)
-                .setScrollBarSize(previewScrollbarSize(craftingInterface.getPatternPreviewEntryCount()))
-                .scrollerStyle(style -> style.scrollDelta(0.125F))
-                .headButton(button -> button.setDisplay(false))
-                .tailButton(button -> button.setDisplay(false));
-        scrollbar.layout(layout -> layout.width(PREVIEW_SCROLLBAR_WIDTH).height(PREVIEW_HEIGHT));
-        scrollbar.bind(DataBindingBuilder.floatVal(
-                craftingInterface::getPatternPreviewScrollPosition,
-                craftingInterface::setPatternPreviewScrollPosition).build());
-
-        BindableValue<Integer> entryCount = HostElements.syncedInt(craftingInterface::getPatternPreviewEntryCount);
-        entryCount.registerValueListener(value -> scrollbar.setScrollBarSize(previewScrollbarSize(value == null ? 0 : value)));
-        scrollbar.addChild(entryCount);
-        return HostElements.tooltips(scrollbar, () -> List.of(craftingInterface.getPatternPreviewScrollStatus()));
-    }
-
-    private static float previewScrollbarSize(int entryCount) {
-        int totalRows = Math.max(1, (entryCount + PREVIEW_COLUMNS - 1) / PREVIEW_COLUMNS);
-        return Math.max(12F, Math.min(100F, PREVIEW_ROWS * 100F / totalRows));
     }
 
     private static Button iconButton(Icon icon, String tooltip, Runnable action) {

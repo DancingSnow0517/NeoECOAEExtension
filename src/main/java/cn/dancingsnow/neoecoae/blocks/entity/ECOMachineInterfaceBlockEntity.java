@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.ids.AEComponents;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
@@ -94,10 +95,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternPreviewEntryCount;
     @DescSynced
     private int patternPreviewScrollRow;
+    @DescSynced
+    private String patternPreviewSearch = "";
+    @DescSynced
+    private boolean showSubstitutionPatterns = true;
+    @DescSynced
+    private boolean showFluidSubstitutionPatterns = true;
     private List<PatternPreviewEntry> patternPreviewEntries = new ArrayList<>();
+    private List<PatternPreviewTracker> patternPreviewTrackers = List.of();
     @Nullable
     private PatternPreviewTask patternPreviewTask;
-    private boolean patternPreviewRefreshRequested;
+    private boolean patternPreviewInitialized;
+    private boolean patternPreviewCacheReady;
     private long lastPatternPreviewSyncTick = Long.MIN_VALUE;
     private final IItemHandlerModifiable patternPreviewItemHandler = new PatternPreviewItemHandler();
     public ECOMachineInterfaceBlockEntity(
@@ -206,12 +215,56 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
+    public void ensurePatternPreview() {
+        // The preview is an intentionally explicit cache: reopening the terminal
+        // must not start another full network scan. The refresh button is the
+        // opt-in way to rebuild it.
+        if (level instanceof ServerLevel serverLevel && !patternPreviewCacheReady && patternPreviewTask == null) {
+            beginPatternPreviewScan(serverLevel);
+        }
+    }
+
     public void scrollPatternPreview(int rowDelta) {
         int nextRow = Math.clamp(patternPreviewScrollRow + rowDelta, 0, getPatternPreviewMaxScrollRow());
         if (nextRow == patternPreviewScrollRow) {
             return;
         }
         patternPreviewScrollRow = nextRow;
+        markForUpdate();
+    }
+
+    public String getPatternPreviewSearch() {
+        return patternPreviewSearch;
+    }
+
+    public void setPatternPreviewSearch(String search) {
+        String next = search == null ? "" : search.trim();
+        if (next.equals(patternPreviewSearch)) {
+            return;
+        }
+        patternPreviewSearch = next;
+        patternPreviewScrollRow = 0;
+        rebuildPatternPreviewEntries();
+        markForUpdate();
+    }
+
+    public boolean showsSubstitutionPatterns() {
+        return showSubstitutionPatterns;
+    }
+
+    public boolean showsFluidSubstitutionPatterns() {
+        return showFluidSubstitutionPatterns;
+    }
+
+    public void toggleSubstitutionPatterns() {
+        showSubstitutionPatterns = !showSubstitutionPatterns;
+        rebuildPatternPreviewEntries();
+        markForUpdate();
+    }
+
+    public void toggleFluidSubstitutionPatterns() {
+        showFluidSubstitutionPatterns = !showFluidSubstitutionPatterns;
+        rebuildPatternPreviewEntries();
         markForUpdate();
     }
 
@@ -237,26 +290,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         );
     }
 
-    public int getPatternPreviewEntryCount() {
-        return patternPreviewEntryCount;
-    }
-
-    public float getPatternPreviewScrollPosition() {
-        int maxScrollRow = getPatternPreviewMaxScrollRow();
-        return maxScrollRow == 0 ? 0F : patternPreviewScrollRow / (float) maxScrollRow;
-    }
-
-    public void setPatternPreviewScrollPosition(float position) {
-        int maxScrollRow = getPatternPreviewMaxScrollRow();
-        int targetRow = Math.round(Math.clamp(position, 0F, 1F) * maxScrollRow);
-        if (targetRow == patternPreviewScrollRow) {
-            return;
-        }
-        patternPreviewScrollRow = targetRow;
-        markForUpdate();
-    }
-
-    public int getPatternPreviewMaxScrollRow() {
+    private int getPatternPreviewMaxScrollRow() {
         int totalRows = (patternPreviewEntryCount + PATTERN_PREVIEW_COLUMNS - 1) / PATTERN_PREVIEW_COLUMNS;
         return Math.max(0, totalRows - PATTERN_PREVIEW_ROWS);
     }
@@ -269,11 +303,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (patternTransferTask != null) {
             tickPatternTransfer(serverLevel, deadline);
         }
-        if (patternPreviewRefreshRequested && patternPreviewTask == null && patternTransferTask == null) {
-            beginPatternPreviewScan(serverLevel);
-        }
         if (patternPreviewTask != null && System.nanoTime() < deadline) {
             tickPatternPreview(serverLevel, deadline);
+        }
+        if (patternPreviewCacheReady && patternPreviewTask == null) {
+            tickPatternPreviewCache(serverLevel);
         }
     }
 
@@ -308,6 +342,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 sources.add(container);
             }
         }
+        return sources;
+    }
+
+    private List<PatternContainer> getFPatternSources(IGrid grid) {
+        List<PatternContainer> sources = new ArrayList<>();
+        sources.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
         return sources;
     }
 
@@ -347,12 +387,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 case INSERTED -> {
                     step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
                     patternTransferInserted++;
-                    queuePatternPreviewRefresh();
                 }
                 case ALREADY_PRESENT -> {
                     step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
                     patternTransferAlreadyPresent++;
-                    queuePatternPreviewRefresh();
                 }
                 case NO_SPACE -> patternTransferNoSpace++;
                 case NO_TARGET -> {
@@ -372,13 +410,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     private void beginPatternPreviewScan(ServerLevel serverLevel) {
         PatternPreviewTask task = createPatternPreviewTask();
-        patternPreviewRefreshRequested = false;
+        patternPreviewInitialized = task != null;
+        patternPreviewCacheReady = false;
         patternPreviewScannedSlots = 0;
         patternPreviewTotalSlots = task == null ? 0 : task.totalSlots();
         patternPreviewTask = task;
         patternPreviewScanning = task != null;
         if (task == null) {
             patternPreviewEntries = new ArrayList<>();
+            patternPreviewTrackers = List.of();
             patternPreviewEntryCount = 0;
             patternPreviewScrollRow = 0;
         }
@@ -391,7 +431,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return null;
         }
         IGrid grid = getMainNode().getGrid();
-        return grid == null ? null : new PatternPreviewTask(grid, getExternalPatternSources(grid));
+        return grid == null ? null : new PatternPreviewTask(grid, getFPatternSources(grid));
     }
 
     private void tickPatternPreview(ServerLevel serverLevel, long deadline) {
@@ -420,9 +460,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
         if (task.isFinished()) {
-            patternPreviewEntries = new ArrayList<>(task.entries());
-            patternPreviewEntryCount = patternPreviewEntries.size();
-            patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
+            patternPreviewTrackers = task.sources().stream().map(PatternPreviewTracker::new).toList();
+            rebuildPatternPreviewEntries();
+            patternPreviewCacheReady = true;
             finishPatternPreview(serverLevel, false);
         } else {
             syncPatternPreviewState(serverLevel.getGameTime(), false);
@@ -434,14 +474,81 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternPreviewScanning = false;
         if (discardEntries) {
             patternPreviewEntries = new ArrayList<>();
+            patternPreviewTrackers = List.of();
             patternPreviewEntryCount = 0;
             patternPreviewScrollRow = 0;
+            patternPreviewInitialized = false;
+            patternPreviewCacheReady = false;
         }
         syncPatternPreviewState(level.getGameTime(), true);
     }
 
-    private void queuePatternPreviewRefresh() {
-        patternPreviewRefreshRequested = true;
+    /**
+     * Mirrors AE2's pattern access terminal: retain one snapshot per pattern container and only rebuild the visible
+     * list when a slot actually changes. AE2 does not expose this tracker as a public API, so the custom terminal
+     * keeps the same server-side semantics while retaining its own transfer controls.
+     */
+    private void tickPatternPreviewCache(ServerLevel serverLevel) {
+        IGrid grid = getMainNode().getGrid();
+        if (!formed || grid == null) {
+            finishPatternPreview(serverLevel, true);
+            return;
+        }
+        List<PatternContainer> sources = getFPatternSources(grid);
+        if (sources.size() != patternPreviewTrackers.size()
+                || !samePatternPreviewSources(sources)) {
+            beginPatternPreviewScan(serverLevel);
+            return;
+        }
+        boolean changed = false;
+        for (PatternPreviewTracker tracker : patternPreviewTrackers) {
+            changed |= tracker.update();
+        }
+        if (changed) {
+            rebuildPatternPreviewEntries();
+            syncPatternPreviewState(serverLevel.getGameTime(), true);
+        }
+    }
+
+    private boolean samePatternPreviewSources(List<PatternContainer> sources) {
+        for (int i = 0; i < sources.size(); i++) {
+            PatternPreviewTracker tracker = patternPreviewTrackers.get(i);
+            if (tracker.source() != sources.get(i) || tracker.source().getGrid() != getMainNode().getGrid()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void rebuildPatternPreviewEntries() {
+        String query = patternPreviewSearch.toLowerCase(java.util.Locale.ROOT);
+        List<PatternPreviewEntry> entries = new ArrayList<>();
+        for (PatternPreviewTracker tracker : patternPreviewTrackers) {
+            for (int slot = 0; slot < tracker.snapshot().length; slot++) {
+                ItemStack stack = tracker.snapshot()[slot];
+                if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack) && matchesPatternPreviewSearch(stack, query)) {
+                    entries.add(new PatternPreviewEntry(tracker.source(), slot, stack.copy()));
+                }
+            }
+        }
+        patternPreviewEntries = entries;
+        patternPreviewEntryCount = entries.size();
+        patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
+    }
+
+    private boolean matchesPatternPreviewSearch(ItemStack stack, String query) {
+        var encodedPattern = stack.get(AEComponents.ENCODED_CRAFTING_PATTERN);
+        if (encodedPattern != null && (!showSubstitutionPatterns && encodedPattern.canSubstitute()
+                || !showFluidSubstitutionPatterns && encodedPattern.canSubstituteFluids())) {
+            return false;
+        }
+        if (query.isEmpty() || stack.getHoverName().getString().toLowerCase(java.util.Locale.ROOT).contains(query)
+                || stack.getComponentsPatch().toString().toLowerCase(java.util.Locale.ROOT).contains(query)) {
+            return true;
+        }
+        var details = level == null ? null : PatternDetailsHelper.decodePattern(stack, level);
+        return details != null && details.getOutputs().stream()
+            .anyMatch(output -> output.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT).contains(query));
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {
@@ -560,6 +667,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return entries;
         }
 
+        private List<PatternContainer> sources() {
+            return sources;
+        }
+
         private boolean isFinished() {
             return sourceIndex >= sources.size();
         }
@@ -588,6 +699,44 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private record PatternPreviewStep(PatternContainer source, InternalInventory inventory, int slot) {
+    }
+
+    private static final class PatternPreviewTracker {
+        private final PatternContainer source;
+        private final ItemStack[] snapshot;
+
+        private PatternPreviewTracker(PatternContainer source) {
+            this.source = source;
+            InternalInventory inventory = source.getTerminalPatternInventory();
+            this.snapshot = new ItemStack[inventory.size()];
+            for (int slot = 0; slot < snapshot.length; slot++) {
+                snapshot[slot] = inventory.getStackInSlot(slot).copy();
+            }
+        }
+
+        private PatternContainer source() {
+            return source;
+        }
+
+        private ItemStack[] snapshot() {
+            return snapshot;
+        }
+
+        private boolean update() {
+            InternalInventory inventory = source.getTerminalPatternInventory();
+            if (inventory.size() != snapshot.length) {
+                return true;
+            }
+            boolean changed = false;
+            for (int slot = 0; slot < snapshot.length; slot++) {
+                ItemStack current = inventory.getStackInSlot(slot);
+                if (!ItemStack.matches(current, snapshot[slot])) {
+                    snapshot[slot] = current.copy();
+                    changed = true;
+                }
+            }
+            return changed;
+        }
     }
 
     /**
@@ -631,7 +780,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             ItemStack remaining = inventory.insertItem(entry.sourceSlot(), stack, simulate);
             if (!simulate && remaining.getCount() != stack.getCount()) {
                 updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-                queuePatternPreviewRefresh();
             }
             return remaining;
         }
@@ -649,7 +797,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             ItemStack extracted = inventory.extractItem(entry.sourceSlot(), amount, simulate);
             if (!simulate && !extracted.isEmpty()) {
                 updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-                queuePatternPreviewRefresh();
             }
             return extracted;
         }
@@ -691,7 +838,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (stack.isEmpty()) {
                 if (!current.isEmpty()) {
                     inventory.extractItem(entry.sourceSlot(), current.getCount(), false);
-                    queuePatternPreviewRefresh();
                 }
                 return;
             }
@@ -707,7 +853,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 return;
             }
             updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-            queuePatternPreviewRefresh();
         }
 
         private boolean isPreviewSlotValidForInsert(int visualSlot, ItemStack stack) {

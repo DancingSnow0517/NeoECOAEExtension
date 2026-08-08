@@ -8,6 +8,7 @@
     "CPUSelectionListMixin",
     "CraftingCpuListEntryMixin",
     "CraftingCPUMenuMixin",
+    "ECOCraftingCpuNativeFastPathPriorityMixin",
     "CraftingServiceMixin",
     "CraftingStatusMenuMixin",
     "DriveCellValidInventoryFilterMixin",
