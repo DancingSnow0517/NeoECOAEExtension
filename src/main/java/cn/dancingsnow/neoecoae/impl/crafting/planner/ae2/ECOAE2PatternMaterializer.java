@@ -33,6 +33,14 @@ import net.minecraft.world.level.Level;
  */
 final class ECOAE2PatternMaterializer {
     static final int MAX_VARIANTS_PER_PATTERN = 256;
+    /**
+     * A state transition is a graph edge, not another independent recipe input.
+     * Bound its reachable nodes independently so unrelated alternative slots do
+     * not prematurely truncate the state graph through a Cartesian-product cap.
+     */
+    private static final int MAX_STATE_TRANSITION_STATES_PER_SLOT = 256;
+    private static final int MAX_STATEFUL_VARIANTS_PER_PATTERN =
+        MAX_VARIANTS_PER_PATTERN * MAX_STATE_TRANSITION_STATES_PER_SLOT;
 
     private ECOAE2PatternMaterializer() {
     }
@@ -130,6 +138,7 @@ final class ECOAE2PatternMaterializer {
             }
         }
 
+        int variantLimit = stateful ? MAX_STATEFUL_VARIANTS_PER_PATTERN : MAX_VARIANTS_PER_PATTERN;
         long baseCombinationCount = 1L;
         boolean useBoundedMixableBasis = false;
         for (SlotMaterialization slot : slots) {
@@ -137,13 +146,15 @@ final class ECOAE2PatternMaterializer {
                 baseCombinationCount,
                 selectionCount(slot.candidates().size(), slot.multiplier(), assessment.inputSemantics())
             );
-            if (baseCombinationCount > MAX_VARIANTS_PER_PATTERN) {
-                if (assessment.inputSemantics()
+            if (baseCombinationCount > MAX_VARIANTS_PER_PATTERN
+                && assessment.inputSemantics()
                     == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES) {
-                    useBoundedMixableBasis = true;
-                } else {
-                    throw limit("variant_limit ordinary_combinations=" + baseCombinationCount);
-                }
+                // Preserve the compact basis for freely mixable inputs. Stateful slots are
+                // expanded as graph nodes below; multiplying those nodes by every allocation
+                // of unrelated consumables is not part of the state model.
+                useBoundedMixableBasis = true;
+            } else if (baseCombinationCount > variantLimit) {
+                throw limit("variant_limit ordinary_combinations=" + baseCombinationCount);
             }
         }
         if (useBoundedMixableBasis && ECOPlanningFailureDiagnostics.canLogDetail(
@@ -173,20 +184,6 @@ final class ECOAE2PatternMaterializer {
             }
 
             ArrayDeque<Candidate> pending = new ArrayDeque<>(slot.candidates());
-            long otherCombinationCount = 1L;
-            for (int other = 0; other < slots.size(); other++) {
-                if (other == slotIndex) {
-                    continue;
-                }
-                otherCombinationCount = saturatedMultiply(
-                    otherCombinationCount,
-                    selectionCount(
-                        slots.get(other).candidates().size(),
-                        slots.get(other).multiplier(),
-                        assessment.inputSemantics()
-                    )
-                );
-            }
             while (!pending.isEmpty()) {
                 Candidate current = pending.removeFirst();
                 if (!current.hasStateTransition()) {
@@ -196,9 +193,7 @@ final class ECOAE2PatternMaterializer {
                 if (next.isEmpty() || slot.visited().contains(next.get())) {
                     continue;
                 }
-                long candidateCount = slot.candidates().size() + 1L;
-                long combinations = saturatedMultiply(candidateCount, otherCombinationCount);
-                if (combinations > MAX_VARIANTS_PER_PATTERN) {
+                if (slot.candidates().size() >= MAX_STATE_TRANSITION_STATES_PER_SLOT) {
                     truncated = true;
                     break;
                 }
@@ -245,7 +240,7 @@ final class ECOAE2PatternMaterializer {
         long variantCount = 1L;
         for (List<ECOAE2InputSelection> slot : selections) {
             variantCount = saturatedMultiply(variantCount, slot.size());
-            if (variantCount > MAX_VARIANTS_PER_PATTERN) {
+            if (variantCount > variantLimit) {
                 if (stateful) {
                     truncated = true;
                     break;
@@ -253,7 +248,7 @@ final class ECOAE2PatternMaterializer {
                 throw limit("variant_limit materialized_combinations=" + variantCount);
             }
         }
-        if (variantCount > MAX_VARIANTS_PER_PATTERN && !stateful) {
+        if (variantCount > variantLimit && !stateful) {
             throw limit("variant_limit materialized_combinations=" + variantCount);
         }
 
@@ -280,14 +275,15 @@ final class ECOAE2PatternMaterializer {
             candidatesByKey,
             fixedOutputAmounts,
             slots,
-            operations
+            operations,
+            variantLimit
         );
-        if (operations.size() > MAX_VARIANTS_PER_PATTERN) {
+        if (operations.size() > variantLimit) {
             if (!stateful) {
                 throw limit("variant_limit materialized_operations=" + operations.size());
             }
             truncated = true;
-            operations = new ArrayList<>(operations.subList(0, MAX_VARIANTS_PER_PATTERN));
+            operations = new ArrayList<>(operations.subList(0, variantLimit));
         }
         if (ECOPlanningFailureDiagnostics.canLogDetail(
             ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
@@ -308,7 +304,8 @@ final class ECOAE2PatternMaterializer {
             Set.copyOf(dependencyKeys),
             inventoryDependent,
             stateful,
-            truncated
+            truncated,
+            stateCapacityTemplates(slots)
         );
     }
 
@@ -735,9 +732,10 @@ final class ECOAE2PatternMaterializer {
         Map<AEKey, Candidate> candidatesByKey,
         Map<AEKey, Long> fixedOutputs,
         List<SlotMaterialization> slots,
-        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations
+        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
+        int variantLimit
     ) {
-        if (operations.size() >= MAX_VARIANTS_PER_PATTERN) {
+        if (operations.size() >= variantLimit) {
             return;
         }
         if (slot == selections.size()) {
@@ -759,10 +757,11 @@ final class ECOAE2PatternMaterializer {
                 candidatesByKey,
                 fixedOutputs,
                 slots,
-                operations
+                operations,
+                variantLimit
             );
             selected.removeLast();
-            if (operations.size() >= MAX_VARIANTS_PER_PATTERN) {
+            if (operations.size() >= variantLimit) {
                 return;
             }
         }
@@ -810,6 +809,24 @@ final class ECOAE2PatternMaterializer {
         } catch (ArithmeticException overflow) {
             throw reject(kind + "_amount_overflow key=" + key, overflow);
         }
+    }
+
+    private static List<ECOAE2StateCapacityTemplate> stateCapacityTemplates(
+        List<SlotMaterialization> slots
+    ) {
+        List<ECOAE2StateCapacityTemplate> templates = new ArrayList<>();
+        for (SlotMaterialization slot : slots) {
+            Map<AEKey, AEKey> transitions = new LinkedHashMap<>();
+            for (Candidate candidate : slot.candidates()) {
+                if (candidate.hasStateTransition()) {
+                    candidate.remainingKey().ifPresent(next -> transitions.put(candidate.template().what(), next));
+                }
+            }
+            if (!transitions.isEmpty()) {
+                templates.add(new ECOAE2StateCapacityTemplate(transitions));
+            }
+        }
+        return List.copyOf(templates);
     }
 
     private static long saturatedMultiply(long left, long right) {
@@ -941,13 +958,17 @@ final class ECOAE2PatternMaterializer {
         Set<AEKey> dependencyKeys,
         boolean inventoryDependent,
         boolean stateful,
-        boolean truncatedStateExpansion
+        boolean truncatedStateExpansion,
+        List<ECOAE2StateCapacityTemplate> stateCapacityTemplates
     ) {
         public PatternExpansion {
             operations = List.copyOf(Objects.requireNonNull(operations, "operations"));
             dependencyKeys = Collections.unmodifiableSet(
                 new LinkedHashSet<>(Objects.requireNonNull(dependencyKeys, "dependencyKeys"))
             );
+            stateCapacityTemplates = List.copyOf(Objects.requireNonNull(
+                stateCapacityTemplates, "stateCapacityTemplates"
+            ));
         }
     }
 }

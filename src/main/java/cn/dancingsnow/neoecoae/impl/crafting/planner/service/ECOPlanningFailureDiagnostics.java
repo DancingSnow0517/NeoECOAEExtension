@@ -170,6 +170,28 @@ public final class ECOPlanningFailureDiagnostics {
         return describeEntries(values.entrySet(), values.size());
     }
 
+    /** Renders all entries when reporting a concrete missing-source set. */
+    public static String describeMapComplete(Map<?, ?> values) {
+        if (values == null) {
+            return "null";
+        }
+        StringBuilder result = new StringBuilder("{");
+        boolean first = true;
+        for (var entry : values.entrySet()) {
+            String rendered = describe(entry);
+            if (!first) {
+                result.append(", ");
+            }
+            if (result.length() + rendered.length() > MAX_RENDERED_CHARS) {
+                result.append("... truncated=true");
+                break;
+            }
+            result.append(rendered);
+            first = false;
+        }
+        return sanitize(result.append('}').toString());
+    }
+
     public static String describeIterable(Iterable<?> values, int total) {
         if (values == null) {
             return "null";

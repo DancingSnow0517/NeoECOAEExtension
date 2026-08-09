@@ -43,7 +43,12 @@ public final class ECOAE2PlanAssembler {
             );
             return Optional.empty();
         }
-        if ((snapshot.truncatedStateExpansion() || snapshot.excludedDynamicPaths())
+        var problem = snapshot.problem();
+        var candidate = result.candidate();
+        Map<AEKey, Long> missing = findMissingSources(problem, result);
+        addMissingCycleSeed(problem, result, missing);
+        boolean stateCapacityCovered = stateCapacityCovers(snapshot, candidate);
+        if (((snapshot.truncatedStateExpansion() && !stateCapacityCovered) || snapshot.excludedDynamicPaths())
             && result.status() != ECOHyperflowResult.Status.COMPLETE) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
@@ -51,18 +56,15 @@ public final class ECOAE2PlanAssembler {
                 snapshot.requestedKey(),
                 snapshot.requestedAmount(),
                 "assembler",
-                (snapshot.truncatedStateExpansion()
+                (snapshot.truncatedStateExpansion() && !stateCapacityCovered
                     ? "truncated_state_inconclusive"
                     : "excluded_dynamic_path_inconclusive")
                     + " status=" + result.status()
+                    + " missing=" + ECOPlanningFailureDiagnostics.describeMapComplete(missing)
             );
             return Optional.empty();
         }
 
-        var problem = snapshot.problem();
-        var candidate = result.candidate();
-        Map<AEKey, Long> missing = findMissingSources(problem, result);
-        addMissingCycleSeed(problem, result, missing);
         Map<AEKey, Long> negativeBalances = findNegativeBalances(problem, candidate);
         boolean simulation = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES;
         if (simulation || !missing.isEmpty() || !negativeBalances.isEmpty()) {
@@ -219,6 +221,43 @@ public final class ECOAE2PlanAssembler {
             );
         }
         return Optional.of(plan);
+    }
+
+    private static boolean stateCapacityCovers(
+        ECOAE2PlanningSnapshot snapshot,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
+    ) {
+        if (!snapshot.truncatedStateExpansion()) {
+            return true;
+        }
+        Map<ECOAE2StateCapacityTemplate, Long> required = new LinkedHashMap<>();
+        Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference =
+            new HashMap<>();
+        for (var operation : snapshot.problem().operations()) {
+            byReference.put(operation.reference(), operation);
+        }
+        for (var execution : candidate.executions().entrySet()) {
+            var operation = byReference.get(execution.getKey());
+            if (operation == null || operation.stateTransitionInputs().isEmpty()) {
+                continue;
+            }
+            for (AEKey state : operation.stateTransitionInputs()) {
+                ECOAE2StateCapacityTemplate template = snapshot.stateCapacityTemplates().stream()
+                    .filter(candidateTemplate -> candidateTemplate.accepts(state))
+                    .findFirst()
+                    .orElse(null);
+                if (template == null) {
+                    return false;
+                }
+                required.merge(template, execution.getValue(), Math::addExact);
+            }
+        }
+        for (var entry : required.entrySet()) {
+            if (entry.getValue() > entry.getKey().availableBatches(snapshot.problem().inventory())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Compatibility helper retained for the old input-selection execution tests. */

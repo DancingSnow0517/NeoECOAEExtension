@@ -182,6 +182,7 @@ public final class ECOAE2SnapshotFactory {
                 requestedAmount,
                 graph.multiplePaths(),
                 graph.inputSlotCounts(),
+                graph.stateCapacityTemplates(),
                 graph.truncatedStateExpansion(),
                 graph.excludedDynamicPaths(),
                 graph.dynamicSmithing(),
@@ -354,6 +355,7 @@ public final class ECOAE2SnapshotFactory {
         Map<AEItemKey, CapturedPattern> canonicalPatterns = new LinkedHashMap<>();
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = new ArrayList<>();
         Map<ECOAE2PatternVariant, Integer> inputSlotCounts = new LinkedHashMap<>();
+        List<ECOAE2StateCapacityTemplate> stateCapacityTemplates = new ArrayList<>();
         boolean multiplePaths = false;
         boolean truncatedStateExpansion = false;
         boolean excludedDynamicPaths = false;
@@ -567,6 +569,7 @@ public final class ECOAE2SnapshotFactory {
                 }
                 canonicalPatterns.put(definition, new CapturedPattern(details, expansion));
                 operations.addAll(expansion.operations());
+                stateCapacityTemplates.addAll(expansion.stateCapacityTemplates());
                 for (var operation : expansion.operations()) {
                     inputSlotCounts.put(operation.reference(), operation.reference().selectedInputs().size());
                 }
@@ -608,6 +611,7 @@ public final class ECOAE2SnapshotFactory {
         return new PatternGraph(
             List.copyOf(operations),
             Map.copyOf(inputSlotCounts),
+            List.copyOf(stateCapacityTemplates),
             multiplePaths,
             truncatedStateExpansion,
             excludedDynamicPaths,
@@ -871,6 +875,7 @@ public final class ECOAE2SnapshotFactory {
     private record PatternGraph(
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
         Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+        List<ECOAE2StateCapacityTemplate> stateCapacityTemplates,
         boolean multiplePaths,
         boolean truncatedStateExpansion,
         boolean excludedDynamicPaths,
@@ -886,6 +891,7 @@ public final class ECOAE2SnapshotFactory {
         private PatternGraph {
             operations = List.copyOf(operations);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
+            stateCapacityTemplates = List.copyOf(stateCapacityTemplates);
             unresolvedMaterials = Set.copyOf(unresolvedMaterials);
         }
     }

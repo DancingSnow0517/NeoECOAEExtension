@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
@@ -11,6 +12,7 @@ public record ECOAE2PlanningSnapshot(
     long requestedAmount,
     boolean multiplePaths,
     Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+    List<ECOAE2StateCapacityTemplate> stateCapacityTemplates,
     boolean truncatedStateExpansion,
     boolean excludedDynamicPaths,
     boolean dynamicSmithing,
@@ -23,6 +25,9 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("requestedAmount must be positive");
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
+        stateCapacityTemplates = List.copyOf(Objects.requireNonNull(
+            stateCapacityTemplates, "stateCapacityTemplates"
+        ));
         diagnosticRequestId = Objects.requireNonNullElse(diagnosticRequestId, "unscoped");
     }
 
@@ -36,7 +41,7 @@ public record ECOAE2PlanningSnapshot(
         boolean excludedDynamicPaths
     ) {
         this(
-            problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts,
+            problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts, List.of(),
             truncatedStateExpansion, excludedDynamicPaths, false, "unscoped"
         );
     }
@@ -55,6 +60,7 @@ public record ECOAE2PlanningSnapshot(
             amount,
             multiplePaths,
             inputSlotCounts,
+            stateCapacityTemplates,
             truncatedStateExpansion,
             excludedDynamicPaths,
             dynamicSmithing,
