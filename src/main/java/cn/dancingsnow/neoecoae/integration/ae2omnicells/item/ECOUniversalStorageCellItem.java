@@ -34,9 +34,13 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements IECOStorageCellItem {
+    private static final long MAX_EXTERNAL_STORAGE_BYTES = (long) Integer.MAX_VALUE / 1024L * 1024L;
+
     @Getter
     private final IECOTier tier;
     private final Supplier<ECOCellType> cellType;
+    private final long ecoStorageTotalBytes;
+    private final boolean externallyUnlimited;
 
     public ECOUniversalStorageCellItem(
         Properties properties,
@@ -56,9 +60,26 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         int totalTypes,
         long totalBytes
     ) {
-        super(properties.stacksTo(1), idleDrain, totalTypes, Math.toIntExact(totalBytes / 1024L));
+        super(properties.stacksTo(1), idleDrain, totalTypes, externalKilobytes(totalBytes));
         this.tier = tier;
         this.cellType = cellType;
+        this.ecoStorageTotalBytes = totalBytes;
+        this.externallyUnlimited = totalBytes > MAX_EXTERNAL_STORAGE_BYTES;
+    }
+
+    private static int externalKilobytes(long totalBytes) {
+        if (totalBytes > MAX_EXTERNAL_STORAGE_BYTES) {
+            return -1;
+        }
+        return Math.toIntExact(totalBytes / 1024L);
+    }
+
+    public long getECOStorageTotalBytes() {
+        return ecoStorageTotalBytes;
+    }
+
+    public boolean isExternallyUnlimited() {
+        return externallyUnlimited;
     }
 
     @Override
@@ -78,13 +99,17 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
-        if (getTotalTypes() < 0) {
-            lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getTotalBytes()));
+        if (isExternallyUnlimited()) {
+            lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getECOStorageTotalBytes()));
             long usedTypes = IAEUniversalCell.getUsedTypes(stack);
-            lines.add(Component.empty()
-                .append(Tooltips.ofUnformattedNumberWithRatioColor(usedTypes, Long.MAX_VALUE, false))
-                .append(Tooltips.of(" "))
-                .append(Tooltips.of(GuiText.Types)));
+            if (getTotalTypes() < 0) {
+                lines.add(Component.empty()
+                    .append(Tooltips.ofUnformattedNumberWithRatioColor(usedTypes, Long.MAX_VALUE, false))
+                    .append(Tooltips.of(" "))
+                    .append(Tooltips.of(GuiText.Types)));
+            } else {
+                lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
+            }
             return;
         }
         super.appendHoverText(stack, context, lines, tooltipFlag);

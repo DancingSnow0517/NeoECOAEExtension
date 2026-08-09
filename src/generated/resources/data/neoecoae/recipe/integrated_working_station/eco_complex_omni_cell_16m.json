@@ -1,0 +1,26 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000000,
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "ae2omnicells:complex_omni_cell_component_16m"
+    },
+    {
+      "count": 2,
+      "item": "ae2omnicells:complex_link_processor"
+    },
+    {
+      "count": 2,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_complex_omni_cell_housing"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_complex_omni_cell_16m"
+  }
+}
