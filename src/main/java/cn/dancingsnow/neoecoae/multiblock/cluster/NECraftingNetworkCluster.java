@@ -274,10 +274,7 @@ public final class NECraftingNetworkCluster {
             result.add(new HostBatchInfo(
                     member.isHighEnergyNetworkMode(),
                     controller.getLocalThreadCount(),
-                    controller.isVirtualCraftingMode()
-                            ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper
-                                    .MAX_VIRTUAL_BATCH_SIZE
-                            : controller.getLocalMaxBatchPerThread()));
+                    controller.getLocalMaxBatchPerThread()));
         }
         return List.copyOf(result);
     }
@@ -366,8 +363,7 @@ public final class NECraftingNetworkCluster {
         if (controller != null
                 && offer.maxBatchSize() >= request.batchSize()
                 && controller.getCurrentBatchSlots() > 0
-                && (controller.isVirtualCraftingMode()
-                        || controller.getLargestAvailableCraftingBatchSize() >= request.batchSize())
+                && controller.getLargestAvailableCraftingBatchSize() >= request.batchSize()
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
             int memberIndex = members.indexOf(member);
@@ -403,9 +399,7 @@ public final class NECraftingNetworkCluster {
             if (controller.getCurrentBatchSlots() <= 0) {
                 continue;
             }
-            long availableBatchSize = controller.isVirtualCraftingMode()
-                    ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
-                    : controller.getLargestAvailableCraftingBatchSize();
+            long availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
             if (availableBatchSize <= 0) {
                 continue;
             }

@@ -93,8 +93,12 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 totalSafePower += thread.computePowerNeed(ticksSinceLastCall, bonusValue, powerMultiply);
             }
 
+            boolean fullNetworkPowerMode = controller.getActiveNetworkCoolingMultiplier() > 1;
+            boolean networkPowerPrepaid = fullNetworkPowerMode && controller.tryPayFullNetworkPowerForCurrentTick();
             double totalExtracted = 0.0;
-            if (totalSafePower > 0.0) {
+            if (fullNetworkPowerMode) {
+                totalExtracted = networkPowerPrepaid ? totalSafePower : 0.0;
+            } else if (totalSafePower > 0.0) {
                 IGrid grid = getMainNode().getGrid();
                 if (grid != null) {
                     totalExtracted = grid.getEnergyService()
@@ -187,19 +191,21 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
+        // 1.21.1 no longer accepts the old unbounded virtual batch path.
+        if (request.batchSize() > Integer.MAX_VALUE) {
+            getFastPathCache().recordNoThreadReject();
+            return false;
+        }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         if (!isControlledBy(controller)) {
             getFastPathCache().recordNoThreadReject();
             return false;
         }
-        int requiredLaneCapacity = controller.isVirtualCraftingMode() ? 1 : Math.toIntExact(request.batchSize());
+        int requiredLaneCapacity = Math.toIntExact(request.batchSize());
         ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         int controllerAvailableSlots =
                 Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
-        if (lane == null
-                || getAvailableThreadSlots() <= 0
-                || controllerAvailableSlots <= 0
-                || controller.getCurrentBatchSlots() <= 0) {
+        if (lane == null || getAvailableThreadSlots() <= 0 || controllerAvailableSlots <= 0) {
             getFastPathCache().recordNoThreadReject();
             return false;
         }
@@ -261,7 +267,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public ECOCraftingFastPathCache getFastPathCache() {
-        return cluster == null ? fastPathCache : cluster.getFastPathCache();
+        // FastPath verification belongs to the physical worker in 1.21.1.
+        return fastPathCache;
     }
 
     public boolean isBusy() {

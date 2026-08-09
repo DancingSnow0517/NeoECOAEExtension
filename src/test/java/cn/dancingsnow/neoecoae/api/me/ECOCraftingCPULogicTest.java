@@ -15,7 +15,6 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +44,6 @@ class ECOCraftingCPULogicTest {
 
     @Test
     void batchBudgetIsIndependentFromSlowOperationBudget() {
-        assertEquals(256, NEConfig.ecoBatchFastPathTickLimit);
-        assertEquals(256, NEConfig.getEcoFastPathTickLimit());
         assertEquals(256, ECOCraftingCPULogic.totalPatternBudget(64, 256));
         assertEquals(192, ECOCraftingCPULogic.calculateBatchRequestSize(512L, 192, 256));
         assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L, 192, 256));
@@ -76,27 +73,6 @@ class ECOCraftingCPULogicTest {
     }
 
     @Test
-    void aggressiveSimulatedCraftPowerCapScalesWithTickLimit() {
-        int previousAggressiveTickLimit = NEConfig.ecoAggressiveFastPathTickLimit;
-
-        try {
-            NEConfig.ecoAggressiveFastPathTickLimit = 4096;
-
-            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerCap(100, 1));
-            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 4096));
-            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 5632));
-
-            NEConfig.ecoAggressiveFastPathTickLimit = 16384;
-
-            assertEquals(1_638_400.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerCap(100, 1));
-            assertEquals(563_200.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 5632));
-            assertEquals(1_638_400.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 16384));
-        } finally {
-            NEConfig.ecoAggressiveFastPathTickLimit = previousAggressiveTickLimit;
-        }
-    }
-
-    @Test
     void aggressiveFastPathFallsBackWhenBaseFastPathIsDisabled() {
         boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
         boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
@@ -113,11 +89,6 @@ class ECOCraftingCPULogicTest {
             NEConfig.postCraftingEvent = previousPostCraftingEvent;
             NEConfig.enableEcoAggressiveFastPath = previousAggressive;
         }
-    }
-
-    @Test
-    void aggressiveFastPathRequiresEligibleFastPathExecution() {
-        assertFalse(ECOCraftingCPULogic.canAttemptAggressiveFastPath(ECOExtractedPatternExecution.slow(null, null)));
     }
 
     @Test

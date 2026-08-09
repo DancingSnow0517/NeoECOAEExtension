@@ -26,7 +26,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
-import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
@@ -558,7 +557,7 @@ public class ECOCraftingCPULogic {
             if (NEConfig.isEcoAggressiveFastPathEnabled() && canAttemptAggressiveFastPath(attempt.execution())) {
                 @Nullable ECOCraftingSystemBlockEntity aggressiveController =
                         largestAvailableCraftingController(providers.batchBuses());
-                if (aggressiveController != null && !aggressiveController.isVirtualCraftingMode()) {
+                if (aggressiveController != null && aggressiveController.isFullEightHostExchange()) {
                     PushResult pushResult = tryScheduleAggressiveSimulatedCraft(
                             progress, aggressiveController, attempt, executionProgress);
                     if (!pushResult.pushed()) {
@@ -799,7 +798,6 @@ public class ECOCraftingCPULogic {
                 break;
             }
 
-            boolean virtualCompletesJob = shouldCompleteVirtualCraftingJob(provider, progress);
             boolean pushed;
             try {
                 pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
@@ -814,10 +812,6 @@ public class ECOCraftingCPULogic {
             if (pushed) {
                 chargeAcceptedPatternEnergy(energyService, attempt.patternPower());
                 executionProgress.recordSlowPush();
-                if (virtualCompletesJob) {
-                    finishJob(true);
-                    return PushResult.jobFinished(1);
-                }
                 recordPushedPattern(accounting);
                 return PushResult.pushed(1);
             }
@@ -866,27 +860,6 @@ public class ECOCraftingCPULogic {
         CraftingCpuHelper.reinjectPatternInputs(inventory, attempt.craftingContainer());
     }
 
-    private boolean shouldCompleteVirtualCraftingJob(
-            ICraftingProvider provider, ExecutingCraftingJob.TaskProgress matchedProgress) {
-        if (!ExtendedAEPlusVirtualCraftingCompat.isVirtualCraftingProvider(provider)) {
-            return false;
-        }
-        if (matchedProgress == null || matchedProgress.value > 1) {
-            return false;
-        }
-
-        for (ExecutingCraftingJob.TaskProgress progress : job.tasks.values()) {
-            long remaining = progress.value;
-            if (progress == matchedProgress) {
-                remaining--;
-            }
-            if (remaining > 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private long tryPushVerifiedFastPathBatch(
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
@@ -920,7 +893,7 @@ public class ECOCraftingCPULogic {
         boolean selectedVirtualCrafting = false;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             ECOCraftingSystemBlockEntity candidateController = patternBus.getCraftingController();
-            boolean virtualCrafting = candidateController != null && candidateController.isVirtualCraftingMode();
+            boolean virtualCrafting = false;
             long requested = virtualCrafting ? virtualRequested : normalRequested;
             if (requested <= 1) {
                 continue;
@@ -957,7 +930,7 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        boolean virtualCrafting = workerController.isVirtualCraftingMode();
+        boolean virtualCrafting = false;
         long requested = virtualCrafting ? virtualRequested : normalRequested;
         long batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         if (!virtualCrafting) {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -87,8 +89,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int COOLANT_PER_CRAFT = 5;
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
-    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
-    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 1_000;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -136,6 +136,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private long performanceWindowStartTick = Long.MIN_VALUE;
     private long performanceWindowNanos = 0L;
     private long performanceAverageNanos = 0L;
+    private long lastFullNetworkPowerTick = Long.MIN_VALUE;
+    private boolean fullNetworkPowerPaid;
 
     /** Persisted logical-network channel; unassigned hosts receive one on first grid join. */
     private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
@@ -232,6 +234,70 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void onReady() {
         super.onReady();
         getMainNode().setIdlePowerUsage(64);
+    }
+
+    /** Physical-host state, unaffected by a logical network's shared toggle. */
+    public boolean isLocalOverclocked() {
+        return overclocked;
+    }
+
+    /** Physical-host cooling state, used when admitting a worker task. */
+    public boolean isLocalActiveCooling() {
+        return activeCooling;
+    }
+
+    public int getEffectiveOverclockTimesForLocalTasks() {
+        ensureCraftingStatsCurrent();
+        if (!overclocked) {
+            return 0;
+        }
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        if (!activeCooling || network == null) {
+            return getEffectiveOverclockTimes();
+        }
+        int coolingMaxOverclock = network.getCoolingMaxOverclock();
+        return coolingMaxOverclock < 0 ? 0 : Math.min(overlockTimes, coolingMaxOverclock);
+    }
+
+    public int getActiveNetworkCoolingMultiplier() {
+        return cluster != null && cluster.getNetworkCluster() != null ? getNetworkMultiplier() : 1;
+    }
+
+    public int getCoolingRequirementForCurrentNetwork() {
+        int multiplier = getActiveNetworkCoolingMultiplier();
+        return Math.max(getEffectiveOverclockTimesForLocalTasks(), multiplier >= 8 ? 9 : 0);
+    }
+
+    public boolean canStartNetworkCooledTask(int multiplier) {
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        if (multiplier <= 1 || network == null) {
+            return true;
+        }
+        int rate = multiplier >= 8 ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK : NETWORK_COOLANT_PER_SLOT_TICK;
+        int requiredOverclock = getCoolingRequirementForCurrentNetwork();
+        return network.getCraftingCoolantCraftLimit(1, requiredOverclock, rate) >= rate;
+    }
+
+    /** Charges the physical host's full network-power share once per server tick. */
+    public boolean tryPayFullNetworkPowerForCurrentTick() {
+        if (getActiveNetworkCoolingMultiplier() <= 1) {
+            return true;
+        }
+        long tick = TickHandler.instance().getCurrentTick();
+        if (lastFullNetworkPowerTick == tick) {
+            return fullNetworkPowerPaid;
+        }
+        lastFullNetworkPowerTick = tick;
+        long requiredPower = getLocalMaxEnergyUsage();
+        IGrid grid = getMainNode().getGrid();
+        if (requiredPower == 0L || grid == null) {
+            fullNetworkPowerPaid = requiredPower == 0L;
+            return fullNetworkPowerPaid;
+        }
+        double extracted =
+                grid.getEnergyService().extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        fullNetworkPowerPaid = !Double.isNaN(extracted) && extracted + 0.01D >= requiredPower;
+        return fullNetworkPowerPaid;
     }
 
     public void notifyPersistence() {
@@ -545,9 +611,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getNetworkCoolantPerSlotTick(int multiplier) {
-        if (isVirtualCraftingMode()) {
-            return VIRTUAL_CRAFTING_COOLANT_PER_TICK;
-        }
         return multiplier >= 8 ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK : NETWORK_COOLANT_PER_SLOT_TICK;
     }
 
@@ -671,6 +734,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getNetworkMultiplier() {
         return cluster == null ? 1 : cluster.getNetworkMultiplier();
+    }
+
+    /**
+     * The only topology allowed to use the optional virtual FastPath scheduler.
+     * Logical networks are formed per AE grid, so the member count here is also
+     * scoped to the grid which owns this controller.
+     */
+    public boolean isFullEightHostExchange() {
+        if (cluster == null || cluster.getNetworkCluster() == null || getNetworkMultiplier() != 8) {
+            return false;
+        }
+        return cluster.getNetworkCluster().getMemberCount() == 8
+                && getMainNode().getGrid() != null;
     }
 
     public int getNetworkPowerMultiplier() {
@@ -809,17 +885,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.of(new NECraftingHostBatchInfo(
                 cluster != null && cluster.isHighEnergyNetworkMode(),
                 getLocalThreadCount(),
-                isVirtualCraftingMode()
-                        ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
-                        : getLocalMaxBatchPerThread()));
-    }
-
-    /** A complete eight-host x8 exchange executes one whole recipe task as virtual ledger work. */
-    public boolean isVirtualCraftingMode() {
-        return cluster != null
-                && cluster.getNetworkCluster() != null
-                && cluster.getNetworkCluster().getMemberCount() == VIRTUAL_CRAFTING_REQUIRED_HOSTS
-                && cluster.getNetworkMultiplier() >= 8;
+                getLocalMaxBatchPerThread()));
     }
 
     private LaneOccupancy collectLaneOccupancy(int laneCount) {
@@ -844,13 +910,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int getLocalLaneBatchCapacity() {
         // Overclocking increases the craft count of each lane. It must not turn one worker into
         // extra task lanes; network exchange contributes lanes independently.
-        return isVirtualCraftingMode()
-                ? 1
-                : calculateWorkerBatchCapacity(
-                        BASE_CRAFTS_PER_WORKER,
-                        getTier().getOverclockedCrafterQueueMultiply(),
-                        overclocked,
-                        Math.max(1, getNetworkMultiplier()));
+        return calculateWorkerBatchCapacity(
+                BASE_CRAFTS_PER_WORKER,
+                getTier().getOverclockedCrafterQueueMultiply(),
+                overclocked,
+                Math.max(1, getNetworkMultiplier()));
     }
 
     private int getExchangeHostCount() {
@@ -934,6 +998,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return (long) getRunningThreadCount() * getProgressPerTick() * getCraftingPowerMultiplier();
     }
 
+    /** Maximum AE power reserved by this physical host in network-exchange mode. */
+    public long getLocalMaxEnergyUsage() {
+        long networkPowerMultiplier = Math.max(1L, getNetworkPowerMultiplier());
+        long perThread = overclocked && !activeCooling ? tier.getOverclockedCrafterPowerMultiply() : 1L;
+        return saturatingMultiply(
+                saturatingMultiply(Math.max(0, getLocalAvailableThreads()), perThread),
+                saturatingMultiply(networkPowerMultiplier, 100L));
+    }
+
     public double getEnergyMultiplier() {
         return getCraftingPowerMultiplier();
     }
@@ -969,7 +1042,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     /**
-     * Returns the estimated maximum recipe throughput represented by the available lanes.
+     * Returns the estimated maximum recipe throughput represented by FX workers.
      * This is intentionally separate from the legacy time-ratio metric because x2/x8 exchange
      * multiplies batch capacity, not the duration of one logical recipe.
      */
@@ -990,9 +1063,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 batchCapacity = saturatingAdd(batchCapacity, hostCapacity);
             }
         } else {
-            long slots = Math.max(0, getMaxInFlightCrafts());
-            long perThread = Math.max(0, getLocalMaxBatchPerThread());
-            batchCapacity = saturatingMultiply(slots, perThread);
+            // The local scheduler's internal 32 lanes per FX worker must not be counted as
+            // independent displayed throughput. The UI and overflow calculation both define
+            // one worker's capacity as its maximum batch, e.g. 11 * 512 = 5,632 for F9.
+            batchCapacity = getMaxSynthesisEfficiency();
         }
         return batchCapacity <= 0
                 ? 0.0D
@@ -1230,9 +1304,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 Integer.MAX_VALUE, saturatingMultiply(Math.max(0, displayWorkerCount), displayThreadsPerWorker));
         int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, totalRunningThreads));
         int batchParallel = Math.max(0, effParallel);
-        long maxBatchPerThread = isVirtualCraftingMode()
-                ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
-                : getMaxBatchPerThread();
+        long maxBatchPerThread = getMaxBatchPerThread();
         List<NECraftingHostBatchInfo> hostBatchInfos = getDisplayedHostBatchInfos(network, networkMemberCount);
         List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
 

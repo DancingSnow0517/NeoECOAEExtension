@@ -152,6 +152,20 @@ public final class ECOFastPathStacks {
 
     public record GenericStackReadResult(List<GenericStack> stacks, boolean valid) {}
 
+    /**
+     * Reads persisted batch work using the same rejection rules as the 1.21.1
+     * worker, expressed through the 1.20.1 GenericStack NBT format.
+     */
+    public static Optional<List<GenericStack>> readValidatedBatchItemStacks(ListTag tag, boolean requireNonEmpty) {
+        GenericStackReadResult result = readGenericStacksChecked(tag);
+        if (!result.valid()
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
+                        result.stacks(), ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, requireNonEmpty)) {
+            return Optional.empty();
+        }
+        return Optional.of(result.stacks());
+    }
+
     public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
         for (GenericStack stack : stacks) {
             if (!isSafeForFastPath(stack, input)) {

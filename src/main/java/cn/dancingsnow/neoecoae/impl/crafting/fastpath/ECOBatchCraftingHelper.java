@@ -15,8 +15,10 @@ import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
-    public static final int MAX_BATCH_SIZE = 65_536;
+    /** Upper bound used only by the full eight-host aggressive scheduler. */
     public static final long MAX_VIRTUAL_BATCH_SIZE = Long.MAX_VALUE;
+
+    public static final int MAX_BATCH_SIZE = 65_536;
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
     public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
 

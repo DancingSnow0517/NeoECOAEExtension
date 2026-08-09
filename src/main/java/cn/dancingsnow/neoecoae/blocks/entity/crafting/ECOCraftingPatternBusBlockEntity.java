@@ -175,9 +175,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (workers.isEmpty()) {
             return null;
         }
-        long availableBatchSize = controller.isVirtualCraftingMode()
-                ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
-                : controller.getLargestAvailableCraftingBatchSize();
+        long availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
         if (availableBatchSize <= 0) {
             return null;
         }

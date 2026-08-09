@@ -69,7 +69,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int assignedLaneIndex = -1;
     private int networkCoolingMultiplier = 1;
     private boolean outputsReady = false;
-    private boolean virtualCrafting = false;
     private RecoveryState recoveryState = RecoveryState.CLEARED;
 
     private final TransientCraftingContainer craftingInv;
@@ -95,7 +94,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             retryRecoveryToNetwork();
             return TickRateModulation.URGENT;
         }
-        if (outputsReady && !virtualCrafting) {
+        if (outputsReady) {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
@@ -104,12 +103,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
-            return TickRateModulation.URGENT;
-        }
-        if (virtualCrafting) {
-            progress = MAX_PROGRESS;
-            outputsReady = true;
-            setChanged();
             return TickRateModulation.URGENT;
         }
         int bonusValue = calculateProgressPerTick(overlockTimes);
@@ -151,7 +144,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             retryRecoveryToNetwork();
             return TickRateModulation.URGENT;
         }
-        if (outputsReady && !virtualCrafting) {
+        if (outputsReady) {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
@@ -160,12 +153,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
-            return TickRateModulation.URGENT;
-        }
-        if (virtualCrafting) {
-            progress = MAX_PROGRESS;
-            outputsReady = true;
-            setChanged();
             return TickRateModulation.URGENT;
         }
         double slotScaledTax = powerMultiply * Math.max(1, occupiedThreadSlots);
@@ -268,7 +255,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOBatchCraftingRequest request,
             ECOCraftingSystemBlockEntity controller,
             ECOFastPathResult verifiedResult) {
-        int requiredLaneCapacity = controller.isVirtualCraftingMode() ? 1 : Math.toIntExact(request.batchSize());
+        int requiredLaneCapacity = Math.toIntExact(request.batchSize());
         ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         return lane != null && pushBatch(request, controller, verifiedResult, lane.index());
     }
@@ -284,23 +271,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (verifiedResult == null || !verifiedResult.matchesBatchRequest(request)) {
             return false;
         }
-        boolean virtualCrafting = controller.isVirtualCraftingMode();
         var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
-        var inputTotal = virtualCrafting
-                ? List.<GenericStack>of()
-                : ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
+        var inputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
         var remainingTotal = ECOBatchCraftingHelper.multiply(verifiedResult.remainingEntries(), request.batchSize());
         var work = new ECOBatchCraftingWork(
                 request.batchSize(), inputTotal, outputTotal, remainingTotal, request.craftingJobId(), 0, 1);
-        return acceptBatch(work, controller, laneIndex, virtualCrafting);
+        return acceptBatch(work, controller, laneIndex, false);
     }
 
     private boolean acceptBatch(
             ECOBatchCraftingWork work,
             ECOCraftingSystemBlockEntity controller,
             int laneIndex,
-            boolean virtualCrafting) {
-        if (!consumeCraftingCoolant(controller, virtualCrafting ? 1 : Math.toIntExact(work.batchSize()))) {
+            boolean ignoredLegacyVirtualCrafting) {
+        if (!consumeCraftingCoolant(controller, Math.toIntExact(work.batchSize()))) {
             worker.getFastPathCache().recordCoolantReject();
             return false;
         }
@@ -311,8 +295,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 work.craftingJobId(),
                 work.occupiedThreadSlots(),
                 laneIndex,
-                Math.max(1, controller.getNetworkMultiplier()),
-                virtualCrafting);
+                Math.max(1, controller.getNetworkMultiplier()));
         worker.getFastPathCache().recordFastPathAccepted();
         return true;
     }
@@ -469,34 +452,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             int occupiedThreadSlots,
             int laneIndex,
             int networkCoolingMultiplier) {
-        startWork(
-                outputs,
-                inputs,
-                remaining,
-                craftingJobId,
-                occupiedThreadSlots,
-                laneIndex,
-                networkCoolingMultiplier,
-                false);
-    }
-
-    private void startWork(
-            List<GenericStack> outputs,
-            List<GenericStack> inputs,
-            List<GenericStack> remaining,
-            @Nullable UUID craftingJobId,
-            int occupiedThreadSlots,
-            int laneIndex,
-            int networkCoolingMultiplier,
-            boolean virtualCrafting) {
         outputStacks.clear();
         outputStacks.addAll(copyGenericStacks(outputs));
         this.craftingJobId = craftingJobId;
         this.occupiedThreadSlots = Math.max(1, occupiedThreadSlots);
         this.assignedLaneIndex = laneIndex;
         this.networkCoolingMultiplier = networkCoolingMultiplier;
-        this.virtualCrafting = virtualCrafting;
-        this.outputsReady = virtualCrafting;
+        this.outputsReady = false;
         inputStacks.clear();
         inputStacks.addAll(copyGenericStacks(inputs));
         remainingStacks.clear();
@@ -789,7 +751,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         assignedLaneIndex = -1;
         networkCoolingMultiplier = 1;
         outputsReady = false;
-        virtualCrafting = false;
         recoveryState = RecoveryState.CLEARED;
     }
 
@@ -844,7 +805,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             tag.putInt("networkCoolingMultiplier", networkCoolingMultiplier);
         }
         tag.putBoolean("outputsReady", outputsReady);
-        tag.putBoolean("virtualCrafting", virtualCrafting);
         tag.putString("recoveryState", recoveryState.name());
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
@@ -879,7 +839,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             invalidPersistedState = true;
         }
         this.outputsReady = nbt.getBoolean("outputsReady");
-        this.virtualCrafting = nbt.getBoolean("virtualCrafting");
+        // Virtual batches were removed to match 1.21.1. Persisted legacy work
+        // resumes through the normal progress path.
         this.recoveryState = readRecoveryState(nbt);
         if (nbt.contains("recoveryState", Tag.TAG_STRING)) {
             try {
