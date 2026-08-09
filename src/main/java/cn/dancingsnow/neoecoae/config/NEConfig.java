@@ -14,9 +14,6 @@ public class NEConfig {
     public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
-    public static final int CAPACITY_POWER_MIN = 0;
-    public static final int CAPACITY_POWER_MAX = 16;
-    private static final int CAPACITY_POWER_DEFAULT = 0;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
     public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
     public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = ECO_CPU_PUSH_TICK_LIMIT_MAX;
@@ -61,32 +58,6 @@ public class NEConfig {
         BUILDER.pop();
     }
 
-    static {
-        BUILDER
-            .comment(
-                "ECO 任务规划器诊断选项。",
-                "ECO crafting planner diagnostic options.")
-            .push("debug");
-    }
-
-    private static final ModConfigSpec.BooleanValue ECO_PLANNER_DIFFERENTIAL_VERIFICATION = BUILDER
-        .comment(
-            "Run AE2's planner alongside ECO's planner and use AE2 if their observable plans differ.",
-            "Debug only: this approximately doubles planning cost for supported requests.")
-        .define("ecoPlannerDifferentialVerification", false);
-
-    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
-        .comment(
-            "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
-            "日志会去重并限频；仅建议在排查规划问题时临时开启。",
-            "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
-            "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
-        .define("debugECOPlanner", false);
-
-    static {
-        BUILDER.pop();
-    }
-
     private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
         .comment(
             "合成系统完成配方时发送原版合成事件（ItemCraftedEvent）。",
@@ -106,38 +77,26 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
-                "ECO 合成与运算系统的容量倍率暂时固定为默认值。",
-                "Capacity multipliers for ECO crafting and computation systems are temporarily locked to defaults.")
-            .push("capacity");
+                "ECO 任务规划器诊断选项。",
+                "ECO crafting planner diagnostic options.")
+            .push("debug");
     }
 
-    private static final ModConfigSpec.IntValue CRAFTING_CAPACITY_POWER = BUILDER
+    private static final ModConfigSpec.BooleanValue ECO_PLANNER_DIFFERENTIAL_VERIFICATION = BUILDER
         .comment(
-            "合成容量倍率暂时锁定为默认值 0（x1），无法调整。",
-            "L4/L6/L9 合成工作器和 FT 并行核心均使用各自的默认数值。",
-            "The crafting capacity multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
-            "L4/L6/L9 crafting workers and FT parallel cores use their respective default values.")
-        .worldRestart()
-        .defineInRange(
-            "craftingCapacityPower",
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT
-        );
+            "同时运行 AE2 与 ECO 的任务规划器；若可观察到的规划结果不同，则使用 AE2 的结果。",
+            "仅用于调试：对受支持请求的规划开销约增加一倍。",
+            "Run AE2's planner alongside ECO's planner and use AE2 if their observable plans differ.",
+            "Debug only: this approximately doubles planning cost for supported requests.")
+        .define("ecoPlannerDifferentialVerification", false);
 
-    private static final ModConfigSpec.IntValue COMPUTATION_PARALLEL_CORE_POWER = BUILDER
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
         .comment(
-            "运算并行核心倍率暂时锁定为默认值 0（x1），无法调整。",
-            "L4/L6/L9 运算并行核心均使用各自的默认数值。",
-            "The computation parallel-core multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
-            "L4/L6/L9 computation parallel cores use their respective default values.")
-        .worldRestart()
-        .defineInRange(
-            "computationParallelCorePower",
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT
-        );
+            "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
+            "日志会去重并限频；仅建议在排查规划问题时临时开启。",
+            "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
+            "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
+        .define("debugECOPlanner", false);
 
     static {
         BUILDER.pop();
@@ -200,6 +159,8 @@ public class NEConfig {
 
     private static final ModConfigSpec.IntValue ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS = BUILDER
         .comment(
+            "每个 AE2 网络每服务器 tick 用于非批量样板提供器调度的共享实际时间预算（微秒）。",
+            "尝试次数硬上限仍然有效；设为 0 可禁用时间预算。",
             "Shared wall-clock budget per AE2 network and server tick for non-batch provider dispatch.",
             "The hard attempt limit still applies. Set to 0 to disable the time budget.")
         .defineInRange(
@@ -257,9 +218,6 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
-        CRAFTING_CAPACITY_POWER.get();
-        COMPUTATION_PARALLEL_CORE_POWER.get();
         ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
         boolean wasDebugECOPlanner = debugECOPlanner;
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
@@ -306,12 +264,6 @@ public class NEConfig {
 
     public static int getComputationParallelCoreCount(int baseCount) {
         return baseCount;
-    }
-
-    static int multiplyByPowerOfTwo(int baseValue, int power) {
-        int clampedPower = Math.clamp(power, CAPACITY_POWER_MIN, CAPACITY_POWER_MAX);
-        long result = (long) Math.max(0, baseValue) << clampedPower;
-        return (int) Math.min(Integer.MAX_VALUE, result);
     }
 
 }
