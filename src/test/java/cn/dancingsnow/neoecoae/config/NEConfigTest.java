@@ -17,9 +17,9 @@ class NEConfigTest {
     }
 
     @Test
-    void defaultsToTwoPagesAnd126Slots() {
-        assertEquals(2, NEConfig.getCraftingPatternBusPages());
-        assertEquals(126, NEConfig.getCraftingPatternBusSlotCount());
+    void defaultsToOnePageAnd63Slots() {
+        assertEquals(1, NEConfig.getCraftingPatternBusPages());
+        assertEquals(63, NEConfig.getCraftingPatternBusSlotCount());
     }
 
     @Test

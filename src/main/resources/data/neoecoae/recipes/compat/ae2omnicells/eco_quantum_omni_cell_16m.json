@@ -13,8 +13,16 @@
       "item": "neoecoae:eco_quantum_omni_cell_housing"
     },
     {
-      "count": 4,
+      "count": 10,
       "item": "ae2omnicells:quantum_omni_cell_component_16m"
+    },
+    {
+      "count": 2,
+      "item": "ae2omnicells:multidimensional_expansion_processor"
+    },
+    {
+      "count": 4,
+      "item": "ae2:singularity"
     }
   ],
   "itemOutput": {

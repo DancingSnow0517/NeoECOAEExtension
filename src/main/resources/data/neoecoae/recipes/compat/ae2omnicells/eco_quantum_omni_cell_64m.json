@@ -6,15 +6,23 @@
     }
   ],
   "type": "neoecoae:integrated_working_station",
-  "energy": 1000,
+  "energy": 12000,
   "inputItems": [
     {
       "count": 1,
       "item": "neoecoae:eco_quantum_omni_cell_housing"
     },
     {
-      "count": 4,
+      "count": 10,
       "item": "ae2omnicells:quantum_omni_cell_component_64m"
+    },
+    {
+      "count": 4,
+      "item": "ae2omnicells:multidimensional_expansion_processor"
+    },
+    {
+      "count": 16,
+      "item": "ae2:singularity"
     }
   ],
   "itemOutput": {

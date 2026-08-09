@@ -11,8 +11,6 @@ import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScroll
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
-import cn.dancingsnow.neoecoae.client.screen.NEConfigScreen;
-import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
@@ -25,9 +23,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 public class NeoECOAEClient {
     public static void init(IEventBus modBus, ModLoadingContext loadingContext) {
         NEExtraModels.register();
-        loadingContext.registerExtensionPoint(
-                ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new ConfigScreenHandler.ConfigScreenFactory(NEConfigScreen::new));
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener(NEExtraModels::onRegisterExtraModels);
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);

@@ -134,7 +134,7 @@ public class NEConfig {
     private static final ForgeConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER.comment(
                     "Number of 63-slot pages available in each smart crafting pattern bus.",
                     "Range: 1-8. Changes are fully applied after re-entering the world or restarting the server.")
-            .defineInRange("craftingPatternBusPages", 2, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+            .defineInRange("craftingPatternBusPages", 1, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
 
     private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER.comment(
                     "Increase ECO Storage Matrix capacity.",
@@ -168,29 +168,12 @@ public class NEConfig {
     public static boolean enableEcoAggressiveFastPath = true;
     public static int ecoAggressiveFastPathTickLimit = 16384;
     public static int ecoFastPathCacheSize = 512;
-    public static int craftingPatternBusPages = 2;
+    public static int craftingPatternBusPages = 1;
     public static boolean increaseStorageCellCapacity;
     public static boolean enableInfiniteStorage;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
-        syncValues();
-    }
-
-    public static void applyClientConfig(
-            int craftingMaxLength,
-            int computationMaxLength,
-            int storageMaxLength,
-            int patternBusPages,
-            boolean increaseCapacity,
-            boolean aggressiveFastPath) {
-        CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
-        COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
-        STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
-        CRAFTING_PATTERN_BUS_PAGES.set(Mth.clamp(patternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES));
-        INCREASE_STORAGE_CELL_CAPACITY.set(increaseCapacity);
-        ENABLE_ECO_AGGRESSIVE_FAST_PATH.set(aggressiveFastPath);
-        SPEC.save();
         syncValues();
     }
 

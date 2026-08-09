@@ -11,7 +11,7 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
 
 public final class NEOmniItems {
-    private static final long QUANTUM_CAPACITY_MULTIPLIER = 4L;
+    private static final long QUANTUM_CAPACITY_MULTIPLIER = 16L;
 
     public static final ItemEntry<MaterialItem> ECO_OMNI_CELL_HOUSING = REGISTRATE
             .item("eco_omni_cell_housing", MaterialItem::new)
