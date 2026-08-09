@@ -80,6 +80,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return true;
     }
 
+    public boolean shouldCasingRenderInClassic(NEBlockEntity<T, ?> blockEntity) {
+        return false;
+    }
+
     public void addBlockEntity(NEBlockEntity<T, ?> blockEntity) {
         blockEntity.saveChanges();
         this.blockEntities.add(blockEntity);

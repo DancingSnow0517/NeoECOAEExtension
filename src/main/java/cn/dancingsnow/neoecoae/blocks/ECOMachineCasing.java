@@ -22,19 +22,21 @@ import net.neoforged.fml.loading.FMLEnvironment;
 public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachineCasingBlockEntity<C>> {
 
     public static final BooleanProperty INVISIBLE = BooleanProperty.create("invisible");
+    public static final BooleanProperty CLASSIC_VISIBLE = BooleanProperty.create("classic_visible");
 
     public ECOMachineCasing(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)
             .setValue(INVISIBLE, false)
+            .setValue(CLASSIC_VISIBLE, false)
         );
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(INVISIBLE);
+        builder.add(INVISIBLE, CLASSIC_VISIBLE);
     }
 
     @Override
@@ -66,12 +68,13 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     private boolean isEffectivelyInvisible(BlockState state) {
-        return state.getValue(INVISIBLE) && !shouldRenderClassicStorageCasing();
+        return state.getValue(INVISIBLE) && !shouldRenderClassicStorageCasing(state);
     }
 
-    private boolean shouldRenderClassicStorageCasing() {
+    private boolean shouldRenderClassicStorageCasing(BlockState state) {
         return FMLEnvironment.dist == Dist.CLIENT
             && BuiltInRegistries.BLOCK.getKey(this).equals(NeoECOAE.id("storage_casing"))
+            && state.getValue(CLASSIC_VISIBLE)
             && ClassicPackDetector.isActive();
     }
 }
