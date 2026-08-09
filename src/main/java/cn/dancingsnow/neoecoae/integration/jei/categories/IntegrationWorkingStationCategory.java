@@ -81,7 +81,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         if (!inputFluid.ingredient().isEmpty()) {
             builder.addInputSlot(5, 9)
                 .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(inputFluid.getFluids()))
-                .setFluidRenderer(16000, false, 16, 58);
+                .setFluidRenderer(64000, false, 16, 58);
         }
 
         // input items
@@ -106,7 +106,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         if (!fluidOutput.isEmpty()) {
             builder.addOutputSlot(147, 9)
                 .addFluidStack(fluidOutput.getFluid(), fluidOutput.getAmount())
-                .setFluidRenderer(16000, false, 16, 58);
+                .setFluidRenderer(64000, false, 16, 58);
         }
     }
 
