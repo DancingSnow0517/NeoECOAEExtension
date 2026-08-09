@@ -2,9 +2,7 @@ package cn.dancingsnow.neoecoae.integration.ae2omnicells.item;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
-import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
-import appeng.core.localization.Tooltips;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalCellHandler;
@@ -102,14 +100,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         if (isExternallyUnlimited()) {
             lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getECOStorageTotalBytes()));
             long usedTypes = IAEUniversalCell.getUsedTypes(stack);
-            if (getTotalTypes() < 0) {
-                lines.add(Component.empty()
-                    .append(Tooltips.ofUnformattedNumberWithRatioColor(usedTypes, Long.MAX_VALUE, false))
-                    .append(Tooltips.of(" "))
-                    .append(Tooltips.of(GuiText.Types)));
-            } else {
-                lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
-            }
+            lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
             return;
         }
         super.appendHoverText(stack, context, lines, tooltipFlag);

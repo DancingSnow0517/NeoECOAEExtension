@@ -122,9 +122,9 @@ public final class NEOmniItems {
 
     private static int energyFor(ECOTier tier) {
         return switch (tier) {
-            case L4 -> 1_000_000;
-            case L6 -> 12_000_000;
-            case L9 -> 144_000_000;
+            case L4 -> 1_000;
+            case L6 -> 12_000;
+            case L9 -> 144_000;
         };
     }
 

@@ -1,6 +1,6 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 12000000,
+  "energy": 12000,
   "inputItems": [
     {
       "count": 10,
