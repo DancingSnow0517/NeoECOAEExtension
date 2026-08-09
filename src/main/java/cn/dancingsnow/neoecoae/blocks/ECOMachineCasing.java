@@ -1,9 +1,12 @@
 package cn.dancingsnow.neoecoae.blocks;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
+import cn.dancingsnow.neoecoae.client.ClassicPackDetector;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
@@ -13,6 +16,8 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachineCasingBlockEntity<C>> {
 
@@ -34,7 +39,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        if (state.getValue(INVISIBLE)) {
+        if (isEffectivelyInvisible(state)) {
             return RenderShape.INVISIBLE;
         }
         return RenderShape.MODEL;
@@ -42,21 +47,31 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
 
     @Override
     protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
-        return state.getValue(INVISIBLE);
+        return isEffectivelyInvisible(state);
     }
 
     @Override
     protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(INVISIBLE) ? 1 : 0.2f;
+        return isEffectivelyInvisible(state) ? 1 : 0.2f;
     }
 
     @Override
     protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return state.getValue(INVISIBLE) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
+        return isEffectivelyInvisible(state) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
     }
 
     @Override
     protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(INVISIBLE);
+        return isEffectivelyInvisible(state);
+    }
+
+    private boolean isEffectivelyInvisible(BlockState state) {
+        return state.getValue(INVISIBLE) && !shouldRenderClassicStorageCasing();
+    }
+
+    private boolean shouldRenderClassicStorageCasing() {
+        return FMLEnvironment.dist == Dist.CLIENT
+            && BuiltInRegistries.BLOCK.getKey(this).equals(NeoECOAE.id("storage_casing"))
+            && ClassicPackDetector.isActive();
     }
 }
