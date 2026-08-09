@@ -6,8 +6,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,5 +59,34 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
     @Override
     protected BlockPos getCasingHideOrigin() {
         return controller == null ? null : controller.getBlockPos();
+    }
+
+    @Override
+    public boolean shouldCasingRenderInClassic(NEBlockEntity<NEStorageCluster, ?> blockEntity) {
+        if (!(blockEntity instanceof ECOMachineCasingBlockEntity) || controller == null || !shouldCasingHide(blockEntity)) {
+            return false;
+        }
+
+        BlockPos offset = blockEntity.getBlockPos().subtract(controller.getBlockPos());
+        Direction facing = controller.getBlockState().getValue(ECOStorageSystemBlock.FACING);
+        int localX = switch (facing) {
+            case NORTH -> offset.getX();
+            case EAST -> offset.getZ();
+            case SOUTH -> -offset.getX();
+            case WEST -> -offset.getZ();
+            default -> throw new IllegalStateException("Storage controller must face horizontally");
+        };
+        int localZ = switch (facing) {
+            case NORTH -> offset.getZ();
+            case EAST -> -offset.getX();
+            case SOUTH -> -offset.getZ();
+            case WEST -> offset.getX();
+            default -> throw new IllegalStateException("Storage controller must face horizontally");
+        };
+
+        // The formed Classic controller occupies local x/z [0, 1] and y [-1, 1].
+        return !(localX >= 0 && localX <= 1
+            && localZ >= 0 && localZ <= 1
+            && offset.getY() >= -1 && offset.getY() <= 1);
     }
 }
