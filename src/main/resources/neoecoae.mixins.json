@@ -2,6 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.NeoECOAEMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AppEngInternalInventoryMixin",
@@ -13,6 +14,7 @@
     "CraftingStatusMenuMixin",
     "DriveCellValidInventoryFilterMixin",
     "IOPortBlockEntityMixin",
+    "AE2TweaksIOPortBlockEntityCompatMixin",
     "IOPortMenuMixin",
     "LightningBoltMixin",
     "PatternEncodingTermMenuMixin",
