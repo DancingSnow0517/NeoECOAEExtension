@@ -96,7 +96,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
-    private static final int INFINITE_MEMBER_REQUIRED = 16;
+    private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
+    private static final int INFINITE_MEMBER_REQUIRED = 33;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_LIMIT = Integer.MAX_VALUE;
     private static volatile Map<AEKeyType, Integer> registeredCellTypesByKeyType;
@@ -107,6 +108,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
+    private static final String CONTROLLER_MEMBER_REQUIREMENT_TAG = "neoecoae_infinite_controller_member_requirement";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -131,6 +133,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @DescSynced
     @Nullable
     private UUID infiniteDomainId;
+    // Zero denotes a legacy domain, which retains its original 16-matrix requirement.
+    @Persisted
+    @DescSynced
+    private int infiniteMemberRequirement;
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
     @DescSynced
     private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
@@ -403,8 +409,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 : hostMode == ECOStorageHostMode.FORMED_INFINITE && !hasCompleteInfiniteRestoreSet()
                     ? Component.translatable(
                         "gui.neoecoae.storage.status.domain_missing_restore_parts",
-                        Math.max(0, INFINITE_MEMBER_REQUIRED - countInfiniteMembers()),
-                        INFINITE_MEMBER_REQUIRED,
+                        Math.max(0, getInfiniteMemberRequirement() - countInfiniteMembers()),
+                        getInfiniteMemberRequirement(),
                         Math.max(0, INFINITE_COMPONENT_REQUIRED - getInfiniteComponentCount()),
                         INFINITE_COMPONENT_REQUIRED
                     )
@@ -797,6 +803,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
+        tag.putInt(CONTROLLER_MEMBER_REQUIREMENT_TAG, getInfiniteMemberRequirement());
         drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
@@ -807,6 +814,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         infiniteDomainId = tag.getUUID(CONTROLLER_DOMAIN_TAG);
         hostMode = ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG));
+        infiniteMemberRequirement = tag.getInt(CONTROLLER_MEMBER_REQUIREMENT_TAG);
         setChanged();
     }
 
@@ -826,7 +834,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (!hostMode.isInfiniteState()) {
             return 0;
         }
-        return Math.clamp(Math.round(countInfiniteMembers() * 100.0F / INFINITE_MEMBER_REQUIRED), 0, 100);
+        return Math.clamp(Math.round(countInfiniteMembers() * 100.0F / getInfiniteMemberRequirement()), 0, 100);
     }
 
     public boolean canUseHostDomainStorage() {
@@ -1027,6 +1035,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
+            infiniteMemberRequirement = INFINITE_MEMBER_REQUIRED;
             UUID domainId = ensureInfiniteDomainId();
             ServerLevel serverLevel = (ServerLevel) level;
             ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.exists(serverLevel, domainId)
@@ -1196,7 +1205,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
      * matrices and required infinite components are restored to this host.
      */
     private boolean hasCompleteInfiniteRestoreSet() {
-        return countInfiniteMembers() >= INFINITE_MEMBER_REQUIRED && hasRequiredInfiniteComponents();
+        return countInfiniteMembers() >= getInfiniteMemberRequirement() && hasRequiredInfiniteComponents();
     }
 
     private int getInfiniteComponentCount() {
@@ -1236,9 +1245,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             migrateDriveToDomain(drive, cell, engine, domainId);
             break;
         }
-        if (!hasPending && countInfiniteMembers() >= INFINITE_MEMBER_REQUIRED) {
+        if (!hasPending && countInfiniteMembers() >= getInfiniteMemberRequirement()) {
             hostMode = ECOStorageHostMode.FORMED_INFINITE;
         }
+    }
+
+    private int getInfiniteMemberRequirement() {
+        return infiniteMemberRequirement > 0 ? infiniteMemberRequirement : LEGACY_INFINITE_MEMBER_REQUIRED;
     }
 
     private void migrateDriveToDomain(ECODriveBlockEntity drive, IECOStorageCell cell, ECOInfiniteStorageEngine engine, UUID domainId) {

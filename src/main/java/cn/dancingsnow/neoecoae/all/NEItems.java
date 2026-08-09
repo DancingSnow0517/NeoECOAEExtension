@@ -831,6 +831,22 @@ public class NEItems {
             }
         })
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEBlocks.STORAGE_SYSTEM_L9, 4)
+                // Keep these as two ingredients so the workstation recipe visibly reserves two input slots.
+                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
+                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
+                .require(AEItems.SINGULARITY, 16)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_BLOCK, 16)
+                .require(NEItems.CRYSTAL_MATRIX, 8)
+                .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 16_000)
+                .energy(64_000_000)
+                .itemOutput(ctx.get())
+                .save(prov);
+        })
         .lang("ECO Infinite Storage Component")
         .register();
 

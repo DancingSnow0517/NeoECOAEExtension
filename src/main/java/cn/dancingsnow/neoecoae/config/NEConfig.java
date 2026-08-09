@@ -98,10 +98,10 @@ public class NEConfig {
     private static final ModConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER
         .comment(
             "在存储控制器上启用 ECO 无限存储。",
-            "需要 64 个无限组件和 16 个 L9 存储矩阵；禁用后会阻止新的无限存储迁移。",
+            "需要 64 个无限组件和 33 个 L9 存储矩阵；禁用后会阻止新的无限存储迁移。",
             "已有的无限存储域文件会保留，不会被此选项删除。",
             "Enable ECO infinite storage on the storage controller.",
-            "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations.",
+            "Requires 64 infinite components and 33 L9 storage matrices; disabling it blocks new infinite migrations.",
             "Existing infinite storage domain files are preserved and are not deleted by this option.")
         .define("enableInfiniteStorage", false);
 
