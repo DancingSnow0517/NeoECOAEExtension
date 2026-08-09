@@ -65,6 +65,12 @@ public class ConfigLangs {
             "Log the exact ECO planning failure stage, reason, request, solver result and fallback context.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing planning issues."
         );
+        provider.add("neoecoae.configuration.debugInfiniteStorageMigration", "Debug Infinite Storage Migration");
+        provider.add(
+            "neoecoae.configuration.debugInfiniteStorageMigration.tooltip",
+            "Log detailed reasons when an ECO storage matrix cannot migrate into infinite storage, including the source, transaction, and rejected AE key.\n" +
+                "Messages are rate-limited. Enable only while diagnosing storage migration issues."
+        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",

@@ -98,6 +98,13 @@ public class NEConfig {
             "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
         .define("debugECOPlanner", false);
 
+    private static final ModConfigSpec.BooleanValue DEBUG_INFINITE_STORAGE_MIGRATION = BUILDER
+        .comment(
+            "Record detailed reasons when an ECO storage matrix cannot migrate into infinite storage.",
+            "Messages include the source position, matrix identity, transaction summary, and any rejected AE key.",
+            "Messages are rate-limited; enable only while diagnosing storage migration issues.")
+        .define("debugInfiniteStorageMigration", false);
+
     static {
         BUILDER.pop();
     }
@@ -197,6 +204,7 @@ public class NEConfig {
     public static boolean debugEcoFastPath;
     public static boolean ecoPlannerDifferentialVerification;
     public static boolean debugECOPlanner;
+    public static boolean debugInfiniteStorageMigration;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
     public static int ecoCpuSlowPathTimeBudgetMicros = ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT;
@@ -223,6 +231,11 @@ public class NEConfig {
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
         if (debugECOPlanner && !wasDebugECOPlanner) {
             ECOPlanningFailureDiagnostics.clear();
+        }
+        boolean wasDebugInfiniteStorageMigration = debugInfiniteStorageMigration;
+        debugInfiniteStorageMigration = DEBUG_INFINITE_STORAGE_MIGRATION.get();
+        if (debugInfiniteStorageMigration && !wasDebugInfiniteStorageMigration) {
+            cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMigrationDiagnostics.clear();
         }
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         boolean wasDebugEcoFastPath = debugEcoFastPath;

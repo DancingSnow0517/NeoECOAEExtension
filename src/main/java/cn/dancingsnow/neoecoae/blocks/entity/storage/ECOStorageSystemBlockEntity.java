@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMigrationDiagnostics;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -1288,6 +1289,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         UUID transactionId = matrixMigrationTransactionId(domainId, drive);
         UUID legacyTransactionId = legacyMatrixMigrationTransactionId(domainId, drive);
+        ECOInfiniteStorageMigrationDiagnostics.log(
+            "migration-snapshot:" + domainId + ':' + transactionId,
+            "stage=migration_snapshot position=" + drive.getBlockPos() + " domain=" + domainId
+                + " transaction=" + transactionId + " matrix="
+                + ECOInfiniteStorageMember.getMatrixId(sourceStack).orElse(null)
+                + " keyCount=" + pending.size() + " contents=" + describeMigrationContents(pending)
+        );
         boolean applied;
         if (pending.isEmpty()) {
             applied = true;
@@ -1298,6 +1306,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             applied = engine.applyTransferOnce(transactionId, pending);
         }
         if (!applied) {
+            ECOInfiniteStorageMigrationDiagnostics.log(
+                "migration-rejected:" + domainId + ':' + transactionId,
+                "stage=migration_result reason=target_rejected position=" + drive.getBlockPos()
+                    + " domain=" + domainId + " transaction=" + transactionId
+                    + " keyCount=" + pending.size()
+            );
             LOGGER.error(
                 "Unable to durably migrate ECO storage matrix at {} into infinite domain {}; keeping the source cell",
                 drive.getBlockPos(),
@@ -1351,6 +1365,22 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return false;
         }
         return true;
+    }
+
+    private static String describeMigrationContents(List<ECOInfiniteStorageEngine.HugeStack> contents) {
+        int previewLimit = 8;
+        StringBuilder result = new StringBuilder("[");
+        for (int index = 0; index < contents.size() && index < previewLimit; index++) {
+            ECOInfiniteStorageEngine.HugeStack stack = contents.get(index);
+            if (index > 0) {
+                result.append(", ");
+            }
+            result.append(stack.key()).append('=').append(stack.amount());
+        }
+        if (contents.size() > previewLimit) {
+            result.append(", ... +").append(contents.size() - previewLimit).append(" keys");
+        }
+        return result.append(']').toString();
     }
 
     private void restoreInfiniteDomainToNormalStorage() {

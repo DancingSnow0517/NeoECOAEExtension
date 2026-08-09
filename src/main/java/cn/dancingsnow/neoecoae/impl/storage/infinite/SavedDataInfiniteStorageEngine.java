@@ -289,9 +289,20 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     @Override
     public synchronized boolean applyTransferOnce(UUID transactionId, Collection<HugeStack> contents) {
         if (state != ECOInfiniteDomainState.READY || transactionId == null || contents == null) {
+            ECOInfiniteStorageMigrationDiagnostics.log(
+                "invalid-request:" + domainId + ':' + transactionId,
+                "stage=apply_transfer reason=invalid_request domain=" + domainId
+                    + " transaction=" + transactionId + " state=" + state
+                    + " contentsPresent=" + (contents != null)
+            );
             return false;
         }
         if (legacyTransferReceipts.contains(transactionId)) {
+            ECOInfiniteStorageMigrationDiagnostics.log(
+                "legacy-receipt:" + domainId + ':' + transactionId,
+                "stage=apply_transfer reason=legacy_receipt_conflict domain=" + domainId
+                    + " transaction=" + transactionId
+            );
             quarantineReceiptConflict(transactionId);
             return false;
         }
@@ -299,12 +310,13 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         List<HugeStack> batch = new ArrayList<>(contents);
         Set<AEKey> seen = new HashSet<>();
         for (HugeStack stack : batch) {
-            if (stack == null
-                    || stack.key() == null
-                    || stack.amount() == null
-                    || stack.amount().isZero()
-                    || !seen.add(stack.key())
-                    || !ensureEncodedKey(stack.key())) {
+            String rejection = transferStackRejection(stack, seen);
+            if (rejection != null) {
+                ECOInfiniteStorageMigrationDiagnostics.log(
+                    "invalid-stack:" + domainId + ':' + transactionId + ':' + rejection,
+                    "stage=apply_transfer reason=" + rejection + " domain=" + domainId
+                        + " transaction=" + transactionId + " key=" + describeStackKey(stack)
+                );
                 return false;
             }
         }
@@ -313,6 +325,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         String persistedDigest = transferReceipts.get(transactionId);
         if (persistedDigest != null) {
             if (!persistedDigest.equals(digest)) {
+                ECOInfiniteStorageMigrationDiagnostics.log(
+                    "receipt-conflict:" + domainId + ':' + transactionId,
+                    "stage=apply_transfer reason=receipt_contents_changed domain=" + domainId
+                        + " transaction=" + transactionId + " batchKeys=" + batch.size()
+                );
                 quarantineReceiptConflict(transactionId);
                 return false;
             }
@@ -329,6 +346,14 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         transferReceipts.put(transactionId, digest);
         markMutated();
         flushAndAwait();
+        if (state != ECOInfiniteDomainState.READY) {
+            ECOInfiniteStorageMigrationDiagnostics.log(
+                "persistence-failure:" + domainId + ':' + transactionId,
+                "stage=apply_transfer reason=persistence_not_ready domain=" + domainId
+                    + " transaction=" + transactionId + " state=" + state
+                    + " failure=" + failureReason
+            );
+        }
         return state == ECOInfiniteDomainState.READY;
     }
 
@@ -649,6 +674,36 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             digest.update(bytes);
         }
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    @Nullable
+    private String transferStackRejection(@Nullable HugeStack stack, Set<AEKey> seen) {
+        if (stack == null) {
+            return "null_stack";
+        }
+        if (stack.key() == null) {
+            return "null_key";
+        }
+        if (stack.amount() == null) {
+            return "null_amount";
+        }
+        if (stack.amount().isZero()) {
+            return "zero_amount";
+        }
+        if (!seen.add(stack.key())) {
+            return "duplicate_key";
+        }
+        if (!isResolved(stack.key())) {
+            return "unresolved_key";
+        }
+        return ensureEncodedKey(stack.key()) ? null : "key_encoding_rejected";
+    }
+
+    private static String describeStackKey(@Nullable HugeStack stack) {
+        if (stack == null || stack.key() == null) {
+            return "none";
+        }
+        return stack.key() + " amount=" + stack.amount();
     }
 
     private String orphanedFingerprint() {
