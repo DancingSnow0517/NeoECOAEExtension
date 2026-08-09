@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.wintercogs.ae2omnicells.common.items.AEUniversalCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
@@ -54,7 +55,11 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
             double idleDrain,
             int totalTypes,
             long totalBytes) {
-        super(properties.stacksTo(1), idleDrain, totalTypes, Math.toIntExact(totalBytes / 1024L));
+        super(
+                properties.stacksTo(1),
+                idleDrain,
+                totalTypes,
+                Math.toIntExact(NEConfig.getEcoStorageCellCapacity(tier, totalBytes) / 1024L));
         this.tier = tier;
         this.cellType = cellType;
     }

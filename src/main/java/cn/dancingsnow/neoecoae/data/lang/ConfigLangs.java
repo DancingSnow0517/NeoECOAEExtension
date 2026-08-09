@@ -26,6 +26,13 @@ public class ConfigLangs {
                 "neoecoae.configuration.postCraftingEvent.tooltip",
                 "Whether to fire the vanilla crafting event (ItemCraftedEvent) when the crafting subsystem completes a recipe.\n"
                         + "Enabling this may introduce additional event/listener overhead; it can be noticeable when mods like Balm are installed.");
+        provider.add("neoecoae.configuration.debug", "Debug");
+        provider.add("neoecoae.configuration.debug.tooltip", "ECO crafting planner diagnostic options.");
+        provider.add("neoecoae.configuration.debugECOPlanner", "Debug ECO Planner");
+        provider.add(
+                "neoecoae.configuration.debugECOPlanner.tooltip",
+                "Log the stage, reason, request, solver state and fallback details for ECO planning failures.\n"
+                        + "Messages are deduplicated and rate-limited. Enable only while diagnosing planning issues.");
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
                 "neoecoae.configuration.fastPath.tooltip",

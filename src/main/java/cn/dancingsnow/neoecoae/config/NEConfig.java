@@ -57,6 +57,23 @@ public class NEConfig {
 
     static {
         BUILDER.comment(
+                        "ECO crafting planner diagnostic options.",
+                        "Enable these only while investigating crafting-plan problems.")
+                .push("debug");
+    }
+
+    private static final ForgeConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER.comment(
+                    "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
+                    "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.",
+                    "Set JVM property -Dneoecoae.debugECOPlanner=true to force-enable this without editing the config.")
+            .define("debugECOPlanner", false);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.comment(
                         "ECO AE2 fast path cache and batch crafting options.",
                         "Disable or lower these values if a modpack has recipe compatibility issues.")
                 .push("fastPath");
@@ -184,7 +201,7 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
         debugEcoFastPath = getBooleanProperty("neoecoae.debugEcoFastPath", DEBUG_ECO_FAST_PATH.get());
-        debugECOPlanner = getBooleanProperty("neoecoae.debugECOPlanner", false);
+        debugECOPlanner = getBooleanProperty("neoecoae.debugECOPlanner", DEBUG_ECO_PLANNER.get());
         ecoCpuPushTickLimit = getPositiveIntProperty("neoecoae.ecoCpuPushTickLimit", ECO_CPU_PUSH_TICK_LIMIT.get());
         ecoBatchFastPathTickLimit = boundedFastPathValue(
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get()));
@@ -270,12 +287,18 @@ public class NEConfig {
             return fallbackBytes;
         }
 
-        return switch (tier.getTier()) {
-            case 1 -> 256L << 20;
-            case 2 -> 4L << 30;
-            case 3 -> 64L << 30;
-            default -> fallbackBytes;
-        };
+        long expandedBaseBytes =
+                switch (tier.getTier()) {
+                    case 1 -> 256L << 20;
+                    case 2 -> 4L << 30;
+                    case 3 -> 64L << 30;
+                    default -> fallbackBytes;
+                };
+        long baseBytes = tier.getStorageTotalBytes();
+        if (baseBytes <= 0L || fallbackBytes == baseBytes) {
+            return expandedBaseBytes;
+        }
+        return LongMath.saturatedMultiply(expandedBaseBytes, fallbackBytes / baseBytes);
     }
 
     public static long getEcoComputationCellCapacity(IECOTier tier, long fallbackBytes) {

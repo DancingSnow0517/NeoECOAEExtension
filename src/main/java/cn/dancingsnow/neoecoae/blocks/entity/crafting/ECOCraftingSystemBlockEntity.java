@@ -500,16 +500,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             overlockTimes = 0;
             return;
         }
-        int perCore = tier.getCrafterParallel();
+        overlockTimes = calculateOverclockTimes(getParallelCapacity(), getMaxSynthesisEfficiency());
+    }
+
+    /**
+     * Parallel-core capacity is measured in the same network-exchange units as a worker's
+     * batched capacity. Consequently the x2/x8 exchange multiplier applies to this side of
+     * the overflow calculation as well.
+     */
+    private long getParallelCapacity() {
+        return calculateParallelCapacity(
+                parallelCount,
+                tier.getCrafterParallel(),
+                tier.getOverclockedCrafterParallel(),
+                overclocked,
+                getNetworkMultiplier());
+    }
+
+    static long calculateParallelCapacity(
+            int parallelCoreCount,
+            int baseParallelPerCore,
+            int overclockedParallelPerCore,
+            boolean overclocked,
+            int networkMultiplier) {
+        long perCore = Math.max(0, baseParallelPerCore);
         if (overclocked) {
-            perCore += tier.getOverclockedCrafterParallel();
+            perCore = saturatingAdd(perCore, Math.max(0, overclockedParallelPerCore));
         }
-        long parallelCapacity = saturatingMultiply(parallelCount, perCore);
-        // Overflow compares the structural parallel capacity with the complete FX throughput.
-        // Each FX worker contributes its maximum batch (512 on an overclocked F9), so the
-        // denominator must match the "maximum synthesis efficiency" displayed in the UI.
-        long maxSynthesisEfficiency = getMaxSynthesisEfficiency();
-        overlockTimes = calculateOverclockTimes(parallelCapacity, maxSynthesisEfficiency);
+        return saturatingMultiply(
+                saturatingMultiply(Math.max(0, parallelCoreCount), perCore), Math.max(1, networkMultiplier));
     }
 
     private long getMaxSynthesisEfficiency() {
@@ -769,7 +788,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getOverflowThreads() {
         ensureCraftingStatsCurrent();
-        long overflow = Math.max(0L, (long) threadCount - getMaxSynthesisEfficiency());
+        long overflow = Math.max(0L, getParallelCapacity() - getMaxSynthesisEfficiency());
         return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 

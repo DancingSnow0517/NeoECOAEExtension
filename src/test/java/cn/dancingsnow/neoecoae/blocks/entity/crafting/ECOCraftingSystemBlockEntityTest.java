@@ -36,7 +36,11 @@ class ECOCraftingSystemBlockEntityTest {
     @Test
     void overflowUsesCompleteFxBatchEfficiency() {
         assertEquals(5_632, ECOCraftingSystemBlockEntity.calculateMaxSynthesisEfficiency(11, 512));
+        assertEquals(1_024, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 0, false, 2));
+        assertEquals(8_192, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 512, true, 8));
         assertEquals(8, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_000, 600));
+        assertEquals(0, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 1_024));
+        assertEquals(5, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 768));
     }
 
     @Test
