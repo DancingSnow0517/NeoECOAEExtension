@@ -48,7 +48,7 @@ import java.util.Set;
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements ISyncPersistRPCBlockEntity {
     private static final int PATTERN_TRANSFER_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
-    private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 1_000_000L;
+    private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_PREVIEW_COLUMNS = 9;
     private static final int PATTERN_PREVIEW_ROWS = 5;

@@ -98,7 +98,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
     private static final int INFINITE_MEMBER_REQUIRED = 33;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
-    private static final long STORAGE_INTERFACE_TRANSFER_LIMIT = Integer.MAX_VALUE;
+    private static final long STORAGE_INTERFACE_TRANSFER_LIMIT = Long.MAX_VALUE;
     private static volatile Map<AEKeyType, Integer> registeredCellTypesByKeyType;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
@@ -872,8 +872,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (engine == null) return 0L;
             MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
             moved = storageInterface.isStorageInputMode()
-                ? transferLimited(network, domain, source)
-                : transferLimited(domain, network, source);
+                ? transferLimited(network, domain, source, true)
+                : transferLimited(domain, network, source, false);
         } else if (hostMode == ECOStorageHostMode.FORMED_NORMAL) {
             moved = transferFiniteStorageContents(
                 network,
@@ -930,6 +930,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (isInfiniteNetworkAmount(entry.getLongValue())) continue;
             if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
             long keyRemaining = Math.min(entry.getLongValue(), remaining);
             if (keyRemaining <= 0L) continue;
@@ -986,12 +987,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return inserted;
     }
 
-    private static long transferLimited(MEStorage from, MEStorage to, IActionSource source) {
+    private static long transferLimited(MEStorage from, MEStorage to, IActionSource source, boolean skipInfiniteSourceEntries) {
         KeyCounter available = new KeyCounter();
         from.getAvailableStacks(available);
         long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (skipInfiniteSourceEntries && isInfiniteNetworkAmount(entry.getLongValue())) continue;
             if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
             long amount = Math.min(entry.getLongValue(), remaining);
             if (amount <= 0L) continue;
@@ -1005,6 +1007,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             remaining -= inserted;
         }
         return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
+    }
+
+    private static boolean isInfiniteNetworkAmount(long amount) {
+        return amount == Long.MAX_VALUE || amount == Integer.MAX_VALUE;
     }
 
     private void updateInfiniteStorageMode() {
