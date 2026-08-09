@@ -8,7 +8,7 @@ class ECOCraftingSystemBlockEntityTest {
     @Test
     void virtualExchangeMatches1211CoolantRate() {
         assertEquals(8, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_REQUIRED_HOSTS);
-        assertEquals(10_000, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
+        assertEquals(100, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
     }
 
     @Test
@@ -25,6 +25,25 @@ class ECOCraftingSystemBlockEntityTest {
         int localThreadsPerHost = ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 2);
         assertEquals(22, localThreadsPerHost);
         assertEquals(44, localThreadsPerHost * 2);
+    }
+
+    @Test
+    void f9FastPathCapacityKeepsThreadsAndBatchSizeIndependent() {
+        int singleHostBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 1);
+        int exchangedBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 8);
+
+        assertEquals(512, singleHostBatch);
+        assertEquals(5_632, ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 1) * singleHostBatch);
+        assertEquals(4_096, exchangedBatch);
+        assertEquals(180_224, ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 2) * 2 * exchangedBatch);
+    }
+
+    @Test
+    void coolantBufferStaysFullSizedWhileAHostHasThreadCapacity() {
+        assertEquals(0, ECOCraftingSystemBlockEntity.calculateCoolantBufferTarget(0));
+        assertEquals(
+                ECOCraftingSystemBlockEntity.MAX_COOLANT,
+                ECOCraftingSystemBlockEntity.calculateCoolantBufferTarget(22));
     }
 
     @Test

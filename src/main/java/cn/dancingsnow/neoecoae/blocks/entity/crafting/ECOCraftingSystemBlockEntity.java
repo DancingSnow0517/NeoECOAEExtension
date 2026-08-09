@@ -91,7 +91,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
     public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
-    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
+    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 100;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
@@ -368,7 +368,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (recipe == null) {
             return TickRateModulation.IDLE;
         }
-        if (!canRefillWith(recipe)) {
+        if (!canRefillWith(recipe.maxOverclock())) {
             return TickRateModulation.IDLE;
         }
 
@@ -560,9 +560,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
-        if (!activeCooling) {
-            return true;
-        }
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
             return network.tryConsumeCoolant(amount, requiredOverclock);
@@ -582,7 +579,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int ticks = Math.max(1, ticksSinceLastCall);
         int rate = getNetworkCoolantPerSlotTick(multiplier);
         int amount = (int) Math.min(Integer.MAX_VALUE, (long) rate * ticks);
-        int requiredOverclock = Math.max(getEffectiveOverclockTimes(), multiplier >= 8 ? 9 : 0);
+        int requiredOverclock = Math.max(getEffectiveOverclockTimesForLocalTasks(), multiplier >= 8 ? 9 : 0);
         return network.tryConsumeCoolant(amount, requiredOverclock);
     }
 
@@ -594,16 +591,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         int ticks = Math.max(1, ticksSinceLastCall);
         int amount = (int) Math.min(Integer.MAX_VALUE, (long) VIRTUAL_CRAFTING_COOLANT_PER_TICK * ticks);
-        return network.tryConsumeCoolant(amount, Math.max(getEffectiveOverclockTimes(), 9));
+        return network.tryConsumeCoolant(amount, Math.max(getEffectiveOverclockTimesForLocalTasks(), 9));
     }
 
     public boolean tryConsumeLocalCoolant(int amount, int requiredOverclock) {
-        if (!activeCooling) {
-            return true;
-        }
         if (amount <= 0) {
             return true;
         }
+        ensureCoolantAvailable(amount, requiredOverclock);
         if (coolant < amount) {
             return false;
         }
@@ -631,9 +626,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (network != null) {
             int multiplier = getNetworkMultiplier();
             if (multiplier > 1) {
-                int rate = getNetworkCoolantPerSlotTick(multiplier);
-                int networkRequirement = Math.max(getEffectiveOverclockTimes(), multiplier >= 8 ? 9 : 0);
-                return network.getCraftingCoolantCraftLimit(1, networkRequirement, rate) >= rate ? requestedCrafts : 0;
+                return canStartNetworkCooledTask(multiplier) ? Math.max(0, requestedCrafts) : 0;
             }
             return network.getCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
         }
@@ -654,6 +647,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (coolantPerCraft <= 0) {
             return Math.max(0, requestedCrafts);
         }
+        int desiredCoolant = (int) Math.min(MAX_COOLANT, (long) coolantPerCraft * requestedCrafts);
+        ensureCoolantAvailable(desiredCoolant, requiredOverclock);
         if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
             return 0;
         }
@@ -1808,12 +1803,27 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 .orElse(null);
     }
 
-    private boolean canRefillWith(CoolingRecipe recipe) {
-        if (coolant <= 0 || coolantMaxOverclock < 0 || coolantFluidId == null) {
+    private boolean canRefillWith(int maxOverclock) {
+        return coolant <= 0 || coolantMaxOverclock < 0 || coolantMaxOverclock == maxOverclock;
+    }
+
+    private boolean ensureCoolantAvailable(int requiredCoolant, int requiredOverclock) {
+        if (!activeCooling || requiredCoolant <= 0) {
             return true;
         }
-        ResourceLocation inputFluidId = currentCoolingInputFluidId();
-        return coolantMaxOverclock == recipe.maxOverclock() && coolantFluidId.equals(inputFluidId);
+        if (coolant >= requiredCoolant && (requiredOverclock <= 0 || coolantMaxOverclock >= requiredOverclock)) {
+            return true;
+        }
+        CoolingRecipe recipe = getCoolingRecipe();
+        if (recipe == null || !canRefillWith(recipe.maxOverclock())) {
+            return false;
+        }
+        if (requiredOverclock > 0 && recipe.maxOverclock() < requiredOverclock) {
+            return false;
+        }
+        int targetCoolant = Math.min(MAX_COOLANT, Math.max(requiredCoolant, getTargetCoolantBuffer()));
+        refillCoolant(recipe, targetCoolant - coolant);
+        return coolant >= requiredCoolant && (requiredOverclock <= 0 || coolantMaxOverclock >= requiredOverclock);
     }
 
     private int getCurrentCoolingMaxOverclock() {
@@ -1825,13 +1835,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getTargetCoolantBuffer() {
-        long requiredPerTick = (long) getAvailableThreads() * COOLANT_PER_CRAFT * getNetworkPowerMultiplier();
-        if (requiredPerTick <= 0) {
-            return 0;
-        }
-        long target = requiredPerTick * 20L;
-        target = Math.max(target, 1000L);
-        return (int) Math.min(MAX_COOLANT, target);
+        return calculateCoolantBufferTarget(getLocalThreadCount());
+    }
+
+    static int calculateCoolantBufferTarget(int localThreadCount) {
+        return localThreadCount > 0 ? MAX_COOLANT : 0;
     }
 
     private int refillCoolant(CoolingRecipe recipe, int deficit) {
@@ -1967,13 +1975,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
         if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
         buildPreview.readFromTag(tag);
-    }
-
-    @Nullable private ResourceLocation currentCoolingInputFluidId() {
-        if (cluster == null || cluster.getInputHatch() == null) {
-            return null;
-        }
-        return fluidId(cluster.getInputHatch().tank.getFluid());
     }
 
     @Nullable private static ResourceLocation fluidId(FluidStack stack) {
