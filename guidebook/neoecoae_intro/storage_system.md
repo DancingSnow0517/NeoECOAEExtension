@@ -142,16 +142,15 @@ The following ECO storage cells can be used in the drives:
 
 Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
 
-## Optional Infinite Storage
+## Infinite Storage
 
-Infinite storage is disabled by default and must be enabled with the `enableInfiniteStorage` server configuration option. It is available only to a formed L9 storage host.
+A formed L9 storage host can enter infinite-storage mode once it meets the material requirements.
 
 - Insert **64 Infinite Cell Components** into the controller's infinite-component slot.
 - Install at least **16 valid L9 storage matrices** in the host's drives.
 - The controller migrates those matrices into one persistent infinite-storage domain and shows migration progress in the GUI.
 - Infinite member matrices are bound to their domain and cannot be mixed into another domain.
 - Removing the components attempts to restore all contents to normal matrices. The operation is blocked when the available normal capacity cannot hold the data safely.
-- Disabling the configuration prevents new migrations but does not delete an existing domain or its data.
 - The controller item preserves its domain identity when the block is moved.
 
 The GUI also provides storage priority controls. In infinite mode, the Storage Interface can enable transfer mode to move compatible network contents into the infinite domain.

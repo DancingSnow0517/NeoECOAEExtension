@@ -1,0 +1,50 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 64000000,
+  "inputFluid": {
+    "amount": 64000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:storage_system_l9"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_infinite_cell_component"
+  }
+}

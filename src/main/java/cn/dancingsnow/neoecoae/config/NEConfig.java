@@ -95,16 +95,6 @@ public class NEConfig {
             "This may add event/listener overhead, especially when mods such as Balm are installed.")
         .define("postCraftingEvent", false);
 
-    private static final ModConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER
-        .comment(
-            "在存储控制器上启用 ECO 无限存储。",
-            "需要 64 个无限组件和 33 个 L9 存储矩阵；禁用后会阻止新的无限存储迁移。",
-            "已有的无限存储域文件会保留，不会被此选项删除。",
-            "Enable ECO infinite storage on the storage controller.",
-            "Requires 64 infinite components and 33 L9 storage matrices; disabling it blocks new infinite migrations.",
-            "Existing infinite storage domain files are preserved and are not deleted by this option.")
-        .define("enableInfiniteStorage", false);
-
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
             "一个 ECO 智能样板总线提供的样板页数。",
@@ -241,7 +231,6 @@ public class NEConfig {
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
     public static boolean postCraftingEvent;
-    public static boolean enableInfiniteStorage;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
@@ -267,7 +256,6 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
-        enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
         CRAFTING_CAPACITY_POWER.get();
@@ -326,7 +314,4 @@ public class NEConfig {
         return (int) Math.min(Integer.MAX_VALUE, result);
     }
 
-    public static boolean isInfiniteStorageEnabled() {
-        return enableInfiniteStorage;
-    }
 }

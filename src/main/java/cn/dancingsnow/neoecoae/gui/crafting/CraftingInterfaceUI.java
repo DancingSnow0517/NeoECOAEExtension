@@ -122,8 +122,8 @@ public final class CraftingInterfaceUI {
                 Icon.S_FLUID_SUBSTITUTION_DISABLED,
                 craftingInterface::toggleFluidSubstitutionPatterns,
                 "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
-        header.addChild(iconButton(Icon.PATTERN_TERMINAL_ALL, "gui.neoecoae.crafting_interface.preview.refresh",
-                () -> craftingInterface.refreshPatternPreview()));
+        header.addChild(iconButton(Icon.PATTERN_TERMINAL_ALL, "gui.neoecoae.crafting_interface.preview.organize",
+                craftingInterface::organizePatternBuses));
         return header;
     }
 

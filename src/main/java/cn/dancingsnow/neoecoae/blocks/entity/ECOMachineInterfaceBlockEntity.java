@@ -53,7 +53,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_PREVIEW_COLUMNS = 9;
     private static final int PATTERN_PREVIEW_ROWS = 5;
     private static final int PATTERN_PREVIEW_VISIBLE_SLOTS = PATTERN_PREVIEW_COLUMNS * PATTERN_PREVIEW_ROWS;
-    private static final int PATTERN_PREVIEW_MAX_SLOTS_PER_TICK = 24;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -101,12 +100,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private boolean showSubstitutionPatterns = true;
     @DescSynced
     private boolean showFluidSubstitutionPatterns = true;
+    private List<PatternContainer> patternPreviewSources = List.of();
+    private List<PatternPreviewEntry> allPatternPreviewEntries = new ArrayList<>();
     private List<PatternPreviewEntry> patternPreviewEntries = new ArrayList<>();
-    private List<PatternPreviewTracker> patternPreviewTrackers = List.of();
-    @Nullable
-    private PatternPreviewTask patternPreviewTask;
     private boolean patternPreviewInitialized;
-    private boolean patternPreviewCacheReady;
     private long lastPatternPreviewSyncTick = Long.MIN_VALUE;
     private final IItemHandlerModifiable patternPreviewItemHandler = new PatternPreviewItemHandler();
     public ECOMachineInterfaceBlockEntity(
@@ -209,18 +206,45 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return patternPreviewItemHandler;
     }
 
-    public void refreshPatternPreview() {
-        if (level instanceof ServerLevel serverLevel) {
-            beginPatternPreviewScan(serverLevel);
+    public void organizePatternBuses() {
+        if (!(level instanceof ServerLevel serverLevel) || !formed || !supportsCraftingInterfaceUi()) {
+            return;
         }
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+
+        List<PatternPreviewEntry> slots = new ArrayList<>();
+        List<ItemStack> patterns = new ArrayList<>();
+        for (PatternContainer source : getFPatternSources(grid)) {
+            if (source.getGrid() != grid) {
+                continue;
+            }
+            InternalInventory inventory = source.getTerminalPatternInventory();
+            for (int slot = 0; slot < inventory.size(); slot++) {
+                slots.add(new PatternPreviewEntry(source, slot));
+                ItemStack stack = inventory.getStackInSlot(slot);
+                if (!stack.isEmpty()) {
+                    patterns.add(stack.copy());
+                }
+            }
+        }
+
+        for (int index = 0; index < slots.size(); index++) {
+            PatternPreviewEntry target = slots.get(index);
+            ItemStack desired = index < patterns.size() ? patterns.get(index) : ItemStack.EMPTY;
+            InternalInventory inventory = getPreviewInventory(target);
+            if (!ItemStack.matches(inventory.getStackInSlot(target.sourceSlot()), desired)) {
+                inventory.setItemDirect(target.sourceSlot(), desired);
+            }
+        }
+        loadPatternPreview(serverLevel);
     }
 
     public void ensurePatternPreview() {
-        // The preview is an intentionally explicit cache: reopening the terminal
-        // must not start another full network scan. The refresh button is the
-        // opt-in way to rebuild it.
-        if (level instanceof ServerLevel serverLevel && !patternPreviewCacheReady && patternPreviewTask == null) {
-            beginPatternPreviewScan(serverLevel);
+        if (level instanceof ServerLevel serverLevel && !patternPreviewInitialized) {
+            loadPatternPreview(serverLevel);
         }
     }
 
@@ -277,7 +301,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             );
         }
         return Component.translatable(
-            "gui.neoecoae.crafting_interface.preview.entries",
+            "gui.neoecoae.crafting_interface.preview.slots",
             patternPreviewEntryCount
         );
     }
@@ -303,10 +327,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (patternTransferTask != null) {
             tickPatternTransfer(serverLevel, deadline);
         }
-        if (patternPreviewTask != null && System.nanoTime() < deadline) {
-            tickPatternPreview(serverLevel, deadline);
-        }
-        if (patternPreviewCacheReady && patternPreviewTask == null) {
+        if (patternPreviewInitialized) {
             tickPatternPreviewCache(serverLevel);
         }
     }
@@ -408,127 +429,102 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
-    private void beginPatternPreviewScan(ServerLevel serverLevel) {
-        PatternPreviewTask task = createPatternPreviewTask();
-        patternPreviewInitialized = task != null;
-        patternPreviewCacheReady = false;
-        patternPreviewScannedSlots = 0;
-        patternPreviewTotalSlots = task == null ? 0 : task.totalSlots();
-        patternPreviewTask = task;
-        patternPreviewScanning = task != null;
-        if (task == null) {
-            patternPreviewEntries = new ArrayList<>();
-            patternPreviewTrackers = List.of();
-            patternPreviewEntryCount = 0;
-            patternPreviewScrollRow = 0;
+    /**
+     * Builds an ordered address book for the F pattern buses. It deliberately does not inspect or decode every
+     * pattern: the menu slots read the bus inventories directly, just like AE2's pattern access terminal.
+     */
+    private void loadPatternPreview(ServerLevel serverLevel) {
+        if (!formed || !supportsCraftingInterfaceUi()) {
+            clearPatternPreview();
+            syncPatternPreviewState(serverLevel.getGameTime(), true);
+            return;
         }
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            clearPatternPreview();
+            syncPatternPreviewState(serverLevel.getGameTime(), true);
+            return;
+        }
+        List<PatternContainer> sources = getFPatternSources(grid);
+        List<PatternPreviewEntry> entries = new ArrayList<>();
+        for (PatternContainer source : sources) {
+            InternalInventory inventory = source.getTerminalPatternInventory();
+            for (int slot = 0; slot < inventory.size(); slot++) {
+                entries.add(new PatternPreviewEntry(source, slot));
+            }
+        }
+        patternPreviewSources = sources;
+        allPatternPreviewEntries = entries;
+        patternPreviewEntries = entries;
+        patternPreviewInitialized = true;
+        patternPreviewScanning = false;
+        patternPreviewScannedSlots = 0;
+        patternPreviewTotalSlots = entries.size();
+        patternPreviewEntryCount = entries.size();
+        patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
         syncPatternPreviewState(serverLevel.getGameTime(), true);
     }
 
-    @Nullable
-    private PatternPreviewTask createPatternPreviewTask() {
-        if (!formed || !supportsCraftingInterfaceUi()) {
-            return null;
-        }
-        IGrid grid = getMainNode().getGrid();
-        return grid == null ? null : new PatternPreviewTask(grid, getFPatternSources(grid));
-    }
-
-    private void tickPatternPreview(ServerLevel serverLevel, long deadline) {
-        PatternPreviewTask task = patternPreviewTask;
-        if (task == null) {
-            return;
-        }
-        if (!formed || getMainNode().getGrid() != task.grid()) {
-            finishPatternPreview(serverLevel, true);
-            return;
-        }
-
-        int scannedThisTick = 0;
-        while (scannedThisTick < PATTERN_PREVIEW_MAX_SLOTS_PER_TICK
-            && System.nanoTime() < deadline
-            && !task.isFinished()) {
-            PatternPreviewStep step = task.nextStep();
-            if (step == null) {
-                break;
-            }
-            scannedThisTick++;
-            patternPreviewScannedSlots++;
-            ItemStack stack = step.inventory().getStackInSlot(step.slot());
-            if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)) {
-                task.entries().add(new PatternPreviewEntry(step.source(), step.slot(), stack.copy()));
-            }
-        }
-        if (task.isFinished()) {
-            patternPreviewTrackers = task.sources().stream().map(PatternPreviewTracker::new).toList();
-            rebuildPatternPreviewEntries();
-            patternPreviewCacheReady = true;
-            finishPatternPreview(serverLevel, false);
-        } else {
-            syncPatternPreviewState(serverLevel.getGameTime(), false);
-        }
-    }
-
-    private void finishPatternPreview(ServerLevel level, boolean discardEntries) {
-        patternPreviewTask = null;
-        patternPreviewScanning = false;
-        if (discardEntries) {
-            patternPreviewEntries = new ArrayList<>();
-            patternPreviewTrackers = List.of();
-            patternPreviewEntryCount = 0;
-            patternPreviewScrollRow = 0;
-            patternPreviewInitialized = false;
-            patternPreviewCacheReady = false;
-        }
-        syncPatternPreviewState(level.getGameTime(), true);
-    }
-
     /**
-     * Mirrors AE2's pattern access terminal: retain one snapshot per pattern container and only rebuild the visible
-     * list when a slot actually changes. AE2 does not expose this tracker as a public API, so the custom terminal
-     * keeps the same server-side semantics while retaining its own transfer controls.
+     * Refresh the ordered source list only when buses are attached or removed. Stack changes require no cache refresh:
+     * menu slots always delegate to the source inventory.
      */
     private void tickPatternPreviewCache(ServerLevel serverLevel) {
         IGrid grid = getMainNode().getGrid();
         if (!formed || grid == null) {
-            finishPatternPreview(serverLevel, true);
+            clearPatternPreview();
             return;
         }
         List<PatternContainer> sources = getFPatternSources(grid);
-        if (sources.size() != patternPreviewTrackers.size()
-                || !samePatternPreviewSources(sources)) {
-            beginPatternPreviewScan(serverLevel);
+        if (!samePatternPreviewSources(sources)) {
+            loadPatternPreview(serverLevel);
             return;
-        }
-        boolean changed = false;
-        for (PatternPreviewTracker tracker : patternPreviewTrackers) {
-            changed |= tracker.update();
-        }
-        if (changed) {
-            rebuildPatternPreviewEntries();
-            syncPatternPreviewState(serverLevel.getGameTime(), true);
         }
     }
 
     private boolean samePatternPreviewSources(List<PatternContainer> sources) {
+        if (sources.size() != patternPreviewSources.size()) {
+            return false;
+        }
         for (int i = 0; i < sources.size(); i++) {
-            PatternPreviewTracker tracker = patternPreviewTrackers.get(i);
-            if (tracker.source() != sources.get(i) || tracker.source().getGrid() != getMainNode().getGrid()) {
+            if (sources.get(i) != patternPreviewSources.get(i)
+                    || sources.get(i).getGrid() != getMainNode().getGrid()) {
                 return false;
             }
         }
         return true;
     }
 
+    private void clearPatternPreview() {
+        patternPreviewSources = List.of();
+        allPatternPreviewEntries = new ArrayList<>();
+        patternPreviewEntries = new ArrayList<>();
+        patternPreviewEntryCount = 0;
+        patternPreviewScrollRow = 0;
+        patternPreviewInitialized = false;
+        patternPreviewScanning = false;
+        patternPreviewScannedSlots = 0;
+        patternPreviewTotalSlots = 0;
+    }
+
     private void rebuildPatternPreviewEntries() {
-        String query = patternPreviewSearch.toLowerCase(java.util.Locale.ROOT);
+        // Search and filters are intentionally applied only when the player changes them. The normal terminal view
+        // retains every physical bus slot, including empty ones, so insertion can be ordered and direct.
+        if (patternPreviewSearch.isEmpty() && showSubstitutionPatterns && showFluidSubstitutionPatterns) {
+            patternPreviewEntries = allPatternPreviewEntries;
+            patternPreviewEntryCount = patternPreviewEntries.size();
+            patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
+            return;
+        }
         List<PatternPreviewEntry> entries = new ArrayList<>();
-        for (PatternPreviewTracker tracker : patternPreviewTrackers) {
-            for (int slot = 0; slot < tracker.snapshot().length; slot++) {
-                ItemStack stack = tracker.snapshot()[slot];
-                if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack) && matchesPatternPreviewSearch(stack, query)) {
-                    entries.add(new PatternPreviewEntry(tracker.source(), slot, stack.copy()));
-                }
+        for (PatternPreviewEntry entry : allPatternPreviewEntries) {
+            if (!isPreviewSourceActive(entry)) {
+                continue;
+            }
+            ItemStack stack = getPreviewInventory(entry).getStackInSlot(entry.sourceSlot());
+            if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)
+                    && matchesPatternPreviewSearch(stack, patternPreviewSearch.toLowerCase(java.util.Locale.ROOT))) {
+                entries.add(entry);
             }
         }
         patternPreviewEntries = entries;
@@ -641,102 +637,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private record PatternTransferStep(InternalInventory inventory, int slot) {
     }
 
-    private final class PatternPreviewTask {
-        private final IGrid grid;
-        private final List<PatternContainer> sources;
-        private final List<PatternPreviewEntry> entries = new ArrayList<>();
-        private final int totalSlots;
-        private int sourceIndex;
-        private int slotIndex;
-
-        private PatternPreviewTask(IGrid grid, List<PatternContainer> sources) {
-            this.grid = grid;
-            this.sources = sources;
-            this.totalSlots = sources.stream().mapToInt(source -> source.getTerminalPatternInventory().size()).sum();
-        }
-
-        private IGrid grid() {
-            return grid;
-        }
-
-        private int totalSlots() {
-            return totalSlots;
-        }
-
-        private List<PatternPreviewEntry> entries() {
-            return entries;
-        }
-
-        private List<PatternContainer> sources() {
-            return sources;
-        }
-
-        private boolean isFinished() {
-            return sourceIndex >= sources.size();
-        }
-
-        @Nullable
-        private PatternPreviewStep nextStep() {
-            while (!isFinished()) {
-                PatternContainer source = sources.get(sourceIndex);
-                if (source.getGrid() != grid) {
-                    sourceIndex++;
-                    slotIndex = 0;
-                    continue;
-                }
-                InternalInventory inventory = source.getTerminalPatternInventory();
-                if (slotIndex < inventory.size()) {
-                    return new PatternPreviewStep(source, inventory, slotIndex++);
-                }
-                sourceIndex++;
-                slotIndex = 0;
-            }
-            return null;
-        }
-    }
-
-    private record PatternPreviewEntry(PatternContainer source, int sourceSlot, ItemStack fingerprint) {
-    }
-
-    private record PatternPreviewStep(PatternContainer source, InternalInventory inventory, int slot) {
-    }
-
-    private static final class PatternPreviewTracker {
-        private final PatternContainer source;
-        private final ItemStack[] snapshot;
-
-        private PatternPreviewTracker(PatternContainer source) {
-            this.source = source;
-            InternalInventory inventory = source.getTerminalPatternInventory();
-            this.snapshot = new ItemStack[inventory.size()];
-            for (int slot = 0; slot < snapshot.length; slot++) {
-                snapshot[slot] = inventory.getStackInSlot(slot).copy();
-            }
-        }
-
-        private PatternContainer source() {
-            return source;
-        }
-
-        private ItemStack[] snapshot() {
-            return snapshot;
-        }
-
-        private boolean update() {
-            InternalInventory inventory = source.getTerminalPatternInventory();
-            if (inventory.size() != snapshot.length) {
-                return true;
-            }
-            boolean changed = false;
-            for (int slot = 0; slot < snapshot.length; slot++) {
-                ItemStack current = inventory.getStackInSlot(slot);
-                if (!ItemStack.matches(current, snapshot[slot])) {
-                    snapshot[slot] = current.copy();
-                    changed = true;
-                }
-            }
-            return changed;
-        }
+    private record PatternPreviewEntry(PatternContainer source, int sourceSlot) {
     }
 
     /**
@@ -764,7 +665,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 return clientStacks[visualSlot];
             }
             PatternPreviewEntry entry = getPreviewEntry(visualSlot);
-            return isCurrentPreviewEntry(entry) ? getPreviewInventory(entry).getStackInSlot(entry.sourceSlot()) : ItemStack.EMPTY;
+            return isPreviewSourceActive(entry) ? getPreviewInventory(entry).getStackInSlot(entry.sourceSlot()) : ItemStack.EMPTY;
         }
 
         @Override
@@ -775,12 +676,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (isClientPreviewHandler()) {
                 return stack;
             }
-            PatternPreviewEntry entry = getPreviewEntry(visualSlot);
+            // Insertions are independent of the clicked visual page. This matches the pattern terminal workflow:
+            // the first free slot is chosen in bus/slot order, then the next one on subsequent inserts.
+            PatternPreviewEntry entry = findFirstEmptyPreviewEntry();
+            if (entry == null) {
+                return stack;
+            }
             InternalInventory inventory = getPreviewInventory(entry);
             ItemStack remaining = inventory.insertItem(entry.sourceSlot(), stack, simulate);
-            if (!simulate && remaining.getCount() != stack.getCount()) {
-                updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-            }
             return remaining;
         }
 
@@ -790,15 +693,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 return ItemStack.EMPTY;
             }
             PatternPreviewEntry entry = getPreviewEntry(visualSlot);
-            if (!isCurrentPreviewEntry(entry)) {
+            if (!isPreviewSourceActive(entry)) {
                 return ItemStack.EMPTY;
             }
             InternalInventory inventory = getPreviewInventory(entry);
-            ItemStack extracted = inventory.extractItem(entry.sourceSlot(), amount, simulate);
-            if (!simulate && !extracted.isEmpty()) {
-                updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-            }
-            return extracted;
+            return inventory.extractItem(entry.sourceSlot(), amount, simulate);
         }
 
         @Override
@@ -807,7 +706,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 return 0;
             }
             PatternPreviewEntry entry = getPreviewEntry(visualSlot);
-            return isCurrentPreviewEntry(entry) || isEmptyPreviewEntry(entry)
+            return isPreviewSourceActive(entry)
                 ? getPreviewInventory(entry).getSlotLimit(entry.sourceSlot())
                 : 0;
         }
@@ -826,15 +725,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 clientStacks[visualSlot] = stack.copy();
                 return;
             }
-            PatternPreviewEntry entry = getPreviewEntry(visualSlot);
+            PatternPreviewEntry entry = stack.isEmpty() ? getPreviewEntry(visualSlot) : findFirstEmptyPreviewEntry();
             if (entry == null || !isPreviewSourceActive(entry)) {
                 return;
             }
             InternalInventory inventory = getPreviewInventory(entry);
             ItemStack current = inventory.getStackInSlot(entry.sourceSlot());
-            if (!current.isEmpty() && !matchesPreviewFingerprint(current, entry)) {
-                return;
-            }
             if (stack.isEmpty()) {
                 if (!current.isEmpty()) {
                     inventory.extractItem(entry.sourceSlot(), current.getCount(), false);
@@ -852,7 +748,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 inventory.insertItem(entry.sourceSlot(), current, false);
                 return;
             }
-            updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
         }
 
         private boolean isPreviewSlotValidForInsert(int visualSlot, ItemStack stack) {
@@ -862,14 +757,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (isClientPreviewHandler()) {
                 return true;
             }
-            PatternPreviewEntry entry = getPreviewEntry(visualSlot);
-            if (entry == null || !isPreviewSourceActive(entry)) {
-                return false;
-            }
-            InternalInventory inventory = getPreviewInventory(entry);
-            ItemStack current = inventory.getStackInSlot(entry.sourceSlot());
-            return (current.isEmpty() || matchesPreviewFingerprint(current, entry))
-                && inventory.isItemValid(entry.sourceSlot(), stack);
+            return findFirstEmptyPreviewEntry() != null;
         }
     }
 
@@ -887,20 +775,21 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return entryIndex >= 0 && entryIndex < patternPreviewEntries.size() ? patternPreviewEntries.get(entryIndex) : null;
     }
 
-    private boolean isCurrentPreviewEntry(@Nullable PatternPreviewEntry entry) {
-        if (entry == null || !isPreviewSourceActive(entry)) {
+    @Nullable
+    private PatternPreviewEntry findFirstEmptyPreviewEntry() {
+        for (PatternPreviewEntry entry : allPatternPreviewEntries) {
+            if (isPreviewSourceActive(entry)
+                    && getPreviewInventory(entry).getStackInSlot(entry.sourceSlot()).isEmpty()) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private boolean isPreviewSourceActive(@Nullable PatternPreviewEntry entry) {
+        if (entry == null) {
             return false;
         }
-        ItemStack stack = getPreviewInventory(entry).getStackInSlot(entry.sourceSlot());
-        return matchesPreviewFingerprint(stack, entry);
-    }
-
-    private boolean isEmptyPreviewEntry(@Nullable PatternPreviewEntry entry) {
-        return entry != null && isPreviewSourceActive(entry)
-            && getPreviewInventory(entry).getStackInSlot(entry.sourceSlot()).isEmpty();
-    }
-
-    private boolean isPreviewSourceActive(PatternPreviewEntry entry) {
         IGrid grid = getMainNode().getGrid();
         if (grid == null || entry.source().getGrid() != grid) {
             return false;
@@ -913,18 +802,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return entry.source().getTerminalPatternInventory();
     }
 
-    private boolean matchesPreviewFingerprint(ItemStack stack, PatternPreviewEntry entry) {
-        return !stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, entry.fingerprint());
-    }
-
-    private void updatePreviewEntryFingerprint(int visualSlot, ItemStack stack) {
-        int entryIndex = patternPreviewScrollRow * PATTERN_PREVIEW_COLUMNS + visualSlot;
-        if (entryIndex < 0 || entryIndex >= patternPreviewEntries.size() || stack.isEmpty()) {
-            return;
-        }
-        PatternPreviewEntry entry = patternPreviewEntries.get(entryIndex);
-        patternPreviewEntries.set(entryIndex, new PatternPreviewEntry(entry.source(), entry.sourceSlot(), stack.copy()));
-    }
 
     @SuppressWarnings("unchecked")
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

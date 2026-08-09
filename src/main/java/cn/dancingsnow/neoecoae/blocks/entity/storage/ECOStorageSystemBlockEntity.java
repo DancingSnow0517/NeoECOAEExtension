@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostHugeStackList;
@@ -381,10 +380,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private boolean shouldDisplayInfiniteStorageControls() {
-        return NEConfig.isInfiniteStorageEnabled()
-            || hostMode.isInfiniteState()
-            || infiniteDomainId != null
-            || !infiniteComponentInventory.getStackInSlot(0).isEmpty();
+        return true;
     }
 
     private Component getInfiniteDomainStatus() {
@@ -1137,7 +1133,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private boolean canStartInfiniteMigration() {
         return tier == ECOTier.L9
-            && NEConfig.isInfiniteStorageEnabled()
             && formed
             && cluster != null
             && hasRequiredInfiniteComponents()
