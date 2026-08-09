@@ -544,7 +544,7 @@
   "tooltip.neoecoae.crafting_worker.0": "§7§oECO - FX工作核心是合成子系统的主要部分",
   "tooltip.neoecoae.crafting_worker.1": "§7§oECO - FX工作核心可存储32个合成任务，每次处理1个合成任务",
   "tooltip.neoecoae.holdshift": "按住[Shift]显示更多信息",
-  "tooltip.neoecoae.infinite_component.unlock": "放入64个组件并安装16个L9存储矩阵即可开启无限存储",
+  "tooltip.neoecoae.infinite_component.unlock": "放入64个组件并安装12个L9存储矩阵即可开启无限存储",
   "tooltip.neoecoae.max_lenth": "§7§o结构最大长度: %d",
   "tooltip.neoecoae.max_parallel_count": "§7§o最大并行数量 +%d",
   "tooltip.neoecoae.max_thread_count": "§7§o最大线程数量 +%d",

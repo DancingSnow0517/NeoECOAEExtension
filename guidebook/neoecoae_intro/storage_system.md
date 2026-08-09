@@ -147,7 +147,7 @@ Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Co
 A formed L9 storage host can enter infinite-storage mode once it meets the material requirements.
 
 - Insert **64 Infinite Cell Components** into the controller's infinite-component slot.
-- Install at least **16 valid L9 storage matrices** in the host's drives.
+- Install at least **12 valid L9 storage matrices** in the host's drives.
 - The controller migrates those matrices into one persistent infinite-storage domain and shows migration progress in the GUI.
 - Infinite member matrices are bound to their domain and cannot be mixed into another domain.
 - Removing the components attempts to restore all contents to normal matrices. The operation is blocked when the available normal capacity cannot hold the data safely.

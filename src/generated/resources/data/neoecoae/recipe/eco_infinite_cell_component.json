@@ -1,6 +1,6 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 64000000,
+  "energy": 1000000,
   "inputFluid": {
     "amount": 64000,
     "fluid": "neoecoae:cryotheum_solution"
@@ -11,36 +11,36 @@
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "count": 2,
+      "item": "neoecoae:storage_system_l9"
     },
     {
       "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "item": "neoecoae:eco_cell_component_64m"
     },
     {
       "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "item": "neoecoae:eco_cell_component_16m"
     },
     {
       "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "item": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "item": "neoecoae:superconducting_processor"
     },
     {
       "count": 16,
-      "item": "neoecoae:storage_system_l9"
+      "item": "neoecoae:crystal_ingot"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:storage_system_l6"
+    },
+    {
+      "count": 16,
+      "item": "ae2:drive"
     }
   ],
   "itemOutput": {

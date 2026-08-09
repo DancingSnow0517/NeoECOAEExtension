@@ -97,7 +97,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
-    private static final int INFINITE_MEMBER_REQUIRED = 33;
+    private static final int INFINITE_MEMBER_REQUIRED = 12;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_LIMIT = Long.MAX_VALUE;
     private static volatile Map<AEKeyType, Integer> registeredCellTypesByKeyType;
