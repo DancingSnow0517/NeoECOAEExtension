@@ -299,6 +299,7 @@
   "gui.neoecoae.storage.status.domain_closed": "存储已离线",
   "gui.neoecoae.storage.status.domain_loading": "正在加载存储数据",
   "gui.neoecoae.storage.status.domain_migrating_matrices": "正在迁移存储矩阵",
+  "gui.neoecoae.storage.status.domain_missing_restore_parts": "恢复需要 %d / %d 个原矩阵和 %d / %d 个无限存储元件",
   "gui.neoecoae.storage.status.domain_migrating_v1": "正在迁移 V1 存储",
   "gui.neoecoae.storage.status.domain_orphaned": "有 %d 种物品依赖缺失模组，数据已保留",
   "gui.neoecoae.storage.status.domain_quarantined": "存储已隔离",

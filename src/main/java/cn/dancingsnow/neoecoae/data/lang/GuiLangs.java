@@ -82,6 +82,7 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.storage.status.domain_loading", "Loading storage data");
                 provider.add("gui.neoecoae.storage.status.domain_migrating_v1", "Migrating V1 storage");
                 provider.add("gui.neoecoae.storage.status.domain_migrating_matrices", "Migrating matrices");
+                provider.add("gui.neoecoae.storage.status.domain_missing_restore_parts", "Restore requires %d/%d original matrices and %d/%d infinite components");
                 provider.add("gui.neoecoae.storage.status.domain_quarantined", "Storage quarantined");
                 provider.add("gui.neoecoae.storage.status.domain_orphaned", "%d entries waiting for missing mods");
                 provider.add("gui.neoecoae.storage.status.domain_closed", "Storage offline");

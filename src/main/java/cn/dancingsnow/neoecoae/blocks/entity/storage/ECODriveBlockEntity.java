@@ -103,6 +103,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         updateState();
         this.cellStack = cellStack;
         setChanged();
+        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
+            storageCluster.getController().onInfiniteRestorePartsChanged();
+        }
     }
 
     @Override

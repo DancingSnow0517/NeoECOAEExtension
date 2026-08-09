@@ -400,6 +400,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     "gui.neoecoae.storage.status.domain_orphaned",
                     engine.getOrphanedTypes()
                 )
+                : hostMode == ECOStorageHostMode.FORMED_INFINITE && !hasCompleteInfiniteRestoreSet()
+                    ? Component.translatable(
+                        "gui.neoecoae.storage.status.domain_missing_restore_parts",
+                        Math.max(0, INFINITE_MEMBER_REQUIRED - countInfiniteMembers()),
+                        INFINITE_MEMBER_REQUIRED,
+                        Math.max(0, INFINITE_COMPONENT_REQUIRED - getInfiniteComponentCount()),
+                        INFINITE_COMPONENT_REQUIRED
+                    )
                 : hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
                     ? Component.translatable("gui.neoecoae.storage.status.domain_migrating_matrices")
                     : Component.empty();
@@ -424,7 +432,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         updateInfiniteStorageMode();
+        onInfiniteRestorePartsChanged();
         saveChanges();
+    }
+
+    /** Re-evaluate the controller mount after a migrated matrix or infinite component is restored. */
+    public void onInfiniteRestorePartsChanged() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        refreshDriveStorageProviders();
+        setChanged();
+        markForUpdate();
     }
 
     @Override
@@ -799,7 +819,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public boolean isFormedInfiniteMode() {
-        return hostMode == ECOStorageHostMode.FORMED_INFINITE;
+        return hostMode == ECOStorageHostMode.FORMED_INFINITE && hasCompleteInfiniteRestoreSet();
     }
 
     private int getInfiniteMigrationProgressPercent() {
@@ -810,7 +830,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public boolean canUseHostDomainStorage() {
-        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null;
+        return formed && isFormedInfiniteMode() && infiniteDomainId != null;
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
@@ -843,7 +863,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         MEStorage network = grid.getStorageService().getInventory();
         IActionSource source = IActionSource.ofMachine(storageInterface);
         long moved;
-        if (hostMode == ECOStorageHostMode.FORMED_INFINITE) {
+        if (canUseHostDomainStorage()) {
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             if (engine == null) return 0L;
             MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
@@ -1169,6 +1189,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         return count;
+    }
+
+    /**
+     * The controller item keeps the domain ID, but the domain is unavailable until its migrated
+     * matrices and required infinite components are restored to this host.
+     */
+    private boolean hasCompleteInfiniteRestoreSet() {
+        return countInfiniteMembers() >= INFINITE_MEMBER_REQUIRED && hasRequiredInfiniteComponents();
+    }
+
+    private int getInfiniteComponentCount() {
+        ItemStack stack = infiniteComponentInventory.getStackInSlot(0);
+        return isInfiniteComponent(stack) ? Math.min(stack.getCount(), INFINITE_COMPONENT_REQUIRED) : 0;
     }
 
     private void runInfiniteMigrationStep() {
