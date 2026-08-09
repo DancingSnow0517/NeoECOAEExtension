@@ -24,21 +24,15 @@ class NEConfigTest {
     }
 
     @Test
-    void fastPathRequiresItsConfigurationToggleAndCraftingEventCompatibility() {
+    void fastPathIsAlwaysEnabledUnlessCraftingEventsRequireCompatibility() {
         boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
-        boolean previousFastPathEnabled = NEConfig.ecoAe2FastPathEnabled;
         try {
             NEConfig.postCraftingEvent = false;
-            NEConfig.ecoAe2FastPathEnabled = true;
             assertTrue(NEConfig.isEcoAe2FastPathEnabled());
-            NEConfig.ecoAe2FastPathEnabled = false;
-            assertFalse(NEConfig.isEcoAe2FastPathEnabled());
-            NEConfig.ecoAe2FastPathEnabled = true;
             NEConfig.postCraftingEvent = true;
             assertFalse(NEConfig.isEcoAe2FastPathEnabled());
         } finally {
             NEConfig.postCraftingEvent = previousPostCraftingEvent;
-            NEConfig.ecoAe2FastPathEnabled = previousFastPathEnabled;
         }
     }
 

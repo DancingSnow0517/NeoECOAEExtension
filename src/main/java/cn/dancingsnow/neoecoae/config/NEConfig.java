@@ -74,16 +74,10 @@ public class NEConfig {
 
     static {
         BUILDER.comment(
-                        "ECO AE2 fast path cache and batch crafting options.",
-                        "Disable or lower these values if a modpack has recipe compatibility issues.")
+                        "ECO AE2 fast path cache and batch crafting diagnostics.",
+                        "Fast Path is always enabled unless Post Crafting Event requires slow-path event semantics.")
                 .push("fastPath");
     }
-
-    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER.comment(
-                    "Enable ECO AE2 fast path batch crafting cache.",
-                    "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.",
-                    "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.")
-            .define("ecoAe2FastPathEnabled", true);
 
     private static final ForgeConfigSpec.BooleanValue DEBUG_ECO_FAST_PATH = BUILDER.comment(
                     "Log Fast Path cache statistics and fallback diagnostics.",
@@ -128,7 +122,6 @@ public class NEConfig {
     public static int computationSystemMaxLength = 15;
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
-    public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
@@ -146,7 +139,6 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
-        ecoAe2FastPathEnabled = ENABLE_ECO_AE2_FAST_PATH.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
@@ -156,7 +148,7 @@ public class NEConfig {
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
-        return ecoAe2FastPathEnabled && !postCraftingEvent;
+        return !postCraftingEvent;
     }
 
     public static int getEcoFastPathTickLimit() {
