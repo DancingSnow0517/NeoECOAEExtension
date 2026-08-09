@@ -14,6 +14,11 @@
     "PatternEncodingTermMenuMixin",
     "StorageCellsMixin",
     "ae2.AECraftingPatternAccessor",
+    "ae2.CraftingCpuLogicFastPathMixin",
+    "ae2.ElapsedTimeTrackerAccessor",
+    "ae2.ExecutingCraftingJobAccessor",
+    "ae2.TaskProgressAccessor",
+    "aae.AdvCraftingCpuLogicFastPathMixin",
     "aae.ContainerExIOPortMixin",
     "aae.TileExIOPortMixin"
   ],

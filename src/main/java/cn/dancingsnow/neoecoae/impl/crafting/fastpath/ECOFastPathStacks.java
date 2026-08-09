@@ -175,6 +175,18 @@ public final class ECOFastPathStacks {
         return true;
     }
 
+    public static boolean isSafeReusableCatalysts(List<GenericStack> stacks) {
+        for (GenericStack stack : stacks) {
+            if (stack.amount() <= 0L
+                    || stack.amount() > Integer.MAX_VALUE
+                    || !(stack.what() instanceof AEItemKey itemKey)
+                    || itemKey.toStack(1).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean isSafeForFastPath(GenericStack stack, boolean input) {
         if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
             return false;
@@ -182,14 +194,20 @@ public final class ECOFastPathStacks {
         if (!(stack.what() instanceof AEItemKey itemKey)) {
             return false;
         }
-        if (itemKey.hasTag() || itemKey.isDamaged()) {
+        ItemStack itemStack = itemKey.toStack(1);
+        if (!isSafeItemIdentity(itemStack.isEmpty(), itemKey.hasTag(), itemKey.isDamaged())) {
             return false;
         }
-        ItemStack itemStack = itemKey.toStack(1);
         if (itemStack.isDamageableItem()) {
             return false;
         }
         return !input || !itemStack.getItem().hasCraftingRemainingItem(itemStack);
+    }
+
+    static boolean isSafeItemIdentity(boolean empty, boolean hasStaticTag, boolean damaged) {
+        // AEItemKey includes the complete NBT payload in its identity. Static NBT is safe to
+        // snapshot and reproduce, while empty and damaged identities remain unsupported.
+        return !empty && !damaged;
     }
 
     public static Optional<ItemStack> toItemStack(GenericStack stack) {

@@ -302,12 +302,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         boolean virtualCrafting = controller.isVirtualCraftingMode();
-        var reusablePlan = ECOReusableCraftingPlan.of(
-                verifiedResult.inputEntries(), verifiedResult.remainingEntries());
+        var reusablePlan = ECOReusableCraftingPlan.of(verifiedResult.inputEntries(), verifiedResult.remainingEntries());
         var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
-        var inputTotal = virtualCrafting
-                ? List.<GenericStack>of()
-                : reusablePlan.batchInputs(request.batchSize());
+        var inputTotal = virtualCrafting ? List.<GenericStack>of() : reusablePlan.batchInputs(request.batchSize());
         var remainingTotal = reusablePlan.batchRemaining(request.batchSize());
         var work = new ECOBatchCraftingWork(
                 request.batchSize(), inputTotal, outputTotal, remainingTotal, request.craftingJobId(), 0, 1);
@@ -678,6 +675,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public boolean belongsToJob(UUID jobId) {
         return this.isBusy && jobId.equals(this.craftingJobId);
+    }
+
+    @Nullable public UUID getCraftingJobId() {
+        return craftingJobId;
     }
 
     public boolean recoverOrphanedWorkToNetwork(Set<UUID> activeJobIds, MEStorage storage) {

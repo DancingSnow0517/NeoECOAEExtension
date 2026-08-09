@@ -22,8 +22,7 @@ public record ECOReusableCraftingPlan(
         ordinaryRemainingPerCraft = List.copyOf(ordinaryRemainingPerCraft);
     }
 
-    public static ECOReusableCraftingPlan of(
-            List<GenericStack> inputsPerCraft, List<GenericStack> remainingPerCraft) {
+    public static ECOReusableCraftingPlan of(List<GenericStack> inputsPerCraft, List<GenericStack> remainingPerCraft) {
         Map<AEKey, Long> inputAmounts = aggregate(inputsPerCraft);
         Map<AEKey, Long> remainingAmounts = aggregate(remainingPerCraft);
         Set<AEKey> reusableKeys = new HashSet<>();

@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuOutputRoutes;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
@@ -273,7 +274,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public ECOCraftingFastPathCache getFastPathCache() {
         ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
-        return controller == null ? detachedFastPathCache : controller.getFastPathCache();
+        if (controller == null) {
+            return detachedFastPathCache;
+        }
+        var network = cluster.getNetworkCluster();
+        return network == null ? controller.getFastPathCache() : network.getFastPathCache();
     }
 
     public boolean isBusy() {
@@ -489,6 +494,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         for (ECOCraftingThread thread : craftingThreads) {
             if (thread.isOutputReady()) {
                 KeyCounter threadOutput = thread.collectOutputItems();
+                if (flushExternalCpuOutput(thread, threadOutput)) {
+                    continue;
+                }
                 readyThreads.add(thread);
                 perThreadOutputs.add(threadOutput);
                 for (Object2LongMap.Entry<AEKey> entry : threadOutput) {
@@ -586,6 +594,33 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 }
             }
         }
+    }
+
+    private boolean flushExternalCpuOutput(ECOCraftingThread thread, KeyCounter outputs) {
+        UUID craftingJobId = thread.getCraftingJobId();
+        if (craftingJobId == null || outputs.isEmpty()) {
+            return false;
+        }
+        KeyCounter accepted = new KeyCounter();
+        boolean routeAvailable = false;
+        for (Object2LongMap.Entry<AEKey> entry : outputs) {
+            var delivery = ECOExternalCpuOutputRoutes.deliver(
+                    craftingJobId, entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
+            if (!delivery.routeAvailable()) {
+                if (!routeAvailable) {
+                    return false;
+                }
+                continue;
+            }
+            routeAvailable = true;
+            if (delivery.inserted() > 0L) {
+                accepted.add(entry.getKey(), Math.min(entry.getLongValue(), delivery.inserted()));
+            }
+        }
+        if (routeAvailable) {
+            thread.applyOutputFlush(accepted);
+        }
+        return routeAvailable;
     }
 
     static long proportionalShare(long amount, long accepted, long total) {

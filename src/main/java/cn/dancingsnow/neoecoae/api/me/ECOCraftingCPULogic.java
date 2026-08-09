@@ -857,8 +857,7 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        var reusablePlan =
-                ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems());
+        var reusablePlan = ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems());
         long minimumBatchSize = reusablePlan.reusableInputs().isEmpty() ? 2L : 1L;
         if (taskRemaining < minimumBatchSize) {
             return 0;

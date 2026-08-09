@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
@@ -63,6 +64,48 @@ public final class ECOExtractedPatternExecution {
         }
         return new ECOExtractedPatternExecution(
                 details, craftingContainer, outputs, expectedContainerItems, inputs, key, eligible);
+    }
+
+    /** Builds FastPath metadata from the concrete inputs and outputs extracted by an external AE2 CPU. */
+    public static ECOExtractedPatternExecution create(
+            IPatternDetails details,
+            KeyCounter[] craftingContainer,
+            KeyCounter expectedOutputs,
+            KeyCounter expectedContainerItems,
+            Level level) {
+        List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
+        List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
+        if (AE2PatternIntrospection.classifyPatternEligibility(details)
+                != AE2PatternIntrospection.PatternEligibility.ELIGIBLE) {
+            return new ECOExtractedPatternExecution(
+                    details, craftingContainer, outputs, containers, List.of(), null, false);
+        }
+
+        List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
+        Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
+        boolean eligible = key.isPresent() && isConcreteExecutionSafe(outputs, containers, inputs);
+        return new ECOExtractedPatternExecution(
+                details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible);
+    }
+
+    static boolean isConcreteExecutionSafe(
+            List<GenericStack> outputs, List<GenericStack> containers, List<GenericStack> inputs) {
+        ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, containers);
+        return isConcreteExecutionPolicySafe(
+                outputs.size(),
+                ECOFastPathStacks.isSafeForFastPath(outputs, false),
+                ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false),
+                ECOFastPathStacks.isSafeForFastPath(plan.consumedInputsPerCraft(), true),
+                ECOFastPathStacks.isSafeReusableCatalysts(plan.reusableInputs()));
+    }
+
+    static boolean isConcreteExecutionPolicySafe(
+            int outputCount,
+            boolean outputsSafe,
+            boolean ordinaryRemainingSafe,
+            boolean consumedInputsSafe,
+            boolean reusableCatalystsSafe) {
+        return outputCount == 1 && outputsSafe && ordinaryRemainingSafe && consumedInputsSafe && reusableCatalystsSafe;
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {

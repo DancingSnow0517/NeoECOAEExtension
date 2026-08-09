@@ -47,7 +47,10 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        if (!(details instanceof AECraftingPattern) || !(details instanceof AECraftingPatternAccessor accessor)) {
+        if (!(details instanceof AECraftingPattern)) {
+            return isExternalProcessingPattern(details);
+        }
+        if (!(details instanceof AECraftingPatternAccessor accessor)) {
             return false;
         }
         try {
@@ -61,7 +64,9 @@ public final class AE2PatternIntrospection {
 
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
         if (!(details instanceof AECraftingPattern pattern)) {
-            return PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
+            return isExternalProcessingPattern(details) && details.getDefinition() != null
+                    ? PatternEligibility.ELIGIBLE
+                    : PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
         }
         if (!(pattern instanceof AECraftingPatternAccessor accessor)) {
             return PatternEligibility.RECIPE_UNAVAILABLE;
@@ -110,6 +115,14 @@ public final class AE2PatternIntrospection {
 
     public static long getReloadGeneration() {
         return reloadGeneration;
+    }
+
+    private static boolean isExternalProcessingPattern(IPatternDetails details) {
+        if (details == null) {
+            return false;
+        }
+        String name = details.getClass().getName();
+        return name.contains("ProcessingPattern") || name.endsWith("OverloadedProviderOnlyPatternDetails");
     }
 
     public static void onRecipeReloadOrServerReload() {

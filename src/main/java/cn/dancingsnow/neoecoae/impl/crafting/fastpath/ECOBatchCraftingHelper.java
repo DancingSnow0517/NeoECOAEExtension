@@ -64,6 +64,11 @@ public final class ECOBatchCraftingHelper {
         return maximum;
     }
 
+    public static long maxSafeBatchSize(
+            List<GenericStack> first, List<GenericStack> second, List<GenericStack> third, long requested) {
+        return maxSafeMultiplier(requested, first, second, third);
+    }
+
     static long limitSafeMultiplier(long requested, long amountPerCraft) {
         return requested <= 0L || amountPerCraft <= 0L ? 0L : Math.min(requested, Long.MAX_VALUE / amountPerCraft);
     }
@@ -134,7 +139,7 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             AEItemKey itemKey = (AEItemKey) stack.what();
             ItemStack itemStack = itemKey.toStack(1);
-            if (itemStack.isEmpty() || itemKey.hasTag() || itemKey.isDamaged()) {
+            if (!ECOFastPathStacks.isSafeItemIdentity(itemStack.isEmpty(), itemKey.hasTag(), itemKey.isDamaged())) {
                 return false;
             }
         }
@@ -179,6 +184,10 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }
+    }
+
+    public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        insertAllOrThrow(inventory, stacks);
     }
 
     private static long multiplyExact(long amount, long multiplier) {
