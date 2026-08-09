@@ -894,10 +894,10 @@ public class NEItems {
             NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_16M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_ITEM_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_16M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -914,10 +914,10 @@ public class NEItems {
             NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_ITEM_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_64M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -934,10 +934,10 @@ public class NEItems {
             NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_ITEM_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_256M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -954,10 +954,10 @@ public class NEItems {
             NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_16M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_FLUID_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_16M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -974,10 +974,10 @@ public class NEItems {
             NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_FLUID_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_64M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -994,10 +994,10 @@ public class NEItems {
             NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
-                .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_FLUID_CELL_HOUSING)
+                .require(NEItems.ECO_CELL_COMPONENT_256M)
+                .itemOutput(ctx.get())
                 .save(prov);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
