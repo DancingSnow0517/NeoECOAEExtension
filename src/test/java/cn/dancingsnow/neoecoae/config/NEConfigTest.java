@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -23,8 +24,22 @@ class NEConfigTest {
     }
 
     @Test
-    void aggressiveFastPathDefaultsToEnabled() {
-        assertTrue(NEConfig.enableEcoAggressiveFastPath);
+    void fastPathRequiresItsConfigurationToggleAndCraftingEventCompatibility() {
+        boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
+        boolean previousFastPathEnabled = NEConfig.ecoAe2FastPathEnabled;
+        try {
+            NEConfig.postCraftingEvent = false;
+            NEConfig.ecoAe2FastPathEnabled = true;
+            assertTrue(NEConfig.isEcoAe2FastPathEnabled());
+            NEConfig.ecoAe2FastPathEnabled = false;
+            assertFalse(NEConfig.isEcoAe2FastPathEnabled());
+            NEConfig.ecoAe2FastPathEnabled = true;
+            NEConfig.postCraftingEvent = true;
+            assertFalse(NEConfig.isEcoAe2FastPathEnabled());
+        } finally {
+            NEConfig.postCraftingEvent = previousPostCraftingEvent;
+            NEConfig.ecoAe2FastPathEnabled = previousFastPathEnabled;
+        }
     }
 
     @Test

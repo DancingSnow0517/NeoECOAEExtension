@@ -410,8 +410,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "冶造之分多方構極長（以方計）。\n數愈大，可展愈遠，然驗構之費或增。",
   "neoecoae.configuration.debugEcoFastPath": "誌捷徑之詳",
   "neoecoae.configuration.debugEcoFastPath.tooltip": "定時書 ECO 捷徑緩藏之數於誌。",
-  "neoecoae.configuration.ecoAe2FastPathEnabled": "啟 ECO AE2 捷徑",
-  "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟 ECO AE2 捷徑批冶緩藏。\n可大減重行 pattern 之費；若整合包方相不協，可閉此項以復慢徑。\n啟冶造事件時，捷徑自禁，以存事件之義。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 每刻推送之限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每 CPU 每刻可試推普通合成 pattern 之最大數。\n實數仍受可用協處理器之數所限。",
   "neoecoae.configuration.ecoFastPathCacheSize": "捷徑緩藏之量",

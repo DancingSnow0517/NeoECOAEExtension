@@ -15,6 +15,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
@@ -51,44 +52,8 @@ class ECOCraftingCPULogicTest {
     }
 
     @Test
-    void aggressiveFastPathUsesSeparateOptInLimits() {
-        boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
-        boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
-        boolean previousAggressive = NEConfig.enableEcoAggressiveFastPath;
-        int previousAggressiveTickLimit = NEConfig.ecoAggressiveFastPathTickLimit;
-
-        try {
-            NEConfig.enableEcoAe2FastPath = true;
-            NEConfig.postCraftingEvent = false;
-            NEConfig.enableEcoAggressiveFastPath = true;
-            NEConfig.ecoAggressiveFastPathTickLimit = 4096;
-
-            assertEquals(4096, NEConfig.getEcoFastPathTickLimit());
-        } finally {
-            NEConfig.enableEcoAe2FastPath = previousFastPath;
-            NEConfig.postCraftingEvent = previousPostCraftingEvent;
-            NEConfig.enableEcoAggressiveFastPath = previousAggressive;
-            NEConfig.ecoAggressiveFastPathTickLimit = previousAggressiveTickLimit;
-        }
-    }
-
-    @Test
-    void aggressiveFastPathFallsBackWhenBaseFastPathIsDisabled() {
-        boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
-        boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
-        boolean previousAggressive = NEConfig.enableEcoAggressiveFastPath;
-
-        try {
-            NEConfig.enableEcoAe2FastPath = false;
-            NEConfig.postCraftingEvent = false;
-            NEConfig.enableEcoAggressiveFastPath = true;
-
-            assertEquals(256, NEConfig.getEcoFastPathTickLimit());
-        } finally {
-            NEConfig.enableEcoAe2FastPath = previousFastPath;
-            NEConfig.postCraftingEvent = previousPostCraftingEvent;
-            NEConfig.enableEcoAggressiveFastPath = previousAggressive;
-        }
+    void fastPathUsesTheMaximumBatchLimitWithoutAnAggressiveToggle() {
+        assertEquals(ECOBatchCraftingHelper.MAX_BATCH_SIZE, NEConfig.getEcoFastPathTickLimit());
     }
 
     @Test

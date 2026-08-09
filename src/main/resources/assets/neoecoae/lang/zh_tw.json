@@ -410,8 +410,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "合成子系統多方塊結構允許的最大長度（單位：方塊）。\n數值越大，可擴展的模組/組件越長，但結構檢測開銷也可能更高。",
   "neoecoae.configuration.debugEcoFastPath": "偵錯 ECO 快速路徑",
   "neoecoae.configuration.debugEcoFastPath.tooltip": "定期向日誌輸出 ECO 快速路徑快取統計資訊。",
-  "neoecoae.configuration.ecoAe2FastPathEnabled": "啟用 ECO AE2 快速路徑",
-  "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟用 ECO AE2 快速路徑批量合成快取。\n可大幅減少重複 pattern 執行開銷；如果整合包遇到配方相容問題，可關閉此選項回退到慢速路徑。\n啟用觸發合成事件時，快速路徑會自動停用以保留事件語意。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每個 CPU 每 tick 最多嘗試推送的普通合成 pattern 數量。\n實際值仍會受可用協處理器數量限制。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路徑快取大小",

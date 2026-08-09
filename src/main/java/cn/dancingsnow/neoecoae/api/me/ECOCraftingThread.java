@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -69,6 +70,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int assignedLaneIndex = -1;
     private int networkCoolingMultiplier = 1;
     private boolean outputsReady = false;
+    private boolean virtualCrafting = false;
     private RecoveryState recoveryState = RecoveryState.CLEARED;
 
     private final TransientCraftingContainer craftingInv;
@@ -94,12 +96,22 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             retryRecoveryToNetwork();
             return TickRateModulation.URGENT;
         }
-        if (outputsReady) {
+        if (outputsReady && !virtualCrafting) {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
         ECOCraftingSystemBlockEntity controller =
                 worker.getCluster() == null ? null : worker.getCluster().getController();
+        if (virtualCrafting) {
+            if (controller != null
+                    && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
+                return TickRateModulation.URGENT;
+            }
+            progress = MAX_PROGRESS;
+            outputsReady = true;
+            setChanged();
+            return TickRateModulation.URGENT;
+        }
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
@@ -136,7 +148,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
      *                       on behalf of this thread (after proportional scaling).
      */
     public TickRateModulation tickAggregated(
-            int overlockTimes, int powerMultiply, int ticksSinceLastCall, double extractedPower) {
+            int overlockTimes,
+            int powerMultiply,
+            int ticksSinceLastCall,
+            double extractedPower,
+            boolean fullNetworkPowerMode,
+            boolean networkPowerPrepaid) {
         if (!isBusy) {
             return TickRateModulation.SLEEP;
         }
@@ -144,12 +161,25 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             retryRecoveryToNetwork();
             return TickRateModulation.URGENT;
         }
-        if (outputsReady) {
+        if (outputsReady && !virtualCrafting) {
+            return TickRateModulation.URGENT;
+        }
+        if (fullNetworkPowerMode && !networkPowerPrepaid) {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
         ECOCraftingSystemBlockEntity controller =
                 worker.getCluster() == null ? null : worker.getCluster().getController();
+        if (virtualCrafting) {
+            if (controller != null
+                    && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
+                return TickRateModulation.URGENT;
+            }
+            progress = MAX_PROGRESS;
+            outputsReady = true;
+            setChanged();
+            return TickRateModulation.URGENT;
+        }
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
@@ -271,20 +301,26 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (verifiedResult == null || !verifiedResult.matchesBatchRequest(request)) {
             return false;
         }
+        boolean virtualCrafting = controller.isVirtualCraftingMode();
+        var reusablePlan = ECOReusableCraftingPlan.of(
+                verifiedResult.inputEntries(), verifiedResult.remainingEntries());
         var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
-        var inputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
-        var remainingTotal = ECOBatchCraftingHelper.multiply(verifiedResult.remainingEntries(), request.batchSize());
+        var inputTotal = virtualCrafting
+                ? List.<GenericStack>of()
+                : reusablePlan.batchInputs(request.batchSize());
+        var remainingTotal = reusablePlan.batchRemaining(request.batchSize());
         var work = new ECOBatchCraftingWork(
                 request.batchSize(), inputTotal, outputTotal, remainingTotal, request.craftingJobId(), 0, 1);
-        return acceptBatch(work, controller, laneIndex, false);
+        return acceptBatch(work, controller, laneIndex, virtualCrafting);
     }
 
     private boolean acceptBatch(
             ECOBatchCraftingWork work,
             ECOCraftingSystemBlockEntity controller,
             int laneIndex,
-            boolean ignoredLegacyVirtualCrafting) {
-        if (!consumeCraftingCoolant(controller, Math.toIntExact(work.batchSize()))) {
+            boolean virtualCrafting) {
+        int craftCount = virtualCrafting ? 1 : Math.toIntExact(work.batchSize());
+        if (!consumeCraftingCoolant(controller, craftCount)) {
             worker.getFastPathCache().recordCoolantReject();
             return false;
         }
@@ -295,7 +331,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 work.craftingJobId(),
                 work.occupiedThreadSlots(),
                 laneIndex,
-                Math.max(1, controller.getNetworkMultiplier()));
+                Math.max(1, controller.getNetworkMultiplier()),
+                virtualCrafting);
         worker.getFastPathCache().recordFastPathAccepted();
         return true;
     }
@@ -452,13 +489,34 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             int occupiedThreadSlots,
             int laneIndex,
             int networkCoolingMultiplier) {
+        startWork(
+                outputs,
+                inputs,
+                remaining,
+                craftingJobId,
+                occupiedThreadSlots,
+                laneIndex,
+                networkCoolingMultiplier,
+                false);
+    }
+
+    private void startWork(
+            List<GenericStack> outputs,
+            List<GenericStack> inputs,
+            List<GenericStack> remaining,
+            @Nullable UUID craftingJobId,
+            int occupiedThreadSlots,
+            int laneIndex,
+            int networkCoolingMultiplier,
+            boolean virtualCrafting) {
         outputStacks.clear();
         outputStacks.addAll(copyGenericStacks(outputs));
         this.craftingJobId = craftingJobId;
         this.occupiedThreadSlots = Math.max(1, occupiedThreadSlots);
         this.assignedLaneIndex = laneIndex;
         this.networkCoolingMultiplier = networkCoolingMultiplier;
-        this.outputsReady = false;
+        this.virtualCrafting = virtualCrafting;
+        this.outputsReady = virtualCrafting;
         inputStacks.clear();
         inputStacks.addAll(copyGenericStacks(inputs));
         remainingStacks.clear();
@@ -751,6 +809,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         assignedLaneIndex = -1;
         networkCoolingMultiplier = 1;
         outputsReady = false;
+        virtualCrafting = false;
         recoveryState = RecoveryState.CLEARED;
     }
 
@@ -805,6 +864,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             tag.putInt("networkCoolingMultiplier", networkCoolingMultiplier);
         }
         tag.putBoolean("outputsReady", outputsReady);
+        tag.putBoolean("virtualCrafting", virtualCrafting);
         tag.putString("recoveryState", recoveryState.name());
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
@@ -839,8 +899,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             invalidPersistedState = true;
         }
         this.outputsReady = nbt.getBoolean("outputsReady");
-        // Virtual batches were removed to match 1.21.1. Persisted legacy work
-        // resumes through the normal progress path.
+        this.virtualCrafting = nbt.getBoolean("virtualCrafting");
         this.recoveryState = readRecoveryState(nbt);
         if (nbt.contains("recoveryState", Tag.TAG_STRING)) {
             try {

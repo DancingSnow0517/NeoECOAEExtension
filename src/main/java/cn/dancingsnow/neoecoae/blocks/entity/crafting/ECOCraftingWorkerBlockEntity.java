@@ -43,7 +43,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
-    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+    private final ECOCraftingFastPathCache detachedFastPathCache = new ECOCraftingFastPathCache();
     private final IActionSource actionSource;
 
     @Getter
@@ -112,8 +112,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             for (ECOCraftingThread thread : craftingThreads) {
                 double threadNeed = thread.computePowerNeed(ticksSinceLastCall, bonusValue, powerMultiply);
                 double allocatedPower = threadNeed * powerRatio;
-                TickRateModulation r =
-                        thread.tickAggregated(overlockTimes, powerMultiply, ticksSinceLastCall, allocatedPower);
+                TickRateModulation r = thread.tickAggregated(
+                        overlockTimes,
+                        powerMultiply,
+                        ticksSinceLastCall,
+                        allocatedPower,
+                        fullNetworkPowerMode,
+                        networkPowerPrepaid);
                 if (r.ordinal() > rate.ordinal()) {
                     rate = r;
                 }
@@ -267,8 +272,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public ECOCraftingFastPathCache getFastPathCache() {
-        // FastPath verification belongs to the physical worker in 1.21.1.
-        return fastPathCache;
+        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        return controller == null ? detachedFastPathCache : controller.getFastPathCache();
     }
 
     public boolean isBusy() {
@@ -612,7 +617,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(data);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
-        fastPathCache.clear();
+        if (cluster == null || cluster.getController() == null) {
+            detachedFastPathCache.clear();
+        }
         int busyThreads = 0;
         for (int i = 0; i < threads.size(); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);

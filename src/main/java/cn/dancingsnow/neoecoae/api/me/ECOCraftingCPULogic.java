@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -554,24 +555,6 @@ public class ECOCraftingCPULogic {
                 return DispatchTaskResult.NEXT_TASK;
             }
 
-            if (NEConfig.isEcoAggressiveFastPathEnabled() && canAttemptAggressiveFastPath(attempt.execution())) {
-                @Nullable ECOCraftingSystemBlockEntity aggressiveController =
-                        largestAvailableCraftingController(providers.batchBuses());
-                if (aggressiveController != null && aggressiveController.isFullEightHostExchange()) {
-                    PushResult pushResult = tryScheduleAggressiveSimulatedCraft(
-                            progress, aggressiveController, attempt, executionProgress);
-                    if (!pushResult.pushed()) {
-                        return DispatchTaskResult.NEXT_TASK;
-                    }
-                    DispatchTaskResult commitResult = commitPushedCrafts(
-                            details, progress, iterator, passState, executionProgress, pushResult.craftCount());
-                    if (commitResult != DispatchTaskResult.CONTINUE_TASK) {
-                        return commitResult;
-                    }
-                    continue;
-                }
-            }
-
             DispatchTaskResult fallbackResult = tryPushFallbackAfterAggressiveMiss(
                     details, progress, providers, attempt, executionProgress, energyService, iterator, passState);
             if (fallbackResult != DispatchTaskResult.CONTINUE_TASK) {
@@ -870,7 +853,14 @@ public class ECOCraftingCPULogic {
             long taskRemaining,
             int totalBudgetRemaining,
             int batchBudgetRemaining) {
-        if (!ECOFastPathEligibility.canUse(execution) || taskRemaining <= 1) {
+        if (!ECOFastPathEligibility.canUse(execution) || taskRemaining <= 0) {
+            return 0;
+        }
+
+        var reusablePlan =
+                ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems());
+        long minimumBatchSize = reusablePlan.reusableInputs().isEmpty() ? 2L : 1L;
+        if (taskRemaining < minimumBatchSize) {
             return 0;
         }
 
@@ -882,10 +872,10 @@ public class ECOCraftingCPULogic {
                 ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE);
         virtualRequested = ECOBatchCraftingHelper.maxSafeMultiplier(
                 virtualRequested,
-                execution.inputItems(),
+                reusablePlan.consumedInputsPerCraft(),
                 execution.expectedOutputs(),
-                execution.expectedContainerItems());
-        if (normalRequested <= 1 && virtualRequested <= 1) {
+                reusablePlan.ordinaryRemainingPerCraft());
+        if (normalRequested < minimumBatchSize && virtualRequested < minimumBatchSize) {
             return 0;
         }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
@@ -893,14 +883,14 @@ public class ECOCraftingCPULogic {
         boolean selectedVirtualCrafting = false;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             ECOCraftingSystemBlockEntity candidateController = patternBus.getCraftingController();
-            boolean virtualCrafting = false;
+            boolean virtualCrafting = candidateController != null && candidateController.isFullEightHostExchange();
             long requested = virtualCrafting ? virtualRequested : normalRequested;
-            if (requested <= 1) {
+            if (requested < minimumBatchSize) {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
             if (offer != null
-                    && offer.maxBatchSize() > 1
+                    && offer.maxBatchSize() >= minimumBatchSize
                     && (selectedOffer == null
                             || virtualCrafting && !selectedVirtualCrafting
                             || virtualCrafting == selectedVirtualCrafting
@@ -930,7 +920,7 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        boolean virtualCrafting = false;
+        boolean virtualCrafting = selectedVirtualCrafting;
         long requested = virtualCrafting ? virtualRequested : normalRequested;
         long batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         if (!virtualCrafting) {
@@ -939,29 +929,31 @@ public class ECOCraftingCPULogic {
             batchSize = workerController.getCraftingCoolantCraftLimit(
                     5, workerController.getEffectiveOverclockTimes(), Math.toIntExact(batchSize));
         }
-        if (batchSize <= 1) {
+        if (batchSize < minimumBatchSize) {
             return 0;
         }
 
         long extraCrafts = batchSize - 1L;
-        long availableExtraCrafts =
-                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(), extraCrafts);
+        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+                inventory, reusablePlan.consumedInputsPerCraft(), extraCrafts);
         batchSize = Math.min(
                 batchSize, availableExtraCrafts == Long.MAX_VALUE ? Long.MAX_VALUE : availableExtraCrafts + 1L);
-        if (batchSize <= 1) {
+        if (batchSize < minimumBatchSize) {
             return 0;
         }
 
         PendingPatternAccounting accounting;
         try {
-            accounting = preparePushedPatternAccounting(execution, batchSize);
+            accounting = new PendingPatternAccounting(
+                    ECOBatchCraftingHelper.multiply(execution.expectedOutputs(), batchSize),
+                    reusablePlan.batchRemaining(batchSize));
         } catch (RuntimeException e) {
             LOGGER.warn("ECO batch fast path accounting preflight failed; falling back to the slow path", e);
             selectedOffer.worker().getFastPathCache().recordException();
             return 0;
         }
 
-        var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
+        var extraInputs = reusablePlan.extraInputs(batchSize - 1);
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
@@ -994,6 +986,7 @@ public class ECOCraftingCPULogic {
                 return 0;
             }
             ownershipTransferred = true;
+            ECOBatchCraftingHelper.insertAllOrThrow(inventory, reusablePlan.reusableInputs());
             if (virtualCrafting) {
                 try {
                     recordPushedPattern(accounting);
@@ -1103,15 +1096,8 @@ public class ECOCraftingCPULogic {
     }
 
     private int effectiveFastPathTickLimit() {
-        if (!NEConfig.isEcoAggressiveFastPathEnabled()) {
-            return NEConfig.getEcoFastPathTickLimit();
-        }
         int dynamicLimit = aggressiveFastPathCapacity();
-        int configuredLimit = NEConfig.getEcoFastPathTickLimit();
-        // The configured value is a per-CPU pacing floor for aggressive mode.
-        // The actual hardware capacity may exceed MAX_BATCH_SIZE because it is
-        // the sum of many independent lanes (for example 44 * 4096).
-        return dynamicLimit > 0 ? Math.max(dynamicLimit, configuredLimit) : configuredLimit;
+        return dynamicLimit > 0 ? dynamicLimit : NEConfig.getEcoFastPathTickLimit();
     }
 
     private int effectiveFastPathBatchLimit(@Nullable ECOCraftingSystemBlockEntity controller) {
@@ -1134,7 +1120,7 @@ public class ECOCraftingCPULogic {
         int total = 0;
         for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller == null || !controllers.add(controller)) {
+            if (controller == null || !controller.isFullEightHostExchange() || !controllers.add(controller)) {
                 continue;
             }
             int laneCount = controller.getMaxInFlightCrafts();
@@ -1524,7 +1510,7 @@ public class ECOCraftingCPULogic {
             if (outputsReady) {
                 return;
             }
-            if (networkCoolingMultiplier > 1 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, 1)) {
+            if (networkCoolingMultiplier > 1 && !controller.tryConsumeVirtualNetworkCoolantTick(1)) {
                 return;
             }
             double slotScaledTax = controller.getCraftingPowerMultiplier() * (double) occupiedSlots;
@@ -1620,7 +1606,7 @@ public class ECOCraftingCPULogic {
     static double aggressiveSimulatedCraftPowerCap(int progressPerTick, int powerMultiplier) {
         int normalizedProgress = Math.max(0, progressPerTick);
         int normalizedPowerMultiplier = Math.max(1, powerMultiplier);
-        int normalizedTickLimit = Math.max(1, NEConfig.ecoAggressiveFastPathTickLimit);
+        int normalizedTickLimit = NEConfig.getEcoFastPathTickLimit();
         return normalizedProgress * (double) normalizedPowerMultiplier * normalizedTickLimit;
     }
 

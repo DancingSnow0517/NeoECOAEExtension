@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 
 class ECOCraftingSystemBlockEntityTest {
     @Test
-    void virtualExchangeUsesOneTenthOfThePreviousCoolantRate() {}
+    void virtualExchangeMatches1211CoolantRate() {
+        assertEquals(8, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_REQUIRED_HOSTS);
+        assertEquals(10_000, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
+    }
 
     @Test
     void laneCapacityScalesBatchSize() {

@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
@@ -89,7 +90,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int COOLANT_PER_CRAFT = 5;
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
+    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
+    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
+
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
 
     @Getter
     private final IECOTier tier;
@@ -581,6 +586,17 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return network.tryConsumeCoolant(amount, requiredOverclock);
     }
 
+    /** Consumes the fixed coolant cost for one complete eight-host virtual crafting thread. */
+    public boolean tryConsumeVirtualNetworkCoolantTick(int ticksSinceLastCall) {
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        if (!activeCooling || network == null || !isVirtualCraftingMode()) {
+            return true;
+        }
+        int ticks = Math.max(1, ticksSinceLastCall);
+        int amount = (int) Math.min(Integer.MAX_VALUE, (long) VIRTUAL_CRAFTING_COOLANT_PER_TICK * ticks);
+        return network.tryConsumeCoolant(amount, Math.max(getEffectiveOverclockTimes(), 9));
+    }
+
     public boolean tryConsumeLocalCoolant(int amount, int requiredOverclock) {
         if (!activeCooling) {
             return true;
@@ -625,6 +641,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getNetworkCoolantPerSlotTick(int multiplier) {
+        if (isVirtualCraftingMode()) {
+            return VIRTUAL_CRAFTING_COOLANT_PER_TICK;
+        }
         return multiplier >= 8 ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK : NETWORK_COOLANT_PER_SLOT_TICK;
     }
 
@@ -756,11 +775,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * scoped to the grid which owns this controller.
      */
     public boolean isFullEightHostExchange() {
-        if (cluster == null || cluster.getNetworkCluster() == null || getNetworkMultiplier() != 8) {
-            return false;
-        }
-        return cluster.getNetworkCluster().getMemberCount() == 8
-                && getMainNode().getGrid() != null;
+        return isVirtualCraftingMode();
+    }
+
+    /** A complete eight-host exchange executes one whole recipe task as virtual ledger work. */
+    public boolean isVirtualCraftingMode() {
+        return cluster != null
+                && cluster.getNetworkCluster() != null
+                && cluster.getNetworkCluster().isActiveCooling()
+                && cluster.getNetworkCluster().getMemberCount() >= VIRTUAL_CRAFTING_REQUIRED_HOSTS;
     }
 
     public int getNetworkPowerMultiplier() {
@@ -923,6 +946,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int getLocalLaneBatchCapacity() {
         // Overclocking increases the craft count of each lane. It must not turn one worker into
         // extra task lanes; network exchange contributes lanes independently.
+        if (isVirtualCraftingMode()) {
+            return Integer.MAX_VALUE;
+        }
         return calculateWorkerBatchCapacity(
                 BASE_CRAFTS_PER_WORKER,
                 getTier().getOverclockedCrafterQueueMultiply(),
@@ -1253,6 +1279,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public int getWorkerCount() {
         ensureCraftingStatsCurrent();
         return workerCount;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     // getPreviewStatusComponent() is provided by INEMultiblockBuildHost default

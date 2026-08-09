@@ -8,7 +8,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -17,9 +16,6 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
-    @Getter
-    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
-
     @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
 

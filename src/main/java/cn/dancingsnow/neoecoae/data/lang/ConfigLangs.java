@@ -37,34 +37,15 @@ public class ConfigLangs {
         provider.add(
                 "neoecoae.configuration.fastPath.tooltip",
                 "ECO AE2 fast path cache and batch crafting options.\n"
-                        + "Disable or lower these values if a modpack has recipe compatibility issues.");
-        provider.add("neoecoae.configuration.ecoAe2FastPathEnabled", "Enable ECO AE2 Fast Path");
-        provider.add(
-                "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip",
-                "Enable ECO AE2 fast path batch crafting cache.\n"
-                        + "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\n"
-                        + "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.");
+                        + "Disable Fast Path if a modpack has recipe compatibility issues.");
         provider.add("neoecoae.configuration.debugEcoFastPath", "Debug ECO Fast Path");
         provider.add(
                 "neoecoae.configuration.debugEcoFastPath.tooltip", "Periodically log ECO fast path cache statistics.");
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
                 "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
-                "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n"
-                        + "The effective value is still capped by available co-processors.");
-        provider.add("neoecoae.configuration.ecoBatchFastPathTickLimit", "Batch Fast Path Tick Limit");
-        provider.add(
-                "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",
-                "Maximum fast path batch crafts a CPU may push per tick.");
-        provider.add("neoecoae.configuration.ecoAggressiveFastPathEnabled", "Enable Aggressive Fast Path");
-        provider.add(
-                "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
-                "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\n"
-                        + "Default on. Disable if a modpack has recipe compatibility issues.");
-        provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Pacing Limit");
-        provider.add(
-                "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",
-                "Maximum new aggressive fast path crafts a CPU may schedule per tick. This also scales the simulated crafting power cap so batches up to this limit can advance at the controller's full progress rate when enough AE power is available. Dynamic controller FX capacity still caps total in-flight crafts.");
+                "Maximum crafting operations a CPU may schedule per tick.\n"
+                        + "A safety cap for both batch fast paths and regular paths; the effective value is still capped by available co-processors.");
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
                 "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
@@ -80,10 +61,5 @@ public class ConfigLangs {
                 "Increase ECO storage matrix capacity and enlarge computation flash capacity by 16x.\n"
                         + "Defaults to enabled when GregTech Modern/GTCEu is detected.\n"
                         + "Changes are fully applied after re-entering the world or restarting the server.");
-        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
-        provider.add(
-                "neoecoae.configuration.enableInfiniteStorage.tooltip",
-                "Enable the L9-only infinite storage component gameplay.\n"
-                        + "Default off. Disabling it hides the slot and blocks new migrations without deleting existing domain files.");
     }
 }
