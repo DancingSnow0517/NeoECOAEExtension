@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
@@ -32,8 +33,11 @@ public final class NECraftingNetworkCluster {
     private List<ECOCraftingSystemBlockEntity> controllers = List.of();
     private List<ECOCraftingWorkerBlockEntity> workers = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
+    // A logical exchange is the unit that schedules workers, so it also shares verified recipes.
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
     private int nextMemberIndex;
     private int nextCoolantControllerIndex;
+    private final Map<NECraftingCluster, Integer> nextWorkerIndexByMember = new LinkedHashMap<>();
     private boolean overclocked;
     private boolean activeCooling;
 
@@ -68,6 +72,7 @@ public final class NECraftingNetworkCluster {
             }
         }
         nextMemberIndex = Math.floorMod(nextMemberIndex, Math.max(1, members.size()));
+        nextWorkerIndexByMember.keySet().retainAll(members);
     }
 
     public void clear() {
@@ -80,6 +85,7 @@ public final class NECraftingNetworkCluster {
         patternBuses = List.of();
         nextMemberIndex = 0;
         nextCoolantControllerIndex = 0;
+        nextWorkerIndexByMember.clear();
         overclocked = false;
         activeCooling = false;
     }
@@ -96,6 +102,10 @@ public final class NECraftingNetworkCluster {
 
     public List<ECOCraftingWorkerBlockEntity> getWorkers() {
         return workers;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     public int getCoolantAmount() {
@@ -325,11 +335,19 @@ public final class NECraftingNetworkCluster {
             if (controller.getLocalAvailableThreads() <= 0) {
                 continue;
             }
-            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
+            List<ECOCraftingWorkerBlockEntity> localWorkers = member.getWorkers();
+            if (localWorkers.isEmpty()) {
+                continue;
+            }
+            int workerStart = Math.floorMod(nextWorkerIndexByMember.getOrDefault(member, 0), localWorkers.size());
+            for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
+                int workerIndex = (workerStart + workerOffset) % localWorkers.size();
+                ECOCraftingWorkerBlockEntity worker = localWorkers.get(workerIndex);
                 if (grid != null && worker.getMainNode().getGrid() != grid) {
                     continue;
                 }
                 if (worker.pushPattern(execution, craftingJobId)) {
+                    nextWorkerIndexByMember.put(member, (workerIndex + 1) % localWorkers.size());
                     nextMemberIndex = (memberIndex + 1) % members.size();
                     return true;
                 }
@@ -366,10 +384,7 @@ public final class NECraftingNetworkCluster {
                 && controller.getLargestAvailableCraftingBatchSize() >= request.batchSize()
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
-            int memberIndex = members.indexOf(member);
-            if (memberIndex >= 0) {
-                nextMemberIndex = (memberIndex + 1) % members.size();
-            }
+            updateRoundRobinAfterAccept(member, worker);
             return true;
         }
         return false;
@@ -386,7 +401,6 @@ public final class NECraftingNetworkCluster {
         }
 
         int start = Math.floorMod(nextMemberIndex, members.size());
-        ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
         for (int memberOffset = 0; memberOffset < members.size(); memberOffset++) {
             int memberIndex = (start + memberOffset) % members.size();
             NECraftingCluster member = members.get(memberIndex);
@@ -405,7 +419,13 @@ public final class NECraftingNetworkCluster {
             }
 
             List<ECOCraftingWorkerBlockEntity> localWorkers = member.getWorkers();
-            for (ECOCraftingWorkerBlockEntity worker : localWorkers) {
+            if (localWorkers.isEmpty()) {
+                continue;
+            }
+            int workerStart = Math.floorMod(nextWorkerIndexByMember.getOrDefault(member, 0), localWorkers.size());
+            for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
+                ECOCraftingWorkerBlockEntity worker =
+                        localWorkers.get((workerStart + workerOffset) % localWorkers.size());
                 if (grid != null && worker.getMainNode().getGrid() != grid) {
                     continue;
                 }
@@ -423,16 +443,24 @@ public final class NECraftingNetworkCluster {
                     continue;
                 }
                 long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
-                if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
-                    bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
-                    if (maxBatchSize >= requestedBatchSize) {
-                        return bestOffer;
-                    }
-                    break;
+                if (maxBatchSize > 0) {
+                    return new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
                 }
             }
         }
-        return bestOffer;
+        return null;
+    }
+
+    private void updateRoundRobinAfterAccept(NECraftingCluster member, ECOCraftingWorkerBlockEntity acceptedWorker) {
+        List<ECOCraftingWorkerBlockEntity> localWorkers = member.getWorkers();
+        int workerIndex = localWorkers.indexOf(acceptedWorker);
+        if (workerIndex >= 0 && !localWorkers.isEmpty()) {
+            nextWorkerIndexByMember.put(member, (workerIndex + 1) % localWorkers.size());
+        }
+        int memberIndex = members.indexOf(member);
+        if (memberIndex >= 0 && !members.isEmpty()) {
+            nextMemberIndex = (memberIndex + 1) % members.size();
+        }
     }
 
     public boolean isBusy(@Nullable IGrid grid) {
