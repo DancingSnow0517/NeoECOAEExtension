@@ -280,8 +280,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        // Network multipliers enlarge each lane's batch capacity. They do not create
-        // additional logical task threads on this worker.
+        // In an exchange, the controller supplies one thread slot per participating host.
+        // The x2/x8 multiplier separately enlarges the batch handled by each such slot.
         return availableThreadSlots(controller.getThreadCountPerWorker(), getRunningThreads());
     }
 

@@ -453,11 +453,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster != null && parallelCount > 0 && workerCount > 0) {
             int perCore = tier.getCrafterParallel();
             if (cluster.getNetworkCluster() != null) {
-                // Network exchange exposes one logical lane per participating host. The
-                // x2/x8 multiplier belongs to the batch capacity of that lane, not to the
-                // number of logical tasks a worker may run.
+                // Every FX worker receives one physical crafting thread for every host in
+                // the exchange. The x2/x8 switch still affects batch capacity separately.
                 threadCountPerWorker = getExchangeHostCount();
-                threadCount = (int) Math.min(Integer.MAX_VALUE, saturatingMultiply(threadCountPerWorker, workerCount));
+                threadCount = calculateWorkerThreadCount(workerCount, threadCountPerWorker);
             } else {
                 if (overclocked) {
                     perCore += tier.getOverclockedCrafterParallel();
@@ -542,10 +541,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
-            // Network exchange coolant is charged continuously per active task thread.
-            if (getNetworkMultiplier() > 1) {
-                return true;
-            }
             return network.tryConsumeCoolant(amount, requiredOverclock);
         }
         return tryConsumeLocalCoolant(amount, requiredOverclock);
@@ -903,8 +898,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster == null || threadCountPerWorker <= 0 || cluster.getWorkers().isEmpty()) {
             return 0;
         }
-        return (int) Math.min(
-                Integer.MAX_VALUE, saturatingMultiply(cluster.getWorkers().size(), threadCountPerWorker));
+        return calculateWorkerThreadCount(cluster.getWorkers().size(), threadCountPerWorker);
     }
 
     private int getLocalLaneBatchCapacity() {
@@ -932,6 +926,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         capacity = saturatingMultiply(capacity, Math.max(1, networkMultiplier));
         return (int) Math.min(Integer.MAX_VALUE, capacity);
+    }
+
+    /**
+     * Network exchange gives every FX worker one task thread for each participating host.
+     * For example, an F9 with 11 FX workers in a two-host exchange has 11 * 2 = 22
+     * local task threads; the shared network totals those local values across both hosts.
+     */
+    static int calculateWorkerThreadCount(int fxWorkerCount, int threadSlotsPerFxWorker) {
+        return (int) Math.min(
+                Integer.MAX_VALUE, saturatingMultiply(Math.max(0, fxWorkerCount), Math.max(0, threadSlotsPerFxWorker)));
     }
 
     public record CraftingLane(int index, int batchCapacity) {}

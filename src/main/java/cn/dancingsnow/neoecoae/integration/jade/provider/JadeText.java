@@ -7,6 +7,7 @@ import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.ItemStack;
 
 final class JadeText {
     private static final DecimalFormat PERCENT_FORMAT =
@@ -98,6 +99,21 @@ final class JadeText {
     static Component recipesPerOperationLine(long recipes) {
         return label("jade.neoecoae.recipes_per_operation_label")
                 .append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA));
+    }
+
+    static Component activeCraftLine(ItemStack output, int slots, int progress, int maxProgress) {
+        return Component.translatable(
+                        "jade.neoecoae.active_craft",
+                        output.getHoverName(),
+                        formatNumber(output.getCount() * Math.max(1, slots)),
+                        Math.max(0, progress),
+                        Math.max(1, maxProgress))
+                .withStyle(ChatFormatting.GRAY);
+    }
+
+    static Component moreActiveCraftsLine(int count) {
+        return Component.translatable("jade.neoecoae.more_active_crafts", formatNumber(count))
+                .withStyle(ChatFormatting.DARK_GRAY);
     }
 
     static MutableComponent label(String key) {

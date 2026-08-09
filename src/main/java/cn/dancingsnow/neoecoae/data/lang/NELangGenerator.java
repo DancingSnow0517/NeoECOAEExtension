@@ -36,6 +36,8 @@ public class NELangGenerator {
                 "Each host contributes independent lanes; x%s multiplies the batch per lane.");
         provider.add("jade.neoecoae.overclock_multiplier_label", "Overclock multiplier: ");
         provider.add("jade.neoecoae.recipes_per_operation_label", "Recipes per operation: ");
+        provider.add("jade.neoecoae.active_craft", "Crafting: %s x%s (%s/%s)");
+        provider.add("jade.neoecoae.more_active_crafts", "+%s more active crafts");
         provider.add("jade.neoecoae.working_crafts_label", "Working crafts: ");
         provider.add("jade.neoecoae.recipes_suffix", " recipes");
         provider.add("jade.neoecoae.overclocked", "Overclock enabled");

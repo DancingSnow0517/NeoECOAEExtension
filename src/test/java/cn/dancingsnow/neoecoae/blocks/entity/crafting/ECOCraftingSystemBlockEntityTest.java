@@ -9,11 +9,19 @@ class ECOCraftingSystemBlockEntityTest {
     void virtualExchangeUsesOneTenthOfThePreviousCoolantRate() {}
 
     @Test
-    void laneCapacityScalesBatchSizeWithoutChangingLogicalSlotCount() {
+    void laneCapacityScalesBatchSize() {
         assertEquals(32, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 1));
         assertEquals(512, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 1));
         assertEquals(64, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 2));
         assertEquals(256, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, true, 2));
+    }
+
+    @Test
+    void networkExchangeGivesEachFxWorkerOneThreadPerParticipatingHost() {
+        // Two F9 hosts: 11 FX workers per host, two participating hosts.
+        int localThreadsPerHost = ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 2);
+        assertEquals(22, localThreadsPerHost);
+        assertEquals(44, localThreadsPerHost * 2);
     }
 
     @Test
