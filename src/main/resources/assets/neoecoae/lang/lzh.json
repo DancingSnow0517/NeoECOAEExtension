@@ -394,6 +394,8 @@
   "jade.neoecoae.worker_tasks": "方冶之事（%d）：",
   "jade.neoecoae.worker_tasks.more": "  ……餘 %d 事",
   "jade.neoecoae.worker_threads": "緒數: %d/%d",
+  "jade.neoecoae.active_craft": "冶中：%s x%s（%s/%s）",
+  "jade.neoecoae.more_active_crafts": "餘有 %s 冶中",
   "jade.neoecoae.effective_throughput_label": "實效吞吐: ",
   "jade.neoecoae.crafts_per_tick": "%s 方冶/t",
   "jade.neoecoae.local_processing": "本地處理: x1（1 機）",

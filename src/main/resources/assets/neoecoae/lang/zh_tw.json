@@ -394,6 +394,8 @@
   "jade.neoecoae.worker_tasks": "正在合成的任務（%d）：",
   "jade.neoecoae.worker_tasks.more": "  ……另有 %d 個任務",
   "jade.neoecoae.worker_threads": "執行緒數: %d/%d",
+  "jade.neoecoae.active_craft": "合成中：%s x%s（%s/%s）",
+  "jade.neoecoae.more_active_crafts": "另有 %s 個進行中的合成",
   "jade.neoecoae.effective_throughput_label": "有效吞吐：",
   "jade.neoecoae.crafts_per_tick": "%s 配方/t",
   "jade.neoecoae.local_processing": "本地處理：x1（1 台主機）",

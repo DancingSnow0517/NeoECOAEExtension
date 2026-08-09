@@ -425,6 +425,8 @@
   "jade.neoecoae.worker_tasks": "正在合成的任务（%d）：",
   "jade.neoecoae.worker_tasks.more": "  ……另有 %d 个任务",
   "jade.neoecoae.worker_threads": "线程数: %d/%d",
+  "jade.neoecoae.active_craft": "合成中：%s x%s（%s/%s）",
+  "jade.neoecoae.more_active_crafts": "另有 %s 个进行中的合成",
   "neoecoae.classic_pack": "Neo ECO AE 扩展 经典纹理",
   "neoecoae.configuration.computationSystemMaxLength": "计算子系统最大长度",
   "neoecoae.configuration.computationSystemMaxLength.tooltip": "计算子系统多方块结构允许的最大长度（单位：方块）。\n数值越大，可扩展的模块/组件越长，但结构检测开销也可能更高。",
