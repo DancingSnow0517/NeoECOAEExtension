@@ -338,12 +338,27 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
 
         for (HugeStack stack : batch) {
             AEKey key = stack.key();
-            HugeAmount previous = amounts.get(key);
-            HugeAmount next = previous.add(stack.amount());
-            amounts.set(key, next);
-            onAmountChanged(key, previous, next, stack.amount(), true);
+            if (isResolved(key)) {
+                HugeAmount previous = amounts.get(key);
+                HugeAmount next = previous.add(stack.amount());
+                amounts.set(key, next);
+                onAmountChanged(key, previous, next, stack.amount(), true);
+            } else {
+                CompoundTag encodedKey = encodedKeys.get(key);
+                String fingerprint = ECOStorageKeyHash.stableFingerprint(encodedKey);
+                OrphanedStack previous = orphanedEntries.get(fingerprint);
+                HugeAmount amount = previous == null ? stack.amount() : previous.amount().add(stack.amount());
+                orphanedEntries.put(fingerprint, new OrphanedStack(encodedKey.copy(), amount));
+                ECOInfiniteStorageMigrationDiagnostics.log(
+                    "orphaned-key:" + domainId + ':' + transactionId + ':' + fingerprint,
+                    "stage=apply_transfer result=stored_as_orphan domain=" + domainId
+                        + " transaction=" + transactionId + " key=" + key
+                        + " amount=" + stack.amount() + " fingerprint=" + fingerprint
+                );
+            }
         }
         transferReceipts.put(transactionId, digest);
+        rebuildIndexes();
         markMutated();
         flushAndAwait();
         if (state != ECOInfiniteDomainState.READY) {
@@ -634,11 +649,13 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     }
 
     private boolean ensureEncodedKey(AEKey key) {
+        return isResolved(key) && ensureRawEncodedKey(key);
+    }
+
+    /** Stores the original tag for unresolved keys so they can be quarantined without data loss. */
+    private boolean ensureRawEncodedKey(AEKey key) {
         if (encodedKeys.containsKey(key)) {
             return true;
-        }
-        if (!isResolved(key)) {
-            return false;
         }
         try {
             CompoundTag encoded = key.toTagGeneric(registries);
@@ -693,10 +710,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         if (!seen.add(stack.key())) {
             return "duplicate_key";
         }
-        if (!isResolved(stack.key())) {
-            return "unresolved_key";
-        }
-        return ensureEncodedKey(stack.key()) ? null : "key_encoding_rejected";
+        return ensureRawEncodedKey(stack.key()) ? null : "key_encoding_rejected";
     }
 
     private static String describeStackKey(@Nullable HugeStack stack) {
