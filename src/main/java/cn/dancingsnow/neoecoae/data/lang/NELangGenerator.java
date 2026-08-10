@@ -124,7 +124,7 @@ public class NELangGenerator {
 
         addLangs(provider, "tooltip.neoecoae.crafting_worker",
             "ECO - FX Worker is the main part of the crafting subsystem",
-            "Each FX Worker provides 1 thread at x1, or one thread per participating F host while network exchange is active"
+            "At x1, each FX Worker provides 1 task slot. During network exchange, each local FX Worker provides one task slot per linked F host; x2/x8 only increase batch size per slot."
         );
         provider.add("tooltip.neoecoae.crafting_jobs_l4", "Store Crafting Jobs: x%d [L4]");
         provider.add("tooltip.neoecoae.crafting_jobs_l6", "Store Crafting Jobs: x%d [L6]");

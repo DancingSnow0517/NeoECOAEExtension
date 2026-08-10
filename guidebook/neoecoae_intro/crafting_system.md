@@ -136,7 +136,7 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 | Topic | Normal | High-energy |
 |-------|--------|-------------|
 | Crafting multiplier | **x2** crafts per task slot | **x8** crafts per task slot |
-| Worker threads | One thread per participating F host on each FX Worker | One thread per participating F host on each FX Worker |
+| FX task slots | Each local FX Worker provides one task slot per linked F host; x2 only increases batch size per slot | Each local FX Worker provides one task slot per linked F host; x8 only increases batch size per slot |
 | Power draw | **x4** | **x16** |
 | Cooling requirement | The shared pool must provide valid coolant | The shared pool must provide the highest-tier coolant, supporting overclock 9 |
 | Tick cooling | **4** coolant per active task thread per tick | **16** coolant per active task thread per tick |
@@ -243,6 +243,6 @@ The interface displays:
 - Enable active cooling in combination with overclocking for best efficiency
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
 - Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
-- Every FX Worker provides 1 thread at x1, or one thread per participating F host while exchange is active
+- At x1, every FX Worker provides one task slot. During exchange, every local FX Worker provides one task slot per linked F host; x2/x8 only increase batch size per slot.
 - Higher-tier parallel cores increase structural processing capacity and can raise overflow overclock
 - Ensure the output hatch has space for used coolant to avoid system shutdown
