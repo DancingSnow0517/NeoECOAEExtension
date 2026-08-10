@@ -126,6 +126,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
         return patternPreviewItemHandler;
     }
 
+    /**
+     * Converts an encoded pattern to the stack shown in the terminal's pattern preview slots.
+     * The slots themselves retain the encoded pattern so native quick-move always transfers it.
+     */
+    public ItemStack getPatternPreviewDisplayStack(ItemStack pattern) {
+        var details = PatternDetailsHelper.decodePattern(pattern, level);
+        if (details == null || details.getPrimaryOutput() == null) {
+            return ItemStack.EMPTY;
+        }
+        return details.getPrimaryOutput().what().wrapForDisplayOrFilter();
+    }
+
     public String getPatternPreviewSearch() {
         return patternPreviewSearch;
     }
@@ -684,7 +696,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
             if (slot < 0 || slot >= PREVIEW_SLOTS) return ItemStack.EMPTY;
             if (level != null && level.isClientSide) return clientStacks[slot];
             PatternPreviewEntry entry = getPatternPreviewEntry(slot);
-            return entry == null ? ItemStack.EMPTY : entry.displayStack();
+            return entry == null ? ItemStack.EMPTY : entry.bus().itemHandler.getStackInSlot(entry.slot());
         }
 
         @Override

@@ -88,6 +88,7 @@ public final class NECraftingInterfaceWidget extends NELDLibSyncedStateWidget<NE
                 int slot = row * GRID_COLUMNS + column;
                 addWidget(new SlotWidget(
                                 transfer, slot, GRID_X + column * SLOT_SIZE, GRID_Y + row * SLOT_SIZE, true, true)
+                        .setItemHook(craftingInterface::getPatternPreviewDisplayStack)
                         .setBackgroundTexture(IGuiTexture.EMPTY));
             }
         }
