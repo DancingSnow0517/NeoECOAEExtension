@@ -59,11 +59,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
             double idleDrain,
             int totalTypes,
             long totalBytes) {
-        super(
-                properties.stacksTo(1),
-                idleDrain,
-                totalTypes,
-                externalKilobytes(totalBytes));
+        super(properties.stacksTo(1), idleDrain, totalTypes, externalKilobytes(totalBytes));
         this.tier = tier;
         this.cellType = cellType;
         this.ecoStorageTotalBytes = totalBytes;

@@ -57,6 +57,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     /** CPU auto-selection mode, persisted in the controller's NBT. */
     private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
 
+    /** Enables ECO's accelerated planning service for this host or its logical host group. */
+    private boolean fastTaskPlanningEnabled = true;
+
     /** Persisted logical-network channel; unassigned hosts receive one on first grid join. */
     private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
 
@@ -93,7 +96,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     /**
      * Counts only edits the player can see: the upgrade slot, the accelerator setting and its limit,
-     * the CPU selection mode. Kept apart from {@link #uiRevision}, which also moves with the storage
+     * the CPU selection mode, and the fast task planning setting. Kept apart from {@link #uiRevision},
+     * which also moves with the storage
      * byte churn of running jobs -- an open screen watches this one to sync promptly, and following
      * the churny counter instead would re-encode the whole state, recipe list included, nearly every
      * tick of an active cluster.
@@ -270,6 +274,31 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         this.cpuSelectionMode = mode;
         setChanged();
         markConfigDirty();
+    }
+
+    public boolean isFastTaskPlanningEnabled() {
+        return fastTaskPlanningEnabled;
+    }
+
+    /** Toggles accelerated task planning for this controller's logical host group. */
+    public void toggleFastTaskPlanning() {
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        if (network != null) {
+            network.setFastTaskPlanningEnabled(!network.isFastTaskPlanningEnabled());
+            return;
+        }
+        setFastTaskPlanningEnabled(!fastTaskPlanningEnabled);
+    }
+
+    /** Persists a Fast Task Planning setting from this controller or its logical network. */
+    public void setFastTaskPlanningEnabled(boolean enabled) {
+        if (fastTaskPlanningEnabled == enabled) {
+            return;
+        }
+        fastTaskPlanningEnabled = enabled;
+        setChanged();
+        markConfigDirty();
+        markForUpdate();
     }
 
     public boolean hasNetworkFrequency() {
@@ -468,6 +497,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 acceleratorLimit,
                 getParallelAccelerators(),
                 hasInfiniteCapacityUpgrade() || network != null && network.isInfiniteCapacity(),
+                network == null ? fastTaskPlanningEnabled : network.isFastTaskPlanningEnabled(),
                 mode,
                 collectComputationRecipeEntries());
     }
@@ -607,6 +637,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.saveAdditional(tag);
         tag.putInt("selectedBuildLength", getSelectedBuildLength());
         tag.putInt("cpuSelectionMode", cpuSelectionMode.ordinal());
+        tag.putBoolean("fastTaskPlanningEnabled", fastTaskPlanningEnabled);
         tag.putInt("networkFrequency", networkFrequency);
         tag.putInt("parallelAccelerators", parallelAccelerators);
         tag.put("computationUpgradeSlot", computationUpgradeHandler.serializeNBT());
@@ -623,6 +654,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 cpuSelectionMode = values[ordinal];
             }
         }
+        fastTaskPlanningEnabled = !tag.contains("fastTaskPlanningEnabled") || tag.getBoolean("fastTaskPlanningEnabled");
         if (tag.contains("networkFrequency")) {
             int savedFrequency = tag.getInt("networkFrequency");
             networkFrequency = savedFrequency >= 0 && savedFrequency < NEFrequencyAllocator.FREQUENCY_COUNT

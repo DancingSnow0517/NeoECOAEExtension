@@ -21,10 +21,29 @@ public record NEComputationUiState(
         int acceleratorLimit,
         int configuredAccelerators,
         boolean infiniteCapacity,
+        boolean fastTaskPlanningEnabled,
         CpuSelectionMode cpuSelectionMode,
         List<NECraftingRecipeUiEntry> recipeEntries) {
     public static NEComputationUiState empty(BlockPos pos) {
         return new NEComputationUiState(
-                pos, false, false, 0, 1, false, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, CpuSelectionMode.ANY, List.of());
+                pos,
+                false,
+                false,
+                0,
+                1,
+                false,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                false,
+                true,
+                CpuSelectionMode.ANY,
+                List.of());
     }
 }

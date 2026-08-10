@@ -60,6 +60,7 @@ public final class NELDLibStateCodecs {
         buf.writeInt(state.acceleratorLimit());
         buf.writeInt(state.configuredAccelerators());
         buf.writeBoolean(state.infiniteCapacity());
+        buf.writeBoolean(state.fastTaskPlanningEnabled());
         buf.writeEnum(state.cpuSelectionMode());
         List<NECraftingRecipeUiEntry> recipes = state.recipeEntries();
         buf.writeVarInt(Math.min(recipes.size(), MAX_CRAFTING_RECIPE_ENTRIES));
@@ -100,6 +101,7 @@ public final class NELDLibStateCodecs {
         int acceleratorLimit = buf.readInt();
         int configuredAccelerators = buf.readInt();
         boolean infiniteCapacity = buf.readBoolean();
+        boolean fastTaskPlanningEnabled = buf.readBoolean();
         CpuSelectionMode cpuSelectionMode = buf.readEnum(CpuSelectionMode.class);
         int recipeCount = buf.readVarInt();
         if (recipeCount > MAX_CRAFTING_RECIPE_ENTRIES) {
@@ -138,6 +140,7 @@ public final class NELDLibStateCodecs {
                 acceleratorLimit,
                 configuredAccelerators,
                 infiniteCapacity,
+                fastTaskPlanningEnabled,
                 cpuSelectionMode,
                 recipes);
     }

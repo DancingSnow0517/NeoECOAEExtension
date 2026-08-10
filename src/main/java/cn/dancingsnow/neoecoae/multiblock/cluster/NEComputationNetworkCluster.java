@@ -180,6 +180,18 @@ public final class NEComputationNetworkCluster {
         return selectionMode;
     }
 
+    /** Fast task planning is a shared setting because this logical network is leased as one host. */
+    public boolean isFastTaskPlanningEnabled() {
+        return !members.isEmpty()
+                && members.stream().allMatch(member -> member.getController().isFastTaskPlanningEnabled());
+    }
+
+    public void setFastTaskPlanningEnabled(boolean enabled) {
+        for (NEComputationCluster member : members) {
+            member.getController().setFastTaskPlanningEnabled(enabled);
+        }
+    }
+
     public void setSelectionMode(CpuSelectionMode mode) {
         selectionMode = mode;
         for (NEComputationCluster member : members) {

@@ -40,6 +40,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private final NEComputationTaskPanel taskPanel = new NEComputationTaskPanel();
     private NEAe2TextButtonWidget networkFrequencyButton;
     private NEAe2IconButtonWidget cpuModeButton;
+    private NEAe2IconButtonWidget fastTaskPlanningButton;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -77,6 +78,20 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void initLdWidgets() {
+        fastTaskPlanningButton = new NEAe2IconButtonWidget(
+                        FAST_TASK_PLANNING_BUTTON_X,
+                        FAST_TASK_PLANNING_BUTTON_Y,
+                        FAST_TASK_PLANNING_BUTTON_W,
+                        FAST_TASK_PLANNING_BUTTON_H,
+                        fastTaskPlanningIcon(),
+                        click -> {
+                            if (!click.isRemote) {
+                                computation.toggleFastTaskPlanning();
+                                syncStateNow();
+                            }
+                        })
+                .useAeTabButton();
+        addWidget(fastTaskPlanningButton);
         networkFrequencyButton = new NEAe2TextButtonWidget(
                 NETWORK_FREQUENCY_BUTTON_X,
                 NETWORK_FREQUENCY_BUTTON_Y,
@@ -131,6 +146,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
         cpuModeButton.setIcon(cpuModeIcon());
+        fastTaskPlanningButton.setIcon(fastTaskPlanningIcon());
         capacityPanel.drawBackground(graphics, mainScreenX(), this::absY, currentState(), mouseX, mouseY);
         if (hasUpgradeLayout()) {
             NELDLibAe2StyleRenderer.drawAeSlot(
@@ -156,6 +172,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (drawFastTaskPlanningTooltip(graphics, mouseX, mouseY)) {
+            return;
+        }
         if (drawNetworkFrequencyTooltip(graphics, mouseX, mouseY)) {
             return;
         }
@@ -169,6 +188,35 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             return;
         }
         capacityPanel.drawTooltip(graphics, font(), mainScreenX(), this::absY, currentState(), mouseX, mouseY);
+    }
+
+    private boolean drawFastTaskPlanningTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!isMouseIn(
+                FAST_TASK_PLANNING_BUTTON_X,
+                FAST_TASK_PLANNING_BUTTON_Y,
+                FAST_TASK_PLANNING_BUTTON_W,
+                FAST_TASK_PLANNING_BUTTON_H,
+                mouseX,
+                mouseY)) {
+            return false;
+        }
+        boolean enabled = currentState().fastTaskPlanningEnabled();
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("gui.neoecoae.computation.fast_task_planning")
+                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
+                        Component.translatable(
+                                        enabled
+                                                ? "gui.neoecoae.computation.fast_task_planning.on"
+                                                : "gui.neoecoae.computation.fast_task_planning.off")
+                                .withStyle(style -> style.withColor(
+                                        enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR)),
+                        Component.translatable("gui.neoecoae.computation.fast_task_planning.tooltip")
+                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
+                mouseX,
+                mouseY);
+        return true;
     }
 
     private boolean drawNetworkFrequencyTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -278,6 +326,10 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             case MACHINE_ONLY -> Icon.BACKGROUND_WIRELESS_TERM;
             case ANY -> Icon.TYPE_FILTER_ALL;
         };
+    }
+
+    private Icon fastTaskPlanningIcon() {
+        return currentState().fastTaskPlanningEnabled() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE;
     }
 
     static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {

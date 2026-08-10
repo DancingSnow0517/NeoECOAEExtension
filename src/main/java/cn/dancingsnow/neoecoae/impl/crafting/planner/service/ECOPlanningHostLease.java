@@ -50,8 +50,13 @@ public final class ECOPlanningHostLease implements AutoCloseable {
     }
 
     private static boolean isAvailable(NEComputationCluster candidate) {
+        var network = candidate == null ? null : candidate.getNetworkCluster();
         return candidate != null
                 && candidate.isActive()
+                && candidate.getController() != null
+                && (network == null
+                        ? candidate.getController().isFastTaskPlanningEnabled()
+                        : network.isFastTaskPlanningEnabled())
                 && candidate.getMaxThreads() > 0
                 && candidate.getAvailableStorage() > 0
                 && ACTIVE_JOBS.getOrDefault(candidate, 0) < candidate.getMaxThreads();

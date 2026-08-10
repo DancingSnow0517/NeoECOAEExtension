@@ -110,24 +110,25 @@ public final class CompatStorageMatrixRecipes {
 
     private static void saveFeCell(
             RegistrateRecipeProvider provider, String size, int processorCount, int singularityCount, int energy) {
-        provider.accept(new JsonRecipe(
-                NeoECOAE.id("integrated_working_station/eco_fe_storage_cell_" + size),
-                new ModLoadedCondition("appflux")) {
-            @Override
-            protected void write(JsonObject json) {
-                json.addProperty("type", "neoecoae:integrated_working_station");
-                json.addProperty("energy", energy);
+        provider.accept(
+                new JsonRecipe(
+                        NeoECOAE.id("integrated_working_station/eco_fe_storage_cell_" + size),
+                        new ModLoadedCondition("appflux")) {
+                    @Override
+                    protected void write(JsonObject json) {
+                        json.addProperty("type", "neoecoae:integrated_working_station");
+                        json.addProperty("energy", energy);
 
-                JsonArray inputItems = new JsonArray();
-                inputItems.add(itemStack("appflux:core_" + size, 10));
-                inputItems.add(itemStack("appflux:energy_processor", processorCount));
-                inputItems.add(itemStack("ae2:singularity", singularityCount));
-                inputItems.add(itemStack("neoecoae:eco_fe_cell_housing", 1));
-                json.add("inputItems", inputItems);
+                        JsonArray inputItems = new JsonArray();
+                        inputItems.add(itemStack("appflux:core_" + size, 10));
+                        inputItems.add(itemStack("appflux:energy_processor", processorCount));
+                        inputItems.add(itemStack("ae2:singularity", singularityCount));
+                        inputItems.add(itemStack("neoecoae:eco_fe_cell_housing", 1));
+                        json.add("inputItems", inputItems);
 
-                json.add("itemOutput", itemStack("neoecoae:eco_fe_storage_cell_" + size, 1));
-            }
-        });
+                        json.add("itemOutput", itemStack("neoecoae:eco_fe_storage_cell_" + size, 1));
+                    }
+                });
     }
 
     private static void saveCell(RegistrateRecipeProvider provider, String modid, String type, String size) {
