@@ -20,7 +20,6 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -114,7 +113,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int patternBusCount, parallelCount, workerCount = 0;
 
     private int runningThreadCount = 0;
-    private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
 
     private int threadCount = 0;
     private long exactThreadCount = 0L;
@@ -617,26 +615,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             }
         }
         return largest;
-    }
-
-    public boolean shouldDeferBatchJob(UUID craftingJobId, long currentTick) {
-        return batchFairnessTracker.shouldDefer(craftingJobId, currentTick);
-    }
-
-    public void noteWaitingBatchJob(UUID craftingJobId, long currentTick) {
-        batchFairnessTracker.noteWaiting(craftingJobId, currentTick);
-    }
-
-    public void noteAcceptedBatchJob(UUID craftingJobId, long currentTick) {
-        batchFairnessTracker.noteAccepted(craftingJobId, currentTick);
-    }
-
-    public void noteCompletedBatchJob(UUID craftingJobId) {
-        batchFairnessTracker.noteCompleted(craftingJobId);
-    }
-
-    public long capFairBatchSize(long requestedBatchSize) {
-        return batchFairnessTracker.capBatchSize(requestedBatchSize);
     }
 
     public int getLocalMaxBatchPerThread() {

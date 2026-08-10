@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
-/** Experimental cooperative scheduling state for F-series batch lanes. */
+/** Experimental per-job turn state for virtual F-series exchange tasks. */
 public final class ECOBatchFairnessTracker {
     private final Set<UUID> inFlightBatchJobs = new HashSet<>();
 
@@ -40,14 +40,6 @@ public final class ECOBatchFairnessTracker {
             return;
         }
         inFlightBatchJobs.remove(craftingJobId);
-    }
-
-    public long capBatchSize(long requestedBatchSize) {
-        if (!NEConfig.debugEcoBatchFairScheduling) {
-            clearWhenDisabled();
-            return requestedBatchSize;
-        }
-        return Math.min(requestedBatchSize, NEConfig.debugEcoBatchFairSchedulingBatchSize);
     }
 
     private static boolean isActive(@Nullable UUID craftingJobId) {

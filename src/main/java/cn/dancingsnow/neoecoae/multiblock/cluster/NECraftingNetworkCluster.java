@@ -544,7 +544,8 @@ public final class NECraftingNetworkCluster {
             return false;
         }
         long currentTick = level.getGameTime();
-        if (batchFairnessTracker.shouldDefer(request.craftingJobId(), currentTick)) {
+        if (isVirtualCraftingEligible()
+                && batchFairnessTracker.shouldDefer(request.craftingJobId(), currentTick)) {
             batchFairnessTracker.noteWaiting(request.craftingJobId(), currentTick);
             return false;
         }
@@ -566,7 +567,9 @@ public final class NECraftingNetworkCluster {
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
             updateRoundRobinAfterAccept(physical, worker);
-            batchFairnessTracker.noteAccepted(request.craftingJobId(), currentTick);
+            if (isVirtualCraftingEligible()) {
+                batchFairnessTracker.noteAccepted(request.craftingJobId(), currentTick);
+            }
             return true;
         }
         return false;
@@ -619,15 +622,14 @@ public final class NECraftingNetworkCluster {
                     worker.getFastPathCache().recordExpectedMismatch();
                     continue;
                 }
-                long maxBatchSize = batchFairnessTracker.capBatchSize(
-                    Math.min(requestedBatchSize, availableBatchSize)
-                );
+                long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
                 bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
                 break;
             }
             if (bestOffer != null) {
                 long currentTick = level.getGameTime();
-                if (batchFairnessTracker.shouldDefer(craftingJobId, currentTick)) {
+                if (isVirtualCraftingEligible()
+                        && batchFairnessTracker.shouldDefer(craftingJobId, currentTick)) {
                     batchFairnessTracker.noteWaiting(craftingJobId, currentTick);
                     return null;
                 }
@@ -653,6 +655,8 @@ public final class NECraftingNetworkCluster {
     }
 
     public void noteCompletedBatchJob(UUID craftingJobId, long currentTick) {
+        // Eligibility can change while a virtual batch is completing. Cleanup must not
+        // depend on the current structure state, or a previously tracked job could stick.
         batchFairnessTracker.noteCompleted(craftingJobId);
     }
 

@@ -394,11 +394,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         long currentTick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         if (cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().noteCompletedBatchJob(craftingJobId, currentTick);
-            return;
-        }
-        ECOCraftingSystemBlockEntity controller = cluster.getController();
-        if (controller != null) {
-            controller.noteCompletedBatchJob(craftingJobId);
         }
     }
 

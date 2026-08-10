@@ -11,7 +11,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.patternprovider.PatternContainer;
-import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
@@ -169,12 +168,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster != null && cluster.getNetworkCluster() != null) {
             return cluster.getNetworkCluster().tryPushBatch(getGrid(), request, offer);
         }
-        ECOCraftingSystemBlockEntity controller = getCraftingController();
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (controller != null && controller.shouldDeferBatchJob(request.craftingJobId(), currentTick)) {
-            controller.noteWaitingBatchJob(request.craftingJobId(), currentTick);
-            return false;
-        }
         if (offer == null
             || cluster == null
             || !cluster.getWorkers().contains(offer.worker())
@@ -189,9 +182,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         // server thread, so looking the same key up again in the Worker cannot make it safer.
         if (offer.worker().pushBatch(request, offer.result())) {
             nextWorkerIndex = nextIndex;
-            if (controller != null) {
-                controller.noteAcceptedBatchJob(request.craftingJobId(), currentTick);
-            }
             return true;
         }
         return false;
@@ -246,7 +236,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return null;
         }
         if (hostAvailableSlots <= 0) {
-            controller.noteWaitingBatchJob(craftingJobId, TickHandler.instance().getCurrentTick());
             return null;
         }
         long availableBatchSize = controller.isVirtualCraftingMode()
@@ -271,24 +260,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 worker.getFastPathCache().recordExpectedMismatch();
                 continue;
             }
-            long maxBatchSize = controller.capFairBatchSize(
-                Math.max(0L, Math.min(requestedBatchSize, availableBatchSize))
-            );
+            long maxBatchSize = Math.max(0L, Math.min(requestedBatchSize, availableBatchSize));
             if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
                 bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
                 if (maxBatchSize >= requestedBatchSize) {
                     break;
                 }
             }
-        }
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (bestOffer == null) {
-            controller.noteWaitingBatchJob(craftingJobId, currentTick);
-            return null;
-        }
-        if (controller.shouldDeferBatchJob(craftingJobId, currentTick)) {
-            controller.noteWaitingBatchJob(craftingJobId, currentTick);
-            return null;
         }
         return bestOffer;
     }
