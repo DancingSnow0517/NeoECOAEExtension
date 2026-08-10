@@ -94,6 +94,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
+    private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
+    private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
 
     @Getter
     private final IECOTier tier;
@@ -175,6 +177,34 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
         getMainNode().addService(IGridTickable.class, this);
         getMainNode().addService(IStorageProvider.class, this);
+    }
+
+    @Override
+    public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        ItemStack infiniteComponent = infiniteComponentHandler.getStackInSlot(0);
+        if (!infiniteComponent.isEmpty()) {
+            drops.add(infiniteComponent.copy());
+        }
+    }
+
+    public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
+        if (infiniteDomainId == null || drop.isEmpty()) {
+            return;
+        }
+        CompoundTag tag = drop.getOrCreateTag();
+        tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+        tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
+    }
+
+    public void restoreInfiniteDomainFromItem(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
+            return;
+        }
+        infiniteDomainId = tag.getUUID(CONTROLLER_DOMAIN_TAG);
+        hostMode = ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG));
+        setChanged();
     }
 
     public static ECOStorageSystemBlockEntity createL4(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
