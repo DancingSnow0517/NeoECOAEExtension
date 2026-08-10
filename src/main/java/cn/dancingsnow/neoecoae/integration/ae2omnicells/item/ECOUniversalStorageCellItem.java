@@ -38,6 +38,9 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements IECOStorageCellItem {
+    // AEUniversalCellItem stores capacity in an int and multiplies this KiB value by 1024 internally.
+    private static final long MAX_OMNI_CELLS_CAPACITY_BYTES = (Integer.MAX_VALUE / 1024L) * 1024L;
+
     @Getter
     private final IECOTier tier;
 
@@ -59,9 +62,14 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
                 properties.stacksTo(1),
                 idleDrain,
                 totalTypes,
-                Math.toIntExact(NEConfig.getEcoStorageCellCapacity(tier, totalBytes) / 1024L));
+                toOmniCellsCapacityKiB(NEConfig.getEcoStorageCellCapacity(tier, totalBytes)));
         this.tier = tier;
         this.cellType = cellType;
+    }
+
+    private static int toOmniCellsCapacityKiB(long capacityBytes) {
+        long boundedBytes = Math.min(Math.max(0L, capacityBytes), MAX_OMNI_CELLS_CAPACITY_BYTES);
+        return (int) (boundedBytes / 1024L);
     }
 
     @Override
