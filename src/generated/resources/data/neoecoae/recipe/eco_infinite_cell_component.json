@@ -11,16 +11,8 @@
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 2,
-      "item": "neoecoae:storage_system_l9"
-    },
-    {
       "count": 64,
-      "item": "neoecoae:eco_cell_component_64m"
-    },
-    {
-      "count": 64,
-      "item": "neoecoae:eco_cell_component_16m"
+      "item": "neoecoae:eco_cell_component_256m"
     },
     {
       "count": 64,
@@ -31,12 +23,16 @@
       "item": "neoecoae:superconducting_processor"
     },
     {
+      "count": 64,
+      "item": "ae2:singularity"
+    },
+    {
       "count": 16,
       "item": "neoecoae:crystal_ingot"
     },
     {
       "count": 2,
-      "item": "neoecoae:storage_system_l6"
+      "item": "neoecoae:storage_system_l9"
     },
     {
       "count": 16,

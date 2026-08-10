@@ -122,7 +122,7 @@ public final class CraftingInterfaceUI {
                 Icon.S_FLUID_SUBSTITUTION_DISABLED,
                 craftingInterface::toggleFluidSubstitutionPatterns,
                 "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
-        header.addChild(iconButton(Icon.PATTERN_TERMINAL_ALL, "gui.neoecoae.crafting_interface.preview.organize",
+        header.addChild(iconButton(Icon.PATTERN_ACCESS_SHOW, "gui.neoecoae.crafting_interface.preview.organize",
                 craftingInterface::organizePatternBuses));
         return header;
     }
@@ -139,7 +139,21 @@ public final class CraftingInterfaceUI {
                 .placeholder(Component.translatable("gui.neoecoae.crafting_interface.preview.search")));
         field.style(style -> style.backgroundTexture(Sprites.RECT_RD));
         field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
-        return field;
+        // ExtendedAE clears its matrix query with a right-click. Keep that compact interaction so the search field
+        // retains enough width for long pattern names.
+        field.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button == 1) {
+                event.stopImmediatePropagation();
+            }
+        });
+        field.addServerEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button == 1) {
+                craftingInterface.clearPatternPreviewSearch();
+                event.stopImmediatePropagation();
+            }
+        });
+        return HostElements.tooltips(field,
+                Component.translatable("gui.neoecoae.crafting_interface.preview.search.tooltip"));
     }
 
     private static Button patternFilterButton(

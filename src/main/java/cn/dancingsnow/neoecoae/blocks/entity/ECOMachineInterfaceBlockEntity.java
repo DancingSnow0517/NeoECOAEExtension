@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements ISyncPersistRPCBlockEntity {
@@ -272,6 +273,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         markForUpdate();
     }
 
+    public void clearPatternPreviewSearch() {
+        setPatternPreviewSearch("");
+    }
+
     public boolean showsSubstitutionPatterns() {
         return showSubstitutionPatterns;
     }
@@ -298,6 +303,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 "gui.neoecoae.crafting_interface.preview.scanning",
                 patternPreviewScannedSlots,
                 patternPreviewTotalSlots
+            );
+        }
+        if (!patternPreviewSearch.isEmpty()) {
+            return Component.translatable(
+                "gui.neoecoae.crafting_interface.preview.search_results",
+                patternPreviewEntryCount
             );
         }
         return Component.translatable(
@@ -521,7 +532,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
             ItemStack stack = getPreviewInventory(entry).getStackInSlot(entry.sourceSlot());
             if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)
-                    && matchesPatternPreviewSearch(stack, patternPreviewSearch.toLowerCase(java.util.Locale.ROOT))) {
+                    && matchesPatternPreviewSearch(stack, patternPreviewSearch)) {
                 entries.add(entry);
             }
         }
@@ -541,10 +552,40 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return false;
         }
 
-        // Match AE2's pattern access terminal: only pattern outputs take part in its text search.
-        return query.isEmpty() || details.getOutputs().stream()
-                .anyMatch(output -> output.what().getDisplayName().getString()
-                        .toLowerCase(java.util.Locale.ROOT).contains(query));
+        List<String> queryTerms = tokenizePatternPreviewSearch(query);
+        if (queryTerms.isEmpty()) {
+            return true;
+        }
+
+        // Match ExtendedAE's assembling matrix: a query may match either an output or any viable input.
+        if (details.getOutputs().stream()
+                .anyMatch(output -> matchesPatternPreviewSearchName(
+                        output.what().getDisplayName().getString(), queryTerms))) {
+            return true;
+        }
+        for (var input : details.getInputs()) {
+            if (input == null) {
+                continue;
+            }
+            for (var possibleInput : input.getPossibleInputs()) {
+                if (possibleInput != null && matchesPatternPreviewSearchName(
+                        possibleInput.what().getDisplayName().getString(), queryTerms)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static List<String> tokenizePatternPreviewSearch(String query) {
+        return Arrays.stream(query.strip().toLowerCase(Locale.ROOT).split("\\s+"))
+                .filter(term -> !term.isEmpty())
+                .toList();
+    }
+
+    private static boolean matchesPatternPreviewSearchName(String displayName, List<String> queryTerms) {
+        String normalizedName = displayName.toLowerCase(Locale.ROOT);
+        return queryTerms.stream().allMatch(normalizedName::contains);
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {

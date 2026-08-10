@@ -22,7 +22,7 @@ The <ItemLink id="neoecoae:integrated_working_station" /> is an advanced craftin
 ## Features
 
 - **9 Input Slots** - Supports up to 9 different input items
-- **Fluid Input/Output** - Supports fluid ingredients and outputs (16,000 mB capacity each)
+- **Fluid Input/Output** - Supports fluid ingredients and outputs (64,000 mB capacity each)
 - **Energy Powered** - Consumes FE (Forge Energy) for crafting
 - **ME Network Integration** - Connects to your AE2 network for power supply
 - **Auto Export** - Can automatically export finished products
