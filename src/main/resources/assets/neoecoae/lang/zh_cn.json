@@ -851,4 +851,16 @@
   "neoecoae.configuration.debugECOPlanner": "调试 ECO 合成规划",
   "neoecoae.configuration.debugECOPlanner.tooltip": "记录 ECO 合成规划失败时的阶段、原因、请求、求解器状态和回退详情。\n消息会去重并限速；仅在排查规划问题时启用。",
   "neoecoae.unknown_cell_type": "未知存储元件类型"
+  ,"gui.neoecoae.crafting_interface.title": "合成子系统通讯接口"
+  ,"gui.neoecoae.crafting_interface.preview.search": "搜索原料或产物"
+  ,"gui.neoecoae.crafting_interface.preview.filter_substitutions": "显示/隐藏可替换样板"
+  ,"gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions": "显示/隐藏可流体替换样板"
+  ,"gui.neoecoae.crafting_interface.preview.organize": "一键整理 F 主机样板"
+  ,"gui.neoecoae.crafting_interface.preview.slots": "F 主机样板槽位 %d"
+  ,"gui.neoecoae.crafting_interface.preview.scroll": "第 %d / %d 行"
+  ,"gui.neoecoae.host.crafting.pattern_transfer": "迁移网络样板"
+  ,"gui.neoecoae.host.crafting.pattern_transfer.ready": "等待迁移"
+  ,"gui.neoecoae.host.crafting.pattern_transfer.progress": "迁移中 %d / %d"
+  ,"gui.neoecoae.host.crafting.pattern_transfer.unavailable": "合成子系统未连接到可用网络"
+  ,"gui.neoecoae.host.crafting.pattern_transfer.result_primary": "转移 %d · 已存在 %d"
 }

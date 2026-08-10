@@ -58,7 +58,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
             return InteractionResult.SUCCESS;
         }
         if (level.getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> machineInterface
-                && machineInterface.supportsStorageInterfaceUi()
+                && (machineInterface.supportsStorageInterfaceUi() || machineInterface.supportsCraftingInterfaceUi())
                 && player instanceof ServerPlayer serverPlayer) {
             BlockEntityUIFactory.INSTANCE.openUI(machineInterface, serverPlayer);
             return InteractionResult.CONSUME;

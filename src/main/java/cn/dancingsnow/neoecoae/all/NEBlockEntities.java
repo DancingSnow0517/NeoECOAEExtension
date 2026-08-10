@@ -113,6 +113,7 @@ public class NEBlockEntities {
                             "crafting_interface", NECraftingClusterCalculator::new, ECOMachineInterfaceBlockEntity::new)
                     .forBlock(NEBlocks.CRAFTING_INTERFACE)
                     .validBlock(NEBlocks.CRAFTING_INTERFACE)
+                    .serverTicker(ECOMachineInterfaceBlockEntity::tick)
                     .register();
 
     public static final NEBlockEntityEntry<ECOMachineInterfaceBlockEntity<NEStorageCluster>> STORAGE_INTERFACE =

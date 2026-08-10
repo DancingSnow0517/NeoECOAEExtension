@@ -324,6 +324,20 @@ public class GuiLangs {
                 "This computation cell cannot be removed while crafting jobs are active.");
 
         // crafting
+        provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
+        provider.add("gui.neoecoae.crafting_interface.preview.search", "Search patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.filter_substitutions", "Show substitution patterns");
+        provider.add(
+                "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions",
+                "Show fluid substitution patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize", "Organize pattern buses");
+        provider.add("gui.neoecoae.crafting_interface.preview.slots", "Patterns: %s");
+        provider.add("gui.neoecoae.crafting_interface.preview.scroll", "Row %s / %s");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer", "Transfer Patterns");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.ready", "Ready to transfer.");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.progress", "Transfer: %s / %s");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.unavailable", "Transfer unavailable.");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_primary", "Added: %s | Existing: %s");
         provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Bus Count: %s");
         provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Core Count: %s");
         provider.add("gui.neoecoae.crafting.worker_count", "Worker Core Count: %s");
