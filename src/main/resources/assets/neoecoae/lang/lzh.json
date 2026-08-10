@@ -420,6 +420,8 @@
   "neoecoae.configuration.enableInfiniteStorage.tooltip": "啟 ECO 藏府主機之無限藏玩法。\n須六十四無限組件與十六 L9 藏矩陣；閉之則禁新無限藏遷移，然不刪既有域檔。",
   "neoecoae.configuration.fastPath": "捷徑",
   "neoecoae.configuration.fastPath.tooltip": "ECO AE2 捷徑緩藏與批冶之選項。\n若整合包配方相不協，可閉之或減其值。",
+  "neoecoae.configuration.ecoAe2FastPathEnabled": "啟 ECO AE2 捷徑",
+  "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟 ECO AE2 捷徑批冶緩藏。\n可大減重行 pattern 之費；若整合包方相不協，可閉此項以復慢徑。\n啟冶造事件時，捷徑自禁，以存事件之義。",
   "neoecoae.configuration.postCraftingEvent": "發冶造事件",
   "neoecoae.configuration.postCraftingEvent.tooltip": "冶造之分成一式，是否發原版冶造事件（ItemCraftedEvent）。\n啟之或增聽事之費；裝 Balm 等或尤甚。",
   "neoecoae.configuration.storageSystemMaxLength": "藏器之極長",

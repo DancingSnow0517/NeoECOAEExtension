@@ -420,6 +420,8 @@
   "neoecoae.configuration.enableInfiniteStorage.tooltip": "啟用 ECO 儲存控制器嘅無限儲存玩法。\n需要 64 個無限組件同 16 個 L9 儲存矩陣；關閉後會阻止新嘅無限儲存遷移，但唔會刪除已有域檔案。",
   "neoecoae.configuration.fastPath": "快速路徑",
   "neoecoae.configuration.fastPath.tooltip": "ECO AE2 快速路徑快取與批量合成選項。\n如果整合包遇到配方兼容問題，可以關閉或調低呢啲值。",
+  "neoecoae.configuration.ecoAe2FastPathEnabled": "啟用 ECO AE2 快速路徑",
+  "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟用 ECO AE2 快速路徑批量合成快取。\n如果整合包遇到配方兼容問題，可關閉此選項回退到慢速路徑。\n啟用觸發合成事件時，快速路徑會自動停用以保留事件語意。",
   "neoecoae.configuration.postCraftingEvent": "觸發合成事件",
   "neoecoae.configuration.postCraftingEvent.tooltip": "當合成子系統完成一次配方時，是否觸發原版合成事件（ItemCraftedEvent）。\n開啟後可能引入額外事件/監聽開銷；安裝 Balm 等模組時可能更明顯。",
   "neoecoae.configuration.storageSystemMaxLength": "儲存子系統最大長度",
