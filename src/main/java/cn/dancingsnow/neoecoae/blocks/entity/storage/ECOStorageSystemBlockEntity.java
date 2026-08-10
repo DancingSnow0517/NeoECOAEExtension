@@ -91,13 +91,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
-    private static final int INFINITE_MEMBER_REQUIRED = 16;
+    private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
+    private static final int INFINITE_MEMBER_REQUIRED = 12;
     private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
+    private static final String CONTROLLER_MEMBER_REQUIREMENT_TAG = "neoecoae_infinite_controller_member_requirement";
 
     @Getter
     private final IECOTier tier;
@@ -114,6 +116,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
 
     @Nullable private UUID infiniteDomainId;
+
+    /** Zero is the on-disk marker for domains created before the 12-matrix requirement. */
+    private int infiniteMemberRequirement;
 
     private boolean hostStorageMounted;
     private boolean infiniteRestoreWarningLogged;
@@ -197,6 +202,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         CompoundTag tag = drop.getOrCreateTag();
         tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
+        tag.putInt(CONTROLLER_MEMBER_REQUIREMENT_TAG, getInfiniteMemberRequirement());
     }
 
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
@@ -206,6 +212,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         infiniteDomainId = tag.getUUID(CONTROLLER_DOMAIN_TAG);
         hostMode = ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG));
+        infiniteMemberRequirement = tag.getInt(CONTROLLER_MEMBER_REQUIREMENT_TAG);
         setChanged();
     }
 
@@ -435,6 +442,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
+            infiniteMemberRequirement = INFINITE_MEMBER_REQUIRED;
             UUID domainId = ensureInfiniteDomainId();
             ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.exists((ServerLevel) level, domainId)
                     ? ECOInfiniteStorageDomains.openExisting((ServerLevel) level, domainId)
@@ -599,7 +607,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             migratedAny = true;
             break;
         }
-        if (!hasPending && countInfiniteMembers() >= INFINITE_MEMBER_REQUIRED) {
+        if (!hasPending && countInfiniteMembers() >= getInfiniteMemberRequirement()) {
             hostMode = ECOStorageHostMode.FORMED_INFINITE;
         }
         if (migratedAny) {
@@ -1451,7 +1459,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (!hostMode.isInfiniteState()) {
             return 0;
         }
-        return migrationProgressPercent(countInfiniteMembers(), INFINITE_MEMBER_REQUIRED);
+        return migrationProgressPercent(countInfiniteMembers(), getInfiniteMemberRequirement());
+    }
+
+    private int getInfiniteMemberRequirement() {
+        return infiniteMemberRequirement > 0 ? infiniteMemberRequirement : LEGACY_INFINITE_MEMBER_REQUIRED;
     }
 
     static int migrationProgressPercent(int migratedMembers, int requiredMembers) {
@@ -1940,6 +1952,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (infiniteDomainId != null) {
             tag.putUUID("infiniteDomainId", infiniteDomainId);
         }
+        if (infiniteMemberRequirement > 0) {
+            tag.putInt("infiniteMemberRequirement", infiniteMemberRequirement);
+        }
         tag.put("infiniteComponentSlot", infiniteComponentHandler.serializeNBT());
     }
 
@@ -1950,6 +1965,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         priority = tag.getInt("priority");
         hostMode = ECOStorageHostMode.fromId(tag.getString("infiniteHostMode"));
         infiniteDomainId = tag.hasUUID("infiniteDomainId") ? tag.getUUID("infiniteDomainId") : null;
+        infiniteMemberRequirement = tag.getInt("infiniteMemberRequirement");
         if (tag.contains("infiniteComponentSlot")) {
             infiniteComponentHandler.deserializeNBT(tag.getCompound("infiniteComponentSlot"));
         }
