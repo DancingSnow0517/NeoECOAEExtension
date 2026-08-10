@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.appflux;
 
 import appeng.items.materials.MaterialItem;
 import appeng.core.definitions.AEItems;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.appflux.item.ECOFeStorageCellItem;
@@ -14,8 +15,11 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
+
+import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -62,6 +66,11 @@ public class NEAppFluxItems {
                 .energy(1_000)
                 .itemOutput(ctx.get())
                 .save(appFluxInstalled, ctx.getId().withPrefix("integrated_working_station/"));
+            appFluxInstalled.accept(
+                ctx.getId().withPrefix("disassembly/"),
+                new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStack(AFSingletons.CORE_16M, 10))),
+                null
+            );
         })
         .lang("ECO - LE4 Storage Matrix (FE)")
         .model(ItemModelUtil.cellModel("fe", "16m"))
@@ -85,6 +94,11 @@ public class NEAppFluxItems {
                 .energy(12_000)
                 .itemOutput(ctx.get())
                 .save(appFluxInstalled, ctx.getId().withPrefix("integrated_working_station/"));
+            appFluxInstalled.accept(
+                ctx.getId().withPrefix("disassembly/"),
+                new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStack(AFSingletons.CORE_64M, 10))),
+                null
+            );
         })
         .lang("ECO - LE6 Storage Matrix (FE)")
         .model(ItemModelUtil.cellModel("fe", "64m"))
@@ -108,6 +122,11 @@ public class NEAppFluxItems {
                 .energy(144_000)
                 .itemOutput(ctx.get())
                 .save(appFluxInstalled, ctx.getId().withPrefix("integrated_working_station/"));
+            appFluxInstalled.accept(
+                ctx.getId().withPrefix("disassembly/"),
+                new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStack(AFSingletons.CORE_256M, 10))),
+                null
+            );
         })
         .lang("ECO - LE9 Storage Matrix (FE)")
         .model(ItemModelUtil.cellModel("fe", "256m"))
