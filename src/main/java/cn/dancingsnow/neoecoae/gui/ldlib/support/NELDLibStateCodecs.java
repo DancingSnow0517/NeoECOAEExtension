@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.support;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingHostBatchInfo;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
@@ -15,6 +16,42 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 
 public final class NELDLibStateCodecs {
+
+    public static void writeCraftingInterface(FriendlyByteBuf buf, NECraftingInterfaceUiState state) {
+        buf.writeBlockPos(state.pos());
+        buf.writeBoolean(state.formed());
+        buf.writeBoolean(state.targetOnline());
+        buf.writeUtf(NELDLibText.bounded(state.search(), 128), 128);
+        buf.writeBoolean(state.showSubstitutions());
+        buf.writeBoolean(state.showFluidSubstitutions());
+        buf.writeVarInt(Math.max(0, state.entryCount()));
+        buf.writeVarInt(Math.max(0, state.scrollRow()));
+        buf.writeVarInt(Math.max(0, state.maxScrollRow()));
+        buf.writeUtf(state.transferStatusKey(), 128);
+        buf.writeVarInt(Math.max(0, state.transferStatusArg1()));
+        buf.writeVarInt(Math.max(0, state.transferStatusArg2()));
+        buf.writeVarInt(Math.max(0, state.noSpace()));
+        buf.writeVarInt(Math.max(0, state.incompatible()));
+    }
+
+    public static NECraftingInterfaceUiState readCraftingInterface(FriendlyByteBuf buf) {
+        return new NECraftingInterfaceUiState(
+                buf.readBlockPos(),
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readUtf(128),
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readVarInt(),
+                buf.readVarInt(),
+                buf.readVarInt(),
+                buf.readUtf(128),
+                buf.readVarInt(),
+                buf.readVarInt(),
+                buf.readVarInt(),
+                buf.readVarInt());
+    }
+
     private static final int MAX_CRAFTING_RECIPE_ENTRIES = 64;
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
