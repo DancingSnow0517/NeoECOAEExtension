@@ -58,7 +58,8 @@ public final class HostText {
     }
 
     public static UsedTotal byteProgress(long used, long max) {
-        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
+        return new UsedTotal(compactStorageBytes(BigInteger.valueOf(Math.max(0L, used))),
+            compactStorageBytes(BigInteger.valueOf(Math.max(0L, max))), Component.empty());
     }
 
     public static String expandedStorageBytes(long value) {
@@ -74,13 +75,14 @@ public final class HostText {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
         BigInteger unit = BigInteger.ONE;
         int unitIndex = 0;
-        BigInteger limit = BigInteger.TEN.pow(TOOLTIP_BYTE_DIGITS);
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.divide(unit).compareTo(limit) >= 0) {
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
+            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
             unit = unit.multiply(BIG_BYTES_IN_K);
             unitIndex++;
         }
         return new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
+            .divide(new BigDecimal(unit), TOOLTIP_BYTE_DIGITS - 1, RoundingMode.DOWN)
+            .stripTrailingZeros()
             .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
