@@ -715,5 +715,12 @@
   "tooltip.neoecoae.storage_dirve.1": "§7§oThe levels of storage matrices it can drive are determined by the storage Controller",
   "tooltip.neoecoae.storage_system": "§7§oThe core of the storage system",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
+  "jade.neoecoae.active_craft": "Crafting: %s x%s (%s/%s)",
+  "jade.neoecoae.more_active_crafts": "+%s more active crafts",
+  "neoecoae.configuration.debug": "Debug",
+  "neoecoae.configuration.debug.tooltip": "ECO crafting planner diagnostic options.",
+  "neoecoae.configuration.debugECOPlanner": "Debug ECO Planner",
+  "neoecoae.configuration.debugECOPlanner.tooltip": "Log the stage, reason, request, solver state and fallback details for ECO planning failures.\nMessages are deduplicated and rate-limited. Enable only while diagnosing planning issues.",
+  "neoecoae.unknown_cell_type": "Unknown Cell Type"
 }

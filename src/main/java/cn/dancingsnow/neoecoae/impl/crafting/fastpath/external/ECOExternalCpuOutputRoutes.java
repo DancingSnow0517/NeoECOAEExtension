@@ -19,6 +19,17 @@ public final class ECOExternalCpuOutputRoutes {
         }
     }
 
+    /** Removes a route only when it still belongs to the specified CPU. */
+    public static void unregister(UUID craftingJobId, Sink sink) {
+        if (craftingJobId == null || sink == null) {
+            return;
+        }
+        ROUTES.computeIfPresent(craftingJobId, (ignored, reference) -> {
+            Sink registered = reference.get();
+            return registered == null || registered == sink ? null : reference;
+        });
+    }
+
     public static Delivery deliver(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         WeakReference<Sink> reference = ROUTES.get(craftingJobId);
         Sink sink = reference == null ? null : reference.get();

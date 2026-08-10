@@ -27,6 +27,25 @@ class ECOExternalCpuOutputRoutesTest {
                 .routeAvailable());
     }
 
+    @Test
+    void unregisterDoesNotRemoveARouteReplacedByAnotherCpu() {
+        UUID jobId = UUID.randomUUID();
+        TestSink previousSink = new TestSink(jobId, 3L);
+        TestSink currentSink = new TestSink(jobId, 11L);
+        ECOExternalCpuOutputRoutes.register(jobId, previousSink);
+        ECOExternalCpuOutputRoutes.register(jobId, currentSink);
+
+        ECOExternalCpuOutputRoutes.unregister(jobId, previousSink);
+        assertEquals(
+                11L,
+                ECOExternalCpuOutputRoutes.deliver(jobId, null, 12L, Actionable.MODULATE)
+                        .inserted());
+
+        ECOExternalCpuOutputRoutes.unregister(jobId, currentSink);
+        assertFalse(ECOExternalCpuOutputRoutes.deliver(jobId, null, 12L, Actionable.MODULATE)
+                .routeAvailable());
+    }
+
     private static final class TestSink implements ECOExternalCpuOutputRoutes.Sink {
         private UUID owner;
         private final long accepted;

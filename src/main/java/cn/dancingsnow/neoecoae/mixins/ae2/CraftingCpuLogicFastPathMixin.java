@@ -13,16 +13,20 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuFas
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuOutputRoutes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import java.util.UUID;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = CraftingCpuLogic.class, remap = false, priority = 2000)
 public abstract class CraftingCpuLogicFastPathMixin implements ECOExternalCpuOutputRoutes.Sink {
+    @Unique private UUID neoecoae$outputRouteJobId;
+
     @Shadow
     private ExecutingCraftingJob job;
 
@@ -39,12 +43,17 @@ public abstract class CraftingCpuLogicFastPathMixin implements ECOExternalCpuOut
     @Inject(method = "tickCraftingLogic", at = @At("HEAD"))
     private void neoecoae$registerOutputRoute(
             IEnergyService energyService, CraftingService craftingService, CallbackInfo ci) {
-        if (job != null) {
-            ECOExternalCpuOutputRoutes.register(
-                    ((ExecutingCraftingJobAccessor) (Object) job)
-                            .neoecoae$getLink()
-                            .getCraftingID(),
-                    this);
+        UUID currentJobId = job == null
+                ? null
+                : ((ExecutingCraftingJobAccessor) (Object) job)
+                        .neoecoae$getLink()
+                        .getCraftingID();
+        if (neoecoae$outputRouteJobId != null && !neoecoae$outputRouteJobId.equals(currentJobId)) {
+            ECOExternalCpuOutputRoutes.unregister(neoecoae$outputRouteJobId, this);
+        }
+        neoecoae$outputRouteJobId = currentJobId;
+        if (currentJobId != null) {
+            ECOExternalCpuOutputRoutes.register(currentJobId, this);
         }
     }
 

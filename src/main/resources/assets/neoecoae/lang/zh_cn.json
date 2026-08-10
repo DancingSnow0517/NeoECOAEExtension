@@ -837,5 +837,12 @@
   "screen.neoecoae.config.storageSystemMaxLength": "存储主机最大长度",
   "screen.neoecoae.config.title": "Neo ECO AE 扩展配置",
   "tooltip.neoecoae.crafting_pattern_bus.3": "§7§o通常破坏方块时会保留掉落方块中存储的样板",
-  "tooltip.neoecoae.crafting_pattern_bus.4": "§7§o潜行破坏时会改为掉落其中存储的样板"
+  "tooltip.neoecoae.crafting_pattern_bus.4": "§7§o潜行破坏时会改为掉落其中存储的样板",
+  "neoecoae.configuration.ecoAe2FastPathEnabled": "启用 ECO AE2 快速路径",
+  "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "启用 ECO AE2 快速路径批量合成缓存。\n可以大幅降低重复样板执行开销；如果整合包出现配方兼容问题，可关闭此选项回退到慢速路径。\n启用触发合成事件时，为保持事件语义，快速路径会自动停用。",
+  "neoecoae.configuration.debug": "调试",
+  "neoecoae.configuration.debug.tooltip": "ECO 合成规划诊断选项。",
+  "neoecoae.configuration.debugECOPlanner": "调试 ECO 合成规划",
+  "neoecoae.configuration.debugECOPlanner.tooltip": "记录 ECO 合成规划失败时的阶段、原因、请求、求解器状态和回退详情。\n消息会去重并限速；仅在排查规划问题时启用。",
+  "neoecoae.unknown_cell_type": "未知存储元件类型"
 }
