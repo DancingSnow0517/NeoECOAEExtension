@@ -28,14 +28,19 @@ class ECOCraftingSystemBlockEntityTest {
     }
 
     @Test
-    void f9FastPathCapacityKeepsThreadsAndBatchSizeIndependent() {
+    void standaloneF9UsesOneTaskThreadPerFxWorker() {
+        assertEquals(11, ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 1));
+    }
+
+    @Test
+    void f9FastPathCapacityAppliesTheExchangeMultiplierPerSlot() {
         int singleHostBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 1);
-        int exchangedBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 8);
+        int normalExchangeBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 2);
+        int highEnergyExchangeBatch = ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 8);
 
         assertEquals(512, singleHostBatch);
-        assertEquals(5_632, ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 1) * singleHostBatch);
-        assertEquals(4_096, exchangedBatch);
-        assertEquals(180_224, ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 2) * 2 * exchangedBatch);
+        assertEquals(1_024, normalExchangeBatch);
+        assertEquals(4_096, highEnergyExchangeBatch);
     }
 
     @Test

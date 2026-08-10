@@ -473,18 +473,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && parallelCount > 0 && workerCount > 0) {
-            int perCore = tier.getCrafterParallel();
             if (cluster.getNetworkCluster() != null) {
                 // Every FX worker receives one physical crafting thread for every host in
                 // the exchange. The x2/x8 switch still affects batch capacity separately.
                 threadCountPerWorker = getExchangeHostCount();
                 threadCount = calculateWorkerThreadCount(workerCount, threadCountPerWorker);
             } else {
-                if (overclocked) {
-                    perCore += tier.getOverclockedCrafterParallel();
-                }
-                threadCountPerWorker = 32;
-                threadCount = parallelCount * perCore;
+                // A standalone FX worker owns one task thread. Parallel cores and overclocking
+                // increase that thread's batch capacity, not the number of concurrent tasks.
+                threadCountPerWorker = 1;
+                threadCount = calculateWorkerThreadCount(workerCount, threadCountPerWorker);
             }
             recalculateRunningThreadCountFromWorkers();
         } else {
