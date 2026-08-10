@@ -469,6 +469,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 CompoundTag entry = entries.getCompound(i);
                 AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
                 HugeAmount amount = HugeAmount.read(entry.getCompound("amount"));
+                if (key == null && !amount.isZero()) {
+                    throw new IllegalStateException("V1 infinite-storage shard contains an unresolved AEKey");
+                }
                 if (key != null && !amount.isZero()) {
                     int targetShard = shardFor(key);
                     if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
@@ -737,15 +740,16 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
         long recordRevision = tag.getLong("revision");
         UUID transactionId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
-        if (key != null) {
-            if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
-                applyDelta(key, new BigInteger(tag.getString("delta")), false);
-            }
-            if (transactionId != null) {
-                committedTransactions.add(transactionId);
-            }
-            revision = Math.max(revision, recordRevision);
+        if (key == null) {
+            throw new IllegalStateException("V1 infinite-storage WAL contains an unresolved AEKey");
         }
+        if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
+            applyDelta(key, new BigInteger(tag.getString("delta")), false);
+        }
+        if (transactionId != null) {
+            committedTransactions.add(transactionId);
+        }
+        revision = Math.max(revision, recordRevision);
     }
 
     private void validateWalDomain(CompoundTag tag) {

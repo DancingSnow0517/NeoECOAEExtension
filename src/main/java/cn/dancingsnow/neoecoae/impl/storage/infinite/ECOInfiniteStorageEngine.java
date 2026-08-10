@@ -7,11 +7,15 @@ import appeng.api.stacks.KeyCounter;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 
 public interface ECOInfiniteStorageEngine {
     record TypeStats(AEKeyType keyType, long storedTypes, HugeAmount storedAmount) {}
 
     record HugeStack(AEKey key, HugeAmount amount) {}
+
+    /** A persisted key that cannot currently be resolved because its owning mod is absent. */
+    record OrphanedStack(CompoundTag encodedKey, HugeAmount amount) {}
 
     long insert(AEKey key, long amount, Actionable mode);
 
@@ -53,6 +57,27 @@ public interface ECOInfiniteStorageEngine {
     Collection<TypeStats> getTypeStats();
 
     Collection<HugeStack> getHugeStacks();
+
+    /** Returns persisted entries that are retained but hidden until their owning mod is restored. */
+    default Collection<OrphanedStack> getOrphanedStacks() {
+        return java.util.List.of();
+    }
+
+    default int getOrphanedTypes() {
+        return getOrphanedStacks().size();
+    }
+
+    default HugeAmount getOrphanedAmount() {
+        HugeAmount total = HugeAmount.ZERO;
+        for (OrphanedStack stack : getOrphanedStacks()) {
+            total = total.add(stack.amount());
+        }
+        return total;
+    }
+
+    default boolean hasOrphanedEntries() {
+        return getOrphanedTypes() > 0;
+    }
 
     default void flushBudgeted(long maxNanos) {
         if (maxNanos <= 0L) {

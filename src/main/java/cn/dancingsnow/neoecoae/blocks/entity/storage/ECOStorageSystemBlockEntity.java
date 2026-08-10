@@ -706,8 +706,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (engine == null) {
             return RestorePlan.blocked("missing infinite storage engine");
         }
+        if (!engine.isLoaded()) {
+            return RestorePlan.blocked("infinite storage domain is still loading");
+        }
         if (!engine.isHealthy()) {
             return RestorePlan.blocked("infinite storage domain is degraded and requires recovery");
+        }
+        if (engine.hasOrphanedEntries()) {
+            return RestorePlan.blocked("infinite storage contains entries from missing mods");
         }
         if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of(), engine.getRevision());
