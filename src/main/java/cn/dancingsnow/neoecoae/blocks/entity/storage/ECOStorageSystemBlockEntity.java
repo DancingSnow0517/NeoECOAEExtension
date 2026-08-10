@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -15,6 +16,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageHelper;
 import appeng.helpers.IPriorityHost;
 import appeng.hooks.ticking.TickHandler;
 import appeng.menu.ISubMenu;
@@ -249,7 +251,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(20, 20, false, false);
+        return new TickingRequest(1, 1, false, false);
     }
 
     @Override
@@ -1614,6 +1616,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         MEStorage target = grid.getStorageService().getInventory();
+        IEnergySource energy = grid.getEnergyService();
         IActionSource source = IActionSource.ofMachine(storageInterface);
         long exported = 0L;
         int remainingKeys = STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK;
@@ -1635,7 +1638,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (cell == null || !canExportDriveCell(drive)) {
                 continue;
             }
-            ExportResult result = exportFromStorageLimited(cell, target, source, remainingKeys);
+            ExportResult result = exportFromStorageLimited(cell, target, source, remainingKeys, energy);
             exported = saturatedAdd(exported, result.exported());
             remainingKeys -= result.keysVisited();
         }
@@ -1660,6 +1663,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         MEStorage sourceStorage = grid.getStorageService().getInventory();
+        IEnergySource energy = grid.getEnergyService();
         IActionSource source = IActionSource.ofMachine(storageInterface);
         appeng.api.stacks.KeyCounter available = new appeng.api.stacks.KeyCounter();
         sourceStorage.getAvailableStacks(available);
@@ -1671,11 +1675,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 break;
             }
             long amount = entry.getLongValue();
-            if (amount <= 0L) {
+            if (amount <= 0L || isInfiniteNetworkAmount(amount)) {
                 continue;
             }
             keysVisited++;
-            long moved = importKey(sourceStorage, source, entry.getKey(), amount);
+            long moved = importKey(sourceStorage, energy, source, entry.getKey(), amount);
             if (moved > 0L) {
                 imported = saturatedAdd(imported, moved);
             }
@@ -1705,6 +1709,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private ExportResult exportFromStorageLimited(
             MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, int maxKeys) {
+        return exportFromStorageLimited(sourceStorage, targetStorage, source, maxKeys, null);
+    }
+
+    private ExportResult exportFromStorageLimited(
+            MEStorage sourceStorage,
+            MEStorage targetStorage,
+            IActionSource source,
+            int maxKeys,
+            @Nullable IEnergySource energy) {
         if (maxKeys <= 0) {
             return new ExportResult(0L, 0);
         }
@@ -1724,7 +1737,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 continue;
             }
             keysVisited++;
-            long moved = exportKey(sourceStorage, targetStorage, source, entry.getKey(), amount);
+            long moved = energy == null
+                    ? exportKey(sourceStorage, targetStorage, source, entry.getKey(), amount)
+                    : transferPowered(sourceStorage, targetStorage, source, entry.getKey(), amount, energy);
             if (moved > 0L) {
                 exported = saturatedAdd(exported, moved);
             }
@@ -1754,29 +1769,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return Math.max(0L, inserted);
     }
 
-    private long importKey(MEStorage sourceStorage, IActionSource source, AEKey key, long availableAmount) {
-        long request = Math.max(0L, availableAmount);
-        if (request <= 0L) {
-            return 0L;
-        }
-        long accepted = insertIntoSubsystem(key, request, Actionable.SIMULATE, source);
-        if (accepted <= 0L) {
-            return 0L;
-        }
-        long extracted = sourceStorage.extract(key, Math.min(request, accepted), Actionable.MODULATE, source);
-        if (extracted <= 0L) {
-            return 0L;
-        }
-        long inserted = insertIntoSubsystem(key, extracted, Actionable.MODULATE, source);
-        if (inserted < extracted) {
-            long remainder = extracted - Math.max(0L, inserted);
-            sourceStorage.insert(key, remainder, Actionable.MODULATE, source);
-        }
-        return Math.max(0L, inserted);
-    }
-
-    private long insertIntoSubsystem(AEKey key, long amount, Actionable mode, IActionSource source) {
-        long remaining = Math.max(0L, amount);
+    private long importKey(
+            MEStorage sourceStorage, IEnergySource energy, IActionSource source, AEKey key, long availableAmount) {
+        long remaining = Math.max(0L, availableAmount);
         long inserted = 0L;
         if (remaining <= 0L || cluster == null) {
             return 0L;
@@ -1790,7 +1785,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (cell == null || !canExportDriveCell(drive)) {
                 continue;
             }
-            long moved = cell.insert(key, remaining, mode, source);
+            long moved = transferPowered(sourceStorage, cell, source, key, remaining, energy);
             if (moved > 0L) {
                 inserted = saturatedAdd(inserted, moved);
                 remaining -= Math.min(remaining, moved);
@@ -1802,14 +1797,56 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (engine != null && canUseHostDomainStorage()) {
                 long moved = new ECOInfiniteStorage(
                                 engine, getBlockState().getBlock().getName())
-                        .insert(key, remaining, mode, source);
+                        .insert(key, remaining, Actionable.SIMULATE, source);
                 if (moved > 0L) {
-                    inserted = saturatedAdd(inserted, moved);
+                    long extracted = sourceStorage.extract(key, Math.min(remaining, moved), Actionable.MODULATE, source);
+                    if (extracted > 0L) {
+                        long accepted = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName())
+                                .insert(key, extracted, Actionable.MODULATE, source);
+                        if (accepted < extracted) {
+                            sourceStorage.insert(key, extracted - Math.max(0L, accepted), Actionable.MODULATE, source);
+                        }
+                        inserted = saturatedAdd(inserted, Math.max(0L, accepted));
+                    }
                 }
             }
         }
 
         return inserted;
+    }
+
+    private static long transferPowered(
+            MEStorage sourceStorage,
+            MEStorage targetStorage,
+            IActionSource source,
+            AEKey key,
+            long amount,
+            IEnergySource energy) {
+        long request = Math.max(0L, amount);
+        if (request <= 0L) {
+            return 0L;
+        }
+        long extractable = sourceStorage.extract(key, request, Actionable.SIMULATE, source);
+        if (extractable <= 0L) {
+            return 0L;
+        }
+        long accepted = targetStorage.insert(key, extractable, Actionable.SIMULATE, source);
+        if (accepted <= 0L) {
+            return 0L;
+        }
+        long extracted = sourceStorage.extract(key, accepted, Actionable.MODULATE, source);
+        if (extracted <= 0L) {
+            return 0L;
+        }
+        long inserted = StorageHelper.poweredInsert(energy, targetStorage, key, extracted, source);
+        if (inserted < extracted) {
+            sourceStorage.insert(key, extracted - Math.max(0L, inserted), Actionable.MODULATE, source);
+        }
+        return Math.max(0L, inserted);
+    }
+
+    private static boolean isInfiniteNetworkAmount(long amount) {
+        return amount == Long.MAX_VALUE || amount == Integer.MAX_VALUE;
     }
 
     private void requestProviderUpdates() {
