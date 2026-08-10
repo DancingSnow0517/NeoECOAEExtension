@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import java.util.List;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
 class ECOCraftingSystemBlockEntityTest {
@@ -68,6 +71,63 @@ class ECOCraftingSystemBlockEntityTest {
         assertEquals(8, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_000, 600));
         assertEquals(0, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 1_024));
         assertEquals(5, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 768));
+    }
+
+    @Test
+    void parallelCapacityUsesEachInstalledCoreTier() {
+        var coreTiers = List.of(new TestCoreTier(24, 32), new TestCoreTier(72, 96), new TestCoreTier(256, 384));
+
+        assertEquals(352, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, false, 1));
+        assertEquals(704, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, false, 2));
+        assertEquals(864, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, true, 1));
+        assertEquals(6_912, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, true, 8));
+    }
+
+    private record TestCoreTier(int crafterParallel, int overclockedCrafterParallel) implements IECOTier {
+        @Override
+        public int getTier() {
+            return 0;
+        }
+
+        @Override
+        public int getCrafterParallel() {
+            return crafterParallel;
+        }
+
+        @Override
+        public int getOverclockedCrafterParallel() {
+            return overclockedCrafterParallel;
+        }
+
+        @Override
+        public int getCPUAccelerators() {
+            return 0;
+        }
+
+        @Override
+        public int getCPUThreads() {
+            return 0;
+        }
+
+        @Override
+        public long getCPUTotalBytes() {
+            return 0L;
+        }
+
+        @Override
+        public long getStorageTotalBytes() {
+            return 0L;
+        }
+
+        @Override
+        public long getPowerStorageSize() {
+            return 0L;
+        }
+
+        @Override
+        public ResourceLocation getCPUOverlayTexture() {
+            return null;
+        }
     }
 
     @Test

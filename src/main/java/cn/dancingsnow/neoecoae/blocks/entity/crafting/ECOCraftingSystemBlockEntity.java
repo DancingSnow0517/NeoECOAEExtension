@@ -529,12 +529,27 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * the overflow calculation as well.
      */
     private long getParallelCapacity() {
+        if (cluster == null) {
+            return 0L;
+        }
         return calculateParallelCapacity(
-                parallelCount,
-                tier.getCrafterParallel(),
-                tier.getOverclockedCrafterParallel(),
+                cluster.getParallelCores().stream()
+                        .map(ECOCraftingParallelCoreBlockEntity::getTier)
+                        .toList(),
                 overclocked,
                 getNetworkMultiplier());
+    }
+
+    /** Sums the capacity of every installed core instead of assuming the controller's tier. */
+    static long calculateParallelCapacity(
+            Iterable<? extends IECOTier> coreTiers, boolean overclocked, int networkMultiplier) {
+        long capacity = 0L;
+        for (IECOTier coreTier : coreTiers) {
+            if (coreTier != null) {
+                capacity = saturatingAdd(capacity, getCoreThreadCountLong(coreTier, overclocked));
+            }
+        }
+        return saturatingMultiply(capacity, Math.max(1, networkMultiplier));
     }
 
     static long calculateParallelCapacity(
@@ -549,6 +564,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         return saturatingMultiply(
                 saturatingMultiply(Math.max(0, parallelCoreCount), perCore), Math.max(1, networkMultiplier));
+    }
+
+    private static long getCoreThreadCountLong(IECOTier coreTier, boolean overclocked) {
+        long threads = Math.max(0L, coreTier.getCrafterParallel());
+        if (overclocked) {
+            threads = saturatingAdd(threads, Math.max(0L, coreTier.getOverclockedCrafterParallel()));
+        }
+        return threads;
     }
 
     private long getMaxSynthesisEfficiency() {
@@ -1076,7 +1099,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     /** Returns the structural parallel capacity contributed by this physical host. */
     public long getLocalBaseParallelCapacity() {
         ensureCraftingStatsCurrent();
-        return saturatingMultiply(Math.max(0, parallelCount), Math.max(0, tier.getCrafterParallel()));
+        if (cluster == null) {
+            return 0L;
+        }
+        return calculateParallelCapacity(
+                cluster.getParallelCores().stream()
+                        .map(ECOCraftingParallelCoreBlockEntity::getTier)
+                        .toList(),
+                false,
+                1);
     }
 
     /** The reference duration for one recipe at the normal 10 progress/tick rate. */
