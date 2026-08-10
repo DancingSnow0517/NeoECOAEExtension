@@ -61,7 +61,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private static final ResourceLocation AE2_MISSING_CONTENT =
         ResourceLocation.fromNamespaceAndPath("ae2", "missing_content");
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
-    private static final long PERSISTENCE_PROBE_INTERVAL_TICKS = 200L;
+    // Ordinary mutations remain dirty for Minecraft's autosave, while this bounds the stronger read-back check.
+    private static final long PERSISTENCE_PROBE_INTERVAL_TICKS = 600L;
 
     private final HolderLookup.Provider registries;
     private final UUID domainId;

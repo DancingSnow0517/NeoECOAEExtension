@@ -5,6 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
+import appeng.crafting.pattern.AESmithingTablePattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
@@ -44,10 +45,21 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        return details instanceof AECraftingPattern || isExternalProcessingPattern(details);
+        return details instanceof AECraftingPattern
+            || details instanceof AESmithingTablePattern
+            || isExternalProcessingPattern(details);
     }
 
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
+        if (details instanceof AESmithingTablePattern smithingPattern) {
+            // Strict smithing patterns have fixed template, base, and addition slots. Their
+            // concrete inputs and verified output are included in the FastPath cache entry.
+            // Substitution remains on the slow path until its alternative-input semantics are
+            // modeled explicitly.
+            return smithingPattern.canSubstitute()
+                ? PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE
+                : PatternEligibility.ELIGIBLE;
+        }
         if (!(details instanceof AECraftingPattern pattern)) {
             // External CPUs can batch provider-owned processing patterns (AdvancedAE/AE2LT)
             // without relying on AE2's vanilla CraftingRecipe internals. They still need a stable

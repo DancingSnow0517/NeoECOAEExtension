@@ -455,13 +455,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         patternPreviewSources = sources;
         allPatternPreviewEntries = entries;
-        patternPreviewEntries = entries;
         patternPreviewInitialized = true;
         patternPreviewScanning = false;
         patternPreviewScannedSlots = 0;
         patternPreviewTotalSlots = entries.size();
-        patternPreviewEntryCount = entries.size();
-        patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
+        rebuildPatternPreviewEntries();
         syncPatternPreviewState(serverLevel.getGameTime(), true);
     }
 
@@ -538,13 +536,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || !showFluidSubstitutionPatterns && encodedPattern.canSubstituteFluids())) {
             return false;
         }
-        if (query.isEmpty() || stack.getHoverName().getString().toLowerCase(java.util.Locale.ROOT).contains(query)
-                || stack.getComponentsPatch().toString().toLowerCase(java.util.Locale.ROOT).contains(query)) {
-            return true;
-        }
         var details = level == null ? null : PatternDetailsHelper.decodePattern(stack, level);
-        return details != null && details.getOutputs().stream()
-            .anyMatch(output -> output.what().getDisplayName().getString().toLowerCase(java.util.Locale.ROOT).contains(query));
+        if (details == null) {
+            return false;
+        }
+
+        // Match AE2's pattern access terminal: only pattern outputs take part in its text search.
+        return query.isEmpty() || details.getOutputs().stream()
+                .anyMatch(output -> output.what().getDisplayName().getString()
+                        .toLowerCase(java.util.Locale.ROOT).contains(query));
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {
