@@ -324,7 +324,9 @@ public final class ECOIntegerHyperflowSolver {
                     : Termination.DEADLINE;
                 return null;
             }
-            Map<K, Long> available = new LinkedHashMap<>(problem.inventory());
+            // Existing requested output is not a crafted result, so it must not
+            // contribute to the balance used to choose operations.
+            Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
             Map<R, Long> executions = new LinkedHashMap<>();
             for (int i = 0; i < operations.size(); i++) {
                 if (shouldStop()) {
@@ -341,13 +343,13 @@ public final class ECOIntegerHyperflowSolver {
                 var operation = operations.get(i);
                 executions.put(operation.reference(), count);
                 for (var input : operation.inputs().entrySet()) {
-                    if (!mergeScaled(available, input.getKey(), input.getValue(), -count)) {
+                    if (!mergeScaled(balances, input.getKey(), input.getValue(), -count)) {
                         overflowBranches++;
                         return null;
                     }
                 }
                 for (var output : operation.outputs().entrySet()) {
-                    if (!mergeScaled(available, output.getKey(), output.getValue(), count)) {
+                    if (!mergeScaled(balances, output.getKey(), output.getValue(), count)) {
                         overflowBranches++;
                         return null;
                     }
@@ -359,27 +361,6 @@ public final class ECOIntegerHyperflowSolver {
                 return null;
             }
             long requestedShortfall = 0;
-            Map<K, Long> balances = new LinkedHashMap<>(available);
-            for (var request : problem.requested().entrySet()) {
-                if (shouldStop()) {
-                    exhausted = true;
-                    termination = Thread.currentThread().isInterrupted()
-                        ? Termination.INTERRUPTED
-                        : Termination.DEADLINE;
-                    return null;
-                }
-                long present = Math.max(0, available.getOrDefault(request.getKey(), 0L));
-                if (present < request.getValue()
-                    && hasStartableProducer(request.getKey(), bootstrapSupply)) {
-                    requestedShortfall = ECOPlannerMath.saturatedAdd(
-                        requestedShortfall, request.getValue() - present);
-                }
-                if (!mergeScaled(balances, request.getKey(), request.getValue(), -1L)) {
-                    overflowBranches++;
-                    return null;
-                }
-            }
-
             long sourceShortfall = 0;
             long dependencyShortfall = 0;
             long surplus = 0;
@@ -394,7 +375,9 @@ public final class ECOIntegerHyperflowSolver {
                 if (balance.getValue() < 0) {
                     long missing = ECOPlannerMath.saturatedNegate(balance.getValue());
                     if (hasStartableProducer(balance.getKey(), bootstrapSupply)) {
-                        if (!problem.requested().containsKey(balance.getKey())) {
+                        if (problem.requested().containsKey(balance.getKey())) {
+                            requestedShortfall = ECOPlannerMath.saturatedAdd(requestedShortfall, missing);
+                        } else {
                             dependencyShortfall = ECOPlannerMath.saturatedAdd(dependencyShortfall, missing);
                         }
                     } else {
