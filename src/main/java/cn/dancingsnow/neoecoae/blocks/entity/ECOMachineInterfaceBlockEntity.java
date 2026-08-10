@@ -41,9 +41,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements ISyncPersistRPCBlockEntity {
@@ -52,8 +54,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_PREVIEW_COLUMNS = 9;
-    private static final int PATTERN_PREVIEW_ROWS = 5;
+    private static final int PATTERN_PREVIEW_ROWS = 4;
     private static final int PATTERN_PREVIEW_VISIBLE_SLOTS = PATTERN_PREVIEW_COLUMNS * PATTERN_PREVIEW_ROWS;
+    private static final int PATTERN_PREVIEW_INDEX_SLOTS_PER_TICK = 32;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -103,7 +106,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private boolean showFluidSubstitutionPatterns = true;
     private List<PatternContainer> patternPreviewSources = List.of();
     private List<PatternPreviewEntry> allPatternPreviewEntries = new ArrayList<>();
-    private List<PatternPreviewEntry> patternPreviewEntries = new ArrayList<>();
+    private List<PatternPreviewRow> allPatternPreviewRows = new ArrayList<>();
+    private List<PatternPreviewRow> patternPreviewRows = new ArrayList<>();
+    private final Set<PatternPreviewEntry> matchedPatternPreviewEntries = Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Map<PatternPreviewEntry, PatternPreviewSearchData> patternPreviewSearchIndex = new HashMap<>();
+    private int patternPreviewIndexCursor;
     private boolean patternPreviewInitialized;
     private long lastPatternPreviewSyncTick = Long.MIN_VALUE;
     private final IItemHandlerModifiable patternPreviewItemHandler = new PatternPreviewItemHandler();
@@ -273,6 +280,19 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         markForUpdate();
     }
 
+    public int getPatternPreviewRowCount() {
+        return patternPreviewRows.size();
+    }
+
+    public int getPatternPreviewScrollRow() {
+        return patternPreviewScrollRow;
+    }
+
+    public boolean isPatternPreviewSlotMatched(int visualSlot) {
+        PatternPreviewEntry entry = getPreviewEntry(visualSlot);
+        return entry != null && matchedPatternPreviewEntries.contains(entry);
+    }
+
     public void clearPatternPreviewSearch() {
         setPatternPreviewSearch("");
     }
@@ -325,9 +345,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         );
     }
 
-    private int getPatternPreviewMaxScrollRow() {
-        int totalRows = (patternPreviewEntryCount + PATTERN_PREVIEW_COLUMNS - 1) / PATTERN_PREVIEW_COLUMNS;
-        return Math.max(0, totalRows - PATTERN_PREVIEW_ROWS);
+    public int getPatternPreviewMaxScrollRow() {
+        return Math.max(0, patternPreviewRows.size() - PATTERN_PREVIEW_ROWS);
+    }
+
+    public void setPatternPreviewScrollRow(int scrollRow) {
+        int nextRow = Math.clamp(scrollRow, 0, getPatternPreviewMaxScrollRow());
+        if (nextRow != patternPreviewScrollRow) {
+            patternPreviewScrollRow = nextRow;
+            markForUpdate();
+        }
     }
 
     public void tick() {
@@ -458,16 +485,28 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         List<PatternContainer> sources = getFPatternSources(grid);
         List<PatternPreviewEntry> entries = new ArrayList<>();
+        List<PatternPreviewRow> rows = new ArrayList<>();
         for (PatternContainer source : sources) {
             InternalInventory inventory = source.getTerminalPatternInventory();
-            for (int slot = 0; slot < inventory.size(); slot++) {
-                entries.add(new PatternPreviewEntry(source, slot));
+            for (int firstSlot = 0; firstSlot < inventory.size(); firstSlot += PATTERN_PREVIEW_COLUMNS) {
+                List<PatternPreviewEntry> rowEntries = new ArrayList<>(PATTERN_PREVIEW_COLUMNS);
+                int endSlot = Math.min(firstSlot + PATTERN_PREVIEW_COLUMNS, inventory.size());
+                for (int slot = firstSlot; slot < endSlot; slot++) {
+                    PatternPreviewEntry entry = new PatternPreviewEntry(source, slot);
+                    entries.add(entry);
+                    rowEntries.add(entry);
+                }
+                rows.add(new PatternPreviewRow(List.copyOf(rowEntries)));
             }
         }
         patternPreviewSources = sources;
         allPatternPreviewEntries = entries;
+        allPatternPreviewRows = rows;
+        patternPreviewSearchIndex.clear();
+        matchedPatternPreviewEntries.clear();
+        patternPreviewIndexCursor = 0;
         patternPreviewInitialized = true;
-        patternPreviewScanning = false;
+        patternPreviewScanning = !entries.isEmpty();
         patternPreviewScannedSlots = 0;
         patternPreviewTotalSlots = entries.size();
         rebuildPatternPreviewEntries();
@@ -489,6 +528,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             loadPatternPreview(serverLevel);
             return;
         }
+        tickPatternPreviewSearchIndex(serverLevel);
     }
 
     private boolean samePatternPreviewSources(List<PatternContainer> sources) {
@@ -507,7 +547,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private void clearPatternPreview() {
         patternPreviewSources = List.of();
         allPatternPreviewEntries = new ArrayList<>();
-        patternPreviewEntries = new ArrayList<>();
+        allPatternPreviewRows = new ArrayList<>();
+        patternPreviewRows = new ArrayList<>();
+        matchedPatternPreviewEntries.clear();
+        patternPreviewSearchIndex.clear();
+        patternPreviewIndexCursor = 0;
         patternPreviewEntryCount = 0;
         patternPreviewScrollRow = 0;
         patternPreviewInitialized = false;
@@ -517,75 +561,153 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void rebuildPatternPreviewEntries() {
-        // Search and filters are intentionally applied only when the player changes them. The normal terminal view
-        // retains every physical bus slot, including empty ones, so insertion can be ordered and direct.
+        matchedPatternPreviewEntries.clear();
+        List<String> queryTerms = tokenizePatternPreviewSearch(patternPreviewSearch);
+
+        // With no active filter, preserve every physical row and its empty slots exactly as stored on the F buses.
         if (patternPreviewSearch.isEmpty() && showSubstitutionPatterns && showFluidSubstitutionPatterns) {
-            patternPreviewEntries = allPatternPreviewEntries;
-            patternPreviewEntryCount = patternPreviewEntries.size();
+            patternPreviewRows = allPatternPreviewRows;
+            patternPreviewEntryCount = allPatternPreviewEntries.size();
             patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
             return;
         }
-        List<PatternPreviewEntry> entries = new ArrayList<>();
-        for (PatternPreviewEntry entry : allPatternPreviewEntries) {
-            if (!isPreviewSourceActive(entry)) {
-                continue;
+        List<PatternPreviewRow> rows = new ArrayList<>();
+        for (PatternPreviewRow row : allPatternPreviewRows) {
+            boolean rowMatches = false;
+            for (PatternPreviewEntry entry : row.entries()) {
+                if (matchesPatternPreviewSearch(entry, queryTerms)) {
+                    rowMatches = true;
+                }
             }
-            ItemStack stack = getPreviewInventory(entry).getStackInSlot(entry.sourceSlot());
-            if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)
-                    && matchesPatternPreviewSearch(stack, patternPreviewSearch)) {
-                entries.add(entry);
+            if (rowMatches) {
+                rows.add(row);
             }
         }
-        patternPreviewEntries = entries;
-        patternPreviewEntryCount = entries.size();
+        patternPreviewRows = rows;
+        patternPreviewEntryCount = rows.stream().mapToInt(row -> row.entries().size()).sum();
         patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
     }
 
-    private boolean matchesPatternPreviewSearch(ItemStack stack, String query) {
-        var encodedPattern = stack.get(AEComponents.ENCODED_CRAFTING_PATTERN);
-        if (encodedPattern != null && (!showSubstitutionPatterns && encodedPattern.canSubstitute()
-                || !showFluidSubstitutionPatterns && encodedPattern.canSubstituteFluids())) {
+    private boolean matchesPatternPreviewSearch(PatternPreviewEntry entry, List<String> queryTerms) {
+        if (!isPreviewSourceActive(entry)) {
             return false;
         }
-        var details = level == null ? null : PatternDetailsHelper.decodePattern(stack, level);
-        if (details == null) {
+        PatternPreviewSearchData searchData = patternPreviewSearchIndex.get(entry);
+        if (searchData == null || !searchData.encodedPattern()) {
             return false;
         }
-
-        List<String> queryTerms = tokenizePatternPreviewSearch(query);
+        if (!showSubstitutionPatterns && searchData.canSubstitute()
+                || !showFluidSubstitutionPatterns && searchData.canSubstituteFluids()) {
+            return false;
+        }
         if (queryTerms.isEmpty()) {
             return true;
         }
-
-        // Match ExtendedAE's assembling matrix: a query may match either an output or any viable input.
-        if (details.getOutputs().stream()
-                .anyMatch(output -> matchesPatternPreviewSearchName(
-                        output.what().getDisplayName().getString(), queryTerms))) {
+        if (searchData.names().stream().anyMatch(nameTokens -> matchesPatternPreviewSearchName(nameTokens, queryTerms))) {
+            matchedPatternPreviewEntries.add(entry);
             return true;
-        }
-        for (var input : details.getInputs()) {
-            if (input == null) {
-                continue;
-            }
-            for (var possibleInput : input.getPossibleInputs()) {
-                if (possibleInput != null && matchesPatternPreviewSearchName(
-                        possibleInput.what().getDisplayName().getString(), queryTerms)) {
-                    return true;
-                }
-            }
         }
         return false;
     }
 
     private static List<String> tokenizePatternPreviewSearch(String query) {
-        return Arrays.stream(query.strip().toLowerCase(Locale.ROOT).split("\\s+"))
+        // ExtendedAE deliberately splits only on spaces, which preserves its established handling of other input.
+        return Arrays.stream(query.trim().toLowerCase(Locale.ROOT).split(" "))
                 .filter(term -> !term.isEmpty())
                 .toList();
     }
 
-    private static boolean matchesPatternPreviewSearchName(String displayName, List<String> queryTerms) {
-        String normalizedName = displayName.toLowerCase(Locale.ROOT);
-        return queryTerms.stream().allMatch(normalizedName::contains);
+    private static boolean matchesPatternPreviewSearchName(List<String> nameTokens, List<String> queryTerms) {
+        // Equivalent to ExtendedAE FCUtil.compareTokens: query tokens must occur in order, while unmatched name
+        // tokens between them are allowed.
+        for (int firstNameToken = 0; firstNameToken <= nameTokens.size() - queryTerms.size(); firstNameToken++) {
+            int nameToken = firstNameToken;
+            int queryToken = 0;
+            while (nameToken < nameTokens.size() && queryToken < queryTerms.size()) {
+                if (nameTokens.get(nameToken).contains(queryTerms.get(queryToken))) {
+                    queryToken++;
+                }
+                nameToken++;
+            }
+            if (queryToken == queryTerms.size()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Builds the query index in small batches. Filtering then reads only this cache, so typing into the field never
+     * repeatedly decodes the complete F-bus pattern collection.
+     */
+    private void tickPatternPreviewSearchIndex(ServerLevel serverLevel) {
+        if (allPatternPreviewEntries.isEmpty()) {
+            patternPreviewScanning = false;
+            return;
+        }
+
+        boolean changed = false;
+        boolean finishedInitialScan = false;
+        int indexedThisTick = 0;
+        while (indexedThisTick < PATTERN_PREVIEW_INDEX_SLOTS_PER_TICK) {
+            if (patternPreviewIndexCursor >= allPatternPreviewEntries.size()) {
+                patternPreviewIndexCursor = 0;
+                if (patternPreviewScanning) {
+                    patternPreviewScanning = false;
+                    patternPreviewScannedSlots = patternPreviewTotalSlots;
+                    finishedInitialScan = true;
+                }
+                break;
+            }
+            PatternPreviewEntry entry = allPatternPreviewEntries.get(patternPreviewIndexCursor++);
+            indexedThisTick++;
+            if (patternPreviewScanning) {
+                patternPreviewScannedSlots = Math.min(patternPreviewTotalSlots, patternPreviewScannedSlots + 1);
+            }
+            if (!isPreviewSourceActive(entry)) {
+                continue;
+            }
+            ItemStack stack = getPreviewInventory(entry).getStackInSlot(entry.sourceSlot());
+            PatternPreviewSearchData current = patternPreviewSearchIndex.get(entry);
+            if (current == null || !ItemStack.matches(current.stack(), stack)) {
+                patternPreviewSearchIndex.put(entry, createPatternPreviewSearchData(stack));
+                changed = true;
+            }
+        }
+        if (changed) {
+            rebuildPatternPreviewEntries();
+        }
+        if (changed || finishedInitialScan) {
+            syncPatternPreviewState(serverLevel.getGameTime(), false);
+        }
+    }
+
+    private PatternPreviewSearchData createPatternPreviewSearchData(ItemStack stack) {
+        if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
+            return new PatternPreviewSearchData(stack.copy(), false, false, false, List.of());
+        }
+        var encodedPattern = stack.get(AEComponents.ENCODED_CRAFTING_PATTERN);
+        boolean canSubstitute = encodedPattern != null && encodedPattern.canSubstitute();
+        boolean canSubstituteFluids = encodedPattern != null && encodedPattern.canSubstituteFluids();
+        var details = level == null ? null : PatternDetailsHelper.decodePattern(stack, level);
+        if (details == null) {
+            return new PatternPreviewSearchData(stack.copy(), true, canSubstitute, canSubstituteFluids, List.of());
+        }
+
+        List<List<String>> names = new ArrayList<>();
+        for (var output : details.getOutputs()) {
+            if (output != null) {
+                names.add(tokenizePatternPreviewSearch(output.what().getDisplayName().getString()));
+            }
+        }
+        // This intentionally uses only the first possible input, matching ExtendedAE's assembling matrix.
+        for (var input : details.getInputs()) {
+            if (input == null || input.getPossibleInputs().length == 0 || input.getPossibleInputs()[0] == null) {
+                continue;
+            }
+            names.add(tokenizePatternPreviewSearch(input.getPossibleInputs()[0].what().getDisplayName().getString()));
+        }
+        return new PatternPreviewSearchData(stack.copy(), true, canSubstitute, canSubstituteFluids, List.copyOf(names));
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {
@@ -679,6 +801,21 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private record PatternPreviewEntry(PatternContainer source, int sourceSlot) {
+    }
+
+    private record PatternPreviewRow(List<PatternPreviewEntry> entries) {
+        @Nullable
+        private PatternPreviewEntry entryAt(int column) {
+            return column >= 0 && column < entries.size() ? entries.get(column) : null;
+        }
+    }
+
+    private record PatternPreviewSearchData(
+            ItemStack stack,
+            boolean encodedPattern,
+            boolean canSubstitute,
+            boolean canSubstituteFluids,
+            List<List<String>> names) {
     }
 
     /**
@@ -812,8 +949,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Nullable
     private PatternPreviewEntry getPreviewEntry(int visualSlot) {
-        int entryIndex = patternPreviewScrollRow * PATTERN_PREVIEW_COLUMNS + visualSlot;
-        return entryIndex >= 0 && entryIndex < patternPreviewEntries.size() ? patternPreviewEntries.get(entryIndex) : null;
+        if (!isValidPreviewSlot(visualSlot)) {
+            return null;
+        }
+        int row = patternPreviewScrollRow + visualSlot / PATTERN_PREVIEW_COLUMNS;
+        return row >= 0 && row < patternPreviewRows.size()
+                ? patternPreviewRows.get(row).entryAt(visualSlot % PATTERN_PREVIEW_COLUMNS)
+                : null;
     }
 
     @Nullable

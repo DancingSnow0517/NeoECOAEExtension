@@ -20,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
@@ -36,12 +37,16 @@ public final class CraftingInterfaceUI {
     private static final int STATUS_CONNECTED = 0x55CC77;
     private static final int STATUS_DISCONNECTED = 0xDD5555;
     private static final int PREVIEW_COLUMNS = 9;
-    private static final int PREVIEW_ROWS = 5;
+    private static final int PREVIEW_ROWS = 4;
     private static final int PREVIEW_WIDTH = PREVIEW_COLUMNS * 18;
     private static final int PREVIEW_HEIGHT = PREVIEW_ROWS * 18;
     private static final int PLAYER_INVENTORY_WIDTH = 9 * 18;
     private static final int ROOT_SIDE_MARGIN = 7;
     private static final int TOOL_BUTTON_SIZE = 16;
+    private static final int PREVIEW_SCROLLBAR_WIDTH = 12;
+    private static final int PREVIEW_SCROLLBAR_GAP = 2;
+    private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
+    private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
 
     private CraftingInterfaceUI() {
     }
@@ -52,7 +57,7 @@ public final class CraftingInterfaceUI {
         craftingInterface.ensurePatternPreview();
 
         UIElement root = new UIElement().layout(layout -> layout
-                .width(PLAYER_INVENTORY_WIDTH + ROOT_SIDE_MARGIN * 2)
+                .width(PLAYER_INVENTORY_WIDTH + PREVIEW_SCROLLBAR_WIDTH + PREVIEW_SCROLLBAR_GAP + ROOT_SIDE_MARGIN * 2)
                 .paddingLeft(ROOT_SIDE_MARGIN)
                 .paddingRight(ROOT_SIDE_MARGIN)
                 .paddingTop(8)
@@ -187,17 +192,17 @@ public final class CraftingInterfaceUI {
         section.addChild(previewHeader(craftingInterface));
         section.addChild(patternPreviewRow(craftingInterface));
         section.addChild(statusLabel(craftingInterface::getPatternPreviewStatus));
-        section.addChild(statusLabel(craftingInterface::getPatternPreviewScrollStatus));
         return section;
     }
 
     private static UIElement patternPreviewRow(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
         UIElement row = new UIElement().layout(layout -> layout
-                .widthPercent(100)
+                .width(PREVIEW_WIDTH + PREVIEW_SCROLLBAR_GAP + PREVIEW_SCROLLBAR_WIDTH)
                 .height(PREVIEW_HEIGHT)
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER));
         row.addChild(patternPreview(craftingInterface));
+        row.addChild(patternPreviewScrollbar(craftingInterface));
         return row;
     }
 
@@ -230,11 +235,60 @@ public final class CraftingInterfaceUI {
                 int visualSlot = row * PREVIEW_COLUMNS + column;
                 previewRow.addChild(new PatternItemSlot(
                         new ItemHandlerSlot(craftingInterface.getPatternPreviewItemHandler(), visualSlot))
+                        .highlighted(() -> craftingInterface.isPatternPreviewSlotMatched(visualSlot))
                         .slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY)));
             }
             preview.addChild(previewRow);
         }
         return preview;
+    }
+
+    private static UIElement patternPreviewScrollbar(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+        UIElement scrollbar = new UIElement() {
+            @Override
+            public void drawContents(GUIContext guiContext) {
+                int totalRows = craftingInterface.getPatternPreviewRowCount();
+                if (totalRows <= PREVIEW_ROWS) {
+                    return;
+                }
+                int height = PREVIEW_HEIGHT;
+                int maxScroll = Math.max(1, craftingInterface.getPatternPreviewMaxScrollRow());
+                int thumbY = Math.round((height - PREVIEW_SCROLLBAR_THUMB_HEIGHT)
+                        * (craftingInterface.getPatternPreviewScrollRow() / (float) maxScroll));
+                int x = Math.round(getPositionX());
+                int y = Math.round(getPositionY());
+                guiContext.drawTexture(NETextures.AE_SCROLLBAR_TRACK,
+                        x + (PREVIEW_SCROLLBAR_WIDTH - PREVIEW_SCROLLBAR_TRACK_WIDTH) / 2F, y,
+                        PREVIEW_SCROLLBAR_TRACK_WIDTH, height);
+                guiContext.drawTexture(NETextures.AE_SCROLLBAR_THUMB, x, y + thumbY,
+                        PREVIEW_SCROLLBAR_WIDTH, PREVIEW_SCROLLBAR_THUMB_HEIGHT);
+            }
+        }.layout(layout -> layout
+                .width(PREVIEW_SCROLLBAR_WIDTH)
+                .height(PREVIEW_HEIGHT)
+                .marginLeft(PREVIEW_SCROLLBAR_GAP));
+        scrollbar.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY != 0) {
+                event.stopImmediatePropagation();
+            }
+        });
+        scrollbar.addServerEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY != 0) {
+                craftingInterface.scrollPatternPreview(event.deltaY < 0 ? 1 : -1);
+                event.stopImmediatePropagation();
+            }
+        });
+        scrollbar.addServerEventListener(UIEvents.MOUSE_DOWN, event -> {
+            int maxScroll = craftingInterface.getPatternPreviewMaxScrollRow();
+            if (maxScroll > 0) {
+                float localY = scrollbar.getLocalMouse(event.x, event.y).y;
+                float progress = Math.clamp((localY - PREVIEW_SCROLLBAR_THUMB_HEIGHT / 2F)
+                        / (PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT), 0F, 1F);
+                craftingInterface.setPatternPreviewScrollRow(Math.round(progress * maxScroll));
+                event.stopImmediatePropagation();
+            }
+        });
+        return scrollbar;
     }
 
     private static Button iconButton(Icon icon, String tooltip, Runnable action) {
