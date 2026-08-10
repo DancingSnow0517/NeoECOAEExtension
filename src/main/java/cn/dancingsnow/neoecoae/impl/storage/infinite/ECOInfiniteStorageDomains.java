@@ -61,6 +61,20 @@ public final class ECOInfiniteStorageDomains {
         return created;
     }
 
+    /** Reopens a domain that was closed after its most recent successful persistence check. */
+    public static synchronized ECOInfiniteStorageEngine recover(ServerLevel level, UUID domainId) {
+        Path worldRoot = worldRoot(level);
+        String key = keyFor(worldRoot, domainId);
+        DomainEntry entry = ENTRIES.get(key);
+        if (entry == null) {
+            entry = new DomainEntry(level, domainId, false);
+            ENTRIES.put(key, entry);
+            entry.advanceMigration(false);
+        }
+        entry.recover();
+        return entry;
+    }
+
     /** Creates and durably verifies a brand-new empty domain. */
     public static synchronized ECOInfiniteStorageEngine create(ServerLevel level, UUID domainId) {
         Path worldRoot = worldRoot(level);
@@ -349,6 +363,22 @@ public final class ECOInfiniteStorageDomains {
                 quarantine("Infinite-storage data is missing", null);
             } catch (Exception e) {
                 quarantine("Unable to discover infinite-storage data", e);
+            }
+        }
+
+        private synchronized void recover() {
+            if (delegate != null) {
+                if (delegate.getState() == ECOInfiniteDomainState.CLOSED && delegate.reopenAndVerify()) {
+                    offlineState = ECOInfiniteDomainState.READY;
+                    failureReason = null;
+                }
+                return;
+            }
+            if (offlineState == ECOInfiniteDomainState.CLOSED) {
+                offlineState = ECOInfiniteDomainState.LOADING;
+                failureReason = null;
+                initialize(false);
+                advanceMigration(false);
             }
         }
 

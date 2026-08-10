@@ -569,6 +569,17 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         flushAndAwait();
     }
 
+    /** Re-enables a cleanly closed runtime instance and verifies its persisted snapshot. */
+    synchronized boolean reopenAndVerify() {
+        if (state != ECOInfiniteDomainState.CLOSED) {
+            return state == ECOInfiniteDomainState.READY;
+        }
+        state = ECOInfiniteDomainState.READY;
+        failureReason = null;
+        flushAndAwait();
+        return state == ECOInfiniteDomainState.READY;
+    }
+
     @Override
     public synchronized void closeAndFlush() {
         if (state == ECOInfiniteDomainState.READY) {
