@@ -94,6 +94,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int networkCoolingMultiplier = 1;
     private boolean outputsReady = false;
     private boolean virtualCrafting = false;
+    private boolean batchFastPathWork = false;
     private RecoveryState recoveryState = RecoveryState.CLEARED;
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
@@ -606,6 +607,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.networkCoolingMultiplier = networkCoolingMultiplier;
         this.progressRemainder = 0.0D;
         this.outputsReady = false;
+        this.batchFastPathWork = false;
         inputItems.clear();
         copyStacks(inputs, inputItems);
         remainingItems.clear();
@@ -652,6 +654,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.progressRemainder = 0.0D;
         this.virtualCrafting = virtualCrafting;
         this.outputsReady = virtualCrafting;
+        this.batchFastPathWork = true;
         try {
             worker.onThreadWork(this.occupiedThreadSlots);
             recoveryState = RecoveryState.ACTIVE;
@@ -1097,6 +1100,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        UUID completedJobId = craftingJobId;
+        boolean completedBatchFastPathWork = batchFastPathWork;
         outputItems.clear();
         inputItems.clear();
         remainingItems.clear();
@@ -1116,7 +1121,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         networkCoolingMultiplier = 1;
         outputsReady = false;
         virtualCrafting = false;
+        batchFastPathWork = false;
         recoveryState = RecoveryState.CLEARED;
+        if (completedBatchFastPathWork) {
+            worker.onCraftingJobCompleted(completedJobId);
+        }
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
@@ -1436,6 +1445,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
         }
         boolean batchGenericWork = nbt.getBoolean("batchGenericWork");
+        this.batchFastPathWork = batchGenericWork;
 
         outputItems.clear();
         ListTag outputs = nbt.getList("outputItems", Tag.TAG_COMPOUND);

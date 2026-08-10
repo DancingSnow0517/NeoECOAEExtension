@@ -74,7 +74,7 @@ public final class ECOExternalCpuFastPathExecutor {
                     continue;
                 }
 
-                var selection = selectOffer(patternBuses, execution, taskRemaining);
+                var selection = selectOffer(patternBuses, execution, taskRemaining, job.craftingId());
                 if (selection == null) {
                     double powerPerCraft = CraftingCpuHelper.calculatePatternPower(firstInputs);
                     int externalBatchResult = ae2ltBatchBridge.tryPushBatch(
@@ -269,7 +269,8 @@ public final class ECOExternalCpuFastPathExecutor {
     private static Selection selectOffer(
             List<ECOCraftingPatternBusBlockEntity> patternBuses,
             ECOExtractedPatternExecution execution,
-            long requested) {
+            long requested,
+            java.util.UUID craftingJobId) {
         Selection best = null;
         Set<Object> controllers = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var patternBus : patternBuses) {
@@ -277,7 +278,7 @@ public final class ECOExternalCpuFastPathExecutor {
             if (controller == null || !controllers.add(controller)) {
                 continue;
             }
-            var offer = patternBus.findBatchFastPathOffer(execution, requested);
+            var offer = patternBus.findBatchFastPathOffer(execution, requested, craftingJobId);
             if (offer != null && offer.maxBatchSize() >= 2L
                     && (best == null || offer.maxBatchSize() > best.offer().maxBatchSize())) {
                 best = new Selection(patternBus, offer);

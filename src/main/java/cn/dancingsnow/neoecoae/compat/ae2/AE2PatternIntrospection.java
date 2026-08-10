@@ -6,6 +6,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AESmithingTablePattern;
+import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
@@ -47,6 +48,7 @@ public final class AE2PatternIntrospection {
     public static boolean isKnownSafePatternType(IPatternDetails details) {
         return details instanceof AECraftingPattern
             || details instanceof AESmithingTablePattern
+            || details instanceof AEStonecuttingPattern
             || isExternalProcessingPattern(details);
     }
 
@@ -59,6 +61,11 @@ public final class AE2PatternIntrospection {
             return smithingPattern.canSubstitute()
                 ? PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE
                 : PatternEligibility.ELIGIBLE;
+        }
+        if (details instanceof AEStonecuttingPattern) {
+            // A stonecutting pattern stores one concrete recipe and output. Input substitution
+            // only changes which valid ingredient stack is supplied, not the recipe result.
+            return PatternEligibility.ELIGIBLE;
         }
         if (!(details instanceof AECraftingPattern pattern)) {
             // External CPUs can batch provider-owned processing patterns (AdvancedAE/AE2LT)

@@ -387,6 +387,21 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
+    public void onCraftingJobCompleted(UUID craftingJobId) {
+        if (craftingJobId == null || cluster == null) {
+            return;
+        }
+        long currentTick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
+        if (cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().noteCompletedBatchJob(craftingJobId, currentTick);
+            return;
+        }
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (controller != null) {
+            controller.noteCompletedBatchJob(craftingJobId);
+        }
+    }
+
     @Override
     public void setChanged() {
         if (this.level != null) {

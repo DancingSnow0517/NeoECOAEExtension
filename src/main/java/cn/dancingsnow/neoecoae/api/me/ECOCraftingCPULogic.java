@@ -789,7 +789,7 @@ public class ECOCraftingCPULogic {
             if (controller == null || !visitedControllers.add(controller)) {
                 continue;
             }
-            var offer = patternBus.findBatchFastPathOffer(execution, requested);
+            var offer = patternBus.findBatchFastPathOffer(execution, requested, job.link.getCraftingID());
             if (offer != null && offer.maxBatchSize() >= minimumBatchSize
                     && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;

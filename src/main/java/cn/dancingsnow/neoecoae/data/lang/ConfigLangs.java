@@ -59,6 +59,21 @@ public class ConfigLangs {
             "Log each pattern that does not use ECO FastPath, including the reason, and periodically log cache statistics.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing issues."
         );
+        provider.add("neoecoae.configuration.debugEcoBatchFairScheduling", "Debug F-Series Fair Scheduling");
+        provider.add(
+            "neoecoae.configuration.debugEcoBatchFairScheduling.tooltip",
+            "Experimental: allow each crafting job to hold at most one F-series batch.\n" +
+                "This improves small-job latency at the cost of single-job peak throughput."
+        );
+        provider.add(
+            "neoecoae.configuration.debugEcoBatchFairSchedulingBatchSize",
+            "Debug F-Series Fair Batch Size"
+        );
+        provider.add(
+            "neoecoae.configuration.debugEcoBatchFairSchedulingBatchSize.tooltip",
+            "Maximum batch size held by one crafting job while debug F-series fair scheduling is enabled.\n" +
+                "Lower values reserve more capacity for later small jobs; 32 is the default diagnostic value."
+        );
         provider.add("neoecoae.configuration.debugECOPlanner", "Debug ECO Planner");
         provider.add(
             "neoecoae.configuration.debugECOPlanner.tooltip",
