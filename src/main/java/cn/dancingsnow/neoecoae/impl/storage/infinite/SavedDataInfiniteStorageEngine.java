@@ -461,7 +461,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             CompoundTag entry = new CompoundTag();
             entry.put(TAG_KEY, orphaned.encodedKey().copy());
             if (orphaned.amount().isBig()) {
-                entry.putByteArray(TAG_AMOUNT_WIDE, orphaned.amount().toBigInteger().toByteArray());
+                entry.putByteArray(
+                        TAG_AMOUNT_WIDE, orphaned.amount().toBigInteger().toByteArray());
             } else {
                 entry.putLong(TAG_AMOUNT_LONG, orphaned.amount().toLongSaturated());
             }

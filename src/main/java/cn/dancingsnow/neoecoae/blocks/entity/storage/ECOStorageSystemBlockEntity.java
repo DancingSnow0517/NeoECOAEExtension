@@ -1811,9 +1811,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                                 engine, getBlockState().getBlock().getName())
                         .insert(key, remaining, Actionable.SIMULATE, source);
                 if (moved > 0L) {
-                    long extracted = sourceStorage.extract(key, Math.min(remaining, moved), Actionable.MODULATE, source);
+                    long extracted =
+                            sourceStorage.extract(key, Math.min(remaining, moved), Actionable.MODULATE, source);
                     if (extracted > 0L) {
-                        long accepted = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName())
+                        long accepted = new ECOInfiniteStorage(
+                                        engine, getBlockState().getBlock().getName())
                                 .insert(key, extracted, Actionable.MODULATE, source);
                         if (accepted < extracted) {
                             sourceStorage.insert(key, extracted - Math.max(0L, accepted), Actionable.MODULATE, source);

@@ -20,14 +20,9 @@ public class ECOStorageSystemBlock extends AbstractECOSystemBlock<ECOStorageSyst
 
     @Override
     public void setPlacedBy(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            @Nullable LivingEntity placer,
-            ItemStack stack) {
+            Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide
-                && level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity storageHost) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity storageHost) {
             storageHost.restoreInfiniteDomainFromItem(stack);
         }
     }
