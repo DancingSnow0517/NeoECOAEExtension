@@ -21,6 +21,23 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
         super(properties, tier, FluxKeyType.TYPE, cellType);
     }
 
+    public ECOFeStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        Supplier<ECOCellType> cellType,
+        long totalBytes
+    ) {
+        super(
+            properties,
+            tier,
+            FluxKeyType.TYPE,
+            cellType,
+            totalBytes,
+            1 << (12 + tier.getTier()),
+            (double) totalBytes / (1 << 20)
+        );
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         super.appendHoverText(stack, context, lines, tooltipFlag);
