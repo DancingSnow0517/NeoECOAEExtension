@@ -621,15 +621,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getLocalLaneBatchCapacities().stream().mapToInt(Integer::intValue).max().orElse(0);
     }
 
-    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
     public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
 
-    /** A complete eight-host exchange executes one whole recipe task as virtual ledger work. */
+    /** A complete high-energy, full-slot F9 exchange executes one recipe task as virtual ledger work. */
     public boolean isVirtualCraftingMode() {
         return cluster != null
                 && cluster.getNetworkCluster() != null
-                && cluster.getNetworkCluster().isActiveCooling()
-                && cluster.getNetworkCluster().getMemberCount() >= VIRTUAL_CRAFTING_REQUIRED_HOSTS;
+                && cluster.getNetworkCluster().isVirtualCraftingEligible();
     }
 
     private LaneOccupancy collectLaneOccupancy(int laneCount) {

@@ -156,7 +156,7 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 #### Complete Eight-host Virtual Crafting
 
-When one logical crafting exchange contains **8 F9 hosts** and active cooling is enabled, the network enters virtual crafting mode. This condition is based on the actual host count, not the x2/x8 exchange multiplier. Networks with fewer than eight hosts keep the normal crafting behavior.
+Virtual crafting mode requires a logical exchange network of **exactly 8 F9 hosts**, with every host using a high-energy network switch, expanded to the configured maximum length (the default is **88** task slots per host), and active cooling enabled. Ordinary switches, any non-F9 host, or an incomplete host keeps the network on normal crafting behavior.
 
 - One FX Worker task thread carries one recipe task and accepts its complete remaining craft count.
 - Inputs and outputs are aggregated as item keys with 64-bit quantities instead of being expanded into physical item stacks inside the FX Worker.

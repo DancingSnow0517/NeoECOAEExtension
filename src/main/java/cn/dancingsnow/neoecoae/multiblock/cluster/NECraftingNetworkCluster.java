@@ -4,10 +4,12 @@ import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
@@ -35,6 +37,7 @@ import java.util.UUID;
  * and scheduling state.
  */
 public final class NECraftingNetworkCluster {
+    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
     private static final Comparator<NECraftingCluster> CLUSTER_ORDER = Comparator.comparing(
             cluster -> cluster.getController() == null
                     ? Long.MAX_VALUE
@@ -148,6 +151,33 @@ public final class NECraftingNetworkCluster {
 
     public int getMemberCount() {
         return controllers.size();
+    }
+
+    /**
+     * Virtual crafting is the endgame reward for a complete high-energy F9
+     * exchange network. Every host must be built to the configured maximum
+     * length, which gives it the full number of FX task slots.
+     */
+    public boolean isVirtualCraftingEligible() {
+        if (!activeCooling
+                || physicalClusters.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS
+                || controllers.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
+            return false;
+        }
+
+        int requiredWorkersPerHost = Math.max(1, NEConfig.craftingSystemMaxLength - 4);
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller == null
+                    || controller.getTier().getTier() != ECOTier.L9.getTier()
+                    || !physicalCluster.isHighEnergyNetworkMode()
+                    || physicalCluster.getWorkers().size() != requiredWorkersPerHost
+                    || controller.getLocalThreadCount()
+                            != requiredWorkersPerHost * VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void onCoolingAvailabilityChanged() {
