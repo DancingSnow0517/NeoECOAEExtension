@@ -139,19 +139,11 @@ public class NEConfig {
 
     private static final ModConfigSpec.BooleanValue DEBUG_ECO_BATCH_FAIR_SCHEDULING = BUILDER
         .comment(
-            "实验性：让每个合成任务至多持有一个 F 系列批次，并限制该批次的大小。",
-            "默认关闭。开启后优先改善小订单延迟，但会降低单订单的峰值吞吐。",
-            "Experimental: allow each crafting job to hold at most one F-series batch and cap that batch's size.",
-            "Disabled by default. This improves small-job latency but reduces single-job peak throughput.")
+            "实验性：在网络交换虚拟合成中，让同一合成任务在前一个批次结算前不重复占用逻辑任务槽。",
+            "默认关闭。不会限制虚拟合成批量大小。",
+            "Experimental: in virtual exchange crafting, do not let one job occupy another logical task slot before its prior batch settles.",
+            "Disabled by default. This does not limit virtual crafting batch size.")
         .define("debugEcoBatchFairScheduling", false);
-
-    private static final ModConfigSpec.IntValue DEBUG_ECO_BATCH_FAIR_SCHEDULING_BATCH_SIZE = BUILDER
-        .comment(
-            "实验性 F 系列公平调度的单任务批量上限。仅在 debugEcoBatchFairScheduling 开启时生效。",
-            "较小的值会为后来提交的小订单保留更多 F 系列容量；默认值 32 用于验证调度行为。",
-            "Per-job batch cap for experimental F-series fair scheduling. Only applies when debugEcoBatchFairScheduling is enabled.",
-            "Smaller values reserve more F-series capacity for later small jobs; the default 32 is intended for scheduler validation.")
-        .defineInRange("debugEcoBatchFairSchedulingBatchSize", 32, 2, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
@@ -219,7 +211,6 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugEcoBatchFairScheduling;
-    public static int debugEcoBatchFairSchedulingBatchSize = 32;
     public static boolean ecoPlannerDifferentialVerification;
     public static boolean debugECOPlanner;
     public static boolean debugInfiniteStorageMigration;
@@ -259,7 +250,6 @@ public class NEConfig {
         boolean wasDebugEcoFastPath = debugEcoFastPath;
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         debugEcoBatchFairScheduling = DEBUG_ECO_BATCH_FAIR_SCHEDULING.get();
-        debugEcoBatchFairSchedulingBatchSize = DEBUG_ECO_BATCH_FAIR_SCHEDULING_BATCH_SIZE.get();
         if (debugEcoFastPath && !wasDebugEcoFastPath) {
             ECOFastPathDiagnostics.clear();
         }
