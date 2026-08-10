@@ -5,17 +5,27 @@
       "modid": "ae2omnicells"
     }
   ],
-  "type": "minecraft:crafting_shapeless",
-  "category": "misc",
-  "ingredients": [
+  "type": "neoecoae:integrated_working_station",
+  "energy": 144000,
+  "inputItems": [
     {
-      "item": "neoecoae:eco_complex_omni_cell_housing"
+      "count": 10,
+      "item": "ae2omnicells:complex_omni_cell_component_256m"
     },
     {
-      "item": "ae2omnicells:complex_omni_cell_component_256m"
+      "count": 8,
+      "item": "ae2omnicells:complex_link_processor"
+    },
+    {
+      "count": 32,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:eco_complex_omni_cell_housing"
     }
   ],
-  "result": {
+  "itemOutput": {
     "count": 1,
     "item": "neoecoae:eco_complex_omni_cell_256m"
   }

@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
@@ -48,6 +49,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     @Getter
     private final List<ECOComputationParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+
+    @Nullable private ECOComputationCoolingControllerBlockEntity coolingController;
 
     @Getter
     @Nullable private ECOComputationSystemBlockEntity controller;
@@ -130,6 +133,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
+        }
+        if (blockEntity instanceof ECOComputationCoolingControllerBlockEntity coolingController) {
+            this.coolingController = coolingController;
         }
     }
 
@@ -867,7 +873,14 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
             return 1;
         }
-        return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
+        int configuredMultiplier = isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
+        if (configuredMultiplier <= 1 || coolingController == null) {
+            return 1;
+        }
+        if (configuredMultiplier >= 8 && coolingController.getTier().getTier() < ECOTier.L9.getTier()) {
+            return 1;
+        }
+        return configuredMultiplier;
     }
 
     private void postGridCpuChange() {

@@ -19,7 +19,7 @@ public final class CompatStorageMatrixRecipes {
         saveManaHousing(provider);
         saveSourceHousing(provider);
 
-        saveCells(provider, "appflux", "fe");
+        saveFeCells(provider);
         saveCells(provider, "appbot", "mana");
         saveCells(provider, "arseng", "source");
 
@@ -102,6 +102,34 @@ public final class CompatStorageMatrixRecipes {
         saveCell(provider, modid, type, "256m");
     }
 
+    private static void saveFeCells(RegistrateRecipeProvider provider) {
+        saveFeCell(provider, "16m", 2, 1, 1_000);
+        saveFeCell(provider, "64m", 4, 4, 12_000);
+        saveFeCell(provider, "256m", 8, 16, 144_000);
+    }
+
+    private static void saveFeCell(
+            RegistrateRecipeProvider provider, String size, int processorCount, int singularityCount, int energy) {
+        provider.accept(new JsonRecipe(
+                NeoECOAE.id("integrated_working_station/eco_fe_storage_cell_" + size),
+                new ModLoadedCondition("appflux")) {
+            @Override
+            protected void write(JsonObject json) {
+                json.addProperty("type", "neoecoae:integrated_working_station");
+                json.addProperty("energy", energy);
+
+                JsonArray inputItems = new JsonArray();
+                inputItems.add(itemStack("appflux:core_" + size, 10));
+                inputItems.add(itemStack("appflux:energy_processor", processorCount));
+                inputItems.add(itemStack("ae2:singularity", singularityCount));
+                inputItems.add(itemStack("neoecoae:eco_fe_cell_housing", 1));
+                json.add("inputItems", inputItems);
+
+                json.add("itemOutput", itemStack("neoecoae:eco_fe_storage_cell_" + size, 1));
+            }
+        });
+    }
+
     private static void saveCell(RegistrateRecipeProvider provider, String modid, String type, String size) {
         provider.accept(
                 new JsonRecipe(NeoECOAE.id("eco_" + type + "_storage_cell_" + size), new ModLoadedCondition(modid)) {
@@ -171,6 +199,13 @@ public final class CompatStorageMatrixRecipes {
         JsonObject json = new JsonObject();
         json.addProperty("id", id);
         json.addProperty("count", 1);
+        return json;
+    }
+
+    private static JsonObject itemStack(String id, int count) {
+        JsonObject json = new JsonObject();
+        json.addProperty("item", id);
+        json.addProperty("count", count);
         return json;
     }
 

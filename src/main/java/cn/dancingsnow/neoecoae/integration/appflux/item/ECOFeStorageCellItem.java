@@ -14,8 +14,21 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
 public class ECOFeStorageCellItem extends ECOStorageCellItem {
-    public ECOFeStorageCellItem(Properties properties, IECOTier tier) {
+    private final long totalBytes;
+
+    public ECOFeStorageCellItem(Properties properties, IECOTier tier, long totalBytes) {
         super(properties, tier, AppFluxCompat.getFluxKeyType(), NEAppFluxCellTypes.FE);
+        this.totalBytes = totalBytes;
+    }
+
+    @Override
+    public long getBytes() {
+        return totalBytes;
+    }
+
+    @Override
+    public long getIdleDrainBytes() {
+        return totalBytes;
     }
 
     @Override

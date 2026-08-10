@@ -58,11 +58,14 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long getTotalBytes() {
-        return item.getTotalBytes();
+        return item.getECOStorageTotalBytes();
     }
 
     @Override
     public CellState getStatus() {
+        if (item.isExternallyUnlimited() && getUsedBytes() >= getTotalBytes()) {
+            return CellState.FULL;
+        }
         return delegate.getStatus();
     }
 
@@ -88,7 +91,21 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        return delegate.insert(what, amount, mode, source);
+        if (!item.isExternallyUnlimited()) {
+            return delegate.insert(what, amount, mode, source);
+        }
+
+        long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
+        long freeBytes = Math.max(0L, getTotalBytes() - getUsedBytes());
+        long capacityBound = saturatingMultiply(freeBytes, amountPerByte);
+        return delegate.insert(what, Math.min(amount, capacityBound), mode, source);
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     @Override

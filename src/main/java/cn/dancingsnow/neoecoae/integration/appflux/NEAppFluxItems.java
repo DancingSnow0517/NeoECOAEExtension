@@ -10,6 +10,10 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
 
 public class NEAppFluxItems {
+    private static final long LE4_CAPACITY = 1L << 28;
+    private static final long LE6_CAPACITY = 1L << 30;
+    private static final long LE9_CAPACITY = 1L << 32;
+
     public static final ItemEntry<MaterialItem> ECO_FE_CELL_HOUSING = REGISTRATE
             .item("eco_fe_cell_housing", MaterialItem::new)
             .lang("ECO FE Storage Matrix Housing")
@@ -18,7 +22,7 @@ public class NEAppFluxItems {
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = REGISTRATE
             .item(
                     "eco_fe_storage_cell_16m",
-                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.UNCOMMON), ECOTier.L4))
+                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.UNCOMMON), ECOTier.L4, LE4_CAPACITY))
             .lang("ECO - LE4 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "16m"))
             .register();
@@ -26,7 +30,7 @@ public class NEAppFluxItems {
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_64M = REGISTRATE
             .item(
                     "eco_fe_storage_cell_64m",
-                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.RARE), ECOTier.L6))
+                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.RARE), ECOTier.L6, LE6_CAPACITY))
             .lang("ECO - LE6 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "64m"))
             .register();
@@ -34,7 +38,7 @@ public class NEAppFluxItems {
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_256M = REGISTRATE
             .item(
                     "eco_fe_storage_cell_256m",
-                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9))
+                    p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, LE9_CAPACITY))
             .lang("ECO - LE9 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "256m"))
             .register();

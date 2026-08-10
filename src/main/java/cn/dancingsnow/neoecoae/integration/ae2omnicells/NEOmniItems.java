@@ -11,7 +11,9 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
 
 public final class NEOmniItems {
-    private static final long QUANTUM_CAPACITY_MULTIPLIER = 16L;
+    private static final long LE4_CAPACITY = 1L << 28;
+    private static final long LE6_CAPACITY = 1L << 30;
+    private static final long LE9_CAPACITY = 1L << 32;
 
     public static final ItemEntry<MaterialItem> ECO_OMNI_CELL_HOUSING = REGISTRATE
             .item("eco_omni_cell_housing", MaterialItem::new)
@@ -86,7 +88,7 @@ public final class NEOmniItems {
                 .item(
                         name,
                         properties -> new ECOUniversalStorageCellItem(
-                                properties.rarity(rarity), tier, cellType, idleDrain, totalTypes))
+                                properties.rarity(rarity), tier, cellType, idleDrain, totalTypes, capacityFor(tier)))
                 .lang(cellName(name, tier))
                 .model(ItemModelUtil.compatCellModel(housing, size))
                 .register();
@@ -103,7 +105,7 @@ public final class NEOmniItems {
                                 NEOmniCellTypes.QUANTUM_OMNI,
                                 idleDrain,
                                 -1,
-                                Math.multiplyExact(tier.getStorageTotalBytes(), QUANTUM_CAPACITY_MULTIPLIER)))
+                                capacityFor(tier)))
                 .lang(cellName(name, tier))
                 .model(ItemModelUtil.compatCellModel("quantum_omni_cell_housing", size, "quantum_omni_cell_layer"))
                 .register();
@@ -113,6 +115,14 @@ public final class NEOmniItems {
         String family = name.contains("quantum") ? "Quantum Omni" : name.contains("complex") ? "Complex Omni" : "Omni";
         return "ECO - LE" + (tier == ECOTier.L4 ? "4" : tier == ECOTier.L6 ? "6" : "9") + " Storage Matrix (" + family
                 + ")";
+    }
+
+    private static long capacityFor(ECOTier tier) {
+        return switch (tier) {
+            case L4 -> LE4_CAPACITY;
+            case L6 -> LE6_CAPACITY;
+            case L9 -> LE9_CAPACITY;
+        };
     }
 
     private NEOmniItems() {}

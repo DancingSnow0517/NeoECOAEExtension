@@ -12,7 +12,6 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.wintercogs.ae2omnicells.common.items.AEUniversalCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
@@ -39,12 +38,14 @@ import org.jetbrains.annotations.Nullable;
 
 public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements IECOStorageCellItem {
     // AEUniversalCellItem stores capacity in an int and multiplies this KiB value by 1024 internally.
-    private static final long MAX_OMNI_CELLS_CAPACITY_BYTES = (Integer.MAX_VALUE / 1024L) * 1024L;
+    private static final long MAX_EXTERNAL_STORAGE_BYTES = (Integer.MAX_VALUE / 1024L) * 1024L;
 
     @Getter
     private final IECOTier tier;
 
     private final Supplier<ECOCellType> cellType;
+    private final long ecoStorageTotalBytes;
+    private final boolean externallyUnlimited;
 
     public ECOUniversalStorageCellItem(
             Properties properties, IECOTier tier, Supplier<ECOCellType> cellType, double idleDrain, int totalTypes) {
@@ -62,14 +63,26 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
                 properties.stacksTo(1),
                 idleDrain,
                 totalTypes,
-                toOmniCellsCapacityKiB(NEConfig.getEcoStorageCellCapacity(tier, totalBytes)));
+                externalKilobytes(totalBytes));
         this.tier = tier;
         this.cellType = cellType;
+        this.ecoStorageTotalBytes = totalBytes;
+        this.externallyUnlimited = totalBytes > MAX_EXTERNAL_STORAGE_BYTES;
     }
 
-    private static int toOmniCellsCapacityKiB(long capacityBytes) {
-        long boundedBytes = Math.min(Math.max(0L, capacityBytes), MAX_OMNI_CELLS_CAPACITY_BYTES);
-        return (int) (boundedBytes / 1024L);
+    private static int externalKilobytes(long totalBytes) {
+        if (totalBytes > MAX_EXTERNAL_STORAGE_BYTES) {
+            return -1;
+        }
+        return Math.toIntExact(totalBytes / 1024L);
+    }
+
+    public long getECOStorageTotalBytes() {
+        return ecoStorageTotalBytes;
+    }
+
+    public boolean isExternallyUnlimited() {
+        return externallyUnlimited;
     }
 
     @Override
@@ -92,6 +105,19 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
+        if (externallyUnlimited) {
+            lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), ecoStorageTotalBytes));
+            long usedTypes = IAEUniversalCell.getUsedTypes(stack);
+            if (getTotalTypes() < 0) {
+                lines.add(Component.empty()
+                        .append(Tooltips.ofUnformattedNumberWithRatioColor(usedTypes, Long.MAX_VALUE, false))
+                        .append(Tooltips.of(" "))
+                        .append(Tooltips.of(GuiText.Types)));
+            } else {
+                lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
+            }
             return;
         }
         if (getTotalTypes() < 0) {

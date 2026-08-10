@@ -2,31 +2,31 @@
   "conditions": [
     {
       "type": "forge:mod_loaded",
-      "modid": "ae2omnicells"
+      "modid": "appflux"
     }
   ],
   "type": "neoecoae:integrated_working_station",
-  "energy": 144000,
+  "energy": 12000,
   "inputItems": [
     {
       "count": 10,
-      "item": "ae2omnicells:omni_cell_component_256m"
+      "item": "appflux:core_64m"
     },
     {
-      "count": 8,
-      "item": "ae2omnicells:omni_link_processor"
+      "count": 4,
+      "item": "appflux:energy_processor"
     },
     {
-      "count": 16,
+      "count": 4,
       "item": "ae2:singularity"
     },
     {
       "count": 1,
-      "item": "neoecoae:eco_omni_cell_housing"
+      "item": "neoecoae:eco_fe_cell_housing"
     }
   ],
   "itemOutput": {
     "count": 1,
-    "item": "neoecoae:eco_omni_cell_256m"
+    "item": "neoecoae:eco_fe_storage_cell_64m"
   }
 }
