@@ -4,5 +4,5 @@ import appeng.api.networking.IGridNodeService;
 import net.minecraft.world.item.ItemStack;
 
 public interface IECOPatternStorage extends IGridNodeService {
-    boolean insertPattern(ItemStack itemStack);
+    ECOPatternInsertionResult insertPattern(ItemStack itemStack);
 }

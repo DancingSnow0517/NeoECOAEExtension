@@ -9,6 +9,7 @@ import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import appeng.menu.slot.RestrictedInputSlot;
 import appeng.parts.encoding.EncodingMode;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
 import net.minecraft.world.entity.player.Inventory;
@@ -77,7 +78,8 @@ public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu impleme
         }
 
         IECOPatternStorageService service = node.getGrid().getService(IECOPatternStorageService.class);
-        if (service != null && service.getPatternStorage().insertPattern(pattern.copy())) {
+        if (service != null
+                && service.getPatternStorage().insertPattern(pattern.copy()) == ECOPatternInsertionResult.INSERTED) {
             this.encodedPatternSlot.set(ItemStack.EMPTY);
             this.encodedPatternSlot.setChanged();
         }

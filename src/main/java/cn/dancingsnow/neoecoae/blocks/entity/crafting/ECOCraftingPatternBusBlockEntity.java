@@ -16,6 +16,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
@@ -323,9 +324,29 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Override
-    public boolean insertPattern(ItemStack itemStack) {
+    public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
+        if (!(PatternDetailsHelper.decodePattern(itemStack, level) instanceof IMolecularAssemblerSupportedPattern)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        if (containsPatternInCluster(itemStack)) {
+            return ECOPatternInsertionResult.ALREADY_PRESENT;
+        }
         ItemStack result = effectiveInventory.addItems(itemStack.copy());
-        return result.isEmpty();
+        return result.isEmpty() ? ECOPatternInsertionResult.INSERTED : ECOPatternInsertionResult.NO_SPACE;
+    }
+
+    private boolean containsPatternInCluster(ItemStack pattern) {
+        List<ECOCraftingPatternBusBlockEntity> buses = cluster != null && cluster.getNetworkCluster() != null
+                ? cluster.getNetworkCluster().getPatternBuses()
+                : cluster != null ? cluster.getPatternBuses() : List.of(this);
+        for (ECOCraftingPatternBusBlockEntity bus : buses) {
+            for (ItemStack stored : bus.effectiveInventory) {
+                if (ItemStack.isSameItemSameTags(stored, pattern)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     class AEEncodedPatternFilter implements IAEItemFilter {
