@@ -29,62 +29,68 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.DoubleSupplier;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
+    private static final Map<CraftingService, SlowPathNetworkBudget> SLOW_PATH_NETWORK_BUDGETS =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     final ECOCraftingCPU cpu;
 
     /**
-     * Current job.
+     * 当前合成任务。
      */
     @Getter
     private ExecutingCraftingJob job = null;
     /**
-     * Inventory.
+     * 库存。
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
 
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
-     * True if the CPU is currently trying to clear its inventory but is not able
-     * to.
+     * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
      */
     @Getter
     private boolean cantStoreItems = false;
 
     @Getter
-    private long statusRevision = 0L;
-
-    @Getter
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+
+    /** Revision consumed by the retained 1.20.1 CPU menu synchronization layer. */
+    @Getter
+    private long statusRevision = 0L;
 
     @Getter
     private boolean markedForDeletion = false;
@@ -93,41 +99,13 @@ public class ECOCraftingCPULogic {
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
     private boolean batchedAnyStatusChange = false;
     private boolean batchedFullStatusChange = false;
-    private final List<AggressiveSimulatedCraft> aggressiveSimulatedCrafts = new ArrayList<>();
-    private final Set<AggressivePoolReservation> aggressivePoolReservations = new HashSet<>();
-    private final Map<AggressivePoolReservation, Integer> aggressivePoolSlotTotals = new HashMap<>();
-    private boolean aggressivePoolSyncDirty = false;
-    private boolean flushingAggressiveSimulatedOutput = false;
-    private boolean recoverAggressiveAfterFlush = false;
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
+    private final IdentityHashMap<IPatternDetails, IdentityHashMap<ICraftingProvider, Boolean>>
+            slowPathDeferredProviders = new IdentityHashMap<>();
+    private long slowPathDeferredProvidersTick = Long.MIN_VALUE;
 
-    // ── NBT restore state ──
-    @Getter
-    private boolean restoredFromNbt = false;
-
-    private boolean restoreRebindAttempted = false;
-    private boolean restoreRebindSuccessful = false;
-
-    @Getter
-    private int restoredCancelGraceTicks = 0;
-
-    private boolean restoredLinkRebound = false;
-    private static final int RESTORED_CANCEL_GRACE_INITIAL = 100;
-    private static final int RESTORE_GRACE_LOG_INTERVAL = 20;
-
-    /**
-     * Whether the CPU is still within its NBT-restore grace period.
-     * During this period, the cluster MUST NOT prune or kill this CPU,
-     * because the job may still be waiting for grid rebind.
-     * <p>
-     * Returns true when: a job exists AND the CPU was restored from NBT
-     * ({@code restoredFromNbt} is true). The {@code restoredFromNbt} flag
-     * covers the entire window from deserialization through rebind or safe abort.
-     */
-    public boolean isInRestoreGrace() {
-        return this.job != null && this.restoredFromNbt;
-    }
+    @Nullable private SlowPathPushBudget tickSlowPathPushBudget;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -135,40 +113,51 @@ public class ECOCraftingCPULogic {
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
-        // Already have a job.
+        // 已有任务在运行。
         if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
-        // Check that the node is active.
+        // 检查节点是否活跃。
         if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
-        // Check bytes.
-        if (!cpu.hasAvailableStorage(plan.bytes())) return CraftingSubmitResult.CPU_TOO_SMALL;
+        // 检查存储字节数。
+        if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
 
         if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
-        // Try to extract required items.
+        // 尝试提取所需物品。
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null) return CraftingSubmitResult.missingIngredient(missingIngredient);
+        ECOFastPathDiagnostics.logCpuReservation(
+                plan,
+                inventory.list,
+                cpu.getOwner() == null
+                        ? net.minecraft.core.BlockPos.ZERO
+                        : cpu.getOwner().getBlockPos(),
+                TickHandler.instance().getCurrentTick());
 
-        // Set CPU link and job.
+        // 设置 CPU 链接与任务。
         var playerId = src.player()
                 .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
                 .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, cpu.getLevel(), playerId);
-        markStatusDirty();
+        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        registerJobOutputRoute();
 
-        // Crafting Monitor unsupported
+        // 合成监视器暂不支持
         // cpu.updateOutput(plan.finalOutput());
         cpu.markDirty();
 
+        // TODO: 发送监视器差异？
+
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
-        var craftingService = (CraftingService) grid.getCraftingService();
-        // Always register CPU-side link so the job can be tracked and recovered
-        craftingService.addLink(linkCpu);
+        // 非独立任务需要为请求者创建另一个链接，两个链接都需要提交到缓存。
         if (requester != null) {
             var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
+
+            var craftingService = (CraftingService) grid.getCraftingService();
+            craftingService.addLink(linkCpu);
             craftingService.addLink(linkReq);
+
             return CraftingSubmitResult.successful(linkReq);
         } else {
             return CraftingSubmitResult.successful(null);
@@ -176,632 +165,386 @@ public class ECOCraftingCPULogic {
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
-        if (!cpu.isActive()) {
-            setCantStoreItems(false);
-            return;
-        }
-        setCantStoreItems(false);
+        // 未激活时不 tick。
+        if (!cpu.isActive()) return;
+        cantStoreItems = false;
+        // 无任务时只需尝试清空物品。
         if (this.job == null) {
             this.storeItems();
-            setCantStoreItems(!this.inventory.list.isEmpty());
-            if (this.inventory.list.isEmpty()) {
+            if (!this.inventory.list.isEmpty()) {
+                cantStoreItems = true;
+            } else {
                 if (markedForDeletion) {
                     cpu.deactivate();
                 }
             }
             return;
         }
-
-        // ── Restored-from-NBT path: must rebind link BEFORE any cancel check ──
-        if (restoredFromNbt && !restoreRebindSuccessful) {
-            IGrid grid = cpu.getGrid();
-            if (grid != null && !restoreRebindAttempted) {
-                onRestoredToGrid(grid);
-            }
-            if (!restoreRebindSuccessful && restoredCancelGraceTicks > 0) {
-                restoredCancelGraceTicks--;
-                if (restoredCancelGraceTicks % RESTORE_GRACE_LOG_INTERVAL == 0) {
-                    LOGGER.info(
-                            "ECO CPU waiting for link rebind: grace={} jobId={}",
-                            restoredCancelGraceTicks,
-                            job.link.getCraftingID());
-                }
-                return;
-            }
-            if (!restoreRebindSuccessful && restoredCancelGraceTicks <= 0) {
-                safeAbortRestoredJob("link rebind failed after grace period");
-                return;
-            }
-        }
-
-        // ── Normal cancel check (only after restored path is resolved) ──
+        // 检查任务是否已被取消。
         if (job.link.isCanceled()) {
-            LOGGER.warn(
-                    "ECO CPU job link canceled — canceling. cpu={} jobId={} wasRestored={}",
-                    cpu.getName(),
-                    job.link.getCraftingID(),
-                    restoredFromNbt);
             cancel();
             return;
         }
 
         retryBufferedFinalOutput();
-        if (this.job == null) {
+        if (job == null) {
             return;
         }
 
-        if (job.link.isDone() || job.remainingAmount <= 0) {
-            finishJob(true);
+        // 暂停时不调度更多工作
+        if (job.suspended || job.userPaused) {
             return;
         }
 
-        if (job.suspended) {
-            return;
-        }
+        var remainingOperations = getOperationLimit();
+        tickSlowPathPushBudget = new SlowPathPushBudget(cc);
 
-        tickAggressiveSimulatedCrafts(eg);
-        if (this.job == null) {
-            return;
-        }
-        if (this.job.userPaused) {
-            return;
-        }
+        try {
+            if (remainingOperations > 0) {
+                do {
+                    var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
 
-        int slowPatternBudget = getOperationLimit();
-        var batchBudget = new FastPathBatchBudget(effectiveFastPathTickLimit());
-        int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
-        executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
+                    if (pushedPatterns > 0) {
+                        remainingOperations -= pushedPatterns;
+                    } else {
+                        break;
+                    }
+                } while (remainingOperations > 0);
+            }
+        } finally {
+            tickSlowPathPushBudget = null;
+        }
     }
 
     private void retryBufferedFinalOutput() {
         ExecutingCraftingJob currentJob = job;
-        if (currentJob != null) {
-            drainBufferedFinalOutput(currentJob);
+        if (currentJob == null) {
+            return;
         }
+        drainBufferedFinalOutput(currentJob);
     }
 
     private void drainBufferedFinalOutput(ExecutingCraftingJob currentJob) {
         if (job != currentJob || currentJob.finalOutput == null) {
             return;
         }
-        if (currentJob.remainingAmount <= 0L) {
+        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
             finishJob(true);
             return;
         }
+        AEKey key = currentJob.finalOutput.what();
         long buffered = currentJob.bufferedFinalOutput.amount();
         if (buffered <= 0L) {
             return;
         }
-        AEKey key = currentJob.finalOutput.what();
-        final ECOFinalOutputBuffer.Delivery delivery;
+        long deliverable = Math.min(buffered, Math.max(0L, currentJob.remainingAmount));
+        if (deliverable <= 0L) {
+            return;
+        }
+        final long accepted;
         try {
             deliveringBufferedFinalOutput = true;
-            delivery = currentJob.bufferedFinalOutput.attemptDelivery(
-                    currentJob.remainingAmount,
-                    deliverable -> deliverFinalOutput(key, deliverable, Actionable.MODULATE));
+            accepted = validateInsertionAmount(
+                    deliverFinalOutput(key, deliverable, Actionable.MODULATE), deliverable, "final-output requester");
         } catch (RuntimeException e) {
             logFinalOutputDeliveryFailure(e);
             return;
         } finally {
             deliveringBufferedFinalOutput = false;
         }
-        if (delivery.delivered() <= 0L) {
+        if (accepted <= 0L) {
             return;
         }
         if (job != currentJob) {
-            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", delivery.delivered());
+            // The target already accepted these items. Never throw back into the Worker after that ownership
+            // transfer, since a retry would duplicate the physical output.
+            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", accepted);
             return;
         }
-        currentJob.bufferedFinalOutput.completeDelivery(delivery);
-        currentJob.remainingAmount = delivery.remainingAmount();
+        currentJob.bufferedFinalOutput.removeDelivered(accepted);
+        currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
         cpu.markDirty();
-        if (currentJob.remainingAmount <= 0L) {
+        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
             finishJob(true);
         }
     }
 
-    private long deliverFinalOutput(AEKey key, long amount, Actionable mode) {
-        if (job == null || amount <= 0L) {
-            return 0L;
-        }
-        if (!job.link.isStandalone()) {
-            return job.link.insert(key, amount, mode);
-        }
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return 0L;
-        }
-        return grid.getStorageService().getInventory().insert(key, amount, mode, cpu.getActionSource());
-    }
-
-    private void logFinalOutputDeliveryFailure(RuntimeException e) {
-        long tick = TickHandler.instance().getCurrentTick();
-        long elapsed = tick - lastFinalOutputDeliveryFailureLogTick;
-        if (lastFinalOutputDeliveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
-            lastFinalOutputDeliveryFailureLogTick = tick;
-            LOGGER.error("ECO final-output delivery failed; the CPU-owned output remains buffered", e);
-        }
-    }
-
-    /**
-     * Re-bind the restored CraftingLink to AE2's CraftingService.
-     * Must be called proactively during cluster formation, before the first tick.
-     * Returns true if the link is healthy after rebinding.
-     */
-    public boolean onRestoredToGrid(IGrid grid) {
-        if (job == null) {
-            return true;
-        }
-        if (restoredLinkRebound) {
-            return true;
-        }
-        restoreRebindAttempted = true;
-        UUID jobId = job.link.getCraftingID();
-        boolean wasCanceledBefore = job.link.isCanceled();
-
-        LOGGER.info(
-                "ECO CPU onRestoredToGrid: jobId={} wasCanceledBefore={} cpu={}",
-                jobId,
-                wasCanceledBefore,
-                cpu.getName());
-
-        CraftingService craftingService = (CraftingService) grid.getCraftingService();
-        craftingService.addLink(job.link);
-
-        boolean isCanceledAfter = job.link.isCanceled();
-        if (!isCanceledAfter) {
-            restoreRebindSuccessful = true;
-            restoredLinkRebound = true;
-            restoredFromNbt = false;
-            restoredCancelGraceTicks = 0;
-            LOGGER.info("ECO CPU link rebind SUCCESS. jobId={} cpu={}", jobId, cpu.getName());
-            return true;
-        }
-
-        LOGGER.warn(
-                "ECO CPU link still canceled after rebind. jobId={} cpu={} wasCanceledBefore={}",
-                jobId,
-                cpu.getName(),
-                wasCanceledBefore);
-        return false;
-    }
-
-    /**
-     * Safely abort a restored job that could not be rebound.
-     * Tries to recover items to network; does NOT silently drop the job.
-     */
-    private void safeAbortRestoredJob(String reason) {
-        if (job == null) return;
-        UUID jobId = job.link.getCraftingID();
-        LOGGER.warn(
-                "ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
-                reason,
-                jobId,
-                job.finalOutput != null ? job.finalOutput.what().getClass().getSimpleName() : "null",
-                job.remainingAmount,
-                job.waitingFor.list.size(),
-                job.tasks.size(),
-                cpu.getName());
-
-        // Try to recover in-flight worker inputs
-        recoverInflightWorkerInputs(jobId);
-
-        // Try to dump items to network; if network unavailable, defer cleanup
-        IGrid grid = cpu.getGrid();
-        if (grid != null) {
-            // Temporarily null job so storeItems() works
-            var oldJob = this.job;
-            this.job = null;
-            try {
-                this.storeItems();
-            } finally {
-                this.job = oldJob;
-            }
-            // If storeItems cleared inventory, we can safely finish
-            if (this.inventory.list.isEmpty()) {
-                recoverAggressiveSimulatedCraftsToInventory();
-                this.job = null;
-                markStatusDirty();
-                markedForDeletion = true;
-                restoredFromNbt = false;
-                restoreRebindSuccessful = false;
-                restoredLinkRebound = false;
-                this.storeItems();
-                setCantStoreItems(!this.inventory.list.isEmpty());
-                cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
-                if (this.inventory.list.isEmpty()) {
-                    cpu.deactivate();
-                }
-                return;
-            }
-        }
-
-        // Network unavailable or items remain — suspend instead of dropping
-        if (job != null) {
-            job.suspended = true;
-            restoredFromNbt = false;
-            restoreRebindAttempted = false;
-            restoreRebindSuccessful = false;
-            restoredLinkRebound = false;
-            restoredCancelGraceTicks = 0;
-            LOGGER.warn("ECO CPU restored job suspended (safe abort deferred). jobId={} cpu={}", jobId, cpu.getName());
-        }
+    static boolean isFinalOutputSatisfied(long remainingAmount) {
+        // The buffer may still own recipe-rounding surplus. finishJob preserves that surplus and stores it normally.
+        return remainingAmount <= 0L;
     }
 
     private int getOperationLimit() {
-        int cpuLimit = Math.max(1, cpu.getCoProcessors() + 1);
-        return Math.min(cpuLimit, NEConfig.ecoCpuPushTickLimit);
+        return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
     }
 
-    static int totalPatternBudget(int slowPatternBudget, int batchPatternBudget) {
-        return Math.max(Math.max(0, slowPatternBudget), Math.max(0, batchPatternBudget));
+    static int calculateOperationLimit(int coProcessors, int configuredLimit) {
+        long baseLimit = (long) Math.max(0, coProcessors) + 1L;
+        long safeConfiguredLimit = Math.max(0, configuredLimit);
+        return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
     }
 
-    private int executeCrafting(
-            int slowPatternBudget,
-            int totalPatternBudget,
-            CraftingService craftingService,
-            IEnergyService energyService,
-            Level level,
-            FastPathBatchBudget batchBudget) {
+    /**
+     * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
+     *
+     * @return 成功推送的 pattern 数量。
+     */
+    public int executeCrafting(
+            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        SlowPathPushBudget slowPathPushBudget =
+                tickSlowPathPushBudget != null ? tickSlowPathPushBudget : new SlowPathPushBudget(craftingService);
         var job = this.job;
         if (job == null) return 0;
 
-        CraftingExecutionProgress executionProgress =
-                new CraftingExecutionProgress(slowPatternBudget, totalPatternBudget, batchBudget);
-        beginStatusChangeBatch();
+        long currentTick = TickHandler.instance().getCurrentTick();
+        beginSlowPathProviderTick(currentTick);
+        var pushedPatterns = 0;
 
+        beginStatusChangeBatch();
         try {
-            DispatchPassState passState = new DispatchPassState();
-            while (true) {
-                int pushedBeforePass = executionProgress.pushedPatterns();
-                passState.beginPass();
-                var it = job.tasks.entrySet().iterator();
-                while (it.hasNext()) {
-                    DispatchTaskResult result = tryDispatchTask(
-                            job, it.next(), it, passState, executionProgress, craftingService, energyService, level);
-                    if (result == DispatchTaskResult.JOB_FINISHED) {
-                        return executionProgress.pushedPatterns();
+            var it = job.tasks.entrySet().iterator();
+            taskLoop:
+            while (it.hasNext()) {
+                var task = it.next();
+                if (task.getValue().value <= 0) {
+                    postPatternOutputsChange(task.getKey());
+                    it.remove();
+                    continue;
+                }
+
+                var details = task.getKey();
+                // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
+                List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
+                if (providers.isEmpty()) {
+                    continue;
+                }
+                List<ECOCraftingPatternBusBlockEntity> patternBuses = collectPatternBuses(providers);
+                // FastPath 元数据只有 ECO 智能样板总线能够消费；纯第三方提供者不应支付其构建成本。
+                boolean fastPathCandidate = !patternBuses.isEmpty();
+
+                while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
+                    if (!hasReadyProvider(providers, details)) {
+                        continue taskLoop;
                     }
-                    if (result == DispatchTaskResult.STOP_PASS) {
+
+                    @Nullable List<ECOAE2InputSelection> plannedInputs = job.peekPlannedInputs(details);
+                    long plannedInputCount = plannedInputs == null ? 0L : job.peekPlannedInputCount(details);
+                    // ECO workers use the CPU's live inventory and the complete remaining task.
+                    // Planned selections are planner bookkeeping and may describe an exact key
+                    // that is no longer identical to the reserved stack's components.
+                    boolean usePlannedInputs = shouldUsePlannedInputsForDispatch(
+                            fastPathCandidate, plannedInputs != null, task.getValue().value, plannedInputCount);
+                    @Nullable ECOSelectedInputPatternDetails selectedDetails =
+                            usePlannedInputs ? new ECOSelectedInputPatternDetails(details, plannedInputs) : null;
+                    boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
+                    IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
+                    long batchTaskRemaining = fastPathCandidate || plannedInputs == null
+                            ? task.getValue().value
+                            : usePlannedInputs
+                                    ? Math.min(task.getValue().value, plannedInputCount)
+                                    : task.getValue().value;
+                    var expectedOutputs = new KeyCounter();
+                    var expectedContainerItems = new KeyCounter();
+                    @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                            extractionDetails, inventory, level, expectedOutputs, expectedContainerItems);
+                    if (craftingContainer == null) {
+                        if (fastPathCandidate) {
+                            ECOFastPathDiagnostics.logCpuPreflightFailure(
+                                    details,
+                                    cpu.getOwner() == null
+                                            ? net.minecraft.core.BlockPos.ZERO
+                                            : cpu.getOwner().getBlockPos(),
+                                    currentTick,
+                                    task.getValue().value,
+                                    plannedInputs != null,
+                                    plannedInputCount);
+                        }
+                        continue taskLoop;
+                    }
+                    if (selectedDetails != null) {
+                        craftingContainer = selectedDetails.collapseInputHolder(craftingContainer);
+                    }
+
+                    ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
+                            details,
+                            craftingContainer,
+                            expectedOutputs,
+                            expectedContainerItems,
+                            level,
+                            fastPathCandidate);
+
+                    var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
+                            * cpu.getCluster().getNetworkPowerMultiplier();
+                    long batchResult = tryPushVerifiedFastPathBatch(
+                            job,
+                            details,
+                            execution,
+                            craftingContainer,
+                            patternBuses,
+                            energyService,
+                            patternPower,
+                            batchTaskRemaining);
+                    if (batchResult > 0) {
+                        // One provider dispatch consumes one CPU scheduling operation regardless of how many
+                        // crafts the F-series host accepted in that batch.
+                        pushedPatterns++;
+                        if (this.job != job) {
+                            break taskLoop;
+                        }
+                        task.getValue().value -= batchResult;
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
+                        job.consumePlannedInputs(details, batchResult);
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0) {
+                            it.remove();
+                            continue taskLoop;
+                        }
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+                        continue;
+                    } else if (batchResult < 0) {
+                        continue taskLoop;
+                    }
+
+                    boolean pushed = false;
+                    for (ICraftingProvider provider : providers) {
+                        // Batch-capable providers were already offered both ECO and AE2LT batch paths above.
+                        // Do not let a high CPU parallelism turn the synchronous fallback into thousands of
+                        // third-party inventory insertions in a single server tick.
+                        if (provider.isBusy() || shouldSkipSlowPathProvider(provider, details)) {
+                            continue;
+                        }
+
+                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                                < patternPower - 0.01) {
+                            break;
+                        }
+
+                        if (!slowPathPushBudget.tryAcquire()) {
+                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                            break taskLoop;
+                        }
+
+                        try {
+                            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                                pushed = patternBus.pushPattern(execution, job.link.getCraftingID());
+                            } else {
+                                // AE2LT wraps this exact interface invocation to register overload outputs.
+                                pushed = provider.pushPattern(details, craftingContainer);
+                            }
+                        } catch (RuntimeException e) {
+                            LOGGER.error(
+                                    "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally",
+                                    e);
+                            pushed = false;
+                        }
+
+                        if (!pushed) {
+                            deferSlowPathProvider(provider, details);
+                            continue;
+                        }
+
+                        chargeAcceptedPatternEnergy(energyService, patternPower);
+                        pushedPatterns++;
+                        if (this.job != job) {
+                            break taskLoop;
+                        }
+                        recordPushedPattern(job, execution, 1);
+                        if (runtimeInputFallback) {
+                            job.discardPlannedInputs(details);
+                        }
+                        job.consumePlannedInputs(details);
+
+                        task.getValue().value--;
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0) {
+                            it.remove();
+                            continue taskLoop;
+                        }
+
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+
                         break;
                     }
-                }
 
-                if (!passState.shouldRunFallbackPass(executionProgress, pushedBeforePass)) {
-                    break;
+                    if (!pushed) {
+                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                        continue taskLoop;
+                    }
                 }
-
-                passState.startFallbackPass();
             }
         } finally {
             endStatusChangeBatchSafely();
         }
 
-        return executionProgress.pushedPatterns();
+        return pushedPatterns;
     }
 
-    private ProviderSelection collectProviders(CraftingService craftingService, IPatternDetails details) {
-        List<ICraftingProvider> providers = new ArrayList<>();
-        List<ECOCraftingPatternBusBlockEntity> batchBuses = new ArrayList<>();
-        for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            providers.add(provider);
-            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
-                batchBuses.add(patternBus);
+    private static final class SlowPathPushBudget {
+        private final SlowPathNetworkBudget networkBudget;
+
+        private SlowPathPushBudget(CraftingService craftingService) {
+            synchronized (SLOW_PATH_NETWORK_BUDGETS) {
+                this.networkBudget = SLOW_PATH_NETWORK_BUDGETS.computeIfAbsent(
+                        craftingService, ignored -> new SlowPathNetworkBudget());
             }
         }
-        return new ProviderSelection(List.copyOf(providers), List.copyOf(batchBuses));
+
+        private boolean tryAcquire() {
+            return networkBudget.tryAcquire(TickHandler.instance().getCurrentTick(), NEConfig.ecoCpuPushTickLimit, 0);
+        }
     }
 
-    private boolean hasPotentialProvider(ProviderSelection providers) {
-        if (!providers.batchBuses().isEmpty()) {
+    private static final class SlowPathNetworkBudget {
+        private static final int TIME_CHECK_INTERVAL = 16;
+
+        private long tick = Long.MIN_VALUE;
+        private int attempts;
+        private long deadlineNanos = Long.MAX_VALUE;
+
+        private boolean tryAcquire(long currentTick, int configuredLimit, int timeBudgetMicros) {
+            if (tick != currentTick) {
+                tick = currentTick;
+                attempts = 0;
+                if (timeBudgetMicros <= 0) {
+                    deadlineNanos = Long.MAX_VALUE;
+                } else {
+                    long budgetNanos = (long) timeBudgetMicros * 1_000L;
+                    long now = System.nanoTime();
+                    deadlineNanos = now >= Long.MAX_VALUE - budgetNanos ? Long.MAX_VALUE : now + budgetNanos;
+                }
+            }
+
+            int limit = Math.max(0, configuredLimit);
+            if (attempts >= limit) {
+                return false;
+            }
+            if (deadlineNanos != Long.MAX_VALUE
+                    && attempts % TIME_CHECK_INTERVAL == 0
+                    && System.nanoTime() >= deadlineNanos) {
+                return false;
+            }
+            attempts++;
             return true;
         }
-        for (ICraftingProvider provider : providers.all()) {
-            if (!provider.isBusy()) {
-                return true;
-            }
-        }
-        return false;
     }
 
-    private DispatchTaskResult tryDispatchTask(
-            ExecutingCraftingJob job,
-            Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress> task,
-            Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> iterator,
-            DispatchPassState passState,
-            CraftingExecutionProgress executionProgress,
-            CraftingService craftingService,
-            IEnergyService energyService,
-            Level level) {
-        var progress = task.getValue();
-        if (progress.value <= 0) {
-            postPatternOutputsChange(task.getKey());
-            iterator.remove();
-            return DispatchTaskResult.NEXT_TASK;
+    private enum BatchDispatchState {
+        PREPARED,
+        RESOURCES_RESERVED,
+        PROVIDER_ACCEPTED,
+        INPUT_OWNERSHIP_TRANSFERRED,
+        ACCOUNTING_APPLIED;
+
+        private boolean providerOwnsInputs() {
+            return this == PROVIDER_ACCEPTED || this == INPUT_OWNERSHIP_TRANSFERRED || this == ACCOUNTING_APPLIED;
         }
-
-        var details = task.getKey();
-        var dispatchBlock = job.getDispatchBlock(details);
-        if (!passState.allowUnfinishedDependencies()
-                && dispatchBlock == ExecutingCraftingJob.DispatchBlock.UNFINISHED_DEPENDENCY) {
-            passState.markUnfinishedDependencyBlocked();
-        }
-
-        ProviderSelection providers = collectProviders(craftingService, details);
-        if (providers.all().isEmpty()) {
-            return DispatchTaskResult.NEXT_TASK;
-        }
-
-        while (progress.value > 0 && executionProgress.canPushMore()) {
-            if (!executionProgress.canPushAnyPath()) {
-                return DispatchTaskResult.STOP_PASS;
-            }
-            if (!hasPotentialProvider(providers)) {
-                return DispatchTaskResult.NEXT_TASK;
-            }
-
-            if (maxCraftsNeededForFinalOutput(List.of(details.getOutputs())) <= 0) {
-                return DispatchTaskResult.NEXT_TASK;
-            }
-
-            // Dependency and in-flight counters describe future work, not the
-            // inventory that is available right now. If enough intermediate
-            // items have already returned, extraction is the authoritative gate
-            // and lets dependent patterns fill the remaining batch capacity.
-            @Nullable ExtractedPatternAttempt attempt = extractPatternAttempt(details, progress, level);
-            if (attempt == null) {
-                return DispatchTaskResult.NEXT_TASK;
-            }
-
-            DispatchTaskResult fallbackResult = tryPushFallbackAfterAggressiveMiss(
-                    details, progress, providers, attempt, executionProgress, energyService, iterator, passState);
-            if (fallbackResult != DispatchTaskResult.CONTINUE_TASK) {
-                return fallbackResult;
-            }
-        }
-
-        return DispatchTaskResult.NEXT_TASK;
-    }
-
-    private DispatchTaskResult tryPushFallbackAfterAggressiveMiss(
-            IPatternDetails details,
-            ExecutingCraftingJob.TaskProgress progress,
-            ProviderSelection providers,
-            ExtractedPatternAttempt attempt,
-            CraftingExecutionProgress executionProgress,
-            IEnergyService energyService,
-            Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> iterator,
-            DispatchPassState passState) {
-        PushResult pushResult =
-                tryPushFastPathOrFallback(details, progress, providers, attempt, executionProgress, energyService);
-        if (pushResult.jobFinished()) {
-            return DispatchTaskResult.JOB_FINISHED;
-        }
-        if (!pushResult.pushed()) {
-            return DispatchTaskResult.NEXT_TASK;
-        }
-
-        return commitPushedCrafts(details, progress, iterator, passState, executionProgress, pushResult.craftCount());
-    }
-
-    @Nullable private ExtractedPatternAttempt extractPatternAttempt(
-            IPatternDetails details, ExecutingCraftingJob.TaskProgress progress, Level level) {
-        var expectedOutputs = new KeyCounter();
-        var expectedContainerItems = new KeyCounter();
-        @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                details, inventory, level, expectedOutputs, expectedContainerItems);
-        if (craftingContainer == null) {
-            return null;
-        }
-
-        ECOExtractedPatternExecution execution =
-                progress.createPatternExecution(details, craftingContainer, expectedContainerItems, level);
-        double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-        return new ExtractedPatternAttempt(craftingContainer, execution, patternPower);
-    }
-
-    private PushResult tryScheduleAggressiveSimulatedCraft(
-            ExecutingCraftingJob.TaskProgress progress,
-            ECOCraftingSystemBlockEntity controller,
-            ExtractedPatternAttempt attempt,
-            CraftingExecutionProgress executionProgress) {
-        List<GenericStack> inputsPerCraft = aggressiveInputItems(attempt);
-        if (attempt.execution().expectedOutputs().isEmpty() || inputsPerCraft.isEmpty()) {
-            reinjectExtractedInputs(attempt);
-            return PushResult.notPushed();
-        }
-
-        int requested = (int) Math.min(
-                Math.min(progress.value, executionProgress.totalBudgetRemaining()),
-                Math.min(effectiveFastPathBatchLimit(controller), executionProgress.batchBudgetRemaining()));
-        requested = Math.min(requested, maxCraftsNeededForFinalOutput(attempt.execution()));
-        requested = Math.min(requested, controller.getLargestAvailableCraftingBatchSize());
-        requested = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), requested);
-        if (requested <= 0) {
-            reinjectExtractedInputs(attempt);
-            return PushResult.notPushed();
-        }
-
-        int extraCrafts = Math.max(0, requested - 1);
-        int availableExtraCrafts =
-                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, inputsPerCraft, extraCrafts);
-        int batchSize = Math.max(1, Math.min(requested, availableExtraCrafts + 1));
-
-        PendingPatternAccounting accounting;
-        List<GenericStack> inputTotal;
-        List<GenericStack> extraInputs;
-        try {
-            accounting = preparePushedPatternAccounting(attempt.execution(), batchSize);
-            inputTotal = ECOBatchCraftingHelper.multiply(inputsPerCraft, batchSize);
-            extraInputs = ECOBatchCraftingHelper.multiply(inputsPerCraft, batchSize - 1);
-        } catch (RuntimeException e) {
-            LOGGER.warn("ECO aggressive fast path accounting failed; not dispatching pattern", e);
-            reinjectExtractedInputs(attempt);
-            job.suspended = true;
-            return PushResult.notPushed();
-        }
-
-        boolean extraInputsExtracted = false;
-        try {
-            if (!extraInputs.isEmpty()) {
-                if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
-                    reinjectExtractedInputs(attempt);
-                    return PushResult.notPushed();
-                }
-                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
-                extraInputsExtracted = true;
-            }
-            if (!controller.tryConsumeCoolant(
-                    coolantAmountForCrafts(batchSize), controller.getEffectiveOverclockTimes())) {
-                if (extraInputsExtracted) {
-                    ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
-                }
-                reinjectExtractedInputs(attempt);
-                return PushResult.notPushed();
-            }
-
-            AggressiveSimulatedCraft work = new AggressiveSimulatedCraft(
-                    controller.getBlockPos(),
-                    job.link.getCraftingID(),
-                    inputTotal,
-                    accounting.expectedOutputs(),
-                    accounting.expectedContainerItems(),
-                    1,
-                    0,
-                    Math.max(1, controller.getNetworkMultiplier()),
-                    false);
-            aggressiveSimulatedCrafts.add(work);
-            reserveAggressivePoolSlot(work);
-            recordPushedPattern(accounting);
-            executionProgress.recordBatchPush(batchSize);
-            cpu.markDirty();
-            return PushResult.pushed(batchSize);
-        } catch (RuntimeException e) {
-            LOGGER.warn("ECO aggressive fast path failed; reinjecting inputs", e);
-            if (extraInputsExtracted) {
-                ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
-            }
-            reinjectExtractedInputs(attempt);
-            job.suspended = true;
-            return PushResult.notPushed();
-        }
-    }
-
-    static boolean canAttemptAggressiveFastPath(ECOExtractedPatternExecution execution) {
-        return ECOFastPathEligibility.canUse(execution);
-    }
-
-    static int coolantAmountForCrafts(int craftCount) {
-        int normalizedCrafts = Math.max(1, craftCount);
-        return normalizedCrafts > Integer.MAX_VALUE / 5 ? Integer.MAX_VALUE : normalizedCrafts * 5;
-    }
-
-    private List<GenericStack> aggressiveInputItems(ExtractedPatternAttempt attempt) {
-        if (!attempt.execution().inputItems().isEmpty()) {
-            return attempt.execution().inputItems();
-        }
-        return ECOFastPathStacks.copyCounters(attempt.craftingContainer());
-    }
-
-    @Nullable private ECOCraftingSystemBlockEntity largestAvailableCraftingController(
-            List<ECOCraftingPatternBusBlockEntity> patternBuses) {
-        ECOCraftingSystemBlockEntity selected = null;
-        int largestBatch = 0;
-        for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
-            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller == null) {
-                continue;
-            }
-            int availableBatch = controller.getLargestAvailableCraftingBatchSize();
-            if (availableBatch > largestBatch) {
-                largestBatch = availableBatch;
-                selected = controller;
-            }
-        }
-        return selected;
-    }
-
-    private PushResult tryPushFastPathOrFallback(
-            IPatternDetails details,
-            ExecutingCraftingJob.TaskProgress progress,
-            ProviderSelection providers,
-            ExtractedPatternAttempt attempt,
-            CraftingExecutionProgress executionProgress,
-            IEnergyService energyService) {
-        long batchResult = tryPushVerifiedFastPathBatch(
-                details,
-                attempt.execution(),
-                attempt.craftingContainer(),
-                providers.batchBuses(),
-                energyService,
-                attempt.patternPower(),
-                progress.value,
-                executionProgress.totalBudgetRemaining(),
-                executionProgress.batchBudgetRemaining());
-        if (batchResult > 0) {
-            executionProgress.recordBatchPush(batchResult);
-            return PushResult.pushed(batchResult);
-        }
-        if (batchResult < 0) {
-            return PushResult.notPushed();
-        }
-        if (!executionProgress.canPushSlowPath()) {
-            reinjectExtractedInputs(attempt);
-            return PushResult.notPushed();
-        }
-        return tryPushSlowPattern(details, progress, providers, attempt, executionProgress, energyService);
-    }
-
-    private PushResult tryPushSlowPattern(
-            IPatternDetails details,
-            ExecutingCraftingJob.TaskProgress progress,
-            ProviderSelection providers,
-            ExtractedPatternAttempt attempt,
-            CraftingExecutionProgress executionProgress,
-            IEnergyService energyService) {
-        PendingPatternAccounting accounting;
-        try {
-            accounting = preparePushedPatternAccounting(attempt.execution(), 1);
-        } catch (RuntimeException e) {
-            LOGGER.error("Unable to account pushed crafting pattern; suspending ECO CPU job", e);
-            reinjectExtractedInputs(attempt);
-            job.suspended = true;
-            return PushResult.notPushed();
-        }
-
-        for (ICraftingProvider provider : providers.all()) {
-            if (provider.isBusy()) {
-                continue;
-            }
-
-            if (energyService.extractAEPower(attempt.patternPower(), Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    < attempt.patternPower() - 0.01) {
-                break;
-            }
-
-            boolean pushed;
-            try {
-                pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                        ? patternBus.pushPattern(attempt.execution(), job.link.getCraftingID())
-                        : provider.pushPattern(details, attempt.craftingContainer());
-            } catch (RuntimeException e) {
-                LOGGER.error(
-                        "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally", e);
-                pushed = false;
-            }
-
-            if (pushed) {
-                chargeAcceptedPatternEnergy(energyService, attempt.patternPower());
-                executionProgress.recordSlowPush();
-                recordPushedPattern(accounting);
-                return PushResult.pushed(1);
-            }
-        }
-
-        reinjectExtractedInputs(attempt);
-        return PushResult.notPushed();
     }
 
     private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
@@ -814,97 +557,142 @@ public class ECOCraftingCPULogic {
                         requiredPower);
             }
         } catch (RuntimeException e) {
+            // The provider already owns the inputs. Accounting must continue so this pattern is not scheduled twice.
             LOGGER.error("Crafting pattern was accepted, but its crafting energy could not be charged", e);
         }
     }
 
-    private DispatchTaskResult commitPushedCrafts(
-            IPatternDetails details,
-            ExecutingCraftingJob.TaskProgress progress,
-            Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> iterator,
-            DispatchPassState passState,
-            CraftingExecutionProgress executionProgress,
-            long craftCount) {
-        progress.value -= craftCount;
-        postPatternOutputsChange(details);
-        if (progress.value <= 0) {
-            iterator.remove();
-            return passState.allowUnfinishedDependencies()
-                    ? DispatchTaskResult.STOP_PASS
-                    : DispatchTaskResult.NEXT_TASK;
+    private List<ICraftingProvider> collectAvailableProviders(
+            CraftingService craftingService, IPatternDetails details) {
+        List<ICraftingProvider> providers = new ArrayList<>();
+        for (ICraftingProvider provider : craftingService.getProviders(details)) {
+            if (!provider.isBusy() && !shouldSkipSlowPathProvider(provider, details)) {
+                providers.add(provider);
+            }
         }
-        if (passState.allowUnfinishedDependencies() || !executionProgress.canPushMore()) {
-            return DispatchTaskResult.STOP_PASS;
-        }
-        return DispatchTaskResult.CONTINUE_TASK;
+        return providers;
     }
 
-    private void reinjectExtractedInputs(ExtractedPatternAttempt attempt) {
-        CraftingCpuHelper.reinjectPatternInputs(inventory, attempt.craftingContainer());
+    private void beginSlowPathProviderTick(long tick) {
+        if (slowPathDeferredProvidersTick != tick) {
+            slowPathDeferredProvidersTick = tick;
+            slowPathDeferredProviders.clear();
+        }
+    }
+
+    private boolean shouldSkipSlowPathProvider(ICraftingProvider provider, IPatternDetails details) {
+        IdentityHashMap<ICraftingProvider, Boolean> providers = slowPathDeferredProviders.get(details);
+        return providers != null && providers.containsKey(provider);
+    }
+
+    private void deferSlowPathProvider(ICraftingProvider provider, IPatternDetails details) {
+        slowPathDeferredProviders
+                .computeIfAbsent(details, ignored -> new IdentityHashMap<>())
+                .put(provider, Boolean.TRUE);
+    }
+
+    private static List<ECOCraftingPatternBusBlockEntity> collectPatternBuses(List<ICraftingProvider> providers) {
+        List<ECOCraftingPatternBusBlockEntity> patternBuses = null;
+        for (ICraftingProvider provider : providers) {
+            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                if (patternBuses == null) {
+                    patternBuses = new ArrayList<>();
+                }
+                patternBuses.add(patternBus);
+            }
+        }
+        return patternBuses == null ? List.of() : patternBuses;
+    }
+
+    private boolean hasReadyProvider(List<ICraftingProvider> providers, IPatternDetails details) {
+        for (ICraftingProvider provider : providers) {
+            if (!provider.isBusy() && !shouldSkipSlowPathProvider(provider, details)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private long tryPushVerifiedFastPathBatch(
+            ExecutingCraftingJob job,
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
             List<ECOCraftingPatternBusBlockEntity> patternBuses,
             IEnergyService energyService,
             double patternPower,
-            long taskRemaining,
-            int totalBudgetRemaining,
-            int batchBudgetRemaining) {
-        if (!ECOFastPathEligibility.canUse(execution) || taskRemaining <= 0) {
+            long taskRemaining) {
+        if (patternBuses.isEmpty()) {
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    ECOFastPathFallbackReason.NO_ECO_PATTERN_BUS,
+                    ECOFastPathStage.ELIGIBILITY,
+                    cpu.getOwner().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "batch_attempt_has_no_eco_pattern_bus");
+            return 0;
+        }
+        if (!canAttemptBatchFastPath(execution)) {
+            ECOFastPathFallbackReason reason = execution.fallbackReason() != null
+                    ? execution.fallbackReason()
+                    : !NEConfig.isEcoAe2FastPathEnabled()
+                            ? ECOFastPathFallbackReason.FAST_PATH_DISABLED
+                            : NEConfig.postCraftingEvent
+                                    ? ECOFastPathFallbackReason.POST_CRAFTING_EVENT
+                                    : ECOFastPathFallbackReason.KEY_BUILD_FAILED;
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    reason,
+                    ECOFastPathStage.ELIGIBILITY,
+                    cpu.getOwner().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "batch_gate_rejected eligible=" + execution.fastPathEligible() + " keyPresent="
+                            + (execution.key() != null));
+            return 0;
+        }
+        if (taskRemaining <= 0) {
             return 0;
         }
 
         var reusablePlan = ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems());
-        long minimumBatchSize = reusablePlan.reusableInputs().isEmpty() ? 2L : 1L;
+        boolean reusableLease = !reusablePlan.reusableInputs().isEmpty();
+        long minimumBatchSize = reusableLease ? 1L : 2L;
         if (taskRemaining < minimumBatchSize) {
             return 0;
         }
-
-        long normalRequested = calculateBatchRequestSize(
-                taskRemaining, Math.min(totalBudgetRemaining, batchBudgetRemaining), effectiveFastPathTickLimit());
-        normalRequested = Math.min(normalRequested, maxCraftsNeededForFinalOutput(execution));
-        long virtualRequested = Math.min(
-                Math.min(taskRemaining, maxCraftsNeededForFinalOutputLong(execution)),
-                ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE);
-        virtualRequested = ECOBatchCraftingHelper.maxSafeMultiplier(
-                virtualRequested,
-                reusablePlan.consumedInputsPerCraft(),
-                execution.expectedOutputs(),
-                reusablePlan.ordinaryRemainingPerCraft());
-        if (normalRequested < minimumBatchSize && virtualRequested < minimumBatchSize) {
-            return 0;
-        }
+        // Offer the complete remaining task. The selected ECO controller/worker applies its
+        // actual lane capacity (for example 4096) and the next scheduler pass fills the next
+        // free lane. Dividing by the number of free lanes here makes a 44-slot controller submit
+        // batches of 1 when only 44 crafts remain, defeating FastPath batching.
+        long requested = calculateBatchRequestSize(taskRemaining);
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
-        boolean selectedVirtualCrafting = false;
+        Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
-            ECOCraftingSystemBlockEntity candidateController = patternBus.getCraftingController();
-            boolean virtualCrafting = candidateController != null && candidateController.isFullEightHostExchange();
-            long requested = virtualCrafting ? virtualRequested : normalRequested;
-            if (requested < minimumBatchSize) {
+            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+            if (controller == null || !visitedControllers.add(controller)) {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
             if (offer != null
                     && offer.maxBatchSize() >= minimumBatchSize
-                    && (selectedOffer == null
-                            || virtualCrafting && !selectedVirtualCrafting
-                            || virtualCrafting == selectedVirtualCrafting
-                                    && offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
+                    && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;
                 selectedOffer = offer;
-                selectedVirtualCrafting = virtualCrafting;
                 if (offer.maxBatchSize() >= requested) {
-                    if (virtualCrafting) {
-                        break;
-                    }
+                    break;
                 }
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    ECOFastPathFallbackReason.NO_BATCH_OFFER,
+                    ECOFastPathStage.CACHE_LOOKUP,
+                    cpu.getOwner().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "requested=" + requested + " patternBuses=" + patternBuses.size()
+                            + " no_worker_exposed_a_matching_verified_result");
             return 0;
         }
 
@@ -919,59 +707,161 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        boolean virtualCrafting = selectedVirtualCrafting;
-        long requested = virtualCrafting ? virtualRequested : normalRequested;
-        long batchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        long offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        boolean virtualCrafting = workerController.isVirtualCraftingMode();
+        long batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
+                reusablePlan.consumedInputsPerCraft(),
+                execution.expectedOutputs(),
+                reusablePlan.ordinaryRemainingPerCraft(),
+                offeredBatchSize);
+        long safeBatchSize = batchSize;
+        long energyBatchSize = -1L;
+        long coolantBatchSize = -1L;
+        if (batchSize < minimumBatchSize) {
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    ECOFastPathFallbackReason.BATCH_AMOUNT_OVERFLOW,
+                    ECOFastPathStage.RESOURCE_LIMIT,
+                    selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "offered=" + offeredBatchSize + " safe=" + batchSize);
+            return 0;
+        }
         if (!virtualCrafting) {
-            int normalBatchSize = Math.toIntExact(batchSize);
-            batchSize = Math.min(normalBatchSize, maxBatchSizeFromEnergy(energyService, patternPower, normalBatchSize));
-            batchSize = workerController.getCraftingCoolantCraftLimit(
-                    5, workerController.getEffectiveOverclockTimes(), Math.toIntExact(batchSize));
+            int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, batchSize);
+            batchSize = normalOfferedBatchSize;
+            energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
+            if (energyBatchSize < minimumBatchSize) {
+                selectedOffer.worker().getFastPathCache().recordCoolantReject();
+                ECOFastPathDiagnostics.logFailure(
+                        execution,
+                        ECOFastPathFallbackReason.ENERGY_LIMIT,
+                        ECOFastPathStage.RESOURCE_LIMIT,
+                        selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "requested=" + requested + " offered=" + offeredBatchSize + " affordable=" + energyBatchSize
+                                + " patternPower=" + patternPower);
+                return 0;
+            }
+            coolantBatchSize = workerController.getCraftingCoolantCraftLimit(
+                    5, workerController.getCoolingRequirementForCurrentNetwork(), (int) energyBatchSize);
+            batchSize = Math.min(batchSize, Math.min(energyBatchSize, coolantBatchSize));
+            if (coolantBatchSize < minimumBatchSize) {
+                selectedOffer.worker().getFastPathCache().recordCoolantReject();
+                ECOFastPathDiagnostics.logFailure(
+                        execution,
+                        ECOFastPathFallbackReason.COOLANT_LIMIT,
+                        ECOFastPathStage.RESOURCE_LIMIT,
+                        selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "requested=" + requested + " offered=" + offeredBatchSize + " energyLimit=" + energyBatchSize
+                                + " coolantLimit=" + coolantBatchSize);
+                return 0;
+            }
         }
         if (batchSize < minimumBatchSize) {
             return 0;
         }
 
         long extraCrafts = batchSize - 1L;
-        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+        var inventoryBatchLimit = ECOBatchCraftingHelper.inventoryBatchLimit(
                 inventory, reusablePlan.consumedInputsPerCraft(), extraCrafts);
-        batchSize = Math.min(
-                batchSize, availableExtraCrafts == Long.MAX_VALUE ? Long.MAX_VALUE : availableExtraCrafts + 1L);
+        long availableExtraCrafts = inventoryBatchLimit.crafts();
+        long inventoryBatchSize;
+        try {
+            inventoryBatchSize = Math.addExact(availableExtraCrafts, 1L);
+        } catch (ArithmeticException e) {
+            inventoryBatchSize = Long.MAX_VALUE;
+        }
+        batchSize = Math.min(batchSize, inventoryBatchSize);
         if (batchSize < minimumBatchSize) {
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    ECOFastPathFallbackReason.INVENTORY_LIMIT,
+                    ECOFastPathStage.RESOURCE_LIMIT,
+                    selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "requested=" + requested + " resourceBatch=" + (extraCrafts + 1) + " availableExtraCrafts="
+                            + availableExtraCrafts);
             return 0;
         }
 
-        PendingPatternAccounting accounting;
-        try {
-            accounting = new PendingPatternAccounting(
-                    ECOBatchCraftingHelper.multiply(execution.expectedOutputs(), batchSize),
-                    reusablePlan.batchRemaining(batchSize));
-        } catch (RuntimeException e) {
-            LOGGER.warn("ECO batch fast path accounting preflight failed; falling back to the slow path", e);
-            selectedOffer.worker().getFastPathCache().recordException();
-            return 0;
-        }
+        ECOFastPathDiagnostics.logBatchDecision(
+                execution,
+                selectedOffer.worker().getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                taskRemaining,
+                requested,
+                selectedOffer.maxBatchSize(),
+                safeBatchSize,
+                energyBatchSize,
+                coolantBatchSize,
+                inventoryBatchSize,
+                describeInventoryConstraint(inventoryBatchLimit),
+                batchSize);
 
         var extraInputs = reusablePlan.extraInputs(batchSize - 1);
         boolean extraInputsExtracted = false;
-        boolean ownershipTransferred = false;
+        BatchDispatchState dispatchState = BatchDispatchState.PREPARED;
+        ECOBatchEnergyReservation energyReservation = null;
         try {
-            if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
-                return 0;
-            }
             double requiredPower = virtualCrafting ? 0.0D : patternPower * batchSize;
             if (!virtualCrafting && !Double.isFinite(requiredPower)) {
+                ECOFastPathDiagnostics.logFailure(
+                        execution,
+                        ECOFastPathFallbackReason.ENERGY_LIMIT,
+                        ECOFastPathStage.RESOURCE_LIMIT,
+                        selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "requiredPowerNotFinite=" + requiredPower + " batch=" + batchSize);
                 return 0;
             }
             if (!virtualCrafting) {
-                double simulatedPower =
-                        energyService.extractAEPower(requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-                if (Double.isNaN(simulatedPower) || simulatedPower < requiredPower - 0.01D) {
+                try {
+                    energyReservation = ECOBatchEnergyReservation.tryReserve(energyService, requiredPower, false);
+                } catch (RuntimeException e) {
+                    ECOFastPathDiagnostics.logBatchFailure(
+                            new ECOBatchCraftingRequest(
+                                    details,
+                                    execution.key(),
+                                    batchSize,
+                                    execution.inputItems(),
+                                    execution.expectedOutputs(),
+                                    execution.expectedContainerItems(),
+                                    job.link.getCraftingID()),
+                            ECOFastPathFallbackReason.ENERGY_LIMIT,
+                            ECOFastPathStage.ENERGY_CHARGE,
+                            selectedOffer.worker().getBlockPos(),
+                            TickHandler.instance().getCurrentTick(),
+                            "energy_service_exception=" + e.getMessage());
+                    throw e;
+                }
+                if (energyReservation == null) {
+                    ECOFastPathDiagnostics.logFailure(
+                            execution,
+                            ECOFastPathFallbackReason.ENERGY_LIMIT,
+                            ECOFastPathStage.RESOURCE_LIMIT,
+                            selectedOffer.worker().getBlockPos(),
+                            TickHandler.instance().getCurrentTick(),
+                            "requiredPower=" + requiredPower);
+                    // Keep the first craft's inputs for the normal slow path. No extra inputs were taken.
                     return 0;
                 }
             }
-            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            try {
+                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            } catch (RuntimeException e) {
+                ECOFastPathDiagnostics.logFailure(
+                        execution,
+                        ECOFastPathFallbackReason.INPUT_RESERVATION_FAILED,
+                        ECOFastPathStage.INPUT_RESERVATION,
+                        selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "batch=" + batchSize + " extraInputs=" + extraInputs + " error=" + e.getMessage());
+                throw e;
+            }
             extraInputsExtracted = true;
+            dispatchState = BatchDispatchState.RESOURCES_RESERVED;
             var request = new ECOBatchCraftingRequest(
                     details,
                     execution.key(),
@@ -981,89 +871,104 @@ public class ECOCraftingCPULogic {
                     execution.expectedContainerItems(),
                     job.link.getCraftingID());
             if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
-                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, false, extraInputsExtracted);
-                return 0;
+                ECOFastPathDiagnostics.logBatchFailure(
+                        request,
+                        ECOFastPathFallbackReason.PROVIDER_REJECTED,
+                        ECOFastPathStage.PROVIDER_DISPATCH,
+                        selectedPatternBus.getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "pattern_bus_or_network_cluster_returned_false worker="
+                                + selectedOffer.worker().getBlockPos().toShortString());
+                RuntimeException refundFailure = energyReservation == null ? null : energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("ECO batch energy refund failed after provider rejection", refundFailure);
+                }
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
+                return -1;
             }
-            ownershipTransferred = true;
-            ECOBatchCraftingHelper.insertAllOrThrow(inventory, reusablePlan.reusableInputs());
-            if (virtualCrafting) {
-                try {
-                    recordPushedPattern(accounting);
-                } catch (RuntimeException e) {
-                    selectedOffer.worker().getFastPathCache().recordException();
-                    LOGGER.error("ECO virtual batch was accepted, but its CPU accounting update failed", e);
+            dispatchState = BatchDispatchState.PROVIDER_ACCEPTED;
+            // The worker owns consumed inputs from this point onward. Exact reusable catalysts
+            // never enter the worker ledger, so return their single reserved copy to the CPU. This
+            // lets the scheduler lease the same immutable catalyst to other free FX workers.
+            dispatchState = BatchDispatchState.INPUT_OWNERSHIP_TRANSFERRED;
+            ECOBatchCraftingHelper.insertAll(inventory, reusablePlan.reusableInputs());
+            if (energyReservation != null) {
+                energyReservation.commit();
+            }
+            try {
+                if (this.job == job) {
+                    recordPushedPattern(job, execution, batchSize, true);
+                    dispatchState = BatchDispatchState.ACCOUNTING_APPLIED;
                 }
-            } else {
-                AcceptedBatchCompletion completion = completeAcceptedBatch(
-                        requiredPower,
-                        () -> energyService.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG),
-                        () -> recordPushedPattern(accounting));
-                if (!completion.energyChargeComplete()) {
-                    selectedOffer.worker().getFastPathCache().recordException();
-                    if (completion.energyFailure() != null) {
-                        LOGGER.error(
-                                "ECO batch was accepted, but its crafting energy could not be charged",
-                                completion.energyFailure());
-                    } else {
-                        LOGGER.error(
-                                "ECO batch was accepted, but only {} of {} crafting energy was charged",
-                                completion.chargedPower(),
-                                requiredPower);
-                    }
-                }
-                if (completion.accountingFailure() != null) {
-                    selectedOffer.worker().getFastPathCache().recordException();
-                    LOGGER.error(
-                            "ECO batch was accepted, but its CPU accounting update failed",
-                            completion.accountingFailure());
-                }
+            } catch (RuntimeException e) {
+                selectedOffer.worker().getFastPathCache().recordException();
+                ECOFastPathDiagnostics.logBatchFailure(
+                        request,
+                        ECOFastPathFallbackReason.ACCOUNTING_FAILED,
+                        ECOFastPathStage.ACCOUNTING,
+                        selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "record_pushed_pattern_exception=" + e.getMessage());
+                LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
             }
             return batchSize;
         } catch (RuntimeException e) {
-            if (ownershipTransferred) {
+            selectedOffer.worker().getFastPathCache().recordException();
+            boolean providerOwnsInputs = dispatchState.providerOwnsInputs();
+            ECOFastPathDiagnostics.logFailure(
+                    execution,
+                    providerOwnsInputs
+                            ? ECOFastPathFallbackReason.ACCOUNTING_FAILED
+                            : ECOFastPathFallbackReason.PROVIDER_REJECTED,
+                    providerOwnsInputs ? ECOFastPathStage.ACCOUNTING : ECOFastPathStage.PROVIDER_DISPATCH,
+                    selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "batch=" + batchSize + " dispatchState=" + dispatchState + " error=" + e.getMessage());
+            if (providerOwnsInputs) {
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
-                selectedOffer.worker().getFastPathCache().recordException();
                 return batchSize;
             }
-            LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
+            RuntimeException refundFailure = energyReservation == null ? null : energyReservation.refundSafely();
+            if (refundFailure != null) {
+                LOGGER.error("ECO batch energy refund failed while rolling back a pre-submit failure", refundFailure);
+            }
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
-            selectedOffer.worker().getFastPathCache().recordException();
             return -1;
         } catch (Error e) {
-            if (!ownershipTransferred) {
+            selectedOffer.worker().getFastPathCache().recordException();
+            if (!dispatchState.providerOwnsInputs()) {
+                if (energyReservation != null) {
+                    RuntimeException refundFailure = energyReservation.refundSafely();
+                    if (refundFailure != null) {
+                        LOGGER.error("ECO batch energy refund failed while rolling back an error", refundFailure);
+                    }
+                }
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             }
             throw e;
         }
     }
 
-    static AcceptedBatchCompletion completeAcceptedBatch(
-            double requiredPower, DoubleSupplier energyCharge, Runnable accountingUpdate) {
-        double chargedPower = Double.NaN;
-        RuntimeException energyFailure = null;
-        try {
-            chargedPower = energyCharge.getAsDouble();
-        } catch (RuntimeException e) {
-            energyFailure = e;
-        }
-
-        RuntimeException accountingFailure = null;
-        try {
-            accountingUpdate.run();
-        } catch (RuntimeException e) {
-            accountingFailure = e;
-        }
-        return new AcceptedBatchCompletion(requiredPower, chargedPower, energyFailure, accountingFailure);
+    static long calculateBatchRequestSize(long taskRemaining) {
+        return Math.max(0L, taskRemaining);
     }
 
-    record AcceptedBatchCompletion(
-            double requiredPower,
-            double chargedPower,
-            @Nullable RuntimeException energyFailure,
-            @Nullable RuntimeException accountingFailure) {
-        boolean energyChargeComplete() {
-            return energyFailure == null && !Double.isNaN(chargedPower) && chargedPower >= requiredPower - 0.01D;
+    static boolean shouldUsePlannedInputs(long taskRemaining, long plannedInputCount) {
+        return taskRemaining <= 0L || plannedInputCount >= taskRemaining;
+    }
+
+    static boolean shouldUsePlannedInputsForDispatch(
+            boolean ecoFastPathCandidate, boolean plannedInputsPresent, long taskRemaining, long plannedInputCount) {
+        return !ecoFastPathCandidate
+                && plannedInputsPresent
+                && shouldUsePlannedInputs(taskRemaining, plannedInputCount);
+    }
+
+    private static String describeInventoryConstraint(ECOBatchCraftingHelper.InventoryBatchLimit limit) {
+        if (limit.limitingKey() == null) {
+            return "none";
         }
+        return limit.limitingKey() + " available=" + limit.available() + " perCraft=" + limit.perCraft();
     }
 
     private void rollbackBatchInputs(
@@ -1077,562 +982,102 @@ public class ECOCraftingCPULogic {
         }
 
         if (extraInputsExtracted) {
-            ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
         }
+    }
+
+    private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
+        return execution.key() != null
+                && execution.fastPathEligible()
+                && NEConfig.isEcoAe2FastPathEnabled()
+                && !NEConfig.postCraftingEvent;
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {
         return ECOBatchCraftingHelper.maxAffordableCrafts(
                 patternPower,
                 requested,
-                power -> energyService.extractAEPower(power, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+                totalPower -> energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG));
     }
 
-    static int calculateBatchRequestSize(long taskRemaining, int tickBudgetRemaining, int tickLimit) {
-        long requested = Math.min(
-                Math.max(0L, taskRemaining), Math.min(Math.max(0, tickBudgetRemaining), Math.max(0, tickLimit)));
-        return (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, requested);
+    private void recordPushedPattern(
+            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
+        recordPushedPattern(job, execution, craftCount, false);
     }
 
-    private int effectiveFastPathTickLimit() {
-        int dynamicLimit = aggressiveFastPathCapacity();
-        return dynamicLimit > 0 ? dynamicLimit : NEConfig.getEcoFastPathTickLimit();
-    }
+    private void recordPushedPattern(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            long craftCount,
+            boolean retainReusableInputsOnce) {
+        for (var expectedOutput : execution.expectedOutputs()) {
+            job.waitingFor.insert(
+                    expectedOutput.what(),
+                    scaledPatternAmount(expectedOutput.amount(), craftCount),
+                    Actionable.MODULATE);
+        }
+        postGenericStackKeysChange(execution.expectedOutputs());
 
-    private int effectiveFastPathBatchLimit(@Nullable ECOCraftingSystemBlockEntity controller) {
-        // In-flight craft count is a logical lane count (44 in a two-host
-        // exchange), not the number of crafts that one lane can batch. Using
-        // it here truncated a 4096-craft lane to 44 crafts.
-        int dynamicLimit =
-                controller == null ? aggressiveFastPathCapacity() : controller.getLargestAvailableCraftingBatchSize();
-        return dynamicLimit > 0
-                ? Math.min(dynamicLimit, ECOBatchCraftingHelper.MAX_BATCH_SIZE)
-                : ECOBatchCraftingHelper.MAX_BATCH_SIZE;
-    }
-
-    private int aggressiveFastPathCapacity() {
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return 0;
+        List<GenericStack> expectedContainerItems = retainReusableInputsOnce
+                ? ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems())
+                        .batchRemaining(craftCount)
+                : execution.expectedContainerItems();
+        for (var expectedContainerItem : expectedContainerItems) {
+            long amount = retainReusableInputsOnce
+                    ? expectedContainerItem.amount()
+                    : scaledPatternAmount(expectedContainerItem.amount(), craftCount);
+            job.waitingFor.insert(expectedContainerItem.what(), amount, Actionable.MODULATE);
+            job.timeTracker.addMaxItems(amount, expectedContainerItem.what().getType());
         }
-        Set<ECOCraftingSystemBlockEntity> controllers = new HashSet<>();
-        int total = 0;
-        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
-            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller == null || !controller.isFullEightHostExchange() || !controllers.add(controller)) {
-                continue;
-            }
-            int laneCount = controller.getMaxInFlightCrafts();
-            int batchPerLane = controller.getMaxBatchPerThread();
-            total = saturatedAddInt(total, saturatedMultiplyInt(laneCount, batchPerLane));
-        }
-        return total;
-    }
-
-    private static int saturatedMultiplyInt(int left, int right) {
-        long product = Math.max(0L, (long) left) * Math.max(0L, (long) right);
-        return (int) Math.min(Integer.MAX_VALUE, product);
-    }
-
-    private static int saturatedAddInt(int left, int right) {
-        long sum = (long) left + Math.max(0, right);
-        return sum >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
-    }
-
-    private int maxCraftsNeededForFinalOutput(ECOExtractedPatternExecution execution) {
-        return maxCraftsNeededForFinalOutput(execution.expectedOutputs());
-    }
-
-    private long maxCraftsNeededForFinalOutputLong(ECOExtractedPatternExecution execution) {
-        if (job == null || job.finalOutput == null) {
-            return Long.MAX_VALUE;
-        }
-        long finalOutputPerCraft = finalOutputAmountPerCraft(execution.expectedOutputs());
-        if (finalOutputPerCraft <= 0) {
-            return Long.MAX_VALUE;
-        }
-        long outstanding = job.remainingAmount - Math.max(0L, job.inFlightOutputs.get(job.finalOutput.what()));
-        if (outstanding <= 0L) {
-            return 0L;
-        }
-        return 1L + (outstanding - 1L) / finalOutputPerCraft;
-    }
-
-    private int maxCraftsNeededForFinalOutput(List<GenericStack> outputsPerCraft) {
-        if (job == null || job.finalOutput == null) {
-            return Integer.MAX_VALUE;
-        }
-        long finalOutputPerCraft = finalOutputAmountPerCraft(outputsPerCraft);
-        if (finalOutputPerCraft <= 0) {
-            return Integer.MAX_VALUE;
-        }
-        long inFlightFinalOutput = job.inFlightOutputs.get(job.finalOutput.what());
-        return maxCraftsForFinalOutputDemand(job.remainingAmount, inFlightFinalOutput, finalOutputPerCraft);
-    }
-
-    static int maxCraftsForFinalOutputDemand(long remainingAmount, long inFlightAmount, long outputAmountPerCraft) {
-        if (outputAmountPerCraft <= 0) {
-            return Integer.MAX_VALUE;
-        }
-        long outstanding = remainingAmount - Math.max(0L, inFlightAmount);
-        if (outstanding <= 0) {
-            return 0;
-        }
-        long crafts = 1L + (outstanding - 1L) / outputAmountPerCraft;
-        return crafts >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) crafts;
-    }
-
-    private long finalOutputAmountPerCraft(List<GenericStack> outputsPerCraft) {
-        long amount = 0L;
-        for (GenericStack output : outputsPerCraft) {
-            if (output != null && output.what().matches(job.finalOutput)) {
-                amount = saturatedAddLong(amount, output.amount());
-            }
-        }
-        return amount;
-    }
-
-    private static long saturatedAddLong(long left, long right) {
-        if (right <= 0L) {
-            return left;
-        }
-        long sum = left + right;
-        return sum < 0L ? Long.MAX_VALUE : sum;
-    }
-
-    private void tickAggressiveSimulatedCrafts(IEnergyService energyService) {
-        if (aggressiveSimulatedCrafts.isEmpty()) {
-            syncAggressivePoolSlots();
-            return;
-        }
-        if (aggressivePoolSlotTotals.isEmpty()) {
-            rebuildAggressivePoolSlotTotals();
-            syncAggressivePoolSlots();
-        }
-
-        double totalNeed = 0.0D;
-        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-            ECOCraftingSystemBlockEntity controller = work.controller(cpu.getLevel());
-            if (controller != null && !work.outputsReady) {
-                totalNeed += work.powerNeed(controller);
-            }
-        }
-        double extracted = totalNeed <= 0.0D
-                ? 0.0D
-                : energyService.extractAEPower(totalNeed, Actionable.MODULATE, PowerMultiplier.CONFIG);
-        double powerRatio = totalNeed <= 0.0D ? 0.0D : extracted / totalNeed;
-
-        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-            ECOCraftingSystemBlockEntity controller = work.controller(cpu.getLevel());
-            if (controller != null && !work.outputsReady) {
-                work.tick(controller, powerRatio);
-            }
-        }
-
-        boolean jobEndedDuringFlush = false;
-        var it = aggressiveSimulatedCrafts.iterator();
-        while (it.hasNext()) {
-            AggressiveSimulatedCraft work = it.next();
-            if (!work.outputsReady) {
-                continue;
-            }
-            boolean flushed;
-            flushingAggressiveSimulatedOutput = true;
-            try {
-                flushed = flushAggressiveSimulatedOutputs(work);
-            } finally {
-                flushingAggressiveSimulatedOutput = false;
-            }
-            if (flushed) {
-                releaseAggressivePoolSlot(work);
-                it.remove();
-                cpu.markDirty();
-            }
-            if (recoverAggressiveAfterFlush || job == null) {
-                jobEndedDuringFlush = true;
-                break;
-            }
-        }
-        if (jobEndedDuringFlush) {
-            recoverAggressiveAfterFlush = false;
-            recoverAggressiveSimulatedCraftsToInventory();
-            this.storeItems();
-            setCantStoreItems(!this.inventory.list.isEmpty());
-            if (this.inventory.list.isEmpty() && markedForDeletion) {
-                cpu.deactivate();
-            }
-            return;
-        }
-        // Progress is visible in the controller UI. Rebuild those snapshots once after all
-        // works have advanced, rather than once for every scheduled work.
-        aggressivePoolSyncDirty = true;
-        syncAggressivePoolSlots();
-    }
-
-    private void syncAggressivePoolSlots() {
-        if (!aggressivePoolSyncDirty) {
-            return;
-        }
-        Map<AggressivePoolReservation, List<AggressiveSimulatedCraftSnapshot>> snapshots = new HashMap<>();
-        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-            AggressivePoolReservation reservation =
-                    new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
-            snapshots.computeIfAbsent(reservation, ignored -> new ArrayList<>()).addAll(work.uiSnapshots());
-        }
-
-        Set<AggressivePoolReservation> nextReservations = new HashSet<>(aggressivePoolSlotTotals.keySet());
-        boolean synchronizedAllReservations = true;
-        for (AggressivePoolReservation reservation : aggressivePoolReservations) {
-            if (!aggressivePoolSlotTotals.containsKey(reservation)
-                    && (!setAggressivePoolSlots(reservation, 0)
-                            || !setAggressivePoolTaskSnapshots(reservation, List.of()))) {
-                nextReservations.add(reservation);
-                synchronizedAllReservations = false;
-            }
-        }
-        for (Map.Entry<AggressivePoolReservation, Integer> entry : aggressivePoolSlotTotals.entrySet()) {
-            AggressivePoolReservation reservation = entry.getKey();
-            boolean slotsSet = setAggressivePoolSlots(reservation, Math.max(1, entry.getValue()));
-            boolean snapshotsSet =
-                    setAggressivePoolTaskSnapshots(reservation, snapshots.getOrDefault(reservation, List.of()));
-            if (!slotsSet || !snapshotsSet) {
-                synchronizedAllReservations = false;
-            }
-        }
-        aggressivePoolReservations.clear();
-        aggressivePoolReservations.addAll(nextReservations);
-        aggressivePoolSyncDirty = !synchronizedAllReservations;
-    }
-
-    /** Reserves capacity immediately so several schedules in one tick cannot overfill a host. */
-    private void reserveAggressivePoolSlot(AggressiveSimulatedCraft work) {
-        AggressivePoolReservation reservation =
-                new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
-        int slots = aggressivePoolSlotTotals.merge(reservation, work.occupiedSlots, Integer::sum);
-        aggressivePoolReservations.add(reservation);
-        setAggressivePoolSlots(reservation, Math.max(1, slots));
-        aggressivePoolSyncDirty = true;
-    }
-
-    private void rebuildAggressivePoolSlotTotals() {
-        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-            AggressivePoolReservation reservation =
-                    new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
-            aggressivePoolSlotTotals.merge(reservation, work.occupiedSlots, Integer::sum);
-            aggressivePoolReservations.add(reservation);
-        }
-        aggressivePoolSyncDirty = true;
-    }
-
-    /** Releases capacity immediately; UI snapshots are coalesced into the end-of-tick sync. */
-    private void releaseAggressivePoolSlot(AggressiveSimulatedCraft work) {
-        AggressivePoolReservation reservation =
-                new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
-        int remaining = Math.max(0, aggressivePoolSlotTotals.getOrDefault(reservation, 0) - work.occupiedSlots);
-        if (remaining == 0) {
-            aggressivePoolSlotTotals.remove(reservation);
-            // Keep the reservation until the coalesced sync clears its task snapshots too.
-            setAggressivePoolSlots(reservation, 0);
-        } else {
-            aggressivePoolSlotTotals.put(reservation, remaining);
-            setAggressivePoolSlots(reservation, remaining);
-        }
-        aggressivePoolSyncDirty = true;
-    }
-
-    private boolean setAggressivePoolSlots(AggressivePoolReservation reservation, int slots) {
-        ECOCraftingSystemBlockEntity controller = reservation.controller(cpu.getLevel());
-        if (controller != null) {
-            controller.setSimulatedPoolThreadCount(reservation.owner, Math.max(0, slots));
-            return true;
-        }
-        return false;
-    }
-
-    private boolean setAggressivePoolTaskSnapshots(
-            AggressivePoolReservation reservation, List<AggressiveSimulatedCraftSnapshot> snapshots) {
-        ECOCraftingSystemBlockEntity controller = reservation.controller(cpu.getLevel());
-        if (controller != null) {
-            controller.setSimulatedPoolTaskSnapshots(reservation.owner, snapshots);
-            return true;
-        }
-        return false;
-    }
-
-    private boolean flushAggressiveSimulatedOutputs(AggressiveSimulatedCraft work) {
-        List<GenericStack> stacks = work.completionStacks();
-        List<GenericStack> remainder = new ArrayList<>();
-        @Nullable IGrid grid = cpu.getGrid();
-        var storage = grid == null ? null : grid.getStorageService().getInventory();
-        for (GenericStack stack : stacks) {
-            long remaining = stack.amount();
-            if (this.job != null) {
-                remaining -= insert(stack.what(), remaining, Actionable.MODULATE);
-            }
-            if (remaining > 0 && storage != null) {
-                remaining -= storage.insert(stack.what(), remaining, Actionable.MODULATE, cpu.getActionSource());
-            }
-            if (remaining > 0) {
-                remainder.add(new GenericStack(stack.what(), remaining));
-            }
-        }
-        if (remainder.isEmpty()) {
-            return true;
-        }
-        work.retainOutputRemainder(remainder);
-        return false;
-    }
-
-    private void recoverAggressiveSimulatedCraftsToInventory() {
-        if (aggressiveSimulatedCrafts.isEmpty()) {
-            return;
-        }
-        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-            ECOBatchCraftingHelper.insertAllOrThrow(
-                    inventory, work.outputsReady ? work.completionStacks() : work.inputStacks);
-        }
-        aggressiveSimulatedCrafts.clear();
-        aggressivePoolSlotTotals.clear();
-        aggressivePoolSyncDirty = true;
-        syncAggressivePoolSlots();
-        cpu.markDirty();
-    }
-
-    private void recordPushedPattern(ECOExtractedPatternExecution execution, long craftCount) {
-        recordPushedPattern(preparePushedPatternAccounting(execution, craftCount));
-    }
-
-    private static PendingPatternAccounting preparePushedPatternAccounting(
-            ECOExtractedPatternExecution execution, long craftCount) {
-        long multiplier = Math.max(1L, craftCount);
-        return new PendingPatternAccounting(
-                ECOBatchCraftingHelper.multiply(execution.expectedOutputs(), multiplier),
-                ECOBatchCraftingHelper.multiply(execution.expectedContainerItems(), multiplier));
-    }
-
-    private void recordPushedPattern(PendingPatternAccounting accounting) {
-        job.addInFlightOutputs(accounting.expectedOutputs(), 1);
-        for (var expectedOutput : accounting.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount(), Actionable.MODULATE);
-        }
-        postGenericStackKeysChange(accounting.expectedOutputs());
-        job.addInFlightOutputs(accounting.expectedContainerItems(), 1);
-        for (var expectedContainerItem : accounting.expectedContainerItems()) {
-            job.waitingFor.insert(expectedContainerItem.what(), expectedContainerItem.amount(), Actionable.MODULATE);
-            job.timeTracker.addMaxItems(
-                    expectedContainerItem.amount(), expectedContainerItem.what().getType());
-        }
-        postGenericStackKeysChange(accounting.expectedContainerItems());
+        postGenericStackKeysChange(expectedContainerItems);
 
         cpu.markDirty();
-    }
-
-    private record PendingPatternAccounting(
-            List<GenericStack> expectedOutputs, List<GenericStack> expectedContainerItems) {}
-
-    public record AggressiveSimulatedCraftSnapshot(
-            BlockPos controllerPos,
-            UUID owner,
-            GenericStack output,
-            int occupiedSlots,
-            int progress,
-            int maxProgress,
-            boolean outputsReady) {
-        public AggressiveSimulatedCraftSnapshot {
-            Preconditions.checkNotNull(controllerPos, "controllerPos");
-            Preconditions.checkNotNull(owner, "owner");
-            Preconditions.checkNotNull(output, "output");
-            output = new GenericStack(output.what(), Math.max(0L, output.amount()));
-            occupiedSlots = Math.max(1, occupiedSlots);
-            progress = Math.max(0, progress);
-            maxProgress = Math.max(1, maxProgress);
-        }
-    }
-
-    private record AggressivePoolReservation(BlockPos controllerPos, UUID owner) {
-        @Nullable private ECOCraftingSystemBlockEntity controller(Level level) {
-            if (level == null) {
-                return null;
-            }
-            BlockEntity blockEntity = level.getBlockEntity(controllerPos);
-            return blockEntity instanceof ECOCraftingSystemBlockEntity controller ? controller : null;
-        }
-    }
-
-    private static final class AggressiveSimulatedCraft {
-        private final BlockPos controllerPos;
-        private final UUID reservationOwner;
-        private List<GenericStack> inputStacks;
-        private List<GenericStack> outputStacks;
-        private List<GenericStack> remainingStacks;
-        private final int occupiedSlots;
-        private final int networkCoolingMultiplier;
-        private int progress;
-        private boolean outputsReady;
-
-        private AggressiveSimulatedCraft(
-                BlockPos controllerPos,
-                UUID reservationOwner,
-                List<GenericStack> inputStacks,
-                List<GenericStack> outputStacks,
-                List<GenericStack> remainingStacks,
-                int occupiedSlots,
-                int progress,
-                int networkCoolingMultiplier,
-                boolean outputsReady) {
-            this.controllerPos = controllerPos;
-            this.reservationOwner = reservationOwner;
-            this.inputStacks = copyStacks(inputStacks);
-            this.outputStacks = copyStacks(outputStacks);
-            this.remainingStacks = copyStacks(remainingStacks);
-            this.occupiedSlots = Math.max(1, occupiedSlots);
-            this.networkCoolingMultiplier =
-                    networkCoolingMultiplier == 2 || networkCoolingMultiplier == 8 ? networkCoolingMultiplier : 1;
-            this.progress = Math.max(0, progress);
-            this.outputsReady = outputsReady;
-        }
-
-        @Nullable private ECOCraftingSystemBlockEntity controller(Level level) {
-            if (level == null) {
-                return null;
-            }
-            BlockEntity blockEntity = level.getBlockEntity(controllerPos);
-            return blockEntity instanceof ECOCraftingSystemBlockEntity controller ? controller : null;
-        }
-
-        private double powerNeed(ECOCraftingSystemBlockEntity controller) {
-            return aggressiveSimulatedCraftPowerNeed(
-                    controller.getProgressPerTick(), controller.getCraftingPowerMultiplier(), occupiedSlots);
-        }
-
-        private void tick(ECOCraftingSystemBlockEntity controller, double powerRatio) {
-            if (outputsReady) {
-                return;
-            }
-            if (networkCoolingMultiplier > 1 && !controller.tryConsumeVirtualNetworkCoolantTick(1)) {
-                return;
-            }
-            double slotScaledTax = controller.getCraftingPowerMultiplier() * (double) occupiedSlots;
-            if (slotScaledTax <= 0.0D) {
-                return;
-            }
-            progress += (int) (powerNeed(controller) * powerRatio / slotScaledTax);
-            if (progress >= ECOCraftingThread.MAX_PROGRESS) {
-                outputsReady = true;
-            }
-        }
-
-        private List<GenericStack> completionStacks() {
-            List<GenericStack> stacks = new ArrayList<>(outputStacks.size() + remainingStacks.size());
-            stacks.addAll(outputStacks);
-            stacks.addAll(remainingStacks);
-            return List.copyOf(stacks);
-        }
-
-        private void retainOutputRemainder(List<GenericStack> remainder) {
-            outputStacks = copyStacks(remainder);
-            remainingStacks = List.of();
-            inputStacks = List.of();
-            outputsReady = true;
-        }
-
-        private List<AggressiveSimulatedCraftSnapshot> uiSnapshots() {
-            List<GenericStack> stacks = outputsReady ? completionStacks() : outputStacks;
-            List<AggressiveSimulatedCraftSnapshot> snapshots = new ArrayList<>();
-            for (GenericStack stack : stacks) {
-                if (stack != null && stack.amount() > 0) {
-                    snapshots.add(new AggressiveSimulatedCraftSnapshot(
-                            controllerPos,
-                            reservationOwner,
-                            stack,
-                            occupiedSlots,
-                            outputsReady ? ECOCraftingThread.MAX_PROGRESS : progress,
-                            ECOCraftingThread.MAX_PROGRESS,
-                            outputsReady));
-                }
-            }
-            return List.copyOf(snapshots);
-        }
-
-        private CompoundTag write() {
-            CompoundTag tag = new CompoundTag();
-            tag.putLong("controllerPos", controllerPos.asLong());
-            tag.putUUID("reservationOwner", reservationOwner);
-            tag.put("inputs", ECOFastPathStacks.writeGenericStacks(inputStacks));
-            tag.put("outputs", ECOFastPathStacks.writeGenericStacks(outputStacks));
-            tag.put("remaining", ECOFastPathStacks.writeGenericStacks(remainingStacks));
-            tag.putInt("occupiedSlots", occupiedSlots);
-            tag.putInt("progress", progress);
-            if (networkCoolingMultiplier > 1) {
-                tag.putInt("networkCoolingMultiplier", networkCoolingMultiplier);
-            }
-            tag.putBoolean("outputsReady", outputsReady);
-            return tag;
-        }
-
-        private static AggressiveSimulatedCraft read(CompoundTag tag) {
-            return new AggressiveSimulatedCraft(
-                    BlockPos.of(tag.getLong("controllerPos")),
-                    tag.hasUUID("reservationOwner") ? tag.getUUID("reservationOwner") : new UUID(0L, 0L),
-                    ECOFastPathStacks.readGenericStacks(tag.getList("inputs", Tag.TAG_COMPOUND)),
-                    ECOFastPathStacks.readGenericStacks(tag.getList("outputs", Tag.TAG_COMPOUND)),
-                    ECOFastPathStacks.readGenericStacks(tag.getList("remaining", Tag.TAG_COMPOUND)),
-                    tag.getInt("occupiedSlots"),
-                    tag.getInt("progress"),
-                    tag.contains("networkCoolingMultiplier") ? tag.getInt("networkCoolingMultiplier") : 1,
-                    tag.getBoolean("outputsReady"));
-        }
-
-        private static List<GenericStack> copyStacks(List<GenericStack> stacks) {
-            List<GenericStack> copy = new ArrayList<>();
-            for (GenericStack stack : stacks) {
-                if (stack != null && stack.amount() > 0) {
-                    copy.add(new GenericStack(stack.what(), stack.amount()));
-                }
-            }
-            return List.copyOf(copy);
-        }
-    }
-
-    static double aggressiveSimulatedCraftPowerNeed(int progressPerTick, int powerMultiplier, int occupiedSlots) {
-        int normalizedProgress = Math.max(0, progressPerTick);
-        int normalizedPowerMultiplier = Math.max(1, powerMultiplier);
-        int normalizedSlots = Math.max(1, occupiedSlots);
-        double uncappedNeed = normalizedProgress * (double) normalizedPowerMultiplier * normalizedSlots;
-        return Math.min(uncappedNeed, aggressiveSimulatedCraftPowerCap(normalizedProgress, normalizedPowerMultiplier));
-    }
-
-    static double aggressiveSimulatedCraftPowerCap(int progressPerTick, int powerMultiplier) {
-        int normalizedProgress = Math.max(0, progressPerTick);
-        int normalizedPowerMultiplier = Math.max(1, powerMultiplier);
-        int normalizedTickLimit = NEConfig.getEcoFastPathTickLimit();
-        return normalizedProgress * (double) normalizedPowerMultiplier * normalizedTickLimit;
     }
 
     /**
-     * Called by the CraftingService with an Integer.MAX_VALUE priority to inject
-     * items that are being waited for.
+     * 计算一次批量推送应记入 waitingFor 的数量。
      *
-     * @return Consumed amount.
+     * <p>饱和而非溢出：负的 waitingFor 记账会让 CPU 误以为产物已经交付，从而丢失产出。
+     */
+    static long scaledPatternAmount(long perCraftAmount, long craftCount) {
+        if (perCraftAmount <= 0L) {
+            return 0L;
+        }
+        long multiplier = Math.max(1L, craftCount);
+        try {
+            return Math.multiplyExact(perCraftAmount, multiplier);
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    /**
+     * 由 CraftingService 以 Integer.MAX_VALUE 优先级调用，用于注入正在等待的物品。
+     *
+     * @return 已消耗数量。
      */
     public long insert(AEKey what, long amount, Actionable type) {
-        // also stop accepting items when the job is complete, i.e. to prevent
-        // re-insertion when pushing out
-        // items during storeItems
-        if (what == null || job == null || amount <= 0L) return 0;
+        // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插入
+        if (what == null || amount <= 0L || job == null) return 0;
         if (deliveringBufferedFinalOutput && job.finalOutput != null && what.matches(job.finalOutput)) {
             return 0L;
         }
 
-        // Only accept items we are waiting for.
+        // 只接收正在等待的物品。
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
         if (waitingFor <= 0) {
             return 0;
         }
 
-        // Make sure we don't insert more than what we are waiting for.
+        // 确保不接收超出等待数量的物品。
         if (amount > waitingFor) {
             amount = waitingFor;
+        }
+
+        if (type == Actionable.MODULATE && !what.matches(job.finalOutput)) {
+            job.timeTracker.decrementItems(amount, what.getType());
+            job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            cpu.markDirty();
         }
 
         if (what.matches(job.finalOutput)) {
@@ -1641,15 +1086,15 @@ public class ECOCraftingCPULogic {
                 return amount;
             }
 
-            // A final output can also be needed by a remaining task. Keep that part local;
-            // ownership of the surplus is buffered until the requester accepts it.
+            // A final-output item can also be the input of a remaining task (for example,
+            // A + B -> 2A). Keep the amount needed to continue that task in local storage;
+            // only the surplus belongs to the requester.
             long held = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
             long pendingInput = pendingInputAmount(what);
             long retained = Math.min(amount, Math.max(0L, pendingInput - held));
             if (retained > 0L) {
                 currentJob.timeTracker.decrementItems(retained, what.getType());
                 currentJob.waitingFor.extract(what, retained, Actionable.MODULATE);
-                currentJob.removeInFlightOutput(what, retained);
                 inventory.insert(what, retained, Actionable.MODULATE);
             }
 
@@ -1657,29 +1102,23 @@ public class ECOCraftingCPULogic {
             long acceptedOwnership =
                     finalAmount <= 0L ? 0L : currentJob.bufferedFinalOutput.accept(finalAmount, Actionable.MODULATE);
             if (acceptedOwnership > 0L) {
+                // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
+                // retry or make the same physical output again.
                 currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
                 currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
-                currentJob.removeInFlightOutput(what, acceptedOwnership);
             }
             if (retained > 0L || acceptedOwnership > 0L) {
-                cpu.markDirty();
                 postChange(what);
+                cpu.markDirty();
                 if (acceptedOwnership > 0L) {
                     drainBufferedFinalOutput(currentJob);
                 }
             }
             return retained + acceptedOwnership;
-        }
-
-        if (type == Actionable.MODULATE) {
-            job.timeTracker.decrementItems(amount, what.getType());
-            job.waitingFor.extract(what, amount, Actionable.MODULATE);
-            job.removeInFlightOutput(what, amount);
-            cpu.markDirty();
-            postChange(what);
-            inventory.insert(what, amount, Actionable.MODULATE);
-            // Explicitly notify stored count changed in addition to inventory callback
-            postChange(what);
+        } else {
+            if (type == Actionable.MODULATE) {
+                inventory.insert(what, amount, Actionable.MODULATE);
+            }
         }
 
         return amount;
@@ -1693,6 +1132,23 @@ public class ECOCraftingCPULogic {
         for (var task : job.tasks.entrySet()) {
             long batches = task.getValue().value;
             if (batches <= 0L) {
+                continue;
+            }
+            var plannedBatches = job.plannedInputs.get(task.getKey());
+            if (plannedBatches != null && !plannedBatches.isEmpty()) {
+                for (var plannedBatch : plannedBatches) {
+                    long perBatch = 0L;
+                    for (var selection : plannedBatch.selectedInputs()) {
+                        for (var alternative : selection.alternatives()) {
+                            GenericStack selected = alternative.template();
+                            if (what.equals(selected.what())) {
+                                perBatch = Math.addExact(
+                                        perBatch, Math.multiplyExact(selected.amount(), alternative.multiplier()));
+                            }
+                        }
+                    }
+                    total = Math.addExact(total, Math.multiplyExact(perBatch, plannedBatch.remaining()));
+                }
                 continue;
             }
             long perBatch = 0L;
@@ -1711,75 +1167,84 @@ public class ECOCraftingCPULogic {
         return total;
     }
 
+    private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
+        if (job == null || amount <= 0L) {
+            return 0L;
+        }
+        if (!job.link.isStandalone()) {
+            return job.link.insert(what, amount, mode);
+        }
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return 0L;
+        }
+        return grid.getStorageService().getInventory().insert(what, amount, mode, cpu.getActionSource());
+    }
+
+    private static long validateInsertionAmount(long inserted, long requested, String target) {
+        if (inserted < 0L || inserted > requested) {
+            throw new IllegalStateException(
+                    "Invalid insertion result from " + target + ": " + inserted + " for " + requested);
+        }
+        return inserted;
+    }
+
+    private void logFinalOutputDeliveryFailure(RuntimeException e) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastFinalOutputDeliveryFailureLogTick;
+        if (lastFinalOutputDeliveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
+            lastFinalOutputDeliveryFailureLogTick = tick;
+            LOGGER.error("ECO final-output delivery failed; the CPU-owned output remains buffered", e);
+        }
+    }
+
     /**
-     * Finish the current job.
+     * 完成当前合成任务。
      *
-     * @param success True if the job is complete, false if it was cancelled.
+     * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
-        if (this.job == null) {
-            return;
-        }
         UUID craftingJobId = job.link.getCraftingID();
-
         preserveBufferedFinalOutput();
-
-        if (flushingAggressiveSimulatedOutput) {
-            recoverAggressiveAfterFlush = true;
-        } else {
-            recoverAggressiveSimulatedCraftsToInventory();
-        }
-
-        Set<AEKey> waitingKeys = collectWaitingKeys();
-        Set<AEKey> pendingKeys = collectPendingOutputKeys();
-        Set<AEKey> storedKeys = collectStoredKeys();
-
         if (success) {
             job.link.markDone();
         } else {
             job.link.cancel();
         }
 
+        // TODO: 记录日志
+
+        // 清空等待列表并发送所有相关变更通知。
         job.waitingFor.clear();
-        postKeysChange(waitingKeys);
-        // Notify opened menus of cancelled scheduled tasks.
-        postKeysChange(pendingKeys);
-        postKeysChange(storedKeys);
+        // 通知已打开菜单关于已取消的调度任务。
+        for (var entry : job.tasks.entrySet()) {
+            for (var output : entry.getKey().getOutputs()) {
+                postChange(output.what());
+            }
+        }
 
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
-        // Finish job.
+        // 结束任务。
         this.job = null;
-        restoredLinkRebound = false;
-        markedForDeletion = true;
-        markStatusDirty();
+        JOB_OUTPUT_ROUTES.remove(craftingJobId, this);
 
         if (success) {
-            recoverUnfinishedWorkerInputs(craftingJobId);
+            releaseInflightWorkerOutputs(craftingJobId);
         }
 
-        // Store all remaining items.
+        // 存储所有剩余物品。
         this.storeItems();
-        postKeysChange(storedKeys);
-        setCantStoreItems(!this.inventory.list.isEmpty());
-
-        cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
-        if (this.inventory.list.isEmpty()) {
-            cpu.deactivate();
-        }
     }
 
     private void preserveBufferedFinalOutput() {
-        if (job == null) {
-            return;
-        }
         long buffered = job.bufferedFinalOutput.amount();
         if (buffered <= 0L) {
             return;
         }
         if (job.finalOutput == null) {
-            LOGGER.error("Discarding {} buffered final-output units because the persisted key is invalid", buffered);
+            LOGGER.error("Discarding {} buffered final-output units because their persisted key is invalid", buffered);
             job.bufferedFinalOutput.removeDelivered(buffered);
             cpu.markDirty();
             return;
@@ -1787,6 +1252,8 @@ public class ECOCraftingCPULogic {
         AEKey key = job.finalOutput.what();
         long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
         Math.addExact(stored, buffered);
+
+        // Move ownership between the two local ledgers before notifying observers.
         inventory.list.add(key, buffered);
         job.bufferedFinalOutput.removeDelivered(buffered);
         postChange(key);
@@ -1794,29 +1261,15 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Cancel the current job.
+     * 取消当前合成任务。
      */
     public void cancel() {
-        // No job to cancel :P
+        // 没有可取消的任务 :P
         if (job == null) return;
 
         UUID craftingJobId = job.link.getCraftingID();
-        markStatusDirty();
-        recoverAggressiveSimulatedCraftsToInventory();
         finishJob(false);
-        restoredLinkRebound = false;
         recoverInflightWorkerInputs(craftingJobId);
-    }
-
-    private void recoverUnfinishedWorkerInputs(UUID craftingJobId) {
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return;
-        }
-        var storage = grid.getStorageService().getInventory();
-        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
-            patternBus.recoverUnfinishedJobInputsToNetwork(craftingJobId, storage);
-        }
     }
 
     private void recoverInflightWorkerInputs(UUID craftingJobId) {
@@ -1830,12 +1283,22 @@ public class ECOCraftingCPULogic {
         }
     }
 
+    private void releaseInflightWorkerOutputs(UUID craftingJobId) {
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return;
+        }
+        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            patternBus.releaseJobOutputsToNetwork(craftingJobId);
+        }
+    }
+
     /**
-     * Tries to dump all locally stored items back into the storage network.
+     * 尝试将所有本地存储的物品转存回存储网络。
      */
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
-        // Short-circuit if there is nothing to do.
+        // 无事可做则快速返回。
         if (this.inventory.list.isEmpty()) return;
 
         var g = cpu.getGrid();
@@ -1844,13 +1307,12 @@ public class ECOCraftingCPULogic {
         var storage = g.getStorageService().getInventory();
 
         for (var entry : this.inventory.list) {
+            this.postChange(entry.getKey());
             var inserted =
                     storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, cpu.getActionSource());
 
-            // The network was unable to receive all of the items, i.e. no or not enough
-            // storage space left
+            // 网络无法接收全部物品，即存储空间不足或已满
             entry.setValue(entry.getLongValue() - inserted);
-            this.postChange(entry.getKey());
         }
         this.inventory.list.removeZeros();
 
@@ -1867,7 +1329,7 @@ public class ECOCraftingCPULogic {
             }
             return;
         }
-        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+
         markStatusDirty();
         for (var listener : listeners) {
             listener.accept(what);
@@ -1883,10 +1345,11 @@ public class ECOCraftingCPULogic {
 
     private void endStatusChangeBatch() {
         batchingStatusChanges = false;
+
         if (!batchedAnyStatusChange) {
             return;
         }
-        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+
         markStatusDirty();
 
         if (batchedFullStatusChange) {
@@ -1915,7 +1378,13 @@ public class ECOCraftingCPULogic {
     private void endStatusChangeBatchSafely() {
         try {
             endStatusChangeBatch();
-        } catch (RuntimeException | Error e) {
+        } catch (RuntimeException e) {
+            batchingStatusChanges = false;
+            batchedStatusChanges.clear();
+            batchedAnyStatusChange = false;
+            batchedFullStatusChange = false;
+            throw e;
+        } catch (Error e) {
             batchingStatusChanges = false;
             batchedStatusChanges.clear();
             batchedAnyStatusChange = false;
@@ -1924,190 +1393,15 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    static final class FastPathBatchBudget {
-        private int remaining;
-
-        FastPathBatchBudget(int limit) {
-            this.remaining = Math.max(0, limit);
-        }
-
-        int remaining() {
-            return remaining;
-        }
-
-        void consume(int amount) {
-            if (amount < 0 || amount > remaining) {
-                throw new IllegalArgumentException("Invalid fast-path batch budget consumption: " + amount);
-            }
-            remaining -= amount;
-        }
-    }
-
-    private record ProviderSelection(List<ICraftingProvider> all, List<ECOCraftingPatternBusBlockEntity> batchBuses) {}
-
-    private record ExtractedPatternAttempt(
-            KeyCounter[] craftingContainer, ECOExtractedPatternExecution execution, double patternPower) {}
-
-    private record PushResult(long craftCount, boolean jobFinished) {
-        private static PushResult pushed(long craftCount) {
-            return new PushResult(craftCount, false);
-        }
-
-        private static PushResult jobFinished(long craftCount) {
-            return new PushResult(craftCount, true);
-        }
-
-        private static PushResult notPushed() {
-            return new PushResult(0, false);
-        }
-
-        private boolean pushed() {
-            return craftCount > 0;
-        }
-    }
-
-    private enum DispatchTaskResult {
-        CONTINUE_TASK,
-        NEXT_TASK,
-        STOP_PASS,
-        JOB_FINISHED
-    }
-
-    private static final class DispatchPassState {
-        private boolean allowUnfinishedDependencies;
-        private boolean fallbackPassUsed;
-        private boolean sawUnfinishedDependencyBlock;
-
-        private void beginPass() {
-            sawUnfinishedDependencyBlock = false;
-        }
-
-        private boolean allowUnfinishedDependencies() {
-            return allowUnfinishedDependencies;
-        }
-
-        private void markUnfinishedDependencyBlocked() {
-            sawUnfinishedDependencyBlock = true;
-        }
-
-        private boolean shouldRunFallbackPass(CraftingExecutionProgress executionProgress, int pushedBeforePass) {
-            return executionProgress.pushedPatterns() <= pushedBeforePass
-                    && !fallbackPassUsed
-                    && sawUnfinishedDependencyBlock
-                    && executionProgress.canPushMore()
-                    && executionProgress.canPushAnyPath();
-        }
-
-        private void startFallbackPass() {
-            allowUnfinishedDependencies = true;
-            fallbackPassUsed = true;
-        }
-    }
-
-    private static final class CraftingExecutionProgress {
-        private final int slowPatternBudget;
-        private final int totalPatternBudget;
-        private final FastPathBatchBudget batchBudget;
-        private int pushedPatterns;
-        private int slowPushedPatterns;
-
-        private CraftingExecutionProgress(
-                int slowPatternBudget, int totalPatternBudget, FastPathBatchBudget batchBudget) {
-            this.slowPatternBudget = slowPatternBudget;
-            this.totalPatternBudget = totalPatternBudget;
-            this.batchBudget = batchBudget;
-        }
-
-        private boolean canPushMore() {
-            return pushedPatterns < totalPatternBudget;
-        }
-
-        private boolean canPushSlowPath() {
-            return slowPushedPatterns < slowPatternBudget;
-        }
-
-        private boolean canPushAnyPath() {
-            return batchBudget.remaining() > 0 || canPushSlowPath();
-        }
-
-        private int totalBudgetRemaining() {
-            return totalPatternBudget - pushedPatterns;
-        }
-
-        private int batchBudgetRemaining() {
-            return batchBudget.remaining();
-        }
-
-        private int pushedPatterns() {
-            return pushedPatterns;
-        }
-
-        private void recordBatchPush(long craftCount) {
-            int consumed = (int) Math.min(Math.max(0L, craftCount), batchBudget.remaining());
-            batchBudget.consume(consumed);
-            pushedPatterns += Math.min(Math.max(0L, craftCount), totalBudgetRemaining());
-        }
-
-        private void recordSlowPush() {
-            pushedPatterns++;
-            slowPushedPatterns++;
-        }
-    }
-
-    private void markStatusDirty() {
-        statusRevision++;
-        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
-    }
-
     private void postPatternOutputsChange(IPatternDetails details) {
-        Set<AEKey> keys = new HashSet<>();
         for (var output : details.getOutputs()) {
-            keys.add(output.what());
+            postChange(output.what());
         }
-        postKeysChange(keys);
     }
 
     private void postGenericStackKeysChange(List<GenericStack> stacks) {
-        Set<AEKey> keys = new HashSet<>();
         for (var stack : stacks) {
-            keys.add(stack.what());
-        }
-        postKeysChange(keys);
-    }
-
-    private Set<AEKey> collectWaitingKeys() {
-        Set<AEKey> keys = new HashSet<>();
-        if (this.job != null) {
-            for (var entry : this.job.waitingFor.list) {
-                keys.add(entry.getKey());
-            }
-        }
-        return keys;
-    }
-
-    private Set<AEKey> collectPendingOutputKeys() {
-        Set<AEKey> keys = new HashSet<>();
-        if (this.job != null) {
-            for (var task : this.job.tasks.keySet()) {
-                for (var output : task.getOutputs()) {
-                    keys.add(output.what());
-                }
-            }
-        }
-        return keys;
-    }
-
-    private Set<AEKey> collectStoredKeys() {
-        Set<AEKey> keys = new HashSet<>();
-        for (var entry : this.inventory.list) {
-            keys.add(entry.getKey());
-        }
-        return keys;
-    }
-
-    private void postKeysChange(Set<AEKey> keys) {
-        for (AEKey key : keys) {
-            postChange(key);
+            postChange(stack.what());
         }
     }
 
@@ -2116,7 +1410,21 @@ public class ECOCraftingCPULogic {
     }
 
     @Nullable public UUID getCraftingJobId() {
-        return this.job == null ? null : this.job.link.getCraftingID();
+        return job == null ? null : job.link.getCraftingID();
+    }
+
+    /** The 1.20.1 cluster calls this after restoring its physical CPU list. */
+    public boolean onRestoredToGrid(IGrid grid) {
+        if (job == null) {
+            return true;
+        }
+        ((CraftingService) grid.getCraftingService()).addLink(job.link);
+        return !job.link.isCanceled();
+    }
+
+    /** 1.21.1 has no delayed restore state; rebinding is performed eagerly. */
+    public boolean isInRestoreGrace() {
+        return false;
     }
 
     @Nullable public GenericStack getFinalJobOutput() {
@@ -2124,7 +1432,7 @@ public class ECOCraftingCPULogic {
     }
 
     public long getRemainingJobOutputAmount() {
-        return this.job == null ? 0L : Math.max(0L, this.job.remainingAmount);
+        return this.job != null ? this.job.remainingAmount : 0L;
     }
 
     public ElapsedTimeTracker getElapsedTimeTracker() {
@@ -2137,64 +1445,53 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10));
-        aggressiveSimulatedCrafts.clear();
-        ListTag aggressiveWorks = data.getList("aggressiveSimulatedCrafts", Tag.TAG_COMPOUND);
-        for (int i = 0; i < aggressiveWorks.size(); i++) {
-            aggressiveSimulatedCrafts.add(AggressiveSimulatedCraft.read(aggressiveWorks.getCompound(i)));
-        }
-        aggressivePoolReservations.clear();
-        aggressivePoolSlotTotals.clear();
-        aggressivePoolSyncDirty = !aggressiveSimulatedCrafts.isEmpty();
         if (data.contains("job")) {
-            try {
-                this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
-            } catch (RuntimeException e) {
-                LOGGER.error("Unable to restore ECO crafting job; quarantining the CPU job data", e);
-                recoverAggressiveSimulatedCraftsToInventory();
-                this.job = null;
-                markedForDeletion = true;
-            }
-            if (this.job != null) {
-                markStatusDirty();
-            }
-            if (this.job != null && this.job.finalOutput == null) {
-                LOGGER.warn(
-                        "ECO CPU restored with null finalOutput (job NBT may be corrupted). "
-                                + "Dropping job and marking CPU for cleanup. cpu={}",
-                        cpu.getName());
-                recoverAggressiveSimulatedCraftsToInventory();
-                this.job = null;
-                markedForDeletion = true;
+            this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+            if (this.job.finalOutput == null) {
+                finishJob(false);
             } else {
-                // Mark as restored from NBT — tickCraftingLogic will handle rebind proactively
-                this.restoredFromNbt = true;
-                this.restoreRebindAttempted = false;
-                this.restoreRebindSuccessful = false;
-                this.restoredLinkRebound = false;
-                this.restoredCancelGraceTicks = RESTORED_CANCEL_GRACE_INITIAL;
-                LOGGER.info(
-                        "ECO CPU job restored from NBT. cpu={} jobId={} finalOutput={} remainingAmount={}",
-                        cpu.getName(),
-                        this.job.link.getCraftingID(),
-                        this.job.finalOutput != null
-                                ? this.job.finalOutput.what().getClass().getSimpleName()
-                                : "null",
-                        this.job.remainingAmount);
+                registerJobOutputRoute();
             }
         }
+    }
+
+    /**
+     * Delivers worker output to its owning CPU without depending on CraftingService's rebuilt CPU list.
+     */
+    public static JobOutputDelivery deliverJobOutput(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        ECOCraftingCPULogic logic = JOB_OUTPUT_ROUTES.get(craftingJobId);
+        if (logic != null && logic.job != null && craftingJobId.equals(logic.job.link.getCraftingID())) {
+            return new JobOutputDelivery(true, logic.insert(what, amount, type));
+        }
+        if (logic != null) {
+            JOB_OUTPUT_ROUTES.remove(craftingJobId, logic);
+        }
+        var external = cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuOutputRoutes.deliver(
+                craftingJobId, what, amount, type);
+        return new JobOutputDelivery(external.routeAvailable(), external.inserted());
+    }
+
+    private void registerJobOutputRoute() {
+        if (job != null) {
+            JOB_OUTPUT_ROUTES.put(job.link.getCraftingID(), this);
+        }
+    }
+
+    /** Removes this CPU from direct worker routing while its serialized state is detached. */
+    public void unregisterJobOutputRoute() {
+        if (job != null) {
+            JOB_OUTPUT_ROUTES.remove(job.link.getCraftingID(), this);
+        }
+    }
+
+    public record JobOutputDelivery(boolean routeAvailable, long inserted) {
+        private static final JobOutputDelivery UNAVAILABLE = new JobOutputDelivery(false, 0L);
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
         data.put("inventory", this.inventory.writeToNBT());
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
-        }
-        if (!aggressiveSimulatedCrafts.isEmpty()) {
-            ListTag aggressiveWorks = new ListTag();
-            for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
-                aggressiveWorks.add(work.write());
-            }
-            data.put("aggressiveSimulatedCrafts", aggressiveWorks);
         }
     }
 
@@ -2206,10 +1503,8 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Register a listener that will receive stacks when either the stored items,
-     * await items or pending outputs change.
-     * This is only used by the menu. Make sure to remove it by calling
-     * {@link #removeListener}.
+     * 注册一个监听器，当存储物品、等待物品或待处理输出发生变化时接收通知。
+     * 仅供菜单使用。务必通过 {@link #removeListener} 来移除。
      */
     public void addListener(Consumer<AEKey> listener) {
         listeners.add(listener);
@@ -2258,7 +1553,7 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Used by the menu to gather all the kinds of stored items.
+     * 供菜单使用，收集所有类型的存储物品。
      */
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);
@@ -2275,11 +1570,11 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    /** Collects items physically owned by this CPU, excluding planned and in-flight outputs. */
+    /** Collects only items physically owned by this CPU, excluding planned and in-flight outputs. */
     public void getOwnedItems(KeyCounter out) {
         out.addAll(this.inventory.list);
-        if (job != null && job.finalOutput != null && job.bufferedFinalOutput.amount() > 0L) {
-            out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
+        if (this.job != null && this.job.finalOutput != null && this.job.bufferedFinalOutput.amount() > 0L) {
+            out.add(this.job.finalOutput.what(), this.job.bufferedFinalOutput.amount());
         }
     }
 
@@ -2294,9 +1589,7 @@ public class ECOCraftingCPULogic {
     public void setJobUserPaused(boolean paused) {
         if (job != null && job.userPaused != paused) {
             job.userPaused = paused;
-            if (cpu != null) {
-                cpu.markDirty();
-            }
+            cpu.markDirty();
             postChange(null);
         }
     }
@@ -2308,24 +1601,20 @@ public class ECOCraftingCPULogic {
     public void setJobSuspended(boolean suspended) {
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
-            markStatusDirty();
-            postKeysChange(collectWaitingKeys());
-            postKeysChange(collectPendingOutputKeys());
+            postChange(null);
         }
     }
 
-    private void setCantStoreItems(boolean cantStoreItems) {
-        if (this.cantStoreItems != cantStoreItems) {
-            this.cantStoreItems = cantStoreItems;
-            markStatusDirty();
-        }
+    private void markStatusDirty() {
+        statusRevision++;
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
     }
 
     private void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
-        this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        markStatusDirty();
 
         var playerId = job.playerId;
-        if (playerId == null) {
+        if (playerId == null || job.finalOutput == null) {
             return;
         }
 
@@ -2337,6 +1626,26 @@ public class ECOCraftingCPULogic {
                     jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
             connectedPlayer.connection.send(
                     message.toPacket(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+        }
+    }
+
+    /** Read-only compatibility payload consumed by the retained 1.20.1 controller UI adapters. */
+    public record AggressiveSimulatedCraftSnapshot(
+            BlockPos controllerPos,
+            UUID owner,
+            GenericStack output,
+            int occupiedSlots,
+            int progress,
+            int maxProgress,
+            boolean outputsReady) {
+        public AggressiveSimulatedCraftSnapshot {
+            Preconditions.checkNotNull(controllerPos, "controllerPos");
+            Preconditions.checkNotNull(owner, "owner");
+            Preconditions.checkNotNull(output, "output");
+            output = new GenericStack(output.what(), Math.max(0L, output.amount()));
+            occupiedSlots = Math.max(1, occupiedSlots);
+            progress = Math.max(0, progress);
+            maxProgress = Math.max(1, maxProgress);
         }
     }
 

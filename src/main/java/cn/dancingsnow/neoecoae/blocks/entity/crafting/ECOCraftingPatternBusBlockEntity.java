@@ -252,6 +252,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return recoveredAll;
     }
 
+    /** Requests direct CPU-route output delivery for all workers serving this bus. */
+    public void releaseJobOutputsToNetwork(UUID craftingJobId) {
+        if (cluster == null) {
+            return;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = getNetworkCluster() == null
+                ? cluster.getWorkers()
+                : getNetworkCluster().getWorkers();
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            worker.releaseJobOutputsToNetwork(craftingJobId);
+        }
+    }
+
     @Override
     public boolean isBusy() {
         NECraftingNetworkCluster network = getNetworkCluster();

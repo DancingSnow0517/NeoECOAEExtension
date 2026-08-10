@@ -9,11 +9,12 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOBatchEnergyReservation {
     private final IEnergyService energyService;
     private final double amount;
-    private boolean active = true;
+    private boolean active;
 
     private ECOBatchEnergyReservation(IEnergyService energyService, double amount) {
         this.energyService = energyService;
         this.amount = amount;
+        this.active = true;
     }
 
     @Nullable public static ECOBatchEnergyReservation tryReserve(
@@ -26,6 +27,7 @@ public final class ECOBatchEnergyReservation {
         }
         double extracted = energyService.extractAEPower(amount, Actionable.MODULATE, PowerMultiplier.CONFIG);
         if (Double.isFinite(extracted) && extracted >= amount - 0.01D) {
+            // Keep the actual debit so a tolerant partial extraction cannot be over-refunded.
             return new ECOBatchEnergyReservation(energyService, Math.max(0.0D, extracted));
         }
         if (Double.isFinite(extracted) && extracted > 0.0D) {
@@ -48,9 +50,10 @@ public final class ECOBatchEnergyReservation {
         }
         try {
             double remaining = energyService.injectPower(amount, Actionable.MODULATE);
-            return !Double.isFinite(remaining) || remaining > 0.01D
-                    ? new IllegalStateException("Energy refund was only partially accepted: " + remaining)
-                    : null;
+            if (!Double.isFinite(remaining) || remaining > 0.01D) {
+                return new IllegalStateException("Energy refund was only partially accepted: " + remaining);
+            }
+            return null;
         } catch (RuntimeException e) {
             return e;
         }

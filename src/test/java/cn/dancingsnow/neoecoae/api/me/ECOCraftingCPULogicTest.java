@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
@@ -14,13 +13,10 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
@@ -32,90 +28,39 @@ import org.junit.jupiter.api.Test;
 
 class ECOCraftingCPULogicTest {
     @Test
-    void batchBudgetTracksTheWholeTick() {
-        var budget = new ECOCraftingCPULogic.FastPathBatchBudget(5632);
-
-        budget.consume(512);
-        budget.consume(4608);
-
-        assertEquals(512, budget.remaining());
-        assertThrows(IllegalArgumentException.class, () -> budget.consume(513));
-        assertEquals(512, budget.remaining());
+    void batchRequestPreservesTheRemainingTaskAmount() {
+        assertEquals(512L, ECOCraftingCPULogic.calculateBatchRequestSize(512L));
+        assertEquals(0L, ECOCraftingCPULogic.calculateBatchRequestSize(-1L));
+        assertEquals(Long.MAX_VALUE, ECOCraftingCPULogic.calculateBatchRequestSize(Long.MAX_VALUE));
     }
 
     @Test
-    void batchBudgetIsIndependentFromSlowOperationBudget() {
-        assertEquals(256, ECOCraftingCPULogic.totalPatternBudget(64, 256));
-        assertEquals(192, ECOCraftingCPULogic.calculateBatchRequestSize(512L, 192, 256));
-        assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L, 192, 256));
-        assertEquals(0, ECOCraftingCPULogic.calculateBatchRequestSize(-1L, 192, 256));
+    void slowPathOperationLimitIsBoundedByCoprocessorsAndConfiguration() {
+        assertEquals(1, ECOCraftingCPULogic.calculateOperationLimit(-1, 64));
+        assertEquals(5, ECOCraftingCPULogic.calculateOperationLimit(4, 64));
+        assertEquals(3, ECOCraftingCPULogic.calculateOperationLimit(64, 3));
+        assertEquals(0, ECOCraftingCPULogic.calculateOperationLimit(64, -1));
     }
 
     @Test
-    void fastPathUsesTheMaximumBatchLimitWithoutAnAggressiveToggle() {
-        assertEquals(ECOBatchCraftingHelper.MAX_BATCH_SIZE, NEConfig.getEcoFastPathTickLimit());
+    void plannedInputsAreOnlyUsedBySlowPathDispatch() {
+        assertTrue(ECOCraftingCPULogic.shouldUsePlannedInputsForDispatch(false, true, 8L, 8L));
+        assertFalse(ECOCraftingCPULogic.shouldUsePlannedInputsForDispatch(true, true, 8L, 8L));
+        assertFalse(ECOCraftingCPULogic.shouldUsePlannedInputsForDispatch(false, false, 8L, 8L));
+        assertFalse(ECOCraftingCPULogic.shouldUsePlannedInputsForDispatch(false, true, 9L, 8L));
     }
 
     @Test
-    void aggressiveCoolantCostScalesWithBatchSize() {
-        assertEquals(5, ECOCraftingCPULogic.coolantAmountForCrafts(0));
-        assertEquals(5, ECOCraftingCPULogic.coolantAmountForCrafts(1));
-        assertEquals(320, ECOCraftingCPULogic.coolantAmountForCrafts(64));
-        assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.coolantAmountForCrafts(Integer.MAX_VALUE));
+    void scaledPatternAmountSaturatesWithoutTurningNegative() {
+        assertEquals(0L, ECOCraftingCPULogic.scaledPatternAmount(0L, 8L));
+        assertEquals(8L, ECOCraftingCPULogic.scaledPatternAmount(4L, 2L));
+        assertEquals(4L, ECOCraftingCPULogic.scaledPatternAmount(4L, 0L));
+        assertEquals(Long.MAX_VALUE, ECOCraftingCPULogic.scaledPatternAmount(Long.MAX_VALUE, 2L));
     }
 
     @Test
-    void finalOutputBatchLimitAccountsForInFlightOutputs() {
-        assertEquals(5328, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 94_672, 1));
-        assertEquals(0, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 100_000, 1));
-        assertEquals(1, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 99_999, 4));
-        assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100, 0, 0));
-    }
-
-    @Test
-    void acceptedBatchStillRunsAccountingWhenEnergyIsUndercharged() {
-        AtomicBoolean accountingCalled = new AtomicBoolean();
-
-        var completion =
-                ECOCraftingCPULogic.completeAcceptedBatch(100.0D, () -> 99.0D, () -> accountingCalled.set(true));
-
-        assertFalse(completion.energyChargeComplete());
-        assertTrue(accountingCalled.get());
-        assertEquals(99.0D, completion.chargedPower());
-    }
-
-    @Test
-    void acceptedBatchContainsEnergyFailureAndContinuesAccounting() {
-        AtomicBoolean accountingCalled = new AtomicBoolean();
-        RuntimeException energyFailure = new IllegalStateException("energy failure");
-
-        var completion = ECOCraftingCPULogic.completeAcceptedBatch(
-                100.0D,
-                () -> {
-                    throw energyFailure;
-                },
-                () -> accountingCalled.set(true));
-
-        assertFalse(completion.energyChargeComplete());
-        assertEquals(energyFailure, completion.energyFailure());
-        assertTrue(accountingCalled.get());
-    }
-
-    @Test
-    void acceptedBatchContainsAccountingFailureWithoutUndoingEnergyCharge() {
-        RuntimeException accountingFailure = new IllegalStateException("accounting failure");
-
-        var completion = ECOCraftingCPULogic.completeAcceptedBatch(100.0D, () -> 100.0D, () -> {
-            throw accountingFailure;
-        });
-
-        assertTrue(completion.energyChargeComplete());
-        assertEquals(accountingFailure, completion.accountingFailure());
-    }
-
-    @Test
-    void remainingJobOutputAmountUsesRemainingAmount() throws Exception {
-        ECOCraftingCPULogic logic = new ECOCraftingCPULogic(null);
+    void remainingJobOutputAmountExposesTheCurrentJobAmount() throws Exception {
+        ECOCraftingCPULogic logic = testLogic();
 
         assertEquals(0L, logic.getRemainingJobOutputAmount());
 
@@ -123,12 +68,12 @@ class ECOCraftingCPULogicTest {
         assertEquals(42L, logic.getRemainingJobOutputAmount());
 
         setJob(logic, jobWithRemainingAmount(-7L));
-        assertEquals(0L, logic.getRemainingJobOutputAmount());
+        assertEquals(-7L, logic.getRemainingJobOutputAmount());
     }
 
     @Test
     void userPauseIsSeparateFromInternalSuspension() throws Exception {
-        ECOCraftingCPULogic logic = new ECOCraftingCPULogic(null);
+        ECOCraftingCPULogic logic = testLogic();
         setJob(logic, jobWithRemainingAmount(1L));
 
         assertFalse(logic.isJobUserPaused());
@@ -146,9 +91,13 @@ class ECOCraftingCPULogicTest {
     private static ExecutingCraftingJob jobWithRemainingAmount(long remainingAmount) throws Exception {
         CraftingLink link = new CraftingLink(
                 CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), (ICraftingCPU) null);
-        ExecutingCraftingJob job = new ExecutingCraftingJob(new TestCraftingPlan(), ignored -> {}, link, null, null);
+        ExecutingCraftingJob job = new ExecutingCraftingJob(new TestCraftingPlan(), ignored -> {}, link, null);
         job.remainingAmount = remainingAmount;
         return job;
+    }
+
+    private static ECOCraftingCPULogic testLogic() {
+        return new ECOCraftingCPU(null, 0L, null).getLogic();
     }
 
     private static void setJob(ECOCraftingCPULogic logic, ExecutingCraftingJob job) throws Exception {

@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
@@ -57,13 +56,6 @@ class ECOBatchCraftingHelperTest {
     }
 
     @Test
-    void virtualBatchUsesTheWholeLongRangeWithoutOverflowingStackTotals() {
-        assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 1L));
-        assertEquals(Long.MAX_VALUE / 3L, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 3L));
-        assertEquals(0L, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 0L));
-    }
-
-    @Test
     void rejectsInvalidBatchRequestBoundariesBeforeDispatch() {
         IPatternDetails details = (IPatternDetails) Proxy.newProxyInstance(
                 IPatternDetails.class.getClassLoader(),
@@ -85,10 +77,5 @@ class ECOBatchCraftingHelperTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ECOBatchCraftingRequest(details, key, 1, List.of(), List.of(), List.of(), null));
-    }
-
-    @Test
-    void staticNbtItemsRemainEligibleForFastPath() {
-        assertTrue(ECOFastPathStacks.isSafeItemIdentity(false, true, false));
     }
 }

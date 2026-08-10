@@ -34,6 +34,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
 
+    @Getter
     @Nullable private NECraftingNetworkCluster networkCluster;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -42,7 +43,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     @Override
     public boolean shouldCasingHide(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
-        if (blockEntity instanceof ECOMachineCasingBlockEntity && controller != null) {
+        if (blockEntity instanceof ECOMachineCasingBlockEntity) {
             Vec3 casingPos = blockEntity.getBlockPos().getCenter();
             Vec3 controllerPos = controller.getBlockPos().getCenter();
             return casingPos.distanceToSqr(controllerPos) <= 3;
@@ -71,17 +72,6 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (blockEntity instanceof ECOFluidOutputHatchBlockEntity outputHatchBlockEntity) {
             this.outputHatch = outputHatchBlockEntity;
         }
-        if (controller != null) {
-            controller.markStructureStatsDirty();
-        }
-    }
-
-    @Override
-    public void updateFormed(boolean formed) {
-        super.updateFormed(formed);
-        if (controller != null) {
-            controller.markStructureStatsDirty();
-        }
     }
 
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
@@ -89,21 +79,13 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
             return;
         }
         this.networkCluster = networkCluster;
-        if (controller != null) {
-            controller.markStructureStatsDirty();
+        if (networkCluster == null && controller != null) {
+            controller.onNetworkStateChanged();
         }
     }
 
-    @Nullable public NECraftingNetworkCluster getNetworkCluster() {
-        return networkCluster;
-    }
-
-    @Override
-    public int getConfiguredNetworkMultiplier() {
-        if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
-            return 1;
-        }
-        return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
+    protected boolean hasLinkedNetworkPeers() {
+        return networkCluster != null && networkCluster.getMemberCount() > 1;
     }
 
     @Override
@@ -113,13 +95,5 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
             return 1;
         }
         return networkCluster.hasCoolingForNetworkMultiplier(configuredMultiplier) ? configuredMultiplier : 1;
-    }
-
-    /** Network batch capacity scales linearly; energy and coolant have a higher operating cost. */
-    public int getNetworkPowerMultiplier() {
-        if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
-            return 1;
-        }
-        return isHighEnergyNetworkMode() ? 16 : isNetworkMode() ? 4 : 1;
     }
 }

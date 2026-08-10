@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,10 +16,7 @@ import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
-    /** Upper bound used only by the full eight-host aggressive scheduler. */
-    public static final long MAX_VIRTUAL_BATCH_SIZE = Long.MAX_VALUE;
-
-    public static final int MAX_BATCH_SIZE = 65_536;
+    public static final int MAX_BATCH_SIZE = Integer.MAX_VALUE;
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
     public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
 
@@ -37,63 +35,65 @@ public final class ECOBatchCraftingHelper {
             long amount = multiplyExact(stack.amount(), multiplier);
             counter.add(stack.what(), amount);
         }
-        return ECOFastPathStacks.copyCounterUnsorted(counter);
-    }
-
-    /** Largest multiplier whose per-list totals remain representable by AE2's long counters. */
-    @SafeVarargs
-    public static long maxSafeMultiplier(long requested, List<GenericStack>... stacksPerCraft) {
-        long maximum = Math.max(0L, requested);
-        for (List<GenericStack> stacks : stacksPerCraft) {
-            Map<AEKey, Long> totals = new HashMap<>();
-            for (GenericStack stack : stacks) {
-                if (stack == null || stack.amount() <= 0L) {
-                    return 0L;
-                }
-                long current = totals.getOrDefault(stack.what(), 0L);
-                long amount = stack.amount();
-                if (current > Long.MAX_VALUE - amount) {
-                    return 0L;
-                }
-                totals.put(stack.what(), current + amount);
-            }
-            for (long amount : totals.values()) {
-                maximum = limitSafeMultiplier(maximum, amount);
-            }
-        }
-        return maximum;
-    }
-
-    public static long maxSafeBatchSize(
-            List<GenericStack> first, List<GenericStack> second, List<GenericStack> third, long requested) {
-        return maxSafeMultiplier(requested, first, second, third);
-    }
-
-    static long limitSafeMultiplier(long requested, long amountPerCraft) {
-        return requested <= 0L || amountPerCraft <= 0L ? 0L : Math.min(requested, Long.MAX_VALUE / amountPerCraft);
+        return copyCounter(counter);
     }
 
     public static int maxCraftsFromInventory(
             ListCraftingInventory inventory, List<GenericStack> perCraft, int requested) {
-        return Math.toIntExact(maxCraftsFromInventory(inventory, perCraft, (long) requested));
+        return (int) maxCraftsFromInventory(inventory, perCraft, (long) requested);
     }
 
     public static long maxCraftsFromInventory(
             ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
-        long max = requested;
+        return inventoryBatchLimit(inventory, perCraft, requested).crafts();
+    }
+
+    public static InventoryBatchLimit inventoryBatchLimit(
+            ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
+        long max = Math.max(0L, requested);
+        AEKey limitingKey = null;
+        long limitingAvailable = 0L;
+        long limitingPerCraft = 0L;
         for (GenericStack stack : perCraft) {
             if (stack.amount() <= 0) {
-                return 0;
+                return new InventoryBatchLimit(0L, stack.what(), 0L, stack.amount());
             }
-            // The CPU inventory is already an in-memory KeyCounter. Avoid a simulated extraction for every
-            // ingredient while retaining the same concrete-input accounting.
+            // The CPU inventory is already an in-memory KeyCounter. Reading it directly avoids one
+            // simulated crafting-inventory transaction per ingredient while preserving the exact
+            // same concrete-input semantics as the verified fast-path key.
             long available = inventory.list.get(stack.what());
-            max = Math.min(max, available / stack.amount());
+            long ingredientLimit = available / stack.amount();
+            if (ingredientLimit < max) {
+                max = ingredientLimit;
+                limitingKey = stack.what();
+                limitingAvailable = available;
+                limitingPerCraft = stack.amount();
+            }
             if (max <= 0) {
-                return 0;
+                break;
             }
         }
-        return max;
+        return new InventoryBatchLimit(max, limitingKey, limitingAvailable, limitingPerCraft);
+    }
+
+    public record InventoryBatchLimit(long crafts, AEKey limitingKey, long available, long perCraft) {}
+
+    /**
+     * Returns the largest batch whose per-key totals can be represented by a long.
+     * Inputs and outputs are bounded independently; output and remaining entries share
+     * one bound because both are materialized by the worker in the same batch.
+     */
+    public static long maxSafeBatchSize(
+            List<GenericStack> inputsPerCraft,
+            List<GenericStack> outputsPerCraft,
+            List<GenericStack> remainingPerCraft,
+            long requested) {
+        if (requested <= 0L) {
+            return 0L;
+        }
+        long inputLimit = maxBatchForAggregates(inputsPerCraft, List.of());
+        long outputLimit = maxBatchForAggregates(outputsPerCraft, remainingPerCraft);
+        return Math.min(requested, Math.min(inputLimit, outputLimit));
     }
 
     public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
@@ -108,7 +108,7 @@ public final class ECOBatchCraftingHelper {
 
     public static int maxAffordableCrafts(double patternPower, int requested, DoubleUnaryOperator simulatedExtraction) {
         Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
-        int boundedRequested = Math.min(requested, MAX_BATCH_SIZE);
+        int boundedRequested = Math.max(0, requested);
         if (boundedRequested <= 0 || !Double.isFinite(patternPower) || patternPower < 0.0D) {
             return 0;
         }
@@ -122,7 +122,7 @@ public final class ECOBatchCraftingHelper {
         int low = 0;
         int high = boundedRequested - 1;
         while (low < high) {
-            int batchSize = low + (high - low + 1) / 2;
+            int batchSize = low + (int) (((long) high - low + 1L) / 2L);
             if (hasEnoughEnergy(patternPower, batchSize, simulatedExtraction)) {
                 low = batchSize;
             } else {
@@ -139,7 +139,7 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             AEItemKey itemKey = (AEItemKey) stack.what();
             ItemStack itemStack = itemKey.toStack(1);
-            if (!ECOFastPathStacks.isSafeItemIdentity(itemStack.isEmpty(), itemKey.hasTag(), itemKey.isDamaged())) {
+            if (itemStack.isEmpty() || itemKey.isDamaged()) {
                 return false;
             }
         }
@@ -175,19 +175,48 @@ public final class ECOBatchCraftingHelper {
                 }
             }
         } catch (RuntimeException e) {
-            insertAllOrThrow(inventory, extractedStacks);
+            insertAll(inventory, extractedStacks);
             throw e;
         }
     }
 
-    public static void insertAllOrThrow(ListCraftingInventory inventory, List<GenericStack> stacks) {
+    public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        // ListCraftingInventory 是 CPU 的本地记账库存；向其插入是内存级别的回滚操作，
+        // 预期不会像网络存储那样拒绝物品。
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }
     }
 
-    public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        insertAllOrThrow(inventory, stacks);
+    private static List<GenericStack> copyCounter(KeyCounter counter) {
+        List<GenericStack> stacks = new ArrayList<>();
+        for (Object2LongMap.Entry<AEKey> entry : counter) {
+            if (entry.getLongValue() > 0) {
+                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            }
+        }
+        return List.copyOf(stacks);
+    }
+
+    private static long maxBatchForAggregates(List<GenericStack> first, List<GenericStack> second) {
+        Map<AEKey, Long> totals = new HashMap<>();
+        for (List<GenericStack> stacks : List.of(first, second)) {
+            for (GenericStack stack : stacks) {
+                if (stack == null || stack.amount() <= 0L) {
+                    return 0L;
+                }
+                long old = totals.getOrDefault(stack.what(), 0L);
+                if (old > Long.MAX_VALUE - stack.amount()) {
+                    return 0L;
+                }
+                totals.put(stack.what(), old + stack.amount());
+            }
+        }
+        long limit = Long.MAX_VALUE;
+        for (long total : totals.values()) {
+            limit = Math.min(limit, Long.MAX_VALUE / total);
+        }
+        return limit;
     }
 
     private static long multiplyExact(long amount, long multiplier) {

@@ -36,7 +36,9 @@ public final class ECOCraftingFastPathCache {
     private long coolantRejectCount;
     private long noThreadRejectCount;
     private long expectedMismatchCount;
+    private long containerMismatchCount;
     private long nonItemKeyCount;
+    private long postCraftingEventCount;
     private long keyBuildFailedCount;
     private long exceptionCount;
     private long lastStatsLogTick = Long.MIN_VALUE;
@@ -70,7 +72,6 @@ public final class ECOCraftingFastPathCache {
             missCount++;
             return null;
         }
-        result.touch(tick);
         if (result.isNegative()) {
             negativeHitCount++;
         } else {
@@ -83,23 +84,22 @@ public final class ECOCraftingFastPathCache {
         return entries.get(key);
     }
 
-    public void putPositive(
+    public boolean putPositive(
             ECOFastPathKey key,
             List<GenericStack> outputs,
             List<GenericStack> remaining,
             List<GenericStack> inputs,
             long tick) {
-        if (!ECOBatchCraftingHelper.areValidItemStacks(outputs, Integer.MAX_VALUE, true)
-                || !ECOBatchCraftingHelper.areValidItemStacks(remaining, Integer.MAX_VALUE, false)
-                || !ECOBatchCraftingHelper.areValidItemStacks(inputs, Integer.MAX_VALUE, false)
-                || !ECOFastPathStacks.isSafeForFastPath(outputs, false)
-                || !ECOFastPathStacks.isSafeForFastPath(remaining, false)
-                || !ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(outputs, Integer.MAX_VALUE, true)
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remaining, Integer.MAX_VALUE, false)
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(inputs, Integer.MAX_VALUE, false)
+                || !ECOFastPathStacks.isSafeForFastPath(outputs, remaining, inputs)) {
             putNegative(key, tick);
-            return;
+            return false;
         }
         entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
         verifySuccessCount++;
+        return true;
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {
@@ -117,14 +117,6 @@ public final class ECOCraftingFastPathCache {
                 cache.clear();
             }
         }
-    }
-
-    public int size() {
-        return entries.size();
-    }
-
-    public int limit() {
-        return limit;
     }
 
     public void recordDisabled() {
@@ -155,8 +147,16 @@ public final class ECOCraftingFastPathCache {
         expectedMismatchCount++;
     }
 
+    public void recordContainerMismatch() {
+        containerMismatchCount++;
+    }
+
     public void recordNonItemKey() {
         nonItemKeyCount++;
+    }
+
+    public void recordPostCraftingEvent() {
+        postCraftingEventCount++;
     }
 
     public void recordKeyBuildFailed() {
@@ -168,33 +168,46 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void maybeLogStats(String owner, long tick) {
-        if (!NEConfig.debugEcoFastPath || !isStatsLogDue(lastStatsLogTick, tick)) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        if (!isStatsLogDue(lastStatsLogTick, tick)) {
             return;
         }
         lastStatsLogTick = tick;
         long positiveLookups = hitCount + missCount + negativeHitCount;
         double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-                "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+                "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
                 owner,
-                size(),
+                entries.size(),
                 limit,
                 hitCount,
                 missCount,
-                String.format(java.util.Locale.ROOT, "%.1f%%", hitRate),
+                String.format(java.util.Locale.ROOT, "%.1f", hitRate),
                 negativeHitCount,
                 verifySuccessCount,
                 verifyRejectCount,
                 disabledCount,
                 fallbackSlowPathCount,
                 expectedMismatchCount,
+                containerMismatchCount,
                 nonItemKeyCount,
+                postCraftingEventCount,
                 keyBuildFailedCount,
                 exceptionCount,
                 fastPathAcceptedCount,
                 slowPathAcceptedCount,
                 coolantRejectCount,
                 noThreadRejectCount);
+    }
+
+    int size() {
+        return entries.size();
+    }
+
+    int limit() {
+        return limit;
     }
 
     private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {

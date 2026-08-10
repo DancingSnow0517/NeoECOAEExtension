@@ -15,6 +15,18 @@ public record ECOBatchCraftingRequest(
         List<GenericStack> outputsPerCraft,
         List<GenericStack> remainingPerCraft,
         @Nullable UUID craftingJobId) {
+    /** Compatibility constructor used by Thunderbolt Core's optional NeoECO bridge. */
+    public ECOBatchCraftingRequest(
+            IPatternDetails details,
+            ECOFastPathKey key,
+            int batchSize,
+            List<GenericStack> inputsPerCraft,
+            List<GenericStack> outputsPerCraft,
+            List<GenericStack> remainingPerCraft,
+            @Nullable UUID craftingJobId) {
+        this(details, key, (long) batchSize, inputsPerCraft, outputsPerCraft, remainingPerCraft, craftingJobId);
+    }
+
     public ECOBatchCraftingRequest {
         Objects.requireNonNull(details, "details");
         Objects.requireNonNull(key, "key");
@@ -24,9 +36,10 @@ public record ECOBatchCraftingRequest(
         inputsPerCraft = List.copyOf(inputsPerCraft);
         outputsPerCraft = List.copyOf(outputsPerCraft);
         remainingPerCraft = List.copyOf(remainingPerCraft);
-        if (!ECOBatchCraftingHelper.areValidItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
-                || !ECOBatchCraftingHelper.areValidItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
-                || !ECOBatchCraftingHelper.areValidItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)) {
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)
+                || !ECOFastPathStacks.isSafeForFastPath(outputsPerCraft, remainingPerCraft, inputsPerCraft)) {
             throw new IllegalArgumentException("Fast-path request contains invalid item stacks");
         }
     }

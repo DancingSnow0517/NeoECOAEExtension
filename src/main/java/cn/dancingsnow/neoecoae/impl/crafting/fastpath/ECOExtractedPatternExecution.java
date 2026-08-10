@@ -5,6 +5,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
@@ -21,6 +22,8 @@ public final class ECOExtractedPatternExecution {
 
     private final boolean fastPathEligible;
 
+    @Nullable private final ECOFastPathFallbackReason fallbackReason;
+
     private ECOExtractedPatternExecution(
             IPatternDetails details,
             KeyCounter[] craftingContainer,
@@ -28,7 +31,8 @@ public final class ECOExtractedPatternExecution {
             List<GenericStack> expectedContainerItems,
             List<GenericStack> inputItems,
             @Nullable ECOFastPathKey key,
-            boolean fastPathEligible) {
+            boolean fastPathEligible,
+            @Nullable ECOFastPathFallbackReason fallbackReason) {
         this.details = details;
         this.craftingContainer = craftingContainer;
         this.expectedOutputs = List.copyOf(expectedOutputs);
@@ -36,87 +40,178 @@ public final class ECOExtractedPatternExecution {
         this.inputItems = List.copyOf(inputItems);
         this.key = key;
         this.fastPathEligible = fastPathEligible;
+        this.fallbackReason = fallbackReason;
     }
 
     public static ECOExtractedPatternExecution create(
             IPatternDetails details,
-            ECOCompiledFastPathPattern compiledPattern,
-            @Nullable ECOFastPathPatternMetadata metadata,
             KeyCounter[] craftingContainer,
-            List<GenericStack> expectedContainerItems,
-            boolean canBuildFastPath,
-            Level level) {
-        List<GenericStack> outputs = compiledPattern.outputs();
-        List<GenericStack> inputs = List.of();
-        @Nullable ECOFastPathKey key = null;
-        boolean eligible = false;
-        if (canBuildFastPath) {
-            if (metadata != null && metadata.isCurrent(compiledPattern, level)) {
-                inputs = metadata.inputItems();
-                key = metadata.key();
-                eligible = metadata.fastPathEligible();
-            } else {
-                inputs = ECOFastPathStacks.copyCounters(craftingContainer);
-                Optional<ECOFastPathKey> builtKey = compiledPattern.buildKey(craftingContainer, level);
-                key = builtKey.orElse(null);
-                eligible = builtKey.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputs, true);
-            }
+            KeyCounter expectedOutputs,
+            KeyCounter expectedContainerItems,
+            Level level,
+            boolean ecoPatternBusPresent) {
+        ECOFastPathFallbackReason metadataRejection = metadataRejectionReason(
+                ecoPatternBusPresent,
+                NEConfig.isEcoAe2FastPathEnabled(),
+                NEConfig.postCraftingEvent,
+                AE2PatternIntrospection.isAvailable(),
+                AE2PatternIntrospection.isKnownSafePatternType(details));
+        if (metadataRejection != null) {
+            // Non-FastPath execution keeps only the unsorted output and container-item snapshots
+            // required for normal crafting accounting (waitingFor bookkeeping); no canonical
+            // input snapshot, no ECOFastPathKey, no sorting or key hashing.
+            return new ECOExtractedPatternExecution(
+                    details,
+                    craftingContainer,
+                    ECOFastPathStacks.toGenericStacks(expectedOutputs),
+                    ECOFastPathStacks.toGenericStacks(expectedContainerItems),
+                    List.of(),
+                    null,
+                    false,
+                    metadataRejection);
         }
+        FastPathEligibility patternEligibility =
+                mapEligibility(AE2PatternIntrospection.classifyPatternEligibility(details));
+        if (patternEligibility != FastPathEligibility.ELIGIBLE) {
+            return new ECOExtractedPatternExecution(
+                    details,
+                    craftingContainer,
+                    ECOFastPathStacks.toGenericStacks(expectedOutputs),
+                    ECOFastPathStacks.toGenericStacks(expectedContainerItems),
+                    List.of(),
+                    null,
+                    false,
+                    fallbackReasonFor(patternEligibility));
+        }
+        List<GenericStack> outputs = ECOFastPathStacks.copySorted(expectedOutputs);
+        List<GenericStack> containers = ECOFastPathStacks.copySorted(expectedContainerItems);
+        List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
+        Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
+        ECOFastPathFallbackReason fallbackReason = eligibilityRejectionReason(key, outputs, containers, inputs);
+        boolean eligible = fallbackReason == null;
         return new ECOExtractedPatternExecution(
-                details, craftingContainer, outputs, expectedContainerItems, inputs, key, eligible);
+                details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible, fallbackReason);
     }
 
-    /** Builds FastPath metadata from the concrete inputs and outputs extracted by an external AE2 CPU. */
+    /** Compatibility entry point used by Thunderbolt Core's optional NeoECO bridge. */
     public static ECOExtractedPatternExecution create(
             IPatternDetails details,
             KeyCounter[] craftingContainer,
             KeyCounter expectedOutputs,
             KeyCounter expectedContainerItems,
             Level level) {
-        List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
-        List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
-        if (AE2PatternIntrospection.classifyPatternEligibility(details)
-                != AE2PatternIntrospection.PatternEligibility.ELIGIBLE) {
-            return new ECOExtractedPatternExecution(
-                    details, craftingContainer, outputs, containers, List.of(), null, false);
+        return create(details, craftingContainer, expectedOutputs, expectedContainerItems, level, true);
+    }
+
+    /**
+     * Cheap O(1) eligibility gate evaluated before any FastPath metadata (snapshots, canonical
+     * sorting, key construction, hashing) is built. Patterns that can never use the FastPath -
+     * for example third-party dynamic patterns or patterns whose providers contain no ECO
+     * pattern bus - must not pay the metadata construction cost.
+     */
+    static boolean shouldAttemptFastPathMetadata(
+            boolean ecoPatternBusPresent,
+            boolean fastPathEnabled,
+            boolean postCraftingEvent,
+            boolean introspectionAvailable,
+            boolean knownSafePatternType) {
+        return metadataRejectionReason(
+                        ecoPatternBusPresent,
+                        fastPathEnabled,
+                        postCraftingEvent,
+                        introspectionAvailable,
+                        knownSafePatternType)
+                == null;
+    }
+
+    @Nullable private static ECOFastPathFallbackReason metadataRejectionReason(
+            boolean ecoPatternBusPresent,
+            boolean fastPathEnabled,
+            boolean postCraftingEvent,
+            boolean introspectionAvailable,
+            boolean knownSafePatternType) {
+        if (!fastPathEnabled) {
+            return ECOFastPathFallbackReason.FAST_PATH_DISABLED;
         }
-
-        List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
-        Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
-        boolean eligible = key.isPresent() && isConcreteExecutionSafe(outputs, containers, inputs);
-        return new ECOExtractedPatternExecution(
-                details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible);
+        if (postCraftingEvent) {
+            return ECOFastPathFallbackReason.POST_CRAFTING_EVENT;
+        }
+        if (!ecoPatternBusPresent) {
+            return ECOFastPathFallbackReason.NO_ECO_PATTERN_BUS;
+        }
+        if (!introspectionAvailable) {
+            return ECOFastPathFallbackReason.INTROSPECTION_UNAVAILABLE;
+        }
+        if (!knownSafePatternType) {
+            return ECOFastPathFallbackReason.UNSUPPORTED_PATTERN_TYPE;
+        }
+        return null;
     }
 
-    static boolean isConcreteExecutionSafe(
-            List<GenericStack> outputs, List<GenericStack> containers, List<GenericStack> inputs) {
+    @Nullable private static ECOFastPathFallbackReason eligibilityRejectionReason(
+            Optional<ECOFastPathKey> key,
+            List<GenericStack> outputs,
+            List<GenericStack> containers,
+            List<GenericStack> inputs) {
+        if (key.isEmpty()) {
+            return ECOFastPathFallbackReason.KEY_BUILD_FAILED;
+        }
+        if (outputs.size() != 1) {
+            return ECOFastPathFallbackReason.OUTPUT_COUNT_NOT_ONE;
+        }
+        if (!ECOFastPathStacks.isSafeForFastPath(outputs, false)) {
+            return ECOFastPathFallbackReason.UNSAFE_EXPECTED_OUTPUT;
+        }
         ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, containers);
-        return isConcreteExecutionPolicySafe(
-                outputs.size(),
-                ECOFastPathStacks.isSafeForFastPath(outputs, false),
-                ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false),
-                ECOFastPathStacks.isSafeForFastPath(plan.consumedInputsPerCraft(), true),
-                ECOFastPathStacks.isSafeReusableCatalysts(plan.reusableInputs()));
+        if (!ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)) {
+            return ECOFastPathFallbackReason.UNSAFE_CONTAINER_ITEM;
+        }
+        if (!ECOFastPathStacks.isSafeForFastPath(plan.consumedInputsPerCraft(), true)) {
+            return ECOFastPathFallbackReason.UNSAFE_INPUT;
+        }
+        if (!ECOFastPathStacks.isSafeReusableCatalysts(plan.reusableInputs())) {
+            return ECOFastPathFallbackReason.UNSAFE_INPUT;
+        }
+        return null;
     }
 
-    static boolean isConcreteExecutionPolicySafe(
-            int outputCount,
-            boolean outputsSafe,
-            boolean ordinaryRemainingSafe,
-            boolean consumedInputsSafe,
-            boolean reusableCatalystsSafe) {
-        return outputCount == 1 && outputsSafe && ordinaryRemainingSafe && consumedInputsSafe && reusableCatalystsSafe;
+    private static FastPathEligibility mapEligibility(AE2PatternIntrospection.PatternEligibility eligibility) {
+        return switch (eligibility) {
+            case ELIGIBLE -> FastPathEligibility.ELIGIBLE;
+            case UNSUPPORTED_PATTERN_TYPE -> FastPathEligibility.UNSUPPORTED_PATTERN_TYPE;
+            case RECIPE_UNAVAILABLE -> FastPathEligibility.RECIPE_UNAVAILABLE;
+            case SUBSTITUTION_SPECIAL_RECIPE -> FastPathEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+        };
+    }
+
+    private static ECOFastPathFallbackReason fallbackReasonFor(FastPathEligibility eligibility) {
+        return switch (eligibility) {
+            case SUBSTITUTION_SPECIAL_RECIPE -> ECOFastPathFallbackReason.DYNAMIC_SPECIAL;
+            case RECIPE_UNAVAILABLE -> ECOFastPathFallbackReason.INTROSPECTION_UNAVAILABLE;
+            case UNSUPPORTED_PATTERN_TYPE -> ECOFastPathFallbackReason.UNSUPPORTED_PATTERN_TYPE;
+            case ELIGIBLE -> null;
+        };
+    }
+
+    public enum FastPathEligibility {
+        ELIGIBLE,
+        UNSUPPORTED_PATTERN_TYPE,
+        RECIPE_UNAVAILABLE,
+        SUBSTITUTION_SPECIAL_RECIPE
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {
+        // Executions without a FastPath key never read inputItems(): every consumer
+        // (batch offers, cache verification, result matching) is gated on key() != null.
         return new ECOExtractedPatternExecution(
                 details,
                 craftingContainer,
                 List.of(),
                 List.of(),
-                ECOFastPathStacks.copyCounters(craftingContainer),
+                List.of(),
                 null,
-                false);
+                false,
+                ECOFastPathFallbackReason.LEGACY_SLOW_EXECUTION);
     }
 
     public IPatternDetails details() {
@@ -145,6 +240,10 @@ public final class ECOExtractedPatternExecution {
 
     public boolean fastPathEligible() {
         return fastPathEligible;
+    }
+
+    @Nullable public ECOFastPathFallbackReason fallbackReason() {
+        return fallbackReason;
     }
 
     @Nullable public IMolecularAssemblerSupportedPattern molecularPattern() {

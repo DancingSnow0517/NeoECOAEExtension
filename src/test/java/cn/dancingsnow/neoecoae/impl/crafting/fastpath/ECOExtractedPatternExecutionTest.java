@@ -7,20 +7,16 @@ import org.junit.jupiter.api.Test;
 
 class ECOExtractedPatternExecutionTest {
     @Test
-    void acceptsSafeSingleOutputExecution() {
-        assertTrue(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(1, true, true, true, true));
+    void attemptsMetadataOnlyWhenEveryPrerequisiteIsMet() {
+        assertTrue(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(true, true, false, true, true));
     }
 
     @Test
-    void rejectsMultipleOutputs() {
-        assertFalse(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(2, true, true, true, true));
-    }
-
-    @Test
-    void rejectsAnyUnsafeConcreteComponent() {
-        assertFalse(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(1, false, true, true, true));
-        assertFalse(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(1, true, false, true, true));
-        assertFalse(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(1, true, true, false, true));
-        assertFalse(ECOExtractedPatternExecution.isConcreteExecutionPolicySafe(1, true, true, true, false));
+    void skipsMetadataForEveryEarlyRejection() {
+        assertFalse(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(true, false, false, true, true));
+        assertFalse(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(true, true, true, true, true));
+        assertFalse(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(false, true, false, true, true));
+        assertFalse(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(true, true, false, false, true));
+        assertFalse(ECOExtractedPatternExecution.shouldAttemptFastPathMetadata(true, true, false, true, false));
     }
 }

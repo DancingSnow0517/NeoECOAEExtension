@@ -10,8 +10,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.core.AELog;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.api.me.ECOFastPathEligibility;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
@@ -30,7 +30,7 @@ public final class ECOExternalCpuFastPathExecutor {
 
     public static boolean dispatchOne(
             CraftingService craftingService, IEnergyService energyService, Level level, ECOExternalCpuJobView job) {
-        if (!ECOFastPathEligibility.isGloballyEnabled()) {
+        if (!NEConfig.isEcoAe2FastPathEnabled()) {
             return false;
         }
         var taskIterator = job.tasks();

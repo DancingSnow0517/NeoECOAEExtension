@@ -8,34 +8,30 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.WeakHashMap;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathStacks {
+    private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
     private static final int MAX_PERSISTED_GENERIC_STACK_ENTRIES = 256;
-    private static final ThreadLocal<Map<AEKey, String>> KEY_SORT_ID_CACHE = ThreadLocal.withInitial(WeakHashMap::new);
 
     private ECOFastPathStacks() {}
 
-    public static List<GenericStack> copyCounter(KeyCounter counter) {
-        KeyCounter copy = new KeyCounter();
-        if (counter != null) {
-            copy.addAll(counter);
+    /**
+     * Unsorted, allocation-light snapshot used for plain crafting accounting. Never use this for
+     * fast-path cache comparisons, which require the canonical order of {@link #copySorted}.
+     */
+    public static List<GenericStack> toGenericStacks(@Nullable KeyCounter counter) {
+        if (counter == null) {
+            return List.of();
         }
-        return copySorted(copy);
-    }
-
-    public static List<GenericStack> copyCounterUnsorted(KeyCounter counter) {
         List<GenericStack> stacks = new ArrayList<>();
-        if (counter != null) {
-            for (Object2LongMap.Entry<AEKey> entry : counter) {
-                if (entry.getLongValue() > 0) {
-                    stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-                }
+        for (Object2LongMap.Entry<AEKey> entry : counter) {
+            if (entry.getLongValue() > 0) {
+                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
             }
         }
         return List.copyOf(stacks);
@@ -47,18 +43,6 @@ public final class ECOFastPathStacks {
             for (KeyCounter counter : counters) {
                 if (counter != null) {
                     copy.addAll(counter);
-                }
-            }
-        }
-        return copySorted(copy);
-    }
-
-    public static List<GenericStack> copyStacks(GenericStack[] stacks) {
-        KeyCounter copy = new KeyCounter();
-        if (stacks != null) {
-            for (GenericStack stack : stacks) {
-                if (stack != null && stack.amount() > 0) {
-                    copy.add(stack.what(), stack.amount());
                 }
             }
         }
@@ -101,69 +85,11 @@ public final class ECOFastPathStacks {
     public static Optional<List<ItemStack>> toItemStacks(List<GenericStack> stacks) {
         List<ItemStack> result = new ArrayList<>(stacks.size());
         for (GenericStack stack : stacks) {
-            Optional<ItemStack> itemStack = toItemStack(stack);
-            if (itemStack.isEmpty()) {
+            if (!appendItemStacks(stack, result)) {
                 return Optional.empty();
             }
-            result.add(itemStack.get());
         }
         return Optional.of(List.copyOf(result));
-    }
-
-    public static ListTag writeGenericStacks(List<GenericStack> stacks) {
-        ListTag tag = new ListTag();
-        for (GenericStack stack : stacks) {
-            if (stack != null && stack.amount() > 0) {
-                tag.add(GenericStack.writeTag(stack));
-            }
-        }
-        return tag;
-    }
-
-    public static List<GenericStack> readGenericStacks(ListTag tag) {
-        return readGenericStacksChecked(tag).stacks();
-    }
-
-    public static GenericStackReadResult readGenericStacksChecked(ListTag tag) {
-        List<GenericStack> stacks = new ArrayList<>();
-        boolean valid = tag.size() <= MAX_PERSISTED_GENERIC_STACK_ENTRIES;
-        int count = Math.min(tag.size(), MAX_PERSISTED_GENERIC_STACK_ENTRIES);
-        for (int i = 0; i < count; i++) {
-            try {
-                GenericStack stack = GenericStack.readTag(tag.getCompound(i));
-                if (stack != null && stack.amount() > 0) {
-                    stacks.add(stack);
-                } else {
-                    valid = false;
-                }
-            } catch (RuntimeException ignored) {
-                // A malformed persisted entry must not prevent the rest of a CPU or job from loading.
-                valid = false;
-            }
-        }
-        return new GenericStackReadResult(List.copyOf(stacks), valid);
-    }
-
-    public static void readGenericStacksInto(KeyCounter counter, ListTag tag) {
-        for (GenericStack stack : readGenericStacks(tag)) {
-            counter.add(stack.what(), stack.amount());
-        }
-    }
-
-    public record GenericStackReadResult(List<GenericStack> stacks, boolean valid) {}
-
-    /**
-     * Reads persisted batch work using the same rejection rules as the 1.21.1
-     * worker, expressed through the 1.20.1 GenericStack NBT format.
-     */
-    public static Optional<List<GenericStack>> readValidatedBatchItemStacks(ListTag tag, boolean requireNonEmpty) {
-        GenericStackReadResult result = readGenericStacksChecked(tag);
-        if (!result.valid()
-                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
-                        result.stacks(), ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, requireNonEmpty)) {
-            return Optional.empty();
-        }
-        return Optional.of(result.stacks());
     }
 
     public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
@@ -173,6 +99,31 @@ public final class ECOFastPathStacks {
             }
         }
         return true;
+    }
+
+    /** Legacy 1.20.1 call-site name for the same unsorted counter snapshot. */
+    public static List<GenericStack> copyCounterUnsorted(@Nullable KeyCounter counter) {
+        return toGenericStacks(counter);
+    }
+
+    public static String keySortId(@Nullable AEKey key) {
+        if (key == null) {
+            return "";
+        }
+        try {
+            return key.toTagGeneric().toString();
+        } catch (RuntimeException e) {
+            return key.getClass().getName() + ":" + key.hashCode();
+        }
+    }
+
+    public static boolean isSafeForFastPath(
+            List<GenericStack> outputs, List<GenericStack> remaining, List<GenericStack> inputs) {
+        ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, remaining);
+        return isSafeForFastPath(outputs, false)
+                && isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)
+                && isSafeForFastPath(plan.consumedInputsPerCraft(), true)
+                && isSafeReusableCatalysts(plan.reusableInputs());
     }
 
     public static boolean isSafeReusableCatalysts(List<GenericStack> stacks) {
@@ -195,23 +146,20 @@ public final class ECOFastPathStacks {
             return false;
         }
         ItemStack itemStack = itemKey.toStack(1);
-        if (!isSafeItemIdentity(itemStack.isEmpty(), itemKey.hasTag(), itemKey.isDamaged())) {
+        // AEItemKey includes the complete component map in its identity. Static NBT/components
+        // are therefore safe to snapshot and reproduce; only mutable/damageable inputs need
+        // additional restrictions below.
+        if (itemStack.isEmpty() || itemKey.isDamaged()) {
             return false;
         }
-        if (itemStack.isDamageableItem()) {
-            return false;
+        if (input) {
+            return !itemStack.isDamageableItem() && !itemStack.getItem().hasCraftingRemainingItem(itemStack);
         }
-        return !input || !itemStack.getItem().hasCraftingRemainingItem(itemStack);
-    }
-
-    static boolean isSafeItemIdentity(boolean empty, boolean hasStaticTag, boolean damaged) {
-        // AEItemKey includes the complete NBT payload in its identity. Static NBT is safe to
-        // snapshot and reproduce, while empty and damaged identities remain unsupported.
-        return !empty && !damaged;
+        return true;
     }
 
     public static Optional<ItemStack> toItemStack(GenericStack stack) {
-        if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
+        if (stack.amount() <= 0 || stack.amount() > MAX_SAFE_ITEM_STACK_COUNT) {
             return Optional.empty();
         }
         if (!(stack.what() instanceof AEItemKey itemKey)) {
@@ -221,45 +169,137 @@ public final class ECOFastPathStacks {
         return itemStack.isEmpty() ? Optional.empty() : Optional.of(itemStack);
     }
 
-    private static List<GenericStack> copySorted(KeyCounter counter) {
-        List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+    private static boolean appendItemStacks(GenericStack stack, List<ItemStack> target) {
+        if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
+            return false;
+        }
+        if (!(stack.what() instanceof AEItemKey itemKey)) {
+            return false;
+        }
+        int remaining = (int) stack.amount();
+        while (remaining > 0) {
+            int count = Math.min(remaining, MAX_SAFE_ITEM_STACK_COUNT);
+            ItemStack itemStack = itemKey.toStack(count);
+            if (itemStack.isEmpty()) {
+                return false;
+            }
+            target.add(itemStack);
+            remaining -= count;
+        }
+        return true;
+    }
+
+    public static ListTag writeGenericStacks(List<GenericStack> stacks) {
+        ListTag tag = new ListTag();
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0) {
+                tag.add(GenericStack.writeTag(stack));
             }
         }
-        if (stacks.size() <= 1) {
-            return List.copyOf(stacks);
-        }
-
-        List<SortableStack> sortable = new ArrayList<>(stacks.size());
-        for (GenericStack stack : stacks) {
-            sortable.add(new SortableStack(stack, keySortId(stack.what())));
-        }
-        sortable.sort(Comparator.comparing(SortableStack::sortId)
-                .thenComparingLong(stack -> stack.stack().amount()));
-
-        List<GenericStack> sorted = new ArrayList<>(sortable.size());
-        for (SortableStack sortableStack : sortable) {
-            sorted.add(sortableStack.stack());
-        }
-        return List.copyOf(sorted);
+        return tag;
     }
 
-    public static String keySortId(@Nullable AEKey key) {
-        if (key == null) {
-            return "";
-        }
-        return KEY_SORT_ID_CACHE.get().computeIfAbsent(key, ECOFastPathStacks::createKeySortId);
-    }
-
-    private static String createKeySortId(AEKey key) {
+    public static List<GenericStack> readGenericStacks(ListTag tag) {
         try {
-            return key.toTagGeneric().toString();
+            List<GenericStack> stacks = new ArrayList<>(tag.size());
+            for (int i = 0; i < tag.size(); i++) {
+                CompoundTag stackTag = tag.getCompound(i);
+                GenericStack stack = GenericStack.readTag(stackTag);
+                if (stack != null && stack.amount() > 0) {
+                    stacks.add(stack);
+                }
+            }
+            return List.copyOf(stacks);
         } catch (RuntimeException e) {
-            return key.getClass().getName() + ":" + key.hashCode();
+            return List.of();
         }
     }
 
-    private record SortableStack(GenericStack stack, String sortId) {}
+    public static GenericStackReadResult readGenericStacksChecked(ListTag tag) {
+        List<GenericStack> stacks = new ArrayList<>();
+        boolean valid = tag.size() <= MAX_PERSISTED_GENERIC_STACK_ENTRIES;
+        for (int i = 0; i < Math.min(tag.size(), MAX_PERSISTED_GENERIC_STACK_ENTRIES); i++) {
+            try {
+                GenericStack stack = GenericStack.readTag(tag.getCompound(i));
+                if (stack == null || stack.amount() <= 0L) {
+                    valid = false;
+                } else {
+                    stacks.add(stack);
+                }
+            } catch (RuntimeException e) {
+                valid = false;
+            }
+        }
+        return new GenericStackReadResult(List.copyOf(stacks), valid);
+    }
+
+    public record GenericStackReadResult(List<GenericStack> stacks, boolean valid) {}
+
+    public static Optional<List<GenericStack>> readValidatedBatchItemStacks(ListTag tag, boolean requireNonEmpty) {
+        if (tag.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES || requireNonEmpty && tag.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            List<GenericStack> stacks = new ArrayList<>(tag.size());
+            for (int i = 0; i < tag.size(); i++) {
+                GenericStack stack = GenericStack.readTag(tag.getCompound(i));
+                if (stack == null) {
+                    return Optional.empty();
+                }
+                stacks.add(stack);
+            }
+            if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(
+                    stacks, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, requireNonEmpty)) {
+                return Optional.empty();
+            }
+            return Optional.of(List.copyOf(stacks));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Canonical in-runtime ordering for fast-path list equality. The cache is never persisted, so
+     * only self-consistency within one runtime matters; keys are ordered by their identifiers and
+     * cached hash codes without building intermediate sort-id strings.
+     */
+    private static final Comparator<GenericStack> CANONICAL_ORDER = (a, b) -> {
+        int keyOrder = compareKeys(a.what(), b.what());
+        return keyOrder != 0 ? keyOrder : Long.compare(a.amount(), b.amount());
+    };
+
+    public static List<GenericStack> copySorted(@Nullable KeyCounter counter) {
+        List<GenericStack> stacks = new ArrayList<>();
+        if (counter != null) {
+            for (Object2LongMap.Entry<AEKey> entry : counter) {
+                if (entry.getLongValue() > 0) {
+                    stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+                }
+            }
+        }
+        stacks.sort(CANONICAL_ORDER);
+        return List.copyOf(stacks);
+    }
+
+    static int compareKeys(@Nullable AEKey a, @Nullable AEKey b) {
+        if (a == b) {
+            return 0;
+        }
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+        int order = a.getType().getId().compareTo(b.getType().getId());
+        if (order != 0) {
+            return order;
+        }
+        order = a.getId().compareTo(b.getId());
+        if (order != 0) {
+            return order;
+        }
+        // Distinguishes same-id keys with different components; AEKey caches its hash code.
+        return Integer.compare(a.hashCode(), b.hashCode());
+    }
 }

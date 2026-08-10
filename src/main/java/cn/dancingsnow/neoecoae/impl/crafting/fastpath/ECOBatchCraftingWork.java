@@ -11,25 +11,36 @@ public record ECOBatchCraftingWork(
         List<GenericStack> outputTotal,
         List<GenericStack> remainingTotal,
         @Nullable UUID craftingJobId,
-        int progress,
         int occupiedThreadSlots) {
+    /**
+     * Source-compatible constructor for callers that still pass the removed progress value.
+     */
+    public ECOBatchCraftingWork(
+            long batchSize,
+            List<GenericStack> inputTotal,
+            List<GenericStack> outputTotal,
+            List<GenericStack> remainingTotal,
+            @Nullable UUID craftingJobId,
+            int progress,
+            int occupiedThreadSlots) {
+        this(batchSize, inputTotal, outputTotal, remainingTotal, craftingJobId, occupiedThreadSlots);
+    }
+
     public ECOBatchCraftingWork {
         if (batchSize <= 0) {
             throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
         if (occupiedThreadSlots <= 0 || occupiedThreadSlots > batchSize) {
-            throw new IllegalArgumentException("Batch work must occupy at least one and no more than batchSize slots");
-        }
-        if (progress < 0) {
-            throw new IllegalArgumentException("progress must not be negative");
+            throw new IllegalArgumentException("occupiedThreadSlots must be positive and not exceed batchSize");
         }
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);
         remainingTotal = List.copyOf(remainingTotal);
-        if (!ECOBatchCraftingHelper.areValidItemStacks(inputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)
-                || !ECOBatchCraftingHelper.areValidItemStacks(
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(
+                        inputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
                         outputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, true)
-                || !ECOBatchCraftingHelper.areValidItemStacks(
+                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
                         remainingTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)) {
             throw new IllegalArgumentException("Fast-path batch work contains invalid item stacks");
         }

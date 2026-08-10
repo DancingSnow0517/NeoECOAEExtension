@@ -28,7 +28,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
@@ -249,6 +248,24 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     /** Physical-host cooling state, used when admitting a worker task. */
     public boolean isLocalActiveCooling() {
         return activeCooling;
+    }
+
+    /** Direct physical-host update used while a logical F9 network is being configured. */
+    public void setLocalOverclocked(boolean value) {
+        setNetworkOverclocked(value);
+    }
+
+    /** Direct physical-host update used while a logical F9 network is being configured. */
+    public void setLocalActiveCooling(boolean value) {
+        setNetworkActiveCooling(value);
+    }
+
+    public void onNetworkStateChanged() {
+        markStructureStatsDirty();
+        recalculateRunningThreadCountFromWorkers();
+        setChanged();
+        markUiStateDirty();
+        markForUpdate();
     }
 
     public int getEffectiveOverclockTimesForLocalTasks() {
@@ -810,6 +827,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 
+    public int getLocalOverflowThreads() {
+        return getOverflowThreads();
+    }
+
     public int getAvailableThreads() {
         ensureCraftingStatsCurrent();
         return (int) Math.min(Integer.MAX_VALUE, saturatingMultiply(threadCountPerWorker, workerCount));
@@ -830,7 +851,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getCurrentBatchSlots() {
         ensureCraftingStatsCurrent();
-        return ECOCraftingCapacity.availableCraftSlots(getMaxInFlightCrafts(), runningThreadCount);
+        return Math.max(0, getMaxInFlightCrafts() - runningThreadCount);
     }
 
     /**
@@ -1008,9 +1029,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             // count in logical tasks so the multiplier is not applied twice.
             return Math.max(0, threadCount);
         }
-        int localCapacity =
-                ECOCraftingCapacity.maxInFlightCrafts(threadCount, getStructureBuildLength(), threadCountPerWorker);
-        return (int) Math.min(Integer.MAX_VALUE, (long) localCapacity * getNetworkMultiplier());
+        return (int) Math.min(
+                Integer.MAX_VALUE, saturatingMultiply(Math.max(0, threadCount), Math.max(1, getNetworkMultiplier())));
     }
 
     public int getStructureBuildLength() {
@@ -1076,9 +1096,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     /** Per-recipe duration ratio; parallel capacity is reported separately as throughput. */
     public double getTimeMultiplier() {
         ensureCraftingStatsCurrent();
-        if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().getTimeMultiplier();
-        }
         if (threadCount <= 0) {
             return 1.0D;
         }

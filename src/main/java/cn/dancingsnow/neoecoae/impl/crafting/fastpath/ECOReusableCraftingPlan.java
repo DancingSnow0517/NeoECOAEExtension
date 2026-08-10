@@ -11,7 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Splits reusable inputs from ingredients consumed by every craft. */
+/**
+ * Splits exact input/remaining matches from ingredients that are consumed by every craft.
+ * Reusable inputs remain leased by the CPU and are therefore excluded from worker batch totals.
+ */
 public record ECOReusableCraftingPlan(
         List<GenericStack> consumedInputsPerCraft,
         List<GenericStack> reusableInputs,
@@ -32,6 +35,7 @@ public record ECOReusableCraftingPlan(
                 reusableKeys.add(entry.getKey());
             }
         }
+
         return new ECOReusableCraftingPlan(
                 select(inputAmounts, reusableKeys, false),
                 select(inputAmounts, reusableKeys, true),
@@ -67,6 +71,10 @@ public record ECOReusableCraftingPlan(
                 counter.add(entry.getKey(), entry.getValue());
             }
         }
+        return copyCounter(counter);
+    }
+
+    private static List<GenericStack> copyCounter(KeyCounter counter) {
         List<GenericStack> stacks = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : counter) {
             if (entry.getLongValue() > 0L) {
