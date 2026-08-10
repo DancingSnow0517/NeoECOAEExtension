@@ -155,6 +155,14 @@ public final class NECraftingNetworkCluster {
         return controllers.size();
     }
 
+    public boolean isBatchFairSchedulingEnabled() {
+        return batchFairnessTracker.isEnabled();
+    }
+
+    public void setBatchFairSchedulingEnabled(boolean enabled) {
+        batchFairnessTracker.setEnabled(enabled);
+    }
+
     /**
      * Virtual crafting is the endgame reward for a complete high-energy F9
      * exchange network. Every host must be built to the configured maximum

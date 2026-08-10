@@ -65,6 +65,8 @@ public final class ComputationHostPanelUI {
             Runnable cycleCpuSelectionMode,
             BooleanSupplier fastPlanningEnabled,
             Runnable toggleFastPlanning,
+            BooleanSupplier batchFairSchedulingEnabled,
+            Runnable toggleBatchFairScheduling,
             IntSupplier networkFrequency,
             IntConsumer adjustNetworkFrequency,
             Supplier<HolderLookup.Provider> registries,
@@ -152,19 +154,54 @@ public final class ComputationHostPanelUI {
     }
 
     public static UIElement createFastPlanningOpenButton(Config config) {
+        return createLeftUtilityButton(createFastPlanningButton(config), 26);
+    }
+
+    public static UIElement createBatchFairSchedulingOpenButton(Config config) {
+        return createLeftUtilityButton(createBatchFairSchedulingButton(config), 54);
+    }
+
+    private static UIElement createLeftUtilityButton(Button button, int top) {
         UIElement buttonPanel = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(-22);
-            layout.top(26);
+            layout.top(top);
             layout.paddingAll(2);
             layout.paddingBottom(4);
         }).style(style -> style.background(NETextures.BACKGROUND));
-        buttonPanel.addChild(createFastPlanningButton(config));
+        buttonPanel.addChild(button);
         return buttonPanel;
+    }
+
+    public static Button createBatchFairSchedulingButton(Config config) {
+        Button button = new Button()
+                .noText()
+                .setOnServerClick(event -> config.toggleBatchFairScheduling.run());
+        button.layout(layout -> layout.width(18).height(20));
+        UIElement icon = new UIElement()
+                .layout(layout -> layout.width(12).height(12))
+                .style(style -> style.backgroundTexture(batchFairSchedulingIcon(
+                        config.batchFairSchedulingEnabled.getAsBoolean())));
+        button.addChild(icon);
+
+        var syncedEnabled = HostElements.syncedBoolean(config.batchFairSchedulingEnabled::getAsBoolean);
+        syncedEnabled.registerValueListener(value -> icon.style(style -> style.backgroundTexture(
+                batchFairSchedulingIcon(Boolean.TRUE.equals(value)))));
+        button.addChild(syncedEnabled);
+        HostElements.tooltips(button, () -> List.of(
+                Component.translatable("gui.neoecoae.host.computation.batch_fair_scheduling"),
+                Component.translatable(Boolean.TRUE.equals(syncedEnabled.getValue())
+                        ? "gui.neoecoae.host.computation.batch_fair_scheduling.enabled"
+                        : "gui.neoecoae.host.computation.batch_fair_scheduling.disabled")));
+        return button;
     }
 
     private static IGuiTexture fastPlanningIcon(boolean enabled) {
         return AETextures.icon(enabled ? Icon.S_MACHINE : Icon.CLEAR);
+    }
+
+    private static IGuiTexture batchFairSchedulingIcon(boolean enabled) {
+        return AETextures.icon(enabled ? Icon.PRIORITY : Icon.CLEAR);
     }
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {

@@ -59,12 +59,6 @@ public class ConfigLangs {
             "Log each pattern that does not use ECO FastPath, including the reason, and periodically log cache statistics.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing issues."
         );
-        provider.add("neoecoae.configuration.debugEcoBatchFairScheduling", "Debug F-Series Fair Scheduling");
-        provider.add(
-            "neoecoae.configuration.debugEcoBatchFairScheduling.tooltip",
-            "Experimental: prevent one job from occupying another virtual exchange task slot before its prior batch settles.\n" +
-                "Virtual crafting batch size remains unlimited."
-        );
         provider.add("neoecoae.configuration.debugECOPlanner", "Debug ECO Planner");
         provider.add(
             "neoecoae.configuration.debugECOPlanner.tooltip",

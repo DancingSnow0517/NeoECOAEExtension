@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -9,6 +8,18 @@ import org.jetbrains.annotations.Nullable;
 /** Experimental per-job turn state for virtual F-series exchange tasks. */
 public final class ECOBatchFairnessTracker {
     private final Set<UUID> inFlightBatchJobs = new HashSet<>();
+    private boolean enabled;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            inFlightBatchJobs.clear();
+        }
+    }
 
     public boolean shouldDefer(@Nullable UUID craftingJobId, long currentTick) {
         if (!isActive(craftingJobId)) {
@@ -42,12 +53,12 @@ public final class ECOBatchFairnessTracker {
         inFlightBatchJobs.remove(craftingJobId);
     }
 
-    private static boolean isActive(@Nullable UUID craftingJobId) {
-        return NEConfig.debugEcoBatchFairScheduling && craftingJobId != null;
+    private boolean isActive(@Nullable UUID craftingJobId) {
+        return enabled && craftingJobId != null;
     }
 
     private void clearWhenDisabled() {
-        if (!NEConfig.debugEcoBatchFairScheduling) {
+        if (!enabled) {
             inFlightBatchJobs.clear();
         }
     }

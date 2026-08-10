@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPlanningControl;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
@@ -235,6 +236,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         root.addChild(panels);
         root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
         root.addChild(ComputationHostPanelUI.createFastPlanningOpenButton(panelConfig));
+        root.addChild(ComputationHostPanelUI.createBatchFairSchedulingOpenButton(panelConfig));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
                 holder.player);
@@ -257,6 +259,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 this::cycleCpuSelectionMode,
                 this::isFastPlanningEnabled,
                 this::toggleFastPlanning,
+                this::isBatchFairSchedulingEnabled,
+                this::toggleBatchFairScheduling,
                 this::getNetworkFrequency,
                 this::adjustNetworkFrequency,
                 this::getRegistryAccessForUi,
@@ -389,6 +393,27 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         var node = getActionableNode();
         if (node != null && node.getGrid() != null
             && node.getGrid().getCraftingService() instanceof ECOFastPlanningControl control) {
+            return control;
+        }
+        return null;
+    }
+
+    public boolean isBatchFairSchedulingEnabled() {
+        ECOBatchFairSchedulingControl control = getBatchFairSchedulingControl();
+        return control != null && control.isBatchFairSchedulingEnabled();
+    }
+
+    public void toggleBatchFairScheduling() {
+        ECOBatchFairSchedulingControl control = getBatchFairSchedulingControl();
+        if (control != null) {
+            control.setBatchFairSchedulingEnabled(!control.isBatchFairSchedulingEnabled());
+        }
+    }
+
+    private @Nullable ECOBatchFairSchedulingControl getBatchFairSchedulingControl() {
+        var node = getActionableNode();
+        if (node != null && node.getGrid() != null
+                && node.getGrid().getCraftingService() instanceof ECOBatchFairSchedulingControl control) {
             return control;
         }
         return null;

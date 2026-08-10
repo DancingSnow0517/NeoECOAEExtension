@@ -20,8 +20,10 @@ import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPlanningControl;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
@@ -56,7 +58,7 @@ import java.util.Set;
 import java.util.concurrent.Future;
 
 @Mixin(CraftingService.class)
-public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
+public abstract class CraftingServiceMixin implements ECOFastPlanningControl, ECOBatchFairSchedulingControl {
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getCPUAccelerators)
@@ -102,6 +104,32 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
                 cluster.getNetworkCluster().setFastPlanningEnabled(enabled);
             } else if (cluster.getController() != null) {
                 cluster.getController().setLocalFastPlanningEnabled(enabled);
+            }
+        }
+    }
+
+    @Override
+    public boolean isBatchFairSchedulingEnabled() {
+        boolean foundNetwork = false;
+        for (ECOCraftingSystemBlockEntity controller : this.grid.getMachines(ECOCraftingSystemBlockEntity.class)) {
+            if (controller.getCluster() == null || controller.getCluster().getNetworkCluster() == null) {
+                continue;
+            }
+            foundNetwork = true;
+            if (!controller.getCluster().getNetworkCluster().isBatchFairSchedulingEnabled()) {
+                return false;
+            }
+        }
+        return foundNetwork;
+    }
+
+    @Override
+    public void setBatchFairSchedulingEnabled(boolean enabled) {
+        Set<Object> networks = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (ECOCraftingSystemBlockEntity controller : this.grid.getMachines(ECOCraftingSystemBlockEntity.class)) {
+            if (controller.getCluster() != null && controller.getCluster().getNetworkCluster() != null
+                    && networks.add(controller.getCluster().getNetworkCluster())) {
+                controller.getCluster().getNetworkCluster().setBatchFairSchedulingEnabled(enabled);
             }
         }
     }

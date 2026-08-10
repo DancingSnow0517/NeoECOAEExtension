@@ -137,14 +137,6 @@ public class NEConfig {
             "Messages are deduplicated by pattern and reason and rate-limited per tick; enable only while diagnosing issues.")
         .define("debugEcoFastPath", false);
 
-    private static final ModConfigSpec.BooleanValue DEBUG_ECO_BATCH_FAIR_SCHEDULING = BUILDER
-        .comment(
-            "实验性：在网络交换虚拟合成中，让同一合成任务在前一个批次结算前不重复占用逻辑任务槽。",
-            "默认关闭。不会限制虚拟合成批量大小。",
-            "Experimental: in virtual exchange crafting, do not let one job occupy another logical task slot before its prior batch settles.",
-            "Disabled by default. This does not limit virtual crafting batch size.")
-        .define("debugEcoBatchFairScheduling", false);
-
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多调度的合成操作数量。",
@@ -210,7 +202,6 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
-    public static boolean debugEcoBatchFairScheduling;
     public static boolean ecoPlannerDifferentialVerification;
     public static boolean debugECOPlanner;
     public static boolean debugInfiniteStorageMigration;
@@ -249,7 +240,6 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         boolean wasDebugEcoFastPath = debugEcoFastPath;
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
-        debugEcoBatchFairScheduling = DEBUG_ECO_BATCH_FAIR_SCHEDULING.get();
         if (debugEcoFastPath && !wasDebugEcoFastPath) {
             ECOFastPathDiagnostics.clear();
         }
