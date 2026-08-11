@@ -2,26 +2,25 @@ package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
-import appeng.client.Point;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.CPUSelectionList;
-import appeng.client.gui.widgets.Scrollbar;
+import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CPUSelectionList.class, remap = false)
@@ -29,17 +28,6 @@ public abstract class CPUSelectionListMixin {
     @Shadow
     @Final
     private Blitter buttonBg;
-
-    @Shadow
-    @Final
-    private CraftingStatusMenu menu;
-
-    @Shadow
-    @Final
-    private Scrollbar scrollbar;
-
-    @Shadow
-    private Rect2i bounds;
 
     // Small corner badge dimensions
     private static final int OVERLAY_W = 10;
@@ -49,27 +37,35 @@ public abstract class CPUSelectionListMixin {
     /** AE2 15.4.10 repeats its last byte divisor and overflows at this boundary. */
     private static final long AE2_BYTE_TOOLTIP_LIMIT = 1000L * 1024L * 1024L * 1024L;
 
-    @Inject(method = "drawBackgroundLayer", at = @At("RETURN"), require = 0)
+    @WrapOperation(
+            method = "drawBackgroundLayer",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/client/gui/widgets/InfoBar;render(Lnet/minecraft/client/gui/GuiGraphics;II)V"))
     private void neoecoae$drawCpuTierOverlay(
-            GuiGraphics guiGraphics, Rect2i screenBounds, Point mouse, CallbackInfo ci) {
-        int x = screenBounds.getX() + this.bounds.getX() + 9;
-        int y = screenBounds.getY() + this.bounds.getY() + 19;
-        var cpus = menu.cpuList.cpus();
-        var visibleCpus = cpus.subList(
-                Mth.clamp(scrollbar.getCurrentScroll(), 0, cpus.size()),
-                Mth.clamp(scrollbar.getCurrentScroll() + 6, 0, cpus.size()));
-        for (var cpu : visibleCpus) {
-            var overlay = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
-            if (overlay != null) {
-                // Small badge at top-right corner of the CPU entry row
-                int overlayX = x + buttonBg.getSrcWidth() - OVERLAY_W - OVERLAY_RIGHT_MARGIN;
-                int overlayY = y + OVERLAY_TOP_MARGIN;
-                Blitter.texture(overlay)
-                        .dest(overlayX, overlayY, OVERLAY_W, OVERLAY_H)
-                        .blending(true)
-                        .blit(guiGraphics);
-            }
-            y += buttonBg.getSrcHeight() + 1;
+            InfoBar infoBar,
+            GuiGraphics guiGraphics,
+            int infoBarX,
+            int infoBarY,
+            Operation<Void> original,
+            @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu) {
+        original.call(infoBar, guiGraphics, infoBarX, infoBarY);
+
+        var overlay = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
+        if (overlay != null) {
+            // InfoBar starts two pixels into its row and twelve pixels above its bottom edge.
+            int rowX = infoBarX - 2;
+            int rowY = infoBarY - buttonBg.getSrcHeight() + 12;
+            Blitter.texture(overlay)
+                    .dest(
+                            rowX + buttonBg.getSrcWidth() - OVERLAY_W - OVERLAY_RIGHT_MARGIN,
+                            rowY + OVERLAY_TOP_MARGIN,
+                            OVERLAY_W,
+                            OVERLAY_H)
+                    .blending(true)
+                    .blit(guiGraphics);
         }
     }
 

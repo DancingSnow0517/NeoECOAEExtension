@@ -70,7 +70,7 @@ jobs:
 
       - name: Publish Mod
         if: ${{ !github.event.release.prerelease }}
-        uses: Kir-Antipov/mc-publish@v3.3.0
+        uses: Kir-Antipov/mc-publish@v3.3.1
         with:
           name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}"
           version: ${{ steps.var.outputs.version }}
@@ -79,6 +79,7 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
 
+          environment: 'client | server'
           game-versions: |
             1.20.1
 

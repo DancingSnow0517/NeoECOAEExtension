@@ -497,6 +497,12 @@ public final class NECraftingNetworkCluster {
         if (workers.isEmpty()) {
             return false;
         }
+        // A deferred virtual batch must not fall through to the one-craft provider path.
+        // Otherwise enabling ECO round-robin scheduling silently turns the remaining work
+        // of that job into individual dispatches.
+        if (isVirtualBatchDispatchDeferred(craftingJobId)) {
+            return false;
+        }
         if (getAvailableThreadSlots(grid) <= 0) {
             return false;
         }
@@ -532,7 +538,7 @@ public final class NECraftingNetworkCluster {
         if (workers.isEmpty() || offer == null) {
             return false;
         }
-        if (isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(request.craftingJobId())) {
+        if (isVirtualBatchDispatchDeferred(request.craftingJobId())) {
             return false;
         }
         // A batch occupies one logical host thread. Its physical worker slots
@@ -569,6 +575,9 @@ public final class NECraftingNetworkCluster {
             @Nullable UUID craftingJobId,
             long requestedBatchSize) {
         if (requestedBatchSize <= 0 || workers.isEmpty()) {
+            return null;
+        }
+        if (isVirtualBatchDispatchDeferred(craftingJobId)) {
             return null;
         }
         if (getAvailableThreadSlots(grid) <= 0) {
@@ -611,9 +620,6 @@ public final class NECraftingNetworkCluster {
                 break;
             }
             if (bestOffer != null) {
-                if (isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(craftingJobId)) {
-                    return null;
-                }
                 return bestOffer;
             }
         }
@@ -622,6 +628,10 @@ public final class NECraftingNetworkCluster {
 
     public void noteCompletedBatchJob(@Nullable UUID craftingJobId) {
         batchFairnessTracker.noteCompleted(craftingJobId);
+    }
+
+    private boolean isVirtualBatchDispatchDeferred(@Nullable UUID craftingJobId) {
+        return isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(craftingJobId);
     }
 
     private void updateRoundRobinAfterAccept(NECraftingCluster physical, ECOCraftingWorkerBlockEntity acceptedWorker) {
