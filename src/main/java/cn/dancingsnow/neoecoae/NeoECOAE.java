@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOStorageCellHandler;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
@@ -173,6 +174,7 @@ public class NeoECOAE {
     private static void initStorageCells(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
+            appeng.api.storage.StorageCells.addCellHandler(ECOStorageCellHandler.INSTANCE);
         });
     }
 
