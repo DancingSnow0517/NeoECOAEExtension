@@ -43,4 +43,21 @@ class ECOInfiniteStorageDomainsTest {
                         second.toAbsolutePath().normalize()),
                 java.util.Set.copyOf(ECOInfiniteStorageDomains.findLegacyDomainPaths(tempDir, domainId)));
     }
+
+    @Test
+    void discoversPersistedDomainIdsAcrossSupportedLayouts() throws Exception {
+        UUID v2Domain = UUID.randomUUID();
+        UUID archivedDomain = UUID.randomUUID();
+        UUID legacyDomain = UUID.randomUUID();
+        Files.createDirectories(tempDir.resolve("data").resolve("neoecoae_infinite"));
+        Files.createFile(tempDir.resolve("data").resolve("neoecoae_infinite").resolve("domain_" + v2Domain + ".dat"));
+        Files.createDirectories(tempDir.resolve("neoecoae_storage_v1_archive").resolve("domain_" + archivedDomain));
+        Files.createDirectories(tempDir.resolve("neoecoae_storage").resolve("dim_minecraft_overworld")
+                .resolve("domain_" + legacyDomain));
+        Files.createDirectories(tempDir.resolve("data").resolve("neoecoae_storage").resolve("domain_invalid"));
+
+        assertEquals(
+                java.util.List.of(v2Domain, archivedDomain, legacyDomain).stream().sorted().toList(),
+                ECOInfiniteStorageDomains.discoverDomainIds(tempDir));
+    }
 }

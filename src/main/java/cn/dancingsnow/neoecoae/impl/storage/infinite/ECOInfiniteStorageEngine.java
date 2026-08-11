@@ -79,6 +79,16 @@ public interface ECOInfiniteStorageEngine {
         return getOrphanedTypes() > 0;
     }
 
+    /** Returns whether missing-mod entries still need to be shown to an administrator. */
+    default boolean hasUnacknowledgedOrphanedEntries() {
+        return hasOrphanedEntries();
+    }
+
+    /** Persists acknowledgement of the current missing-mod entry set without deleting those entries. */
+    default boolean acknowledgeOrphanedEntries() {
+        return false;
+    }
+
     default void flushBudgeted(long maxNanos) {
         if (maxNanos <= 0L) {
             flushAndAwait();

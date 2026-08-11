@@ -52,6 +52,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private static final String TAG_RECEIPT_ID = "id";
     private static final String TAG_RECEIPT_DIGEST = "contents_sha256";
     private static final String TAG_LEGACY_FINGERPRINT = "legacy_fingerprint";
+    private static final String TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT = "acknowledged_orphaned_fingerprint";
     private static final ResourceLocation AE2_MISSING_CONTENT =
             ResourceLocation.fromNamespaceAndPath("ae2", "missing_content");
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
@@ -75,6 +76,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private long revision;
 
     @Nullable private String legacyFingerprint;
+
+    @Nullable private String acknowledgedOrphanedFingerprint;
 
     private ECOInfiniteDomainState state = ECOInfiniteDomainState.READY;
 
@@ -114,6 +117,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         engine.revision = parsed.revision();
         engine.lastVerifiedRevision = parsed.revision();
         engine.legacyFingerprint = parsed.legacyFingerprint();
+        engine.acknowledgedOrphanedFingerprint = parsed.acknowledgedOrphanedFingerprint();
         engine.lastSerializedSnapshot = tag.copy();
         engine.rebuildIndexes();
         return engine;
@@ -387,6 +391,28 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     }
 
     @Override
+    public synchronized boolean hasUnacknowledgedOrphanedEntries() {
+        return state == ECOInfiniteDomainState.READY
+                && !orphanedEntries.isEmpty()
+                && !Objects.equals(acknowledgedOrphanedFingerprint, orphanedFingerprint());
+    }
+
+    @Override
+    public synchronized boolean acknowledgeOrphanedEntries() {
+        if (state != ECOInfiniteDomainState.READY || orphanedEntries.isEmpty()) {
+            return false;
+        }
+        String currentFingerprint = orphanedFingerprint();
+        if (currentFingerprint.equals(acknowledgedOrphanedFingerprint)) {
+            return true;
+        }
+        acknowledgedOrphanedFingerprint = currentFingerprint;
+        markMutated();
+        flushAndAwait();
+        return state == ECOInfiniteDomainState.READY;
+    }
+
+    @Override
     public synchronized void flushAndAwait() {
         if (state != ECOInfiniteDomainState.READY) {
             return;
@@ -423,6 +449,17 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         }
     }
 
+    /** Re-enables a cleanly closed runtime instance and verifies its persisted snapshot. */
+    synchronized boolean reopenAndVerify() {
+        if (state != ECOInfiniteDomainState.CLOSED) {
+            return state == ECOInfiniteDomainState.READY;
+        }
+        state = ECOInfiniteDomainState.READY;
+        failureReason = null;
+        flushAndAwait();
+        return state == ECOInfiniteDomainState.READY;
+    }
+
     @Override
     public synchronized ECOInfiniteDomainState getState() {
         return state;
@@ -440,6 +477,9 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         tag.putLong(TAG_REVISION, revision);
         if (legacyFingerprint != null) {
             tag.putString(TAG_LEGACY_FINGERPRINT, legacyFingerprint);
+        }
+        if (acknowledgedOrphanedFingerprint != null) {
+            tag.putString(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT, acknowledgedOrphanedFingerprint);
         }
 
         ListTag entries = new ListTag();
@@ -520,6 +560,22 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             }
             records.add(ECOStorageKeyHash.stableFingerprint(encodedKey) + ":" + stack.amount());
         }
+        records.sort(String::compareTo);
+
+        MessageDigest digest = sha256Digest();
+        updateDigestInt(digest, records.size());
+        for (String record : records) {
+            byte[] bytes = record.getBytes(StandardCharsets.UTF_8);
+            updateDigestInt(digest, bytes.length);
+            digest.update(bytes);
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private String orphanedFingerprint() {
+        List<String> records = new ArrayList<>(orphanedEntries.size());
+        orphanedEntries.forEach((fingerprint, entry) ->
+                records.add(fingerprint + ":" + entry.amount().toBigInteger()));
         records.sort(String::compareTo);
 
         MessageDigest digest = sha256Digest();
@@ -697,12 +753,15 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             boolean transferReceiptsMatch = persisted.transferReceipts().equals(expected.transferReceipts());
             boolean legacyFingerprintMatches =
                     Objects.equals(persisted.legacyFingerprint(), expected.legacyFingerprint());
+            boolean acknowledgedOrphanedFingerprintMatches = Objects.equals(
+                    persisted.acknowledgedOrphanedFingerprint(), expected.acknowledgedOrphanedFingerprint());
             if (!(revisionMatches
                     && amountsMatch
                     && encodedKeysMatch
                     && legacyReceiptsMatch
                     && transferReceiptsMatch
-                    && legacyFingerprintMatches)) {
+                    && legacyFingerprintMatches
+                    && acknowledgedOrphanedFingerprintMatches)) {
                 LOGGER.error(
                         "Infinite-storage snapshot details domain={} file={} bytes={} revision={} amounts={} encodedKeys={} "
                                 + "legacyReceipts={} transferReceipts={} legacyFingerprint={} (expected revision={} amounts={} "
@@ -744,7 +803,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
                 || !persisted.orphanedEntries().equals(expectedOrphanedEntries)
                 || !persisted.legacyTransferReceipts().equals(legacyTransferReceipts)
                 || !persisted.transferReceipts().equals(transferReceipts)
-                || !Objects.equals(persisted.legacyFingerprint(), legacyFingerprint)) {
+                || !Objects.equals(persisted.legacyFingerprint(), legacyFingerprint)
+                || !Objects.equals(persisted.acknowledgedOrphanedFingerprint(), acknowledgedOrphanedFingerprint)) {
             throw new IllegalStateException("SavedData read-back did not match the in-memory domain");
         }
     }
@@ -878,6 +938,14 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             }
             fingerprint = tag.getString(TAG_LEGACY_FINGERPRINT);
         }
+        String acknowledgedOrphanedFingerprint = null;
+        if (tag.contains(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT)) {
+            if (!tag.contains(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT, Tag.TAG_STRING)
+                    || !isSha256(tag.getString(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT))) {
+                throw new IllegalArgumentException("Invalid orphaned-entry acknowledgement fingerprint");
+            }
+            acknowledgedOrphanedFingerprint = tag.getString(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT);
+        }
         return new ParsedData(
                 Map.copyOf(parsedAmounts),
                 Map.copyOf(parsedKeys),
@@ -885,7 +953,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
                 Set.copyOf(legacyReceipts),
                 Map.copyOf(verifiedReceipts),
                 tag.getLong(TAG_REVISION),
-                fingerprint);
+                fingerprint,
+                acknowledgedOrphanedFingerprint);
     }
 
     private static ListTag requireCompoundList(CompoundTag tag, String key) {
@@ -952,7 +1021,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             Set<UUID> legacyTransferReceipts,
             Map<UUID, String> transferReceipts,
             long revision,
-            @Nullable String legacyFingerprint) {}
+            @Nullable String legacyFingerprint,
+            @Nullable String acknowledgedOrphanedFingerprint) {}
 
     private static final class MutableTypeStats {
         private long storedTypes;
