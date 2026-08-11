@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -46,6 +47,7 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import appeng.api.config.Actionable;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -156,6 +158,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private transient Set<UUID> loggedConflictingMemberDomains = Set.of();
     @Nullable private transient UUID loggedMissingMemberDomain;
     @Nullable private transient ECOInfiniteDomainState lastInfiniteDomainState;
+    private transient long lastInfiniteStorageRevision = Long.MIN_VALUE;
+    private transient boolean storageProviderRefreshQueued;
     @Setter
     private boolean mirrored;
 
@@ -221,10 +225,22 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
+        super.onMainNodeStateChanged(reason);
+        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
+            queueStorageProviderRefresh();
+        }
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try {
             updateInfiniteStorageMode();
+            invalidateInfiniteStorageCacheIfChanged();
             if (level instanceof ServerLevel serverLevel && infiniteDomainId != null) {
                 ECOInfiniteStorageDomains.pollPersistence(serverLevel, infiniteDomainId, level.getGameTime());
             }
@@ -782,6 +798,34 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             IStorageProvider.requestUpdate(drive.getMainNode());
         }
         IStorageProvider.requestUpdate(getMainNode());
+    }
+
+    /**
+     * A powered-down AE2 network keeps provider instances while its visible inventory cache can be stale.
+     * Invalidate that cache after an infinite-domain mutation so it is rebuilt from the live SavedData engine.
+     */
+    private void invalidateInfiniteStorageCacheIfChanged() {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        long revision = engine != null && engine.isLoaded() ? engine.getRevision() : Long.MIN_VALUE;
+        if (revision == lastInfiniteStorageRevision) {
+            return;
+        }
+        lastInfiniteStorageRevision = revision;
+        getMainNode().ifPresent(grid -> grid.getStorageService().invalidateCache());
+    }
+
+    /** Defers a remount until AE2 has completed the current power/pathing transition. */
+    private void queueStorageProviderRefresh() {
+        if (!(level instanceof ServerLevel serverLevel) || storageProviderRefreshQueued) {
+            return;
+        }
+        storageProviderRefreshQueued = true;
+        ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+            storageProviderRefreshQueued = false;
+            if (!isServerStopping() && !isRemoved() && getMainNode().isOnline()) {
+                IStorageProvider.requestUpdate(getMainNode());
+            }
+        });
     }
 
     @Override
