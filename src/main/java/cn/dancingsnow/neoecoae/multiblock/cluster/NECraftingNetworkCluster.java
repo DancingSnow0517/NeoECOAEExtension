@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEnti
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
@@ -54,6 +55,8 @@ public final class NECraftingNetworkCluster {
     private int nextPhysicalClusterIndex;
     private int nextCoolantControllerIndex;
     private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
+    // Verified recipe metadata belongs to the logical exchange, not one physical F-series host.
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
     private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
     private boolean overclocked;
     private boolean activeCooling;
@@ -137,6 +140,10 @@ public final class NECraftingNetworkCluster {
 
     public List<ECOCraftingWorkerBlockEntity> getWorkers() {
         return workers;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     public List<ECOCraftingPatternBusBlockEntity> getPatternBuses() {
@@ -552,10 +559,11 @@ public final class NECraftingNetworkCluster {
             return false;
         }
         long currentTick = level.getGameTime();
-        if (isVirtualCraftingEligible()
-                && batchFairnessTracker.shouldDefer(request.craftingJobId(), currentTick)) {
+        if (isVirtualCraftingEligible()) {
             batchFairnessTracker.noteWaiting(request.craftingJobId(), currentTick);
-            return false;
+            if (batchFairnessTracker.shouldDefer(request.craftingJobId(), currentTick)) {
+                return false;
+            }
         }
         // A batch occupies one logical host thread. Its physical worker slots
         // are checked separately below, so a batch may be larger than the
@@ -579,6 +587,9 @@ public final class NECraftingNetworkCluster {
                 batchFairnessTracker.noteAccepted(request.craftingJobId(), currentTick);
             }
             return true;
+        }
+        if (isVirtualCraftingEligible()) {
+            batchFairnessTracker.noteRejected(request.craftingJobId());
         }
         return false;
     }
@@ -636,15 +647,15 @@ public final class NECraftingNetworkCluster {
             }
             if (bestOffer != null) {
                 long currentTick = level.getGameTime();
-                if (isVirtualCraftingEligible()
-                        && batchFairnessTracker.shouldDefer(craftingJobId, currentTick)) {
+                if (isVirtualCraftingEligible()) {
                     batchFairnessTracker.noteWaiting(craftingJobId, currentTick);
-                    return null;
+                    if (batchFairnessTracker.shouldDefer(craftingJobId, currentTick)) {
+                        return null;
+                    }
                 }
                 return bestOffer;
             }
         }
-        batchFairnessTracker.noteWaiting(craftingJobId, level.getGameTime());
         return null;
     }
 

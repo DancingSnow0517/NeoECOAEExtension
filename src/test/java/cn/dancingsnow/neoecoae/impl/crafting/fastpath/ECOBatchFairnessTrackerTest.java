@@ -26,4 +26,26 @@ class ECOBatchFairnessTrackerTest {
         tracker.setEnabled(true);
         assertFalse(tracker.shouldDefer(largeJob, 15L));
     }
+
+    @Test
+    void waitingJobsTakeTurnsAfterTheirInFlightBatchCompletes() {
+        var tracker = new ECOBatchFairnessTracker();
+        tracker.setEnabled(true);
+        UUID firstJob = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID secondJob = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        tracker.noteWaiting(firstJob, 10L);
+        assertFalse(tracker.shouldDefer(firstJob, 10L));
+        tracker.noteAccepted(firstJob, 10L);
+
+        tracker.noteWaiting(firstJob, 11L);
+        tracker.noteWaiting(secondJob, 11L);
+        assertTrue(tracker.shouldDefer(firstJob, 11L));
+        assertFalse(tracker.shouldDefer(secondJob, 11L));
+        tracker.noteAccepted(secondJob, 11L);
+
+        tracker.noteCompleted(firstJob);
+        assertFalse(tracker.shouldDefer(firstJob, 12L));
+        assertTrue(tracker.shouldDefer(secondJob, 12L));
+    }
 }

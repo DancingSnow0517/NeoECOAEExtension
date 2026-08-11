@@ -261,6 +261,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public ECOCraftingFastPathCache getFastPathCache() {
         ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getFastPathCache();
+        }
         return controller == null ? detachedFastPathCache : controller.getFastPathCache();
     }
 

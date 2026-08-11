@@ -1,13 +1,18 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /** Experimental per-job turn state for virtual F-series exchange tasks. */
 public final class ECOBatchFairnessTracker {
+    private static final long WAITING_JOB_TTL_TICKS = 20L;
+
     private final Set<UUID> inFlightBatchJobs = new HashSet<>();
+    private final Map<UUID, Long> waitingBatchJobs = new LinkedHashMap<>();
     private boolean enabled;
 
     public boolean isEnabled() {
@@ -18,6 +23,7 @@ public final class ECOBatchFairnessTracker {
         this.enabled = enabled;
         if (!enabled) {
             inFlightBatchJobs.clear();
+            waitingBatchJobs.clear();
         }
     }
 
@@ -26,7 +32,16 @@ public final class ECOBatchFairnessTracker {
             clearWhenDisabled();
             return false;
         }
-        return inFlightBatchJobs.contains(craftingJobId);
+        expireStaleWaitingJobs(currentTick);
+        if (inFlightBatchJobs.contains(craftingJobId)) {
+            return true;
+        }
+        for (UUID waitingJobId : waitingBatchJobs.keySet()) {
+            if (!inFlightBatchJobs.contains(waitingJobId)) {
+                return !waitingJobId.equals(craftingJobId);
+            }
+        }
+        return false;
     }
 
     public void noteWaiting(@Nullable UUID craftingJobId, long currentTick) {
@@ -34,7 +49,8 @@ public final class ECOBatchFairnessTracker {
             clearWhenDisabled();
             return;
         }
-        // Intentionally empty. Waiting is discovered naturally when the task retries.
+        expireStaleWaitingJobs(currentTick);
+        waitingBatchJobs.put(craftingJobId, currentTick);
     }
 
     public void noteAccepted(@Nullable UUID craftingJobId, long currentTick) {
@@ -42,7 +58,17 @@ public final class ECOBatchFairnessTracker {
             clearWhenDisabled();
             return;
         }
+        expireStaleWaitingJobs(currentTick);
+        waitingBatchJobs.remove(craftingJobId);
         inFlightBatchJobs.add(craftingJobId);
+    }
+
+    public void noteRejected(@Nullable UUID craftingJobId) {
+        if (!isActive(craftingJobId)) {
+            clearWhenDisabled();
+            return;
+        }
+        waitingBatchJobs.remove(craftingJobId);
     }
 
     public void noteCompleted(@Nullable UUID craftingJobId) {
@@ -60,6 +86,11 @@ public final class ECOBatchFairnessTracker {
     private void clearWhenDisabled() {
         if (!enabled) {
             inFlightBatchJobs.clear();
+            waitingBatchJobs.clear();
         }
+    }
+
+    private void expireStaleWaitingJobs(long currentTick) {
+        waitingBatchJobs.entrySet().removeIf(entry -> currentTick - entry.getValue() > WAITING_JOB_TTL_TICKS);
     }
 }
