@@ -7,8 +7,10 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.resources.ResourceLocation;
 
 /** Reserves one ECO computation-host thread for a planning job. */
 public final class ECOPlanningHostLease implements AutoCloseable {
@@ -85,6 +87,10 @@ public final class ECOPlanningHostLease implements AutoCloseable {
 
     public ECOSolveBudget budget() {
         return budget;
+    }
+
+    public Set<ResourceLocation> fuzzyPlanningItemIds() {
+        return host.getFuzzyPlanningItemIds();
     }
 
     @Override

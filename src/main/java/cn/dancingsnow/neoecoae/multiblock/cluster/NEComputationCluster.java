@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
@@ -23,6 +24,7 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,6 +34,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
@@ -49,6 +52,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     @Nullable
     private ECOComputationSystemBlockEntity controller;
+    @Getter
+    @Nullable
+    private ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface;
     @Getter
     @Nullable
     private IActionSource actionSource;
@@ -88,6 +94,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (blockEntity instanceof ECOComputationSystemBlockEntity system) {
             controller = system;
             actionSource = IActionSource.ofMachine(system);
+        }
+        if (blockEntity instanceof ECOMachineInterfaceBlockEntity<?> machineInterface) {
+            @SuppressWarnings("unchecked")
+            ECOMachineInterfaceBlockEntity<NEComputationCluster> typedInterface =
+                (ECOMachineInterfaceBlockEntity<NEComputationCluster>) machineInterface;
+            computationInterface = typedInterface;
         }
         if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
@@ -303,6 +315,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return networkCluster == null
             ? controller != null && controller.isLocalFastPlanningEnabled()
             : networkCluster.isFastPlanningEnabled();
+    }
+
+    public Set<ResourceLocation> getFuzzyPlanningItemIds() {
+        return computationInterface == null ? Set.of() : computationInterface.getFuzzyPlanningItemIds();
     }
 
     public ICraftingSubmitResult submitJob(

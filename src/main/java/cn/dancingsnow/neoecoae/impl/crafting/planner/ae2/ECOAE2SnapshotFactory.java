@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +53,7 @@ public final class ECOAE2SnapshotFactory {
         long requestedAmount,
         CalculationStrategy strategy
     ) {
-        return capture(grid, requester, requestedKey, requestedAmount, strategy, NO_GENERATION, null);
+        return capture(grid, requester, requestedKey, requestedAmount, strategy, NO_GENERATION, null, Set.of());
     }
 
     public static Optional<ECOAE2PlanningSnapshot> capture(
@@ -64,7 +65,7 @@ public final class ECOAE2SnapshotFactory {
         long craftableGeneration
     ) {
         return capture(
-            grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, null
+            grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, null, Set.of()
         );
     }
 
@@ -77,6 +78,22 @@ public final class ECOAE2SnapshotFactory {
         CalculationStrategy strategy,
         long craftableGeneration,
         Level level
+    ) {
+        return capture(
+            grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, level, Set.of()
+        );
+    }
+
+    /** Captures a snapshot using the fuzzy item ids configured on the selected computation host. */
+    public static Optional<ECOAE2PlanningSnapshot> capture(
+        IGrid grid,
+        ICraftingSimulationRequester requester,
+        AEKey requestedKey,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        long craftableGeneration,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         if (requestedAmount <= 0
             || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
@@ -93,6 +110,7 @@ public final class ECOAE2SnapshotFactory {
         }
         long captureStarted = System.nanoTime();
         try {
+            fuzzyItemIds = Set.copyOf(Objects.requireNonNull(fuzzyItemIds, "fuzzyItemIds"));
             long inventoryStarted = System.nanoTime();
             Map<AEKey, Long> inventory = copyInventory(grid, requester);
             ECOPlanningFailureDiagnostics.logTiming(
@@ -119,7 +137,8 @@ public final class ECOAE2SnapshotFactory {
                 level,
                 craftableGeneration,
                 requestedAmount,
-                strategy
+                strategy,
+                fuzzyItemIds
             );
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.GRAPH,
@@ -258,18 +277,21 @@ public final class ECOAE2SnapshotFactory {
         Level level,
         long craftableGeneration,
         long requestedAmount,
-        CalculationStrategy strategy
+        CalculationStrategy strategy,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         if (craftableGeneration == NO_GENERATION) {
             return buildGraph(
-                craftingService, requestedKey, inventory, level, requestedAmount, strategy
+                craftingService, requestedKey, inventory, level, requestedAmount, strategy, fuzzyItemIds
             );
         }
         CachedGraphs cached;
         InventoryGraphKey inventoryKey = new InventoryGraphKey(
             requestedKey,
-            Set.copyOf(inventory.keySet())
+            Set.copyOf(inventory.keySet()),
+            fuzzyItemIds
         );
+        GraphKey graphKey = new GraphKey(requestedKey, fuzzyItemIds);
         synchronized (GRAPH_CACHE) {
             cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
@@ -280,7 +302,7 @@ public final class ECOAE2SnapshotFactory {
                 );
                 GRAPH_CACHE.put(craftingService, cached);
             }
-            PatternGraph graph = cached.graphs().get(requestedKey);
+            PatternGraph graph = cached.graphs().get(graphKey);
             if (graph != null) {
                 trace(
                     requestedKey,
@@ -311,7 +333,7 @@ public final class ECOAE2SnapshotFactory {
         // block or re-enter this factory. The generation is checked again before
         // publishing so an older in-flight build cannot replace a newer cache.
         PatternGraph graph = buildGraph(
-            craftingService, requestedKey, inventory, level, requestedAmount, strategy
+            craftingService, requestedKey, inventory, level, requestedAmount, strategy, fuzzyItemIds
         );
         synchronized (GRAPH_CACHE) {
             CachedGraphs current = GRAPH_CACHE.get(craftingService);
@@ -320,7 +342,7 @@ public final class ECOAE2SnapshotFactory {
                 // appear later in the same tick that produced an empty lookup, so negative
                 // results must not survive as a supposedly current graph.
                 if (graph.cacheable() && graph.targetHasProducer()) {
-                    current.graphs().put(requestedKey, graph);
+                    current.graphs().put(graphKey, graph);
                 } else if (graph.inventoryDependent()
                     && graph.inventoryCacheable()
                     && !graph.stateful()
@@ -347,7 +369,8 @@ public final class ECOAE2SnapshotFactory {
         Map<AEKey, Long> inventory,
         Level level,
         long requestedAmount,
-        CalculationStrategy strategy
+        CalculationStrategy strategy,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new LinkedHashSet<>();
@@ -485,7 +508,7 @@ public final class ECOAE2SnapshotFactory {
                     ECOAE2PatternMaterializer.PatternExpansion duplicateExpansion;
                     try {
                         duplicateExpansion = ECOAE2PatternMaterializer.expand(
-                            details, duplicateAssessment, inventory, craftingService, level
+                            details, duplicateAssessment, inventory, craftingService, level, fuzzyItemIds
                         );
                     } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
                         throw rejection.withContext(patternContext + " phase=duplicate_materialization");
@@ -537,7 +560,7 @@ public final class ECOAE2SnapshotFactory {
                 ECOAE2PatternMaterializer.PatternExpansion expansion;
                 try {
                     expansion = ECOAE2PatternMaterializer.expand(
-                        details, assessment, inventory, craftingService, level
+                        details, assessment, inventory, craftingService, level, fuzzyItemIds
                     );
                 } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
                     if (dynamicSmithingPattern(details)
@@ -547,7 +570,8 @@ public final class ECOAE2SnapshotFactory {
                             canonicalAssessment(assessment),
                             inventory,
                             craftingService,
-                            level
+                            level,
+                            fuzzyItemIds
                         );
                     } else {
                         throw rejection.withContext(patternContext + " phase=materialization");
@@ -896,9 +920,14 @@ public final class ECOAE2SnapshotFactory {
         }
     }
 
-    private record InventoryGraphKey(AEKey requestedKey, Set<AEKey> availableKeys) {
+    private record InventoryGraphKey(
+        AEKey requestedKey,
+        Set<AEKey> availableKeys,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
         private InventoryGraphKey {
             availableKeys = Set.copyOf(availableKeys);
+            fuzzyItemIds = Set.copyOf(fuzzyItemIds);
         }
     }
 
@@ -930,8 +959,14 @@ public final class ECOAE2SnapshotFactory {
 
     private record CachedGraphs(
         long generation,
-        Map<AEKey, PatternGraph> graphs,
+        Map<GraphKey, PatternGraph> graphs,
         Map<InventoryGraphKey, PatternGraph> inventoryDependentGraphs
     ) {
+    }
+
+    private record GraphKey(AEKey requestedKey, Set<ResourceLocation> fuzzyItemIds) {
+        private GraphKey {
+            fuzzyItemIds = Set.copyOf(fuzzyItemIds);
+        }
     }
 }

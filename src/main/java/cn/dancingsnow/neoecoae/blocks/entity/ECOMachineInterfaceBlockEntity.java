@@ -6,17 +6,22 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.patternprovider.PatternContainer;
+import appeng.util.inv.AppEngInternalInventory;
+import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -31,6 +36,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -40,6 +46,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -52,17 +60,26 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
-public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements ISyncPersistRPCBlockEntity {
+public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
     private static final int PATTERN_TRANSFER_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
     private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
+    public static final int FUZZY_PLANNING_SLOT_COUNT = 36;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
     @Persisted
     @DescSynced
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
+    @Persisted
+    @DescSynced
+    private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
+        this, FUZZY_PLANNING_SLOT_COUNT, 1
+    );
+    private final IItemHandlerModifiable fuzzyPlanningItemHandler =
+        (IItemHandlerModifiable) fuzzyPlanningInventory.toItemHandler();
     @DescSynced
     private long transferredLastTick;
     @DescSynced
@@ -125,8 +142,26 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public boolean supportsCraftingInterfaceUi() {
         return cluster instanceof NECraftingCluster || calculator instanceof NECraftingClusterCalculator;
     }
+    public boolean supportsComputationInterfaceUi() {
+        return cluster instanceof NEComputationCluster || calculator instanceof NEComputationClusterCalculator;
+    }
     public boolean supportsInterfaceUi() {
-        return supportsStorageInterfaceUi() || supportsCraftingInterfaceUi();
+        return supportsStorageInterfaceUi() || supportsCraftingInterfaceUi() || supportsComputationInterfaceUi();
+    }
+
+    public IItemHandlerModifiable getFuzzyPlanningItemHandler() {
+        return fuzzyPlanningItemHandler;
+    }
+
+    public Set<ResourceLocation> getFuzzyPlanningItemIds() {
+        Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
+        for (int slot = 0; slot < fuzzyPlanningInventory.size(); slot++) {
+            ItemStack stack = fuzzyPlanningInventory.getStackInSlot(slot);
+            if (!stack.isEmpty()) {
+                result.add(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            }
+        }
+        return Set.copyOf(result);
     }
 
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
@@ -658,7 +693,21 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (supportsCraftingInterfaceUi()) {
             return CraftingInterfaceUI.create((ECOMachineInterfaceBlockEntity<NECraftingCluster>) this, holder.player);
         }
+        if (supportsComputationInterfaceUi()) {
+            return ComputationInterfaceUI.create((ECOMachineInterfaceBlockEntity<NEComputationCluster>) this, holder.player);
+        }
         return null;
+    }
+
+    @Override
+    public void saveChangedInventory(AppEngInternalInventory inventory) {
+        setChanged();
+        markForUpdate();
+    }
+
+    @Override
+    public boolean isClientSide() {
+        return level != null && level.isClientSide;
     }
 
     @Override

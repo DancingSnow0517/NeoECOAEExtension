@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
 /**
@@ -51,10 +52,22 @@ final class ECOAE2PatternMaterializer {
         ICraftingService craftingService,
         Level level
     ) {
+        return expand(details, assessment, inventory, craftingService, level, Set.of());
+    }
+
+    static PatternExpansion expand(
+        IPatternDetails details,
+        ECOAE2PatternCompatibility.Assessment assessment,
+        Map<AEKey, Long> inventory,
+        ICraftingService craftingService,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
         Objects.requireNonNull(details, "details");
         Objects.requireNonNull(assessment, "assessment");
         Objects.requireNonNull(inventory, "inventory");
         Objects.requireNonNull(craftingService, "craftingService");
+        fuzzyItemIds = Set.copyOf(Objects.requireNonNull(fuzzyItemIds, "fuzzyItemIds"));
         if (!assessment.compatible()) {
             throw reject(assessment.rejection());
         }
@@ -86,10 +99,12 @@ final class ECOAE2PatternMaterializer {
                 inventory,
                 craftingService,
                 level,
-                slot
+                slot,
+                fuzzyItemIds
             );
             if (matchMode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY
-                || assessment.includeFuzzyInventory()) {
+                || assessment.includeFuzzyInventory()
+                || hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
                 inventoryDependent = true;
             }
 
@@ -98,7 +113,7 @@ final class ECOAE2PatternMaterializer {
                 && !ECOAE2PatternCompatibility.isKnownBuiltIn(details)
                 && assessment.inputSemantics()
                     == IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY) {
-                rejectUndeclaredInventoryVariants(details, input, inventory, level, slot);
+                rejectUndeclaredInventoryVariants(details, input, inventory, level, slot, fuzzyItemIds);
             }
 
             Set<AEKey> visited = new LinkedHashSet<>();
@@ -392,7 +407,8 @@ final class ECOAE2PatternMaterializer {
         Map<AEKey, Long> inventory,
         ICraftingService craftingService,
         Level level,
-        int slot
+        int slot,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         GenericStack[] possible;
         try {
@@ -429,6 +445,8 @@ final class ECOAE2PatternMaterializer {
 
         if (matchMode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY) {
             addItemOnlyInventoryVariants(choices, input, inventory, level, slot);
+        } else if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
+            addConfiguredFuzzyInventoryVariants(choices, inventory, fuzzyItemIds);
         } else if (assessment.includeFuzzyInventory()) {
             addFuzzyCraftableVariants(choices, input, craftingService, level, slot);
             addFuzzyInventoryVariants(choices, input, inventory, level, slot);
@@ -451,7 +469,8 @@ final class ECOAE2PatternMaterializer {
         IPatternDetails.IInput input,
         Map<AEKey, Long> inventory,
         Level level,
-        int slot
+        int slot,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         GenericStack[] possible;
         try {
@@ -473,6 +492,9 @@ final class ECOAE2PatternMaterializer {
         for (AEKey key : inventory.keySet()) {
             if (key.equals(canonical.what())
                 || !Objects.equals(key.getPrimaryKey(), canonical.what().getPrimaryKey())) {
+                continue;
+            }
+            if (isConfiguredFuzzyItem(canonical.what(), fuzzyItemIds)) {
                 continue;
             }
             if (isValid(input, key, level, slot)) {
@@ -808,6 +830,63 @@ final class ECOAE2PatternMaterializer {
         } catch (ArithmeticException overflow) {
             throw reject(kind + "_amount_overflow key=" + key, overflow);
         }
+    }
+
+    /**
+     * An interface-configured fuzzy item deliberately ignores all data components. This is limited
+     * to keys whose item id is present in the computation interface, so ordinary item inputs stay
+     * exact and no provider-specific state leaks into unrelated patterns.
+     */
+    private static void addConfiguredFuzzyInventoryVariants(
+        Map<AEKey, Long> choices,
+        Map<AEKey, Long> inventory,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        Map<ResourceLocation, Long> itemAmounts = new LinkedHashMap<>();
+        for (var entry : choices.entrySet()) {
+            if (!isConfiguredFuzzyItem(entry.getKey(), fuzzyItemIds)) {
+                continue;
+            }
+            Long previous = itemAmounts.putIfAbsent(entry.getKey().getId(), entry.getValue());
+            if (previous != null && previous.longValue() != entry.getValue()) {
+                throw reject("candidate_template_amount_conflict key=" + entry.getKey());
+            }
+        }
+        for (AEKey key : inventory.keySet()) {
+            Long amount = itemAmounts.get(key.getId());
+            if (amount != null) {
+                putChoice(choices, key, amount);
+            }
+        }
+    }
+
+    private static boolean hasConfiguredFuzzyTemplate(
+        IPatternDetails.IInput input,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        if (fuzzyItemIds.isEmpty()) {
+            return false;
+        }
+        GenericStack[] possible;
+        try {
+            possible = input.getPossibleInputs();
+        } catch (RuntimeException | LinkageError failure) {
+            throw reject("possible_inputs_exception", failure);
+        }
+        if (possible == null) {
+            throw reject("null_possible_inputs");
+        }
+        for (GenericStack candidate : possible) {
+            if (candidate != null && candidate.amount() > 0L
+                && isConfiguredFuzzyItem(candidate.what(), fuzzyItemIds)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isConfiguredFuzzyItem(AEKey key, Set<ResourceLocation> fuzzyItemIds) {
+        return fuzzyItemIds.contains(key.getId());
     }
 
     private static List<ECOAE2StateCapacityTemplate> stateCapacityTemplates(

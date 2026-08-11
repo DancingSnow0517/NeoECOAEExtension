@@ -134,7 +134,11 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
 
         @Override
         public boolean isValid(AEKey what, Level level) {
-            return selected.what().equals(what) && delegate.isValid(what, level);
+            // The planner has already validated normal inputs, or selected this exact key through
+            // the computation interface's explicit fuzzy-item rule. Re-running the delegate's
+            // component comparison here would reject the configured dynamic variant before it can
+            // reach the provider.
+            return selected.what().equals(what);
         }
 
         @Override

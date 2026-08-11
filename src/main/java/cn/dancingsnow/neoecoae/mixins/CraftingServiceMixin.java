@@ -238,7 +238,8 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl, EC
             amount,
             strategy,
             this.lastProcessedCraftableChangeTick,
-            level
+            level,
+            lease.get().fuzzyPlanningItemIds()
         );
         if (snapshot.isEmpty()) {
             ECOPlanningFailureDiagnostics.logFailure(
