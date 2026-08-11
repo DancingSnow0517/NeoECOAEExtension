@@ -291,6 +291,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.threads", "Threads");
         provider.add("gui.neoecoae.computation.accelerators", "Accelerators: %s");
         provider.add("gui.neoecoae.computation.capacity", "Computation Capacity");
+        provider.add("gui.neoecoae.computation.batch_fair_scheduling", "ECO Batch Fair Scheduling");
+        provider.add("gui.neoecoae.computation.batch_fair_scheduling.off", "Batch Fair Scheduling: Disabled");
+        provider.add("gui.neoecoae.computation.batch_fair_scheduling.on", "Batch Fair Scheduling: Enabled");
+        provider.add(
+                "gui.neoecoae.computation.batch_fair_scheduling.tooltip",
+                "Let each virtual F9 crafting job finish its current batch before receiving another."
+                        + " This improves small-order latency across the AE network.");
         provider.add("gui.neoecoae.computation.upgrade_slot", "Computation Controller Upgrade Slot");
         provider.add(
                 "gui.neoecoae.computation.upgrade_slot.field_generators",
