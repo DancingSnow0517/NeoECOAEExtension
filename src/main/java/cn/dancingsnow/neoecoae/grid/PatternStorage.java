@@ -16,6 +16,8 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
 
     private final Map<IGridNode, IECOPatternStorage> patternStorages = new IdentityHashMap<>();
     private final IECOPatternStorage combinedStorage = this::tryInsertPattern;
+    @Nullable
+    private IECOPatternStorage preferredStorage;
 
     @Override
     public void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
@@ -28,7 +30,10 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     @Override
     public void removeNode(IGridNode gridNode) {
         IGridServiceProvider.super.removeNode(gridNode);
-        patternStorages.remove(gridNode);
+        IECOPatternStorage removed = patternStorages.remove(gridNode);
+        if (removed == preferredStorage) {
+            preferredStorage = null;
+        }
     }
 
     public ECOPatternInsertionResult tryInsertPattern(ItemStack patternItem) {
@@ -36,21 +41,51 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
 
-        boolean alreadyPresent = false;
         boolean noSpace = false;
-        for (IECOPatternStorage value : patternStorages.values()) {
-            switch (value.insertPattern(patternItem)) {
+        boolean uniquenessChecked = false;
+        if (preferredStorage != null) {
+            ECOPatternInsertionResult result = preferredStorage.insertPattern(patternItem);
+            switch (result) {
                 case INSERTED -> {
                     return ECOPatternInsertionResult.INSERTED;
                 }
-                case ALREADY_PRESENT -> alreadyPresent = true;
-                case NO_SPACE -> noSpace = true;
+                case ALREADY_PRESENT -> {
+                    return ECOPatternInsertionResult.ALREADY_PRESENT;
+                }
+                case NO_SPACE -> {
+                    noSpace = true;
+                    uniquenessChecked = preferredStorage.checksLogicalDomainForDuplicates();
+                }
                 default -> {
                 }
             }
         }
-        if (alreadyPresent) {
-            return ECOPatternInsertionResult.ALREADY_PRESENT;
+        for (IECOPatternStorage value : patternStorages.values()) {
+            if (value == preferredStorage) {
+                continue;
+            }
+            ECOPatternInsertionResult result = uniquenessChecked
+                ? value.insertPatternKnownUnique(patternItem)
+                : value.insertPattern(patternItem);
+            switch (result) {
+                case INSERTED -> {
+                    preferredStorage = value;
+                    return ECOPatternInsertionResult.INSERTED;
+                }
+                case ALREADY_PRESENT -> {
+                    return ECOPatternInsertionResult.ALREADY_PRESENT;
+                }
+                case NO_SPACE -> {
+                    noSpace = true;
+                    if (value.checksLogicalDomainForDuplicates()) {
+                        // This target checked the entire logical domain before reporting NO_SPACE.
+                        // All subsequent targets can therefore use the no-duplicate fast path.
+                        uniquenessChecked = true;
+                    }
+                }
+                default -> {
+                }
+            }
         }
         return noSpace ? ECOPatternInsertionResult.NO_SPACE : ECOPatternInsertionResult.NO_TARGET;
     }

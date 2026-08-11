@@ -66,7 +66,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -100,6 +102,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     private final IPatternDetails[] decodedPatternDetails =
         new IPatternDetails[NEConfig.getMaxCraftingPatternBusSlotCount()];
+    /** Counts patterns by complete AE item key, avoiding a full inventory scan per insertion. */
+    private final AEItemKey[] indexedPatternKeys =
+        new AEItemKey[NEConfig.getMaxCraftingPatternBusSlotCount()];
+    private final Map<AEItemKey, Integer> indexedPatternCounts = new HashMap<>();
+    private boolean patternIndexInitialized;
     private final BitSet dirtyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
     public final IItemHandlerModifiable itemHandler;
     @Persisted
@@ -407,6 +414,24 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 : ECOPatternInsertionResult.NO_SPACE;
     }
 
+    @Override
+    public ECOPatternInsertionResult insertPatternKnownUnique(ItemStack itemStack) {
+        // PatternStorage has already checked the complete logical network for duplicates.
+        // Avoid repeating containsPatternInCluster for every bus when the first target is full.
+        if (!isExecutablePattern(itemStack)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        ItemStack result = effectiveInventory.addItems(itemStack.copy());
+        return result.isEmpty()
+                ? ECOPatternInsertionResult.INSERTED
+                : ECOPatternInsertionResult.NO_SPACE;
+    }
+
+    @Override
+    public boolean checksLogicalDomainForDuplicates() {
+        return true;
+    }
+
     private boolean containsPatternInCluster(ItemStack pattern) {
         if (cluster == null) {
             return containsPattern(pattern);
@@ -423,12 +448,44 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     private boolean containsPattern(ItemStack pattern) {
-        for (ItemStack storedPattern : effectiveInventory) {
-            if (ItemStack.isSameItemSameComponents(storedPattern, pattern)) {
-                return true;
-            }
+        if (!patternIndexInitialized) {
+            rebuildPatternIndex();
         }
-        return false;
+        AEItemKey key = AEItemKey.of(pattern);
+        return key != null && indexedPatternCounts.containsKey(key);
+    }
+
+    private void rebuildPatternIndex() {
+        Arrays.fill(indexedPatternKeys, null);
+        indexedPatternCounts.clear();
+        int slotCount = Math.min(getPatternSlotCount(), indexedPatternKeys.length);
+        for (int slot = 0; slot < slotCount; slot++) {
+            addPatternIndexKey(slot, AEItemKey.of(inventory.getStackInSlot(slot)));
+        }
+        patternIndexInitialized = true;
+    }
+
+    private void updatePatternIndexSlot(int slot) {
+        if (!patternIndexInitialized) {
+            rebuildPatternIndex();
+            return;
+        }
+        removePatternIndexKey(indexedPatternKeys[slot]);
+        addPatternIndexKey(slot, AEItemKey.of(inventory.getStackInSlot(slot)));
+    }
+
+    private void addPatternIndexKey(int slot, @Nullable AEItemKey key) {
+        indexedPatternKeys[slot] = key;
+        if (key != null) {
+            indexedPatternCounts.merge(key, 1, Integer::sum);
+        }
+    }
+
+    private void removePatternIndexKey(@Nullable AEItemKey key) {
+        if (key == null) {
+            return;
+        }
+        indexedPatternCounts.computeIfPresent(key, (ignored, count) -> count <= 1 ? null : count - 1);
     }
 
     private boolean isExecutablePattern(ItemStack stack) {
@@ -461,6 +518,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         this.saveChanges();
+        if (slot >= 0 && slot < indexedPatternKeys.length) {
+            updatePatternIndexSlot(slot);
+        } else {
+            rebuildPatternIndex();
+        }
         if (slot >= 0 && slot < decodedPatternDetails.length) {
             dirtyPatternSlots.set(slot);
         } else {
@@ -473,6 +535,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void onReady() {
         super.onReady();
         rebuildAllPatternDetails = true;
+        rebuildPatternIndex();
         updatePatternDetails();
     }
 
