@@ -280,10 +280,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (next.equals(patternPreviewSearch)) {
             return;
         }
-        boolean wasEmpty = patternPreviewSearch.isEmpty();
         patternPreviewSearch = next;
         patternPreviewScrollRow = 0;
-        ensurePatternPreviewSearchIndex(wasEmpty && !next.isEmpty());
+        ensurePatternPreviewSearchIndex();
         rebuildPatternPreviewEntries();
         markForUpdate();
     }
@@ -315,14 +314,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public void toggleSubstitutionPatterns() {
         showSubstitutionPatterns = !showSubstitutionPatterns;
-        ensurePatternPreviewSearchIndex(true);
+        ensurePatternPreviewSearchIndex();
         rebuildPatternPreviewEntries();
         markForUpdate();
     }
 
     public void toggleFluidSubstitutionPatterns() {
         showFluidSubstitutionPatterns = !showFluidSubstitutionPatterns;
-        ensurePatternPreviewSearchIndex(true);
+        ensurePatternPreviewSearchIndex();
         rebuildPatternPreviewEntries();
         markForUpdate();
     }
@@ -367,7 +366,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
-    private void ensurePatternPreviewSearchIndex(boolean forceRefresh) {
+    private void ensurePatternPreviewSearchIndex() {
         if (!(level instanceof ServerLevel)) {
             return;
         }
@@ -375,7 +374,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             patternPreviewScanning = false;
             return;
         }
-        if (forceRefresh || !patternPreviewSearchIndexReady) {
+        // Search text changes arrive once per keystroke. Keep an in-flight initial scan alive so
+        // each keystroke only rebuilds the filtered rows instead of restarting the full decode pass.
+        // A completed index is refreshed by the normal tick loop, so filter toggles do not need to
+        // force another full scan either.
+        if (!patternPreviewSearchIndexReady && !patternPreviewScanning) {
             patternPreviewIndexCursor = 0;
             patternPreviewScannedSlots = 0;
             patternPreviewTotalSlots = allPatternPreviewEntries.size();
