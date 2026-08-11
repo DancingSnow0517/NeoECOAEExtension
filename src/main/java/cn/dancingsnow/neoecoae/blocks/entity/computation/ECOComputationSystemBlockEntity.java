@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
@@ -280,6 +281,21 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return fastTaskPlanningEnabled;
     }
 
+    public boolean isBatchFairSchedulingEnabled() {
+        var grid = getMainNode().getGrid();
+        return grid != null
+                && grid.getCraftingService() instanceof ECOBatchFairSchedulingControl control
+                && control.isBatchFairSchedulingEnabled();
+    }
+
+    public void toggleBatchFairScheduling() {
+        var grid = getMainNode().getGrid();
+        if (grid != null && grid.getCraftingService() instanceof ECOBatchFairSchedulingControl control) {
+            control.setBatchFairSchedulingEnabled(!control.isBatchFairSchedulingEnabled());
+            markUiStateDirty();
+        }
+    }
+
     /** Toggles accelerated task planning for this controller's logical host group. */
     public void toggleFastTaskPlanning() {
         var network = cluster == null ? null : cluster.getNetworkCluster();
@@ -498,6 +514,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 getParallelAccelerators(),
                 hasInfiniteCapacityUpgrade() || network != null && network.isInfiniteCapacity(),
                 network == null ? fastTaskPlanningEnabled : network.isFastTaskPlanningEnabled(),
+                isBatchFairSchedulingEnabled(),
                 mode,
                 collectComputationRecipeEntries());
     }

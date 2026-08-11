@@ -22,6 +22,7 @@ public record NEComputationUiState(
         int configuredAccelerators,
         boolean infiniteCapacity,
         boolean fastTaskPlanningEnabled,
+        boolean batchFairSchedulingEnabled,
         CpuSelectionMode cpuSelectionMode,
         List<NECraftingRecipeUiEntry> recipeEntries) {
     public static NEComputationUiState empty(BlockPos pos) {
@@ -43,6 +44,7 @@ public record NEComputationUiState(
                 0,
                 false,
                 true,
+                false,
                 CpuSelectionMode.ANY,
                 List.of());
     }

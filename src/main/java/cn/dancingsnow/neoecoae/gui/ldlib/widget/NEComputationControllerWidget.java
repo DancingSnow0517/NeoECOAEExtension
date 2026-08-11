@@ -41,6 +41,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private NEAe2TextButtonWidget networkFrequencyButton;
     private NEAe2IconButtonWidget cpuModeButton;
     private NEAe2IconButtonWidget fastTaskPlanningButton;
+    private NEAe2IconButtonWidget batchFairSchedulingButton;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -92,6 +93,20 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                         })
                 .useAeTabButton();
         addWidget(fastTaskPlanningButton);
+        batchFairSchedulingButton = new NEAe2IconButtonWidget(
+                        BATCH_FAIR_SCHEDULING_BUTTON_X,
+                        BATCH_FAIR_SCHEDULING_BUTTON_Y,
+                        BATCH_FAIR_SCHEDULING_BUTTON_W,
+                        BATCH_FAIR_SCHEDULING_BUTTON_H,
+                        batchFairSchedulingIcon(),
+                        click -> {
+                            if (!click.isRemote) {
+                                computation.toggleBatchFairScheduling();
+                                syncStateNow();
+                            }
+                        })
+                .useAeTabButton();
+        addWidget(batchFairSchedulingButton);
         networkFrequencyButton = new NEAe2TextButtonWidget(
                 NETWORK_FREQUENCY_BUTTON_X,
                 NETWORK_FREQUENCY_BUTTON_Y,
@@ -147,6 +162,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
         cpuModeButton.setIcon(cpuModeIcon());
         fastTaskPlanningButton.setIcon(fastTaskPlanningIcon());
+        batchFairSchedulingButton.setIcon(batchFairSchedulingIcon());
         capacityPanel.drawBackground(graphics, mainScreenX(), this::absY, currentState(), mouseX, mouseY);
         if (hasUpgradeLayout()) {
             NELDLibAe2StyleRenderer.drawAeSlot(
@@ -173,6 +189,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
         if (drawFastTaskPlanningTooltip(graphics, mouseX, mouseY)) {
+            return;
+        }
+        if (drawBatchFairSchedulingTooltip(graphics, mouseX, mouseY)) {
             return;
         }
         if (drawNetworkFrequencyTooltip(graphics, mouseX, mouseY)) {
@@ -213,6 +232,35 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                                 .withStyle(style -> style.withColor(
                                         enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR)),
                         Component.translatable("gui.neoecoae.computation.fast_task_planning.tooltip")
+                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
+                mouseX,
+                mouseY);
+        return true;
+    }
+
+    private boolean drawBatchFairSchedulingTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!isMouseIn(
+                BATCH_FAIR_SCHEDULING_BUTTON_X,
+                BATCH_FAIR_SCHEDULING_BUTTON_Y,
+                BATCH_FAIR_SCHEDULING_BUTTON_W,
+                BATCH_FAIR_SCHEDULING_BUTTON_H,
+                mouseX,
+                mouseY)) {
+            return false;
+        }
+        boolean enabled = currentState().batchFairSchedulingEnabled();
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("gui.neoecoae.computation.batch_fair_scheduling")
+                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
+                        Component.translatable(
+                                        enabled
+                                                ? "gui.neoecoae.computation.batch_fair_scheduling.on"
+                                                : "gui.neoecoae.computation.batch_fair_scheduling.off")
+                                .withStyle(style -> style.withColor(
+                                        enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR)),
+                        Component.translatable("gui.neoecoae.computation.batch_fair_scheduling.tooltip")
                                 .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
                 mouseX,
                 mouseY);
@@ -330,6 +378,10 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     private Icon fastTaskPlanningIcon() {
         return currentState().fastTaskPlanningEnabled() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE;
+    }
+
+    private Icon batchFairSchedulingIcon() {
+        return currentState().batchFairSchedulingEnabled() ? Icon.TYPE_FILTER_ALL : Icon.BACKGROUND_WIRELESS_TERM;
     }
 
     static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {

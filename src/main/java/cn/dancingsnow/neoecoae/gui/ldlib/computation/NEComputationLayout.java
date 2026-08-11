@@ -19,6 +19,13 @@ public final class NEComputationLayout {
     public static final int FAST_TASK_PLANNING_BUTTON_W = 24;
     public static final int FAST_TASK_PLANNING_BUTTON_H = 24;
 
+    /** Batch fair scheduling is a companion tab below the planning toggle. */
+    public static final int BATCH_FAIR_SCHEDULING_BUTTON_X = -24;
+
+    public static final int BATCH_FAIR_SCHEDULING_BUTTON_Y = 24;
+    public static final int BATCH_FAIR_SCHEDULING_BUTTON_W = 24;
+    public static final int BATCH_FAIR_SCHEDULING_BUTTON_H = 24;
+
     public static final int PARALLEL_PANEL_X = -(PARALLEL_PANEL_W + PARALLEL_PANEL_GAP);
     public static final int PARALLEL_PANEL_H = 48;
     public static final int PARALLEL_TAB_SIZE = 24;
