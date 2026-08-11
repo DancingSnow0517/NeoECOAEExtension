@@ -272,6 +272,14 @@ public final class CraftingInterfaceUI {
                 event.stopImmediatePropagation();
             }
         });
+        // Server-side UI elements do not have the client layout, so forward the
+        // click position relative to this scrollbar's top edge.
+        scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button == 0) {
+                event.y = scrollbar.getLocalMouse(event.x, event.y).y - scrollbar.getPositionY();
+                event.stopImmediatePropagation();
+            }
+        });
         scrollbar.addServerEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0) {
                 craftingInterface.scrollPatternPreview(event.deltaY < 0 ? 1 : -1);
@@ -280,8 +288,8 @@ public final class CraftingInterfaceUI {
         });
         scrollbar.addServerEventListener(UIEvents.MOUSE_DOWN, event -> {
             int maxScroll = craftingInterface.getPatternPreviewMaxScrollRow();
-            if (maxScroll > 0) {
-                float localY = scrollbar.getLocalMouse(event.x, event.y).y;
+            if (event.button == 0 && maxScroll > 0) {
+                float localY = event.y;
                 float progress = Math.clamp((localY - PREVIEW_SCROLLBAR_THUMB_HEIGHT / 2F)
                         / (PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT), 0F, 1F);
                 craftingInterface.setPatternPreviewScrollRow(Math.round(progress * maxScroll));
