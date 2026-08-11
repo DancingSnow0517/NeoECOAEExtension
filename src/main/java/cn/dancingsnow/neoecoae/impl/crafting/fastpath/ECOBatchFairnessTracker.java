@@ -1,0 +1,57 @@
+package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
+/** Runtime per-job turn state for virtual F-series exchange tasks. */
+public final class ECOBatchFairnessTracker {
+    private final Set<UUID> inFlightBatchJobs = new HashSet<>();
+    private boolean enabled;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            inFlightBatchJobs.clear();
+        }
+    }
+
+    public boolean shouldDefer(@Nullable UUID craftingJobId) {
+        if (!isActive(craftingJobId)) {
+            clearWhenDisabled();
+            return false;
+        }
+        return inFlightBatchJobs.contains(craftingJobId);
+    }
+
+    public void noteAccepted(@Nullable UUID craftingJobId) {
+        if (!isActive(craftingJobId)) {
+            clearWhenDisabled();
+            return;
+        }
+        inFlightBatchJobs.add(craftingJobId);
+    }
+
+    public void noteCompleted(@Nullable UUID craftingJobId) {
+        if (!isActive(craftingJobId)) {
+            clearWhenDisabled();
+            return;
+        }
+        inFlightBatchJobs.remove(craftingJobId);
+    }
+
+    private boolean isActive(@Nullable UUID craftingJobId) {
+        return enabled && craftingJobId != null;
+    }
+
+    private void clearWhenDisabled() {
+        if (!enabled) {
+            inFlightBatchJobs.clear();
+        }
+    }
+}

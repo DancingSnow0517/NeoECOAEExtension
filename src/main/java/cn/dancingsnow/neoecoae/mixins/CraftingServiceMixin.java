@@ -16,6 +16,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
@@ -33,7 +35,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CraftingService.class, remap = false)
-public abstract class CraftingServiceMixin {
+public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingControl {
     @Shadow
     @Final
     private IGrid grid;
@@ -51,6 +53,33 @@ public abstract class CraftingServiceMixin {
 
     @Shadow
     public abstract void addLink(CraftingLink link);
+
+    @Override
+    public boolean isBatchFairSchedulingEnabled() {
+        boolean foundNetwork = false;
+        for (ECOCraftingSystemBlockEntity controller : this.grid.getMachines(ECOCraftingSystemBlockEntity.class)) {
+            if (controller.getCluster() == null || controller.getCluster().getNetworkCluster() == null) {
+                continue;
+            }
+            foundNetwork = true;
+            if (!controller.getCluster().getNetworkCluster().isBatchFairSchedulingEnabled()) {
+                return false;
+            }
+        }
+        return foundNetwork;
+    }
+
+    @Override
+    public void setBatchFairSchedulingEnabled(boolean enabled) {
+        Set<Object> networks = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (ECOCraftingSystemBlockEntity controller : this.grid.getMachines(ECOCraftingSystemBlockEntity.class)) {
+            if (controller.getCluster() != null
+                    && controller.getCluster().getNetworkCluster() != null
+                    && networks.add(controller.getCluster().getNetworkCluster())) {
+                controller.getCluster().getNetworkCluster().setBatchFairSchedulingEnabled(enabled);
+            }
+        }
+    }
 
     @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, require = 0)
     private void neoecoae$beginPlanningOnECOHost(

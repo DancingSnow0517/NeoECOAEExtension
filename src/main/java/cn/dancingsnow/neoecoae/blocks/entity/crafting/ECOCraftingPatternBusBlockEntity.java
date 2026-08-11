@@ -117,10 +117,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public boolean pushBatch(ECOBatchCraftingRequest request) {
         NECraftingNetworkCluster network = getNetworkCluster();
         if (network != null) {
-            BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request, request.batchSize());
+            BatchFastPathOffer offer =
+                    findBatchFastPathOffer(request.key(), null, request, request.craftingJobId(), request.batchSize());
             return pushBatch(request, offer);
         }
-        BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request, request.batchSize());
+        BatchFastPathOffer offer =
+                findBatchFastPathOffer(request.key(), null, request, request.craftingJobId(), request.batchSize());
         return pushBatch(request, offer);
     }
 
@@ -147,23 +149,30 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Nullable public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, long requestedBatchSize) {
+        return findBatchFastPathOffer(execution, requestedBatchSize, null);
+    }
+
+    @Nullable public BatchFastPathOffer findBatchFastPathOffer(
+            ECOExtractedPatternExecution execution, long requestedBatchSize, @Nullable UUID craftingJobId) {
         if (execution.key() == null) {
             return null;
         }
-        return findBatchFastPathOffer(execution.key(), execution, null, requestedBatchSize);
+        return findBatchFastPathOffer(execution.key(), execution, null, craftingJobId, requestedBatchSize);
     }
 
     @Nullable private BatchFastPathOffer findBatchFastPathOffer(
             ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             @Nullable ECOBatchCraftingRequest request,
+            @Nullable UUID craftingJobId,
             long requestedBatchSize) {
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
         NECraftingNetworkCluster network = getNetworkCluster();
         if (network != null) {
-            return network.findBatchFastPathOffer(getGrid(), key, execution, request, requestedBatchSize);
+            return network.findBatchFastPathOffer(
+                    getGrid(), key, execution, request, craftingJobId, requestedBatchSize);
         }
         ECOCraftingSystemBlockEntity controller = getCraftingController();
         if (controller == null) {

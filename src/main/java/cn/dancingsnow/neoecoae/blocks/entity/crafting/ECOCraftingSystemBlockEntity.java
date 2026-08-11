@@ -811,12 +811,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return isVirtualCraftingMode();
     }
 
-    /** A complete eight-host exchange executes one whole recipe task as virtual ledger work. */
+    /** A complete high-energy F9 exchange executes one whole recipe task as virtual ledger work. */
     public boolean isVirtualCraftingMode() {
         return cluster != null
                 && cluster.getNetworkCluster() != null
-                && cluster.getNetworkCluster().isActiveCooling()
-                && cluster.getNetworkCluster().getMemberCount() >= VIRTUAL_CRAFTING_REQUIRED_HOSTS;
+                && cluster.getNetworkCluster().isVirtualCraftingEligible();
     }
 
     public int getNetworkPowerMultiplier() {

@@ -31,6 +31,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -378,6 +379,12 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
         return cluster != null && cluster.getController() == controller;
+    }
+
+    public void onCraftingJobCompleted(@Nullable UUID craftingJobId) {
+        if (craftingJobId != null && cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().noteCompletedBatchJob(craftingJobId);
+        }
     }
 
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {

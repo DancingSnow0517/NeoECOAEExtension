@@ -4,10 +4,13 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
@@ -30,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * and scheduling state.
  */
 public final class NECraftingNetworkCluster {
+    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
     private static final Comparator<NECraftingCluster> CLUSTER_ORDER =
             Comparator.comparing(cluster -> cluster.getController() == null
                     ? Long.MAX_VALUE
@@ -45,6 +49,7 @@ public final class NECraftingNetworkCluster {
     private int nextPhysicalClusterIndex;
     private int nextCoolantControllerIndex;
     private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
+    private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
     private boolean overclocked;
     private boolean activeCooling;
     private long revision;
@@ -144,6 +149,35 @@ public final class NECraftingNetworkCluster {
 
     public int getMemberCount() {
         return controllers.size();
+    }
+
+    public boolean isBatchFairSchedulingEnabled() {
+        return batchFairnessTracker.isEnabled();
+    }
+
+    public void setBatchFairSchedulingEnabled(boolean enabled) {
+        batchFairnessTracker.setEnabled(enabled);
+    }
+
+    /** A complete high-energy F9 exchange is required for virtual ledger work. */
+    public boolean isVirtualCraftingEligible() {
+        if (!activeCooling
+                || physicalClusters.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS
+                || controllers.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
+            return false;
+        }
+        int requiredWorkersPerHost = Math.max(1, NEConfig.craftingSystemMaxLength - 4);
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller == null
+                    || controller.getTier().getTier() != ECOTier.L9.getTier()
+                    || !physicalCluster.isHighEnergyNetworkMode()
+                    || physicalCluster.getWorkers().size() != requiredWorkersPerHost
+                    || controller.getLocalThreadCount() != requiredWorkersPerHost * VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void onCoolingAvailabilityChanged() {
@@ -498,6 +532,9 @@ public final class NECraftingNetworkCluster {
         if (workers.isEmpty() || offer == null) {
             return false;
         }
+        if (isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(request.craftingJobId())) {
+            return false;
+        }
         // A batch occupies one logical host thread. Its physical worker slots
         // are checked separately below, so a batch may be larger than the
         // number of logical hosts in the network.
@@ -516,6 +553,9 @@ public final class NECraftingNetworkCluster {
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
             updateRoundRobinAfterAccept(physical, worker);
+            if (isVirtualCraftingEligible()) {
+                batchFairnessTracker.noteAccepted(request.craftingJobId());
+            }
             return true;
         }
         return false;
@@ -526,6 +566,7 @@ public final class NECraftingNetworkCluster {
             ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             @Nullable ECOBatchCraftingRequest request,
+            @Nullable UUID craftingJobId,
             long requestedBatchSize) {
         if (requestedBatchSize <= 0 || workers.isEmpty()) {
             return null;
@@ -570,10 +611,17 @@ public final class NECraftingNetworkCluster {
                 break;
             }
             if (bestOffer != null) {
+                if (isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(craftingJobId)) {
+                    return null;
+                }
                 return bestOffer;
             }
         }
         return null;
+    }
+
+    public void noteCompletedBatchJob(@Nullable UUID craftingJobId) {
+        batchFairnessTracker.noteCompleted(craftingJobId);
     }
 
     private void updateRoundRobinAfterAccept(NECraftingCluster physical, ECOCraftingWorkerBlockEntity acceptedWorker) {
