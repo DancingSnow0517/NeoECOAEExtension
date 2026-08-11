@@ -30,13 +30,19 @@ import lombok.Getter;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -82,9 +88,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Nullable
     private PatternTransferTask patternTransferTask;
     private long lastPatternTransferSyncTick = Long.MIN_VALUE;
-    /** The physical F-bus slot order, synchronized once for client-local preview filtering. */
+    /**
+     * The physical F-bus slot order, encoded as one NBT string for client-local preview filtering.
+     * ldlib2's array accessor cannot safely create refs for ItemStack[] elements.
+     */
     @DescSynced
-    private ItemStack[] patternPreviewSnapshot = new ItemStack[0];
+    private String patternPreviewSnapshotData = "";
+    private transient ItemStack[] decodedPatternPreviewSnapshot = new ItemStack[0];
+    private transient String decodedPatternPreviewSnapshotData;
     private List<PatternContainer> patternPreviewSources = List.of();
     private List<PatternPreviewEntry> allPatternPreviewEntries = new ArrayList<>();
     private boolean patternPreviewInitialized;
@@ -186,7 +197,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public ItemStack[] getPatternPreviewSnapshot() {
-        return patternPreviewSnapshot;
+        if (!java.util.Objects.equals(decodedPatternPreviewSnapshotData, patternPreviewSnapshotData)) {
+            decodedPatternPreviewSnapshot = decodePatternPreviewSnapshot(patternPreviewSnapshotData,
+                    level == null ? null : level.registryAccess());
+            decodedPatternPreviewSnapshotData = patternPreviewSnapshotData;
+        }
+        return decodedPatternPreviewSnapshot;
     }
 
     public void organizePatternBuses() {
@@ -433,24 +449,58 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private void clearPatternPreview() {
         patternPreviewSources = List.of();
         allPatternPreviewEntries = new ArrayList<>();
-        patternPreviewSnapshot = new ItemStack[0];
+        patternPreviewSnapshotData = "";
         patternPreviewInitialized = false;
     }
 
     private boolean refreshPatternPreviewSnapshot() {
         ItemStack[] next = new ItemStack[allPatternPreviewEntries.size()];
-        boolean changed = next.length != patternPreviewSnapshot.length;
+        ItemStack[] previous = getPatternPreviewSnapshot();
+        boolean changed = next.length != previous.length;
         for (int index = 0; index < next.length; index++) {
             PatternPreviewEntry entry = allPatternPreviewEntries.get(index);
             ItemStack stack = isPreviewSourceActive(entry)
                     ? getPreviewInventory(entry).getStackInSlot(entry.sourceSlot()) : ItemStack.EMPTY;
-            next[index] = stack.copy();
-            changed |= index >= patternPreviewSnapshot.length || !ItemStack.matches(patternPreviewSnapshot[index], stack);
+            next[index] = stack == null ? ItemStack.EMPTY : stack.copy();
+            changed |= index >= previous.length || !ItemStack.matches(previous[index], next[index]);
         }
         if (changed) {
-            patternPreviewSnapshot = next;
+            patternPreviewSnapshotData = encodePatternPreviewSnapshot(next,
+                    level == null ? null : level.registryAccess());
+            decodedPatternPreviewSnapshot = next;
+            decodedPatternPreviewSnapshotData = patternPreviewSnapshotData;
         }
         return changed;
+    }
+
+    private static String encodePatternPreviewSnapshot(ItemStack[] stacks, @Nullable HolderLookup.Provider registries) {
+        if (registries == null) {
+            return "";
+        }
+        ListTag list = new ListTag();
+        for (ItemStack stack : stacks) {
+            list.add((stack == null ? ItemStack.EMPTY : stack).save(registries));
+        }
+        return list.toString();
+    }
+
+    private static ItemStack[] decodePatternPreviewSnapshot(String data, @Nullable HolderLookup.Provider registries) {
+        if (data == null || data.isEmpty() || registries == null) {
+            return new ItemStack[0];
+        }
+        try {
+            Tag parsed = new TagParser(new StringReader(data)).readValue();
+            if (!(parsed instanceof ListTag list)) {
+                return new ItemStack[0];
+            }
+            ItemStack[] result = new ItemStack[list.size()];
+            for (int index = 0; index < list.size(); index++) {
+                result[index] = ItemStack.parseOptional(registries, list.getCompound(index));
+            }
+            return result;
+        } catch (CommandSyntaxException | RuntimeException ignored) {
+            return new ItemStack[0];
+        }
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {

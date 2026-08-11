@@ -3,11 +3,11 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 import appeng.api.config.FuzzyMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2LTOverloadPatternCompatibility;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 
 /**
@@ -94,7 +93,8 @@ final class ECOAE2PatternMaterializer {
                 inventoryDependent = true;
             }
 
-            if (!(details instanceof IECOPlannerCompatiblePattern)
+            if (matchMode != IECOPlannerInputPolicy.MatchMode.ITEM_ONLY
+                && !(details instanceof IECOPlannerCompatiblePattern)
                 && !ECOAE2PatternCompatibility.isKnownBuiltIn(details)
                 && assessment.inputSemantics()
                     == IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY) {
@@ -369,17 +369,19 @@ final class ECOAE2PatternMaterializer {
         int slot,
         IPatternDetails.IInput input
     ) {
-        if (!(details instanceof IECOPlannerInputPolicy policy)) {
-            return IECOPlannerInputPolicy.MatchMode.STRICT;
+        if (details instanceof IECOPlannerInputPolicy policy) {
+            try {
+                return Objects.requireNonNull(
+                    policy.getPlannerInputMatchMode(slot, input),
+                    "planner input match mode"
+                );
+            } catch (RuntimeException | LinkageError failure) {
+                throw reject("input_policy_exception slot=" + slot, failure);
+            }
         }
-        try {
-            return Objects.requireNonNull(
-                policy.getPlannerInputMatchMode(slot, input),
-                "planner input match mode"
-            );
-        } catch (RuntimeException | LinkageError failure) {
-            throw reject("input_policy_exception slot=" + slot, failure);
-        }
+        return AE2LTOverloadPatternCompatibility.ignoresComponents(details, slot)
+            ? IECOPlannerInputPolicy.MatchMode.ITEM_ONLY
+            : IECOPlannerInputPolicy.MatchMode.STRICT;
     }
 
     private static List<Candidate> baseCandidates(
@@ -490,21 +492,18 @@ final class ECOAE2PatternMaterializer {
         Level level,
         int slot
     ) {
-        Map<Item, Long> itemAmounts = new LinkedHashMap<>();
+        Map<Object, Long> itemAmounts = new LinkedHashMap<>();
         for (var entry : choices.entrySet()) {
-            if (entry.getKey() instanceof AEItemKey itemKey) {
-                Long previous = itemAmounts.putIfAbsent(itemKey.getItem(), entry.getValue());
-                if (previous != null && previous.longValue() != entry.getValue()) {
-                    throw reject("candidate_template_amount_conflict slot=" + slot);
-                }
+            Object identity = entry.getKey().getPrimaryKey();
+            Long previous = itemAmounts.putIfAbsent(identity, entry.getValue());
+            if (previous != null && previous.longValue() != entry.getValue()) {
+                throw reject("candidate_template_amount_conflict slot=" + slot);
             }
         }
         for (AEKey key : inventory.keySet()) {
-            if (key instanceof AEItemKey itemKey) {
-                Long amount = itemAmounts.get(itemKey.getItem());
-                if (amount != null && isValid(input, key, level, slot)) {
-                    putChoice(choices, key, amount);
-                }
+            Long amount = itemAmounts.get(key.getPrimaryKey());
+            if (amount != null && isValid(input, key, level, slot)) {
+                putChoice(choices, key, amount);
             }
         }
     }
