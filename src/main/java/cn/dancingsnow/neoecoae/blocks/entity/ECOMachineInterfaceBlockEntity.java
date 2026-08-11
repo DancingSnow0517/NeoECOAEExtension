@@ -164,6 +164,26 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return Set.copyOf(result);
     }
 
+    /** Stores the sample selected by a client-side JEI ghost drop without moving a real item. */
+    @RPCMethod
+    public void setFuzzyPlanningFilter(RPCSender sender, int slot, ItemStack stack) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)
+            || slot < 0 || slot >= fuzzyPlanningInventory.size() || !supportsComputationInterfaceUi()) {
+            return;
+        }
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel
+            || player.blockPosition().distSqr(worldPosition) > 64.0D) {
+            return;
+        }
+        fuzzyPlanningItemHandler.setStackInSlot(
+            slot,
+            stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1)
+        );
+        setChanged();
+        markForUpdate();
+    }
+
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
         ECOStorageInterfaceMode next = mode == null ? ECOStorageInterfaceMode.STORAGE : mode;
         if (storageInterfaceMode == next) return;

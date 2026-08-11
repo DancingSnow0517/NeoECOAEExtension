@@ -12,10 +12,11 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 /** Configuration surface for the computation host's fast-planning item match rules. */
 public final class ComputationInterfaceUI {
@@ -25,8 +26,13 @@ public final class ComputationInterfaceUI {
     private static final int GRID_WIDTH = GRID_COLUMNS * SLOT_SIZE;
     private static final int GRID_HEIGHT = GRID_ROWS * SLOT_SIZE;
     private static final int PLAYER_INVENTORY_WIDTH = 9 * SLOT_SIZE;
-    private static final int CONTENT_PADDING = 8;
-    private static final int CONTENT_HEIGHT = CONTENT_PADDING * 2 + 11 + 4 + GRID_HEIGHT;
+    private static final int PLAYER_INVENTORY_HEIGHT = 4 * SLOT_SIZE;
+    private static final int ROOT_PADDING = 8;
+    private static final int ROOT_GAP = 5;
+    private static final int TITLE_HEIGHT = 12;
+    private static final int ROOT_WIDTH = PLAYER_INVENTORY_WIDTH + ROOT_PADDING * 2;
+    private static final int ROOT_HEIGHT = ROOT_PADDING * 2 + TITLE_HEIGHT + GRID_HEIGHT
+        + PLAYER_INVENTORY_HEIGHT + ROOT_GAP * 2;
 
     private ComputationInterfaceUI() {
     }
@@ -36,29 +42,20 @@ public final class ComputationInterfaceUI {
         Player player
     ) {
         UIElement root = new UIElement().layout(layout -> layout
-            .width(PLAYER_INVENTORY_WIDTH + CONTENT_PADDING * 4)
-            .paddingLeft(8)
-            .paddingRight(8)
-            .paddingTop(8)
-            .paddingBottom(8)
-            .gapAll(5)
+            .width(ROOT_WIDTH)
+            .height(ROOT_HEIGHT)
+            .paddingAll(ROOT_PADDING)
+            .gapAll(ROOT_GAP)
             .flexDirection(FlexDirection.COLUMN)
         ).addClass("panel_bg");
         root.addChild(title());
-
-        UIElement content = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(CONTENT_HEIGHT)
-            .paddingAll(CONTENT_PADDING)
-            .gapAll(4)
-            .flexDirection(FlexDirection.COLUMN)
-        ).style(style -> style.backgroundTexture(Sprites.BORDER_THICK_RT1));
-        content.addChild(sectionLabel());
-        content.addChild(fuzzyItemSlots(computationInterface));
-        root.addChild(content);
+        root.addChild(fuzzyItemSlots(computationInterface));
 
         InventorySlots playerInventory = new InventorySlots();
-        playerInventory.layout(layout -> layout.width(PLAYER_INVENTORY_WIDTH).marginTop(2));
+        playerInventory.layout(layout -> layout
+            .width(PLAYER_INVENTORY_WIDTH)
+            .height(PLAYER_INVENTORY_HEIGHT)
+        );
         root.addChild(playerInventory);
         return new ModularUI(
             UI.of(root, java.util.List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
@@ -68,17 +65,10 @@ public final class ComputationInterfaceUI {
 
     private static UIElement title() {
         return new TextElement()
-            .setText(Component.literal("计算子系统通讯接口"))
+            .setText(Component.translatable("block.neoecoae.computation_interface"))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
                 .textWrap(TextWrap.HOVER_ROLL).textColor(0x3F3D52).textShadow(false))
             .layout(layout -> layout.widthPercent(100).height(12));
-    }
-
-    private static UIElement sectionLabel() {
-        return new TextElement()
-            .setText(Component.literal("模糊匹配物品"))
-            .textStyle(style -> style.adaptiveHeight(true).textColor(0x3F3D52).textShadow(false))
-            .layout(layout -> layout.widthPercent(100).height(11));
     }
 
     private static UIElement fuzzyItemSlots(
@@ -97,14 +87,71 @@ public final class ComputationInterfaceUI {
             );
             for (int column = 0; column < GRID_COLUMNS; column++) {
                 int slot = row * GRID_COLUMNS + column;
-                ItemSlot itemSlot = new ItemSlot(new ItemHandlerSlot(
-                    computationInterface.getFuzzyPlanningItemHandler(), slot
-                ));
+                ItemSlot itemSlot = new FuzzyPlanningItemSlot(computationInterface, slot).xeiPhantom();
                 itemSlot.layout(layout -> layout.width(SLOT_SIZE).height(SLOT_SIZE));
                 line.addChild(itemSlot);
             }
             grid.addChild(line);
         }
         return grid;
+    }
+
+    /** A JEI-targetable filter slot: its displayed stack is configuration only, never an item transfer. */
+    private static final class FuzzyPlanningItemSlot extends ItemSlot {
+        private final ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface;
+        private final int inventorySlot;
+
+        private FuzzyPlanningItemSlot(
+            ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface,
+            int inventorySlot
+        ) {
+            super(new FuzzyPlanningFilterSlot(computationInterface.getFuzzyPlanningItemHandler(), inventorySlot));
+            this.computationInterface = computationInterface;
+            this.inventorySlot = inventorySlot;
+        }
+
+        @Override
+        public ItemSlot setValue(ItemStack value, boolean notify) {
+            ItemStack filter = value == null || value.isEmpty() ? ItemStack.EMPTY : value.copyWithCount(1);
+            super.setValue(filter, notify);
+            computationInterface.rpcToServer("setFuzzyPlanningFilter", inventorySlot, filter);
+            return this;
+        }
+    }
+
+    private static final class FuzzyPlanningFilterSlot extends ItemHandlerSlot {
+        private FuzzyPlanningFilterSlot(IItemHandlerModifiable itemHandler, int index) {
+            super(itemHandler, index);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return !stack.isEmpty();
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return false;
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxStackSize(ItemStack stack) {
+            return 0;
+        }
+
+        @Override
+        public ItemStack remove(int amount) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public void set(ItemStack stack) {
+            super.set(stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1));
+        }
     }
 }

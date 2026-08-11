@@ -91,6 +91,10 @@ final class ECOAE2PatternMaterializer {
             }
             long multiplier = readMultiplier(input, slot);
             IECOPlannerInputPolicy.MatchMode matchMode = readMatchMode(details, slot, input);
+            boolean configuredFuzzyTemplate = hasConfiguredFuzzyTemplate(input, fuzzyItemIds);
+            IECOPlannerCompatiblePattern.InputSemantics inputSemantics = configuredFuzzyTemplate
+                ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                : assessment.inputSemantics();
             List<Candidate> candidates = baseCandidates(
                 details,
                 input,
@@ -104,7 +108,7 @@ final class ECOAE2PatternMaterializer {
             );
             if (matchMode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY
                 || assessment.includeFuzzyInventory()
-                || hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
+                || configuredFuzzyTemplate) {
                 inventoryDependent = true;
             }
 
@@ -138,7 +142,7 @@ final class ECOAE2PatternMaterializer {
             if (candidates.stream().anyMatch(Candidate::hasStateTransition)) {
                 statefulSlots++;
             }
-            slots.add(new SlotMaterialization(input, multiplier, candidates, visited));
+            slots.add(new SlotMaterialization(input, multiplier, inputSemantics, candidates, visited));
             if (ECOPlanningFailureDiagnostics.canLogDetail(
                 ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
             )) {
@@ -147,6 +151,7 @@ final class ECOAE2PatternMaterializer {
                 "slot_base patternClass=" + details.getClass().getName()
                     + " slot=" + slot
                     + " matchMode=" + matchMode
+                    + " inputSemantics=" + inputSemantics
                     + " multiplier=" + multiplier
                     + " candidates=" + describeCandidates(candidates)
                 );
@@ -159,11 +164,12 @@ final class ECOAE2PatternMaterializer {
         for (SlotMaterialization slot : slots) {
             baseCombinationCount = saturatedMultiply(
                 baseCombinationCount,
-                selectionCount(slot.candidates().size(), slot.multiplier(), assessment.inputSemantics())
+                selectionCount(slot.candidates().size(), slot.multiplier(), slot.inputSemantics())
             );
             if (baseCombinationCount > MAX_VARIANTS_PER_PATTERN
-                && assessment.inputSemantics()
-                    == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES) {
+                && (useBoundedMixableBasis
+                    || slot.inputSemantics()
+                        == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES)) {
                 // Preserve the compact basis for freely mixable inputs. Stateful slots are
                 // expanded as graph nodes below; multiplying those nodes by every allocation
                 // of unrelated consumables is not part of the state model.
@@ -246,7 +252,7 @@ final class ECOAE2PatternMaterializer {
             selections.add(selectionChoices(
                 slot.candidates(),
                 slot.multiplier(),
-                assessment.inputSemantics(),
+                slot.inputSemantics(),
                 inventory,
                 useBoundedMixableBasis
             ));
@@ -969,17 +975,20 @@ final class ECOAE2PatternMaterializer {
     private static final class SlotMaterialization {
         private final IPatternDetails.IInput input;
         private final long multiplier;
+        private final IECOPlannerCompatiblePattern.InputSemantics inputSemantics;
         private final List<Candidate> candidates;
         private final Set<AEKey> visited;
 
         private SlotMaterialization(
             IPatternDetails.IInput input,
             long multiplier,
+            IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
             List<Candidate> candidates,
             Set<AEKey> visited
         ) {
             this.input = input;
             this.multiplier = multiplier;
+            this.inputSemantics = inputSemantics;
             this.candidates = candidates;
             this.visited = visited;
         }
@@ -990,6 +999,10 @@ final class ECOAE2PatternMaterializer {
 
         private long multiplier() {
             return multiplier;
+        }
+
+        private IECOPlannerCompatiblePattern.InputSemantics inputSemantics() {
+            return inputSemantics;
         }
 
         private List<Candidate> candidates() {
