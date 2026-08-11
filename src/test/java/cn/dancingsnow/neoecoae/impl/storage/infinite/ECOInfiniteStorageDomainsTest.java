@@ -52,12 +52,16 @@ class ECOInfiniteStorageDomainsTest {
         Files.createDirectories(tempDir.resolve("data").resolve("neoecoae_infinite"));
         Files.createFile(tempDir.resolve("data").resolve("neoecoae_infinite").resolve("domain_" + v2Domain + ".dat"));
         Files.createDirectories(tempDir.resolve("neoecoae_storage_v1_archive").resolve("domain_" + archivedDomain));
-        Files.createDirectories(tempDir.resolve("neoecoae_storage").resolve("dim_minecraft_overworld")
+        Files.createDirectories(tempDir.resolve("neoecoae_storage")
+                .resolve("dim_minecraft_overworld")
                 .resolve("domain_" + legacyDomain));
-        Files.createDirectories(tempDir.resolve("data").resolve("neoecoae_storage").resolve("domain_invalid"));
+        Files.createDirectories(
+                tempDir.resolve("data").resolve("neoecoae_storage").resolve("domain_invalid"));
 
         assertEquals(
-                java.util.List.of(v2Domain, archivedDomain, legacyDomain).stream().sorted().toList(),
+                java.util.List.of(v2Domain, archivedDomain, legacyDomain).stream()
+                        .sorted()
+                        .toList(),
                 ECOInfiniteStorageDomains.discoverDomainIds(tempDir));
     }
 }
