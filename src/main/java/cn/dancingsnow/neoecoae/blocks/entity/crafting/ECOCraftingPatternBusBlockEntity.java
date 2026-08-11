@@ -6,6 +6,7 @@ import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -118,6 +119,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private boolean patternDetailsUpdateQueued;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
+    private transient boolean craftingProviderRefreshQueued;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -537,6 +539,31 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         rebuildAllPatternDetails = true;
         rebuildPatternIndex();
         updatePatternDetails();
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
+        super.onMainNodeStateChanged(reason);
+        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
+            queueCraftingProviderRefresh();
+        }
+    }
+
+    /** Re-mount the provider after AE2 has completed a power or pathing transition. */
+    private void queueCraftingProviderRefresh() {
+        if (!(level instanceof ServerLevel serverLevel) || craftingProviderRefreshQueued) {
+            return;
+        }
+        craftingProviderRefreshQueued = true;
+        ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+            craftingProviderRefreshQueued = false;
+            if (!isServerStopping() && !isRemoved() && getMainNode().isOnline()) {
+                ICraftingProvider.requestUpdate(getMainNode());
+            }
+        });
     }
 
     private void updatePatternDetails() {
