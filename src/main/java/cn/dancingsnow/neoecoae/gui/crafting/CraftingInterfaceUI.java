@@ -17,6 +17,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
@@ -28,6 +29,7 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
@@ -94,9 +96,26 @@ public final class CraftingInterfaceUI {
         contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferPrimaryStatus));
         root.addChild(contentFrame);
         root.addChild(previewSection(craftingInterface, previewState));
-        root.addChild(new InventorySlots().layout(layout -> layout
+        InventorySlots playerInventory = new InventorySlots();
+        playerInventory.layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH)
-                .marginTop(2)));
+                .marginTop(2));
+        root.addChild(playerInventory);
+        root.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button != 0 || !event.isShiftDown() || !(event.target instanceof ItemSlot itemSlot)) {
+                return;
+            }
+            Slot slot = itemSlot.getSlot();
+            if (slot == null || slot.container != player.getInventory()) {
+                return;
+            }
+            ItemStack stack = itemSlot.getValue();
+            if (!PatternDetailsHelper.isEncodedPattern(stack)) {
+                return;
+            }
+            craftingInterface.rpcToServer("insertPatternFromPlayer", slot.getContainerSlot());
+            event.stopImmediatePropagation();
+        }, true);
 
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
     }
@@ -225,16 +244,15 @@ public final class CraftingInterfaceUI {
                 .addClass("panel_border");
         preview.addEventListener(UIEvents.TICK, event -> previewState.refresh(
                 craftingInterface.getPatternPreviewSnapshot(), craftingInterface.getLevel()));
-        // Consume the wheel on the client before AE2 sees it. Without this, AE2's
-        // inventory-scroll shortcut moves the pattern under the cursor into the
-        // player inventory while this panel is being scrolled.
+        // Consume ordinary wheel input before AE2 sees it, but leave Shift + wheel
+        // to the individual preview slot so it can retain the quick-move shortcut.
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0) {
+            if (event.deltaY != 0 && !event.isShiftDown()) {
                 event.stopImmediatePropagation();
             }
         });
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0) {
+            if (event.deltaY != 0 && !event.isShiftDown()) {
                 previewState.scroll(event.deltaY < 0 ? 1 : -1);
                 event.stopImmediatePropagation();
             }
@@ -251,6 +269,15 @@ public final class CraftingInterfaceUI {
                 PatternItemSlot itemSlot = new PatternItemSlot(localSlot);
                 itemSlot.highlighted(() -> previewState.isSlotMatched(visualSlot));
                 itemSlot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY));
+                itemSlot.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+                    if (event.deltaY != 0 && event.isShiftDown()) {
+                        int sourceIndex = previewState.sourceIndexAt(visualSlot);
+                        if (sourceIndex >= 0) {
+                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, false);
+                            event.stopImmediatePropagation();
+                        }
+                    }
+                });
                 itemSlot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
                     if (event.button == 0 || event.button == 1) {
                         int sourceIndex = previewState.sourceIndexAt(visualSlot);

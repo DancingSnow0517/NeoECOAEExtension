@@ -273,6 +273,43 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
+    /** Receives the old pattern-terminal Shift-click path from the client-local player inventory slots. */
+    @RPCMethod
+    public void insertPatternFromPlayer(RPCSender sender, int inventorySlot) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)
+                || inventorySlot < 0 || inventorySlot >= 36 || !formed || !supportsCraftingInterfaceUi()) {
+            return;
+        }
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel) {
+            return;
+        }
+        ItemStack stack = player.getInventory().getItem(inventorySlot);
+        if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
+            return;
+        }
+
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+        for (PatternContainer source : getFPatternSources(grid)) {
+            InternalInventory inventory = source.getTerminalPatternInventory();
+            for (int slot = 0; slot < inventory.size(); slot++) {
+                if (!inventory.getStackInSlot(slot).isEmpty()) {
+                    continue;
+                }
+                ItemStack remaining = inventory.insertItem(slot, stack.copy(), false);
+                if (remaining.getCount() != stack.getCount()) {
+                    player.getInventory().setItem(inventorySlot, remaining);
+                    refreshPatternPreviewSnapshot();
+                    syncPatternPreviewState(serverLevel.getGameTime(), true);
+                    return;
+                }
+            }
+        }
+    }
+
     public void tick() {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;

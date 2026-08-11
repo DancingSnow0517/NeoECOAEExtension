@@ -140,8 +140,11 @@ public final class ECOFastPathStacks {
             return false;
         }
         if (input) {
-            return !itemStack.isDamageableItem()
-                && !itemStack.getItem().hasCraftingRemainingItem(itemStack);
+            // The cache records and verifies the recipe's complete remaining-item snapshot.
+            // A non-damageable input may therefore safely transform into a different static
+            // remainder, such as a milk bucket becoming an empty bucket when crafting cake.
+            // Damageable inputs remain excluded because their state can change per craft.
+            return !itemStack.isDamageableItem();
         }
         return true;
     }
