@@ -5,6 +5,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
+import appeng.crafting.pattern.AESmithingTablePattern;
+import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
@@ -47,6 +49,9 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
+        if (isKnownSpecialPattern(details)) {
+            return true;
+        }
         if (!(details instanceof AECraftingPattern)) {
             return isExternalProcessingPattern(details);
         }
@@ -63,6 +68,11 @@ public final class AE2PatternIntrospection {
     }
 
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
+        if (isKnownSpecialPattern(details)) {
+            return details.getDefinition() != null
+                    ? PatternEligibility.ELIGIBLE
+                    : PatternEligibility.RECIPE_UNAVAILABLE;
+        }
         if (!(details instanceof AECraftingPattern pattern)) {
             return isExternalProcessingPattern(details) && details.getDefinition() != null
                     ? PatternEligibility.ELIGIBLE
@@ -87,6 +97,14 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean hasStableFastPathInputs(IPatternDetails details) {
+        if (isKnownSpecialPattern(details)) {
+            if (details instanceof AEStonecuttingPattern stonecutting) {
+                return details.getDefinition() != null && !stonecutting.canSubstitute();
+            }
+            if (details instanceof AESmithingTablePattern smithing) {
+                return details.getDefinition() != null && !smithing.canSubstitute();
+            }
+        }
         if (!(details instanceof AECraftingPattern pattern)
                 || !(details instanceof AECraftingPatternAccessor accessor)) {
             return false;
@@ -98,6 +116,12 @@ public final class AE2PatternIntrospection {
             disableOnce(e);
             return false;
         }
+    }
+
+    private static boolean isKnownSpecialPattern(IPatternDetails details) {
+        return details != null
+                && (details.getClass() == AEStonecuttingPattern.class
+                        || details.getClass() == AESmithingTablePattern.class);
     }
 
     public static Optional<ECOFastPathKey> buildFastPathKey(

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins;
 
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.client.Point;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.CPUSelectionList;
@@ -69,6 +71,18 @@ public abstract class CPUSelectionListMixin {
             }
             y += buttonBg.getSrcHeight() + 1;
         }
+    }
+
+    @Redirect(
+            method = "drawBackgroundLayer",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"),
+            require = 0)
+    private String neoecoae$formatCraftAmount(AEKey key, long amount, AmountFormat format) {
+        return NETextFormat.formatItemAmount(amount);
     }
 
     /**

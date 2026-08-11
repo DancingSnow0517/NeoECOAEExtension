@@ -291,6 +291,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.threads", "Threads");
         provider.add("gui.neoecoae.computation.accelerators", "Accelerators: %s");
         provider.add("gui.neoecoae.computation.capacity", "Computation Capacity");
+        provider.add("gui.neoecoae.computation.fast_task_planning", "ECO Fast Task Planning");
+        provider.add("gui.neoecoae.computation.fast_task_planning.off", "Fast Task Planning: Disabled");
+        provider.add("gui.neoecoae.computation.fast_task_planning.on", "Fast Task Planning: Enabled");
+        provider.add(
+                "gui.neoecoae.computation.fast_task_planning.tooltip",
+                "Use ECO's fast task planner. When disabled, AE2's standard planner is used."
+                        + " Changes synchronize to all computation hosts in this network.");
         provider.add("gui.neoecoae.computation.batch_fair_scheduling", "ECO Batch Fair Scheduling");
         provider.add("gui.neoecoae.computation.batch_fair_scheduling.off", "Batch Fair Scheduling: Disabled");
         provider.add("gui.neoecoae.computation.batch_fair_scheduling.on", "Batch Fair Scheduling: Enabled");

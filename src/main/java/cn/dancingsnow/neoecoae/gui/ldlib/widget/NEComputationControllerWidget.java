@@ -381,7 +381,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private Icon batchFairSchedulingIcon() {
-        return currentState().batchFairSchedulingEnabled() ? Icon.TYPE_FILTER_ALL : Icon.BACKGROUND_WIRELESS_TERM;
+        return currentState().batchFairSchedulingEnabled() ? Icon.SCHEDULING_ROUND_ROBIN : Icon.SCHEDULING_DEFAULT;
     }
 
     static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
