@@ -591,7 +591,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             threadingCore.deactivate(cpu);
         }
         if (!submitted) {
-            return CraftingSubmitResult.NO_CPU_FOUND;
+            // Preserve a concrete submission failure (for example, a missing
+            // ingredient) so AE2 can display the actual reason instead of
+            // reporting that no CPU was found.
+            return result == null ? CraftingSubmitResult.NO_CPU_FOUND : result;
         }
         // Ensure the threading core is marked dirty so the CPU job is saved to disk.
         // (trySubmitJob already calls cpu.markDirty(), but belt-and-suspenders.)

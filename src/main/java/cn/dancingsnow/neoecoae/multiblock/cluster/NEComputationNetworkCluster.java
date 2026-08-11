@@ -217,6 +217,7 @@ public final class NEComputationNetworkCluster {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
         int start = Math.floorMod(nextHostIndex, members.size());
+        ICraftingSubmitResult lastFailure = CraftingSubmitResult.CPU_BUSY;
         for (int offset = 0; offset < members.size(); offset++) {
             int index = (start + offset) % members.size();
             NEComputationCluster member = members.get(index);
@@ -232,8 +233,9 @@ public final class NEComputationNetworkCluster {
                 nextHostIndex = (index + 1) % members.size();
                 return result;
             }
+            lastFailure = result;
         }
-        return CraftingSubmitResult.CPU_BUSY;
+        return lastFailure;
     }
 
     public void onHostCapacityChanged() {

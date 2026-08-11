@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -77,7 +76,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     private List<PatternPreviewEntry> patternPreviewEntries = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternPreviewBuses = List.of();
     private boolean patternPreviewDataPrepared;
-    private final Map<String, Set<PatternPreviewEntry>> patternPreviewSearchCache = new HashMap<>();
+    /**
+     * Search results are kept in display order so a longer query can be matched against the
+     * result of its previous prefix instead of scanning every pattern again.
+     */
+    private final Map<String, List<PatternPreviewEntry>> patternPreviewSearchCache = new HashMap<>();
+
     private final IItemHandlerModifiable patternPreviewItemHandler = new PatternPreviewItemHandler();
 
     public ECOMachineInterfaceBlockEntity(
@@ -464,12 +468,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
         if (patternPreviewSearch.isEmpty() && showSubstitutionPatterns && showFluidSubstitutionPatterns) {
             patternPreviewEntries = allPatternPreviewEntries;
         } else {
-            Set<PatternPreviewEntry> searchMatches = getPatternPreviewSearchMatches();
+            List<PatternPreviewEntry> searchMatches = getPatternPreviewSearchMatches();
             List<PatternPreviewEntry> filtered = new ArrayList<>();
-            for (PatternPreviewEntry entry : allPatternPreviewEntries) {
-                if (entry.hasPattern()
-                        && (patternPreviewSearch.isEmpty() || searchMatches.contains(entry))
-                        && matchesPatternPreviewFilters(entry)) {
+            List<PatternPreviewEntry> candidates =
+                    patternPreviewSearch.isEmpty() ? allPatternPreviewEntries : searchMatches;
+            for (PatternPreviewEntry entry : candidates) {
+                if (entry.hasPattern() && matchesPatternPreviewFilters(entry)) {
                     filtered.add(entry);
                 }
             }
@@ -483,26 +487,37 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
                 && (showFluidSubstitutionPatterns || !entry.canSubstituteFluids());
     }
 
-    private Set<PatternPreviewEntry> getPatternPreviewSearchMatches() {
+    private List<PatternPreviewEntry> getPatternPreviewSearchMatches() {
         if (patternPreviewSearch.isEmpty()) {
-            return Set.of();
+            return List.of();
         }
         String search = patternPreviewSearch.toLowerCase(Locale.ROOT);
-        Set<PatternPreviewEntry> cached = patternPreviewSearchCache.get(search);
+        List<PatternPreviewEntry> cached = patternPreviewSearchCache.get(search);
         if (cached != null) {
             return cached;
         }
         if (patternPreviewSearchCache.size() >= 128) {
             patternPreviewSearchCache.clear();
         }
-        Set<PatternPreviewEntry> matches = new HashSet<>();
+        // Typing normally extends the previous query. Reusing the longest cached prefix makes
+        // each keystroke scan only the entries that could still match it.
+        List<PatternPreviewEntry> candidates = allPatternPreviewEntries;
+        int longestPrefix = 0;
+        for (Map.Entry<String, List<PatternPreviewEntry>> cacheEntry : patternPreviewSearchCache.entrySet()) {
+            String prefix = cacheEntry.getKey();
+            if (prefix.length() > longestPrefix && search.startsWith(prefix)) {
+                longestPrefix = prefix.length();
+                candidates = cacheEntry.getValue();
+            }
+        }
+        List<PatternPreviewEntry> matches = new ArrayList<>();
         List<String> queryTokens = tokenizePatternSearch(search);
-        for (PatternPreviewEntry entry : allPatternPreviewEntries) {
+        for (PatternPreviewEntry entry : candidates) {
             if (entry.matchesSearchTokens(queryTokens)) {
                 matches.add(entry);
             }
         }
-        Set<PatternPreviewEntry> immutableMatches = Set.copyOf(matches);
+        List<PatternPreviewEntry> immutableMatches = List.copyOf(matches);
         patternPreviewSearchCache.put(search, immutableMatches);
         return immutableMatches;
     }

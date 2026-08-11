@@ -113,7 +113,10 @@ public final class NeoECOCraftingServiceBridge {
         }
 
         ICraftingSubmitResult result = cluster.submitJob(grid, job, src, requestingMachine);
-        return result.successful() ? result : null;
+        // Return unsuccessful results too. The ECO CPU may have a precise
+        // reason such as a missing ingredient; dropping it makes CraftingService
+        // fall through to vanilla CPU selection and report NO_CPU_FOUND.
+        return result;
     }
 
     public static long insertIntoCpus(IGrid grid, AEKey what, long amount, Actionable type, long inserted) {
