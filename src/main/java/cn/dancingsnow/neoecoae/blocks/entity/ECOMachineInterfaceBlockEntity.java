@@ -38,6 +38,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.TagParser;
@@ -62,6 +63,7 @@ import java.util.Set;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
+    private static final String EMPTY_PATTERN_PREVIEW_ENTRY = "neoecoae_empty";
     private static final int PATTERN_TRANSFER_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
     private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
@@ -571,7 +573,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         ListTag list = new ListTag();
         for (ItemStack stack : stacks) {
-            list.add((stack == null ? ItemStack.EMPTY : stack).save(registries));
+            if (stack == null || stack.isEmpty()) {
+                CompoundTag entry = new CompoundTag();
+                entry.putBoolean(EMPTY_PATTERN_PREVIEW_ENTRY, true);
+                list.add(entry);
+            } else {
+                list.add(stack.save(registries));
+            }
         }
         return list.toString();
     }
@@ -587,7 +595,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
             ItemStack[] result = new ItemStack[list.size()];
             for (int index = 0; index < list.size(); index++) {
-                result[index] = ItemStack.parseOptional(registries, list.getCompound(index));
+                CompoundTag entry = list.getCompound(index);
+                result[index] = entry.getBoolean(EMPTY_PATTERN_PREVIEW_ENTRY)
+                    ? ItemStack.EMPTY
+                    : ItemStack.parseOptional(registries, entry);
             }
             return result;
         } catch (CommandSyntaxException | RuntimeException ignored) {
