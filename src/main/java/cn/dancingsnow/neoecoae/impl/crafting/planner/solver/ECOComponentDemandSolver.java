@@ -63,7 +63,9 @@ public final class ECOComponentDemandSolver {
         Set<K> expandableMaterials = findExpandableMaterials(graph);
         ArrayDeque<K> queue = new ArrayDeque<>();
         Set<K> queued = new HashSet<>();
-        problem.requested().keySet().forEach(key -> enqueueIfDeficient(key, balances, graph, queue, queued));
+        problem.requested().keySet().forEach(key ->
+            enqueueIfDeficient(key, problem, balances, graph, queue, queued)
+        );
 
         long expansions = 0;
         boolean arithmeticSaturated = false;
@@ -212,21 +214,27 @@ public final class ECOComponentDemandSolver {
                 executions.put(producer.reference(), updatedExecutions);
                 for (var input : producer.inputs().entrySet()) {
                     K key = input.getKey();
+                    if (problem.isUnlimited(key)) {
+                        continue;
+                    }
                     long delta = ECOPlannerMath.saturatedMultiply(input.getValue(), -plannedBatches);
                     long previous = balances.getOrDefault(key, 0L);
                     long updated = ECOPlannerMath.saturatedAdd(previous, delta);
                     arithmeticSaturated |= delta == Long.MIN_VALUE || updated == Long.MIN_VALUE;
                     balances.put(key, updated);
-                    enqueueIfDeficient(key, balances, graph, queue, queued);
+                    enqueueIfDeficient(key, problem, balances, graph, queue, queued);
                 }
                 for (var output : producer.outputs().entrySet()) {
                     K key = output.getKey();
+                    if (problem.isUnlimited(key)) {
+                        continue;
+                    }
                     long delta = ECOPlannerMath.saturatedMultiply(output.getValue(), plannedBatches);
                     long previous = balances.getOrDefault(key, 0L);
                     long updated = ECOPlannerMath.saturatedAdd(previous, delta);
                     arithmeticSaturated |= delta == Long.MAX_VALUE || updated == Long.MAX_VALUE;
                     balances.put(key, updated);
-                    enqueueIfDeficient(key, balances, graph, queue, queued);
+                    enqueueIfDeficient(key, problem, balances, graph, queue, queued);
                 }
             }
         } catch (ArithmeticException overflow) {
@@ -528,12 +536,14 @@ public final class ECOComponentDemandSolver {
 
     private static <K, R> void enqueueIfDeficient(
         K material,
+        ECOPlanningProblem<K, R> problem,
         Map<K, Long> balances,
         ECOPlanningGraph<K, R> graph,
         ArrayDeque<K> queue,
         Set<K> queued
     ) {
-        if (balances.getOrDefault(material, 0L) < 0
+        if (!problem.isUnlimited(material)
+            && balances.getOrDefault(material, 0L) < 0
             && !graph.producersOf(material).isEmpty()
             && queued.add(material)) {
             queue.addLast(material);

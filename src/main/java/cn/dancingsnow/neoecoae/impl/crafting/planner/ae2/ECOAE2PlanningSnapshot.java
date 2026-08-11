@@ -54,7 +54,8 @@ public record ECOAE2PlanningSnapshot(
             new ECOPlanningProblem<>(
                 problem.operations(),
                 problem.inventory(),
-                Map.of(requestedKey, amount)
+                Map.of(requestedKey, amount),
+                problem.unlimitedInventory()
             ),
             requestedKey,
             amount,

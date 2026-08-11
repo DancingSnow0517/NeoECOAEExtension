@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
@@ -127,7 +128,8 @@ public final class ECOAE2PlanAssembler {
         var schedulableProblem = new ECOPlanningProblem<>(
             problem.operations(),
             schedulableInventory,
-            problem.requested()
+            problem.requested(),
+            problem.unlimitedInventory()
         );
         long schedulerStarted = System.nanoTime();
         var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate);
@@ -292,24 +294,31 @@ public final class ECOAE2PlanAssembler {
         ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
         ECOPlanCandidate<ECOAE2PatternVariant> candidate = result.candidate();
-        Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
+        Map<AEKey, Long> balances = ECOPlanningBalances.copyInventory(problem);
         Map<AEKey, Boolean> craftable = new HashMap<>();
         for (var operation : problem.operations()) {
             operation.selectableOutputs().forEach(key -> craftable.put(key, true));
             long count = candidate.executions().getOrDefault(operation.reference(), 0L);
-            operation.inputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, -count));
-            operation.outputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, count));
+            operation.inputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, -count
+            ));
+            operation.outputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, count
+            ));
         }
-        problem.requested().forEach((key, amount) -> balances.merge(
-            key, -amount, ECOAE2PlanAssembler::saturatedAdd
-        ));
+        problem.requested().forEach((key, amount) -> {
+            if (!problem.isUnlimited(key)) {
+                balances.merge(key, -amount, ECOAE2PlanAssembler::saturatedAdd);
+            }
+        });
 
         Map<AEKey, Long> missing = new LinkedHashMap<>();
         for (var balance : balances.entrySet()) {
             boolean solverClassifiedAsSource = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
                 && candidate.requestedShortfall() == 0L
                 && candidate.dependencyShortfall() == 0L;
-            if (balance.getValue() < 0
+            if (!problem.isUnlimited(balance.getKey())
+                && balance.getValue() < 0
                 && (solverClassifiedAsSource || !craftable.containsKey(balance.getKey()))) {
                 missing.put(balance.getKey(), saturatedNegate(balance.getValue()));
             }
@@ -321,18 +330,24 @@ public final class ECOAE2PlanAssembler {
         ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         ECOPlanCandidate<ECOAE2PatternVariant> candidate
     ) {
-        Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
+        Map<AEKey, Long> balances = ECOPlanningBalances.copyInventory(problem);
         for (var operation : problem.operations()) {
             long count = candidate.executions().getOrDefault(operation.reference(), 0L);
-            operation.inputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, -count));
-            operation.outputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, count));
+            operation.inputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, -count
+            ));
+            operation.outputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, count
+            ));
         }
-        problem.requested().forEach((key, amount) -> balances.merge(
-            key, -amount, ECOAE2PlanAssembler::saturatedAdd
-        ));
+        problem.requested().forEach((key, amount) -> {
+            if (!problem.isUnlimited(key)) {
+                balances.merge(key, -amount, ECOAE2PlanAssembler::saturatedAdd);
+            }
+        });
         Map<AEKey, Long> negative = new LinkedHashMap<>();
         balances.forEach((key, amount) -> {
-            if (amount < 0L) {
+            if (!problem.isUnlimited(key) && amount < 0L) {
                 negative.put(key, saturatedNegate(amount));
             }
         });
@@ -384,6 +399,9 @@ public final class ECOAE2PlanAssembler {
         problem.operations().stream()
             .filter(operation -> starters.contains(operation.reference()))
             .forEach(operation -> operation.inputs().forEach((key, amount) -> {
+                if (problem.isUnlimited(key)) {
+                    return;
+                }
                 long deficit = Math.max(0L, amount - problem.inventory().getOrDefault(key, 0L));
                 if (deficit > 0L) {
                     missing.merge(key, deficit, Math::max);

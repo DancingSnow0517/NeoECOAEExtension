@@ -47,7 +47,7 @@ public final class ECODagDemandSolver {
         ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
         Set<K> queued = new HashSet<>();
         for (K requested : problem.requested().keySet()) {
-            enqueueIfDeficient(requested, balances, graph, deficientMaterials, queued);
+            enqueueIfDeficient(requested, problem, balances, graph, deficientMaterials, queued);
         }
         long expansions = 0;
 
@@ -78,12 +78,12 @@ public final class ECODagDemandSolver {
             long batches = ECOPlannerMath.ceilDiv(missing, ECOPlannerMath.positiveNet(operation, deficientMaterial));
             executions.merge(operation.reference(), batches, Math::addExact);
             operation.inputs().forEach((key, amount) -> {
-                mergeScaled(balances, key, amount, -batches);
-                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+                mergeScaled(problem, balances, key, amount, -batches);
+                enqueueIfDeficient(key, problem, balances, graph, deficientMaterials, queued);
             });
             operation.outputs().forEach((key, amount) -> {
-                mergeScaled(balances, key, amount, batches);
-                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+                mergeScaled(problem, balances, key, amount, batches);
+                enqueueIfDeficient(key, problem, balances, graph, deficientMaterials, queued);
             });
             expansions++;
         }
@@ -93,6 +93,9 @@ public final class ECODagDemandSolver {
         long sourceShortfall = 0;
         long surplus = 0;
         for (var entry : balances.entrySet()) {
+            if (problem.isUnlimited(entry.getKey())) {
+                continue;
+            }
             if (entry.getValue() < 0) {
                 long missing = -entry.getValue();
                 boolean requested = problem.requested().containsKey(entry.getKey());
@@ -136,19 +139,29 @@ public final class ECODagDemandSolver {
 
     private static <K, R> void enqueueIfDeficient(
         K material,
+        ECOPlanningProblem<K, R> problem,
         Map<K, Long> balances,
         ECOPlanningGraph<K, R> graph,
         ArrayDeque<K> deficientMaterials,
         Set<K> queued
     ) {
-        if (balances.getOrDefault(material, 0L) < 0
+        if (!problem.isUnlimited(material)
+            && balances.getOrDefault(material, 0L) < 0
             && !graph.producersOf(material).isEmpty()
             && queued.add(material)) {
             deficientMaterials.addLast(material);
         }
     }
 
-    private static <K> void mergeScaled(Map<K, Long> balances, K key, long amount, long batches) {
-        balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
+    private static <K, R> void mergeScaled(
+        ECOPlanningProblem<K, R> problem,
+        Map<K, Long> balances,
+        K key,
+        long amount,
+        long batches
+    ) {
+        if (!problem.isUnlimited(key)) {
+            balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
+        }
     }
 }

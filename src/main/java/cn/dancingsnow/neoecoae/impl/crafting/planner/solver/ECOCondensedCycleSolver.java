@@ -541,8 +541,14 @@ public final class ECOCondensedCycleSolver {
             return problem;
         }
         Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
-        deficits.forEach((key, amount) -> inventory.merge(key, amount, Math::addExact));
-        return new ECOPlanningProblem<>(problem.operations(), inventory, problem.requested());
+        deficits.forEach((key, amount) -> {
+            if (!problem.isUnlimited(key)) {
+                inventory.merge(key, amount, Math::addExact);
+            }
+        });
+        return new ECOPlanningProblem<>(
+            problem.operations(), inventory, problem.requested(), problem.unlimitedInventory()
+        );
     }
 
     private static <K, R> void enqueue(

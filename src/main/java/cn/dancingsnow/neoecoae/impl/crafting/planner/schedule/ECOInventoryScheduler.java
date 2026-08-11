@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.schedule;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
@@ -24,7 +25,7 @@ public final class ECOInventoryScheduler {
         ECOPlanningProblem<K, R> problem,
         ECOPlanCandidate<R> candidate
     ) {
-        Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
+        Map<K, Long> inventory = ECOPlanningBalances.copyInventory(problem);
         Map<R, Long> remaining = new LinkedHashMap<>(candidate.executions());
         List<ECOScheduledStep<R>> steps = new ArrayList<>();
         Set<R> cycleOperations = cycleOperations(problem);
@@ -58,10 +59,10 @@ public final class ECOInventoryScheduler {
                 queued.remove(operation.reference());
                 long pending = remaining.getOrDefault(operation.reference(), 0L);
                 if (pending <= 0L) continue;
-                long executable = maxExecutable(operation, inventory, pending);
+                long executable = maxExecutable(problem, operation, inventory, pending);
                 if (executable <= 0L) continue;
-                apply(operation.inputs(), inventory, executable, false);
-                apply(operation.outputs(), inventory, executable, true);
+                apply(problem, operation.inputs(), inventory, executable, false);
+                apply(problem, operation.outputs(), inventory, executable, true);
                 long left = pending - executable;
                 remaining.put(operation.reference(), left);
                 steps.add(new ECOScheduledStep<>(operation.reference(), executable));
@@ -83,12 +84,18 @@ public final class ECOInventoryScheduler {
                 continue;
             }
             operation.inputs().forEach((key, amount) -> {
+                if (problem.isUnlimited(key)) {
+                    return;
+                }
                 long missing = amount - inventory.getOrDefault(key, 0L);
                 if (missing > 0) blockedBy.merge(key, missing, Math::max);
             });
         }
         if (remaining.values().stream().noneMatch(value -> value > 0)) {
             problem.requested().forEach((key, amount) -> {
+                if (problem.isUnlimited(key)) {
+                    return;
+                }
                 long missing = amount - inventory.getOrDefault(key, 0L);
                 if (missing > 0) blockedBy.put(key, missing);
             });
@@ -130,13 +137,16 @@ public final class ECOInventoryScheduler {
         long deadlineNanos,
         long maxExpandedStates
     ) {
-        Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
+        Map<K, Long> inventory = ECOPlanningBalances.copyInventory(problem);
         Map<K, Long> synthetic = new LinkedHashMap<>();
         for (var operation : problem.operations()) {
             if (candidate.executions().getOrDefault(operation.reference(), 0L) <= 0L) {
                 continue;
             }
             for (var input : operation.inputs().entrySet()) {
+                if (problem.isUnlimited(input.getKey())) {
+                    continue;
+                }
                 long output = operation.outputs().getOrDefault(input.getKey(), 0L);
                 if (output < input.getValue()) {
                     continue;
@@ -150,7 +160,9 @@ public final class ECOInventoryScheduler {
             }
         }
         ECOInventorySchedule<K, R> scheduled = schedule(
-            new ECOPlanningProblem<>(problem.operations(), inventory, problem.requested()), candidate
+            new ECOPlanningProblem<>(
+                problem.operations(), inventory, problem.requested(), problem.unlimitedInventory()
+            ), candidate
         );
         return new ECOInventorySchedule<>(
             scheduled.executable(), scheduled.steps(), scheduled.remainingInventory(),
@@ -193,13 +205,14 @@ public final class ECOInventoryScheduler {
     }
 
     private static <K, R> long maxExecutable(
+        ECOPlanningProblem<K, R> problem,
         ECOPlanningOperation<K, R> operation,
         Map<K, Long> inventory,
         long pending
     ) {
         long result = pending;
         for (var input : operation.inputs().entrySet()) {
-            long available = inventory.getOrDefault(input.getKey(), 0L);
+            long available = ECOPlanningBalances.available(problem, inventory, input.getKey());
             long output = operation.outputs().getOrDefault(input.getKey(), 0L);
             if (!operation.stateTransitionInputs().contains(input.getKey()) && output >= input.getValue()) {
                 if (available < input.getValue()) {
@@ -269,14 +282,15 @@ public final class ECOInventoryScheduler {
     }
 
     private static <K> void apply(
+        ECOPlanningProblem<K, ?> problem,
         Map<K, Long> amounts,
         Map<K, Long> inventory,
         long batches,
         boolean add
     ) {
         amounts.forEach((key, amount) -> {
-            long delta = Math.multiplyExact(amount, batches);
-            inventory.merge(key, add ? delta : -delta, Math::addExact);
+            long delta = ECOPlanningBalances.saturatedMultiply(amount, batches);
+            ECOPlanningBalances.merge(problem, inventory, key, add ? delta : -delta);
         });
     }
 }

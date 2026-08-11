@@ -27,7 +27,11 @@ public final class ECOBigIntegerDagSolver {
         }
 
         Map<K, BigInteger> balances = new LinkedHashMap<>();
-        problem.inventory().forEach((key, amount) -> balances.put(key, BigInteger.valueOf(amount)));
+        problem.inventory().forEach((key, amount) -> {
+            if (!problem.isUnlimited(key)) {
+                balances.put(key, BigInteger.valueOf(amount));
+            }
+        });
         problem.requested().keySet().forEach(balances::remove);
         problem.requested().forEach((key, amount) -> balances.merge(
             key, BigInteger.valueOf(amount).negate(), BigInteger::add
@@ -37,7 +41,7 @@ public final class ECOBigIntegerDagSolver {
         ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
         Set<K> queued = new HashSet<>();
         for (K requested : problem.requested().keySet()) {
-            enqueueIfDeficient(requested, balances, graph, deficientMaterials, queued);
+            enqueueIfDeficient(requested, problem.unlimitedInventory(), balances, graph, deficientMaterials, queued);
         }
 
         while (!deficientMaterials.isEmpty()) {
@@ -58,12 +62,12 @@ public final class ECOBigIntegerDagSolver {
             BigInteger batches = ceilDiv(balance.negate(), positiveNet(operation, deficientMaterial));
             executions.merge(operation.reference(), batches, BigInteger::add);
             operation.inputs().forEach((key, amount) -> {
-                mergeScaled(balances, key, amount, batches.negate());
-                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+                mergeScaled(balances, problem.unlimitedInventory(), key, amount, batches.negate());
+                enqueueIfDeficient(key, problem.unlimitedInventory(), balances, graph, deficientMaterials, queued);
             });
             operation.outputs().forEach((key, amount) -> {
-                mergeScaled(balances, key, amount, batches);
-                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+                mergeScaled(balances, problem.unlimitedInventory(), key, amount, batches);
+                enqueueIfDeficient(key, problem.unlimitedInventory(), balances, graph, deficientMaterials, queued);
             });
         }
 
@@ -88,12 +92,14 @@ public final class ECOBigIntegerDagSolver {
 
     private static <K, R> void enqueueIfDeficient(
         K material,
+        Set<K> unlimited,
         Map<K, BigInteger> balances,
         ECOPlanningGraph<K, R> graph,
         ArrayDeque<K> deficientMaterials,
         Set<K> queued
     ) {
-        if (balances.getOrDefault(material, BigInteger.ZERO).signum() < 0
+        if (!unlimited.contains(material)
+            && balances.getOrDefault(material, BigInteger.ZERO).signum() < 0
             && !graph.producersOf(material).isEmpty()
             && queued.add(material)) {
             deficientMaterials.addLast(material);
@@ -102,11 +108,14 @@ public final class ECOBigIntegerDagSolver {
 
     private static <K> void mergeScaled(
         Map<K, BigInteger> balances,
+        Set<K> unlimited,
         K key,
         long amount,
         BigInteger batches
     ) {
-        balances.merge(key, BigInteger.valueOf(amount).multiply(batches), BigInteger::add);
+        if (!unlimited.contains(key)) {
+            balances.merge(key, BigInteger.valueOf(amount).multiply(batches), BigInteger::add);
+        }
     }
 
     public record Result<R>(Map<R, BigInteger> executions) {

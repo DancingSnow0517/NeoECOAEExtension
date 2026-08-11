@@ -45,6 +45,9 @@ public record ECOCyclePlanningDiagnostics(
             snapshot.problem().operations().stream()
                 .filter(operation -> trace.get().missingSeedStarters().contains(operation.reference()))
                 .forEach(operation -> operation.inputs().forEach((key, amount) -> {
+                if (snapshot.problem().isUnlimited(key)) {
+                    return;
+                }
                 long deficit = Math.max(0L, amount - snapshot.problem().inventory().getOrDefault(key, 0L));
                 if (deficit > 0L) {
                     missingSeeds.merge(key, deficit, Math::max);

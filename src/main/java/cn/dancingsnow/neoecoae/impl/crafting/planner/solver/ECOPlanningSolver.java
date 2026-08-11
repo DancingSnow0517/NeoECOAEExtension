@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
@@ -341,11 +342,11 @@ public final class ECOPlanningSolver {
             if (operation == null || batches <= 0L) {
                 return;
             }
-            operation.inputs().forEach((key, amount) -> balances.merge(
-                key, ECOPlannerMath.saturatedMultiply(amount, -batches), ECOPlannerMath::saturatedAdd
+            operation.inputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, -batches
             ));
-            operation.outputs().forEach((key, amount) -> balances.merge(
-                key, ECOPlannerMath.saturatedMultiply(amount, batches), ECOPlannerMath::saturatedAdd
+            operation.outputs().forEach((key, amount) -> ECOPlanningBalances.mergeScaled(
+                problem, balances, key, amount, batches
             ));
         });
         Map<K, Long> residualInventory = new HashMap<>();
@@ -354,7 +355,11 @@ public final class ECOPlanningSolver {
                 residualInventory.put(key, amount);
             }
         });
-        return new ECOPlanningProblem<>(graph.operations(), residualInventory, problem.requested());
+        Set<K> residualUnlimited = new HashSet<>(problem.unlimitedInventory());
+        residualUnlimited.retainAll(residualInventory.keySet());
+        return new ECOPlanningProblem<>(
+            graph.operations(), residualInventory, problem.requested(), residualUnlimited
+        );
     }
 
     /**
@@ -393,7 +398,9 @@ public final class ECOPlanningSolver {
         if (!visiting.add(material)) {
             return Long.MAX_VALUE;
         }
-        long capacity = problem.requested().containsKey(material)
+        long capacity = problem.isUnlimited(material)
+            ? Long.MAX_VALUE
+            : problem.requested().containsKey(material)
             ? 0L
             : Math.max(0L, problem.inventory().getOrDefault(material, 0L));
         for (var producer : graph.producersOf(material)) {

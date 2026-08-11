@@ -35,8 +35,6 @@ import org.slf4j.LoggerFactory;
 /** Captures the immutable AE2 input view consumed by the ECO planning worker. */
 public final class ECOAE2SnapshotFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    /** Leaves headroom when third-party infinite cells expose infinity as Long.MAX_VALUE. */
-    private static final long INFINITE_STORAGE_PLANNING_AMOUNT = Long.MAX_VALUE / 4L;
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 8_192;
     private static final int MAX_INVENTORY_DEPENDENT_GRAPHS = 64;
@@ -112,7 +110,9 @@ public final class ECOAE2SnapshotFactory {
         try {
             fuzzyItemIds = Set.copyOf(Objects.requireNonNull(fuzzyItemIds, "fuzzyItemIds"));
             long inventoryStarted = System.nanoTime();
-            Map<AEKey, Long> inventory = copyInventory(grid, requester);
+            InventorySnapshot inventorySnapshot = copyInventory(grid, requester);
+            Map<AEKey, Long> inventory = new LinkedHashMap<>(inventorySnapshot.amounts());
+            Set<AEKey> unlimitedInventory = new LinkedHashSet<>(inventorySnapshot.unlimitedKeys());
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
                 requestedKey, requestedAmount, strategy,
@@ -176,13 +176,15 @@ public final class ECOAE2SnapshotFactory {
                 .anyMatch(operation -> operation.inputs().containsKey(requestedKey));
             if (!requestedIsInput) {
                 inventory.remove(requestedKey);
+                unlimitedInventory.remove(requestedKey);
             }
-            retainRelevantInventory(inventory, operations, requestedKey);
+            retainRelevantInventory(inventory, unlimitedInventory, operations, requestedKey);
 
             var problem = new ECOPlanningProblem<>(
                 operations,
                 inventory,
-                Map.of(requestedKey, requestedAmount)
+                Map.of(requestedKey, requestedAmount),
+                unlimitedInventory
             );
             LOGGER.debug(
                 "Captured ECO planning snapshot for {} x{}: generation={}, operations={}, "
@@ -728,7 +730,7 @@ public final class ECOAE2SnapshotFactory {
         }
     }
 
-    private static Map<AEKey, Long> copyInventory(
+    private static InventorySnapshot copyInventory(
         IGrid grid,
         ICraftingSimulationRequester requester
     ) {
@@ -740,30 +742,28 @@ public final class ECOAE2SnapshotFactory {
             source = grid.getStorageService().getCachedInventory();
         }
         Map<AEKey, Long> inventory = new LinkedHashMap<>();
-        Map<AEKey, Long> infiniteStorageKeys = new LinkedHashMap<>();
+        Set<AEKey> unlimitedKeys = new LinkedHashSet<>();
         for (var entry : source) {
             if (entry.getLongValue() > 0) {
                 long amount = entry.getLongValue();
                 if (amount == Long.MAX_VALUE) {
-                    infiniteStorageKeys.put(entry.getKey(), amount);
-                    amount = INFINITE_STORAGE_PLANNING_AMOUNT;
+                    unlimitedKeys.add(entry.getKey());
                 }
                 inventory.put(entry.getKey(), amount);
             }
         }
-        if (!infiniteStorageKeys.isEmpty()) {
+        if (!unlimitedKeys.isEmpty()) {
             ECOPlanningFailureDiagnostics.logDetail(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                "infinite_storage_sentinel keys="
-                    + ECOPlanningFailureDiagnostics.describeMap(infiniteStorageKeys)
-                    + " planningAmount=" + INFINITE_STORAGE_PLANNING_AMOUNT
+                "unlimited_storage_sentinel keys=" + unlimitedKeys
             );
         }
-        return inventory;
+        return new InventorySnapshot(inventory, unlimitedKeys);
     }
 
     private static void retainRelevantInventory(
         Map<AEKey, Long> inventory,
+        Set<AEKey> unlimitedInventory,
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations,
         AEKey requestedKey
     ) {
@@ -774,6 +774,14 @@ public final class ECOAE2SnapshotFactory {
             relevant.addAll(operation.outputs().keySet());
         }
         inventory.keySet().removeIf(key -> !relevant.contains(key));
+        unlimitedInventory.retainAll(inventory.keySet());
+    }
+
+    private record InventorySnapshot(Map<AEKey, Long> amounts, Set<AEKey> unlimitedKeys) {
+        private InventorySnapshot {
+            amounts = Map.copyOf(amounts);
+            unlimitedKeys = Set.copyOf(unlimitedKeys);
+        }
     }
 
     private static boolean sameMaterialization(

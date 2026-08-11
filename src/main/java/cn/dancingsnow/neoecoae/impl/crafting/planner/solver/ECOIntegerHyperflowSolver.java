@@ -343,13 +343,13 @@ public final class ECOIntegerHyperflowSolver {
                 var operation = operations.get(i);
                 executions.put(operation.reference(), count);
                 for (var input : operation.inputs().entrySet()) {
-                    if (!mergeScaled(balances, input.getKey(), input.getValue(), -count)) {
+                    if (!mergeScaled(problem, balances, input.getKey(), input.getValue(), -count)) {
                         overflowBranches++;
                         return null;
                     }
                 }
                 for (var output : operation.outputs().entrySet()) {
-                    if (!mergeScaled(balances, output.getKey(), output.getValue(), count)) {
+                    if (!mergeScaled(problem, balances, output.getKey(), output.getValue(), count)) {
                         overflowBranches++;
                         return null;
                     }
@@ -371,6 +371,9 @@ public final class ECOIntegerHyperflowSolver {
                         ? Termination.INTERRUPTED
                         : Termination.DEADLINE;
                     return null;
+                }
+                if (problem.isUnlimited(balance.getKey())) {
+                    continue;
                 }
                 if (balance.getValue() < 0) {
                     long missing = ECOPlannerMath.saturatedNegate(balance.getValue());
@@ -409,7 +412,9 @@ public final class ECOIntegerHyperflowSolver {
                         : Termination.DEADLINE;
                     return null;
                 }
-                if (entry.getValue() >= 0 || !hasStartableProducer(entry.getKey(), bootstrapSupply)) {
+                if (problem.isUnlimited(entry.getKey())
+                    || entry.getValue() >= 0
+                    || !hasStartableProducer(entry.getKey(), bootstrapSupply)) {
                     continue;
                 }
                 long amount = ECOPlannerMath.saturatedNegate(entry.getValue());
@@ -543,7 +548,7 @@ public final class ECOIntegerHyperflowSolver {
                     if (perBatch == 0L) {
                         continue;
                     }
-                    if (!mergeScaled(supply, output.getKey(), perBatch, count)) {
+                    if (!mergeScaled(problem, supply, output.getKey(), perBatch, count)) {
                         overflowBranches++;
                         return null;
                     }
@@ -582,7 +587,16 @@ public final class ECOIntegerHyperflowSolver {
         }
     }
 
-    private static <K> boolean mergeScaled(Map<K, Long> target, K key, long amount, long scale) {
+    private static <K> boolean mergeScaled(
+        ECOPlanningProblem<K, ?> problem,
+        Map<K, Long> target,
+        K key,
+        long amount,
+        long scale
+    ) {
+        if (problem.isUnlimited(key)) {
+            return true;
+        }
         try {
             long delta = Math.multiplyExact(amount, scale);
             target.merge(key, delta, Math::addExact);
