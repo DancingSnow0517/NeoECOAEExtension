@@ -77,7 +77,7 @@ public abstract class CraftConfirmTableRendererMixin {
         }
     }
 
-    static boolean isInfiniteStorageLimitWarning(long missingAmount, long storedAmount) {
+    private static boolean isInfiniteStorageLimitWarning(long missingAmount, long storedAmount) {
         // Long.MAX_VALUE is AE2's explicit unlimited sentinel; only finite values at or beyond
         // the legacy int boundary indicate a provider that may truncate extraction.
         return missingAmount <= 0L
