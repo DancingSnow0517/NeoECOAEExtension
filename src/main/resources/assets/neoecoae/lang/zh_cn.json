@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.planning.infinite_supply_shortfall": "\u65e0\u9650\u76d8\u5b9e\u9645\u63d0\u4f9b\u6570\u91cf\u4e0d\u8db3",
   "gui.neoecoae.planning.overflow_title": "\u6ea2\u51fa \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms \u00b7 %s",
   "gui.neoecoae.planning.title": "\u5408\u6210\u8ba1\u5212",
   "gui.neoecoae.planning.eco_fast_suffix": " \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms",

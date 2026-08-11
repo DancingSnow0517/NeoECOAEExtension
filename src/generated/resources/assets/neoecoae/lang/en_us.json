@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.planning.infinite_supply_shortfall": "Infinite storage provided quantity may be insufficient",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",

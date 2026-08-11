@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(CraftConfirmTableRenderer.class)
 public abstract class CraftConfirmTableRendererMixin {
     private static final int ECO_CYCLE_OVERLAY = 0x383FA9F5;
+    private static final int ECO_INFINITE_SUPPLY_WARNING_OVERLAY = 0x38FFD42A;
 
     @Inject(method = "getEntryOverlayColor", at = @At("RETURN"), cancellable = true)
     private void neoecoae$highlightCycleMaterial(
@@ -26,6 +27,11 @@ public abstract class CraftConfirmTableRendererMixin {
         var diagnostics = currentDiagnostics();
         if (diagnostics != null && diagnostics.materials().containsKey(entry.getWhat())) {
             cir.setReturnValue(ECO_CYCLE_OVERLAY);
+            return;
+        }
+        if (cir.getReturnValue() == 0
+            && isInfiniteStorageLimitWarning(entry.getMissingAmount(), entry.getStoredAmount())) {
+            cir.setReturnValue(ECO_INFINITE_SUPPLY_WARNING_OVERLAY);
         }
     }
 
@@ -36,10 +42,20 @@ public abstract class CraftConfirmTableRendererMixin {
     ) {
         var diagnostics = currentDiagnostics();
         if (diagnostics == null) {
+            if (isInfiniteStorageLimitWarning(entry.getMissingAmount(), entry.getStoredAmount())) {
+                cir.getReturnValue().add(Component.translatable(
+                    "gui.neoecoae.planning.infinite_supply_shortfall"
+                ).withStyle(ChatFormatting.YELLOW));
+            }
             return;
         }
         var stats = diagnostics.materials().get(entry.getWhat());
         if (stats == null) {
+            if (isInfiniteStorageLimitWarning(entry.getMissingAmount(), entry.getStoredAmount())) {
+                cir.getReturnValue().add(Component.translatable(
+                    "gui.neoecoae.planning.infinite_supply_shortfall"
+                ).withStyle(ChatFormatting.YELLOW));
+            }
             return;
         }
         String initial = entry.getWhat().formatAmount(stats.initial(), AmountFormat.FULL);
@@ -54,6 +70,19 @@ public abstract class CraftConfirmTableRendererMixin {
         cycleLines.add(Component.translatable("gui.neoecoae.planning.cycle_tooltip.produced", produced));
         cycleLines.add(Component.translatable("gui.neoecoae.planning.cycle_tooltip.remaining", remaining));
         cir.getReturnValue().addAll(0, cycleLines);
+        if (isInfiniteStorageLimitWarning(entry.getMissingAmount(), entry.getStoredAmount())) {
+            cir.getReturnValue().add(Component.translatable(
+                "gui.neoecoae.planning.infinite_supply_shortfall"
+            ).withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    static boolean isInfiniteStorageLimitWarning(long missingAmount, long storedAmount) {
+        // Long.MAX_VALUE is AE2's explicit unlimited sentinel; only finite values at or beyond
+        // the legacy int boundary indicate a provider that may truncate extraction.
+        return missingAmount <= 0L
+            && storedAmount >= Integer.MAX_VALUE
+            && storedAmount < Long.MAX_VALUE;
     }
 
     private static cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics currentDiagnostics() {

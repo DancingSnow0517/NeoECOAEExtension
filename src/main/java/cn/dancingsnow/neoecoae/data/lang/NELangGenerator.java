@@ -13,6 +13,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.planning.overflow_title", "Overflow · ECO Fast Craft · %s ms · %s");
         provider.add("gui.neoecoae.planning.partial_plan_cycle", "Partial Plan (Missing Ingredients%s)");
         provider.add("gui.neoecoae.planning.partial_plan_cycle.warning", "·Cycle present·Insufficient seed items");
+        provider.add("gui.neoecoae.planning.infinite_supply_shortfall", "Infinite storage provided quantity may be insufficient");
         provider.add("chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; calculating with AE2: %s");
         provider.add("gui.neoecoae.planning.reason.dynamic_smithing", "Crafting Plan · Substitution patterns present");
         provider.add("gui.neoecoae.planning.reason.no_eco_host", "No available ECO computation host");
