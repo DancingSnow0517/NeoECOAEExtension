@@ -168,6 +168,28 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
         this.neoecoae$handleSubmitJob(job, requestingMachine, target, src, cir);
     }
 
+    @Inject(
+            method = "submitJob(Lappeng/api/networking/crafting/ICraftingPlan;"
+                    + "Lappeng/api/networking/crafting/ICraftingRequester;"
+                    + "Lappeng/api/networking/crafting/ICraftingCPU;"
+                    + "Z"
+                    + "Lappeng/api/networking/security/IActionSource;"
+                    + "Z)"
+                    + "Lappeng/api/networking/crafting/ICraftingSubmitResult;",
+            at = @At("HEAD"),
+            cancellable = true,
+            require = 0)
+    private void neoecoae$submitJobWithSimulationFlag(
+            ICraftingPlan job,
+            ICraftingRequester requestingMachine,
+            ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource src,
+            boolean simulate,
+            CallbackInfoReturnable<ICraftingSubmitResult> cir) {
+        this.neoecoae$handleSubmitJob(job, requestingMachine, target, src, cir);
+    }
+
     private void neoecoae$handleSubmitJob(
             ICraftingPlan job,
             ICraftingRequester requestingMachine,
