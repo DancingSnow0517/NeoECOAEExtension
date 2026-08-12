@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import appeng.client.gui.Icon;
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.ids.AEComponents;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -35,10 +34,8 @@ import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /** Control surface for browsing network patterns and moving compatible ones into ECO crafting buses. */
@@ -56,6 +53,8 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_GAP = 2;
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
     private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
+    private static final int PREVIEW_QUERY_MAX_LENGTH = 128;
+    private static final int PREVIEW_QUERY_DEBOUNCE_TICKS = 3;
 
     private CraftingInterfaceUI() {
     }
@@ -63,7 +62,6 @@ public final class CraftingInterfaceUI {
     public static ModularUI create(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
             Player player) {
-        craftingInterface.ensurePatternPreview();
         PreviewState previewState = new PreviewState();
 
         UIElement root = new UIElement().layout(layout -> layout
@@ -242,8 +240,8 @@ public final class CraftingInterfaceUI {
                 .height(PREVIEW_HEIGHT)
                 .alignItems(AlignItems.CENTER))
                 .addClass("panel_border");
-        preview.addEventListener(UIEvents.TICK, event -> previewState.refresh(
-                craftingInterface.getPatternPreviewSnapshot(), craftingInterface.getLevel()));
+        preview.addEventListener(UIEvents.TICK, event -> previewState.refresh(craftingInterface));
+        preview.addEventListener(UIEvents.TICK, event -> previewState.requestIfNeeded(craftingInterface));
         // Consume ordinary wheel input before AE2 sees it, but leave Shift + wheel
         // to the individual preview slot so it can retain the quick-move shortcut.
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
@@ -273,7 +271,8 @@ public final class CraftingInterfaceUI {
                     if (event.deltaY != 0 && event.isShiftDown()) {
                         int sourceIndex = previewState.sourceIndexAt(visualSlot);
                         if (sourceIndex >= 0) {
-                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, false);
+                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, false,
+                                    previewState.getRevision());
                             event.stopImmediatePropagation();
                         }
                     }
@@ -282,7 +281,8 @@ public final class CraftingInterfaceUI {
                     if (event.button == 0 || event.button == 1) {
                         int sourceIndex = previewState.sourceIndexAt(visualSlot);
                         if (sourceIndex >= 0) {
-                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, event.button == 1);
+                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, event.button == 1,
+                                    previewState.getRevision());
                             event.stopImmediatePropagation();
                         }
                     }
@@ -354,9 +354,18 @@ public final class CraftingInterfaceUI {
     private static final class PreviewState {
         private final LocalSlot[] slots = new LocalSlot[PREVIEW_COLUMNS * PREVIEW_ROWS];
         private ItemStack[] snapshot = new ItemStack[0];
-        private List<PatternSearchData> searchData = List.of();
-        private List<Integer> visibleIndexes = List.of();
-        private final Set<Integer> matchedIndexes = new HashSet<>();
+        private int[] sourceIndexes = new int[0];
+        private boolean[] matchedSlots = new boolean[0];
+        private int responseRevision;
+        private int responsePage;
+        private int responseTotalEntries;
+        private int requestedRevision = Integer.MIN_VALUE;
+        private int requestedPage = Integer.MIN_VALUE;
+        private String requestedSearch = "";
+        private boolean requestedSubstitution;
+        private boolean requestedFluidSubstitution;
+        private boolean requestDirty = true;
+        private int requestDebounceTicks;
         private String search = "";
         private boolean showSubstitution = true;
         private boolean showFluidSubstitution = true;
@@ -380,45 +389,84 @@ public final class CraftingInterfaceUI {
 
         private void toggleSubstitutionPatterns() {
             showSubstitution = !showSubstitution;
-            rebuild();
+            scrollRow = 0;
+            requestDirty = true;
+            requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
         }
 
         private void toggleFluidSubstitutionPatterns() {
             showFluidSubstitution = !showFluidSubstitution;
-            rebuild();
+            scrollRow = 0;
+            requestDirty = true;
+            requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
         }
 
         private void setSearch(String value) {
-            String next = value == null ? "" : value;
+            String next = value == null ? "" : value.substring(0, Math.min(value.length(), PREVIEW_QUERY_MAX_LENGTH));
             if (!search.equals(next)) {
                 search = next;
                 scrollRow = 0;
-                rebuild();
+                requestDirty = true;
+                requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
             }
         }
 
-        private void refresh(ItemStack[] nextSnapshot, Level level) {
-            if (level == null || !level.isClientSide || nextSnapshot == null || sameSnapshot(nextSnapshot)) {
+        private void requestIfNeeded(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+            if (requestDebounceTicks > 0) {
+                requestDebounceTicks--;
+                return;
+            }
+            int page = scrollRow / PREVIEW_ROWS;
+            int revision = craftingInterface.getPatternPreviewRevision();
+            if (!requestDirty && requestedRevision == revision && requestedPage == page
+                    && search.equals(requestedSearch)
+                    && showSubstitution == requestedSubstitution
+                    && showFluidSubstitution == requestedFluidSubstitution) {
+                return;
+            }
+            requestedRevision = revision;
+            requestedPage = page;
+            requestedSearch = search;
+            requestedSubstitution = showSubstitution;
+            requestedFluidSubstitution = showFluidSubstitution;
+            requestDirty = false;
+            craftingInterface.rpcToServer("requestPatternPreviewPage", revision, page, search,
+                    showSubstitution, showFluidSubstitution);
+        }
+
+        private void refresh(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+            ItemStack[] nextSnapshot = craftingInterface.getPatternPreviewSnapshot();
+            if (nextSnapshot == null) {
+                return;
+            }
+            int[] nextSourceIndexes = new int[nextSnapshot.length];
+            for (int index = 0; index < nextSnapshot.length; index++) {
+                nextSourceIndexes[index] = craftingInterface.getPatternPreviewSourceIndex(index);
+            }
+            boolean changed = responseRevision != craftingInterface.getPatternPreviewRevision()
+                    || responsePage != craftingInterface.getPatternPreviewPage()
+                    || responseTotalEntries != craftingInterface.getPatternPreviewTotalEntries()
+                    || snapshot.length != nextSnapshot.length;
+            for (int index = 0; !changed && index < snapshot.length; index++) {
+                changed = !ItemStack.matches(snapshot[index], nextSnapshot[index])
+                        || sourceIndexes[index] != nextSourceIndexes[index];
+            }
+            if (!changed) {
                 return;
             }
             snapshot = copySnapshot(nextSnapshot);
-            searchData = new ArrayList<>(snapshot.length);
-            for (ItemStack stack : snapshot) {
-                searchData.add(PatternSearchData.create(stack, level));
-            }
-            rebuild();
-        }
-
-        private boolean sameSnapshot(ItemStack[] nextSnapshot) {
-            if (snapshot.length != nextSnapshot.length) {
-                return false;
-            }
-            for (int index = 0; index < snapshot.length; index++) {
-                if (!ItemStack.matches(snapshot[index], nextSnapshot[index])) {
-                    return false;
+            sourceIndexes = nextSourceIndexes;
+            matchedSlots = new boolean[nextSnapshot.length];
+            if (!search.trim().isEmpty()) {
+                for (int index = 0; index < nextSnapshot.length; index++) {
+                    matchedSlots[index] = matchesSearch(nextSnapshot[index], craftingInterface.getLevel());
                 }
             }
-            return true;
+            responseRevision = craftingInterface.getPatternPreviewRevision();
+            responsePage = craftingInterface.getPatternPreviewPage();
+            responseTotalEntries = craftingInterface.getPatternPreviewTotalEntries();
+            scrollRow = Math.clamp(responsePage * PREVIEW_ROWS, 0, getMaxScrollRow());
+            updateSlots();
         }
 
         private static ItemStack[] copySnapshot(ItemStack[] source) {
@@ -429,62 +477,69 @@ public final class CraftingInterfaceUI {
             return copy;
         }
 
-        private void rebuild() {
-            List<String> queryTerms = tokenize(search);
-            List<Integer> nextVisible = new ArrayList<>();
-            matchedIndexes.clear();
-            boolean noSearch = queryTerms.isEmpty();
-            for (int index = 0; index < searchData.size(); index++) {
-                PatternSearchData data = searchData.get(index);
-                if (noSearch && showSubstitution && showFluidSubstitution) {
-                    nextVisible.add(index);
-                    continue;
-                }
-                if (!data.encodedPattern()
-                        || (!showSubstitution && data.canSubstitute())
-                        || (!showFluidSubstitution && data.canSubstituteFluids())) {
-                    continue;
-                }
-                if (noSearch || data.names().stream().anyMatch(name -> matches(name, queryTerms))) {
-                    nextVisible.add(index);
-                    if (!noSearch) {
-                        matchedIndexes.add(index);
-                    }
-                }
-            }
-            visibleIndexes = List.copyOf(nextVisible);
-            scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
-            updateSlots();
-        }
-
         private void updateSlots() {
             for (int visualSlot = 0; visualSlot < slots.length; visualSlot++) {
                 LocalSlot slot = slots[visualSlot];
                 if (slot == null) {
                     continue;
                 }
-                int sourceIndex = sourceIndexAt(visualSlot);
-                slot.set(sourceIndex >= 0 && sourceIndex < snapshot.length
-                        ? snapshot[sourceIndex].copy() : ItemStack.EMPTY);
+                slot.set(visualSlot < snapshot.length ? snapshot[visualSlot].copy() : ItemStack.EMPTY);
             }
         }
 
         private int sourceIndexAt(int visualSlot) {
-            int visibleIndex = scrollRow * PREVIEW_COLUMNS + visualSlot;
-            return visibleIndex >= 0 && visibleIndex < visibleIndexes.size()
-                    ? visibleIndexes.get(visibleIndex) : -1;
+            return visualSlot >= 0 && visualSlot < sourceIndexes.length ? sourceIndexes[visualSlot] : -1;
         }
 
         private boolean isSlotMatched(int visualSlot) {
-            return matchedIndexes.contains(sourceIndexAt(visualSlot));
+            return visualSlot >= 0 && visualSlot < matchedSlots.length && matchedSlots[visualSlot];
+        }
+
+        private boolean matchesSearch(ItemStack stack, Level level) {
+            if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack) || level == null) {
+                return false;
+            }
+            List<String> terms = tokenize(search);
+            if (terms.isEmpty()) {
+                return false;
+            }
+            List<String> names = new ArrayList<>();
+            names.add(stack.getHoverName().getString().toLowerCase(Locale.ROOT));
+            try {
+                var details = PatternDetailsHelper.decodePattern(stack, level);
+                if (details != null) {
+                    for (var output : details.getOutputs()) {
+                        if (output != null) {
+                            names.add(output.what().getDisplayName().getString().toLowerCase(Locale.ROOT));
+                        }
+                    }
+                    for (var input : details.getInputs()) {
+                        if (input != null && input.getPossibleInputs().length > 0
+                                && input.getPossibleInputs()[0] != null) {
+                            names.add(input.getPossibleInputs()[0].what().getDisplayName()
+                                    .getString().toLowerCase(Locale.ROOT));
+                        }
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // Keep the preview usable if a malformed pattern cannot be decoded on the client.
+            }
+            return terms.stream().allMatch(term -> names.stream().anyMatch(name -> name.contains(term)));
+        }
+
+        private static List<String> tokenize(String value) {
+            return Arrays.stream(value.trim().toLowerCase(Locale.ROOT).split(" "))
+                    .filter(term -> !term.isEmpty()).toList();
         }
 
         private int getRowCount() {
-            return (visibleIndexes.size() + PREVIEW_COLUMNS - 1) / PREVIEW_COLUMNS;
+            return (responseTotalEntries + PREVIEW_COLUMNS - 1) / PREVIEW_COLUMNS;
         }
 
         private int getMaxScrollRow() {
-            return Math.max(0, getRowCount() - PREVIEW_ROWS);
+            int pageCount = (responseTotalEntries + PREVIEW_COLUMNS * PREVIEW_ROWS - 1)
+                    / (PREVIEW_COLUMNS * PREVIEW_ROWS);
+            return Math.max(0, (pageCount - 1) * PREVIEW_ROWS);
         }
 
         private int getScrollRow() {
@@ -492,68 +547,19 @@ public final class CraftingInterfaceUI {
         }
 
         private void setScrollRow(int value) {
-            int next = Math.clamp(value, 0, getMaxScrollRow());
+            int next = Math.clamp(Math.round(value / (float) PREVIEW_ROWS) * PREVIEW_ROWS, 0, getMaxScrollRow());
             if (next != scrollRow) {
                 scrollRow = next;
-                updateSlots();
+                requestDirty = true;
             }
         }
 
         private void scroll(int delta) {
-            setScrollRow(scrollRow + delta);
+            setScrollRow(scrollRow + delta * PREVIEW_ROWS);
         }
 
-        private static List<String> tokenize(String value) {
-            return Arrays.stream(value.trim().toLowerCase(Locale.ROOT).split(" "))
-                    .filter(term -> !term.isEmpty())
-                    .toList();
-        }
-
-        private static boolean matches(List<String> nameTokens, List<String> queryTerms) {
-            int queryIndex = 0;
-            for (String nameToken : nameTokens) {
-                if (nameToken.contains(queryTerms.get(queryIndex))) {
-                    queryIndex++;
-                    if (queryIndex == queryTerms.size()) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-    }
-
-    private record PatternSearchData(
-            boolean encodedPattern,
-            boolean canSubstitute,
-            boolean canSubstituteFluids,
-            List<List<String>> names) {
-        private static PatternSearchData create(ItemStack stack, Level level) {
-            if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
-                return new PatternSearchData(false, false, false, List.of());
-            }
-            var encodedPattern = stack.get(AEComponents.ENCODED_CRAFTING_PATTERN);
-            boolean canSubstitute = encodedPattern != null && encodedPattern.canSubstitute();
-            boolean canSubstituteFluids = encodedPattern != null && encodedPattern.canSubstituteFluids();
-            var details = PatternDetailsHelper.decodePattern(stack, level);
-            if (details == null) {
-                return new PatternSearchData(true, canSubstitute, canSubstituteFluids, List.of());
-            }
-            List<List<String>> names = new ArrayList<>();
-            for (var output : details.getOutputs()) {
-                if (output != null) {
-                    names.add(PreviewState.tokenize(output.what().getDisplayName().getString()));
-                }
-            }
-            for (var input : details.getInputs()) {
-                if (input != null && input.getPossibleInputs().length > 0) {
-                    var possibleInput = input.getPossibleInputs()[0];
-                    if (possibleInput != null) {
-                        names.add(PreviewState.tokenize(possibleInput.what().getDisplayName().getString()));
-                    }
-                }
-            }
-            return new PatternSearchData(true, canSubstitute, canSubstituteFluids, List.copyOf(names));
+        private int getRevision() {
+            return responseRevision;
         }
     }
 

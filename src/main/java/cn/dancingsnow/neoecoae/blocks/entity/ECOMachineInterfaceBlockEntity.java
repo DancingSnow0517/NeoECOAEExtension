@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.ids.AEComponents;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
@@ -35,13 +36,11 @@ import lombok.Getter;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -50,8 +49,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
-import com.mojang.brigadier.StringReader;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,7 +56,11 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.UUID;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
@@ -68,6 +69,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
     private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
+    private static final int PATTERN_PREVIEW_PAGE_SIZE = 36;
+    private static final int PATTERN_PREVIEW_MAX_QUERY_LENGTH = 128;
+    private static final int PATTERN_PREVIEW_MAX_PAGE_NBT_BYTES = 24_000;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 36;
 
     @Getter
@@ -108,17 +112,20 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private PatternTransferTask patternTransferTask;
     private long lastPatternTransferSyncTick = Long.MIN_VALUE;
     /**
-     * The physical F-bus slot order, encoded as one NBT string for client-local preview filtering.
-     * ldlib2's array accessor cannot safely create refs for ItemStack[] elements.
+     * Preview data is sent only through the page RPC below. Keeping it out of the managed sync storage is
+     * important: a whole network of F-buses can contain megabytes of pattern NBT, while the UI displays 36 slots.
      */
-    @DescSynced
-    private String patternPreviewSnapshotData = "";
-    private transient ItemStack[] decodedPatternPreviewSnapshot = new ItemStack[0];
-    private transient String decodedPatternPreviewSnapshotData;
+    private transient ItemStack[] patternPreviewServerSnapshot = new ItemStack[0];
+    private transient ItemStack[] patternPreviewClientPage = new ItemStack[0];
+    private transient int[] patternPreviewClientSourceIndices = new int[0];
+    private transient int patternPreviewClientRevision;
+    private transient int patternPreviewClientPageNumber;
+    private transient int patternPreviewClientTotalEntries;
+    private transient int patternPreviewRevisionCounter;
+    private transient Map<UUID, PatternPreviewSession> patternPreviewSessions = new HashMap<>();
     private List<PatternContainer> patternPreviewSources = List.of();
     private List<PatternPreviewEntry> allPatternPreviewEntries = new ArrayList<>();
     private boolean patternPreviewInitialized;
-    private long lastPatternPreviewSyncTick = Long.MIN_VALUE;
     public ECOMachineInterfaceBlockEntity(
         BlockEntityType<?> type,
         BlockPos pos,
@@ -253,13 +260,26 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 patternTransferIncompatible);
     }
 
+    /** Returns only the page most recently delivered to this client. */
     public ItemStack[] getPatternPreviewSnapshot() {
-        if (!java.util.Objects.equals(decodedPatternPreviewSnapshotData, patternPreviewSnapshotData)) {
-            decodedPatternPreviewSnapshot = decodePatternPreviewSnapshot(patternPreviewSnapshotData,
-                    level == null ? null : level.registryAccess());
-            decodedPatternPreviewSnapshotData = patternPreviewSnapshotData;
-        }
-        return decodedPatternPreviewSnapshot;
+        return patternPreviewClientPage;
+    }
+
+    public int getPatternPreviewSourceIndex(int visualSlot) {
+        return visualSlot >= 0 && visualSlot < patternPreviewClientSourceIndices.length
+                ? patternPreviewClientSourceIndices[visualSlot] : -1;
+    }
+
+    public int getPatternPreviewRevision() {
+        return patternPreviewClientRevision;
+    }
+
+    public int getPatternPreviewPage() {
+        return patternPreviewClientPageNumber;
+    }
+
+    public int getPatternPreviewTotalEntries() {
+        return patternPreviewClientTotalEntries;
     }
 
     public void organizePatternBuses() {
@@ -305,18 +325,92 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     /**
+     * Requests one filtered page for the player opening the UI. The server owns filtering and returns at most 36
+     * stacks, so the size of the packet is bounded by the visible page rather than the entire network.
+     */
+    @RPCMethod
+    public void requestPatternPreviewPage(
+            RPCSender sender,
+            int requestedRevision,
+            int page,
+            String query,
+            boolean substitutions,
+            boolean fluids) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)
+                || !formed || !supportsCraftingInterfaceUi()) {
+            return;
+        }
+        ServerPlayer player = sender.asPlayer();
+        if (!isPreviewPlayer(player, serverLevel)) {
+            return;
+        }
+        ensurePatternPreview();
+        PatternPreviewSession session = patternPreviewSessions.computeIfAbsent(
+                player.getUUID(), ignored -> new PatternPreviewSession());
+        String normalizedQuery = normalizePreviewQuery(query);
+        boolean changed = !normalizedQuery.equals(session.query)
+                || session.substitutions != substitutions
+                || session.fluids != fluids;
+        if (requestedRevision != session.revision && requestedRevision != 0) {
+            changed = true;
+        }
+        if (changed) {
+            session.revision = nextPatternPreviewRevision();
+            session.query = normalizedQuery;
+            session.substitutions = substitutions;
+            session.fluids = fluids;
+        }
+        List<Integer> visible = getVisiblePreviewIndices(session);
+        int maxPage = Math.max(0, (visible.size() - 1) / PATTERN_PREVIEW_PAGE_SIZE);
+        session.page = Math.clamp(page, 0, maxPage);
+        sendPatternPreviewPage(player, session, visible);
+    }
+
+    /** Client callback for the bounded page response. */
+    @RPCMethod
+    public void setPatternPreviewPage(
+            RPCSender sender,
+            int revision,
+            int page,
+            int totalEntries,
+            CompoundTag payload) {
+        if (!sender.isServer() || level == null || !level.isClientSide) {
+            return;
+        }
+        ListTag stacks = payload == null ? new ListTag() : payload.getList("stacks", Tag.TAG_COMPOUND);
+        int[] encodedIndices = payload == null ? new int[0] : payload.getIntArray("indices");
+        int count = Math.min(PATTERN_PREVIEW_PAGE_SIZE, Math.min(stacks.size(), encodedIndices.length));
+        ItemStack[] decoded = new ItemStack[count];
+        int[] sourceIndices = new int[count];
+        for (int index = 0; index < count; index++) {
+            CompoundTag stackTag = stacks.getCompound(index);
+            decoded[index] = stackTag.getBoolean(EMPTY_PATTERN_PREVIEW_ENTRY)
+                    ? ItemStack.EMPTY
+                    : ItemStack.parseOptional(level.registryAccess(), stackTag);
+            sourceIndices[index] = encodedIndices[index];
+        }
+        patternPreviewClientPage = decoded;
+        patternPreviewClientSourceIndices = sourceIndices;
+        patternPreviewClientRevision = revision;
+        patternPreviewClientPageNumber = Math.max(0, page);
+        patternPreviewClientTotalEntries = Math.max(0, totalEntries);
+    }
+
+    /**
      * Client-local slots cannot participate in vanilla container clicks. Preserve the useful take action by
      * resolving the client's snapshot index on the server, where the backing F-bus inventory is authoritative.
      */
     @RPCMethod
-    public void takePatternPreviewEntry(RPCSender sender, int sourceIndex, boolean single) {
+    public void takePatternPreviewEntry(RPCSender sender, int sourceIndex, boolean single, int revision) {
         if (sender.isServer() || !(level instanceof ServerLevel) || sourceIndex < 0
                 || sourceIndex >= allPatternPreviewEntries.size()) {
             return;
         }
         ServerPlayer player = sender.asPlayer();
+        PatternPreviewSession session = player == null ? null : patternPreviewSessions.get(player.getUUID());
         PatternPreviewEntry entry = allPatternPreviewEntries.get(sourceIndex);
-        if (player == null || !isPreviewSourceActive(entry)) {
+        if (session == null || session.revision != revision || !isPreviewPlayer(player, (ServerLevel) level)
+                || !isPreviewSourceActive(entry) || !isSourceOnCurrentPreviewPage(session, sourceIndex)) {
             return;
         }
         InternalInventory inventory = getPreviewInventory(entry);
@@ -327,6 +421,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         ItemStack taken = inventory.extractItem(entry.sourceSlot(), single ? 1 : current.getCount(), false);
         if (!taken.isEmpty()) {
             player.getInventory().placeItemBackInInventory(taken);
+            refreshPatternPreviewSnapshot();
+            sendPatternPreviewPage(player, session, getVisiblePreviewIndices(session));
         }
     }
 
@@ -338,7 +434,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         ServerPlayer player = sender.asPlayer();
-        if (player == null || player.level() != serverLevel) {
+        if (!isPreviewPlayer(player, serverLevel)) {
             return;
         }
         ItemStack stack = player.getInventory().getItem(inventorySlot);
@@ -360,7 +456,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 if (remaining.getCount() != stack.getCount()) {
                     player.getInventory().setItem(inventorySlot, remaining);
                     refreshPatternPreviewSnapshot();
-                    syncPatternPreviewState(serverLevel.getGameTime(), true);
                     return;
                 }
             }
@@ -377,6 +472,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         if (patternPreviewInitialized) {
             tickPatternPreviewCache(serverLevel);
+            prunePatternPreviewSessions(serverLevel);
         }
     }
 
@@ -482,13 +578,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private void loadPatternPreview(ServerLevel serverLevel) {
         if (!formed || !supportsCraftingInterfaceUi()) {
             clearPatternPreview();
-            syncPatternPreviewState(serverLevel.getGameTime(), true);
             return;
         }
         IGrid grid = getMainNode().getGrid();
         if (grid == null) {
             clearPatternPreview();
-            syncPatternPreviewState(serverLevel.getGameTime(), true);
             return;
         }
         List<PatternContainer> sources = getFPatternSources(grid);
@@ -503,7 +597,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         allPatternPreviewEntries = entries;
         patternPreviewInitialized = true;
         refreshPatternPreviewSnapshot();
-        syncPatternPreviewState(serverLevel.getGameTime(), true);
     }
 
     /**
@@ -514,7 +607,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         IGrid grid = getMainNode().getGrid();
         if (!formed || grid == null) {
             clearPatternPreview();
-            syncPatternPreviewState(serverLevel.getGameTime(), false);
             return;
         }
         List<PatternContainer> sources = getFPatternSources(grid);
@@ -522,9 +614,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             loadPatternPreview(serverLevel);
             return;
         }
-        if (refreshPatternPreviewSnapshot()) {
-            syncPatternPreviewState(serverLevel.getGameTime(), false);
-        }
+        refreshPatternPreviewSnapshot();
     }
 
     private boolean samePatternPreviewSources(List<PatternContainer> sources) {
@@ -540,16 +630,32 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return true;
     }
 
+    private void prunePatternPreviewSessions(ServerLevel serverLevel) {
+        patternPreviewSessions.entrySet().removeIf(entry -> {
+            ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(entry.getKey());
+            return !isPreviewPlayer(player, serverLevel);
+        });
+    }
+
     private void clearPatternPreview() {
         patternPreviewSources = List.of();
         allPatternPreviewEntries = new ArrayList<>();
-        patternPreviewSnapshotData = "";
+        patternPreviewServerSnapshot = new ItemStack[0];
+        for (Map.Entry<UUID, PatternPreviewSession> entry : patternPreviewSessions.entrySet()) {
+            PatternPreviewSession session = entry.getValue();
+            session.revision = nextPatternPreviewRevision();
+            ServerPlayer player = serverPlayerByUuid(entry.getKey());
+            if (player != null && level instanceof ServerLevel serverLevel && isPreviewPlayer(player, serverLevel)) {
+                sendPatternPreviewPage(player, session, List.of());
+            }
+        }
+        patternPreviewSessions.clear();
         patternPreviewInitialized = false;
     }
 
     private boolean refreshPatternPreviewSnapshot() {
         ItemStack[] next = new ItemStack[allPatternPreviewEntries.size()];
-        ItemStack[] previous = getPatternPreviewSnapshot();
+        ItemStack[] previous = patternPreviewServerSnapshot;
         boolean changed = next.length != previous.length;
         for (int index = 0; index < next.length; index++) {
             PatternPreviewEntry entry = allPatternPreviewEntries.get(index);
@@ -559,58 +665,158 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             changed |= index >= previous.length || !ItemStack.matches(previous[index], next[index]);
         }
         if (changed) {
-            patternPreviewSnapshotData = encodePatternPreviewSnapshot(next,
-                    level == null ? null : level.registryAccess());
-            decodedPatternPreviewSnapshot = next;
-            decodedPatternPreviewSnapshotData = patternPreviewSnapshotData;
+            patternPreviewServerSnapshot = next;
+            var iterator = patternPreviewSessions.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<UUID, PatternPreviewSession> entry = iterator.next();
+                PatternPreviewSession session = entry.getValue();
+                session.revision = nextPatternPreviewRevision();
+                ServerPlayer player = serverPlayerByUuid(entry.getKey());
+                if (player == null || !(level instanceof ServerLevel serverLevel)
+                        || !isPreviewPlayer(player, serverLevel)) {
+                    iterator.remove();
+                } else {
+                    sendPatternPreviewPage(player, session, getVisiblePreviewIndices(session));
+                }
+            }
         }
         return changed;
     }
 
-    private static String encodePatternPreviewSnapshot(ItemStack[] stacks, @Nullable HolderLookup.Provider registries) {
-        if (registries == null) {
+    @Nullable
+    private ServerPlayer serverPlayerByUuid(UUID uuid) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return null;
+        }
+        return serverLevel.getServer().getPlayerList().getPlayer(uuid);
+    }
+
+    private int nextPatternPreviewRevision() {
+        patternPreviewRevisionCounter = patternPreviewRevisionCounter == Integer.MAX_VALUE
+                ? 1 : patternPreviewRevisionCounter + 1;
+        return patternPreviewRevisionCounter;
+    }
+
+    private boolean isPreviewPlayer(@Nullable ServerPlayer player, ServerLevel serverLevel) {
+        return player != null && player.level() == serverLevel
+                && player.blockPosition().distSqr(worldPosition) <= 64.0D;
+    }
+
+    private static String normalizePreviewQuery(@Nullable String query) {
+        if (query == null) {
             return "";
         }
-        ListTag list = new ListTag();
-        for (ItemStack stack : stacks) {
-            if (stack == null || stack.isEmpty()) {
-                CompoundTag entry = new CompoundTag();
-                entry.putBoolean(EMPTY_PATTERN_PREVIEW_ENTRY, true);
-                list.add(entry);
-            } else {
-                list.add(stack.save(registries));
-            }
-        }
-        return list.toString();
+        String normalized = query.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.substring(0, Math.min(normalized.length(), PATTERN_PREVIEW_MAX_QUERY_LENGTH));
     }
 
-    private static ItemStack[] decodePatternPreviewSnapshot(String data, @Nullable HolderLookup.Provider registries) {
-        if (data == null || data.isEmpty() || registries == null) {
-            return new ItemStack[0];
+    private List<Integer> getVisiblePreviewIndices(PatternPreviewSession session) {
+        List<Integer> visible = new ArrayList<>();
+        List<String> terms = java.util.Arrays.stream(session.query.split(" "))
+                .filter(term -> !term.isEmpty()).toList();
+        for (int index = 0; index < patternPreviewServerSnapshot.length; index++) {
+            ItemStack stack = patternPreviewServerSnapshot[index];
+            if (stack.isEmpty()) {
+                if (terms.isEmpty()) visible.add(index);
+                continue;
+            }
+            if (!PatternDetailsHelper.isEncodedPattern(stack)) {
+                continue;
+            }
+            var encoded = stack.get(AEComponents.ENCODED_CRAFTING_PATTERN);
+            boolean canSubstitute = encoded != null && encoded.canSubstitute();
+            boolean canSubstituteFluids = encoded != null && encoded.canSubstituteFluids();
+            if (!session.substitutions && canSubstitute || !session.fluids && canSubstituteFluids) {
+                continue;
+            }
+            if (!terms.isEmpty() && !patternMatchesQuery(stack, terms)) continue;
+            visible.add(index);
         }
+        return visible;
+    }
+
+    private boolean isSourceOnCurrentPreviewPage(PatternPreviewSession session, int sourceIndex) {
+        List<Integer> visible = getVisiblePreviewIndices(session);
+        int start = session.page * PATTERN_PREVIEW_PAGE_SIZE;
+        int end = Math.min(start + PATTERN_PREVIEW_PAGE_SIZE, visible.size());
+        return start >= 0 && start < end && visible.subList(start, end).contains(sourceIndex);
+    }
+
+    private boolean patternMatchesQuery(ItemStack stack, List<String> terms) {
+        List<String> searchable = new ArrayList<>();
+        searchable.add(stack.getHoverName().getString().toLowerCase(java.util.Locale.ROOT));
         try {
-            Tag parsed = new TagParser(new StringReader(data)).readValue();
-            if (!(parsed instanceof ListTag list)) {
-                return new ItemStack[0];
+            var details = PatternDetailsHelper.decodePattern(stack, level);
+            if (details != null) {
+                for (var output : details.getOutputs()) {
+                    if (output != null) searchable.add(output.what().getDisplayName().getString()
+                            .toLowerCase(java.util.Locale.ROOT));
+                }
+                for (var input : details.getInputs()) {
+                    if (input != null && input.getPossibleInputs().length > 0
+                            && input.getPossibleInputs()[0] != null) {
+                        searchable.add(input.getPossibleInputs()[0].what().getDisplayName().getString()
+                                .toLowerCase(java.util.Locale.ROOT));
+                    }
+                }
             }
-            ItemStack[] result = new ItemStack[list.size()];
-            for (int index = 0; index < list.size(); index++) {
-                CompoundTag entry = list.getCompound(index);
-                result[index] = entry.getBoolean(EMPTY_PATTERN_PREVIEW_ENTRY)
-                    ? ItemStack.EMPTY
-                    : ItemStack.parseOptional(registries, entry);
-            }
-            return result;
-        } catch (CommandSyntaxException | RuntimeException ignored) {
-            return new ItemStack[0];
+        } catch (RuntimeException ignored) {
+            // A malformed pattern remains visible by its item name; decoding must not break the UI request.
         }
+        return terms.stream().allMatch(term -> searchable.stream().anyMatch(name -> name.contains(term)));
     }
 
-    private void syncPatternPreviewState(long gameTime, boolean force) {
-        if (force || gameTime - lastPatternPreviewSyncTick >= PATTERN_TRANSFER_SYNC_INTERVAL_TICKS) {
-            lastPatternPreviewSyncTick = gameTime;
-            markForUpdate();
+    private void sendPatternPreviewPage(ServerPlayer player, PatternPreviewSession session, List<Integer> visible) {
+        CompoundTag payload = new CompoundTag();
+        ListTag stacks = new ListTag();
+        int maxPage = Math.max(0, (visible.size() - 1) / PATTERN_PREVIEW_PAGE_SIZE);
+        session.page = Math.clamp(session.page, 0, maxPage);
+        int[] indices = new int[Math.max(0, Math.min(PATTERN_PREVIEW_PAGE_SIZE, visible.size() - session.page * PATTERN_PREVIEW_PAGE_SIZE))];
+        int start = Math.min(session.page * PATTERN_PREVIEW_PAGE_SIZE, visible.size());
+        int end = Math.min(start + PATTERN_PREVIEW_PAGE_SIZE, visible.size());
+        for (int offset = start; offset < end; offset++) {
+            int sourceIndex = visible.get(offset);
+            ItemStack stack = sourceIndex < patternPreviewServerSnapshot.length
+                    ? patternPreviewServerSnapshot[sourceIndex] : ItemStack.EMPTY;
+            CompoundTag encodedStack = stack.isEmpty()
+                    ? emptyPatternPreviewTag()
+                    : (CompoundTag) stack.save(((ServerLevel) level).registryAccess());
+            int encodedSize = payloadSize(encodedStack);
+            if (!stack.isEmpty() && (encodedSize > PATTERN_PREVIEW_MAX_PAGE_NBT_BYTES
+                    || encodedSize + payloadSize(stacks) > PATTERN_PREVIEW_MAX_PAGE_NBT_BYTES)) {
+                // Keep a small, recognizable pattern item in the page when its recipe component is unusually large.
+                // The source index remains valid, so taking the item still operates on the authoritative bus slot.
+                ItemStack displayStack = stack.copy();
+                displayStack.remove(AEComponents.ENCODED_CRAFTING_PATTERN);
+                encodedStack = (CompoundTag) displayStack.save(((ServerLevel) level).registryAccess());
+                if (payloadSize(encodedStack) + payloadSize(stacks) > PATTERN_PREVIEW_MAX_PAGE_NBT_BYTES) {
+                    encodedStack = emptyPatternPreviewTag();
+                }
+            }
+            stacks.add(encodedStack);
+            indices[offset - start] = sourceIndex;
         }
+        payload.put("stacks", stacks);
+        payload.putIntArray("indices", indices);
+        rpcToPlayer(player, "setPatternPreviewPage", session.revision, session.page, visible.size(), payload);
+    }
+
+    private static CompoundTag emptyPatternPreviewTag() {
+        CompoundTag empty = new CompoundTag();
+        empty.putBoolean(EMPTY_PATTERN_PREVIEW_ENTRY, true);
+        return empty;
+    }
+
+    private static int payloadSize(Tag tag) {
+        return tag.toString().getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    private static final class PatternPreviewSession {
+        private int revision;
+        private int page;
+        private String query = "";
+        private boolean substitutions = true;
+        private boolean fluids = true;
     }
 
     private void clearPatternTransferResults() {
