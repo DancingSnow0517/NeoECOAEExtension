@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.event;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -82,6 +83,7 @@ public final class ECOStorageCommands {
     private static int recover(CommandSourceStack source, UUID domainId) {
         var engine = ECOInfiniteStorageDomains.recover(source.getLevel(), domainId);
         if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
+            ECOStorageSystemBlockEntity.refreshRecoveredDomain(source.getLevel(), domainId);
             source.sendSuccess(
                 () -> Component.literal("无限存储已恢复，持久化校验通过。")
                     .withStyle(ChatFormatting.GREEN),

@@ -86,6 +86,7 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -93,10 +94,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
+    private static final Set<ECOStorageSystemBlockEntity> ACTIVE_CONTROLLERS =
+        Collections.newSetFromMap(new WeakHashMap<>());
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int LEGACY_INFINITE_MEMBER_REQUIRED = 16;
     private static final int INFINITE_MEMBER_REQUIRED = 12;
@@ -201,7 +205,23 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void onReady() {
         super.onReady();
+        synchronized (ACTIVE_CONTROLLERS) {
+            ACTIVE_CONTROLLERS.add(this);
+        }
         getMainNode().setIdlePowerUsage(256 + (1 << (1 + 4 * tier.getTier())));
+    }
+
+    /** Refreshes AE2's mounted inventory after an administrator recovers this domain. */
+    public static void refreshRecoveredDomain(ServerLevel level, UUID domainId) {
+        List<ECOStorageSystemBlockEntity> controllers;
+        synchronized (ACTIVE_CONTROLLERS) {
+            controllers = List.copyOf(ACTIVE_CONTROLLERS);
+        }
+        for (ECOStorageSystemBlockEntity controller : controllers) {
+            if (controller.level == level && domainId.equals(controller.infiniteDomainId)) {
+                controller.refreshAfterDomainRecovery();
+            }
+        }
     }
 
     @Override
@@ -812,6 +832,16 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         lastInfiniteStorageRevision = revision;
         getMainNode().ifPresent(grid -> grid.getStorageService().invalidateCache());
+    }
+
+    private void refreshAfterDomainRecovery() {
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        lastInfiniteDomainState = ECOInfiniteDomainState.READY;
+        lastInfiniteStorageRevision = Long.MIN_VALUE;
+        getMainNode().ifPresent(grid -> grid.getStorageService().invalidateCache());
+        if (getMainNode().isOnline()) {
+            IStorageProvider.requestUpdate(getMainNode());
+        }
     }
 
     /** Defers a remount until AE2 has completed the current power/pathing transition. */
@@ -1868,12 +1898,18 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public void onChunkUnloaded() {
+        synchronized (ACTIVE_CONTROLLERS) {
+            ACTIVE_CONTROLLERS.remove(this);
+        }
         closeInfiniteEngine();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
+        synchronized (ACTIVE_CONTROLLERS) {
+            ACTIVE_CONTROLLERS.remove(this);
+        }
         closeInfiniteEngine();
         super.setRemoved();
     }
