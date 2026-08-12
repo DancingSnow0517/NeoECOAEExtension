@@ -60,6 +60,7 @@ import appeng.api.storage.StorageHelper;
 import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
+import net.minecraft.ChatFormatting;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -87,6 +88,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -99,6 +101,7 @@ import java.util.WeakHashMap;
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
+    private static final int MAX_ORPHANED_KEY_TEXT_LENGTH = 180;
     private static final Set<ECOStorageSystemBlockEntity> ACTIVE_CONTROLLERS =
         Collections.newSetFromMap(new WeakHashMap<>());
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
@@ -331,7 +334,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        recoverInfiniteDomainOnUiOpen();
+        recoverInfiniteDomainOnUiOpen(holder.player);
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
 
         UIElement root = new UIElement().layout(layout -> {
@@ -367,7 +370,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     /** Reopens a cleanly closed domain once when an administrator/player inspects the controller. */
-    private void recoverInfiniteDomainOnUiOpen() {
+    private void recoverInfiniteDomainOnUiOpen(Player player) {
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
             return;
         }
@@ -378,7 +381,55 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         engine = ECOInfiniteStorageDomains.recover(serverLevel, infiniteDomainId);
         if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
             refreshRecoveredDomain(serverLevel, infiniteDomainId);
+            reportRecoveredDomainContents(player, engine);
+        } else {
+            player.sendSystemMessage(Component.literal(
+                "无限存储自动恢复失败：" + engine.getFailureReason().orElse(engine.getState().name())
+            ).withStyle(ChatFormatting.RED));
         }
+    }
+
+    private void reportRecoveredDomainContents(Player player, ECOInfiniteStorageEngine engine) {
+        List<ECOInfiniteStorageEngine.OrphanedStack> entries = engine.getOrphanedStacks().stream()
+            .sorted(Comparator.comparing(entry -> describeEncodedKey(entry.encodedKey()).id()))
+            .toList();
+        if (entries.isEmpty()) {
+            player.sendSystemMessage(Component.literal(
+                "无限存储已自动恢复；未检测到可定位的缺失模组物品。"
+            ).withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+
+        player.sendSystemMessage(Component.literal(
+            "无限存储已自动恢复，但检测到以下无法解析的物品条目："
+        ).withStyle(ChatFormatting.YELLOW));
+        for (ECOInfiniteStorageEngine.OrphanedStack entry : entries) {
+            EncodedKeyDescription description = describeEncodedKey(entry.encodedKey());
+            player.sendSystemMessage(Component.literal(
+                " - [" + description.type() + "] " + description.id() + " x " + entry.amount()
+            ).withStyle(ChatFormatting.RED));
+        }
+    }
+
+    private static EncodedKeyDescription describeEncodedKey(CompoundTag encodedKey) {
+        String type = encodedKey.getString("#");
+        String id = encodedKey.getString("id");
+        if (type.isBlank()) {
+            type = "unknown";
+        }
+        if (id.isBlank()) {
+            id = abbreviate(encodedKey.toString());
+        }
+        return new EncodedKeyDescription(type, id);
+    }
+
+    private static String abbreviate(String text) {
+        return text.length() <= MAX_ORPHANED_KEY_TEXT_LENGTH
+            ? text
+            : text.substring(0, MAX_ORPHANED_KEY_TEXT_LENGTH - 3) + "...";
+    }
+
+    private record EncodedKeyDescription(String type, String id) {
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
