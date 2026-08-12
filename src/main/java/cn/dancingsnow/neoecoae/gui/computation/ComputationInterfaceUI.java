@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -11,6 +12,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
@@ -108,6 +110,13 @@ public final class ComputationInterfaceUI {
             super(new FuzzyPlanningFilterSlot(computationInterface.getFuzzyPlanningItemHandler(), inventorySlot));
             this.computationInterface = computationInterface;
             this.inventorySlot = inventorySlot;
+            getStyle().backgroundTexture(NETextures.INVENTORY_BORDER);
+            addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if (event.button == 1 && !getValue().isEmpty()) {
+                    setValue(ItemStack.EMPTY, true);
+                    event.stopImmediatePropagation();
+                }
+            }, true);
         }
 
         @Override

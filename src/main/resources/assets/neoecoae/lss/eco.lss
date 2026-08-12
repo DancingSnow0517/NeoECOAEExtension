@@ -89,6 +89,15 @@ fluid-slot {
   background: #26a6bd;
 }
 
+.eco-pattern-transfer-progress .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #151d2b;
+}
+
+.eco-pattern-transfer-progress .__progress-bar_bar__ {
+  background: #32d6ff;
+}
+
 .eco-host-stats-progress {
   padding-all: 2;
   background: built-in(ui-eco:HOST_PANEL_BORDER);

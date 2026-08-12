@@ -112,7 +112,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
-    private void onMainNodeGridChanged() {
+    protected void onMainNodeGridChanged() {
         if (cluster != null && cluster.isNetworkMode()) {
             NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }

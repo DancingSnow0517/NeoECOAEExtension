@@ -69,6 +69,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -103,6 +104,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     private final IPatternDetails[] decodedPatternDetails =
         new IPatternDetails[NEConfig.getMaxCraftingPatternBusSlotCount()];
+    private final String[] patternSearchKeywords = new String[NEConfig.getMaxCraftingPatternBusSlotCount()];
     /** Counts patterns by complete AE item key, avoiding a full inventory scan per insertion. */
     private final AEItemKey[] indexedPatternKeys =
         new AEItemKey[NEConfig.getMaxCraftingPatternBusSlotCount()];
@@ -115,11 +117,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private int activePages = NEConfig.getCraftingPatternBusPages();
     @DescSynced
     private int currentPage;
+    @DescSynced
+    private int patternContentRevision;
+    private int highestOccupiedSlot = -1;
+    private boolean highestOccupiedSlotDirty = true;
     private int nextWorkerIndex = 0;
     private boolean patternDetailsUpdateQueued;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
     private transient boolean craftingProviderRefreshQueued;
+    private transient IGrid lastKnownGrid;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -520,6 +527,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         this.saveChanges();
+        incrementPatternContentRevision();
+        if (slot < 0 || slot >= inventory.size()) {
+            highestOccupiedSlotDirty = true;
+        } else if (highestOccupiedSlotDirty) {
+            // A bulk update already invalidated the cache; let the next reader rebuild it once.
+        } else if (!inventory.getStackInSlot(slot).isEmpty()) {
+            highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
+        } else if (slot == highestOccupiedSlot) {
+            highestOccupiedSlotDirty = true;
+        }
         if (slot >= 0 && slot < indexedPatternKeys.length) {
             updatePatternIndexSlot(slot);
         } else {
@@ -531,14 +548,67 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             rebuildAllPatternDetails = true;
         }
         queuePatternDetailsUpdate();
+        notifyPatternInterfaceHosts();
+    }
+
+    public int getPatternContentRevision() {
+        return patternContentRevision;
+    }
+
+    /** Precomputed after each pattern-detail refresh so opening the network browser never has to decode this slot. */
+    public String getPatternSearchKeywords(int slot) {
+        return slot >= 0 && slot < patternSearchKeywords.length ? patternSearchKeywords[slot] : "";
+    }
+
+    private void incrementPatternContentRevision() {
+        patternContentRevision = patternContentRevision == Integer.MAX_VALUE
+            ? 1
+            : patternContentRevision + 1;
+    }
+
+    private void notifyPatternInterfaceHosts() {
+        if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
+            return;
+        }
+        for (var machineInterface : getMainNode().getGrid()
+                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
+            machineInterface.onPatternBusInventoryChanged(this);
+        }
     }
 
     @Override
     public void onReady() {
         super.onReady();
+        lastKnownGrid = getMainNode().getGrid();
         rebuildAllPatternDetails = true;
         rebuildPatternIndex();
         updatePatternDetails();
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        IGrid previousGrid = lastKnownGrid;
+        super.onMainNodeGridChanged();
+        IGrid currentGrid = getMainNode().getGrid();
+        if (previousGrid != currentGrid) {
+            notifyPatternInterfaceTopologyChanged(previousGrid);
+            notifyPatternInterfaceTopologyChanged(currentGrid);
+        }
+        lastKnownGrid = currentGrid;
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        IGrid previousGrid = getMainNode().getGrid();
+        super.onChunkUnloaded();
+        notifyPatternInterfaceTopologyChanged(previousGrid);
+    }
+
+    @Override
+    public void setRemoved() {
+        IGrid previousGrid = getMainNode().getGrid();
+        super.setRemoved();
+        notifyPatternInterfaceTopologyChanged(previousGrid);
     }
 
     @Override
@@ -549,6 +619,21 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         super.onMainNodeStateChanged(reason);
         if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
             queueCraftingProviderRefresh();
+            notifyPatternInterfaceTopologyChanged();
+        }
+    }
+
+    private void notifyPatternInterfaceTopologyChanged() {
+        notifyPatternInterfaceTopologyChanged(getMainNode().getGrid());
+    }
+
+    private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
+        if (level == null || level.isClientSide || grid == null) {
+            return;
+        }
+        for (var machineInterface : grid
+                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
+            machineInterface.onPatternBusTopologyChanged(this);
         }
     }
 
@@ -590,6 +675,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         patternDetails.clear();
         for (int slot = 0; slot < slotCount; slot++) {
             IPatternDetails details = decodedPatternDetails[slot];
+            patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
             // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
@@ -603,6 +689,34 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         } else {
             ICraftingProvider.requestUpdate(this.getMainNode());
         }
+        // The interface search directory reads the decoded-slot cache above. Publish its completed revision,
+        // rather than leaving a brief window where the visible stack and its keywords describe different patterns.
+        notifyPatternInterfaceHosts();
+    }
+
+    private static String buildPatternSearchKeywords(ItemStack stack, @Nullable IPatternDetails details) {
+        if (stack.isEmpty()) {
+            return "";
+        }
+        StringBuilder keywords = new StringBuilder(stack.getHoverName().getString());
+        if (details != null) {
+            for (var output : details.getOutputs()) {
+                if (output != null) {
+                    keywords.append('\n').append(output.what().getDisplayName().getString());
+                }
+            }
+            for (var input : details.getInputs()) {
+                if (input == null) {
+                    continue;
+                }
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible != null) {
+                        keywords.append('\n').append(possible.what().getDisplayName().getString());
+                    }
+                }
+            }
+        }
+        return keywords.toString().toLowerCase(Locale.ROOT);
     }
 
     private void queuePatternDetailsUpdate() {
@@ -791,12 +905,17 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     private int getHighestOccupiedPage() {
-        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                return slot / SLOTS_PER_PAGE + 1;
+        if (highestOccupiedSlotDirty) {
+            highestOccupiedSlot = -1;
+            for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+                if (!inventory.getStackInSlot(slot).isEmpty()) {
+                    highestOccupiedSlot = slot;
+                    break;
+                }
             }
+            highestOccupiedSlotDirty = false;
         }
-        return 1;
+        return highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1;
     }
 
     private static int clampPages(int pages) {

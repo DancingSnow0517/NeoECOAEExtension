@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -25,6 +26,9 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -73,6 +77,15 @@ public class NeoECOAEClient {
             .filter(item -> item instanceof ECOStorageCellItem)
             .toArray(Item[]::new);
         event.register(NEItemColors::getCellColor, cells);
+    }
+
+    @SubscribeEvent
+    public static void onScreenInit(ScreenEvent.Init.Post event) {
+        if (event.getScreen() instanceof AbstractContainerScreen<?> screen
+                && screen.getMenu() instanceof IModularUIHolder holder
+                && holder.getModularUI() != null) {
+            CraftingInterfaceUI.attachNativeSearchFields(event, holder.getModularUI());
+        }
     }
 
     @SuppressWarnings("unchecked")

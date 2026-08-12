@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import appeng.client.gui.Icon;
-import appeng.api.crafting.PatternDetailsHelper;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -9,16 +8,15 @@ import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
-import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
@@ -26,11 +24,14 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,8 +43,8 @@ import java.util.function.Supplier;
 public final class CraftingInterfaceUI {
     private static final int STATUS_CONNECTED = 0x55CC77;
     private static final int STATUS_DISCONNECTED = 0xDD5555;
-    private static final int PREVIEW_COLUMNS = 9;
-    private static final int PREVIEW_ROWS = 4;
+    public static final int PREVIEW_COLUMNS = 9;
+    public static final int PREVIEW_ROWS = 4;
     private static final int PREVIEW_WIDTH = PREVIEW_COLUMNS * 18;
     private static final int PREVIEW_HEIGHT = PREVIEW_ROWS * 18;
     private static final int PLAYER_INVENTORY_WIDTH = 9 * 18;
@@ -54,7 +55,6 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
     private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int PREVIEW_QUERY_MAX_LENGTH = 128;
-    private static final int PREVIEW_QUERY_DEBOUNCE_TICKS = 3;
 
     private CraftingInterfaceUI() {
     }
@@ -62,7 +62,9 @@ public final class CraftingInterfaceUI {
     public static ModularUI create(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
             Player player) {
-        PreviewState previewState = new PreviewState();
+        IItemHandlerModifiable patternHandler =
+                craftingInterface.createPatternInterfaceItemHandler(player.getUUID());
+        PreviewState previewState = new PreviewState(craftingInterface, patternHandler);
 
         UIElement root = new UIElement().layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH + PREVIEW_SCROLLBAR_WIDTH + PREVIEW_SCROLLBAR_GAP + ROOT_SIDE_MARGIN * 2)
@@ -92,6 +94,7 @@ public final class CraftingInterfaceUI {
                         .withColor(craftingInterface.isTargetOnline() ? STATUS_CONNECTED : STATUS_DISCONNECTED))));
         contentFrame.addChild(transferButton(craftingInterface));
         contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferPrimaryStatus));
+        contentFrame.addChild(patternTransferProgress(craftingInterface));
         root.addChild(contentFrame);
         root.addChild(previewSection(craftingInterface, previewState));
         InventorySlots playerInventory = new InventorySlots();
@@ -99,22 +102,6 @@ public final class CraftingInterfaceUI {
                 .width(PLAYER_INVENTORY_WIDTH)
                 .marginTop(2));
         root.addChild(playerInventory);
-        root.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (event.button != 0 || !event.isShiftDown() || !(event.target instanceof ItemSlot itemSlot)) {
-                return;
-            }
-            Slot slot = itemSlot.getSlot();
-            if (slot == null || slot.container != player.getInventory()) {
-                return;
-            }
-            ItemStack stack = itemSlot.getValue();
-            if (!PatternDetailsHelper.isEncodedPattern(stack)) {
-                return;
-            }
-            craftingInterface.rpcToServer("insertPatternFromPlayer", slot.getContainerSlot());
-            event.stopImmediatePropagation();
-        }, true);
-
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
     }
 
@@ -128,6 +115,20 @@ public final class CraftingInterfaceUI {
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.layout(layout -> layout.widthPercent(100).height(18));
         return button;
+    }
+
+    private static UIElement patternTransferProgress(
+            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+        UIElement container = HostElements.syncedDisplay(craftingInterface::isPatternTransferInProgress);
+        ProgressBar progressBar = new ProgressBar();
+        progressBar.label(label -> label.setText(""));
+        progressBar.barContainer(element -> element.layout(layout -> layout.paddingAll(1)));
+        progressBar.bind(DataBindingBuilder.floatValS2C(craftingInterface::getPatternTransferProgress).build());
+        progressBar.addClass("eco-pattern-transfer-progress");
+        progressBar.layout(layout -> layout.widthPercent(100).height(7));
+        container.addChild(progressBar);
+        container.layout(layout -> layout.widthPercent(100).height(7).marginTop(-1));
+        return container;
     }
 
     private static UIElement previewHeader(
@@ -159,31 +160,127 @@ public final class CraftingInterfaceUI {
         return header;
     }
 
-    private static TextField patternSearchField(PreviewState previewState) {
-        TextField field = new TextField();
-        field.setTextResponder(previewState::setSearch);
-        field.textFieldStyle(style -> style
-                .textColor(0xFFFFFF)
-                .textShadow(false)
-                .placeholder(Component.translatable("gui.neoecoae.crafting_interface.preview.search")));
-        field.style(style -> style.backgroundTexture(Sprites.RECT_RD));
+    private static NativeSearchField patternSearchField(PreviewState previewState) {
+        NativeSearchField field = new NativeSearchField(previewState::setSearch);
         field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
         // ExtendedAE clears its matrix query with a right-click. Keep that compact interaction so the search field
         // retains enough width for long pattern names.
         field.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button == 1) {
-                event.stopImmediatePropagation();
-            }
-        });
-        field.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (event.button == 1) {
-                field.setText("");
-                previewState.setSearch("");
+                field.clearText();
                 event.stopImmediatePropagation();
             }
         });
         return HostElements.tooltips(field,
                 Component.translatable("gui.neoecoae.crafting_interface.preview.search.tooltip"));
+    }
+
+    /**
+     * Bridges a vanilla EditBox into ModularUI. LowDragLib's TextField has its own character editor, but it does not
+     * own a native Minecraft text widget, which means Windows IME focus is not established for this field. The
+     * vanilla EditBox handles charTyped/keyPressed, selection, clipboard, and the IME commit path used by AE2.
+     */
+    public static void attachNativeSearchFields(ScreenEvent.Init.Post event, ModularUI modularUI) {
+        if (modularUI == null) {
+            return;
+        }
+
+        var widget = modularUI.getWidget();
+        for (NativeSearchField field : modularUI.getElementsByType(NativeSearchField.class)) {
+            if (field.nativeWidgetRegistered) {
+                continue;
+            }
+
+            // Put the native field first in the Screen hit-test order. The broad ModularUI widget remains last so it
+            // continues to render the whole panel and dispatches the non-text controls.
+            event.removeListener(widget);
+            event.addListener(field.editBox);
+            event.addListener(widget);
+            field.nativeWidgetRegistered = true;
+        }
+    }
+
+    public static final class NativeSearchField extends UIElement {
+        private final PositionedEditBox editBox;
+        private boolean nativeWidgetRegistered;
+
+        private NativeSearchField(java.util.function.Consumer<String> responder) {
+            editBox = new PositionedEditBox();
+            editBox.setBordered(false);
+            editBox.setTextColor(0xFFFFFF);
+            editBox.setTextShadow(false);
+            editBox.setMaxLength(PREVIEW_QUERY_MAX_LENGTH);
+            editBox.setFilter(value -> true);
+            editBox.setHint(Component.translatable("gui.neoecoae.crafting_interface.preview.search"));
+            editBox.setResponder(responder);
+            editBox.setVisible(true);
+            editBox.active = true;
+
+            setFocusable(true);
+            style(style -> style.backgroundTexture(Sprites.RECT_RD));
+        }
+
+        private void clearText() {
+            editBox.setValue("");
+        }
+
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            super.drawContents(guiContext);
+            syncNativeBounds();
+            editBox.renderNative(guiContext.graphics, guiContext.mouseX, guiContext.mouseY, guiContext.partialTick);
+        }
+
+        private void syncNativeBounds() {
+            editBox.setX(Math.round(getPositionX()));
+            editBox.setY(Math.round(getPositionY()));
+            editBox.setWidth(Math.max(1, Math.round(getSizeWidth())));
+            editBox.setHeight(Math.max(1, Math.round(getSizeHeight())));
+        }
+
+        /** Keep the Screen's hit test in the same coordinate system as ModularUI, even before the next render. */
+        private final class PositionedEditBox extends EditBox {
+            private PositionedEditBox() {
+                super(Minecraft.getInstance().font, 0, 0, 1, TOOL_BUTTON_SIZE,
+                        Component.translatable("gui.neoecoae.crafting_interface.preview.search"));
+            }
+
+            @Override
+            public void renderWidget(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY,
+                                     float partialTick) {
+                // Screen owns this widget for the native keyboard/IME focus path. Its visual pass is rendered by
+                // NativeSearchField so the ModularUI panel remains the final layer on screen.
+            }
+
+            private void renderNative(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY,
+                                      float partialTick) {
+                super.renderWidget(graphics, mouseX, mouseY, partialTick);
+            }
+
+            @Override
+            public boolean isMouseOver(double mouseX, double mouseY) {
+                syncNativeBounds();
+                return super.isMouseOver(mouseX, mouseY);
+            }
+
+            @Override
+            public boolean mouseClicked(double mouseX, double mouseY, int button) {
+                syncNativeBounds();
+                return super.mouseClicked(mouseX, mouseY, button);
+            }
+
+            @Override
+            public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+                syncNativeBounds();
+                return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+            }
+
+            @Override
+            public boolean mouseReleased(double mouseX, double mouseY, int button) {
+                syncNativeBounds();
+                return super.mouseReleased(mouseX, mouseY, button);
+            }
+        }
     }
 
     private static Button patternFilterButton(
@@ -240,57 +337,23 @@ public final class CraftingInterfaceUI {
                 .height(PREVIEW_HEIGHT)
                 .alignItems(AlignItems.CENTER))
                 .addClass("panel_border");
-        preview.addEventListener(UIEvents.TICK, event -> previewState.refresh(craftingInterface));
-        preview.addEventListener(UIEvents.TICK, event -> previewState.requestIfNeeded(craftingInterface));
+        preview.addEventListener(UIEvents.TICK, event -> previewState.refresh());
         // Consume ordinary wheel input before AE2 sees it, but leave Shift + wheel
         // to the individual preview slot so it can retain the quick-move shortcut.
-        preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.deltaY != 0 && !event.isShiftDown()) {
-                event.stopImmediatePropagation();
-            }
-        });
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0 && !event.isShiftDown()) {
                 previewState.scroll(event.deltaY < 0 ? 1 : -1);
                 event.stopImmediatePropagation();
             }
         });
-        for (int row = 0; row < PREVIEW_ROWS; row++) {
-            UIElement previewRow = new UIElement().layout(layout -> layout
-                    .width(PREVIEW_WIDTH)
-                    .height(18)
-                    .flexDirection(FlexDirection.ROW));
-            for (int column = 0; column < PREVIEW_COLUMNS; column++) {
-                int visualSlot = row * PREVIEW_COLUMNS + column;
-                LocalSlot localSlot = new LocalSlot();
-                previewState.setSlot(visualSlot, localSlot);
-                PatternItemSlot itemSlot = new PatternItemSlot(localSlot);
-                itemSlot.highlighted(() -> previewState.isSlotMatched(visualSlot));
-                itemSlot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY));
-                itemSlot.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-                    if (event.deltaY != 0 && event.isShiftDown()) {
-                        int sourceIndex = previewState.sourceIndexAt(visualSlot);
-                        if (sourceIndex >= 0) {
-                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, false,
-                                    previewState.getRevision());
-                            event.stopImmediatePropagation();
-                        }
-                    }
-                });
-                itemSlot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-                    if (event.button == 0 || event.button == 1) {
-                        int sourceIndex = previewState.sourceIndexAt(visualSlot);
-                        if (sourceIndex >= 0) {
-                            craftingInterface.rpcToServer("takePatternPreviewEntry", sourceIndex, event.button == 1,
-                                    previewState.getRevision());
-                            event.stopImmediatePropagation();
-                        }
-                    }
-                });
-                previewRow.addChild(itemSlot);
-            }
-            preview.addChild(previewRow);
+        UIElement slotLayer = new UIElement().layout(layout -> layout
+                .width(PREVIEW_WIDTH)
+                .height(PREVIEW_HEIGHT))
+                .setOverflowVisible(false);
+        for (int visualSlot = 0; visualSlot < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS; visualSlot++) {
+            slotLayer.addChild(previewState.createSlot(visualSlot));
         }
+        preview.addChild(slotLayer);
         return preview;
     }
 
@@ -321,12 +384,25 @@ public final class CraftingInterfaceUI {
         scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             int maxScroll = previewState.getMaxScrollRow();
             if (event.button == 0 && maxScroll > 0) {
-                float localY = scrollbar.getLocalMouse(event.x, event.y).y - scrollbar.getPositionY();
+                float localY = getLocalY(scrollbar, event.x, event.y);
                 float progress = Math.clamp((localY - PREVIEW_SCROLLBAR_THUMB_HEIGHT / 2F)
                         / (PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT), 0F, 1F);
                 previewState.setScrollRow(Math.round(progress * maxScroll));
+                scrollbar.getModularUI().getDragHandler().startDrag(
+                        (float) previewState.getScrollRow(), null, scrollbar);
                 event.stopImmediatePropagation();
             }
+        });
+        scrollbar.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
+            if (event.dragHandler == null || !(event.dragHandler.draggingObject instanceof Float initialRow)) {
+                return;
+            }
+            float deltaY = getLocalY(scrollbar, event.x, event.y)
+                    - getLocalY(scrollbar, event.dragStartX, event.dragStartY);
+            float remainingSpace = PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT;
+            float row = initialRow + deltaY / remainingSpace * previewState.getMaxScrollRow();
+            previewState.setScrollRow(Math.round(row));
+            event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0) {
@@ -335,6 +411,11 @@ public final class CraftingInterfaceUI {
             }
         });
         return scrollbar;
+    }
+
+    /** UIElement#getLocalMouse uses the root UI coordinate space, not this element's layout offset. */
+    private static float getLocalY(UIElement element, float x, float y) {
+        return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
     private static Button iconButton(Icon icon, String tooltip, Runnable action) {
@@ -350,33 +431,48 @@ public final class CraftingInterfaceUI {
         return HostElements.tooltips(button, Component.translatable(tooltip));
     }
 
-    /** Per-open-screen state, intentionally never synchronized through the block entity. */
+    /** Client-local filter state over the full synchronized handler. */
     private static final class PreviewState {
-        private final LocalSlot[] slots = new LocalSlot[PREVIEW_COLUMNS * PREVIEW_ROWS];
-        private ItemStack[] snapshot = new ItemStack[0];
-        private int[] sourceIndexes = new int[0];
-        private boolean[] matchedSlots = new boolean[0];
-        private int responseRevision;
-        private int responsePage;
-        private int responseTotalEntries;
-        private int requestedRevision = Integer.MIN_VALUE;
-        private int requestedPage = Integer.MIN_VALUE;
-        private String requestedSearch = "";
-        private boolean requestedSubstitution;
-        private boolean requestedFluidSubstitution;
-        private boolean requestDirty = true;
-        private int requestDebounceTicks;
+        private final ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface;
+        private final IItemHandlerModifiable handler;
+        private final List<PatternItemSlot> slots = new ArrayList<>();
+        private final List<Integer> visibleSlots = new ArrayList<>();
+        private final boolean[] highlightedSlots = new boolean[ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS];
+        private int[] appliedView = new int[0];
         private String search = "";
         private boolean showSubstitution = true;
         private boolean showFluidSubstitution = true;
         private int scrollRow;
+        private int lastRevision = Integer.MIN_VALUE;
+        private int requestedIndexRevision = Integer.MIN_VALUE;
+        private boolean filterDirty = true;
 
-        private PreviewState() {
-            Arrays.fill(slots, null);
+        private PreviewState(
+                ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
+                IItemHandlerModifiable handler) {
+            this.craftingInterface = craftingInterface;
+            this.handler = handler;
         }
 
-        private void setSlot(int visualSlot, LocalSlot slot) {
-            slots[visualSlot] = slot;
+        private PatternItemSlot createSlot(int visualSlot) {
+            ItemHandlerSlot itemHandlerSlot = new ItemHandlerSlot(handler, visualSlot)
+                    .addChangeListener(this::markContentDirty);
+            PatternItemSlot slot = new PatternItemSlot(itemHandlerSlot);
+            slot.highlighted(() -> highlightedSlots[visualSlot]);
+            slot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY));
+            slot.layout(layout -> layout
+                    .positionType(TaffyPosition.ABSOLUTE)
+                    .left((visualSlot % PREVIEW_COLUMNS) * 18)
+                    .top((visualSlot / PREVIEW_COLUMNS) * 18)
+                    .width(18)
+                    .height(18));
+            slots.add(slot);
+            return slot;
+        }
+
+        /** Slot packets and managed revision packets can arrive in either order. */
+        private void markContentDirty() {
+            filterDirty = true;
         }
 
         private boolean showsSubstitutionPatterns() {
@@ -389,157 +485,109 @@ public final class CraftingInterfaceUI {
 
         private void toggleSubstitutionPatterns() {
             showSubstitution = !showSubstitution;
-            scrollRow = 0;
-            requestDirty = true;
-            requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
+            resetFilter();
         }
 
         private void toggleFluidSubstitutionPatterns() {
             showFluidSubstitution = !showFluidSubstitution;
-            scrollRow = 0;
-            requestDirty = true;
-            requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
+            resetFilter();
         }
 
         private void setSearch(String value) {
             String next = value == null ? "" : value.substring(0, Math.min(value.length(), PREVIEW_QUERY_MAX_LENGTH));
             if (!search.equals(next)) {
                 search = next;
-                scrollRow = 0;
-                requestDirty = true;
-                requestDebounceTicks = PREVIEW_QUERY_DEBOUNCE_TICKS;
+                resetFilter();
             }
         }
 
-        private void requestIfNeeded(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
-            if (requestDebounceTicks > 0) {
-                requestDebounceTicks--;
-                return;
-            }
-            int page = scrollRow / PREVIEW_ROWS;
-            int revision = craftingInterface.getPatternPreviewRevision();
-            if (!requestDirty && requestedRevision == revision && requestedPage == page
-                    && search.equals(requestedSearch)
-                    && showSubstitution == requestedSubstitution
-                    && showFluidSubstitution == requestedFluidSubstitution) {
-                return;
-            }
-            requestedRevision = revision;
-            requestedPage = page;
-            requestedSearch = search;
-            requestedSubstitution = showSubstitution;
-            requestedFluidSubstitution = showFluidSubstitution;
-            requestDirty = false;
-            craftingInterface.rpcToServer("requestPatternPreviewPage", revision, page, search,
-                    showSubstitution, showFluidSubstitution);
+        private void resetFilter() {
+            scrollRow = 0;
+            filterDirty = true;
         }
 
-        private void refresh(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
-            ItemStack[] nextSnapshot = craftingInterface.getPatternPreviewSnapshot();
-            if (nextSnapshot == null) {
+        private void refresh() {
+            if (craftingInterface.getLevel() == null || !craftingInterface.getLevel().isClientSide) {
                 return;
             }
-            int[] nextSourceIndexes = new int[nextSnapshot.length];
-            for (int index = 0; index < nextSnapshot.length; index++) {
-                nextSourceIndexes[index] = craftingInterface.getPatternPreviewSourceIndex(index);
-            }
-            boolean changed = responseRevision != craftingInterface.getPatternPreviewRevision()
-                    || responsePage != craftingInterface.getPatternPreviewPage()
-                    || responseTotalEntries != craftingInterface.getPatternPreviewTotalEntries()
-                    || snapshot.length != nextSnapshot.length;
-            for (int index = 0; !changed && index < snapshot.length; index++) {
-                changed = !ItemStack.matches(snapshot[index], nextSnapshot[index])
-                        || sourceIndexes[index] != nextSourceIndexes[index];
-            }
-            if (!changed) {
-                return;
-            }
-            snapshot = copySnapshot(nextSnapshot);
-            sourceIndexes = nextSourceIndexes;
-            matchedSlots = new boolean[nextSnapshot.length];
-            if (!search.trim().isEmpty()) {
-                for (int index = 0; index < nextSnapshot.length; index++) {
-                    matchedSlots[index] = matchesSearch(nextSnapshot[index], craftingInterface.getLevel());
+            int revision = craftingInterface.getPatternContentRevision();
+            var searchIndex = craftingInterface.getClientPatternSearchIndex();
+            if (searchIndex.revision() != revision) {
+                if (requestedIndexRevision != revision) {
+                    requestedIndexRevision = revision;
+                    craftingInterface.rpcToServer("requestPatternSearchIndex", searchIndex.revision());
                 }
+                return;
             }
-            responseRevision = craftingInterface.getPatternPreviewRevision();
-            responsePage = craftingInterface.getPatternPreviewPage();
-            responseTotalEntries = craftingInterface.getPatternPreviewTotalEntries();
-            scrollRow = Math.clamp(responsePage * PREVIEW_ROWS, 0, getMaxScrollRow());
+            if (!filterDirty && revision == lastRevision) {
+                return;
+            }
+            rebuildFilter(searchIndex);
+            lastRevision = revision;
+            filterDirty = false;
+            scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
             updateSlots();
         }
 
-        private static ItemStack[] copySnapshot(ItemStack[] source) {
-            ItemStack[] copy = new ItemStack[source.length];
-            for (int index = 0; index < source.length; index++) {
-                copy[index] = source[index] == null ? ItemStack.EMPTY : source[index].copy();
-            }
-            return copy;
-        }
-
-        private void updateSlots() {
-            for (int visualSlot = 0; visualSlot < slots.length; visualSlot++) {
-                LocalSlot slot = slots[visualSlot];
-                if (slot == null) {
+        private void rebuildFilter(ECOMachineInterfaceBlockEntity.PatternSearchIndex searchIndex) {
+            visibleSlots.clear();
+            List<String> terms = tokenize(search);
+            for (int patternIndex = 0; patternIndex < searchIndex.size(); patternIndex++) {
+                byte flags = searchIndex.flags(patternIndex);
+                if (!passesSubstitutionFilter(flags)) {
                     continue;
                 }
-                slot.set(visualSlot < snapshot.length ? snapshot[visualSlot].copy() : ItemStack.EMPTY);
-            }
-        }
-
-        private int sourceIndexAt(int visualSlot) {
-            return visualSlot >= 0 && visualSlot < sourceIndexes.length ? sourceIndexes[visualSlot] : -1;
-        }
-
-        private boolean isSlotMatched(int visualSlot) {
-            return visualSlot >= 0 && visualSlot < matchedSlots.length && matchedSlots[visualSlot];
-        }
-
-        private boolean matchesSearch(ItemStack stack, Level level) {
-            if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack) || level == null) {
-                return false;
-            }
-            List<String> terms = tokenize(search);
-            if (terms.isEmpty()) {
-                return false;
-            }
-            List<String> names = new ArrayList<>();
-            names.add(stack.getHoverName().getString().toLowerCase(Locale.ROOT));
-            try {
-                var details = PatternDetailsHelper.decodePattern(stack, level);
-                if (details != null) {
-                    for (var output : details.getOutputs()) {
-                        if (output != null) {
-                            names.add(output.what().getDisplayName().getString().toLowerCase(Locale.ROOT));
-                        }
+                if ((flags & 4) == 0) {
+                    if (terms.isEmpty()) {
+                        visibleSlots.add(patternIndex);
                     }
-                    for (var input : details.getInputs()) {
-                        if (input != null && input.getPossibleInputs().length > 0
-                                && input.getPossibleInputs()[0] != null) {
-                            names.add(input.getPossibleInputs()[0].what().getDisplayName()
-                                    .getString().toLowerCase(Locale.ROOT));
-                        }
-                    }
+                    continue;
                 }
-            } catch (RuntimeException ignored) {
-                // Keep the preview usable if a malformed pattern cannot be decoded on the client.
+                if (terms.isEmpty() || matchesSearch(searchIndex.keywords(patternIndex), terms)) {
+                    visibleSlots.add(patternIndex);
+                }
             }
-            return terms.stream().allMatch(term -> names.stream().anyMatch(name -> name.contains(term)));
+        }
+
+        private boolean passesSubstitutionFilter(byte flags) {
+            return (showSubstitution || (flags & 1) == 0)
+                    && (showFluidSubstitution || (flags & 2) == 0);
+        }
+
+        private static boolean matchesSearch(String keywords, List<String> terms) {
+            return terms.stream().allMatch(keywords::contains);
         }
 
         private static List<String> tokenize(String value) {
-            return Arrays.stream(value.trim().toLowerCase(Locale.ROOT).split(" "))
+            return Arrays.stream(value.trim().toLowerCase(Locale.ROOT).split("\\s+"))
                     .filter(term -> !term.isEmpty()).toList();
         }
 
+        private void updateSlots() {
+            Arrays.fill(highlightedSlots, false);
+            int start = Math.min(scrollRow * PREVIEW_COLUMNS, visibleSlots.size());
+            int end = Math.min(start + PREVIEW_COLUMNS * PREVIEW_ROWS, visibleSlots.size());
+            int[] view = new int[end - start];
+            for (int offset = start; offset < end; offset++) {
+                int patternIndex = visibleSlots.get(offset);
+                int visualOffset = offset - start;
+                view[visualOffset] = patternIndex;
+                highlightedSlots[visualOffset] = !search.isBlank();
+            }
+            if (!Arrays.equals(appliedView, view)) {
+                appliedView = view;
+                CompoundTag payload = new CompoundTag();
+                payload.putIntArray("slots", view);
+                craftingInterface.rpcToServer("setPatternInterfaceView", payload);
+            }
+        }
+
         private int getRowCount() {
-            return (responseTotalEntries + PREVIEW_COLUMNS - 1) / PREVIEW_COLUMNS;
+            return (visibleSlots.size() + PREVIEW_COLUMNS - 1) / PREVIEW_COLUMNS;
         }
 
         private int getMaxScrollRow() {
-            int pageCount = (responseTotalEntries + PREVIEW_COLUMNS * PREVIEW_ROWS - 1)
-                    / (PREVIEW_COLUMNS * PREVIEW_ROWS);
-            return Math.max(0, (pageCount - 1) * PREVIEW_ROWS);
+            return Math.max(0, getRowCount() - PREVIEW_ROWS);
         }
 
         private int getScrollRow() {
@@ -547,19 +595,15 @@ public final class CraftingInterfaceUI {
         }
 
         private void setScrollRow(int value) {
-            int next = Math.clamp(Math.round(value / (float) PREVIEW_ROWS) * PREVIEW_ROWS, 0, getMaxScrollRow());
+            int next = Math.clamp(value, 0, getMaxScrollRow());
             if (next != scrollRow) {
                 scrollRow = next;
-                requestDirty = true;
+                updateSlots();
             }
         }
 
         private void scroll(int delta) {
-            setScrollRow(scrollRow + delta * PREVIEW_ROWS);
-        }
-
-        private int getRevision() {
-            return responseRevision;
+            setScrollRow(scrollRow + delta);
         }
     }
 
