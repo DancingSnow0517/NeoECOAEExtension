@@ -331,6 +331,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        recoverInfiniteDomainOnUiOpen();
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
 
         UIElement root = new UIElement().layout(layout -> {
@@ -363,6 +364,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         root.addChild(panels);
         actionUI.addTo(root);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    /** Reopens a cleanly closed domain once when an administrator/player inspects the controller. */
+    private void recoverInfiniteDomainOnUiOpen() {
+        if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
+            return;
+        }
+        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.openExisting(serverLevel, infiniteDomainId);
+        if (engine.getState() != ECOInfiniteDomainState.CLOSED) {
+            return;
+        }
+        engine = ECOInfiniteStorageDomains.recover(serverLevel, infiniteDomainId);
+        if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
+            refreshRecoveredDomain(serverLevel, infiniteDomainId);
+        }
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
