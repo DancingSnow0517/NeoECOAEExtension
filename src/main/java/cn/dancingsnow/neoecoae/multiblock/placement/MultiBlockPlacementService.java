@@ -1,11 +1,14 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.util.ICellHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
@@ -96,6 +99,7 @@ public final class MultiBlockPlacementService {
             if (!placeWithPermissionCheck(level, worldBlock, player)) {
                 return false;
             }
+            insertAvailableCell(level, worldBlock, player);
         }
         return true;
     }
@@ -126,6 +130,7 @@ public final class MultiBlockPlacementService {
                 level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
                 return PlacementTickResult.BLOCKED;
             }
+            insertAvailableCell(level, worldBlock, player);
             playPlacementSound(level, worldBlock);
         }
 
@@ -237,6 +242,99 @@ public final class MultiBlockPlacementService {
             remaining = consumeFromStack(itemHandler.getStackInSlot(slot), target, remaining, visitedHandlers);
         }
         return remaining;
+    }
+
+    private static void insertAvailableCell(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        BlockEntity blockEntity = level.getBlockEntity(worldBlock.worldPos());
+        if (!(blockEntity instanceof ICellHost cellHost)
+            || (cellHost.getCellStack() != null && !cellHost.getCellStack().isEmpty())) {
+            return;
+        }
+
+        ItemStack availableCell = takeComputationCell(player, false);
+        if (availableCell.isEmpty() || !cellHost.isItemValid(availableCell)) {
+            return;
+        }
+
+        ItemStack cellStack = takeComputationCell(player, !player.isCreative());
+        if (!cellStack.isEmpty() && cellHost.isItemValid(cellStack)) {
+            if (!player.isCreative()) {
+                player.getInventory().setChanged();
+            }
+            cellHost.setCellStack(cellStack);
+        }
+    }
+
+    private static ItemStack takeComputationCell(Player player, boolean consume) {
+        Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        ItemStack cell = takeComputationCellFromList(player.getInventory().items, visitedHandlers, consume);
+        if (!cell.isEmpty()) {
+            return cell;
+        }
+        return takeComputationCellFromList(player.getInventory().offhand, visitedHandlers, consume);
+    }
+
+    private static ItemStack takeComputationCellFromList(
+        List<ItemStack> stacks,
+        Set<IItemHandler> visitedHandlers,
+        boolean consume
+    ) {
+        for (ItemStack stack : stacks) {
+            ItemStack cell = takeComputationCellFromStack(stack, visitedHandlers, consume, false);
+            if (!cell.isEmpty()) {
+                return cell;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static ItemStack takeComputationCellFromStack(
+        ItemStack stack,
+        Set<IItemHandler> visitedHandlers,
+        boolean consume,
+        boolean fromHandler
+    ) {
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        if (stack.getItem() instanceof ECOComputationCellItem) {
+            if (fromHandler) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack result = stack.copyWithCount(1);
+            if (consume) {
+                stack.shrink(1);
+            }
+            return result;
+        }
+
+        IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
+            return ItemStack.EMPTY;
+        }
+
+        for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
+            ItemStack slotStack = itemHandler.getStackInSlot(slot);
+            if (slotStack.isEmpty()) {
+                continue;
+            }
+            if (slotStack.getItem() instanceof ECOComputationCellItem) {
+                if (!consume) {
+                    return slotStack.copyWithCount(1);
+                }
+                ItemStack extracted = itemHandler.extractItem(slot, 1, false);
+                if (!extracted.isEmpty()) {
+                    return extracted.copyWithCount(1);
+                }
+            }
+
+            ItemStack nestedCell = takeComputationCellFromStack(slotStack, visitedHandlers, consume, true);
+            if (!nestedCell.isEmpty()) {
+                return nestedCell;
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
