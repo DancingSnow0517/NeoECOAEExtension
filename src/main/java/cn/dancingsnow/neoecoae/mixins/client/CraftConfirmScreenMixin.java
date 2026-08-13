@@ -8,6 +8,7 @@ import appeng.api.stacks.AmountFormat;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
@@ -64,6 +65,43 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
                 );
             }
         });
+    }
+
+    @Inject(method = "drawFG", at = @At("TAIL"))
+    private void neoecoae$showPlannerDiagnosticTooltip(
+        GuiGraphics guiGraphics,
+        int offsetX,
+        int offsetY,
+        int mouseX,
+        int mouseY,
+        CallbackInfo ci
+    ) {
+        var notice = ECOPlannerNoticePayload.getClientNoticeData(getMenu().containerId).orElse(null);
+        if (notice == null || notice.diagnostics().isEmpty()) {
+            return;
+        }
+        var titleStyle = style.getText().get("dialog_title");
+        if (titleStyle == null || titleStyle.getPosition() == null) {
+            return;
+        }
+        var point = titleStyle.getPosition().resolve(
+            new net.minecraft.client.renderer.Rect2i(0, 0, imageWidth, imageHeight)
+        );
+        Component title = notice.reason() == cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.FAST_PATH
+            ? Component.translatable("gui.neoecoae.planning.title")
+            : Component.translatable(notice.reason().translationKey());
+        int titleWidth = font.width(title);
+        if (mouseX < point.getX() - titleWidth / 2 || mouseX > point.getX() + titleWidth / 2
+            || mouseY < point.getY() - font.lineHeight || mouseY > point.getY() + font.lineHeight) {
+            return;
+        }
+        var lines = new java.util.ArrayList<Component>();
+        lines.add(Component.translatable("gui.neoecoae.planning.diagnostic.header")
+            .withStyle(ChatFormatting.YELLOW));
+        for (ECOPlannerDiagnostic diagnostic : notice.diagnostics()) {
+            lines.add(Component.translatable(diagnostic.translationKey()));
+        }
+        drawTooltip(guiGraphics, getGuiLeft() + mouseX, getGuiTop() + mouseY, lines);
     }
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))

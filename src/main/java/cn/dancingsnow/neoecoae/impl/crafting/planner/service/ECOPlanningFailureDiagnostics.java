@@ -19,6 +19,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +44,8 @@ public final class ECOPlanningFailureDiagnostics {
     private static final Set<DiagnosticKey> LOGGED = new LinkedHashSet<>();
     private static final AtomicLong REQUEST_IDS = new AtomicLong();
     private static final ThreadLocal<String> CURRENT_REQUEST = new ThreadLocal<>();
+    private static final ThreadLocal<Set<ECOPlannerDiagnostic>> CURRENT_DIAGNOSTICS =
+        ThreadLocal.withInitial(LinkedHashSet::new);
     private static final Map<String, AtomicLong> REQUEST_DETAIL_COUNTS = new ConcurrentHashMap<>();
     private static final Map<String, RequestBuffer> REQUEST_BUFFERS = new ConcurrentHashMap<>();
     private static final Object FILE_LOCK = new Object();
@@ -105,6 +108,26 @@ public final class ECOPlanningFailureDiagnostics {
     public static String currentRequestId() {
         String requestId = CURRENT_REQUEST.get();
         return requestId == null ? "unscoped" : requestId;
+    }
+
+    public static void addDiagnostic(ECOPlannerDiagnostic diagnostic) {
+        if (diagnostic != null) {
+            CURRENT_DIAGNOSTICS.get().add(diagnostic);
+        }
+    }
+
+    public static void setDiagnostics(Iterable<ECOPlannerDiagnostic> diagnostics) {
+        Set<ECOPlannerDiagnostic> current = CURRENT_DIAGNOSTICS.get();
+        current.clear();
+        if (diagnostics != null) {
+            for (ECOPlannerDiagnostic diagnostic : diagnostics) {
+                addDiagnostic(diagnostic);
+            }
+        }
+    }
+
+    public static List<ECOPlannerDiagnostic> currentDiagnostics() {
+        return List.copyOf(CURRENT_DIAGNOSTICS.get());
     }
 
     public static void endRequest(String requestId, String result) {
@@ -358,6 +381,7 @@ public final class ECOPlanningFailureDiagnostics {
             failureLogsThisSecond = 0;
             traceLogsThisSecond = 0;
         }
+        CURRENT_DIAGNOSTICS.remove();
     }
 
     /** Closes the per-world diagnostic log when the server releases its save. */
@@ -573,10 +597,12 @@ public final class ECOPlanningFailureDiagnostics {
 
     public static final class RequestScope implements AutoCloseable {
         private final String previous;
+        private final Set<ECOPlannerDiagnostic> previousDiagnostics;
         private boolean closed;
 
         private RequestScope(String previous) {
             this.previous = previous;
+            this.previousDiagnostics = new LinkedHashSet<>(CURRENT_DIAGNOSTICS.get());
         }
 
         @Override
@@ -590,6 +616,7 @@ public final class ECOPlanningFailureDiagnostics {
             } else {
                 CURRENT_REQUEST.set(previous);
             }
+            CURRENT_DIAGNOSTICS.set(previousDiagnostics);
         }
     }
 

@@ -10,6 +10,8 @@ import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.Objects;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
 /** Defines the PatternDetails semantics that can be represented by ECO's immutable operation model. */
@@ -22,26 +24,37 @@ final class ECOAE2PatternCompatibility {
         ICraftingService craftingService,
         Level level
     ) {
+        return assess(details, craftingService, level, Set.of());
+    }
+
+    static Assessment assess(
+        IPatternDetails details,
+        ICraftingService craftingService,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
         IPatternDetails.IInput[] inputs;
         try {
             inputs = details.getInputs();
         } catch (RuntimeException | LinkageError failure) {
             return Assessment.rejected("pattern input metadata could not be read");
         }
-        return assess(details, inputs, craftingService, level);
+        return assess(details, inputs, craftingService, level, fuzzyItemIds);
     }
 
     static Assessment assess(
         IPatternDetails details,
         IPatternDetails.IInput[] inputs,
         ICraftingService craftingService,
-        Level level
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         Objects.requireNonNull(details, "details");
         if (inputs == null) {
             return Assessment.rejected("pattern returned null inputs");
         }
-        if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)) {
+        if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)
+            && !hasConfiguredFuzzyInput(inputs, fuzzyItemIds)) {
             return Assessment.rejected("provider_scoped_nbt");
         }
 
@@ -92,6 +105,36 @@ final class ECOAE2PatternCompatibility {
         } catch (RuntimeException | LinkageError failure) {
             return Assessment.rejected("built-in input metadata could not be read");
         }
+    }
+
+    private static boolean hasConfiguredFuzzyInput(
+        IPatternDetails.IInput[] inputs,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        if (fuzzyItemIds == null || fuzzyItemIds.isEmpty()) {
+            return false;
+        }
+        try {
+            for (IPatternDetails.IInput input : inputs) {
+                if (input == null) {
+                    continue;
+                }
+                GenericStack[] possible = input.getPossibleInputs();
+                if (possible == null) {
+                    continue;
+                }
+                for (GenericStack candidate : possible) {
+                    if (candidate != null
+                        && candidate.what().getType().equals(appeng.api.stacks.AEKeyType.items())
+                        && fuzzyItemIds.contains(candidate.what().getId())) {
+                        return true;
+                    }
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+        return false;
     }
 
     static boolean isKnownBuiltIn(IPatternDetails details) {

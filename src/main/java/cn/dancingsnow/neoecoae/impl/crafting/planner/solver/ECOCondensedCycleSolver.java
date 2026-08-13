@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -92,6 +93,15 @@ public final class ECOCondensedCycleSolver {
                 if (component.size() > MAX_COMPONENT_MATERIALS
                     || localOperations.isEmpty()
                     || localOperations.size() > MAX_COMPONENT_OPERATIONS) {
+                    if (component.size() > MAX_COMPONENT_MATERIALS
+                        || localOperations.size() > MAX_COMPONENT_OPERATIONS) {
+                        ECOPlanningFailureDiagnostics.addDiagnostic(ECOPlannerDiagnostic.CYCLE_SIZE_LIMIT);
+                        ECOPlanningFailureDiagnostics.logDetail(
+                            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                            "cycle_component_limit materials=" + component.size()
+                                + " operations=" + localOperations.size()
+                        );
+                    }
                     logFailure(problem, "cycle_component_limit materials=" + component.size()
                         + " operations=" + localOperations.size());
                     return Optional.empty();

@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -93,6 +94,22 @@ public final class ECOAE2SnapshotFactory {
         Level level,
         Set<ResourceLocation> fuzzyItemIds
     ) {
+        return captureWithDiagnostics(
+            grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, level, fuzzyItemIds
+        ).snapshot();
+    }
+
+    /** Captures a snapshot and preserves the server-side explanation when capture is rejected. */
+    public static CaptureResult captureWithDiagnostics(
+        IGrid grid,
+        ICraftingSimulationRequester requester,
+        AEKey requestedKey,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        long craftableGeneration,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
         if (requestedAmount <= 0
             || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
                 && strategy != CalculationStrategy.CRAFT_LESS)) {
@@ -104,7 +121,10 @@ public final class ECOAE2SnapshotFactory {
                 strategy,
                 "invalid_request_or_unsupported_strategy"
             );
-            return Optional.empty();
+            return CaptureResult.failure(
+                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                List.of(ECOPlannerDiagnostic.PATTERN_METADATA_MISSING)
+            );
         }
         long captureStarted = System.nanoTime();
         try {
@@ -167,7 +187,15 @@ public final class ECOAE2SnapshotFactory {
                     "snapshot_capture_total", captureStarted,
                     "result=failure reason=graph_empty"
                 );
-                return Optional.empty();
+                Set<ECOPlannerDiagnostic> diagnostics = new LinkedHashSet<>();
+                diagnostics.add(ECOPlannerDiagnostic.COMPONENT_NO_PRODUCER);
+                if (requestedKey.hasComponents()) {
+                    diagnostics.add(ECOPlannerDiagnostic.COMPONENT_MISMATCH);
+                }
+                if (graph.excludedDynamicPaths()) {
+                    diagnostics.add(ECOPlannerDiagnostic.PROVIDER_SCOPED_NBT);
+                }
+                return CaptureResult.failure(ECOPlannerFallbackReason.SNAPSHOT_REJECTED, List.copyOf(diagnostics));
             }
 
             // Existing copies of the requested output must not short-circuit a normal request,
@@ -196,6 +224,7 @@ public final class ECOAE2SnapshotFactory {
                 graph.truncatedStateExpansion(),
                 graph.excludedDynamicPaths(),
                 graph.dynamicSmithing(),
+                diagnosticsFor(graph),
                 fuzzyItemIds,
                 ECOPlanningFailureDiagnostics.currentRequestId()
             ));
@@ -218,7 +247,7 @@ public final class ECOAE2SnapshotFactory {
                 "snapshot_capture_total", captureStarted,
                 "result=success operations=" + operations.size()
             );
-            return snapshot;
+            return CaptureResult.success(snapshot.get());
         } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
@@ -230,7 +259,7 @@ public final class ECOAE2SnapshotFactory {
                 rejection
             );
             logCaptureFailureTiming(requestedKey, requestedAmount, strategy, captureStarted, rejection.reason());
-            return Optional.empty();
+            return CaptureResult.failure(rejection.reason(), classifyRejection(rejection.context()));
         } catch (SnapshotRejection rejection) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.GRAPH,
@@ -242,7 +271,7 @@ public final class ECOAE2SnapshotFactory {
                 rejection
             );
             logCaptureFailureTiming(requestedKey, requestedAmount, strategy, captureStarted, rejection.reason());
-            return Optional.empty();
+            return CaptureResult.failure(rejection.reason(), classifyRejection(rejection.context()));
         } catch (RuntimeException | LinkageError failure) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
@@ -258,7 +287,70 @@ public final class ECOAE2SnapshotFactory {
                 requestedKey, requestedAmount, strategy, captureStarted,
                 ECOPlannerFallbackReason.SNAPSHOT_REJECTED
             );
-            return Optional.empty();
+            return CaptureResult.failure(
+                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                List.of(ECOPlannerDiagnostic.PATTERN_METADATA_MISSING)
+            );
+        }
+    }
+
+    private static List<ECOPlannerDiagnostic> diagnosticsFor(PatternGraph graph) {
+        Set<ECOPlannerDiagnostic> diagnostics = new LinkedHashSet<>();
+        if (graph.dynamicSmithing()) {
+            diagnostics.add(ECOPlannerDiagnostic.SUBSTITUTION_PATTERN);
+        }
+        if (graph.excludedDynamicPaths()) {
+            diagnostics.add(ECOPlannerDiagnostic.PROVIDER_SCOPED_NBT);
+        }
+        if (graph.truncatedStateExpansion()) {
+            diagnostics.add(ECOPlannerDiagnostic.VARIANT_EXPANSION_LIMIT);
+        }
+        if (graph.operations().stream().anyMatch(ECOAE2SnapshotFactory::hasDamageableInput)) {
+            diagnostics.add(ECOPlannerDiagnostic.DAMAGEABLE_INPUT);
+        }
+        return List.copyOf(diagnostics);
+    }
+
+    private static boolean hasDamageableInput(ECOPlanningOperation<AEKey, ECOAE2PatternVariant> operation) {
+        return operation.inputs().keySet().stream()
+            .filter(AEItemKey.class::isInstance)
+            .map(AEItemKey.class::cast)
+            .anyMatch(ECOAE2SnapshotFactory::isDamageable);
+    }
+
+    private static boolean isDamageable(AEItemKey key) {
+        try {
+            return key.toStack(1).isDamageableItem();
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
+
+    private static List<ECOPlannerDiagnostic> classifyRejection(String context) {
+        List<ECOPlannerDiagnostic> diagnostics = ECOPlannerDiagnostic.classify(context);
+        return diagnostics.isEmpty()
+            ? List.of(ECOPlannerDiagnostic.PATTERN_METADATA_MISSING)
+            : diagnostics;
+    }
+
+    public record CaptureResult(
+        Optional<ECOAE2PlanningSnapshot> snapshot,
+        ECOPlannerFallbackReason reason,
+        List<ECOPlannerDiagnostic> diagnostics
+    ) {
+        public CaptureResult {
+            snapshot = Objects.requireNonNull(snapshot, "snapshot");
+            reason = Objects.requireNonNull(reason, "reason");
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+        }
+
+        static CaptureResult success(ECOAE2PlanningSnapshot snapshot) {
+            return new CaptureResult(Optional.of(Objects.requireNonNull(snapshot, "snapshot")),
+                ECOPlannerFallbackReason.FAST_PATH, snapshot.diagnostics());
+        }
+
+        static CaptureResult failure(ECOPlannerFallbackReason reason, List<ECOPlannerDiagnostic> diagnostics) {
+            return new CaptureResult(Optional.empty(), reason, diagnostics);
         }
     }
 
@@ -477,7 +569,9 @@ public final class ECOAE2SnapshotFactory {
                         continue;
                     }
                     ECOAE2PatternCompatibility.Assessment duplicateAssessment =
-                        ECOAE2PatternCompatibility.assess(details, craftingService, level);
+                        ECOAE2PatternCompatibility.assess(
+                            details, craftingService, level, fuzzyItemIds
+                        );
                     if (!duplicateAssessment.compatible()) {
                         if ("provider_scoped_nbt".equals(duplicateAssessment.rejection())) {
                             excludedDynamicPaths = true;
@@ -519,7 +613,9 @@ public final class ECOAE2SnapshotFactory {
                     continue;
                 }
                 ECOAE2PatternCompatibility.Assessment assessment =
-                    ECOAE2PatternCompatibility.assess(details, craftingService, level);
+                    ECOAE2PatternCompatibility.assess(
+                        details, craftingService, level, fuzzyItemIds
+                    );
                 if (!assessment.compatible()) {
                     if ("provider_scoped_nbt".equals(assessment.rejection())) {
                         excludedDynamicPaths = true;

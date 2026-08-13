@@ -204,7 +204,7 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "fallback_setup_failed");
             return;
         }
-        var snapshot = ECOAE2SnapshotFactory.capture(
+        var capture = ECOAE2SnapshotFactory.captureWithDiagnostics(
             this.grid,
             simRequester,
             what,
@@ -214,14 +214,15 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             level,
             lease.get().fuzzyPlanningItemIds()
         );
-        if (snapshot.isEmpty()) {
+        if (capture.snapshot().isEmpty()) {
+            var captureReason = capture.reason();
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                captureReason,
                 what,
                 amount,
                 strategy,
-                "snapshot_factory_returned_empty"
+                "snapshot_factory_returned_empty diagnostics=" + capture.diagnostics()
             );
             var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
                 java.util.concurrent.CompletableFuture.supplyAsync(() -> {
@@ -236,13 +237,13 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
                         }
                     }
                 });
-            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
+            ECOPlannerNoticeDispatcher.send(noticeTarget, captureReason, 0L, capture.diagnostics());
             cir.setReturnValue(nativePlanning.get());
             cir.cancel();
             return;
         }
         var ecoPlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () -> ECOPlanningService.submit(
-            snapshot.get(), strategy, lease.get(), noticeTarget, fallback::run);
+            capture.snapshot().orElseThrow(), strategy, lease.get(), noticeTarget, fallback::run);
         cir.setReturnValue(ecoPlanning.get());
         cir.cancel();
         }

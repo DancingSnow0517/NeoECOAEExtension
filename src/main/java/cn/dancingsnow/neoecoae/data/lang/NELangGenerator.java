@@ -28,6 +28,16 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.planning.reason.precise_path_failed", "Exact input-alternative planning failed");
         provider.add("gui.neoecoae.planning.reason.differential_mismatch", "The ECO result differed from AE2 verification");
         provider.add("gui.neoecoae.planning.reason.planning_failure", "The ECO planner encountered an unexpected failure");
+        provider.add("gui.neoecoae.planning.diagnostic.header", "Why ECO planning was not used");
+        provider.add("gui.neoecoae.planning.diagnostic.component_mismatch", "The item data component does not match the pattern contract");
+        provider.add("gui.neoecoae.planning.diagnostic.component_no_producer", "No producer was found for this item data component");
+        provider.add("gui.neoecoae.planning.diagnostic.provider_scoped_nbt", "The pattern uses provider-scoped NBT / NBT Tear data");
+        provider.add("gui.neoecoae.planning.diagnostic.substitution_pattern", "A substitution pattern is present");
+        provider.add("gui.neoecoae.planning.diagnostic.damageable_input", "A damageable or durability-bearing input cannot be snapshotted safely");
+        provider.add("gui.neoecoae.planning.diagnostic.variant_expansion_limit", "Input variants expand beyond the ECO limit");
+        provider.add("gui.neoecoae.planning.diagnostic.graph_size_limit", "The recipe graph or operation count exceeds the ECO limit");
+        provider.add("gui.neoecoae.planning.diagnostic.cycle_size_limit", "The crafting ring is too large for the ECO cycle solver");
+        provider.add("gui.neoecoae.planning.diagnostic.pattern_metadata_missing", "The pattern input or output metadata is missing or invalid");
 
         // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");

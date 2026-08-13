@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.service;
 
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import java.util.List;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
@@ -32,7 +33,16 @@ public final class ECOPlannerNoticeDispatcher {
     }
 
     public static void send(@Nullable Target target, ECOPlannerFallbackReason reason, long elapsedNanos) {
-        send(target, reason, elapsedNanos, "");
+        send(target, reason, elapsedNanos, "", List.of());
+    }
+
+    public static void send(
+        @Nullable Target target,
+        ECOPlannerFallbackReason reason,
+        long elapsedNanos,
+        List<ECOPlannerDiagnostic> diagnostics
+    ) {
+        send(target, reason, elapsedNanos, "", diagnostics);
     }
 
     public static void sendOverflow(
@@ -40,14 +50,15 @@ public final class ECOPlannerNoticeDispatcher {
         long elapsedNanos,
         java.math.BigInteger exactBytes
     ) {
-        send(target, ECOPlannerFallbackReason.OVERFLOW, elapsedNanos, ByteAmountFormatter.format(exactBytes));
+        send(target, ECOPlannerFallbackReason.OVERFLOW, elapsedNanos, ByteAmountFormatter.format(exactBytes), List.of());
     }
 
     private static void send(
         @Nullable Target target,
         ECOPlannerFallbackReason reason,
         long elapsedNanos,
-        String formattedBytes
+        String formattedBytes,
+        List<ECOPlannerDiagnostic> diagnostics
     ) {
         if (target == null) {
             return;
@@ -67,7 +78,8 @@ public final class ECOPlannerNoticeDispatcher {
                     target.containerId(),
                     reason.id(),
                     Math.max(0L, elapsedNanos),
-                    formattedBytes
+                    formattedBytes,
+                    diagnostics.stream().map(ECOPlannerDiagnostic::id).reduce((left, right) -> left + "," + right).orElse("")
                 )
             );
         });

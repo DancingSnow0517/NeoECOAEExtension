@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.service;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
@@ -57,6 +58,7 @@ public final class ECOPlanningService {
             try (var diagnosticScope = ECOPlanningFailureDiagnostics.bindRequest(
                 snapshot.diagnosticRequestId()
             )) {
+            ECOPlanningFailureDiagnostics.setDiagnostics(snapshot.diagnostics());
             String diagnosticResult = "started";
             if (cancellationRequested.get()) {
                 throw new CancellationException("ECO crafting planning was cancelled before execution");
@@ -66,7 +68,12 @@ public final class ECOPlanningService {
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
             ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
             if (snapshot.dynamicSmithing()) {
-                ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.DYNAMIC_SMITHING);
+                ECOPlannerNoticeDispatcher.send(
+                    noticeTarget,
+                    ECOPlannerFallbackReason.DYNAMIC_SMITHING,
+                    0L,
+                    snapshot.diagnostics()
+                );
             }
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ENTRY,
@@ -157,7 +164,8 @@ public final class ECOPlanningService {
                         snapshot.dynamicSmithing()
                             ? ECOPlannerFallbackReason.DYNAMIC_SMITHING
                             : ECOPlannerFallbackReason.FAST_PATH,
-                        System.nanoTime() - planningStarted
+                        System.nanoTime() - planningStarted,
+                        snapshot.dynamicSmithing() ? snapshot.diagnostics() : java.util.List.of()
                     );
                     diagnosticResult = simulation
                         ? "eco_missing_sources_simulation"
@@ -170,7 +178,15 @@ public final class ECOPlanningService {
                     "eco_attempt_total", planningStarted,
                     "result=fallback reason=" + FAILURE_REASON.get()
                 );
-                ECOPlannerNoticeDispatcher.send(noticeTarget, FAILURE_REASON.get());
+                if (hasDamageableInput(snapshot)) {
+                    ECOPlanningFailureDiagnostics.addDiagnostic(ECOPlannerDiagnostic.DAMAGEABLE_INPUT);
+                }
+                ECOPlannerNoticeDispatcher.send(
+                    noticeTarget,
+                    FAILURE_REASON.get(),
+                    0L,
+                    ECOPlanningFailureDiagnostics.currentDiagnostics()
+                );
                 ECOPlanningFailureDiagnostics.logFailure(
                     ECOPlanningFailureDiagnostics.Stage.FALLBACK,
                     FAILURE_REASON.get(),
@@ -409,6 +425,22 @@ public final class ECOPlanningService {
 
     private static void markFailure(ECOPlannerFallbackReason reason) {
         FAILURE_REASON.set(reason);
+    }
+
+    private static boolean hasDamageableInput(ECOAE2PlanningSnapshot snapshot) {
+        return snapshot.problem().operations().stream()
+            .flatMap(operation -> operation.inputs().keySet().stream())
+            .filter(AEItemKey.class::isInstance)
+            .map(AEItemKey.class::cast)
+            .anyMatch(ECOPlanningService::isDamageable);
+    }
+
+    private static boolean isDamageable(AEItemKey key) {
+        try {
+            return key.toStack(1).isDamageableItem();
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot) {

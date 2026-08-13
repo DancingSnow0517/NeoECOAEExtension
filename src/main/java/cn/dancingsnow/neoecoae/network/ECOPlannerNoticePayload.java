@@ -1,7 +1,11 @@
 package cn.dancingsnow.neoecoae.network;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,8 +22,17 @@ public record ECOPlannerNoticePayload(
     int containerId,
     String reasonId,
     long elapsedNanos,
-    String formattedBytes
+    String formattedBytes,
+    String diagnosticIds
 ) implements CustomPacketPayload {
+    public ECOPlannerNoticePayload(
+        int containerId,
+        String reasonId,
+        long elapsedNanos,
+        String formattedBytes
+    ) {
+        this(containerId, reasonId, elapsedNanos, formattedBytes, "");
+    }
     public static final Type<ECOPlannerNoticePayload> TYPE = new Type<>(NeoECOAE.id("planner_notice"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOPlannerNoticePayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.VAR_INT,
@@ -30,6 +43,8 @@ public record ECOPlannerNoticePayload(
         ECOPlannerNoticePayload::elapsedNanos,
         ByteBufCodecs.STRING_UTF8,
         ECOPlannerNoticePayload::formattedBytes,
+        ByteBufCodecs.STRING_UTF8,
+        ECOPlannerNoticePayload::diagnosticIds,
         ECOPlannerNoticePayload::new
     );
     private static final Map<Integer, ClientNotice> CLIENT_NOTICES = new ConcurrentHashMap<>();
@@ -64,7 +79,8 @@ public record ECOPlannerNoticePayload(
             CLIENT_NOTICES.put(payload.containerId(), new ClientNotice(
                 reason,
                 payload.elapsedNanos(),
-                payload.formattedBytes()
+                payload.formattedBytes(),
+                parseDiagnostics(payload.diagnosticIds())
             ));
             if (reason == ECOPlannerFallbackReason.FAST_PATH || reason == ECOPlannerFallbackReason.OVERFLOW) {
                 return;
@@ -79,9 +95,35 @@ public record ECOPlannerNoticePayload(
         });
     }
 
-    public record ClientNotice(ECOPlannerFallbackReason reason, long elapsedNanos, String formattedBytes) {
+    public record ClientNotice(
+        ECOPlannerFallbackReason reason,
+        long elapsedNanos,
+        String formattedBytes,
+        List<ECOPlannerDiagnostic> diagnostics
+    ) {
+        public ClientNotice {
+            diagnostics = List.copyOf(diagnostics);
+        }
+
         public boolean overflow() {
             return reason == ECOPlannerFallbackReason.OVERFLOW && !formattedBytes.isEmpty();
         }
+    }
+
+    private static List<ECOPlannerDiagnostic> parseDiagnostics(String ids) {
+        if (ids == null || ids.isBlank()) {
+            return List.of();
+        }
+        List<ECOPlannerDiagnostic> result = new ArrayList<>();
+        Arrays.stream(ids.split(","))
+            .map(String::trim)
+            .map(ECOPlannerDiagnostic::fromId)
+            .filter(java.util.Objects::nonNull)
+            .forEach(diagnostic -> {
+                if (!result.contains(diagnostic)) {
+                    result.add(diagnostic);
+                }
+            });
+        return List.copyOf(result);
     }
 }

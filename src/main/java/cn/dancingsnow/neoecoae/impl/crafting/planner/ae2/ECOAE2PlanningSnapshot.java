@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import java.util.Map;
 import java.util.List;
 import java.util.Objects;
@@ -18,6 +19,7 @@ public record ECOAE2PlanningSnapshot(
     boolean truncatedStateExpansion,
     boolean excludedDynamicPaths,
     boolean dynamicSmithing,
+    List<ECOPlannerDiagnostic> diagnostics,
     Set<ResourceLocation> fuzzyItemIds,
     String diagnosticRequestId
 ) {
@@ -32,6 +34,7 @@ public record ECOAE2PlanningSnapshot(
             stateCapacityTemplates, "stateCapacityTemplates"
         ));
         fuzzyItemIds = Set.copyOf(Objects.requireNonNull(fuzzyItemIds, "fuzzyItemIds"));
+        diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
         diagnosticRequestId = Objects.requireNonNullElse(diagnosticRequestId, "unscoped");
     }
 
@@ -46,7 +49,7 @@ public record ECOAE2PlanningSnapshot(
     ) {
         this(
             problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts, List.of(),
-            truncatedStateExpansion, excludedDynamicPaths, false, Set.of(), "unscoped"
+            truncatedStateExpansion, excludedDynamicPaths, false, List.of(), Set.of(), "unscoped"
         );
     }
 
@@ -69,6 +72,7 @@ public record ECOAE2PlanningSnapshot(
             truncatedStateExpansion,
             excludedDynamicPaths,
             dynamicSmithing,
+            diagnostics,
             fuzzyItemIds,
             diagnosticRequestId
         );
