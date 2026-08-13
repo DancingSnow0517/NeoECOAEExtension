@@ -134,7 +134,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean fullNetworkPowerPaid;
     @Persisted
     @DescSynced
-    private int selectedBuildLength = 1;
+    private int selectedBuildLength = 11;
     @Persisted
     @DescSynced
     private boolean mirrorBuild;

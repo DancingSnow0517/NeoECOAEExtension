@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
@@ -52,12 +51,9 @@ public final class NECraftingNetworkCluster {
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
     private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores = List
             .of();
-    private int nextPhysicalClusterIndex;
     private int nextCoolantControllerIndex;
-    private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
     // Verified recipe metadata belongs to the logical exchange, not one physical F-series host.
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
-    private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
     private boolean overclocked;
     private boolean activeCooling;
     private long revision;
@@ -108,8 +104,6 @@ public final class NECraftingNetworkCluster {
                 controller.setLocalActiveCooling(activeCooling);
             }
         }
-        nextPhysicalClusterIndex = Math.floorMod(nextPhysicalClusterIndex, Math.max(1, physicalClusters.size()));
-        nextWorkerIndexByCluster.keySet().retainAll(physicalClusters);
         revision++;
         for (ECOCraftingSystemBlockEntity controller : controllers) {
             controller.onNetworkStateChanged();
@@ -125,8 +119,6 @@ public final class NECraftingNetworkCluster {
         workers = List.of();
         patternBuses = List.of();
         parallelCores = List.of();
-        nextPhysicalClusterIndex = 0;
-        nextWorkerIndexByCluster.clear();
         revision++;
     }
 
@@ -160,14 +152,6 @@ public final class NECraftingNetworkCluster {
 
     public int getMemberCount() {
         return controllers.size();
-    }
-
-    public boolean isBatchFairSchedulingEnabled() {
-        return batchFairnessTracker.isEnabled();
-    }
-
-    public void setBatchFairSchedulingEnabled(boolean enabled) {
-        batchFairnessTracker.setEnabled(enabled);
     }
 
     /**
@@ -521,12 +505,10 @@ public final class NECraftingNetworkCluster {
         if (workers.isEmpty()) {
             return false;
         }
-        long currentTick = level.getGameTime();
         if (getAvailableThreadSlots(grid) <= 0) {
-            batchFairnessTracker.noteWaiting(craftingJobId, currentTick);
             return false;
         }
-        int clusterStart = Math.floorMod(nextPhysicalClusterIndex, physicalClusters.size());
+        int clusterStart = 0;
         for (int clusterOffset = 0; clusterOffset < physicalClusters.size(); clusterOffset++) {
             int clusterIndex = (clusterStart + clusterOffset) % physicalClusters.size();
             NECraftingCluster physical = physicalClusters.get(clusterIndex);
@@ -534,7 +516,7 @@ public final class NECraftingNetworkCluster {
             if (getAvailableLogicalSlots(physical) <= 0 || localWorkers.isEmpty()) {
                 continue;
             }
-            int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
+            int workerStart = 0;
             for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
                 int workerIndex = (workerStart + workerOffset) % localWorkers.size();
                 ECOCraftingWorkerBlockEntity worker = localWorkers.get(workerIndex);
@@ -542,8 +524,6 @@ public final class NECraftingNetworkCluster {
                     continue;
                 }
                 if (worker.pushPattern(execution, craftingJobId)) {
-                    nextWorkerIndexByCluster.put(physical, (workerIndex + 1) % localWorkers.size());
-                    nextPhysicalClusterIndex = (clusterIndex + 1) % physicalClusters.size();
                     return true;
                 }
             }
@@ -557,13 +537,6 @@ public final class NECraftingNetworkCluster {
             @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer) {
         if (workers.isEmpty() || offer == null) {
             return false;
-        }
-        long currentTick = level.getGameTime();
-        if (isVirtualCraftingEligible()) {
-            batchFairnessTracker.noteWaiting(request.craftingJobId(), currentTick);
-            if (batchFairnessTracker.shouldDefer(request.craftingJobId(), currentTick)) {
-                return false;
-            }
         }
         // A batch occupies one logical host thread. Its physical worker slots
         // are checked separately below, so a batch may be larger than the
@@ -582,14 +555,7 @@ public final class NECraftingNetworkCluster {
                 && getAvailableLogicalSlots(worker) > 0
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
-            updateRoundRobinAfterAccept(physical, worker);
-            if (isVirtualCraftingEligible()) {
-                batchFairnessTracker.noteAccepted(request.craftingJobId(), currentTick);
-            }
             return true;
-        }
-        if (isVirtualCraftingEligible()) {
-            batchFairnessTracker.noteRejected(request.craftingJobId());
         }
         return false;
     }
@@ -606,10 +572,9 @@ public final class NECraftingNetworkCluster {
             return null;
         }
         if (getAvailableThreadSlots(grid) <= 0) {
-            batchFairnessTracker.noteWaiting(craftingJobId, level.getGameTime());
             return null;
         }
-        int clusterStart = Math.floorMod(nextPhysicalClusterIndex, physicalClusters.size());
+        int clusterStart = 0;
         for (int clusterOffset = 0; clusterOffset < physicalClusters.size(); clusterOffset++) {
             NECraftingCluster physical = physicalClusters.get((clusterStart + clusterOffset) % physicalClusters.size());
             ECOCraftingSystemBlockEntity controller = physical.getController();
@@ -623,7 +588,7 @@ public final class NECraftingNetworkCluster {
             if (availableBatchSize <= 0) {
                 continue;
             }
-            int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
+            int workerStart = 0;
             ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
             for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
                 ECOCraftingWorkerBlockEntity worker = localWorkers
@@ -646,37 +611,10 @@ public final class NECraftingNetworkCluster {
                 break;
             }
             if (bestOffer != null) {
-                long currentTick = level.getGameTime();
-                if (isVirtualCraftingEligible()) {
-                    batchFairnessTracker.noteWaiting(craftingJobId, currentTick);
-                    if (batchFairnessTracker.shouldDefer(craftingJobId, currentTick)) {
-                        return null;
-                    }
-                }
                 return bestOffer;
             }
         }
         return null;
-    }
-
-    private void updateRoundRobinAfterAccept(
-            NECraftingCluster physical,
-            ECOCraftingWorkerBlockEntity acceptedWorker) {
-        List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
-        int workerIndex = localWorkers.indexOf(acceptedWorker);
-        if (workerIndex >= 0 && !localWorkers.isEmpty()) {
-            nextWorkerIndexByCluster.put(physical, (workerIndex + 1) % localWorkers.size());
-        }
-        int clusterIndex = physicalClusters.indexOf(physical);
-        if (clusterIndex >= 0 && !physicalClusters.isEmpty()) {
-            nextPhysicalClusterIndex = (clusterIndex + 1) % physicalClusters.size();
-        }
-    }
-
-    public void noteCompletedBatchJob(UUID craftingJobId, long currentTick) {
-        // Eligibility can change while a virtual batch is completing. Cleanup must not
-        // depend on the current structure state, or a previously tracked job could stick.
-        batchFairnessTracker.noteCompleted(craftingJobId);
     }
 
     public boolean isBusy(@Nullable IGrid grid) {

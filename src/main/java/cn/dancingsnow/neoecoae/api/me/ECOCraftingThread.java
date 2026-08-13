@@ -1100,8 +1100,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
-        UUID completedJobId = craftingJobId;
-        boolean completedBatchFastPathWork = batchFastPathWork;
         outputItems.clear();
         inputItems.clear();
         remainingItems.clear();
@@ -1123,9 +1121,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         virtualCrafting = false;
         batchFastPathWork = false;
         recoveryState = RecoveryState.CLEARED;
-        if (completedBatchFastPathWork) {
-            worker.onCraftingJobCompleted(completedJobId);
-        }
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {

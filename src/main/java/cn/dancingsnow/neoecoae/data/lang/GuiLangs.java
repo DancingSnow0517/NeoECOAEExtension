@@ -134,9 +134,6 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.host.computation.fast_planning", "ECO Fast Planning");
                 provider.add("gui.neoecoae.host.computation.fast_planning.enabled", "Enabled");
                 provider.add("gui.neoecoae.host.computation.fast_planning.disabled", "Disabled");
-                provider.add("gui.neoecoae.host.computation.batch_fair_scheduling", "Enable ECO Round-Robin Scheduling");
-                provider.add("gui.neoecoae.host.computation.batch_fair_scheduling.enabled", "Enabled");
-                provider.add("gui.neoecoae.host.computation.batch_fair_scheduling.disabled", "Disabled");
                 provider.add("gui.neoecoae.host.computation.cpu_pool", "Crafting CPU Pool");
                 provider.add("gui.neoecoae.host.computation.cpu_pool_hint",
                                 "Threads expose virtual crafting CPUs to the AE network.");
