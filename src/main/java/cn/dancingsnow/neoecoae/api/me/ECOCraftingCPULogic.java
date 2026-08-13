@@ -425,7 +425,8 @@ public class ECOCraftingCPULogic {
                             patternBuses,
                             energyService,
                             patternPower,
-                            batchTaskRemaining)
+                            batchTaskRemaining,
+                            job.fuzzyItemIds)
                         : 0L;
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
@@ -777,7 +778,8 @@ public class ECOCraftingCPULogic {
             List<ECOCraftingPatternBusBlockEntity> patternBuses,
             IEnergyService energyService,
             double patternPower,
-        long taskRemaining) {
+        long taskRemaining,
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds) {
         if (patternBuses.isEmpty()) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NO_ECO_PATTERN_BUS,
                 ECOFastPathStage.ELIGIBILITY, cpu.getOwner().getBlockPos(),
