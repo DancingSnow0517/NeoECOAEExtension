@@ -454,16 +454,26 @@ public class ECOCraftingCPULogic {
                     }
 
                     int ae2ltBatchResult = fuzzyBatchSafe
-                        ? ae2ltBatchBridge.tryPushBatch(
-                            providers,
-                            details,
-                            craftingContainer,
-                            inventory,
-                            energyService,
-                            patternPower,
-                            batchTaskRemaining,
-                            job.fuzzyItemIds
-                        )
+                        ? job.fuzzyItemIds.isEmpty()
+                            ? ae2ltBatchBridge.tryPushBatch(
+                                providers,
+                                details,
+                                craftingContainer,
+                                inventory,
+                                energyService,
+                                patternPower,
+                                batchTaskRemaining
+                            )
+                            : ae2ltBatchBridge.tryPushFuzzyBatch(
+                                providers,
+                                details,
+                                craftingContainer,
+                                inventory,
+                                energyService,
+                                patternPower,
+                                batchTaskRemaining,
+                                job.fuzzyItemIds
+                            )
                         : 0;
                     if (ae2ltBatchResult > 0) {
                         chargeAcceptedPatternEnergy(

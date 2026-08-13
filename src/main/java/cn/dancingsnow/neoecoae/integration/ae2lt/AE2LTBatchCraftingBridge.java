@@ -83,7 +83,7 @@ public final class AE2LTBatchCraftingBridge {
      *
      * @return number of whole crafting copies accepted by an AE2LT provider, or zero
      */
-    public int tryPushBatch(
+    public int tryPushFuzzyBatch(
             List<ICraftingProvider> providers,
             IPatternDetails details,
             KeyCounter[] oneCopyTemplate,
@@ -213,7 +213,11 @@ public final class AE2LTBatchCraftingBridge {
         return 0;
     }
 
-    /** Compatibility overload for callers without computation-interface fuzzy configuration. */
+    /**
+     * Legacy entry point kept for Mek Energistics' Mixin, which injects by this method name.
+     * Callers that have fuzzy configuration must use {@link #tryPushFuzzyBatch} so that legacy
+     * integrations cannot observe a method descriptor they do not understand.
+     */
     public int tryPushBatch(
             List<ICraftingProvider> providers,
             IPatternDetails details,
@@ -222,7 +226,7 @@ public final class AE2LTBatchCraftingBridge {
             IEnergyService energyService,
             double patternPower,
             long maxCrafts) {
-        return tryPushBatch(
+        return tryPushFuzzyBatch(
             providers, details, oneCopyTemplate, inventory, energyService, patternPower, maxCrafts, Set.of()
         );
     }
