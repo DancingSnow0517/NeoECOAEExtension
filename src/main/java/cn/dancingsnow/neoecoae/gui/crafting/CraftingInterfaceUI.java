@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -27,11 +28,14 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +59,8 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
     private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int PREVIEW_QUERY_MAX_LENGTH = 128;
+    private static final int SEARCH_TEXT_INSET_X = 2;
+    private static final int SEARCH_TEXT_INSET_Y = 3;
 
     private CraftingInterfaceUI() {
     }
@@ -163,22 +169,16 @@ public final class CraftingInterfaceUI {
     private static NativeSearchField patternSearchField(PreviewState previewState) {
         NativeSearchField field = new NativeSearchField(previewState::setSearch);
         field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
-        // ExtendedAE clears its matrix query with a right-click. Keep that compact interaction so the search field
-        // retains enough width for long pattern names.
-        field.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            if (event.button == 1) {
-                field.clearText();
-                event.stopImmediatePropagation();
-            }
-        });
         return HostElements.tooltips(field,
                 Component.translatable("gui.neoecoae.crafting_interface.preview.search.tooltip"));
     }
 
     /**
-     * Bridges a vanilla EditBox into ModularUI. LowDragLib's TextField has its own character editor, but it does not
-     * own a native Minecraft text widget, which means Windows IME focus is not established for this field. The
-     * vanilla EditBox handles charTyped/keyPressed, selection, clipboard, and the IME commit path used by AE2.
+     * AE2-Lightning-Tech and AE2 terminals add a vanilla {@link EditBox} with
+     * {@code addRenderableWidget} / {@code setInitialFocus}. LowDragLib's widget stays the Screen's
+     * focused child and reclaims that focus on every ModularUI click, so Windows IME never sees a
+     * native text widget. Register the EditBox first in the Screen child list, give it initial
+     * focus, and keep reclaiming that focus while this field owns input.
      */
     public static void attachNativeSearchFields(ScreenEvent.Init.Post event, ModularUI modularUI) {
         if (modularUI == null) {
@@ -186,23 +186,65 @@ public final class CraftingInterfaceUI {
         }
 
         var widget = modularUI.getWidget();
+        NativeSearchField first = null;
         for (NativeSearchField field : modularUI.getElementsByType(NativeSearchField.class)) {
-            if (field.nativeWidgetRegistered) {
-                continue;
-            }
-
-            // Put the native field first in the Screen hit-test order. The broad ModularUI widget remains last so it
-            // continues to render the whole panel and dispatches the non-text controls.
+            // Re-register on every init/resize. Screen.rebuildWidgets() clears children.
+            event.removeListener(field.editBox);
             event.removeListener(widget);
             event.addListener(field.editBox);
             event.addListener(widget);
-            field.nativeWidgetRegistered = true;
+            if (first == null) {
+                first = field;
+            }
         }
+        if (first != null) {
+            first.claimNativeFocus(event.getScreen());
+        }
+    }
+
+    public static void prepareSearchFields(Screen screen) {
+        for (NativeSearchField field : searchFields(screen)) {
+            field.syncNativeBounds();
+        }
+    }
+
+    public static boolean handleSearchKeyPressed(Screen screen, int keyCode, int scanCode, int modifiers) {
+        NativeSearchField field = focusedSearchField(screen);
+        return field != null && field.keyPressedNative(keyCode, scanCode, modifiers);
+    }
+
+    public static boolean handleSearchCharTyped(Screen screen, char codePoint, int modifiers) {
+        NativeSearchField field = focusedSearchField(screen);
+        return field != null && field.charTypedNative(codePoint, modifiers);
+    }
+
+    public static void reclaimSearchFieldFocus(Screen screen) {
+        NativeSearchField field = focusedSearchField(screen);
+        if (field != null) {
+            field.claimNativeFocus(screen);
+        }
+    }
+
+    private static NativeSearchField focusedSearchField(Screen screen) {
+        for (NativeSearchField field : searchFields(screen)) {
+            if (field.ownsNativeInput(screen)) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    private static List<NativeSearchField> searchFields(Screen screen) {
+        if (screen instanceof AbstractContainerScreen<?> container
+                && container.getMenu() instanceof IModularUIHolder holder
+                && holder.getModularUI() != null) {
+            return holder.getModularUI().getElementsByType(NativeSearchField.class);
+        }
+        return List.of();
     }
 
     public static final class NativeSearchField extends UIElement {
         private final PositionedEditBox editBox;
-        private boolean nativeWidgetRegistered;
 
         private NativeSearchField(java.util.function.Consumer<String> responder) {
             editBox = new PositionedEditBox();
@@ -211,6 +253,7 @@ public final class CraftingInterfaceUI {
             editBox.setTextShadow(false);
             editBox.setMaxLength(PREVIEW_QUERY_MAX_LENGTH);
             editBox.setFilter(value -> true);
+            editBox.setCanLoseFocus(true);
             editBox.setHint(Component.translatable("gui.neoecoae.crafting_interface.preview.search"));
             editBox.setResponder(responder);
             editBox.setVisible(true);
@@ -218,10 +261,34 @@ public final class CraftingInterfaceUI {
 
             setFocusable(true);
             style(style -> style.backgroundTexture(Sprites.RECT_RD));
+            addEventListener(UIEvents.TICK, event -> {
+                syncNativeBounds();
+                if (isFocused()) {
+                    claimNativeFocus(Minecraft.getInstance().screen);
+                }
+            });
         }
 
-        private void clearText() {
-            editBox.setValue("");
+        private boolean ownsNativeInput(Screen screen) {
+            return isFocused() || (screen != null && screen.getFocused() == editBox);
+        }
+
+        private void claimNativeFocus(Screen screen) {
+            syncNativeBounds();
+            if (screen != null && screen.getFocused() != editBox) {
+                screen.setFocused(editBox);
+            }
+            if (!editBox.isFocused()) {
+                editBox.setFocused(true);
+            }
+        }
+
+        private boolean keyPressedNative(int keyCode, int scanCode, int modifiers) {
+            return editBox.keyPressed(keyCode, scanCode, modifiers);
+        }
+
+        private boolean charTypedNative(char codePoint, int modifiers) {
+            return editBox.charTyped(codePoint, modifiers);
         }
 
         @Override
@@ -232,8 +299,10 @@ public final class CraftingInterfaceUI {
         }
 
         private void syncNativeBounds() {
-            editBox.setX(Math.round(getPositionX()));
-            editBox.setY(Math.round(getPositionY()));
+            // The ModularUI sprite has a recessed inner area, while an unbordered vanilla EditBox starts drawing at
+            // its exact bounds. Keep the native text, cursor, and selection inside that recessed area.
+            editBox.setX(Math.round(getPositionX()) + SEARCH_TEXT_INSET_X);
+            editBox.setY(Math.round(getPositionY()) + SEARCH_TEXT_INSET_Y);
             editBox.setWidth(Math.max(1, Math.round(getSizeWidth())));
             editBox.setHeight(Math.max(1, Math.round(getSizeHeight())));
         }
@@ -266,6 +335,14 @@ public final class CraftingInterfaceUI {
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 syncNativeBounds();
+                if (!isMouseOver(mouseX, mouseY)) {
+                    return false;
+                }
+                if (button == 1) {
+                    setValue("");
+                    setFocused(true);
+                    return true;
+                }
                 return super.mouseClicked(mouseX, mouseY, button);
             }
 
@@ -279,6 +356,17 @@ public final class CraftingInterfaceUI {
             public boolean mouseReleased(double mouseX, double mouseY, int button) {
                 syncNativeBounds();
                 return super.mouseReleased(mouseX, mouseY, button);
+            }
+
+            @Override
+            public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+                if (super.keyPressed(keyCode, scanCode, modifiers)) {
+                    return true;
+                }
+                // Same swallow as AE2's AETextField: keep E from closing the GUI while typing.
+                return isFocused() && canConsumeInput()
+                        && keyCode != GLFW.GLFW_KEY_TAB
+                        && keyCode != GLFW.GLFW_KEY_ESCAPE;
             }
         }
     }

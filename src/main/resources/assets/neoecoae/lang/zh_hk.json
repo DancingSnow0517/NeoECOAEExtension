@@ -203,6 +203,7 @@
   "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions": "顯示/隱藏可流體替換樣板",
   "gui.neoecoae.crafting_interface.preview.refresh": "刷新 F 主機樣板",
   "gui.neoecoae.crafting_interface.preview.organize": "一鍵整理 F 主機樣板",
+  "gui.neoecoae.crafting_interface.preview.organizing": "正在整理 F 主機樣板 %d%%",
   "gui.neoecoae.crafting_interface.preview.search_results": "匹配樣板：%d",
   "gui.neoecoae.crafting_interface.preview.entries": "F 主機已有 %d 個樣板",
   "gui.neoecoae.crafting_interface.preview.slots": "F 主機樣板槽位 %d",

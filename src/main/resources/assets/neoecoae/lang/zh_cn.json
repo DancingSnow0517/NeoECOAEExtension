@@ -219,6 +219,7 @@
   "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions": "显示/隐藏可流体替换样板",
   "gui.neoecoae.crafting_interface.preview.refresh": "刷新 F 主机样板",
   "gui.neoecoae.crafting_interface.preview.organize": "一键整理 F 主机样板",
+  "gui.neoecoae.crafting_interface.preview.organizing": "正在整理 F 主机样板 %d%%",
   "gui.neoecoae.crafting_interface.preview.search_results": "匹配样板：%d",
   "gui.neoecoae.crafting_interface.preview.entries": "F 主机已有 %d 个样板",
   "gui.neoecoae.crafting_interface.preview.slots": "F 主机样板槽位 %d",

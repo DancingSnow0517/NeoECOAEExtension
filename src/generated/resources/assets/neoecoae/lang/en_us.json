@@ -332,6 +332,7 @@
   "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions": "Show/hide fluid substitution patterns",
   "gui.neoecoae.crafting_interface.preview.refresh": "Refresh F host patterns",
   "gui.neoecoae.crafting_interface.preview.organize": "Organize F host patterns",
+  "gui.neoecoae.crafting_interface.preview.organizing": "Organizing F host patterns %d%%",
   "gui.neoecoae.crafting_interface.preview.scanning": "Scanning F host patterns %d / %d",
   "gui.neoecoae.crafting_interface.preview.search_results": "Matching patterns: %d",
   "gui.neoecoae.crafting_interface.preview.entries": "%d patterns stored on F host",

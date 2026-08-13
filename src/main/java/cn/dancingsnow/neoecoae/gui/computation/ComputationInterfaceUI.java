@@ -110,7 +110,7 @@ public final class ComputationInterfaceUI {
             super(new FuzzyPlanningFilterSlot(computationInterface.getFuzzyPlanningItemHandler(), inventorySlot));
             this.computationInterface = computationInterface;
             this.inventorySlot = inventorySlot;
-            getStyle().backgroundTexture(NETextures.INVENTORY_BORDER);
+            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
                     setValue(ItemStack.EMPTY, true);

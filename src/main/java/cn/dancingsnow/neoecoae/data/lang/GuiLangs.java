@@ -230,5 +230,6 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
                 provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
                 provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
+                provider.add("gui.neoecoae.crafting_interface.preview.organizing", "Organizing F host patterns %d%%");
         }
 }

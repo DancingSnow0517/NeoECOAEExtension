@@ -88,6 +88,32 @@ public class NeoECOAEClient {
         }
     }
 
+    @SubscribeEvent
+    public static void onScreenMouseClicked(ScreenEvent.MouseButtonPressed.Pre event) {
+        CraftingInterfaceUI.prepareSearchFields(event.getScreen());
+    }
+
+    @SubscribeEvent
+    public static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
+        if (CraftingInterfaceUI.handleSearchKeyPressed(
+                event.getScreen(), event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenCharTyped(ScreenEvent.CharacterTyped.Pre event) {
+        if (CraftingInterfaceUI.handleSearchCharTyped(
+                event.getScreen(), event.getCodePoint(), event.getModifiers())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenMouseClickedPost(ScreenEvent.MouseButtonPressed.Post event) {
+        CraftingInterfaceUI.reclaimSearchFieldFocus(event.getScreen());
+    }
+
     @SuppressWarnings("unchecked")
     @SubscribeEvent
     public static void onLoadBuiltinEditorResource(EditorResourceEvent.LoadBuiltin event) {

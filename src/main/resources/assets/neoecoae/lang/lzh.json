@@ -203,6 +203,7 @@
   "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions": "示/隱可液替冶式",
   "gui.neoecoae.crafting_interface.preview.refresh": "刷 F 樞冶式",
   "gui.neoecoae.crafting_interface.preview.organize": "一整 F 樞冶式",
+  "gui.neoecoae.crafting_interface.preview.organizing": "方整 F 樞冶式 %d%%",
   "gui.neoecoae.crafting_interface.preview.search_results": "匹配冶式：%d",
   "gui.neoecoae.crafting_interface.preview.entries": "F 樞既有 %d 式",
   "gui.neoecoae.crafting_interface.preview.slots": "F 樞冶式槽 %d",

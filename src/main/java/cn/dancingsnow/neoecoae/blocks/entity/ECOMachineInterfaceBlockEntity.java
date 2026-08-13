@@ -69,6 +69,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
     private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
+    private static final int PATTERN_ORGANIZE_MAX_SLOTS_PER_TICK = 24;
+    private static final int PATTERN_ORGANIZE_MAX_MOVES_PER_TICK = 8;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 36;
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
 
@@ -110,6 +112,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternTransferTotalSlots;
     @Nullable
     private PatternTransferTask patternTransferTask;
+    @DescSynced
+    private boolean patternOrganizeInProgress;
+    @DescSynced
+    private int patternOrganizeScannedSlots;
+    @DescSynced
+    private int patternOrganizeTotalSlots;
+    @Nullable
+    private PatternOrganizeTask patternOrganizeTask;
     private long lastPatternTransferSyncTick = Long.MIN_VALUE;
     @DescSynced
     private long[] patternBusPositions = new long[0];
@@ -207,7 +217,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void startNetworkPatternTransfer() {
-        if (patternTransferTask != null || !(level instanceof ServerLevel serverLevel)) {
+        if (patternTransferTask != null || patternOrganizeTask != null || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
         PatternTransferTask task = createPatternTransferTask();
@@ -226,6 +236,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public Component getPatternTransferPrimaryStatus() {
+        if (patternOrganizeInProgress) {
+            return Component.translatable(
+                    "gui.neoecoae.crafting_interface.preview.organizing",
+                    getPatternTransferProgressPercent());
+        }
         if (patternTransferInProgress) {
             return Component.translatable(
                     patternTransferIndexing
@@ -249,7 +264,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public Component getPatternTransferSecondaryStatus() {
-        if (!patternTransferPerformed || patternTransferUnavailable
+        if (patternOrganizeInProgress || !patternTransferPerformed || patternTransferUnavailable
                 || (patternTransferInserted == 0 && patternTransferAlreadyPresent == 0 && patternTransferNoTarget > 0)) {
             return Component.empty();
         }
@@ -355,10 +370,19 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public boolean isPatternTransferInProgress() {
-        return patternTransferInProgress;
+        return patternTransferInProgress || patternOrganizeInProgress;
     }
 
     public float getPatternTransferProgress() {
+        if (patternOrganizeInProgress) {
+            if (patternOrganizeTotalSlots <= 0) {
+                return 1.0F;
+            }
+            return Math.clamp(
+                    (float) patternOrganizeScannedSlots / patternOrganizeTotalSlots,
+                    0.0F,
+                    1.0F);
+        }
         if (patternTransferTotalSlots <= 0) {
             return patternTransferInProgress ? 0.0F : 1.0F;
         }
@@ -537,7 +561,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (slot < 0 || slot >= patternSlotRefs.size()) {
             return ItemStack.EMPTY;
         }
-        PatternSlotRef ref = patternSlotRefs.get(slot);
+        return getPatternStack(patternSlotRefs.get(slot));
+    }
+
+    private ItemStack getPatternStack(PatternSlotRef ref) {
         InternalInventory inventory = ref.bus().getTerminalPatternInventory();
         return ref.slot() < inventory.size() ? inventory.getStackInSlot(ref.slot()) : ItemStack.EMPTY;
     }
@@ -546,7 +573,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (slot < 0 || slot >= patternSlotRefs.size()) {
             return;
         }
-        PatternSlotRef ref = patternSlotRefs.get(slot);
+        setPatternStack(patternSlotRefs.get(slot), stack);
+    }
+
+    private void setPatternStack(PatternSlotRef ref, ItemStack stack) {
         InternalInventory inventory = ref.bus().getTerminalPatternInventory();
         if (ref.slot() < inventory.size()) {
             inventory.setItemDirect(ref.slot(), stack == null ? ItemStack.EMPTY : stack);
@@ -720,23 +750,19 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void organizePatternBuses() {
-        if (!(level instanceof ServerLevel) || !formed || !supportsCraftingInterfaceUi()) {
+        if (!(level instanceof ServerLevel serverLevel)
+                || !formed
+                || !supportsCraftingInterfaceUi()
+                || patternTransferTask != null
+                || patternOrganizeTask != null) {
             return;
         }
         ensurePatternInterfaceMapping();
-        List<ItemStack> patterns = new ArrayList<>();
-        for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
-            ItemStack stack = getPatternStack(slot);
-            if (!stack.isEmpty()) {
-                patterns.add(stack.copy());
-            }
-        }
-        for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
-            ItemStack desired = slot < patterns.size() ? patterns.get(slot) : ItemStack.EMPTY;
-            if (!ItemStack.matches(getPatternStack(slot), desired)) {
-                setPatternStack(slot, desired);
-            }
-        }
+        patternOrganizeTask = new PatternOrganizeTask(patternSlotRefs);
+        patternOrganizeInProgress = true;
+        patternOrganizeScannedSlots = 0;
+        patternOrganizeTotalSlots = patternOrganizeTask.totalSlots();
+        syncPatternOperationState(serverLevel.getGameTime(), true);
     }
 
     /** Validates the player-inventory quick-move fallback for clients without a normal menu click. */
@@ -775,6 +801,49 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         long deadline = System.nanoTime() + PATTERN_TRANSFER_MAX_NANOS_PER_TICK;
         if (patternTransferTask != null) {
             tickPatternTransfer(serverLevel, deadline);
+        } else if (patternOrganizeTask != null) {
+            tickPatternOrganize(serverLevel, deadline);
+        }
+    }
+
+    private void tickPatternOrganize(ServerLevel serverLevel, long deadline) {
+        PatternOrganizeTask task = patternOrganizeTask;
+        if (task == null) {
+            return;
+        }
+        if (!formed || !supportsCraftingInterfaceUi() || !task.matches(patternSlotRefs)) {
+            finishPatternOrganize(serverLevel);
+            return;
+        }
+
+        int scannedThisTick = 0;
+        int movesThisTick = 0;
+        while (scannedThisTick < PATTERN_ORGANIZE_MAX_SLOTS_PER_TICK
+                && movesThisTick < PATTERN_ORGANIZE_MAX_MOVES_PER_TICK
+                && System.nanoTime() < deadline
+                && !task.isFinished()) {
+            int readSlot = task.nextReadSlot();
+            patternOrganizeScannedSlots = readSlot + 1;
+            scannedThisTick++;
+
+            ItemStack stack = getPatternStack(task.ref(readSlot));
+            if (stack.isEmpty()) {
+                continue;
+            }
+
+            int writeSlot = task.nextWriteSlot();
+            if (readSlot != writeSlot) {
+                ItemStack moved = stack.copy();
+                setPatternStack(task.ref(writeSlot), moved);
+                setPatternStack(task.ref(readSlot), ItemStack.EMPTY);
+                movesThisTick++;
+            }
+            task.advanceWriteSlot();
+        }
+        if (task.isFinished()) {
+            finishPatternOrganize(serverLevel);
+        } else {
+            syncPatternOperationState(serverLevel.getGameTime(), false);
         }
     }
 
@@ -893,10 +962,59 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         syncPatternTransferState(level.getGameTime(), true);
     }
 
+    private void finishPatternOrganize(ServerLevel level) {
+        patternOrganizeTask = null;
+        patternOrganizeInProgress = false;
+        patternOrganizeScannedSlots = patternOrganizeTotalSlots;
+        syncPatternOperationState(level.getGameTime(), true);
+    }
+
     private void syncPatternTransferState(long gameTime, boolean force) {
+        syncPatternOperationState(gameTime, force);
+    }
+
+    private void syncPatternOperationState(long gameTime, boolean force) {
         if (force || gameTime - lastPatternTransferSyncTick >= PATTERN_TRANSFER_SYNC_INTERVAL_TICKS) {
             lastPatternTransferSyncTick = gameTime;
             markForUpdate();
+        }
+    }
+
+    private final class PatternOrganizeTask {
+        private final List<PatternSlotRef> refs;
+        private int nextReadSlot;
+        private int nextWriteSlot;
+
+        private PatternOrganizeTask(List<PatternSlotRef> refs) {
+            this.refs = List.copyOf(refs);
+        }
+
+        private int totalSlots() {
+            return refs.size();
+        }
+
+        private boolean isFinished() {
+            return nextReadSlot >= refs.size();
+        }
+
+        private int nextReadSlot() {
+            return nextReadSlot++;
+        }
+
+        private int nextWriteSlot() {
+            return nextWriteSlot;
+        }
+
+        private PatternSlotRef ref(int slot) {
+            return refs.get(slot);
+        }
+
+        private boolean matches(List<PatternSlotRef> currentRefs) {
+            return refs.equals(currentRefs);
+        }
+
+        private void advanceWriteSlot() {
+            nextWriteSlot++;
         }
     }
 
