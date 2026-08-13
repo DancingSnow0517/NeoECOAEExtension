@@ -205,7 +205,7 @@ public final class ECOAE2PlanAssembler {
             aggregatePatternExecutions(candidate)
         );
         if (!simulation) {
-            ECOPlannedInputs.register(plan, schedule.steps());
+            ECOPlannedInputs.register(plan, schedule.steps(), snapshot.fuzzyItemIds());
         }
         if (ECOPlanningFailureDiagnostics.canLogDetail(
             ECOPlanningFailureDiagnostics.Stage.ASSEMBLER

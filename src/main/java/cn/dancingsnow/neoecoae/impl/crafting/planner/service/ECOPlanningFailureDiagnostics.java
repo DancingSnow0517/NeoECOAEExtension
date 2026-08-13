@@ -44,6 +44,7 @@ public final class ECOPlanningFailureDiagnostics {
     private static final AtomicLong REQUEST_IDS = new AtomicLong();
     private static final ThreadLocal<String> CURRENT_REQUEST = new ThreadLocal<>();
     private static final Map<String, AtomicLong> REQUEST_DETAIL_COUNTS = new ConcurrentHashMap<>();
+    private static final Map<String, RequestBuffer> REQUEST_BUFFERS = new ConcurrentHashMap<>();
     private static final Object FILE_LOCK = new Object();
     private static long budgetSecond = Long.MIN_VALUE;
     private static int failureLogsThisSecond;
@@ -77,6 +78,7 @@ public final class ECOPlanningFailureDiagnostics {
         }
         String requestId = Long.toUnsignedString(System.currentTimeMillis(), 36)
             + "-" + Long.toUnsignedString(REQUEST_IDS.incrementAndGet(), 36);
+        REQUEST_BUFFERS.put(requestId, new RequestBuffer());
         try (RequestScope ignored = bindRequest(requestId)) {
             writeDiagnostic(
                 "request_start",
@@ -106,7 +108,11 @@ public final class ECOPlanningFailureDiagnostics {
     }
 
     public static void endRequest(String requestId, String result) {
-        if (!NEConfig.debugECOPlanner || requestId == null || "disabled".equals(requestId)) {
+        if (requestId == null || "disabled".equals(requestId)) {
+            return;
+        }
+        if (!NEConfig.debugECOPlanner) {
+            REQUEST_BUFFERS.remove(requestId);
             return;
         }
         try (RequestScope ignored = bindRequest(requestId)) {
@@ -123,6 +129,14 @@ public final class ECOPlanningFailureDiagnostics {
         } finally {
             String counterPrefix = requestId + "\0";
             REQUEST_DETAIL_COUNTS.keySet().removeIf(key -> key.startsWith(counterPrefix));
+            RequestBuffer buffer = REQUEST_BUFFERS.remove(requestId);
+            if (buffer != null) {
+                if (shouldPersist(result)) {
+                    flush(requestId, buffer);
+                } else {
+                    discardRetainedEntries(requestId);
+                }
+            }
         }
     }
 
@@ -241,13 +255,7 @@ public final class ECOPlanningFailureDiagnostics {
             + " context=" + safeContext
             + " exceptionClass=" + exceptionClass
             + " exceptionMessage=" + exceptionMessage;
-        writeDiagnostic("failure", message, failure);
-        LOGGER.info(
-            "ECO planning failure: stage={} reason={} requestedKey={} requestedAmount={} strategy={} context={} exceptionClass={} exceptionMessage={}",
-            stage.name().toLowerCase(), reason.id(), describe(requestedKey), requestedAmount,
-            strategy == null ? "unknown" : strategy, safeContext, exceptionClass, exceptionMessage,
-            failure
-        );
+        writeFailureDiagnostic(message, failure);
     }
 
     /** Emits a bounded capture trace without changing the planner's fallback result. */
@@ -319,11 +327,12 @@ public final class ECOPlanningFailureDiagnostics {
             return;
         }
         ECOPlanCandidate<R> candidate = result.candidate();
+        if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
+            return;
+        }
         logFailure(
             stage,
-            result.status() == ECOHyperflowResult.Status.COMPLETE
-                ? ECOPlannerFallbackReason.FAST_PATH
-                : result.status() == ECOHyperflowResult.Status.BUDGET_EXHAUSTED
+            result.status() == ECOHyperflowResult.Status.BUDGET_EXHAUSTED
                     ? ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED
                     : ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
             problem.requested().keySet().stream().findFirst().orElse(null),
@@ -366,6 +375,7 @@ public final class ECOPlanningFailureDiagnostics {
             fileFailureReported = false;
         }
         clear();
+        REQUEST_BUFFERS.clear();
     }
 
     private static long safeTotalExecutions(ECOPlanCandidate<?> candidate) {
@@ -401,6 +411,27 @@ public final class ECOPlanningFailureDiagnostics {
     }
 
     private static void writeDiagnostic(String event, String message, Throwable failure) {
+        String requestId = currentRequestId();
+        RequestBuffer buffer = REQUEST_BUFFERS.get(requestId);
+        if (buffer != null) {
+            buffer.add(new DiagnosticEvent(event, message, failure, false));
+            return;
+        }
+        writeDiagnosticNow(requestId, new DiagnosticEvent(event, message, failure, false));
+    }
+
+    private static void writeFailureDiagnostic(String message, Throwable failure) {
+        String requestId = currentRequestId();
+        RequestBuffer buffer = REQUEST_BUFFERS.get(requestId);
+        if (buffer != null) {
+            buffer.add(new DiagnosticEvent("failure", message, failure, true));
+            return;
+        }
+        writeDiagnosticNow(requestId, new DiagnosticEvent("failure", message, failure, true));
+        LOGGER.info("ECO planning failure: {}", message, failure);
+    }
+
+    private static void writeDiagnosticNow(String requestId, DiagnosticEvent event) {
         synchronized (FILE_LOCK) {
             try {
                 BufferedWriter writer = writer();
@@ -412,15 +443,15 @@ public final class ECOPlanningFailureDiagnostics {
                 writer.write(Thread.currentThread().getName());
                 writer.write("] ");
                 writer.write("requestId=");
-                writer.write(currentRequestId());
+                writer.write(requestId);
                 writer.write(' ');
-                writer.write(event);
+                writer.write(event.type());
                 writer.write(' ');
-                writer.write(message);
+                writer.write(event.message());
                 writer.newLine();
-                if (failure != null) {
+                if (event.failure() != null) {
                     StringWriter stack = new StringWriter();
-                    failure.printStackTrace(new PrintWriter(stack));
+                    event.failure().printStackTrace(new PrintWriter(stack));
                     writer.write(stack.toString());
                     if (!stack.toString().endsWith(System.lineSeparator())) {
                         writer.newLine();
@@ -433,6 +464,27 @@ public final class ECOPlanningFailureDiagnostics {
                     LOGGER.warn("Could not write ECO planner diagnostic log {}", diagnosticPath, fileFailure);
                 }
             }
+        }
+    }
+
+    private static void flush(String requestId, RequestBuffer buffer) {
+        for (DiagnosticEvent event : buffer.events()) {
+            writeDiagnosticNow(requestId, event);
+            if (event.failureLog()) {
+                LOGGER.info("ECO planning failure: {}", event.message(), event.failure());
+            }
+        }
+    }
+
+    private static boolean shouldPersist(String result) {
+        return !"eco_executable_plan".equals(result)
+            && !"eco_missing_sources_simulation".equals(result)
+            && !"delegated_ae2vm_or_native".equals(result);
+    }
+
+    private static void discardRetainedEntries(String requestId) {
+        synchronized (LOGGED) {
+            LOGGED.removeIf(key -> key.requestId().equals(requestId));
         }
     }
 
@@ -539,6 +591,21 @@ public final class ECOPlanningFailureDiagnostics {
                 CURRENT_REQUEST.set(previous);
             }
         }
+    }
+
+    private static final class RequestBuffer {
+        private final java.util.List<DiagnosticEvent> events = new java.util.ArrayList<>();
+
+        private synchronized void add(DiagnosticEvent event) {
+            events.add(event);
+        }
+
+        private synchronized java.util.List<DiagnosticEvent> events() {
+            return java.util.List.copyOf(events);
+        }
+    }
+
+    private record DiagnosticEvent(String type, String message, Throwable failure, boolean failureLog) {
     }
 
     private record DiagnosticKey(String requestId, Stage stage, ECOPlannerFallbackReason reason, String requestedKey,

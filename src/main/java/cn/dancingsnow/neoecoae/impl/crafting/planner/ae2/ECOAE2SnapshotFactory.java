@@ -186,17 +186,6 @@ public final class ECOAE2SnapshotFactory {
                 Map.of(requestedKey, requestedAmount),
                 unlimitedInventory
             );
-            LOGGER.debug(
-                "Captured ECO planning snapshot for {} x{}: generation={}, operations={}, "
-                    + "materials={}, inventoryKeys={}, truncatedStateExpansion={}",
-                requestedKey,
-                requestedAmount,
-                craftableGeneration,
-                operations.size(),
-                graph.materialCount(),
-                inventory.size(),
-                graph.truncatedStateExpansion()
-            );
             Optional<ECOAE2PlanningSnapshot> snapshot = Optional.of(new ECOAE2PlanningSnapshot(
                 problem,
                 requestedKey,
@@ -207,6 +196,7 @@ public final class ECOAE2SnapshotFactory {
                 graph.truncatedStateExpansion(),
                 graph.excludedDynamicPaths(),
                 graph.dynamicSmithing(),
+                fuzzyItemIds,
                 ECOPlanningFailureDiagnostics.currentRequestId()
             ));
             if (ECOPlanningFailureDiagnostics.canLogDetail(

@@ -43,6 +43,7 @@ import appeng.core.network.clientbound.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.*;
 import appeng.crafting.inv.ListCraftingInventory;
+import appeng.crafting.inv.ICraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
@@ -53,7 +54,10 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
+import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyInputPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOPlannedInputs;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
 import cn.dancingsnow.neoecoae.integration.megacells.MEGACellsBatchCraftingBridge;
@@ -129,7 +133,9 @@ public class ECOCraftingCPULogic {
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // 尝试提取所需物品。
-        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.takeFuzzyItemIds(plan);
+        var missingIngredient = ECOFuzzyCraftingInventory.tryExtractInitialItems(
+            plan, grid, inventory, src, fuzzyItemIds);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
         ECOFastPathDiagnostics.logCpuReservation(
@@ -145,7 +151,7 @@ public class ECOCraftingCPULogic {
                 .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId, fuzzyItemIds);
         registerJobOutputRoute();
 
         // 合成监视器暂不支持
@@ -359,6 +365,9 @@ public class ECOCraftingCPULogic {
                         : null;
                     boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
+                    if (!job.fuzzyItemIds.isEmpty()) {
+                        extractionDetails = new ECOFuzzyInputPatternDetails(extractionDetails, job.fuzzyItemIds);
+                    }
                     long batchTaskRemaining = fastPathCandidate || plannedInputs == null
                         ? task.getValue().value
                         : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
@@ -366,8 +375,10 @@ public class ECOCraftingCPULogic {
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     @Nullable
+                    ICraftingInventory executionInventory = new ECOFuzzyCraftingInventory(
+                        inventory, job.fuzzyItemIds);
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            extractionDetails, inventory, level, expectedOutputs, expectedContainerItems);
+                            extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
                         if (fastPathCandidate) {
                             ECOFastPathDiagnostics.logCpuPreflightFailure(
@@ -866,7 +877,8 @@ public class ECOCraftingCPULogic {
 
         long extraCrafts = batchSize - 1L;
         var inventoryBatchLimit = ECOBatchCraftingHelper.inventoryBatchLimit(
-            inventory, reusablePlan.consumedInputsPerCraft(), extraCrafts);
+            new ECOFuzzyCraftingInventory(inventory, job.fuzzyItemIds),
+            reusablePlan.consumedInputsPerCraft(), extraCrafts, job.fuzzyItemIds);
         long availableExtraCrafts = inventoryBatchLimit.crafts();
         long inventoryBatchSize;
         try {
@@ -933,7 +945,8 @@ public class ECOCraftingCPULogic {
                 }
             }
             try {
-                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+                ECOBatchCraftingHelper.extractExact(
+                    new ECOFuzzyCraftingInventory(inventory, job.fuzzyItemIds), extraInputs, job.fuzzyItemIds);
             } catch (RuntimeException e) {
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INPUT_RESERVATION_FAILED,
                     ECOFastPathStage.INPUT_RESERVATION, selectedOffer.worker().getBlockPos(),

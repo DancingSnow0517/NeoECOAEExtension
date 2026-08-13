@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -30,6 +31,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -64,11 +66,13 @@ public class ExecutingCraftingJob {
     private static final String NBT_PLANNED_INPUT_MULTIPLIER = "multiplier";
     // Legacy homogeneous-selection format written before mixed inputs were supported.
     private static final String NBT_PLANNED_INPUT_STACKS = "stacks";
+    private static final String NBT_FUZZY_ITEM_IDS = "fuzzyItemIds";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
     final Map<IPatternDetails, ArrayDeque<ECOPlannedInputs.PlannedInputBatch>> plannedInputs = new HashMap<>();
+    final Set<ResourceLocation> fuzzyItemIds;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -84,6 +88,11 @@ public class ExecutingCraftingJob {
 
     ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
             @Nullable Integer playerId) {
+        this(plan, postCraftingDifference, link, playerId, Set.of());
+    }
+
+    ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
+            @Nullable Integer playerId, Set<ResourceLocation> fuzzyItemIds) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
@@ -103,6 +112,7 @@ public class ExecutingCraftingJob {
             }
         }
         this.plannedInputs.putAll(ECOPlannedInputs.take(plan));
+        this.fuzzyItemIds = Set.copyOf(fuzzyItemIds);
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
@@ -144,6 +154,16 @@ public class ExecutingCraftingJob {
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED) || invalidPlannedInputs;
+        Set<ResourceLocation> restoredFuzzyItemIds = new java.util.LinkedHashSet<>();
+        var fuzzyIdsTag = data.getList(NBT_FUZZY_ITEM_IDS, Tag.TAG_STRING);
+        for (int i = 0; i < fuzzyIdsTag.size(); i++) {
+            try {
+                restoredFuzzyItemIds.add(ResourceLocation.parse(fuzzyIdsTag.getString(i)));
+            } catch (RuntimeException ignored) {
+                // Ignore malformed optional metadata and keep the persisted job executable.
+            }
+        }
+        this.fuzzyItemIds = Set.copyOf(restoredFuzzyItemIds);
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {
             ((CraftingService) grid.getCraftingService()).addLink(link);
@@ -178,6 +198,11 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        var fuzzyIdsTag = new ListTag();
+        for (ResourceLocation id : fuzzyItemIds) {
+            fuzzyIdsTag.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
+        }
+        data.put(NBT_FUZZY_ITEM_IDS, fuzzyIdsTag);
         return data;
     }
 

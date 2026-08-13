@@ -97,8 +97,12 @@ public final class ECOCondensedCycleSolver {
                     return Optional.empty();
                 }
 
-                LocalSolution<K, R> local = solveProductiveSelfCycle(
+                LocalSolution<K, R> local = solveSimpleUnitGrowthRing(
                     component, localOperations, material, balances, problem.inventory());
+                if (local == null) {
+                    local = solveProductiveSelfCycle(
+                        component, localOperations, material, balances, problem.inventory());
+                }
                 if (local == null) {
                     local = solveComponent(
                         component, localOperations, material, balances, problem.inventory(), deadlineNanos);
@@ -122,8 +126,14 @@ public final class ECOCondensedCycleSolver {
                 terminalBoundaryDeficits.addAll(local.boundaryDeficits().keySet());
                 local.boundaryDeficits().forEach((key, amount) ->
                     boundaryDeficitAmounts.merge(key, amount, Math::addExact));
+                // The SCC was solved as one coupled system. Remove any other queued members
+                // before propagating only its external inputs, so the same ring cannot be
+                // solved again and have its execution counts added a second time.
+                queue.removeIf(component::contains);
+                queued.removeAll(component);
                 for (var operation : localOperations) {
                     operation.inputs().keySet().stream()
+                        .filter(key -> !component.contains(key))
                         .filter(key -> !terminalBoundaryDeficits.contains(key))
                         .forEach(key -> enqueue(key, balances, graph, queue, queued));
                 }
@@ -272,7 +282,10 @@ public final class ECOCondensedCycleSolver {
             BigDecimal weight = BigDecimal.ONE.add(
                 EXTERNAL_INPUT_WEIGHT.multiply(BigDecimal.valueOf(externalInput)));
             variables.put(operations.get(i), model.addVariable("operation_" + i)
-                .integer(true).lower(BigDecimal.ZERO).weight(weight));
+                .integer(true)
+                .lower(BigDecimal.ZERO)
+                .upper(BigDecimal.valueOf(Long.MAX_VALUE))
+                .weight(weight));
         }
         int materialIndex = 0;
         for (K material : component) {
@@ -287,7 +300,10 @@ public final class ECOCondensedCycleSolver {
             }
             if (!material.equals(deficientMaterial)) {
                 Variable deficit = model.addVariable("boundary_deficit_" + materialIndex)
-                    .integer(true).lower(BigDecimal.ZERO).weight(BOUNDARY_DEFICIT_WEIGHT);
+                    .integer(true)
+                    .lower(BigDecimal.ZERO)
+                    .upper(BigDecimal.valueOf(Long.MAX_VALUE))
+                    .weight(BOUNDARY_DEFICIT_WEIGHT);
                 boundaryDeficits.put(material, deficit);
                 expression.set(deficit, BigDecimal.ONE);
             }
@@ -487,6 +503,97 @@ public final class ECOCondensedCycleSolver {
             Map.copyOf(missingSeedAmounts),
             Map.of()
         );
+    }
+
+    /**
+     * Solves the common unit-catalyst ring without invoking ojAlgo. Every operation must
+     * consume exactly one ring material, produce exactly one ring material, and the ring must
+     * have one positive-growth edge. All operations then run the same number of batches.
+     */
+    private static <K, R> LocalSolution<K, R> solveSimpleUnitGrowthRing(
+        Set<K> component,
+        List<ECOPlanningOperation<K, R>> operations,
+        K deficientMaterial,
+        Map<K, Long> balances,
+        Map<K, Long> initialInventory
+    ) {
+        if (component.size() < 2 || operations.size() != component.size()) {
+            return null;
+        }
+        Map<K, ECOPlanningOperation<K, R>> consumers = new LinkedHashMap<>();
+        Map<K, ECOPlanningOperation<K, R>> producers = new LinkedHashMap<>();
+        ECOPlanningOperation<K, R> growth = null;
+        long growthNet = 0L;
+        for (var operation : operations) {
+            Set<K> componentInputs = operation.inputs().keySet().stream()
+                .filter(component::contains)
+                .collect(java.util.stream.Collectors.toSet());
+            Set<K> componentOutputs = operation.outputs().keySet().stream()
+                .filter(component::contains)
+                .collect(java.util.stream.Collectors.toSet());
+            if (componentInputs.size() != 1 || componentOutputs.size() != 1
+                || operation.inputs().size() != 1 || operation.outputs().size() != 1) {
+                return null;
+            }
+            K input = componentInputs.iterator().next();
+            K output = componentOutputs.iterator().next();
+            if (operation.inputAmount(input) != 1L || operation.outputAmount(output) < 1L
+                || consumers.put(input, operation) != null
+                || producers.put(output, operation) != null) {
+                return null;
+            }
+            long net = operation.outputAmount(output) - 1L;
+            if (net > 0L) {
+                if (growth != null) {
+                    return null;
+                }
+                growth = operation;
+                growthNet = net;
+            } else if (net < 0L) {
+                return null;
+            }
+        }
+        if (growth == null || consumers.size() != component.size() || producers.size() != component.size()
+            || !consumers.containsKey(deficientMaterial)) {
+            return null;
+        }
+
+        java.math.BigInteger batches = java.math.BigInteger.ZERO;
+        for (K material : component) {
+            long balance = balances.getOrDefault(material, 0L);
+            if (balance >= 0L) {
+                continue;
+            }
+            if (!material.equals(growth.outputs().keySet().iterator().next())) {
+                return null;
+            }
+            java.math.BigInteger deficit = java.math.BigInteger.valueOf(balance).negate();
+            java.math.BigInteger required = deficit.add(java.math.BigInteger.valueOf(growthNet - 1L))
+                .divide(java.math.BigInteger.valueOf(growthNet));
+            batches = batches.max(required);
+        }
+        if (batches.signum() <= 0 || batches.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+            return null;
+        }
+        long batchCount = batches.longValueExact();
+        Map<R, Long> executions = new LinkedHashMap<>();
+        operations.forEach(operation -> executions.put(operation.reference(), batchCount));
+        ECOPlanningOperation<K, R> starter = operations.stream()
+            .anyMatch(operation -> canStart(operation, initialInventory))
+                ? null
+                : operations.getFirst();
+        Map<K, Long> missingSeeds = new LinkedHashMap<>();
+        if (starter != null) {
+            starter.inputs().forEach((key, amount) -> {
+                long missing = Math.max(0L, amount - initialInventory.getOrDefault(key, 0L));
+                if (missing > 0L) {
+                    missingSeeds.put(key, missing);
+                }
+            });
+        }
+        Set<R> references = new LinkedHashSet<>(executions.keySet());
+        return new LocalSolution<>(
+            Map.copyOf(executions), references, starter, Map.copyOf(missingSeeds), Map.of());
     }
 
     private static <K, R> ECOPlanningOperation<K, R> preferredStarter(

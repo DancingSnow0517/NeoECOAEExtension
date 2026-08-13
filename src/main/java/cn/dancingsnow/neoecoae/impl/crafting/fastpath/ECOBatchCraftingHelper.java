@@ -6,14 +6,18 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
+import appeng.crafting.inv.ICraftingInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.resources.ResourceLocation;
+import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
 
 public final class ECOBatchCraftingHelper {
     public static final int MAX_BATCH_SIZE = Integer.MAX_VALUE;
@@ -53,18 +57,41 @@ public final class ECOBatchCraftingHelper {
             ListCraftingInventory inventory,
             List<GenericStack> perCraft,
             long requested) {
+        return inventoryBatchLimit(inventory, perCraft, requested, Set.of());
+    }
+
+    public static InventoryBatchLimit inventoryBatchLimit(
+            ICraftingInventory inventory,
+            List<GenericStack> perCraft,
+            long requested,
+            Set<ResourceLocation> fuzzyItemIds) {
         long max = Math.max(0L, requested);
         AEKey limitingKey = null;
         long limitingAvailable = 0L;
         long limitingPerCraft = 0L;
+        Map<Object, GenericStack> grouped = new java.util.LinkedHashMap<>();
         for (GenericStack stack : perCraft) {
+            Object group = ECOFuzzyCraftingInventory.isConfiguredFuzzy(stack.what(), fuzzyItemIds)
+                ? stack.what().getId()
+                : stack.what();
+            GenericStack previous = grouped.get(group);
+            if (previous == null) {
+                grouped.put(group, stack);
+            } else {
+                grouped.put(group, new GenericStack(previous.what(), Math.addExact(
+                    previous.amount(), stack.amount())));
+            }
+        }
+        for (GenericStack stack : grouped.values()) {
             if (stack.amount() <= 0) {
                 return new InventoryBatchLimit(0L, stack.what(), 0L, stack.amount());
             }
             // The CPU inventory is already an in-memory KeyCounter. Reading it directly avoids one
             // simulated crafting-inventory transaction per ingredient while preserving the exact
             // same concrete-input semantics as the verified fast-path key.
-            long available = inventory.list.get(stack.what());
+            long available = inventory instanceof ECOFuzzyCraftingInventory fuzzyInventory
+                ? fuzzyInventory.extractTemplate(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE)
+                : inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
             long ingredientLimit = available / stack.amount();
             if (ingredientLimit < max) {
                 max = ingredientLimit;
@@ -105,8 +132,14 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        return canExtractExact(inventory, stacks, Set.of());
+    }
+
+    public static boolean canExtractExact(
+            ICraftingInventory inventory, List<GenericStack> stacks, Set<ResourceLocation> fuzzyItemIds) {
         for (GenericStack stack : stacks) {
-            long extracted = inventory.extract(stack.what(), stack.amount(), Actionable.SIMULATE);
+            long extracted = extractMatching(
+                inventory, stack.what(), stack.amount(), Actionable.SIMULATE, null, fuzzyItemIds);
             if (extracted != stack.amount()) {
                 return false;
             }
@@ -184,13 +217,16 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static void extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        extractExact(inventory, stacks, Set.of());
+    }
+
+    public static void extractExact(
+            ICraftingInventory inventory, List<GenericStack> stacks, Set<ResourceLocation> fuzzyItemIds) {
         List<GenericStack> extractedStacks = new ArrayList<>(stacks.size());
         try {
             for (GenericStack stack : stacks) {
-                long extracted = inventory.extract(stack.what(), stack.amount(), Actionable.MODULATE);
-                if (extracted > 0L) {
-                    extractedStacks.add(new GenericStack(stack.what(), extracted));
-                }
+                long extracted = extractMatching(
+                    inventory, stack.what(), stack.amount(), Actionable.MODULATE, extractedStacks, fuzzyItemIds);
                 if (extracted != stack.amount()) {
                     throw new IllegalStateException("Failed to extract exact fast-path batch inputs");
                 }
@@ -201,7 +237,39 @@ public final class ECOBatchCraftingHelper {
         }
     }
 
+    private static long extractMatching(
+            ICraftingInventory inventory,
+            AEKey requested,
+            long amount,
+            Actionable mode,
+            List<GenericStack> extractedStacks,
+            Set<ResourceLocation> fuzzyItemIds) {
+        long remaining = amount;
+        long extracted = 0L;
+        Iterable<AEKey> candidates = ECOFuzzyCraftingInventory.isConfiguredFuzzy(requested, fuzzyItemIds)
+            ? inventory.findFuzzyTemplates(requested)
+            : List.of(requested);
+        for (AEKey candidate : candidates) {
+            if (remaining <= 0L) {
+                break;
+            }
+            long taken = inventory instanceof ECOFuzzyCraftingInventory fuzzyInventory
+                ? fuzzyInventory.extractConcrete(candidate, remaining, mode)
+                : inventory.extract(candidate, remaining, mode);
+            if (taken > 0L && extractedStacks != null) {
+                extractedStacks.add(new GenericStack(candidate, taken));
+            }
+            extracted += taken;
+            remaining -= taken;
+        }
+        return extracted;
+    }
+
     public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        insertAll((ICraftingInventory) inventory, stacks);
+    }
+
+    public static void insertAll(ICraftingInventory inventory, List<GenericStack> stacks) {
         // ListCraftingInventory 是 CPU 的本地记账库存；向其插入是内存级别的回滚操作，
         // 预期不会像网络存储那样拒绝物品。
         for (GenericStack stack : stacks) {

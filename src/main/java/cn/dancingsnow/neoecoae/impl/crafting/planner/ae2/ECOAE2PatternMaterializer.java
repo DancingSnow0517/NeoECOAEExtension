@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.config.FuzzyMode;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
@@ -892,7 +893,7 @@ final class ECOAE2PatternMaterializer {
     }
 
     private static boolean isConfiguredFuzzyItem(AEKey key, Set<ResourceLocation> fuzzyItemIds) {
-        return fuzzyItemIds.contains(key.getId());
+        return key instanceof AEItemKey && fuzzyItemIds.contains(key.getId());
     }
 
     private static List<ECOAE2StateCapacityTemplate> stateCapacityTemplates(

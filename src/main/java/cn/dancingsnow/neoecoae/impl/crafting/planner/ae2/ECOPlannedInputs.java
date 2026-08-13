@@ -11,19 +11,23 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 
 /** Transfers exact planner input selections from a freshly assembled plan to its executing CPU. */
 public final class ECOPlannedInputs {
     private static final ReferenceQueue<ICraftingPlan> STALE_PLANS = new ReferenceQueue<>();
     private static final Map<IdentityWeakReference, Map<IPatternDetails, ArrayDeque<PlannedInputBatch>>> PENDING =
         new HashMap<>();
+    private static final Map<IdentityWeakReference, Set<ResourceLocation>> PENDING_FUZZY_IDS = new HashMap<>();
 
     private ECOPlannedInputs() {
     }
 
     public static void register(
         CraftingPlan plan,
-        List<ECOScheduledStep<ECOAE2PatternVariant>> steps
+        List<ECOScheduledStep<ECOAE2PatternVariant>> steps,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
         Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = new LinkedHashMap<>();
         for (var step : steps) {
@@ -40,7 +44,15 @@ public final class ECOPlannedInputs {
         synchronized (PENDING) {
             removeStalePlans();
             PENDING.put(new IdentityWeakReference(plan, STALE_PLANS), selections);
+            PENDING_FUZZY_IDS.put(new IdentityWeakReference(plan, STALE_PLANS), Set.copyOf(fuzzyItemIds));
         }
+    }
+
+    public static void register(
+        CraftingPlan plan,
+        List<ECOScheduledStep<ECOAE2PatternVariant>> steps
+    ) {
+        register(plan, steps, Set.of());
     }
 
     public static Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> take(ICraftingPlan plan) {
@@ -53,10 +65,19 @@ public final class ECOPlannedInputs {
         }
     }
 
+    public static Set<ResourceLocation> takeFuzzyItemIds(ICraftingPlan plan) {
+        synchronized (PENDING) {
+            removeStalePlans();
+            Set<ResourceLocation> result = PENDING_FUZZY_IDS.remove(new IdentityWeakReference(plan));
+            return result == null ? Set.of() : result;
+        }
+    }
+
     private static void removeStalePlans() {
         IdentityWeakReference reference;
         while ((reference = (IdentityWeakReference) STALE_PLANS.poll()) != null) {
             PENDING.remove(reference);
+            PENDING_FUZZY_IDS.remove(reference);
         }
     }
 
