@@ -316,9 +316,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var reusablePlan = ECOReusableCraftingPlan.of(
             verifiedResult.inputEntries(), verifiedResult.remainingEntries());
         var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
+        // The request carries the concrete keys removed from the CPU. For configured fuzzy inputs
+        // this can differ from the first craft's cache template, and cancellation must refund it
+        // verbatim rather than reconstructing a component variant from that template.
         var inputTotal = virtualCrafting
             ? List.<GenericStack>of()
-            : reusablePlan.batchInputs(request.batchSize());
+            : request.consumedInputTotal();
         var remainingTotal = reusablePlan.batchRemaining(request.batchSize());
         var work = new ECOBatchCraftingWork(
             request.batchSize(),

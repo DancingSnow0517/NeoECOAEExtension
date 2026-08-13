@@ -73,6 +73,15 @@ public final class ECOPlannedInputs {
         }
     }
 
+    /** Reads execution metadata without consuming it, so another CPU can retry submission. */
+    public static Set<ResourceLocation> peekFuzzyItemIds(ICraftingPlan plan) {
+        synchronized (PENDING) {
+            removeStalePlans();
+            Set<ResourceLocation> result = PENDING_FUZZY_IDS.get(new IdentityWeakReference(plan));
+            return result == null ? Set.of() : result;
+        }
+    }
+
     private static void removeStalePlans() {
         IdentityWeakReference reference;
         while ((reference = (IdentityWeakReference) STALE_PLANS.poll()) != null) {

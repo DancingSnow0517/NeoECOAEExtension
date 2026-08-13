@@ -186,7 +186,7 @@ public final class ECOExternalCpuFastPathExecutor {
                 }
 
                 extraInputs = reusablePlan.extraInputs(batchSize - 1L);
-                ECOBatchCraftingHelper.extractExact(job.inventory(), extraInputs);
+                extraInputs = ECOBatchCraftingHelper.extractExactReturning(job.inventory(), extraInputs, Set.of());
                 extraInputsOwned = true;
 
                 var request = new ECOBatchCraftingRequest(
@@ -196,6 +196,7 @@ public final class ECOExternalCpuFastPathExecutor {
                         execution.inputItems(),
                         execution.expectedOutputs(),
                         execution.expectedContainerItems(),
+                        ECOBatchCraftingHelper.combine(reusablePlan.consumedInputsPerCraft(), extraInputs),
                         job.craftingId());
                 if (!selection.patternBus().pushBatch(request, selection.offer())) {
                     continue;

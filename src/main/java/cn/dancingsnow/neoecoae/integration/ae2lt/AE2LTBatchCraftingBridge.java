@@ -7,8 +7,10 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import java.lang.reflect.InvocationTargetException;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,7 +90,8 @@ public final class AE2LTBatchCraftingBridge {
             ListCraftingInventory inventory,
             IEnergyService energyService,
             double patternPower,
-            long maxCrafts) {
+            long maxCrafts,
+            Set<ResourceLocation> fuzzyItemIds) {
         if (maxCrafts <= 1L || oneCopyTemplate == null) {
             return 0;
         }
@@ -132,10 +136,13 @@ public final class AE2LTBatchCraftingBridge {
             if (inputsPerCraft == null) {
                 inputsPerCraft = ECOFastPathStacks.copyCounters(oneCopyTemplate);
             }
-            int availableExtras = ECOBatchCraftingHelper.maxCraftsFromInventory(
-                inventory, inputsPerCraft, requested - 1
-            );
-            requested = Math.min(requested, availableExtras + 1);
+            ICraftingInventory extractionInventory = fuzzyItemIds.isEmpty()
+                ? inventory
+                : new ECOFuzzyCraftingInventory(inventory, fuzzyItemIds);
+            long availableExtras = ECOBatchCraftingHelper.inventoryBatchLimit(
+                extractionInventory, inputsPerCraft, requested - 1L, fuzzyItemIds
+            ).crafts();
+            requested = (int) Math.min(requested, availableExtras + 1L);
             requested = Math.min(
                 requested,
                 ECOBatchCraftingHelper.maxAffordableCrafts(
@@ -150,11 +157,14 @@ public final class AE2LTBatchCraftingBridge {
                 continue;
             }
 
-            List<GenericStack> extraInputs = ECOBatchCraftingHelper.multiply(
+            List<GenericStack> extraInputTemplates = ECOBatchCraftingHelper.multiply(
                 inputsPerCraft, requested - 1
             );
+            List<GenericStack> extractedExtraInputs;
             try {
-                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+                extractedExtraInputs = ECOBatchCraftingHelper.extractExactReturning(
+                    extractionInventory, extraInputTemplates, fuzzyItemIds
+                );
             } catch (RuntimeException e) {
                 logContractFailure(provider, "reserveBatchInputs", e);
                 return 0;
@@ -176,27 +186,45 @@ public final class AE2LTBatchCraftingBridge {
                     );
                 }
             } catch (RuntimeException e) {
-                ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+                ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
                 logContractFailure(provider, "pushBatch", e);
                 continue;
             }
 
             int accepted = requested - (int) leftover;
             if (accepted <= 0) {
-                ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+                ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
                 continue;
             }
 
             if (leftover > 0L) {
                 ECOBatchCraftingHelper.insertAll(
                     inventory,
-                    ECOBatchCraftingHelper.multiply(inputsPerCraft, (int) leftover)
+                    ECOBatchCraftingHelper.takeMatchingEntries(
+                        extractedExtraInputs,
+                        ECOBatchCraftingHelper.multiply(inputsPerCraft, leftover),
+                        fuzzyItemIds
+                    )
                 );
             }
             return accepted;
         }
 
         return 0;
+    }
+
+    /** Compatibility overload for callers without computation-interface fuzzy configuration. */
+    public int tryPushBatch(
+            List<ICraftingProvider> providers,
+            IPatternDetails details,
+            KeyCounter[] oneCopyTemplate,
+            ListCraftingInventory inventory,
+            IEnergyService energyService,
+            double patternPower,
+            long maxCrafts) {
+        return tryPushBatch(
+            providers, details, oneCopyTemplate, inventory, energyService, patternPower, maxCrafts, Set.of()
+        );
     }
 
     /** Whether this provider must not be called again for the same pattern in this tick. */

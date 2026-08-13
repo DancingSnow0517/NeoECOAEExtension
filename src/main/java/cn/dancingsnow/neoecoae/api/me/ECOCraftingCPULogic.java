@@ -133,7 +133,9 @@ public class ECOCraftingCPULogic {
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // 尝试提取所需物品。
-        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.takeFuzzyItemIds(plan);
+        // Do not consume execution metadata until reservation succeeds: the cluster can retry this
+        // plan on another threading core after a local submission failure.
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.peekFuzzyItemIds(plan);
         var missingIngredient = ECOFuzzyCraftingInventory.tryExtractInitialItems(
             plan, grid, inventory, src, fuzzyItemIds);
         if (missingIngredient != null)
@@ -151,7 +153,13 @@ public class ECOCraftingCPULogic {
                 .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId, fuzzyItemIds);
+        this.job = new ExecutingCraftingJob(
+            plan,
+            this::postChange,
+            linkCpu,
+            playerId,
+            ECOPlannedInputs.takeFuzzyItemIds(plan)
+        );
         registerJobOutputRoute();
 
         // 合成监视器暂不支持
@@ -400,17 +408,25 @@ public class ECOCraftingCPULogic {
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level,
                             fastPathCandidate);
 
+                    // A normal CPU evaluates the remaining item against each concrete input. A
+                    // FastPath batch snapshots that result from its first craft, so it cannot
+                    // faithfully reproduce a component-dependent container transformation for a
+                    // later fuzzy component variant. Keep those patterns on AE2's per-craft path.
+                    boolean fuzzyBatchSafe = canBatchConfiguredFuzzyInputs(execution, job.fuzzyItemIds);
+
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
-                    long batchResult = tryPushVerifiedFastPathBatch(
-                        job,
-                        details,
-                        execution,
-                        craftingContainer,
-                        patternBuses,
-                        energyService,
-                        patternPower,
-                        batchTaskRemaining);
+                    long batchResult = fuzzyBatchSafe
+                        ? tryPushVerifiedFastPathBatch(
+                            job,
+                            details,
+                            execution,
+                            craftingContainer,
+                            patternBuses,
+                            energyService,
+                            patternPower,
+                            batchTaskRemaining)
+                        : 0L;
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
@@ -436,15 +452,18 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
-                    int ae2ltBatchResult = ae2ltBatchBridge.tryPushBatch(
-                        providers,
-                        details,
-                        craftingContainer,
-                        inventory,
-                        energyService,
-                        patternPower,
-                        batchTaskRemaining
-                    );
+                    int ae2ltBatchResult = fuzzyBatchSafe
+                        ? ae2ltBatchBridge.tryPushBatch(
+                            providers,
+                            details,
+                            craftingContainer,
+                            inventory,
+                            energyService,
+                            patternPower,
+                            batchTaskRemaining,
+                            job.fuzzyItemIds
+                        )
+                        : 0;
                     if (ae2ltBatchResult > 0) {
                         chargeAcceptedPatternEnergy(
                             energyService, patternPower * ae2ltBatchResult
@@ -479,15 +498,18 @@ public class ECOCraftingCPULogic {
                         continue;
                     }
 
-                    int megacellsBatchResult = megacellsBatchBridge.tryPushBatch(
-                        providers,
-                        details,
-                        craftingContainer,
-                        inventory,
-                        energyService,
-                        patternPower,
-                        batchTaskRemaining
-                    );
+                    int megacellsBatchResult = fuzzyBatchSafe
+                        ? megacellsBatchBridge.tryPushBatch(
+                            providers,
+                            details,
+                            craftingContainer,
+                            inventory,
+                            energyService,
+                            patternPower,
+                            batchTaskRemaining,
+                            job.fuzzyItemIds
+                        )
+                        : 0;
                     if (megacellsBatchResult > 0) {
                         chargeAcceptedPatternEnergy(
                             energyService, patternPower * megacellsBatchResult
@@ -912,6 +934,7 @@ public class ECOCraftingCPULogic {
         );
 
         var extraInputs = reusablePlan.extraInputs(batchSize - 1);
+        List<GenericStack> extractedExtraInputs = List.of();
         boolean extraInputsExtracted = false;
         BatchDispatchState dispatchState = BatchDispatchState.PREPARED;
         ECOBatchEnergyReservation energyReservation = null;
@@ -945,7 +968,7 @@ public class ECOCraftingCPULogic {
                 }
             }
             try {
-                ECOBatchCraftingHelper.extractExact(
+                extractedExtraInputs = ECOBatchCraftingHelper.extractExactReturning(
                     new ECOFuzzyCraftingInventory(inventory, job.fuzzyItemIds), extraInputs, job.fuzzyItemIds);
             } catch (RuntimeException e) {
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INPUT_RESERVATION_FAILED,
@@ -963,6 +986,7 @@ public class ECOCraftingCPULogic {
                     execution.inputItems(),
                     execution.expectedOutputs(),
                     execution.expectedContainerItems(),
+                    ECOBatchCraftingHelper.combine(reusablePlan.consumedInputsPerCraft(), extractedExtraInputs),
                     job.link.getCraftingID());
             if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
                 ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.PROVIDER_REJECTED,
@@ -974,7 +998,7 @@ public class ECOCraftingCPULogic {
                 if (refundFailure != null) {
                     LOGGER.error("ECO batch energy refund failed after provider rejection", refundFailure);
                 }
-                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
+                rollbackBatchInputs(inventory, firstCraftingContainer, extractedExtraInputs, true, true);
                 return -1;
             }
             dispatchState = BatchDispatchState.PROVIDER_ACCEPTED;
@@ -1017,7 +1041,9 @@ public class ECOCraftingCPULogic {
             if (refundFailure != null) {
                 LOGGER.error("ECO batch energy refund failed while rolling back a pre-submit failure", refundFailure);
             }
-            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            rollbackBatchInputs(
+                inventory, firstCraftingContainer, extractedExtraInputs, true, extraInputsExtracted
+            );
             return -1;
         } catch (Error e) {
             selectedOffer.worker().getFastPathCache().recordException();
@@ -1028,7 +1054,9 @@ public class ECOCraftingCPULogic {
                         LOGGER.error("ECO batch energy refund failed while rolling back an error", refundFailure);
                     }
                 }
-                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+                rollbackBatchInputs(
+                    inventory, firstCraftingContainer, extractedExtraInputs, true, extraInputsExtracted
+                );
             }
             throw e;
         }
@@ -1084,6 +1112,21 @@ public class ECOCraftingCPULogic {
                 && execution.fastPathEligible()
                 && NEConfig.ecoAe2FastPathEnabled
                 && !NEConfig.postCraftingEvent;
+    }
+
+    private static boolean canBatchConfiguredFuzzyInputs(
+        ECOExtractedPatternExecution execution,
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds
+    ) {
+        if (fuzzyItemIds.isEmpty() || execution.expectedContainerItems().isEmpty()) {
+            return true;
+        }
+        for (GenericStack input : execution.inputItems()) {
+            if (ECOFuzzyCraftingInventory.isConfiguredFuzzy(input.what(), fuzzyItemIds)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {

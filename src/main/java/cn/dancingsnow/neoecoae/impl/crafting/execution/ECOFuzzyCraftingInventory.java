@@ -6,6 +6,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.storage.MEStorage;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -39,11 +40,11 @@ public final class ECOFuzzyCraftingInventory implements ICraftingInventory {
         Set<ResourceLocation> fuzzyItemIds
     ) {
         var storage = grid.getStorageService().getInventory();
-        List<GenericStack> extracted = new ArrayList<>();
+        List<Reservation> reservations = new ArrayList<>();
+        java.util.Map<AEKey, Long> available = new java.util.LinkedHashMap<>();
         for (var entry : plan.usedItems()) {
             AEKey requested = entry.getKey();
             long required = entry.getLongValue();
-            long remaining = required;
             List<AEKey> candidateList = new ArrayList<>();
             if (isConfiguredFuzzy(requested, fuzzyItemIds)) {
                 for (var entryCandidate : storage.getAvailableStacks().findFuzzy(requested, FuzzyMode.IGNORE_ALL)) {
@@ -52,27 +53,60 @@ public final class ECOFuzzyCraftingInventory implements ICraftingInventory {
             } else {
                 candidateList.add(requested);
             }
-            Iterable<AEKey> candidates = candidateList;
-            for (AEKey candidate : candidates) {
+            long remaining = required;
+            for (AEKey candidate : candidateList) {
                 if (remaining <= 0L) {
                     break;
                 }
-                long taken = storage.extract(candidate, remaining, Actionable.MODULATE, source);
-                if (taken > 0L) {
-                    inventory.insert(candidate, taken, Actionable.MODULATE);
-                    extracted.add(new GenericStack(candidate, taken));
-                    remaining -= taken;
+                long candidateAvailable = available.computeIfAbsent(
+                    candidate,
+                    key -> storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source)
+                );
+                long allocated = Math.min(remaining, candidateAvailable);
+                if (allocated > 0L) {
+                    reservations.add(new Reservation(requested, candidate, allocated));
+                    available.put(candidate, candidateAvailable - allocated);
+                    remaining -= allocated;
                 }
             }
             if (remaining > 0L) {
-                for (GenericStack stack : extracted) {
-                    storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, source);
-                }
-                inventory.clear();
                 return new GenericStack(requested, remaining);
             }
         }
+
+        List<GenericStack> extracted = new ArrayList<>(reservations.size());
+        for (Reservation reservation : reservations) {
+            long taken = storage.extract(reservation.concreteKey(), reservation.amount(), Actionable.MODULATE, source);
+            if (taken > 0L) {
+                inventory.insert(reservation.concreteKey(), taken, Actionable.MODULATE);
+                extracted.add(new GenericStack(reservation.concreteKey(), taken));
+            }
+            if (taken != reservation.amount()) {
+                // A provider changed after the complete simulated allocation. Restore concrete
+                // variants and leave this CPU with no owned inputs.
+                restoreInitialReservation(storage, source, inventory, extracted);
+                return new GenericStack(reservation.requestedKey(), reservation.amount() - taken);
+            }
+        }
         return null;
+    }
+
+    private static void restoreInitialReservation(
+        MEStorage storage,
+        IActionSource source,
+        ListCraftingInventory inventory,
+        List<GenericStack> extracted
+    ) {
+        for (GenericStack stack : extracted) {
+            long restored = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, source);
+            if (restored != stack.amount()) {
+                throw new IllegalStateException("Failed to restore initial crafting reservation");
+            }
+        }
+        inventory.clear();
+    }
+
+    private record Reservation(AEKey requestedKey, AEKey concreteKey, long amount) {
     }
 
     public static boolean isConfiguredFuzzy(AEKey key, Set<ResourceLocation> fuzzyItemIds) {

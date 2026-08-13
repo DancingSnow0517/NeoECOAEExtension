@@ -217,10 +217,20 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static void extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        extractExact(inventory, stacks, Set.of());
+        extractExactReturning(inventory, stacks, Set.of());
     }
 
     public static void extractExact(
+            ICraftingInventory inventory, List<GenericStack> stacks, Set<ResourceLocation> fuzzyItemIds) {
+        extractExactReturning(inventory, stacks, fuzzyItemIds);
+    }
+
+    /**
+     * Extracts the requested amount and returns the concrete keys that were actually removed.
+     * Callers must use this result for any later refund or persisted in-flight ledger: a configured
+     * fuzzy item may have been satisfied by a different data-component variant than its template.
+     */
+    public static List<GenericStack> extractExactReturning(
             ICraftingInventory inventory, List<GenericStack> stacks, Set<ResourceLocation> fuzzyItemIds) {
         List<GenericStack> extractedStacks = new ArrayList<>(stacks.size());
         try {
@@ -235,6 +245,73 @@ public final class ECOBatchCraftingHelper {
             insertAll(inventory, extractedStacks);
             throw e;
         }
+        return combine(extractedStacks);
+    }
+
+    /** Combines concrete stack entries without discarding their data-component identity. */
+    public static List<GenericStack> combine(List<GenericStack> first, List<GenericStack> second) {
+        List<GenericStack> combined = new ArrayList<>(first.size() + second.size());
+        combined.addAll(first);
+        combined.addAll(second);
+        return combine(combined);
+    }
+
+    /** Combines concrete stack entries without discarding their data-component identity. */
+    public static List<GenericStack> combine(List<GenericStack> stacks) {
+        KeyCounter counter = new KeyCounter();
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0L) {
+                counter.add(stack.what(), stack.amount());
+            }
+        }
+        return copyCounter(counter);
+    }
+
+    /**
+     * Selects concrete entries equivalent to {@code requested} from an already extracted ledger.
+     * For configured fuzzy items, any component variant with the configured item ID is valid; the
+     * returned entries always retain the concrete keys that were originally extracted.
+     */
+    public static List<GenericStack> takeMatchingEntries(
+            List<GenericStack> available,
+            List<GenericStack> requested,
+            Set<ResourceLocation> fuzzyItemIds) {
+        Map<AEKey, Long> remaining = new java.util.LinkedHashMap<>();
+        for (GenericStack stack : available) {
+            if (stack != null && stack.amount() > 0L) {
+                remaining.merge(stack.what(), stack.amount(), Math::addExact);
+            }
+        }
+
+        List<GenericStack> selected = new ArrayList<>();
+        for (GenericStack template : requested) {
+            if (template == null || template.amount() <= 0L) {
+                continue;
+            }
+            long needed = template.amount();
+            boolean fuzzy = ECOFuzzyCraftingInventory.isConfiguredFuzzy(template.what(), fuzzyItemIds);
+            for (var entry : remaining.entrySet()) {
+                if (needed <= 0L) {
+                    break;
+                }
+                AEKey candidate = entry.getKey();
+                boolean matches = fuzzy
+                    ? ECOFuzzyCraftingInventory.isConfiguredFuzzy(candidate, fuzzyItemIds)
+                        && candidate.getId().equals(template.what().getId())
+                    : candidate.equals(template.what());
+                if (!matches || entry.getValue() <= 0L) {
+                    continue;
+                }
+                long taken = Math.min(needed, entry.getValue());
+                entry.setValue(entry.getValue() - taken);
+                selected.add(new GenericStack(candidate, taken));
+                needed -= taken;
+            }
+            if (needed > 0L) {
+                throw new IllegalStateException("Extracted fast-path inputs cannot satisfy a rollback");
+            }
+        }
+        return combine(selected);
     }
 
     private static long extractMatching(

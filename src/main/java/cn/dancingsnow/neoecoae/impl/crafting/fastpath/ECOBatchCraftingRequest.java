@@ -14,8 +14,34 @@ public record ECOBatchCraftingRequest(
     List<GenericStack> inputsPerCraft,
     List<GenericStack> outputsPerCraft,
     List<GenericStack> remainingPerCraft,
+    List<GenericStack> consumedInputTotal,
     @Nullable UUID craftingJobId
 ) {
+    /**
+     * Compatibility constructor for integrations that only know the exact per-craft input
+     * template. ECO derives the in-flight ledger from that template in this case.
+     */
+    public ECOBatchCraftingRequest(
+        IPatternDetails details,
+        ECOFastPathKey key,
+        long batchSize,
+        List<GenericStack> inputsPerCraft,
+        List<GenericStack> outputsPerCraft,
+        List<GenericStack> remainingPerCraft,
+        @Nullable UUID craftingJobId
+    ) {
+        this(
+            details,
+            key,
+            batchSize,
+            inputsPerCraft,
+            outputsPerCraft,
+            remainingPerCraft,
+            ECOReusableCraftingPlan.of(inputsPerCraft, remainingPerCraft).batchInputs(batchSize),
+            craftingJobId
+        );
+    }
+
     /** Compatibility constructor used by Thunderbolt Core's optional NeoECO bridge. */
     public ECOBatchCraftingRequest(
         IPatternDetails details,
@@ -46,9 +72,12 @@ public record ECOBatchCraftingRequest(
         inputsPerCraft = List.copyOf(inputsPerCraft);
         outputsPerCraft = List.copyOf(outputsPerCraft);
         remainingPerCraft = List.copyOf(remainingPerCraft);
+        consumedInputTotal = List.copyOf(consumedInputTotal);
         if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
             || !ECOBatchCraftingHelper.areValidPersistedItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
             || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
+                consumedInputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)
             || !ECOFastPathStacks.isSafeForFastPath(outputsPerCraft, remainingPerCraft, inputsPerCraft)) {
             throw new IllegalArgumentException("Fast-path request contains invalid item stacks");
         }

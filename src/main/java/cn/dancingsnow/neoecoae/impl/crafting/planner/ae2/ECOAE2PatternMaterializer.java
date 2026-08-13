@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
@@ -860,7 +860,7 @@ final class ECOAE2PatternMaterializer {
             }
         }
         for (AEKey key : inventory.keySet()) {
-            Long amount = itemAmounts.get(key.getId());
+            Long amount = key.getType().equals(AEKeyType.items()) ? itemAmounts.get(key.getId()) : null;
             if (amount != null) {
                 putChoice(choices, key, amount);
             }
@@ -893,7 +893,7 @@ final class ECOAE2PatternMaterializer {
     }
 
     private static boolean isConfiguredFuzzyItem(AEKey key, Set<ResourceLocation> fuzzyItemIds) {
-        return key instanceof AEItemKey && fuzzyItemIds.contains(key.getId());
+        return key.getType().equals(AEKeyType.items()) && fuzzyItemIds.contains(key.getId());
     }
 
     private static List<ECOAE2StateCapacityTemplate> stateCapacityTemplates(

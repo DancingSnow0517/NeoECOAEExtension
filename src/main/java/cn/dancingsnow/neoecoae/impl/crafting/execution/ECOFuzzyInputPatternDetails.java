@@ -90,7 +90,8 @@ public final class ECOFuzzyInputPatternDetails implements IPatternDetails {
 
         private boolean possibleInputHasSameId(AEKey what) {
             for (GenericStack possible : delegate.getPossibleInputs()) {
-                if (possible != null && possible.what().getId().equals(what.getId())) {
+                if (possible != null && possible.what() instanceof AEItemKey
+                    && possible.what().getId().equals(what.getId())) {
                     return true;
                 }
             }
