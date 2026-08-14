@@ -5,7 +5,7 @@ import java.util.Map;
 
 public record ECOInventorySchedule<K, R>(
     boolean executable,
-    List<ECOScheduledStep<R>> steps,
+    List<ECOScheduleEntry<R>> steps,
     Map<K, Long> remainingInventory,
     Map<K, Long> blockedBy,
     Map<K, Long> syntheticSources
@@ -19,7 +19,7 @@ public record ECOInventorySchedule<K, R>(
 
     public ECOInventorySchedule(
         boolean executable,
-        List<ECOScheduledStep<R>> steps,
+        List<ECOScheduleEntry<R>> steps,
         Map<K, Long> remainingInventory,
         Map<K, Long> blockedBy
     ) {

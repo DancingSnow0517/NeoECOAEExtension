@@ -288,7 +288,7 @@ public final class ECOPlanningService {
                 snapshot.requestedKey(), snapshot.requestedAmount(), "assembler",
                 "assembler_total", assemblerStarted, "planPresent=" + plan.isPresent()
             );
-            if (!cycleDiagnostics.missingSeeds().isEmpty() || plan.isPresent()) {
+            if (!cycleDiagnostics.isEmpty() || plan.isPresent()) {
                 ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, cycleDiagnostics);
             }
             if (plan.isEmpty()) {
@@ -444,7 +444,7 @@ public final class ECOPlanningService {
     }
 
     private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot) {
-        return missingTargetPlan(snapshot, 1L);
+        return missingTargetPlan(snapshot, Long.MAX_VALUE);
     }
 
     private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot, long bytes) {

@@ -31,17 +31,23 @@ public record ECOCyclePlanningDiagnostics(
         ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
         var trace = result.cycleTrace();
-        if (trace.isEmpty()) {
+        Set<ECOAE2PatternVariant> tracedOperations = trace
+            .map(traceValue -> traceValue.operations())
+            .orElseGet(() -> result.candidate().executions().entrySet().stream()
+                .filter(entry -> entry.getValue() > 0L)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet()));
+        if (tracedOperations.isEmpty()) {
             return EMPTY;
         }
 
-        Set<AEKey> cycleMaterials = tracedCycleMaterials(snapshot, trace.get().operations());
+        Set<AEKey> cycleMaterials = tracedCycleMaterials(snapshot, tracedOperations);
         if (cycleMaterials.isEmpty()) {
             return EMPTY;
         }
 
         Map<AEKey, Long> missingSeeds = new LinkedHashMap<>();
-        if (!trace.get().missingSeedStarters().isEmpty()) {
+        if (trace.isPresent() && !trace.get().missingSeedStarters().isEmpty()) {
             snapshot.problem().operations().stream()
                 .filter(operation -> trace.get().missingSeedStarters().contains(operation.reference()))
                 .forEach(operation -> operation.inputs().forEach((key, amount) -> {
@@ -57,7 +63,7 @@ public record ECOCyclePlanningDiagnostics(
 
         Map<AEKey, long[]> totals = new LinkedHashMap<>();
         for (var operation : snapshot.problem().operations()) {
-            if (!trace.get().operations().contains(operation.reference())) {
+            if (!tracedOperations.contains(operation.reference())) {
                 continue;
             }
             long count = result.candidate().executions().getOrDefault(operation.reference(), 0L);

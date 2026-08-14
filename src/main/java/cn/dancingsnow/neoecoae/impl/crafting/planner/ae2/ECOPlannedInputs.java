@@ -4,6 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduleEntry;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECORepeatedBlock;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
@@ -26,21 +28,11 @@ public final class ECOPlannedInputs {
 
     public static void register(
         CraftingPlan plan,
-        List<ECOScheduledStep<ECOAE2PatternVariant>> steps,
+        List<? extends ECOScheduleEntry<ECOAE2PatternVariant>> steps,
         Set<ResourceLocation> fuzzyItemIds
     ) {
         Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = new LinkedHashMap<>();
-        for (var step : steps) {
-            ECOAE2PatternVariant variant = step.operation();
-            ArrayDeque<PlannedInputBatch> batches = selections.computeIfAbsent(
-                variant.pattern(), ignored -> new ArrayDeque<>());
-            PlannedInputBatch last = batches.peekLast();
-            if (last != null && last.selectedInputs().equals(variant.selectedInputs())) {
-                last.add(step.batches());
-            } else {
-                batches.addLast(new PlannedInputBatch(variant.selectedInputs(), step.batches()));
-            }
-        }
+        registerEntries(selections, steps, 1L);
         synchronized (PENDING) {
             removeStalePlans();
             PENDING.put(new IdentityWeakReference(plan, STALE_PLANS), selections);
@@ -53,6 +45,30 @@ public final class ECOPlannedInputs {
         List<ECOScheduledStep<ECOAE2PatternVariant>> steps
     ) {
         register(plan, steps, Set.of());
+    }
+
+    private static void registerEntries(
+        Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections,
+        List<? extends ECOScheduleEntry<ECOAE2PatternVariant>> entries,
+        long multiplier
+    ) {
+        for (var entry : entries) {
+            if (entry instanceof ECORepeatedBlock<ECOAE2PatternVariant> block) {
+                registerEntries(selections, block.body(), Math.multiplyExact(multiplier, block.repetitions()));
+                continue;
+            }
+            var step = (ECOScheduledStep<ECOAE2PatternVariant>) entry;
+            ECOAE2PatternVariant variant = step.operation();
+            long batchesToRegister = Math.multiplyExact(step.batches(), multiplier);
+            ArrayDeque<PlannedInputBatch> batches = selections.computeIfAbsent(
+                variant.pattern(), ignored -> new ArrayDeque<>());
+            PlannedInputBatch last = batches.peekLast();
+            if (last != null && last.selectedInputs().equals(variant.selectedInputs())) {
+                last.add(batchesToRegister);
+            } else {
+                batches.addLast(new PlannedInputBatch(variant.selectedInputs(), batchesToRegister));
+            }
+        }
     }
 
     public static Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> take(ICraftingPlan plan) {

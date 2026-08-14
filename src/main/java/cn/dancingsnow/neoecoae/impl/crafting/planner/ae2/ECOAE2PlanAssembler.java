@@ -10,6 +10,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECORepeatedBlock;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduleEntry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
@@ -112,7 +114,7 @@ public final class ECOAE2PlanAssembler {
         }
         if (result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
             && hasSaturatedCounts(candidate)) {
-            CraftingPlan plan = missingOnlyPlan(snapshot, missing);
+            CraftingPlan plan = missingOnlyPlan(snapshot, missing, Long.MAX_VALUE);
             ECOPlanningFailureDiagnostics.logTrace(
                 snapshot.requestedKey(),
                 snapshot.requestedAmount(),
@@ -154,7 +156,7 @@ public final class ECOAE2PlanAssembler {
                     "simulation_schedule_incomplete_missing_only blockedBy=" + schedule.blockedBy()
                         + " steps=" + schedule.steps().size()
                 );
-                return Optional.of(missingOnlyPlan(snapshot, missing));
+                return Optional.of(missingOnlyPlan(snapshot, missing, estimateBytes(snapshot, candidate)));
             }
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
@@ -413,7 +415,7 @@ public final class ECOAE2PlanAssembler {
         ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         ECOPlanCandidate<ECOAE2PatternVariant> candidate,
         Map<AEKey, Long> missing,
-        List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps
+        List<ECOScheduleEntry<ECOAE2PatternVariant>> steps
     ) {
         Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
@@ -422,55 +424,18 @@ public final class ECOAE2PlanAssembler {
         KeyCounter requiredExtract = new KeyCounter();
 
         try {
-            for (var step : steps) {
-                var operation = byReference.get(step.operation());
-                if (operation == null || step.batches() > candidate.executions().getOrDefault(step.operation(), 0L)) {
-                    logUsedItemsFailure(problem, "invalid_scheduled_step operation=" + step.operation());
-                    return Optional.empty();
-                }
-                for (var input : operation.inputs().entrySet()) {
-                    long needed = Math.multiplyExact(input.getValue(), step.batches());
-                    long outputPerBatch = operation.outputs().getOrDefault(input.getKey(), 0L);
-                    // Exact self-returning catalysts can be reused within a consecutive step.
-                    long requiredBeforeStep = !operation.stateTransitionInputs().contains(input.getKey())
-                        && outputPerBatch >= input.getValue()
-                        ? input.getValue()
-                        : needed;
-                    long available = current.getOrDefault(input.getKey(), 0L);
-                    if (available < requiredBeforeStep) {
-                        long supplied = Math.min(
-                            requiredBeforeStep - available,
-                            syntheticRemaining.getOrDefault(input.getKey(), 0L)
-                        );
-                        if (supplied > 0L) {
-                            current.merge(input.getKey(), supplied, Math::addExact);
-                            syntheticRemaining.merge(input.getKey(), -supplied, Math::addExact);
-                            available += supplied;
-                        }
-                    }
-                    if (available < requiredBeforeStep) {
-                        logUsedItemsFailure(
-                            problem,
-                            "insufficient_step_input operation=" + step.operation()
-                                + " material=" + input.getKey()
-                                + " batches=" + step.batches()
-                                + " requiredBeforeStep=" + requiredBeforeStep
-                        );
+            for (var entry : steps) {
+                if (entry instanceof ECORepeatedBlock<ECOAE2PatternVariant> block) {
+                    if (!applyRepeatedBlock(problem, candidate, current, syntheticRemaining,
+                        requiredExtract, byReference, block)) {
                         return Optional.empty();
                     }
-                    current.merge(input.getKey(), -needed, Math::addExact);
-                    long baseline = problem.inventory().getOrDefault(input.getKey(), 0L);
-                    long extracted = Math.min(
-                        baseline,
-                        Math.max(0L, baseline - current.getOrDefault(input.getKey(), 0L))
-                    );
-                    if (extracted > requiredExtract.get(input.getKey())) {
-                        requiredExtract.set(input.getKey(), extracted);
-                    }
+                    continue;
                 }
-                for (var output : operation.outputs().entrySet()) {
-                    long produced = Math.multiplyExact(output.getValue(), step.batches());
-                    current.merge(output.getKey(), produced, Math::addExact);
+                var step = (cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>) entry;
+                if (!applyScheduledStep(problem, candidate, current, syntheticRemaining,
+                    requiredExtract, byReference, step)) {
+                    return Optional.empty();
                 }
             }
             return Optional.of(requiredExtract);
@@ -478,6 +443,105 @@ public final class ECOAE2PlanAssembler {
             logUsedItemsFailure(problem, "arithmetic_overflow exception=" + overflow.getMessage());
             return Optional.empty();
         }
+    }
+
+    private static boolean applyScheduledStep(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
+        Map<AEKey, Long> current,
+        Map<AEKey, Long> syntheticRemaining,
+        KeyCounter requiredExtract,
+        Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference,
+        cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant> step
+    ) {
+        var operation = byReference.get(step.operation());
+        if (operation == null || step.batches() > candidate.executions().getOrDefault(step.operation(), 0L)) {
+            logUsedItemsFailure(problem, "invalid_scheduled_step operation=" + step.operation());
+            return false;
+        }
+        for (var input : operation.inputs().entrySet()) {
+            long needed = Math.multiplyExact(input.getValue(), step.batches());
+            long outputPerBatch = operation.outputs().getOrDefault(input.getKey(), 0L);
+            long requiredBeforeStep = !operation.stateTransitionInputs().contains(input.getKey())
+                && outputPerBatch >= input.getValue() ? input.getValue() : needed;
+            long available = current.getOrDefault(input.getKey(), 0L);
+            if (available < requiredBeforeStep) {
+                long supplied = Math.min(requiredBeforeStep - available,
+                    syntheticRemaining.getOrDefault(input.getKey(), 0L));
+                if (supplied > 0L) {
+                    current.merge(input.getKey(), supplied, Math::addExact);
+                    syntheticRemaining.merge(input.getKey(), -supplied, Math::addExact);
+                    available += supplied;
+                }
+            }
+            if (available < requiredBeforeStep) {
+                logUsedItemsFailure(problem, "insufficient_step_input operation=" + step.operation()
+                    + " material=" + input.getKey() + " batches=" + step.batches()
+                    + " requiredBeforeStep=" + requiredBeforeStep);
+                return false;
+            }
+            current.merge(input.getKey(), -needed, Math::addExact);
+            long baseline = problem.inventory().getOrDefault(input.getKey(), 0L);
+            long extracted = Math.min(baseline,
+                Math.max(0L, baseline - current.getOrDefault(input.getKey(), 0L)));
+            if (extracted > requiredExtract.get(input.getKey())) {
+                requiredExtract.set(input.getKey(), extracted);
+            }
+        }
+        for (var output : operation.outputs().entrySet()) {
+            long produced = Math.multiplyExact(output.getValue(), step.batches());
+            current.merge(output.getKey(), produced, Math::addExact);
+        }
+        return true;
+    }
+
+    private static boolean applyRepeatedBlock(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
+        Map<AEKey, Long> current,
+        Map<AEKey, Long> syntheticRemaining,
+        KeyCounter requiredExtract,
+        Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference,
+        ECORepeatedBlock<ECOAE2PatternVariant> block
+    ) {
+        Map<AEKey, Long> start = new LinkedHashMap<>(current);
+        for (var step : block.body()) {
+            if (!applyScheduledStep(problem, candidate, current, syntheticRemaining,
+                requiredExtract, byReference, step)) {
+                return false;
+            }
+        }
+        Map<AEKey, Long> delta = new LinkedHashMap<>();
+        Set<AEKey> materials = new java.util.HashSet<>(start.keySet());
+        materials.addAll(current.keySet());
+        for (AEKey key : materials) {
+            delta.put(key, Math.subtractExact(
+                current.getOrDefault(key, 0L), start.getOrDefault(key, 0L)
+            ));
+        }
+        long additionalRepetitions = block.repetitions() - 1L;
+        for (var change : delta.entrySet()) {
+            if (change.getValue() == 0L || problem.isUnlimited(change.getKey())) {
+                continue;
+            }
+            long totalChange = Math.multiplyExact(change.getValue(), additionalRepetitions);
+            long finalAmount = Math.addExact(current.getOrDefault(change.getKey(), 0L), totalChange);
+            if (finalAmount < 0L) {
+                logUsedItemsFailure(problem, "repeated_block_exhausts_input material="
+                    + change.getKey() + " repetitions=" + block.repetitions());
+                return false;
+            }
+            current.put(change.getKey(), finalAmount);
+        }
+        materials.forEach(key -> {
+            long baseline = problem.inventory().getOrDefault(key, 0L);
+            long extracted = Math.min(baseline,
+                Math.max(0L, baseline - current.getOrDefault(key, 0L)));
+            if (extracted > requiredExtract.get(key)) {
+                requiredExtract.set(key, extracted);
+            }
+        });
+        return true;
     }
 
     private static void logUsedItemsFailure(
@@ -537,11 +601,12 @@ public final class ECOAE2PlanAssembler {
 
     private static CraftingPlan missingOnlyPlan(
         ECOAE2PlanningSnapshot snapshot,
-        Map<AEKey, Long> missing
+        Map<AEKey, Long> missing,
+        long bytes
     ) {
         return new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
-            1L,
+            Math.max(1L, bytes),
             true,
             snapshot.multiplePaths(),
             new KeyCounter(),
