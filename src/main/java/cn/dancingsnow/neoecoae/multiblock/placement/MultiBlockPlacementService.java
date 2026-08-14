@@ -1,5 +1,14 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import appeng.api.config.Actionable;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.storage.StorageHelper;
+import appeng.helpers.WirelessTerminalMenuHost;
+import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -149,16 +158,34 @@ public final class MultiBlockPlacementService {
 
     public static int countMatchingItems(Player player, ItemStack target) {
         Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        return countMatchingItems(player.getInventory().items, target, visitedHandlers)
+        long count = countMatchingItems(player.getInventory().items, target, visitedHandlers)
             + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
+        count += countMatchingItemsInWirelessTerminals(player, target);
+        return (int) Math.min(Integer.MAX_VALUE, count);
     }
 
     private static boolean consumeRequiredItem(Player player, ItemStack requiredItem) {
         Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        int inventoryAvailable = countMatchingItems(player.getInventory().items, requiredItem, visitedHandlers)
+            + countMatchingItems(player.getInventory().offhand, requiredItem, visitedHandlers);
         int remaining = requiredItem.getCount();
+        int inventoryToConsume = Math.min(inventoryAvailable, remaining);
+        remaining -= inventoryToConsume;
+
+        List<WirelessTerminalMenuHost<?>> wirelessTerminals = remaining > 0
+            ? findWirelessTerminalHosts(player)
+            : List.of();
+        if (remaining > 0 && countMatchingItemsInWirelessTerminals(player, requiredItem, wirelessTerminals) < remaining) {
+            return false;
+        }
+
+        remaining = requiredItem.getCount();
         remaining = consumeFromList(player.getInventory().items, requiredItem, remaining, visitedHandlers);
         if (remaining > 0) {
             remaining = consumeFromList(player.getInventory().offhand, requiredItem, remaining, visitedHandlers);
+        }
+        if (remaining > 0) {
+            remaining = consumeFromWirelessTerminals(player, requiredItem, remaining, wirelessTerminals);
         }
         if (remaining > 0) {
             return false;
@@ -200,6 +227,122 @@ public final class MultiBlockPlacementService {
             remaining = consumeFromStack(stack, target, remaining, visitedHandlers);
         }
         return remaining;
+    }
+
+    private static int countMatchingItemsInWirelessTerminals(Player player, ItemStack target) {
+        return countMatchingItemsInWirelessTerminals(player, target, findWirelessTerminalHosts(player));
+    }
+
+    private static int countMatchingItemsInWirelessTerminals(
+        Player player,
+        ItemStack target,
+        List<WirelessTerminalMenuHost<?>> wirelessTerminals
+    ) {
+        AEItemKey key = AEItemKey.of(target);
+        if (key == null || wirelessTerminals.isEmpty()) {
+            return 0;
+        }
+
+        IActionSource source = IActionSource.ofPlayer(player);
+        long total = 0L;
+        for (WirelessTerminalMenuHost<?> terminal : wirelessTerminals) {
+            long available = StorageHelper.poweredExtraction(
+                terminal,
+                terminal.getInventory(),
+                key,
+                Integer.MAX_VALUE,
+                source,
+                Actionable.SIMULATE
+            );
+            total = Math.min(Integer.MAX_VALUE, total + available);
+            if (total >= Integer.MAX_VALUE) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return (int) total;
+    }
+
+    private static int consumeFromWirelessTerminals(
+        Player player,
+        ItemStack target,
+        int remaining,
+        List<WirelessTerminalMenuHost<?>> wirelessTerminals
+    ) {
+        AEItemKey key = AEItemKey.of(target);
+        if (key == null || wirelessTerminals.isEmpty()) {
+            return remaining;
+        }
+
+        IActionSource source = IActionSource.ofPlayer(player);
+        for (WirelessTerminalMenuHost<?> terminal : wirelessTerminals) {
+            if (remaining <= 0) {
+                return 0;
+            }
+
+            long available = StorageHelper.poweredExtraction(
+                terminal,
+                terminal.getInventory(),
+                key,
+                remaining,
+                source,
+                Actionable.SIMULATE
+            );
+            if (available <= 0) {
+                continue;
+            }
+
+            long extracted = StorageHelper.poweredExtraction(
+                terminal,
+                terminal.getInventory(),
+                key,
+                Math.min(remaining, available),
+                source
+            );
+            remaining -= (int) Math.min(Integer.MAX_VALUE, extracted);
+        }
+        return remaining;
+    }
+
+    private static List<WirelessTerminalMenuHost<?>> findWirelessTerminalHosts(Player player) {
+        if (player.level().isClientSide()) {
+            return List.of();
+        }
+
+        List<WirelessTerminalMenuHost<?>> terminals = new ArrayList<>();
+        Set<IGrid> visitedGrids = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (ItemStack stack : player.getInventory().items) {
+            addWirelessTerminalHost(player, stack, terminals, visitedGrids);
+        }
+        for (ItemStack stack : player.getInventory().offhand) {
+            addWirelessTerminalHost(player, stack, terminals, visitedGrids);
+        }
+        return terminals;
+    }
+
+    private static void addWirelessTerminalHost(
+        Player player,
+        ItemStack stack,
+        List<WirelessTerminalMenuHost<?>> terminals,
+        Set<IGrid> visitedGrids
+    ) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof WirelessTerminalItem terminal)) {
+            return;
+        }
+
+        WirelessTerminalMenuHost<?> host = new WirelessTerminalMenuHost<>(
+            terminal,
+            player,
+            MenuLocators.forStack(stack),
+            (ignoredPlayer, ignoredSubMenu) -> {}
+        );
+        if (!host.getLinkStatus().connected()) {
+            return;
+        }
+
+        IGridNode actionableNode = host.getActionableNode();
+        if (actionableNode != null && visitedGrids.add(actionableNode.getGrid())) {
+            terminals.add(host);
+        }
     }
 
     private static int consumeFromStack(ItemStack stack, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
