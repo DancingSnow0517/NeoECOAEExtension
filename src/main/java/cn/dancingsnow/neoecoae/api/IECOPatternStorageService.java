@@ -13,6 +13,10 @@ public interface IECOPatternStorageService extends IGridService {
      */
     IECOPatternStorage getPatternStorage();
 
+    default ECOPatternInsertionResult insertPreparedPattern(ECOPreparedPattern prepared) {
+        return getPatternStorage().insertPreparedPattern(prepared);
+    }
+
     /**
      * Returns the network-wide migration candidates. While the index is rebuilding, {@code ready} is false and the
      * caller must wait for a later tick instead of falling back to a full synchronous inventory scan.
@@ -22,6 +26,10 @@ public interface IECOPatternStorageService extends IGridService {
     ExternalPatternClaim claimExternalPatternCandidates(IGrid grid, UUID owner, int maxCandidates);
 
     void releaseExternalPatternCandidates(UUID owner);
+
+    /** Releases one candidate without removing it from the index, for a temporary NO_SPACE result. */
+    default void releaseExternalPatternCandidate(ECOPatternSourceSlot slot) {
+    }
 
     /** Removes a source slot after migration has emptied it, keeping the cached candidate list current. */
     void removeExternalPatternCandidate(ECOPatternSourceSlot slot);
@@ -39,10 +47,17 @@ public interface IECOPatternStorageService extends IGridService {
             List<ECOPatternSourceSlot> candidates,
             long lastScanNanos,
             long scanBudgetNanos,
-            int scanBudgetHits) {
+            int scanBudgetHits,
+            long totalScanNanos) {
         public ExternalPatternIndexState(boolean ready, int scannedSlots, int totalSlots,
                                          List<ECOPatternSourceSlot> candidates) {
-            this(ready, scannedSlots, totalSlots, candidates, 0L, 0L, 0);
+            this(ready, scannedSlots, totalSlots, candidates, 0L, 0L, 0, 0L);
+        }
+
+        public ExternalPatternIndexState(boolean ready, int scannedSlots, int totalSlots,
+                                         List<ECOPatternSourceSlot> candidates,
+                                         long lastScanNanos, long scanBudgetNanos, int scanBudgetHits) {
+            this(ready, scannedSlots, totalSlots, candidates, lastScanNanos, scanBudgetNanos, scanBudgetHits, 0L);
         }
     }
 
@@ -53,10 +68,17 @@ public interface IECOPatternStorageService extends IGridService {
             List<ECOPatternSourceSlot> candidates,
             long lastScanNanos,
             long scanBudgetNanos,
-            int scanBudgetHits) {
+            int scanBudgetHits,
+            long totalScanNanos) {
         public ExternalPatternClaim(boolean ready, int scannedSlots, int totalSlots,
                                     List<ECOPatternSourceSlot> candidates) {
-            this(ready, scannedSlots, totalSlots, candidates, 0L, 0L, 0);
+            this(ready, scannedSlots, totalSlots, candidates, 0L, 0L, 0, 0L);
+        }
+
+        public ExternalPatternClaim(boolean ready, int scannedSlots, int totalSlots,
+                                    List<ECOPatternSourceSlot> candidates,
+                                    long lastScanNanos, long scanBudgetNanos, int scanBudgetHits) {
+            this(ready, scannedSlots, totalSlots, candidates, lastScanNanos, scanBudgetNanos, scanBudgetHits, 0L);
         }
     }
 }

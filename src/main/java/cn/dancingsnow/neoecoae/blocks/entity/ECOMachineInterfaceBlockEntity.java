@@ -5,12 +5,14 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.stacks.AEItemKey;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
+import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
@@ -60,6 +62,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -133,6 +136,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private transient PatternSearchIndex clientPatternSearchIndex = PatternSearchIndex.EMPTY;
     private transient int patternSearchIndexRevision = Integer.MIN_VALUE;
     private transient CompoundTag patternSearchIndexPayload = new CompoundTag();
+    private transient int migrationScannedThisTick;
+    private transient int migrationInsertedThisTick;
     public ECOMachineInterfaceBlockEntity(
         BlockEntityType<?> type,
         BlockPos pos,
@@ -442,6 +447,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (hadMapping) {
             closePatternInterfaceMenus();
         }
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        releasePatternMigrationLease();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        releasePatternMigrationLease();
+        super.setRemoved();
     }
 
     @Override
@@ -812,6 +829,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         long startedNanos = System.nanoTime();
+        migrationScannedThisTick = 0;
+        migrationInsertedThisTick = 0;
         PatternMigrationCoordinator coordinator = patternTransferTask != null
                 ? patternTransferTask.coordinator()
                 : patternOrganizeTask != null ? patternOrganizeTask.coordinator() : null;
@@ -831,7 +850,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         } else if (patternOrganizeTask != null) {
             tickPatternOrganize(serverLevel, deadline);
         }
-        coordinator.recordSlice(System.nanoTime() - startedNanos, 0, 0);
+        coordinator.recordSlice(System.nanoTime() - startedNanos,
+                migrationScannedThisTick, migrationInsertedThisTick);
     }
 
     private void tickPatternOrganize(ServerLevel serverLevel, long deadline) {
@@ -853,6 +873,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             int readSlot = task.nextReadSlot();
             patternOrganizeScannedSlots = readSlot + 1;
             scannedThisTick++;
+            migrationScannedThisTick++;
 
             ItemStack stack = getPatternStack(task.ref(readSlot));
             if (stack.isEmpty()) {
@@ -925,30 +946,43 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 break;
             }
             scannedThisTick++;
+            migrationScannedThisTick++;
             patternTransferScannedSlots++;
             ItemStack stack = step.inventory().getStackInSlot(step.slot());
             if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
                 task.removeCandidate(step.candidate());
                 continue;
             }
-            if (!(PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern)) {
+            var details = PatternDetailsHelper.decodePattern(stack, level);
+            if (!(details instanceof IMolecularAssemblerSupportedPattern)) {
+                task.removeCandidate(step.candidate());
                 patternTransferIncompatible++;
                 continue;
             }
 
             insertionsThisTick++;
-            switch (task.storageService().getPatternStorage().insertPattern(stack.copy())) {
+            ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
+            switch (task.storageService().insertPreparedPattern(prepared)) {
                 case INSERTED -> {
-                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
-                    task.removeCandidate(step.candidate());
+                    if (task.isSourceUnchanged(step)) {
+                        step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
+                        task.removeCandidate(step.candidate());
+                    }
                     patternTransferInserted++;
+                    migrationInsertedThisTick++;
                 }
                 case ALREADY_PRESENT -> {
-                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
-                    task.removeCandidate(step.candidate());
+                    if (task.isSourceUnchanged(step)) {
+                        step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
+                        task.removeCandidate(step.candidate());
+                    }
                     patternTransferAlreadyPresent++;
+                    migrationInsertedThisTick++;
                 }
-                case NO_SPACE -> patternTransferNoSpace++;
+                case NO_SPACE -> {
+                    task.skipCandidate(step.candidate());
+                    patternTransferNoSpace++;
+                }
                 case NO_TARGET -> {
                     patternTransferNoTarget++;
                     finishPatternTransfer(serverLevel, false);
@@ -985,6 +1019,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private void finishPatternTransfer(ServerLevel level, boolean unavailable) {
         PatternTransferTask task = patternTransferTask;
         if (task != null) {
+            task.releaseClaims();
             task.coordinator().release(this);
         }
         patternTransferTask = null;
@@ -1007,6 +1042,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     private void releasePatternMigrationLease() {
         if (patternTransferTask != null) {
+            patternTransferTask.releaseClaims();
             patternTransferTask.coordinator().release(this);
         }
         if (patternOrganizeTask != null) {
@@ -1070,13 +1106,17 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private final class PatternTransferTask {
+        private static final int CANDIDATE_BATCH_SIZE = 64;
         private final IGrid grid;
         private final IECOPatternStorageService storageService;
         private final PatternMigrationCoordinator coordinator;
+        private final UUID owner = UUID.randomUUID();
+        private final Set<ECOPatternSourceSlot> skippedCandidates = new HashSet<>();
         private List<ECOPatternSourceSlot> candidates = List.of();
         private int candidateIndex;
         private boolean prepared;
         private boolean justPrepared;
+        private boolean noMoreCandidates;
         private int indexScannedSlots;
         private int indexTotalSlots;
 
@@ -1101,11 +1141,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
 
         private int totalSlots() {
-            return prepared ? candidates.size() : indexTotalSlots;
+            return prepared && indexTotalSlots <= 0 ? candidates.size() : indexTotalSlots;
         }
 
         private boolean isFinished() {
-            return prepared && candidateIndex >= candidates.size();
+            return prepared && noMoreCandidates && candidateIndex >= candidates.size();
         }
 
         private boolean prepare() {
@@ -1119,8 +1159,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (!index.ready()) {
                 return false;
             }
-            candidates = index.candidates();
+            candidates = List.of();
             candidateIndex = 0;
+            noMoreCandidates = false;
             prepared = true;
             justPrepared = true;
             return true;
@@ -1140,26 +1181,71 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private void removeCandidate(ECOPatternSourceSlot candidate) {
             storageService.removeExternalPatternCandidate(candidate);
+            skippedCandidates.add(candidate);
+        }
+
+        private void skipCandidate(ECOPatternSourceSlot candidate) {
+            skippedCandidates.add(candidate);
+        }
+
+        private void releaseClaims() {
+            storageService.releaseExternalPatternCandidates(owner);
+        }
+
+        private boolean isSourceUnchanged(PatternTransferStep step) {
+            ItemStack current = step.inventory().getStackInSlot(step.slot());
+            return current.getCount() == step.snapshot().getCount()
+                    && ItemStack.isSameItemSameComponents(current, step.snapshot());
         }
 
         @Nullable
         private PatternTransferStep nextStep() {
-            while (!isFinished()) {
-                ECOPatternSourceSlot candidate = candidates.get(candidateIndex++);
-                PatternContainer source = candidate.source();
-                if (source.getGrid() != grid) {
-                    continue;
+            while (true) {
+                while (candidateIndex < candidates.size()) {
+                    ECOPatternSourceSlot candidate = candidates.get(candidateIndex++);
+                    if (skippedCandidates.contains(candidate)) {
+                        continue;
+                    }
+                    PatternContainer source = candidate.source();
+                    if (source.getGrid() != grid) {
+                        removeCandidate(candidate);
+                        continue;
+                    }
+                    InternalInventory inventory = source.getTerminalPatternInventory();
+                    if (candidate.slot() < inventory.size()) {
+                        ItemStack snapshot = inventory.getStackInSlot(candidate.slot()).copy();
+                        return new PatternTransferStep(candidate, inventory, candidate.slot(), snapshot);
+                    }
+                    removeCandidate(candidate);
                 }
-                InternalInventory inventory = source.getTerminalPatternInventory();
-                if (candidate.slot() < inventory.size()) {
-                    return new PatternTransferStep(candidate, inventory, candidate.slot());
+
+                if (noMoreCandidates) {
+                    return null;
+                }
+                IECOPatternStorageService.ExternalPatternClaim claim =
+                        storageService.claimExternalPatternCandidates(grid, owner, CANDIDATE_BATCH_SIZE);
+                indexScannedSlots = claim.scannedSlots();
+                indexTotalSlots = claim.totalSlots();
+                if (!claim.ready()) {
+                    prepared = false;
+                    candidates = List.of();
+                    candidateIndex = 0;
+                    return null;
+                }
+                candidates = claim.candidates();
+                candidateIndex = 0;
+                if (candidates.isEmpty()) {
+                    noMoreCandidates = true;
+                    return null;
                 }
             }
-            return null;
         }
     }
 
-    private record PatternTransferStep(ECOPatternSourceSlot candidate, InternalInventory inventory, int slot) {
+    private record PatternTransferStep(ECOPatternSourceSlot candidate,
+                                       InternalInventory inventory,
+                                       int slot,
+                                       ItemStack snapshot) {
     }
 
     @SuppressWarnings("unchecked")

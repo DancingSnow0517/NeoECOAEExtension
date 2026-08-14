@@ -17,6 +17,7 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
+import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
@@ -71,7 +72,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -134,18 +134,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private transient boolean craftingProviderRefreshQueued;
     private transient IGrid lastKnownGrid;
     /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
-    private transient PreparedPattern activePreparedPattern;
-
-    /** A pattern decoded once by the migration coordinator. */
-    public record PreparedPattern(ItemStack stack, IPatternDetails details, @Nullable AEItemKey key) {
-        public PreparedPattern {
-            stack = stack.copy();
-        }
-
-        private boolean matches(ItemStack candidate) {
-            return Objects.equals(key, AEItemKey.of(candidate));
-        }
-    }
+    private transient ECOPreparedPattern activePreparedPattern;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -430,7 +419,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
         // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
         // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
-        PreparedPattern prepared = preparePattern(itemStack);
+        ECOPreparedPattern prepared = preparePattern(itemStack);
         if (prepared == null) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
@@ -441,7 +430,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public ECOPatternInsertionResult insertPatternKnownUnique(ItemStack itemStack) {
         // PatternStorage has already checked the complete logical network for duplicates.
         // Avoid repeating containsPatternInCluster for every bus when the first target is full.
-        PreparedPattern prepared = preparePattern(itemStack);
+        ECOPreparedPattern prepared = preparePattern(itemStack);
         if (prepared == null) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
@@ -450,37 +439,40 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     /** Decodes and validates an incoming pattern once for reuse across destination buses. */
     @Nullable
-    public PreparedPattern preparePattern(ItemStack itemStack) {
+    public ECOPreparedPattern preparePattern(ItemStack itemStack) {
         if (itemStack.isEmpty()) {
             return null;
         }
         IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, level);
         return details instanceof IMolecularAssemblerSupportedPattern
-            ? new PreparedPattern(itemStack, details, AEItemKey.of(itemStack))
+            ? new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack))
             : null;
     }
 
+    @Override
+    public ECOPatternInsertionResult insertPreparedPattern(ECOPreparedPattern prepared) {
+        return insertPreparedPatternInternal(prepared, false);
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPreparedPatternKnownUnique(ECOPreparedPattern prepared) {
+        return insertPreparedPatternInternal(prepared, true);
+    }
+
     /** Inserts a previously decoded pattern while preserving normal logical-domain duplicate checks. */
-    public ECOPatternInsertionResult insertPreparedPattern(PreparedPattern prepared) {
+    private ECOPatternInsertionResult insertPreparedPatternInternal(ECOPreparedPattern prepared,
+                                                                      boolean knownUnique) {
         if (!isValidPreparedPattern(prepared)) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
         ItemStack itemStack = prepared.stack();
-        if (containsPatternInCluster(itemStack)) {
+        if (!knownUnique && containsPatternInCluster(itemStack)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
         return insertPreparedStack(prepared);
     }
 
-    /** Inserts a previously decoded pattern after the caller has checked network-wide uniqueness. */
-    public ECOPatternInsertionResult insertPreparedPatternKnownUnique(PreparedPattern prepared) {
-        if (!isValidPreparedPattern(prepared)) {
-            return ECOPatternInsertionResult.INCOMPATIBLE;
-        }
-        return insertPreparedStack(prepared);
-    }
-
-    private ECOPatternInsertionResult insertPreparedStack(PreparedPattern prepared) {
+    private ECOPatternInsertionResult insertPreparedStack(ECOPreparedPattern prepared) {
         ItemStack result;
         activePreparedPattern = prepared;
         try {
@@ -493,7 +485,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             : ECOPatternInsertionResult.NO_SPACE;
     }
 
-    private boolean isValidPreparedPattern(@Nullable PreparedPattern prepared) {
+    private boolean isValidPreparedPattern(@Nullable ECOPreparedPattern prepared) {
         return prepared != null
             && prepared.details() instanceof IMolecularAssemblerSupportedPattern
             && !prepared.stack().isEmpty()

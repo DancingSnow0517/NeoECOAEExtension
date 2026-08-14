@@ -5,9 +5,11 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.stacks.AEItemKey;
+import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.patternprovider.PatternContainer;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
+import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
@@ -41,6 +43,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     private final Map<ECOCraftingPatternBusBlockEntity, Integer> busEmptySlotCounts = new IdentityHashMap<>();
     private final Map<AEItemKey, Integer> networkPatternCounts = new HashMap<>();
     private List<IECOPatternStorage> writablePatternStorages = List.of();
+    private boolean writablePatternStorageCacheInitialized;
     private long patternCapacityGeneration;
     @Nullable
     private IECOPatternStorage preferredStorage;
@@ -92,6 +95,24 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
 
+        return tryInsertPatternInternal(patternItem, null);
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPreparedPattern(ECOPreparedPattern prepared) {
+        if (prepared == null || prepared.stack().isEmpty()
+                || !(prepared.details() instanceof IMolecularAssemblerSupportedPattern)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        return tryInsertPatternInternal(prepared.stack(), prepared);
+    }
+
+    private ECOPatternInsertionResult tryInsertPatternInternal(ItemStack patternItem,
+                                                                 @Nullable ECOPreparedPattern prepared) {
+        if (prepared != null && !prepared.matches(patternItem)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+
         refreshPatternIndexes();
         AEItemKey patternKey = AEItemKey.of(patternItem);
         if (patternKey != null && networkPatternCounts.containsKey(patternKey)) {
@@ -101,7 +122,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
         boolean noSpace = false;
         boolean uniquenessChecked = false;
         if (preferredStorage != null) {
-            ECOPatternInsertionResult result = preferredStorage.insertPattern(patternItem);
+            ECOPatternInsertionResult result = insertIntoStorage(preferredStorage, patternItem, prepared, false);
             switch (result) {
                 case INSERTED -> {
                     recordPatternInserted(preferredStorage, patternItem);
@@ -133,9 +154,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             if (value == preferredStorage) {
                 continue;
             }
-            ECOPatternInsertionResult result = uniquenessChecked
-                ? value.insertPatternKnownUnique(patternItem)
-                : value.insertPattern(patternItem);
+            ECOPatternInsertionResult result = insertIntoStorage(value, patternItem, prepared, uniquenessChecked);
             switch (result) {
                 case INSERTED -> {
                     preferredStorage = value;
@@ -159,6 +178,18 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             }
         }
         return noSpace ? ECOPatternInsertionResult.NO_SPACE : ECOPatternInsertionResult.NO_TARGET;
+    }
+
+    private static ECOPatternInsertionResult insertIntoStorage(IECOPatternStorage storage,
+                                                                ItemStack pattern,
+                                                                @Nullable ECOPreparedPattern prepared,
+                                                                boolean knownUnique) {
+        if (prepared != null) {
+            return knownUnique
+                    ? storage.insertPreparedPatternKnownUnique(prepared)
+                    : storage.insertPreparedPattern(prepared);
+        }
+        return knownUnique ? storage.insertPatternKnownUnique(pattern) : storage.insertPattern(pattern);
     }
 
     @Override
@@ -198,12 +229,13 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     public ExternalPatternClaim claimExternalPatternCandidates(IGrid grid, UUID owner, int maxCandidates) {
         if (owner == null || maxCandidates <= 0) {
             return new ExternalPatternClaim(false, externalPatternScannedSlots, externalPatternTotalSlots, List.of(),
-                    externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK, externalPatternScanBudgetHits);
+                    externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
+                    externalPatternScanBudgetHits, externalPatternScanNanos);
         }
         ExternalPatternIndexState state = getExternalPatternIndex(grid);
         if (!state.ready()) {
             return new ExternalPatternClaim(false, state.scannedSlots(), state.totalSlots(), List.of(),
-                    state.lastScanNanos(), state.scanBudgetNanos(), state.scanBudgetHits());
+                    state.lastScanNanos(), state.scanBudgetNanos(), state.scanBudgetHits(), state.totalScanNanos());
         }
         Set<ECOPatternSourceSlot> owned = externalPatternClaimsByOwner.computeIfAbsent(owner,
                 ignored -> new HashSet<>());
@@ -215,13 +247,11 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             for (int slot = slots.nextSetBit(0); slot >= 0; slot = slots.nextSetBit(slot + 1)) {
                 ECOPatternSourceSlot candidate = new ECOPatternSourceSlot(entry.getKey(), slot);
                 UUID currentOwner = externalPatternClaims.get(candidate);
-                if (currentOwner != null && !currentOwner.equals(owner)) {
+                if (currentOwner != null) {
                     continue;
                 }
-                if (currentOwner == null) {
-                    externalPatternClaims.put(candidate, owner);
-                    owned.add(candidate);
-                }
+                externalPatternClaims.put(candidate, owner);
+                owned.add(candidate);
                 claimed.add(candidate);
                 if (claimed.size() >= maxCandidates) {
                     break outer;
@@ -229,7 +259,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             }
         }
         return new ExternalPatternClaim(true, state.scannedSlots(), state.totalSlots(), List.copyOf(claimed),
-                state.lastScanNanos(), state.scanBudgetNanos(), state.scanBudgetHits());
+                state.lastScanNanos(), state.scanBudgetNanos(), state.scanBudgetHits(), state.totalScanNanos());
     }
 
     @Override
@@ -245,6 +275,25 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
         for (ECOPatternSourceSlot candidate : owned) {
             if (owner.equals(externalPatternClaims.get(candidate))) {
                 externalPatternClaims.remove(candidate);
+            }
+        }
+    }
+
+    @Override
+    public void releaseExternalPatternCandidate(ECOPatternSourceSlot slot) {
+        if (slot == null) {
+            return;
+        }
+        UUID owner = externalPatternClaims.remove(slot);
+        if (owner == null) {
+            return;
+        }
+        Set<ECOPatternSourceSlot> owned = externalPatternClaimsByOwner.get(owner);
+        if (owned != null) {
+            owned.remove(slot);
+            if (owned.isEmpty()) {
+                externalPatternClaimsByOwner.remove(owner);
+                externalPatternClaimTicks.remove(owner);
             }
         }
     }
@@ -303,8 +352,6 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
         externalPatternScannedSlots = 0;
         externalPatternTotalSlots = 0;
         externalPatternLastScanNanos = 0L;
-        externalPatternScanNanos = 0L;
-        externalPatternScanBudgetHits = 0;
         externalPatternClaims.clear();
         externalPatternClaimsByOwner.clear();
         externalPatternClaimTicks.clear();
@@ -365,6 +412,9 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             externalPatternIndexBuilding = false;
             externalPatternIndexAge = 0;
         }
+        if (budget == 0 && externalPatternSourceIndex < externalPatternSources.size()) {
+            hitTimeBudget = true;
+        }
         externalPatternLastScanNanos = System.nanoTime() - started;
         externalPatternScanNanos += externalPatternLastScanNanos;
         if (hitTimeBudget) {
@@ -375,7 +425,8 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     private ExternalPatternIndexState externalPatternIndexState() {
         if (externalPatternIndexBuilding) {
             return new ExternalPatternIndexState(false, externalPatternScannedSlots, externalPatternTotalSlots, List.of(),
-                    externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK, externalPatternScanBudgetHits);
+                    externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
+                    externalPatternScanBudgetHits, externalPatternScanNanos);
         }
         List<ECOPatternSourceSlot> candidates = new ArrayList<>();
         externalPatternSlots.forEach((source, slots) -> slots.stream()
@@ -386,7 +437,8 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
                     }
                 }));
         return new ExternalPatternIndexState(true, externalPatternScannedSlots, externalPatternTotalSlots, List.copyOf(candidates),
-                externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK, externalPatternScanBudgetHits);
+                externalPatternLastScanNanos, EXTERNAL_PATTERN_INDEX_NANOS_PER_TICK,
+                externalPatternScanBudgetHits, externalPatternScanNanos);
     }
 
     private void refreshPatternIndexes() {
@@ -416,7 +468,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
                 changed = true;
             }
         }
-        if (changed || writablePatternStorages.isEmpty() != patternStorages.isEmpty()) {
+        if (changed || !writablePatternStorageCacheInitialized) {
             rebuildWritablePatternStorageCache();
         }
     }
@@ -477,6 +529,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
                 preferredStorage = null;
             }
         }
+        writablePatternStorageCacheInitialized = true;
     }
 
     private static boolean sameStorageList(List<IECOPatternStorage> first, List<IECOPatternStorage> second) {
@@ -507,10 +560,8 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
             return;
         }
         Map<AEItemKey, Integer> counts = busPatternKeys.computeIfAbsent(bus, ignored -> new HashMap<>());
-        if (!counts.containsKey(key)) {
-            counts.put(key, 1);
-            networkPatternCounts.merge(key, 1, Integer::sum);
-        }
+        counts.merge(key, 1, Integer::sum);
+        networkPatternCounts.merge(key, 1, Integer::sum);
         busPatternRevisions.put(bus, bus.getPatternContentRevision());
         int emptySlots = busEmptySlotCounts.getOrDefault(bus, 0);
         busEmptySlotCounts.put(bus, Math.max(0, emptySlots - 1));
