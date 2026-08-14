@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
@@ -55,6 +54,21 @@ public final class ECOPlanningSolver {
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph,
+        ECOSolveBudget budget,
+        long deadlineNanos
+    ) {
+        return ECOPlannerComputationCache.getOrCompute(
+            problem,
+            graph,
+            budget,
+            deadlineNanos,
+            () -> solveUncached(problem, graph, budget, deadlineNanos)
+        );
+    }
+
+    private static <K, R> ECOHyperflowResult<R> solveUncached(
         ECOPlanningProblem<K, R> problem,
         ECOPlanningGraph<K, R> graph,
         ECOSolveBudget budget,
@@ -259,8 +273,7 @@ public final class ECOPlanningSolver {
         for (K requested : problem.requested().keySet()) {
             collectAcyclic(requested, graph, active, expanded, selected);
         }
-        if (selected.size() == graph.operations().size()
-            || containsCycle(new ECOPlanningGraph<>(selected))) {
+        if (selected.size() == graph.operations().size()) {
             return graph;
         }
         return new ECOPlanningGraph<>(selected);
@@ -296,12 +309,6 @@ public final class ECOPlanningSolver {
             }
         }
         active.remove(material);
-    }
-
-    private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
-        return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
-            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
-                .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void logSelected(

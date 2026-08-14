@@ -12,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,7 @@ import java.util.Set;
 /** Validates that integer operation counts have an inventory-enabled execution order. */
 public final class ECOInventoryScheduler {
     private static final int MAX_SCHEDULE_STEPS = 16_384;
+    private static final int MAX_SCHEDULE_STATES = 65_536;
 
     private ECOInventoryScheduler() {
     }
@@ -27,10 +29,35 @@ public final class ECOInventoryScheduler {
         ECOPlanningProblem<K, R> problem,
         ECOPlanCandidate<R> candidate
     ) {
+        return schedule(
+            problem,
+            candidate,
+            new ECOPlanningGraph<K, R>(problem.operations()).topology(problem.unlimitedInventory())
+        );
+    }
+
+    /** Reuses a graph topology that was already built by the solver for this planning request. */
+    public static <K, R> ECOInventorySchedule<K, R> schedule(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanCandidate<R> candidate,
+        ECOPlanningGraph<K, R> graph
+    ) {
+        return schedule(problem, candidate, graph.topology(problem.unlimitedInventory()));
+    }
+
+    /** Reuses an immutable SCC index without reconstructing a graph or running SCC again. */
+    public static <K, R> ECOInventorySchedule<K, R> schedule(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanCandidate<R> candidate,
+        ECOStrongComponents.Topology<K, R> topology
+    ) {
         Map<K, Long> inventory = ECOPlanningBalances.copyInventory(problem);
         Map<R, Long> remaining = new LinkedHashMap<>(candidate.executions());
         List<ECOScheduleEntry<R>> steps = new ArrayList<>();
-        Set<R> cycleOperations = cycleOperations(problem);
+        Set<R> cycleOperations = topology.cyclicOperationReferences();
+        Set<SchedulerState<K, R>> visitedStates = new HashSet<>();
+        visitedStates.add(state(problem, remaining, inventory));
+        boolean stateLimitReached = false;
         Map<R, ECOPlanningOperation<K, R>> byReference = new LinkedHashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
 
@@ -66,12 +93,15 @@ public final class ECOInventoryScheduler {
                 long executable = maxExecutable(problem, operation, inventory, pending);
                 if (executable <= 0L) continue;
                 if (cycleOperations.contains(operation.reference())) {
-                    long seedPreserving = seedPreservingExecutable(
-                        problem, operation, inventory, remaining, cycleOperations, executable
+                    executable = compressedExecutable(
+                        problem,
+                        operation,
+                        inventory,
+                        remaining,
+                        cycleOperations,
+                        pending,
+                        executable
                     );
-                    executable = seedPreserving > 0L
-                        ? seedPreserving
-                        : unlockingExecutable(problem, operation, inventory, remaining, executable);
                     if (executable <= 0L) continue;
                 }
                 apply(problem, operation.inputs(), inventory, executable, false);
@@ -81,6 +111,15 @@ public final class ECOInventoryScheduler {
                 appendStep(steps, operation.reference(), executable);
                 progress = true;
                 if (fastForwardRepeatedBlock(problem, byReference, remaining, inventory, steps)) {
+                    if (!visitedStates.add(state(problem, remaining, inventory))) {
+                        stateLimitReached = true;
+                    }
+                    pendingOperations.clear();
+                    break;
+                }
+                if (visitedStates.size() >= MAX_SCHEDULE_STATES
+                    || !visitedStates.add(state(problem, remaining, inventory))) {
+                    stateLimitReached = true;
                     pendingOperations.clear();
                     break;
                 }
@@ -101,6 +140,9 @@ public final class ECOInventoryScheduler {
                 progress = executeBootstrapStep(problem, remaining, inventory, steps, cycleOperations);
             }
             if (steps.size() >= MAX_SCHEDULE_STEPS) {
+                progress = false;
+            }
+            if (stateLimitReached) {
                 progress = false;
             }
         } while (progress && remaining.values().stream().anyMatch(value -> value > 0L));
@@ -211,26 +253,6 @@ public final class ECOInventoryScheduler {
         }
     }
 
-    private static <K, R> Set<R> cycleOperations(ECOPlanningProblem<K, R> problem) {
-        ECOPlanningGraph<K, R> graph = new ECOPlanningGraph<>(problem.operations());
-        Set<K> cycleMaterials = new HashSet<>();
-        for (Set<K> component : ECOStrongComponents.find(graph)) {
-            if (component.size() > 1 || graph.operations().stream().anyMatch(operation ->
-                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
-                    && operation.outputs().containsKey(material)))) {
-                cycleMaterials.addAll(component);
-            }
-        }
-        Set<R> result = new HashSet<>();
-        for (var operation : problem.operations()) {
-            if (operation.selectableOutputs().stream().anyMatch(cycleMaterials::contains)
-                || operation.inputs().keySet().stream().anyMatch(cycleMaterials::contains)) {
-                result.add(operation.reference());
-            }
-        }
-        return result;
-    }
-
     private static <K, R> long maxExecutable(
         ECOPlanningProblem<K, R> problem,
         ECOPlanningOperation<K, R> operation,
@@ -250,6 +272,78 @@ public final class ECOInventoryScheduler {
             result = Math.min(result, available / input.getValue());
         }
         return result;
+    }
+
+    /**
+     * Selects a maximum safe compressed batch from the current balance breakpoints. Candidates
+     * represent operation completion, another operation becoming startable, and a material
+     * reaching its reserve boundary. No one-batch stepping is needed to cross a stable interval.
+     */
+    private static <K, R> long compressedExecutable(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        Map<K, Long> inventory,
+        Map<R, Long> remaining,
+        Set<R> cycleOperations,
+        long pending,
+        long executable
+    ) {
+        if (executable <= 0L) {
+            return 0L;
+        }
+        long seedPreserving = seedPreservingExecutable(
+            problem, operation, inventory, remaining, cycleOperations, executable
+        );
+        long unlocking = unlockingExecutable(problem, operation, inventory, remaining, executable);
+        Set<Long> breakpoints = new LinkedHashSet<>();
+        breakpoints.add(executable);
+        breakpoints.add(Math.min(pending, executable));
+        if (seedPreserving > 0L) {
+            breakpoints.add(seedPreserving);
+        }
+        if (unlocking > 0L) {
+            breakpoints.add(unlocking);
+        }
+
+        long selected = 0L;
+        for (long breakpoint : breakpoints) {
+            if (breakpoint <= 0L || breakpoint > executable) {
+                continue;
+            }
+            if (seedPreserving > 0L && breakpoint > seedPreserving) {
+                continue;
+            }
+            if (seedPreserving == 0L && unlocking > 0L && breakpoint != unlocking) {
+                continue;
+            }
+            selected = Math.max(selected, breakpoint);
+        }
+        return selected;
+    }
+
+    private static <K, R> SchedulerState<K, R> state(
+        ECOPlanningProblem<K, R> problem,
+        Map<R, Long> remaining,
+        Map<K, Long> inventory
+    ) {
+        Map<R, Long> pending = new LinkedHashMap<>();
+        remaining.forEach((reference, batches) -> {
+            if (batches > 0L) {
+                pending.put(reference, batches);
+            }
+        });
+        Set<K> relevantMaterials = new LinkedHashSet<>(problem.requested().keySet());
+        problem.operations().forEach(operation -> {
+            relevantMaterials.addAll(operation.inputs().keySet());
+            relevantMaterials.addAll(operation.outputs().keySet());
+        });
+        Map<K, Long> relevantInventory = new LinkedHashMap<>();
+        relevantMaterials.forEach(material -> {
+            if (!problem.isUnlimited(material)) {
+                relevantInventory.put(material, inventory.getOrDefault(material, 0L));
+            }
+        });
+        return new SchedulerState<>(Map.copyOf(pending), Map.copyOf(relevantInventory));
     }
 
     /**
@@ -555,5 +649,8 @@ public final class ECOInventoryScheduler {
             long delta = ECOPlanningBalances.saturatedMultiply(amount, batches);
             ECOPlanningBalances.merge(problem, inventory, key, add ? delta : -delta);
         });
+    }
+
+    private record SchedulerState<K, R>(Map<R, Long> remaining, Map<K, Long> inventory) {
     }
 }

@@ -16,7 +16,7 @@
       ],
       "vmArgs": [
         "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\aeGuideRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
+        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main;neoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\test"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {},
@@ -38,7 +38,7 @@
       ],
       "vmArgs": [
         "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
+        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main;neoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\test"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {},
@@ -60,7 +60,7 @@
       ],
       "vmArgs": [
         "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\dataRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
+        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main;neoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\test"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {},
@@ -82,7 +82,7 @@
       ],
       "vmArgs": [
         "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\gameTestServerRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
+        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main;neoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\test"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {},
@@ -104,7 +104,7 @@
       ],
       "vmArgs": [
         "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
+        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main;neoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\test"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {},

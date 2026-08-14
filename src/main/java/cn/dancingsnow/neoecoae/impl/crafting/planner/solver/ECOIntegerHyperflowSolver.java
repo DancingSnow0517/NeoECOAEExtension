@@ -177,7 +177,7 @@ public final class ECOIntegerHyperflowSolver {
             if (evaluation.candidate.requestedShortfall() == 0
                 && evaluation.candidate.dependencyShortfall() == 0
                 && evaluation.candidate.sourceShortfall() == 0
-                && ECOInventoryScheduler.schedule(problem, evaluation.candidate).executable()) {
+                && ECOInventoryScheduler.schedule(problem, evaluation.candidate, graph).executable()) {
                 if (completeBest == null || compare(evaluation.candidate, completeBest) < 0) {
                     completeBest = evaluation.candidate;
                 }

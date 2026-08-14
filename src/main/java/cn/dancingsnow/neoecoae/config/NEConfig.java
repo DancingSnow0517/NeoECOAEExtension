@@ -19,6 +19,12 @@ public class NEConfig {
     public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static final int ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT = 10_000;
     public static final int ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_MAX = 50_000;
+    public static final int ECO_PROCESSING_BATCH_MAX_HARD = 16_384;
+    public static final int ECO_PLANNER_COMPONENT_MATERIALS_HARD_MAX = 128;
+    public static final int ECO_PLANNER_COMPONENT_OPERATIONS_HARD_MAX = 256;
+    public static final int ECO_PLANNER_SOLVE_MILLIS_HARD_MAX = 10_000;
+    public static final int ECO_PLANNER_CACHE_HARD_MAX = 4_096;
+    public static final int ECO_PLANNER_BUDGET_VERSION = 1;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -53,6 +59,81 @@ public class NEConfig {
             "Maximum allowed length of the storage system multiblock, measured in blocks.",
             "Higher values allow longer extensions but may increase structure validation overhead.")
         .defineInRange("storageSystemMaxLength", 15, 4, Integer.MAX_VALUE);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER
+            .comment(
+                "ECO planner safety limits and bounded computation caches.",
+                "Values are capped in code as a server-side protection against pathological recipe graphs.")
+            .push("planner");
+    }
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_MAX_COMPONENT_MATERIALS = BUILDER
+        .defineInRange(
+            "maxComponentMaterials",
+            32,
+            1,
+            ECO_PLANNER_COMPONENT_MATERIALS_HARD_MAX
+        );
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_MAX_COMPONENT_OPERATIONS = BUILDER
+        .defineInRange(
+            "maxComponentOperations",
+            64,
+            1,
+            ECO_PLANNER_COMPONENT_OPERATIONS_HARD_MAX
+        );
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_COMPONENT_SOLVE_MILLIS = BUILDER
+        .defineInRange(
+            "componentSolveMillis",
+            2_000,
+            1,
+            ECO_PLANNER_SOLVE_MILLIS_HARD_MAX
+        );
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_TOPOLOGY_CACHE_SIZE = BUILDER
+        .defineInRange("topologyCacheSize", 128, 16, ECO_PLANNER_CACHE_HARD_MAX);
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_CYCLE_CACHE_SIZE = BUILDER
+        .defineInRange("cycleCacheSize", 256, 16, ECO_PLANNER_CACHE_HARD_MAX);
+
+    private static final ModConfigSpec.IntValue ECO_PLANNER_RESULT_CACHE_SIZE = BUILDER
+        .defineInRange("resultCacheSize", 128, 16, ECO_PLANNER_CACHE_HARD_MAX);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER
+            .comment(
+                "Standard AE2 processing-pattern provider batching options.",
+                "These settings are independent from the NeoECO molecular-assembler FastPath.")
+            .push("processingBatch");
+    }
+
+    private static final ModConfigSpec.BooleanValue ECO_PROCESSING_BATCH_ENABLED = BUILDER
+        .comment(
+            "Enable counted dispatch for ordinary AE2 Pattern Providers feeding external inventories.",
+            "Providers with blocking, locking, dedicated-machine or unsupported behavior use AE2's single-craft path.")
+        .define("enabled", true);
+
+    private static final ModConfigSpec.IntValue ECO_PROCESSING_BATCH_MAX = BUILDER
+        .comment(
+            "Maximum logical crafts submitted by one ordinary processing-provider batch.",
+            "Lower this value when an external inventory has unusually expensive insertion simulation.")
+        .defineInRange("maxCrafts", 4_096, 2, ECO_PROCESSING_BATCH_MAX_HARD);
+
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PROCESSING_BATCH = BUILDER
+        .comment(
+            "Log processing-provider batch fallback and ownership decisions.",
+            "Enable temporarily while diagnosing provider compatibility.")
+        .define("debug", false);
 
     static {
         BUILDER.pop();
@@ -201,6 +282,9 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
+    public static boolean ecoProcessingBatchEnabled = true;
+    public static int ecoProcessingBatchMax = 4_096;
+    public static boolean debugECOProcessingBatch;
     public static boolean debugEcoFastPath;
     public static boolean ecoPlannerDifferentialVerification;
     public static boolean debugECOPlanner;
@@ -209,6 +293,12 @@ public class NEConfig {
     public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
     public static int ecoCpuSlowPathTimeBudgetMicros = ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT;
     public static int ecoFastPathCacheSize = 512;
+    public static int ecoPlannerMaxComponentMaterials = 32;
+    public static int ecoPlannerMaxComponentOperations = 64;
+    public static int ecoPlannerComponentSolveMillis = 2_000;
+    public static int ecoPlannerTopologyCacheSize = 128;
+    public static int ecoPlannerCycleCacheSize = 256;
+    public static int ecoPlannerResultCacheSize = 128;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -238,6 +328,9 @@ public class NEConfig {
             cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMigrationDiagnostics.clear();
         }
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
+        ecoProcessingBatchEnabled = ECO_PROCESSING_BATCH_ENABLED.get();
+        ecoProcessingBatchMax = ECO_PROCESSING_BATCH_MAX.get();
+        debugECOProcessingBatch = DEBUG_ECO_PROCESSING_BATCH.get();
         boolean wasDebugEcoFastPath = debugEcoFastPath;
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         if (debugEcoFastPath && !wasDebugEcoFastPath) {
@@ -253,6 +346,12 @@ public class NEConfig {
         ecoCpuSlowPathPushTickLimit = slowPathAttemptLimit;
         ecoCpuSlowPathTimeBudgetMicros = ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+        ecoPlannerMaxComponentMaterials = ECO_PLANNER_MAX_COMPONENT_MATERIALS.get();
+        ecoPlannerMaxComponentOperations = ECO_PLANNER_MAX_COMPONENT_OPERATIONS.get();
+        ecoPlannerComponentSolveMillis = ECO_PLANNER_COMPONENT_SOLVE_MILLIS.get();
+        ecoPlannerTopologyCacheSize = ECO_PLANNER_TOPOLOGY_CACHE_SIZE.get();
+        ecoPlannerCycleCacheSize = ECO_PLANNER_CYCLE_CACHE_SIZE.get();
+        ecoPlannerResultCacheSize = ECO_PLANNER_RESULT_CACHE_SIZE.get();
     }
 
     public static int getCraftingPatternBusPages() {

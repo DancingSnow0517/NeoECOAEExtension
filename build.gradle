@@ -154,6 +154,10 @@ neoForge {
         minecraftVersion = project.parchment_minecraft_version
     }
 
+    // GameTests live in the test source set, but still need the NeoForge runtime and mod
+    // transformation setup that the main source set receives.
+    addModdingDependenciesTo(sourceSets.test)
+
     runs {
         client {
             client()
@@ -177,6 +181,7 @@ neoForge {
 
         gameTestServer {
             type = "gameTestServer"
+            sourceSet = sourceSets.test
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -197,6 +202,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(sourceSets.test)
         }
     }
 }

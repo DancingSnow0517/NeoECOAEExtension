@@ -57,6 +57,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
 import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyInputPatternDetails;
+import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchAdmission;
+import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOPlannedInputs;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
@@ -589,6 +592,47 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
+                        long processingBatchResult = fuzzyBatchSafe
+                            ? tryPushProcessingBatch(
+                                job,
+                                details,
+                                execution,
+                                craftingContainer,
+                                provider,
+                                energyService,
+                                patternPower,
+                                batchTaskRemaining)
+                            : 0L;
+                        if (processingBatchResult > 0L) {
+                            pushedPatterns++;
+                            if (this.job != job) {
+                                break taskLoop;
+                            }
+                            try {
+                                recordPushedPattern(job, execution, processingBatchResult);
+                            } catch (RuntimeException e) {
+                                LOGGER.error(
+                                    "Processing-provider batch was accepted, but its CPU output accounting update failed",
+                                    e
+                                );
+                            }
+                            if (runtimeInputFallback) {
+                                job.discardPlannedInputs(details);
+                            }
+                            job.consumePlannedInputs(details, processingBatchResult);
+                            task.getValue().value -= processingBatchResult;
+                            postPatternOutputsChange(details);
+                            if (task.getValue().value <= 0) {
+                                it.remove();
+                                continue taskLoop;
+                            }
+                            if (pushedPatterns == maxPatterns) {
+                                break taskLoop;
+                            }
+                            pushed = true;
+                            break;
+                        }
+
                         if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
                                 PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             break;
@@ -657,6 +701,173 @@ public class ECOCraftingCPULogic {
         }
 
         return pushedPatterns;
+    }
+
+    /**
+     * Attempts the independent ordinary AE2 processing-provider batch path.
+     *
+     * <p>The first craft is already held in {@code firstCraftingContainer}. Only extra crafts
+     * are extracted here, so a pre-ownership rejection leaves the original slow path intact.</p>
+     */
+    private long tryPushProcessingBatch(
+            ExecutingCraftingJob job,
+            IPatternDetails details,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            ICraftingProvider provider,
+            IEnergyService energyService,
+            double patternPower,
+            long taskRemaining) {
+        if (!NEConfig.ecoProcessingBatchEnabled || taskRemaining < 2L || !job.fuzzyItemIds.isEmpty()) {
+            return 0L;
+        }
+
+        List<GenericStack> perCraftInputs = flattenProcessingInputs(firstCraftingContainer);
+        if (perCraftInputs.isEmpty()) {
+            ECOProcessingBatchDiagnostics.record(
+                ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.NO_CAPACITY,
+                "processing pattern has no physical input");
+            return 0L;
+        }
+
+        long requested = Math.min(taskRemaining, Math.max(2L, NEConfig.ecoProcessingBatchMax));
+        var inventoryLimit = ECOBatchCraftingHelper.inventoryBatchLimit(
+            new ECOFuzzyCraftingInventory(inventory, job.fuzzyItemIds),
+            perCraftInputs,
+            requested - 1L,
+            job.fuzzyItemIds
+        );
+        if (inventoryLimit.crafts() <= 0L) {
+            ECOProcessingBatchDiagnostics.record(
+                ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.INPUT_RESERVATION_FAILED,
+                "CPU has no complete extra processing craft");
+            return 0L;
+        }
+        requested = Math.min(requested, inventoryLimit.crafts() + 1L);
+        if (requested < 2L) {
+            return 0L;
+        }
+
+        ECOProcessingBatchAdmission admission;
+        try {
+            admission = ECOProcessingBatchAdapter.prepare(
+                provider, details, firstCraftingContainer, requested);
+        } catch (RuntimeException e) {
+            ECOProcessingBatchDiagnostics.record(
+                ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.NO_CAPACITY,
+                "provider preparation failed: " + e.getMessage());
+            return 0L;
+        }
+        if (admission == null || admission.count() < 2L) {
+            return 0L;
+        }
+
+        long batchSize = admission.count();
+        List<GenericStack> extraInputs;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(perCraftInputs, batchSize - 1L);
+        } catch (RuntimeException e) {
+            ECOProcessingBatchDiagnostics.record(
+                ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.INPUT_OVERFLOW,
+                "extra input expansion failed: " + e.getMessage());
+            return 0L;
+        }
+
+        ECOBatchEnergyReservation energyReservation = null;
+        List<GenericStack> extractedExtraInputs = List.of();
+        try {
+            double requiredPower = patternPower * batchSize;
+            if (!Double.isFinite(requiredPower) || requiredPower < 0.0D) {
+                ECOProcessingBatchDiagnostics.record(
+                    ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.ENERGY_LIMIT,
+                    "requiredPower=" + requiredPower + " batch=" + batchSize);
+                return 0L;
+            }
+            energyReservation = ECOBatchEnergyReservation.tryReserve(energyService, requiredPower, false);
+            if (energyReservation == null) {
+                ECOProcessingBatchDiagnostics.record(
+                    ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.ENERGY_LIMIT,
+                    "requiredPower=" + requiredPower);
+                return 0L;
+            }
+
+            extractedExtraInputs = ECOBatchCraftingHelper.extractExactReturning(
+                new ECOFuzzyCraftingInventory(inventory, job.fuzzyItemIds),
+                extraInputs,
+                job.fuzzyItemIds
+            );
+
+            boolean accepted = admission.commit(firstCraftingContainer);
+            if (!accepted) {
+                if (admission.hasTransferredInputOwnership()) {
+                    energyReservation.commit();
+                    ECOProcessingBatchDiagnostics.record(
+                        ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.OWNERSHIP_AFTER_EXCEPTION,
+                        "provider returned false after ownership transfer");
+                    return batchSize;
+                }
+                rollbackProcessingBatch(extractedExtraInputs, energyReservation);
+                ECOProcessingBatchDiagnostics.record(
+                    ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.PROVIDER_REJECTED,
+                    "provider admission returned false");
+                return 0L;
+            }
+            if (!admission.hasTransferredInputOwnership()) {
+                rollbackProcessingBatch(extractedExtraInputs, energyReservation);
+                ECOProcessingBatchDiagnostics.record(
+                    ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.PROVIDER_REJECTED,
+                    "provider accepted without transferring input ownership");
+                return 0L;
+            }
+
+            energyReservation.commit();
+            return batchSize;
+        } catch (RuntimeException e) {
+            if (admission.hasTransferredInputOwnership()) {
+                if (energyReservation != null) {
+                    energyReservation.commit();
+                }
+                ECOProcessingBatchDiagnostics.record(
+                    ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.OWNERSHIP_AFTER_EXCEPTION,
+                    e.getMessage() == null ? e.getClass().getName() : e.getMessage());
+                LOGGER.error("Processing-provider batch failed after input ownership transfer", e);
+                return batchSize;
+            }
+            rollbackProcessingBatch(extractedExtraInputs, energyReservation);
+            ECOProcessingBatchDiagnostics.record(
+                ECOProcessingBatchDiagnostics.ECOProcessingBatchFallbackReason.PROVIDER_REJECTED,
+                e.getMessage() == null ? e.getClass().getName() : e.getMessage());
+            return 0L;
+        }
+    }
+
+    private static List<GenericStack> flattenProcessingInputs(KeyCounter[] inputHolder) {
+        List<GenericStack> inputs = new ArrayList<>();
+        for (KeyCounter counter : inputHolder) {
+            if (counter == null) {
+                continue;
+            }
+            for (var entry : counter) {
+                if (entry.getLongValue() > 0L) {
+                    inputs.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+                }
+            }
+        }
+        return ECOBatchCraftingHelper.combine(inputs);
+    }
+
+    private void rollbackProcessingBatch(
+            List<GenericStack> extractedExtraInputs,
+            @Nullable ECOBatchEnergyReservation energyReservation) {
+        if (extractedExtraInputs != null && !extractedExtraInputs.isEmpty()) {
+            ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
+        }
+        if (energyReservation != null) {
+            RuntimeException refundFailure = energyReservation.refundSafely();
+            if (refundFailure != null) {
+                LOGGER.error("Processing-provider batch energy refund failed", refundFailure);
+            }
+        }
     }
 
     private static final class SlowPathPushBudget {

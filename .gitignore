@@ -43,3 +43,10 @@ logs/
 docs/
 src/test/*
 ECO_PLANNER_COMPATIBILITY.md
+
+# Keep the checked-in GameTest fixtures visible while leaving other local test outputs ignored.
+!src/test/resources/
+!src/test/resources/data/
+!src/test/resources/data/neoecoae/
+!src/test/resources/data/neoecoae/structure/
+!src/test/resources/data/neoecoae/structure/empty_5x5.nbt
