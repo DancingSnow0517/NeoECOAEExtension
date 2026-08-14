@@ -32,6 +32,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -100,9 +101,10 @@ public final class CraftingInterfaceUI {
                         .withColor(craftingInterface.isTargetOnline() ? STATUS_CONNECTED : STATUS_DISCONNECTED))));
         contentFrame.addChild(transferButton(craftingInterface));
         contentFrame.addChild(statusLabel(craftingInterface::getPatternTransferPrimaryStatus));
+        contentFrame.addChild(secondaryStatus(craftingInterface));
         contentFrame.addChild(patternTransferProgress(craftingInterface));
         root.addChild(contentFrame);
-        root.addChild(previewSection(craftingInterface, previewState));
+        root.addChild(previewSection(craftingInterface, previewState, player));
         InventorySlots playerInventory = new InventorySlots();
         playerInventory.layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH)
@@ -137,9 +139,17 @@ public final class CraftingInterfaceUI {
         return container;
     }
 
+    private static UIElement secondaryStatus(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+        UIElement container = HostElements.syncedDisplay(craftingInterface::hasPatternTransferSecondaryStatus);
+        container.addChild(statusLabel(craftingInterface::getPatternTransferSecondaryStatus));
+        container.layout(layout -> layout.widthPercent(100).height(12));
+        return container;
+    }
+
     private static UIElement previewHeader(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
-            PreviewState previewState) {
+            PreviewState previewState,
+            Player player) {
         UIElement header = new UIElement().layout(layout -> layout
                 .widthPercent(100)
                 .height(TOOL_BUTTON_SIZE)
@@ -162,7 +172,11 @@ public final class CraftingInterfaceUI {
                 PreviewState::toggleFluidSubstitutionPatterns,
                 "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
         header.addChild(iconButton(Icon.PATTERN_ACCESS_SHOW, "gui.neoecoae.crafting_interface.preview.organize",
-                craftingInterface::organizePatternBuses));
+                () -> {
+                    if (player instanceof ServerPlayer serverPlayer) {
+                        craftingInterface.organizePatternBuses(serverPlayer);
+                    }
+                }));
         return header;
     }
 
@@ -394,12 +408,13 @@ public final class CraftingInterfaceUI {
 
     private static UIElement previewSection(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
-            PreviewState previewState) {
+            PreviewState previewState,
+            Player player) {
         UIElement section = new UIElement().layout(layout -> layout
                 .widthPercent(100)
                 .gapAll(4)
                 .flexDirection(FlexDirection.COLUMN));
-        section.addChild(previewHeader(craftingInterface, previewState));
+        section.addChild(previewHeader(craftingInterface, previewState, player));
         section.addChild(patternPreviewRow(craftingInterface, previewState));
         return section;
     }

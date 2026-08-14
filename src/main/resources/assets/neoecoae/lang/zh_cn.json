@@ -227,6 +227,8 @@
   "gui.neoecoae.crafting_interface.preview.refresh": "刷新 F 主机样板",
   "gui.neoecoae.crafting_interface.preview.organize": "一键整理 F 主机样板",
   "gui.neoecoae.crafting_interface.preview.organizing": "正在整理 F 主机样板 %d%%",
+  "gui.neoecoae.crafting_interface.preview.organize.result_primary": "整理完成：回收无效样板 %d 个，重复样板 %d 个",
+  "gui.neoecoae.crafting_interface.preview.organize.result_secondary": "背包空间不足，仍有 %d 个样板待回收",
   "gui.neoecoae.crafting_interface.preview.search_results": "匹配样板：%d",
   "gui.neoecoae.crafting_interface.preview.entries": "F 主机已有 %d 个样板",
   "gui.neoecoae.crafting_interface.preview.slots": "F 主机样板槽位 %d",
