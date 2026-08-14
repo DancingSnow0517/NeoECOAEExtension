@@ -5,7 +5,7 @@
   "gui.neoecoae.planning.eco_fast_suffix": " \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms",
   "gui.neoecoae.planning.ae2_fallback_title": "合成计划 - 正在使用 AE2（%s）",
   "gui.neoecoae.planning.partial_plan_cycle": "残缺的合成计划（材料不足%s）",
-  "gui.neoecoae.planning.partial_plan_cycle.warning": "·存在循环·启动种子不足",
+  "gui.neoecoae.planning.partial_plan_cycle.warning": "·启动种子不足",
   "chat.neoecoae.planning.ae2_fallback": "ECO 快速计算未使用，已改由 AE2 计算：%s",
   "gui.neoecoae.planning.cycle_missing_seed": "缺少循环启动种子：%s",
   "gui.neoecoae.planning.cycle_tooltip.header": "ECO 环计算",

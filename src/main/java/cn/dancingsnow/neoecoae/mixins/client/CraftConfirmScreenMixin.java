@@ -158,11 +158,11 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
         if (statusStyle != null && statusStyle.getPosition() != null) {
             var point = statusStyle.getPosition().resolve(new net.minecraft.client.renderer.Rect2i(0, 0, imageWidth, imageHeight));
             int width = font.width(statusText);
-            int localX = mouseX;
-            int localY = mouseY;
+            int localX = mouseX - getGuiLeft();
+            int localY = mouseY - getGuiTop();
             if (localX >= point.getX() - width / 2 && localX <= point.getX() + width / 2
                 && localY >= point.getY() - font.lineHeight && localY <= point.getY() + font.lineHeight) {
-                drawTooltip(guiGraphics, getGuiLeft() + localX, getGuiTop() + localY, tooltip);
+                drawTooltip(guiGraphics, mouseX, mouseY, tooltip);
             }
         }
     }
