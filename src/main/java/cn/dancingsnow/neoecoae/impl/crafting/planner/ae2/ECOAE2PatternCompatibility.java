@@ -53,8 +53,9 @@ final class ECOAE2PatternCompatibility {
         if (inputs == null) {
             return Assessment.rejected("pattern returned null inputs");
         }
+        boolean configuredFuzzyInput = hasConfiguredFuzzyInput(inputs, fuzzyItemIds);
         if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)
-            && !hasConfiguredFuzzyInput(inputs, fuzzyItemIds)) {
+            && !configuredFuzzyInput) {
             return Assessment.rejected("provider_scoped_nbt");
         }
 
@@ -86,10 +87,15 @@ final class ECOAE2PatternCompatibility {
             );
         } else if (isKnownBuiltIn(details)) {
             return assessBuiltInAlternatives(details, inputs);
-        } else if (hasOnlyCanonicalInputs(inputs, level)) {
-            // A third-party pattern may be accepted only while it remains a fixed strict pattern.
+        } else if (hasOnlyCanonicalOrConfiguredFuzzyInputs(inputs, level, fuzzyItemIds)) {
+            // A marked input explicitly opts this third-party pattern into component-insensitive
+            // planning; every other input must remain a fixed strict input.
             return Assessment.accepted(
-                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false
+                configuredFuzzyInput
+                    ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                    : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
+                false,
+                false
             );
         } else {
             return Assessment.rejected(
@@ -133,6 +139,55 @@ final class ECOAE2PatternCompatibility {
             }
         } catch (RuntimeException | LinkageError ignored) {
             return false;
+        }
+        return false;
+    }
+
+    private static boolean hasOnlyCanonicalOrConfiguredFuzzyInputs(
+        IPatternDetails.IInput[] inputs,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        try {
+            for (IPatternDetails.IInput input : inputs) {
+                if (input == null) {
+                    return false;
+                }
+                if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
+                    continue;
+                }
+                GenericStack[] possible = input.getPossibleInputs();
+                if (possible == null
+                    || possible.length != 1
+                    || possible[0] == null
+                    || possible[0].amount() <= 0L
+                    || !input.isValid(possible[0].what(), level)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
+
+    private static boolean hasConfiguredFuzzyTemplate(
+        IPatternDetails.IInput input,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        if (fuzzyItemIds == null || fuzzyItemIds.isEmpty()) {
+            return false;
+        }
+        GenericStack[] possible = input.getPossibleInputs();
+        if (possible == null) {
+            return false;
+        }
+        for (GenericStack candidate : possible) {
+            if (candidate != null
+                && candidate.what().getType().equals(appeng.api.stacks.AEKeyType.items())
+                && fuzzyItemIds.contains(candidate.what().getId())) {
+                return true;
+            }
         }
         return false;
     }
