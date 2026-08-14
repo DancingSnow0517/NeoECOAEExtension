@@ -46,6 +46,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.compat.extendedae.ExtendedAEPlusCraftingPlanCompat;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
@@ -70,6 +71,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final String NBT_MANUAL_WAITING = "manualWaiting";
     private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
     private static final Map<CraftingService, SlowPathNetworkBudget> SLOW_PATH_NETWORK_BUDGETS =
         Collections.synchronizedMap(new WeakHashMap<>());
@@ -88,6 +90,8 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
+    /** Missing inputs accepted by ExtendedAE Plus's forced-start plan. */
+    private final ListCraftingInventory manualWaitingFor = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
@@ -135,7 +139,9 @@ public class ECOCraftingCPULogic {
         // 尝试提取所需物品。
         // Do not consume execution metadata until reservation succeeds: the cluster can retry this
         // plan on another threading core after a local submission failure.
-        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.peekFuzzyItemIds(plan);
+        ICraftingPlan plannedInputPlan = ExtendedAEPlusCraftingPlanCompat.unwrap(plan);
+        KeyCounter manualMissing = ExtendedAEPlusCraftingPlanCompat.getManualMissingItems(plan);
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.peekFuzzyItemIds(plannedInputPlan);
         var missingIngredient = ECOFuzzyCraftingInventory.tryExtractInitialItems(
             plan, grid, inventory, src, fuzzyItemIds);
         if (missingIngredient != null)
@@ -158,8 +164,10 @@ public class ECOCraftingCPULogic {
             this::postChange,
             linkCpu,
             playerId,
-            ECOPlannedInputs.takeFuzzyItemIds(plan)
+            ECOPlannedInputs.takeFuzzyItemIds(plannedInputPlan),
+            plannedInputPlan
         );
+        setManualWaiting(manualMissing);
         registerJobOutputRoute();
 
         // 合成监视器暂不支持
@@ -301,6 +309,22 @@ public class ECOCraftingCPULogic {
 
     private int getOperationLimit() {
         return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
+    }
+
+    private void setManualWaiting(@Nullable KeyCounter manualMissing) {
+        this.manualWaitingFor.clear();
+        if (manualMissing == null) {
+            return;
+        }
+
+        for (var entry : manualMissing) {
+            if (entry.getKey() != null && entry.getLongValue() > 0L) {
+                this.manualWaitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
+            }
+        }
+        if (!this.manualWaitingFor.list.isEmpty()) {
+            this.cpu.markDirty();
+        }
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
@@ -1209,6 +1233,39 @@ public class ECOCraftingCPULogic {
      * @return 已消耗数量。
      */
     public long insert(AEKey what, long amount, Actionable type) {
+        if (what == null || amount <= 0L || job == null) {
+            return 0L;
+        }
+        if (deliveringBufferedFinalOutput && job.finalOutput != null && what.matches(job.finalOutput)) {
+            return 0L;
+        }
+
+        long accepted = 0L;
+        long waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
+        if (waitingFor > 0L) {
+            accepted = insertWaitingFor(what, Math.min(amount, waitingFor), type);
+        }
+
+        long remaining = amount - accepted;
+        if (remaining <= 0L || this.job == null) {
+            return accepted;
+        }
+
+        long manualWaiting = this.manualWaitingFor.extract(what, remaining, Actionable.SIMULATE);
+        if (manualWaiting <= 0L) {
+            return accepted;
+        }
+
+        long consumed = Math.min(remaining, manualWaiting);
+        if (type == Actionable.MODULATE) {
+            this.manualWaitingFor.extract(what, consumed, Actionable.MODULATE);
+            this.inventory.insert(what, consumed, Actionable.MODULATE);
+            this.cpu.markDirty();
+        }
+        return accepted + consumed;
+    }
+
+    private long insertWaitingFor(AEKey what, long amount, Actionable type) {
         // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插入
         if (what == null || amount <= 0L || job == null)
             return 0;
@@ -1372,6 +1429,7 @@ public class ECOCraftingCPULogic {
 
         // 清空等待列表并发送所有相关变更通知。
         job.waitingFor.clear();
+        this.manualWaitingFor.clear();
         // 通知已打开菜单关于已取消的调度任务。
         for (var entry : job.tasks.entrySet()) {
             for (var output : entry.getKey().getOutputs()) {
@@ -1590,11 +1648,13 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
+        this.manualWaitingFor.clear();
         if (data.contains("job")) {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             if (this.job.finalOutput == null) {
                 finishJob(false);
             } else {
+                readManualWaitingFromNBT(data, registries);
                 registerJobOutputRoute();
             }
         }
@@ -1637,6 +1697,21 @@ public class ECOCraftingCPULogic {
         data.put("inventory", this.inventory.writeToNBT(registries));
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
+            if (!this.manualWaitingFor.list.isEmpty()) {
+                data.put(NBT_MANUAL_WAITING, this.manualWaitingFor.writeToNBT(registries));
+            }
+        }
+    }
+
+    private void readManualWaitingFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+        var entries = data.getList(NBT_MANUAL_WAITING, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < entries.size(); index++) {
+            var entry = entries.getCompound(index);
+            var key = AEKey.fromTagGeneric(registries, entry);
+            long amount = entry.getLong("#");
+            if (key != null && amount > 0L) {
+                this.manualWaitingFor.insert(key, amount, Actionable.MODULATE);
+            }
         }
     }
 
@@ -1670,7 +1745,9 @@ public class ECOCraftingCPULogic {
 
     public long getWaitingFor(AEKey template) {
         if (this.job != null) {
-            return this.job.waitingFor.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+            long waiting = this.job.waitingFor.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+            long manualWaiting = this.manualWaitingFor.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+            return waiting > Long.MAX_VALUE - manualWaiting ? Long.MAX_VALUE : waiting + manualWaiting;
         }
         return 0;
     }
@@ -1678,6 +1755,9 @@ public class ECOCraftingCPULogic {
     public void getAllWaitingFor(Set<AEKey> waitingFor) {
         if (this.job != null) {
             for (var entry : this.job.waitingFor.list) {
+                waitingFor.add(entry.getKey());
+            }
+            for (var entry : this.manualWaitingFor.list) {
                 waitingFor.add(entry.getKey());
             }
         }
@@ -1707,6 +1787,7 @@ public class ECOCraftingCPULogic {
                 out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
             }
             out.addAll(job.waitingFor.list);
+            out.addAll(this.manualWaitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
                     out.add(output.what(), output.amount() * t.getValue().value);

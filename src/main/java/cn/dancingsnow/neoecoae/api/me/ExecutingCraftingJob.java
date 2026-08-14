@@ -93,6 +93,11 @@ public class ExecutingCraftingJob {
 
     ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
             @Nullable Integer playerId, Set<ResourceLocation> fuzzyItemIds) {
+        this(plan, postCraftingDifference, link, playerId, fuzzyItemIds, plan);
+    }
+
+    ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
+            @Nullable Integer playerId, Set<ResourceLocation> fuzzyItemIds, ICraftingPlan plannedInputPlan) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
@@ -111,7 +116,7 @@ public class ExecutingCraftingJob {
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
-        this.plannedInputs.putAll(ECOPlannedInputs.take(plan));
+        this.plannedInputs.putAll(ECOPlannedInputs.take(plannedInputPlan));
         this.fuzzyItemIds = Set.copyOf(fuzzyItemIds);
         this.link = link;
         this.playerId = playerId;
