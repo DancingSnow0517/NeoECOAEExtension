@@ -46,6 +46,7 @@ public final class NEComputationNetworkCluster {
     private List<ECOComputationSystemBlockEntity> controllers = List.of();
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
     private boolean fastPlanningEnabled = true;
+    private boolean substitutionIgnoringEnabled;
     /** Synthetic CPUs must retain object identity between AE2 service refreshes. */
     private final Map<IGrid, ECOCraftingCPU> fakeCpus = new IdentityHashMap<>();
     private long revision;
@@ -76,9 +77,12 @@ public final class NEComputationNetworkCluster {
             : controllers.getFirst().getLocalSelectionMode();
         fastPlanningEnabled = controllers.stream()
             .allMatch(ECOComputationSystemBlockEntity::isLocalFastPlanningEnabled);
+        substitutionIgnoringEnabled = controllers.stream()
+            .allMatch(ECOComputationSystemBlockEntity::isLocalSubstitutionIgnoringEnabled);
         for (ECOComputationSystemBlockEntity controller : controllers) {
             controller.setLocalSelectionMode(selectionMode);
             controller.setLocalFastPlanningEnabled(fastPlanningEnabled);
+            controller.setLocalSubstitutionIgnoringEnabled(substitutionIgnoringEnabled);
             controller.onNetworkStateChanged();
         }
         changedGrids.putAll(collectGridNodes(physicalClusters));
@@ -95,6 +99,7 @@ public final class NEComputationNetworkCluster {
         controllers = List.of();
         selectionMode = CpuSelectionMode.ANY;
         fastPlanningEnabled = true;
+        substitutionIgnoringEnabled = false;
         fakeCpus.clear();
         postCpuChange(changedGrids);
         revision++;
@@ -120,6 +125,17 @@ public final class NEComputationNetworkCluster {
         fastPlanningEnabled = enabled;
         for (ECOComputationSystemBlockEntity controller : controllers) {
             controller.setLocalFastPlanningEnabled(enabled);
+        }
+    }
+
+    public boolean isSubstitutionIgnoringEnabled() {
+        return !controllers.isEmpty() && substitutionIgnoringEnabled;
+    }
+
+    public void setSubstitutionIgnoringEnabled(boolean enabled) {
+        substitutionIgnoringEnabled = enabled;
+        for (ECOComputationSystemBlockEntity controller : controllers) {
+            controller.setLocalSubstitutionIgnoringEnabled(enabled);
         }
     }
 

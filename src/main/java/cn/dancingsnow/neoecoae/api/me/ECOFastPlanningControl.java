@@ -5,4 +5,11 @@ public interface ECOFastPlanningControl {
     boolean isFastPlanningEnabled();
 
     void setFastPlanningEnabled(boolean enabled);
+
+    default boolean isSubstitutionIgnoringEnabled() {
+        return false;
+    }
+
+    default void setSubstitutionIgnoringEnabled(boolean enabled) {
+    }
 }

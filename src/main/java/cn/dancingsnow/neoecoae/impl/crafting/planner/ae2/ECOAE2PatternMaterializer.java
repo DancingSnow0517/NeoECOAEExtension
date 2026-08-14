@@ -90,6 +90,9 @@ final class ECOAE2PatternMaterializer {
             if (input == null) {
                 throw reject("null_input_slot slot=" + slot);
             }
+            if (assessment.normalizeSubstitutionInputs()) {
+                input = ECOAE2PatternCompatibility.normalizeSubstitutionInput(details, slot, input);
+            }
             long multiplier = readMultiplier(input, slot);
             IECOPlannerInputPolicy.MatchMode matchMode = readMatchMode(details, slot, input);
             boolean configuredFuzzyTemplate = hasConfiguredFuzzyTemplate(input, fuzzyItemIds);

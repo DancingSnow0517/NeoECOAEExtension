@@ -93,6 +93,10 @@ public final class ECOPlanningHostLease implements AutoCloseable {
         return host.getFuzzyPlanningItemIds();
     }
 
+    public boolean substitutionIgnoringEnabled() {
+        return host.isSubstitutionIgnoringEnabled();
+    }
+
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) {

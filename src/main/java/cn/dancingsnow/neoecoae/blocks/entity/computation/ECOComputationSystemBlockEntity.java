@@ -80,6 +80,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private boolean fastPlanningEnabled = true;
     @Persisted
     @DescSynced
+    private boolean substitutionIgnoringEnabled;
+    @Persisted
+    @DescSynced
     private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
     @DescSynced
     private boolean buildInProgress;
@@ -235,6 +238,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         root.addChild(panels);
         root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
         root.addChild(ComputationHostPanelUI.createFastPlanningOpenButton(panelConfig));
+        root.addChild(ComputationHostPanelUI.createSubstitutionIgnoringOpenButton(panelConfig));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
                 holder.player);
@@ -257,6 +261,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 this::cycleCpuSelectionMode,
                 this::isFastPlanningEnabled,
                 this::toggleFastPlanning,
+                this::isSubstitutionIgnoringEnabled,
+                this::toggleSubstitutionIgnoring,
                 this::getNetworkFrequency,
                 this::adjustNetworkFrequency,
                 this::getRegistryAccessForUi,
@@ -381,6 +387,44 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return;
         }
         fastPlanningEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
+    public boolean isSubstitutionIgnoringEnabled() {
+        ECOFastPlanningControl control = getFastPlanningControl();
+        if (control != null) {
+            return control.isSubstitutionIgnoringEnabled();
+        }
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().isSubstitutionIgnoringEnabled();
+        }
+        return isLocalSubstitutionIgnoringEnabled();
+    }
+
+    public boolean isLocalSubstitutionIgnoringEnabled() {
+        return substitutionIgnoringEnabled;
+    }
+
+    public void toggleSubstitutionIgnoring() {
+        boolean enabled = !isSubstitutionIgnoringEnabled();
+        ECOFastPlanningControl control = getFastPlanningControl();
+        if (control != null) {
+            control.setSubstitutionIgnoringEnabled(enabled);
+            return;
+        }
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().setSubstitutionIgnoringEnabled(enabled);
+            return;
+        }
+        setLocalSubstitutionIgnoringEnabled(enabled);
+    }
+
+    public void setLocalSubstitutionIgnoringEnabled(boolean enabled) {
+        if (substitutionIgnoringEnabled == enabled) {
+            return;
+        }
+        substitutionIgnoringEnabled = enabled;
         setChanged();
         markForUpdate();
     }

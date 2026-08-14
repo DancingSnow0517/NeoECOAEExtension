@@ -65,6 +65,8 @@ public final class ComputationHostPanelUI {
             Runnable cycleCpuSelectionMode,
             BooleanSupplier fastPlanningEnabled,
             Runnable toggleFastPlanning,
+            BooleanSupplier substitutionIgnoringEnabled,
+            Runnable toggleSubstitutionIgnoring,
             IntSupplier networkFrequency,
             IntConsumer adjustNetworkFrequency,
             Supplier<HolderLookup.Provider> registries,
@@ -155,6 +157,41 @@ public final class ComputationHostPanelUI {
         return createLeftUtilityButton(createFastPlanningButton(config), 26);
     }
 
+    public static UIElement createSubstitutionIgnoringOpenButton(Config config) {
+        return createLeftUtilityButton(createSubstitutionIgnoringButton(config), 52);
+    }
+
+    private static Button createSubstitutionIgnoringButton(Config config) {
+        Button button = new Button()
+                .noText()
+                .setOnServerClick(event -> config.toggleSubstitutionIgnoring.run());
+        button.buttonStyle(style -> style
+                .baseTexture(Sprites.RECT_RD)
+                .hoverTexture(Sprites.RECT_RD_LIGHT)
+                .pressedTexture(Sprites.RECT_RD_DARK));
+        button.layout(layout -> layout.width(18).height(20));
+        UIElement icon = new UIElement()
+                .layout(layout -> layout.width(12).height(12))
+                .style(style -> style.backgroundTexture(substitutionIgnoringIcon(
+                        config.substitutionIgnoringEnabled.getAsBoolean())));
+        button.addChild(icon);
+
+        var syncedEnabled = HostElements.syncedBoolean(config.substitutionIgnoringEnabled::getAsBoolean);
+        syncedEnabled.registerValueListener(
+                value -> icon.style(style -> style.backgroundTexture(substitutionIgnoringIcon(
+                        Boolean.TRUE.equals(value)))));
+        button.addChild(syncedEnabled);
+        HostElements.tooltips(button, () -> {
+            boolean enabled = Boolean.TRUE.equals(syncedEnabled.getValue());
+            return List.of(
+                    Component.translatable("gui.neoecoae.host.computation.ignore_substitutions"),
+                    Component.translatable(enabled
+                            ? "gui.neoecoae.host.computation.ignore_substitutions.enabled"
+                            : "gui.neoecoae.host.computation.ignore_substitutions.disabled"));
+        });
+        return button;
+    }
+
     private static UIElement createLeftUtilityButton(Button button, int top) {
         UIElement buttonPanel = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
@@ -169,6 +206,10 @@ public final class ComputationHostPanelUI {
 
     private static IGuiTexture fastPlanningIcon(boolean enabled) {
         return AETextures.icon(enabled ? Icon.S_MACHINE : Icon.CLEAR);
+    }
+
+    private static IGuiTexture substitutionIgnoringIcon(boolean enabled) {
+        return AETextures.icon(enabled ? Icon.S_SUBSTITUTION_DISABLED : Icon.S_SUBSTITUTION_ENABLED);
     }
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {

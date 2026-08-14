@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
@@ -9,6 +10,10 @@ import appeng.crafting.pattern.AESmithingTablePattern;
 import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
@@ -33,13 +38,23 @@ final class ECOAE2PatternCompatibility {
         Level level,
         Set<ResourceLocation> fuzzyItemIds
     ) {
+        return assess(details, craftingService, level, fuzzyItemIds, false);
+    }
+
+    static Assessment assess(
+        IPatternDetails details,
+        ICraftingService craftingService,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
+    ) {
         IPatternDetails.IInput[] inputs;
         try {
             inputs = details.getInputs();
         } catch (RuntimeException | LinkageError failure) {
             return Assessment.rejected("pattern input metadata could not be read");
         }
-        return assess(details, inputs, craftingService, level, fuzzyItemIds);
+        return assess(details, inputs, craftingService, level, fuzzyItemIds, ignoreSubstitutionPatterns);
     }
 
     static Assessment assess(
@@ -49,11 +64,23 @@ final class ECOAE2PatternCompatibility {
         Level level,
         Set<ResourceLocation> fuzzyItemIds
     ) {
+        return assess(details, inputs, craftingService, level, fuzzyItemIds, false);
+    }
+
+    static Assessment assess(
+        IPatternDetails details,
+        IPatternDetails.IInput[] inputs,
+        ICraftingService craftingService,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
+    ) {
         Objects.requireNonNull(details, "details");
         if (inputs == null) {
             return Assessment.rejected("pattern returned null inputs");
         }
         boolean configuredFuzzyInput = hasConfiguredFuzzyInput(inputs, fuzzyItemIds);
+        boolean ignoredSubstitution = ignoreSubstitutionPatterns && isSubstitutionPattern(details);
         if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)
             && !configuredFuzzyInput) {
             return Assessment.rejected("provider_scoped_nbt");
@@ -62,11 +89,21 @@ final class ECOAE2PatternCompatibility {
         try {
             if (details instanceof AECraftingPattern
                 && AE2PatternIntrospection.classifyPatternEligibility(details)
-                    == AE2PatternIntrospection.PatternEligibility.SPECIAL_RECIPE) {
+                    == AE2PatternIntrospection.PatternEligibility.SPECIAL_RECIPE
+                && (!ignoredSubstitution || !(details instanceof AESmithingTablePattern))) {
                 return Assessment.rejected("special_recipe");
             }
         } catch (RuntimeException | LinkageError failure) {
             return Assessment.rejected("pattern_compatibility_exception");
+        }
+
+        if (ignoredSubstitution) {
+            return Assessment.accepted(
+                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
+                false,
+                true,
+                true
+            );
         }
 
         IECOPlannerCompatiblePattern.InputSemantics semantics;
@@ -198,6 +235,79 @@ final class ECOAE2PatternCompatibility {
             || details.getClass() == AEStonecuttingPattern.class;
     }
 
+    static boolean isSubstitutionPattern(IPatternDetails details) {
+        return details instanceof AECraftingPattern crafting
+                && (crafting.canSubstitute() || crafting.canSubstituteFluids())
+            || details instanceof AESmithingTablePattern smithing && smithing.canSubstitute()
+            || details instanceof AEStonecuttingPattern stonecutting && stonecutting.canSubstitute();
+    }
+
+    static IPatternDetails.IInput normalizeSubstitutionInput(
+        IPatternDetails details,
+        int slot,
+        IPatternDetails.IInput input
+    ) {
+        GenericStack canonical = canonicalInput(details, slot, input);
+        if (canonical == null) {
+            return input;
+        }
+        return new IPatternDetails.IInput() {
+            @Override
+            public GenericStack[] getPossibleInputs() {
+                return new GenericStack[] { canonical };
+            }
+
+            @Override
+            public long getMultiplier() {
+                return input.getMultiplier();
+            }
+
+            @Override
+            public boolean isValid(appeng.api.stacks.AEKey key, Level level) {
+                return key.matches(canonical);
+            }
+
+            @Override
+            public appeng.api.stacks.AEKey getRemainingKey(appeng.api.stacks.AEKey template) {
+                return input.getRemainingKey(template);
+            }
+        };
+    }
+
+    private static GenericStack canonicalInput(
+        IPatternDetails details,
+        int slot,
+        IPatternDetails.IInput input
+    ) {
+        GenericStack[] possible = input.getPossibleInputs();
+        if (possible != null && possible.length > 0 && possible[0] != null
+            && !possible[0].what().getType().equals(appeng.api.stacks.AEKeyType.fluids())) {
+            return possible[0];
+        }
+        if (!(details instanceof AECraftingPattern crafting)) {
+            return null;
+        }
+        List<GenericStack> sparseInputs = crafting.getSparseInputs();
+        Map<AEKey, Long> condensedAmounts = new LinkedHashMap<>();
+        for (GenericStack sparse : sparseInputs) {
+            if (sparse != null) {
+                condensedAmounts.merge(sparse.what(), sparse.amount(), Long::sum);
+            }
+        }
+        List<GenericStack> condensedInputs = new ArrayList<>(condensedAmounts.size());
+        condensedAmounts.forEach((key, amount) -> condensedInputs.add(new GenericStack(key, amount)));
+        if (slot < 0 || slot >= condensedInputs.size()) {
+            return null;
+        }
+        GenericStack condensed = condensedInputs.get(slot);
+        for (GenericStack sparse : sparseInputs) {
+            if (sparse != null && sparse.what().equals(condensed.what())) {
+                return new GenericStack(sparse.what(), sparse.amount());
+            }
+        }
+        return new GenericStack(condensed.what(), 1L);
+    }
+
     private static Assessment assessBuiltInAlternatives(IPatternDetails.IInput[] inputs) {
         return assessBuiltInAlternatives(null, inputs);
     }
@@ -261,6 +371,7 @@ final class ECOAE2PatternCompatibility {
         boolean includeFuzzyInventory,
         boolean requireUnitMultiplierForAlternatives,
         boolean stateExpansionAllowed,
+        boolean normalizeSubstitutionInputs,
         String rejection
     ) {
         private static Assessment accepted(
@@ -268,13 +379,28 @@ final class ECOAE2PatternCompatibility {
             boolean includeFuzzyInventory,
             boolean stateExpansionAllowed
         ) {
+            return accepted(semantics, includeFuzzyInventory, stateExpansionAllowed, false);
+        }
+
+        private static Assessment accepted(
+            IECOPlannerCompatiblePattern.InputSemantics semantics,
+            boolean includeFuzzyInventory,
+            boolean stateExpansionAllowed,
+            boolean normalizeSubstitutionInputs
+        ) {
             return new Assessment(
-                true, semantics, includeFuzzyInventory, false, stateExpansionAllowed, ""
+                true,
+                semantics,
+                includeFuzzyInventory,
+                false,
+                stateExpansionAllowed,
+                normalizeSubstitutionInputs,
+                ""
             );
         }
 
         private static Assessment rejected(String rejection) {
-            return new Assessment(false, null, false, false, false, rejection);
+            return new Assessment(false, null, false, false, false, false, rejection);
         }
     }
 }

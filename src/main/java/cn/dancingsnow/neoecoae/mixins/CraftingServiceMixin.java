@@ -107,6 +107,33 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
         }
     }
 
+    @Override
+    public boolean isSubstitutionIgnoringEnabled() {
+        if (this.neoecoae$computationClusters.isEmpty()) {
+            return false;
+        }
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
+            if (cluster == null || !cluster.isSubstitutionIgnoringEnabled()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void setSubstitutionIgnoringEnabled(boolean enabled) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
+            if (cluster == null) {
+                continue;
+            }
+            if (cluster.getNetworkCluster() != null) {
+                cluster.getNetworkCluster().setSubstitutionIgnoringEnabled(enabled);
+            } else if (cluster.getController() != null) {
+                cluster.getController().setLocalSubstitutionIgnoringEnabled(enabled);
+            }
+        }
+    }
+
     @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 50)
     private void neoecoae$beginPlanningOnECOHost(
         Level level,
@@ -212,7 +239,8 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             strategy,
             this.lastProcessedCraftableChangeTick,
             level,
-            lease.get().fuzzyPlanningItemIds()
+            lease.get().fuzzyPlanningItemIds(),
+            lease.get().substitutionIgnoringEnabled()
         );
         if (capture.snapshot().isEmpty()) {
             var captureReason = capture.reason();

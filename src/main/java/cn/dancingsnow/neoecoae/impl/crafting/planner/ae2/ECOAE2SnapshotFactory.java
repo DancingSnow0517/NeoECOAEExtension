@@ -99,6 +99,31 @@ public final class ECOAE2SnapshotFactory {
         ).snapshot();
     }
 
+    /** Captures a snapshot with optional substitution-pattern normalization. */
+    public static Optional<ECOAE2PlanningSnapshot> capture(
+        IGrid grid,
+        ICraftingSimulationRequester requester,
+        AEKey requestedKey,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        long craftableGeneration,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
+    ) {
+        return captureWithDiagnostics(
+            grid,
+            requester,
+            requestedKey,
+            requestedAmount,
+            strategy,
+            craftableGeneration,
+            level,
+            fuzzyItemIds,
+            ignoreSubstitutionPatterns
+        ).snapshot();
+    }
+
     /** Captures a snapshot and preserves the server-side explanation when capture is rejected. */
     public static CaptureResult captureWithDiagnostics(
         IGrid grid,
@@ -109,6 +134,31 @@ public final class ECOAE2SnapshotFactory {
         long craftableGeneration,
         Level level,
         Set<ResourceLocation> fuzzyItemIds
+    ) {
+        return captureWithDiagnostics(
+            grid,
+            requester,
+            requestedKey,
+            requestedAmount,
+            strategy,
+            craftableGeneration,
+            level,
+            fuzzyItemIds,
+            false
+        );
+    }
+
+    /** Captures a snapshot and optionally treats substitution patterns as strict patterns. */
+    public static CaptureResult captureWithDiagnostics(
+        IGrid grid,
+        ICraftingSimulationRequester requester,
+        AEKey requestedKey,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        long craftableGeneration,
+        Level level,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
     ) {
         if (requestedAmount <= 0
             || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
@@ -158,7 +208,8 @@ public final class ECOAE2SnapshotFactory {
                 craftableGeneration,
                 requestedAmount,
                 strategy,
-                fuzzyItemIds
+                fuzzyItemIds,
+                ignoreSubstitutionPatterns
             );
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.GRAPH,
@@ -364,18 +415,50 @@ public final class ECOAE2SnapshotFactory {
         CalculationStrategy strategy,
         Set<ResourceLocation> fuzzyItemIds
     ) {
+        return graphFor(
+            craftingService,
+            requestedKey,
+            inventory,
+            level,
+            craftableGeneration,
+            requestedAmount,
+            strategy,
+            fuzzyItemIds,
+            false
+        );
+    }
+
+    private static PatternGraph graphFor(
+        ICraftingService craftingService,
+        AEKey requestedKey,
+        Map<AEKey, Long> inventory,
+        Level level,
+        long craftableGeneration,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
+    ) {
         if (craftableGeneration == NO_GENERATION) {
             return buildGraph(
-                craftingService, requestedKey, inventory, level, requestedAmount, strategy, fuzzyItemIds
+                craftingService,
+                requestedKey,
+                inventory,
+                level,
+                requestedAmount,
+                strategy,
+                fuzzyItemIds,
+                ignoreSubstitutionPatterns
             );
         }
         CachedGraphs cached;
         InventoryGraphKey inventoryKey = new InventoryGraphKey(
             requestedKey,
             Set.copyOf(inventory.keySet()),
-            fuzzyItemIds
+            fuzzyItemIds,
+            ignoreSubstitutionPatterns
         );
-        GraphKey graphKey = new GraphKey(requestedKey, fuzzyItemIds);
+        GraphKey graphKey = new GraphKey(requestedKey, fuzzyItemIds, ignoreSubstitutionPatterns);
         synchronized (GRAPH_CACHE) {
             cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
@@ -417,7 +500,14 @@ public final class ECOAE2SnapshotFactory {
         // block or re-enter this factory. The generation is checked again before
         // publishing so an older in-flight build cannot replace a newer cache.
         PatternGraph graph = buildGraph(
-            craftingService, requestedKey, inventory, level, requestedAmount, strategy, fuzzyItemIds
+            craftingService,
+            requestedKey,
+            inventory,
+            level,
+            requestedAmount,
+            strategy,
+            fuzzyItemIds,
+            ignoreSubstitutionPatterns
         );
         synchronized (GRAPH_CACHE) {
             CachedGraphs current = GRAPH_CACHE.get(craftingService);
@@ -454,7 +544,8 @@ public final class ECOAE2SnapshotFactory {
         Level level,
         long requestedAmount,
         CalculationStrategy strategy,
-        Set<ResourceLocation> fuzzyItemIds
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
     ) {
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new LinkedHashSet<>();
@@ -570,7 +661,11 @@ public final class ECOAE2SnapshotFactory {
                     }
                     ECOAE2PatternCompatibility.Assessment duplicateAssessment =
                         ECOAE2PatternCompatibility.assess(
-                            details, craftingService, level, fuzzyItemIds
+                            details,
+                            craftingService,
+                            level,
+                            fuzzyItemIds,
+                            ignoreSubstitutionPatterns
                         );
                     if (!duplicateAssessment.compatible()) {
                         if ("provider_scoped_nbt".equals(duplicateAssessment.rejection())) {
@@ -614,7 +709,11 @@ public final class ECOAE2SnapshotFactory {
                 }
                 ECOAE2PatternCompatibility.Assessment assessment =
                     ECOAE2PatternCompatibility.assess(
-                        details, craftingService, level, fuzzyItemIds
+                        details,
+                        craftingService,
+                        level,
+                        fuzzyItemIds,
+                        ignoreSubstitutionPatterns
                     );
                 if (!assessment.compatible()) {
                     if ("provider_scoped_nbt".equals(assessment.rejection())) {
@@ -635,7 +734,7 @@ public final class ECOAE2SnapshotFactory {
                             + " context=" + assessment.rejection()
                     );
                 }
-                dynamicSmithing |= dynamicSmithingPattern(details);
+                dynamicSmithing |= dynamicSmithingPattern(details, ignoreSubstitutionPatterns);
                 trace(
                     requestedKey,
                     requestedAmount,
@@ -651,7 +750,7 @@ public final class ECOAE2SnapshotFactory {
                         details, assessment, inventory, craftingService, level, fuzzyItemIds
                     );
                 } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
-                    if (dynamicSmithingPattern(details)
+                    if (dynamicSmithingPattern(details, ignoreSubstitutionPatterns)
                         && rejection.reason() == ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED) {
                         expansion = ECOAE2PatternMaterializer.expand(
                             details,
@@ -738,8 +837,13 @@ public final class ECOAE2SnapshotFactory {
         );
     }
 
-    private static boolean dynamicSmithingPattern(IPatternDetails details) {
-        return details instanceof AESmithingTablePattern smithing && smithing.canSubstitute();
+    private static boolean dynamicSmithingPattern(
+        IPatternDetails details,
+        boolean ignoreSubstitutionPatterns
+    ) {
+        return !ignoreSubstitutionPatterns
+            && details instanceof AESmithingTablePattern smithing
+            && smithing.canSubstitute();
     }
 
     private static ECOAE2PatternCompatibility.Assessment canonicalAssessment(
@@ -751,6 +855,7 @@ public final class ECOAE2SnapshotFactory {
             false,
             false,
             true,
+            false,
             ""
         );
     }
@@ -1017,7 +1122,8 @@ public final class ECOAE2SnapshotFactory {
     private record InventoryGraphKey(
         AEKey requestedKey,
         Set<AEKey> availableKeys,
-        Set<ResourceLocation> fuzzyItemIds
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
     ) {
         private InventoryGraphKey {
             availableKeys = Set.copyOf(availableKeys);
@@ -1058,7 +1164,11 @@ public final class ECOAE2SnapshotFactory {
     ) {
     }
 
-    private record GraphKey(AEKey requestedKey, Set<ResourceLocation> fuzzyItemIds) {
+    private record GraphKey(
+        AEKey requestedKey,
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean ignoreSubstitutionPatterns
+    ) {
         private GraphKey {
             fuzzyItemIds = Set.copyOf(fuzzyItemIds);
         }

@@ -317,6 +317,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             : networkCluster.isFastPlanningEnabled();
     }
 
+    public boolean isSubstitutionIgnoringEnabled() {
+        return networkCluster == null
+            ? controller != null && controller.isLocalSubstitutionIgnoringEnabled()
+            : networkCluster.isSubstitutionIgnoringEnabled();
+    }
+
     public Set<ResourceLocation> getFuzzyPlanningItemIds() {
         return computationInterface == null ? Set.of() : computationInterface.getFuzzyPlanningItemIds();
     }
