@@ -59,7 +59,7 @@ public final class AE2PatternIntrospection {
             // Substitution remains on the slow path until its alternative-input semantics are
             // modeled explicitly.
             return smithingPattern.canSubstitute()
-                ? PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE
+                ? PatternEligibility.SPECIAL_RECIPE
                 : PatternEligibility.ELIGIBLE;
         }
         if (details instanceof AEStonecuttingPattern) {
@@ -83,8 +83,8 @@ public final class AE2PatternIntrospection {
             if (recipe == null) {
                 return PatternEligibility.RECIPE_UNAVAILABLE;
             }
-            if (pattern.canSubstitute() && recipe.isSpecial()) {
-                return PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+            if (recipe.isSpecial()) {
+                return PatternEligibility.SPECIAL_RECIPE;
             }
             return PatternEligibility.ELIGIBLE;
         } catch (Throwable e) {
@@ -176,6 +176,6 @@ public final class AE2PatternIntrospection {
         ELIGIBLE,
         UNSUPPORTED_PATTERN_TYPE,
         RECIPE_UNAVAILABLE,
-        SUBSTITUTION_SPECIAL_RECIPE
+        SPECIAL_RECIPE
     }
 }

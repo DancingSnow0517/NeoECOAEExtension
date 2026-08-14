@@ -114,6 +114,26 @@ public final class ECOFastPathStacks {
             && isSafeReusableCatalysts(plan.reusableInputs());
     }
 
+    /**
+     * Detects an item whose component state changes between an input and a produced stack.
+     * Such a transition cannot be represented by the FastPath's static batch accounting.
+     */
+    public static boolean hasStateChange(List<GenericStack> inputs, List<GenericStack> produced) {
+        for (GenericStack input : inputs) {
+            if (!(input.what() instanceof AEItemKey)) {
+                continue;
+            }
+            for (GenericStack output : produced) {
+                if (output.what() instanceof AEItemKey
+                    && input.what().getPrimaryKey().equals(output.what().getPrimaryKey())
+                    && !input.what().equals(output.what())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static boolean isSafeReusableCatalysts(List<GenericStack> stacks) {
         for (GenericStack stack : stacks) {
             if (stack.amount() <= 0L || stack.amount() > Integer.MAX_VALUE

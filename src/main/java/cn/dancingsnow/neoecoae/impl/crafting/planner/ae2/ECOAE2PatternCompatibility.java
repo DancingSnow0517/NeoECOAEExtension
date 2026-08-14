@@ -60,11 +60,10 @@ final class ECOAE2PatternCompatibility {
         }
 
         try {
-            if (details instanceof AECraftingPattern crafting
-                && crafting.canSubstitute()
+            if (details instanceof AECraftingPattern
                 && AE2PatternIntrospection.classifyPatternEligibility(details)
-                    == AE2PatternIntrospection.PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE) {
-                return Assessment.rejected("substitution_special_recipe");
+                    == AE2PatternIntrospection.PatternEligibility.SPECIAL_RECIPE) {
+                return Assessment.rejected("special_recipe");
             }
         } catch (RuntimeException | LinkageError failure) {
             return Assessment.rejected("pattern_compatibility_exception");

@@ -178,6 +178,10 @@ public final class ECOExtractedPatternExecution {
             return ECOFastPathFallbackReason.UNSAFE_EXPECTED_OUTPUT;
         }
         ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, containers);
+        if (ECOFastPathStacks.hasStateChange(inputs, outputs)
+            || ECOFastPathStacks.hasStateChange(inputs, plan.ordinaryRemainingPerCraft())) {
+            return ECOFastPathFallbackReason.STATEFUL_ITEM;
+        }
         if (!ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)) {
             return ECOFastPathFallbackReason.UNSAFE_CONTAINER_ITEM;
         }
@@ -197,13 +201,13 @@ public final class ECOExtractedPatternExecution {
             case ELIGIBLE -> FastPathEligibility.ELIGIBLE;
             case UNSUPPORTED_PATTERN_TYPE -> FastPathEligibility.UNSUPPORTED_PATTERN_TYPE;
             case RECIPE_UNAVAILABLE -> FastPathEligibility.RECIPE_UNAVAILABLE;
-            case SUBSTITUTION_SPECIAL_RECIPE -> FastPathEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+            case SPECIAL_RECIPE -> FastPathEligibility.SPECIAL_RECIPE;
         };
     }
 
     private static ECOFastPathFallbackReason fallbackReasonFor(FastPathEligibility eligibility) {
         return switch (eligibility) {
-            case SUBSTITUTION_SPECIAL_RECIPE -> ECOFastPathFallbackReason.DYNAMIC_SPECIAL;
+            case SPECIAL_RECIPE -> ECOFastPathFallbackReason.DYNAMIC_SPECIAL;
             case RECIPE_UNAVAILABLE -> ECOFastPathFallbackReason.INTROSPECTION_UNAVAILABLE;
             case UNSUPPORTED_PATTERN_TYPE -> ECOFastPathFallbackReason.UNSUPPORTED_PATTERN_TYPE;
             case ELIGIBLE -> null;
@@ -214,7 +218,7 @@ public final class ECOExtractedPatternExecution {
         ELIGIBLE,
         UNSUPPORTED_PATTERN_TYPE,
         RECIPE_UNAVAILABLE,
-        SUBSTITUTION_SPECIAL_RECIPE
+        SPECIAL_RECIPE
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {

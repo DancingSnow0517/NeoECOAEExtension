@@ -159,6 +159,10 @@ final class ECOAE2PatternMaterializer {
             }
         }
 
+        if (hasStateChangingOutput(slots, fixedOutputs)) {
+            throw reject("stateful_output");
+        }
+
         int variantLimit = stateful ? MAX_STATEFUL_VARIANTS_PER_PATTERN : MAX_VARIANTS_PER_PATTERN;
         long baseCombinationCount = 1L;
         boolean useBoundedMixableBasis = false;
@@ -912,6 +916,29 @@ final class ECOAE2PatternMaterializer {
             }
         }
         return List.copyOf(templates);
+    }
+
+    private static boolean hasStateChangingOutput(
+        List<SlotMaterialization> slots,
+        List<GenericStack> outputs
+    ) {
+        for (SlotMaterialization slot : slots) {
+            for (Candidate candidate : slot.candidates()) {
+                AEKey input = candidate.template().what();
+                if (!input.getType().equals(AEKeyType.items())) {
+                    continue;
+                }
+                for (GenericStack output : outputs) {
+                    AEKey produced = output.what();
+                    if (produced.getType().equals(AEKeyType.items())
+                        && input.getPrimaryKey().equals(produced.getPrimaryKey())
+                        && !input.equals(produced)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static long saturatedMultiply(long left, long right) {

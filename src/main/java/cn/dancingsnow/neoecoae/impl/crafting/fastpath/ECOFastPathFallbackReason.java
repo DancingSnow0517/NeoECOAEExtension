@@ -12,6 +12,7 @@ public enum ECOFastPathFallbackReason {
     UNSAFE_EXPECTED_OUTPUT("unsafe_expected_output"),
     UNSAFE_CONTAINER_ITEM("unsafe_container_item"),
     UNSAFE_INPUT("unsafe_input"),
+    STATEFUL_ITEM("stateful_item"),
     CACHE_MISS_VERIFYING("cache_miss_verifying"),
     NEGATIVE_CACHE("negative_cache"),
     CACHE_ENTRY_MISMATCH("cache_entry_mismatch"),

@@ -322,7 +322,7 @@ public final class ECOCondensedCycleSolver {
             long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
             boolean needsSeed = operations.stream().anyMatch(operation ->
                 operation.inputAmount(material) > 0L
-                    && operation.outputAmount(material) > operation.inputAmount(material)
+                    && operation.outputAmount(material) >= operation.inputAmount(material)
                     && available < operation.inputAmount(material));
             if (!needsSeed) {
                 continue;
@@ -445,7 +445,7 @@ public final class ECOCondensedCycleSolver {
             long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
             boolean needsSeed = operations.stream().anyMatch(operation ->
                 operation.inputAmount(material) > 0L
-                    && operation.outputAmount(material) > operation.inputAmount(material)
+                    && operation.outputAmount(material) >= operation.inputAmount(material)
                     && available < operation.inputAmount(material));
             if (!needsSeed) {
                 continue;
