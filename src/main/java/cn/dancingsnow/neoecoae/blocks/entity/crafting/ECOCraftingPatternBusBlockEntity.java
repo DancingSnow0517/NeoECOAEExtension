@@ -71,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -109,6 +110,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final AEItemKey[] indexedPatternKeys =
         new AEItemKey[NEConfig.getMaxCraftingPatternBusSlotCount()];
     private final Map<AEItemKey, Integer> indexedPatternCounts = new HashMap<>();
+    /** Empty effective slots, maintained from inventory callbacks for migration fast-path insertion. */
+    private final BitSet emptyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
+    private int indexedPatternSlotCount;
+    private int patternCapacityGeneration;
+    private boolean patternCapacityIndexInitialized;
     private boolean patternIndexInitialized;
     private final BitSet dirtyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
     public final IItemHandlerModifiable itemHandler;
@@ -127,6 +133,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private int patternDetailsUpdateTick;
     private transient boolean craftingProviderRefreshQueued;
     private transient IGrid lastKnownGrid;
+    /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
+    private transient PreparedPattern activePreparedPattern;
+
+    /** A pattern decoded once by the migration coordinator. */
+    public record PreparedPattern(ItemStack stack, IPatternDetails details, @Nullable AEItemKey key) {
+        public PreparedPattern {
+            stack = stack.copy();
+        }
+
+        private boolean matches(ItemStack candidate) {
+            return Objects.equals(key, AEItemKey.of(candidate));
+        }
+    }
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -411,29 +430,92 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
         // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
         // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
-        if (!isExecutablePattern(itemStack)) {
+        PreparedPattern prepared = preparePattern(itemStack);
+        if (prepared == null) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        if (containsPatternInCluster(itemStack)) {
-            return ECOPatternInsertionResult.ALREADY_PRESENT;
-        }
-        ItemStack result = effectiveInventory.addItems(itemStack.copy());
-        return result.isEmpty()
-                ? ECOPatternInsertionResult.INSERTED
-                : ECOPatternInsertionResult.NO_SPACE;
+        return insertPreparedPattern(prepared);
     }
 
     @Override
     public ECOPatternInsertionResult insertPatternKnownUnique(ItemStack itemStack) {
         // PatternStorage has already checked the complete logical network for duplicates.
         // Avoid repeating containsPatternInCluster for every bus when the first target is full.
-        if (!isExecutablePattern(itemStack)) {
+        PreparedPattern prepared = preparePattern(itemStack);
+        if (prepared == null) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        ItemStack result = effectiveInventory.addItems(itemStack.copy());
+        return insertPreparedPatternKnownUnique(prepared);
+    }
+
+    /** Decodes and validates an incoming pattern once for reuse across destination buses. */
+    @Nullable
+    public PreparedPattern preparePattern(ItemStack itemStack) {
+        if (itemStack.isEmpty()) {
+            return null;
+        }
+        IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, level);
+        return details instanceof IMolecularAssemblerSupportedPattern
+            ? new PreparedPattern(itemStack, details, AEItemKey.of(itemStack))
+            : null;
+    }
+
+    /** Inserts a previously decoded pattern while preserving normal logical-domain duplicate checks. */
+    public ECOPatternInsertionResult insertPreparedPattern(PreparedPattern prepared) {
+        if (!isValidPreparedPattern(prepared)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        ItemStack itemStack = prepared.stack();
+        if (containsPatternInCluster(itemStack)) {
+            return ECOPatternInsertionResult.ALREADY_PRESENT;
+        }
+        return insertPreparedStack(prepared);
+    }
+
+    /** Inserts a previously decoded pattern after the caller has checked network-wide uniqueness. */
+    public ECOPatternInsertionResult insertPreparedPatternKnownUnique(PreparedPattern prepared) {
+        if (!isValidPreparedPattern(prepared)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        return insertPreparedStack(prepared);
+    }
+
+    private ECOPatternInsertionResult insertPreparedStack(PreparedPattern prepared) {
+        ItemStack result;
+        activePreparedPattern = prepared;
+        try {
+            result = addPatternItems(prepared.stack());
+        } finally {
+            activePreparedPattern = null;
+        }
         return result.isEmpty()
-                ? ECOPatternInsertionResult.INSERTED
-                : ECOPatternInsertionResult.NO_SPACE;
+            ? ECOPatternInsertionResult.INSERTED
+            : ECOPatternInsertionResult.NO_SPACE;
+    }
+
+    private boolean isValidPreparedPattern(@Nullable PreparedPattern prepared) {
+        return prepared != null
+            && prepared.details() instanceof IMolecularAssemblerSupportedPattern
+            && !prepared.stack().isEmpty()
+            && prepared.matches(prepared.stack());
+    }
+
+    /** Places the stack through known empty slots, preserving normal remainder semantics. */
+    private ItemStack addPatternItems(ItemStack stack) {
+        ensurePatternCapacityIndex();
+        ItemStack remaining = stack.copy();
+        while (!remaining.isEmpty()) {
+            int slot = emptyPatternSlots.nextSetBit(0);
+            if (slot < 0 || slot >= indexedPatternSlotCount) {
+                break;
+            }
+            ItemStack next = effectiveInventory.insertItem(slot, remaining, false);
+            if (next.getCount() >= remaining.getCount()) {
+                break;
+            }
+            remaining = next;
+        }
+        return remaining;
     }
 
     @Override
@@ -462,6 +544,67 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         AEItemKey key = AEItemKey.of(pattern);
         return key != null && indexedPatternCounts.containsKey(key);
+    }
+
+    /** Returns the current number of writable pattern slots without scanning the inventory. */
+    public int getEmptyPatternSlotCount() {
+        ensurePatternCapacityIndex();
+        return emptyPatternSlots.cardinality();
+    }
+
+    /** Monotonic generation for consumers caching writable-slot information. */
+    public int getPatternCapacityGeneration() {
+        ensurePatternCapacityIndex();
+        return patternCapacityGeneration;
+    }
+
+    private void ensurePatternCapacityIndex() {
+        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
+        if (!patternCapacityIndexInitialized || indexedPatternSlotCount != slotCount) {
+            rebuildPatternCapacityIndex(slotCount);
+        }
+    }
+
+    private void rebuildPatternCapacityIndex() {
+        rebuildPatternCapacityIndex(Math.min(getPatternSlotCount(), inventory.size()));
+    }
+
+    private void rebuildPatternCapacityIndex(int slotCount) {
+        emptyPatternSlots.clear();
+        for (int slot = 0; slot < slotCount; slot++) {
+            if (inventory.getStackInSlot(slot).isEmpty()) {
+                emptyPatternSlots.set(slot);
+            }
+        }
+        indexedPatternSlotCount = slotCount;
+        patternCapacityIndexInitialized = true;
+        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
+            ? 1
+            : patternCapacityGeneration + 1;
+    }
+
+    private void updatePatternCapacitySlot(int slot) {
+        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
+        if (!patternCapacityIndexInitialized || indexedPatternSlotCount != slotCount) {
+            rebuildPatternCapacityIndex(slotCount);
+            return;
+        }
+        if (slot < 0 || slot >= slotCount) {
+            return;
+        }
+        boolean shouldBeEmpty = inventory.getStackInSlot(slot).isEmpty();
+        boolean wasEmpty = emptyPatternSlots.get(slot);
+        if (shouldBeEmpty == wasEmpty) {
+            return;
+        }
+        if (shouldBeEmpty) {
+            emptyPatternSlots.set(slot);
+        } else {
+            emptyPatternSlots.clear(slot);
+        }
+        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
+            ? 1
+            : patternCapacityGeneration + 1;
     }
 
     private void rebuildPatternIndex() {
@@ -506,7 +649,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
             return slot >= 0
                 && slot < getPatternSlotCount()
-                && isExecutablePattern(stack);
+                && (activePreparedPattern != null && activePreparedPattern.matches(stack)
+                    || isExecutablePattern(stack));
         }
     }
 
@@ -536,6 +680,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
         } else if (slot == highestOccupiedSlot) {
             highestOccupiedSlotDirty = true;
+        }
+        if (slot < 0 || slot >= inventory.size()) {
+            patternCapacityIndexInitialized = false;
+            rebuildPatternCapacityIndex();
+        } else {
+            updatePatternCapacitySlot(slot);
         }
         if (slot >= 0 && slot < indexedPatternKeys.length) {
             updatePatternIndexSlot(slot);
@@ -582,6 +732,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         lastKnownGrid = getMainNode().getGrid();
         rebuildAllPatternDetails = true;
         rebuildPatternIndex();
+        rebuildPatternCapacityIndex();
         updatePatternDetails();
     }
 
