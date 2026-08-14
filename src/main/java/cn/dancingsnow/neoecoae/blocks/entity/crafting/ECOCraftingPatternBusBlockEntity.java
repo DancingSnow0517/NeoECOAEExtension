@@ -649,8 +649,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
             return slot >= 0
                 && slot < getPatternSlotCount()
-                && (activePreparedPattern != null && activePreparedPattern.matches(stack)
-                    || isExecutablePattern(stack));
+                && (activePreparedPattern != null
+                    ? activePreparedPattern.matches(stack)
+                    : isExecutablePattern(stack));
         }
     }
 

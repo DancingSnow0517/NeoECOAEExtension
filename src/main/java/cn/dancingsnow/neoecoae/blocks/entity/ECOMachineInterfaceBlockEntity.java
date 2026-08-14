@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
@@ -67,7 +68,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
     private static final int PATTERN_TRANSFER_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_TRANSFER_MAX_INSERTIONS_PER_TICK = 8;
-    private static final long PATTERN_TRANSFER_MAX_NANOS_PER_TICK = 4_000_000L;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_ORGANIZE_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_ORGANIZE_MAX_MOVES_PER_TICK = 8;
@@ -226,6 +226,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (task == null) {
             patternTransferUnavailable = true;
             syncPatternTransferState(serverLevel.getGameTime(), true);
+            return;
+        }
+        if (!task.coordinator().tryAcquire(this)) {
             return;
         }
         patternTransferTask = task;
@@ -416,6 +419,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Override
     public void updateCluster(@Nullable C nextCluster) {
+        releasePatternMigrationLease();
         super.updateCluster(nextCluster);
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
@@ -426,6 +430,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Override
     protected void onMainNodeGridChanged() {
+        releasePatternMigrationLease();
         super.onMainNodeGridChanged();
         if (!(level instanceof ServerLevel)) {
             return;
@@ -758,7 +763,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         ensurePatternInterfaceMapping();
-        patternOrganizeTask = new PatternOrganizeTask(patternSlotRefs);
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+        PatternMigrationCoordinator coordinator = PatternMigrationCoordinator.forGrid(grid);
+        if (!coordinator.tryAcquire(this)) {
+            return;
+        }
+        patternOrganizeTask = new PatternOrganizeTask(patternSlotRefs, coordinator);
         patternOrganizeInProgress = true;
         patternOrganizeScannedSlots = 0;
         patternOrganizeTotalSlots = patternOrganizeTask.totalSlots();
@@ -798,12 +811,27 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        long deadline = System.nanoTime() + PATTERN_TRANSFER_MAX_NANOS_PER_TICK;
+        long startedNanos = System.nanoTime();
+        PatternMigrationCoordinator coordinator = patternTransferTask != null
+                ? patternTransferTask.coordinator()
+                : patternOrganizeTask != null ? patternOrganizeTask.coordinator() : null;
+        long deadline = coordinator == null
+                ? 0L
+                : coordinator.beginSlice(this, serverLevel.getGameTime());
+        if (deadline == 0L) {
+            if (patternTransferTask != null) {
+                finishPatternTransfer(serverLevel, true);
+            } else if (patternOrganizeTask != null) {
+                finishPatternOrganize(serverLevel);
+            }
+            return;
+        }
         if (patternTransferTask != null) {
             tickPatternTransfer(serverLevel, deadline);
         } else if (patternOrganizeTask != null) {
             tickPatternOrganize(serverLevel, deadline);
         }
+        coordinator.recordSlice(System.nanoTime() - startedNanos, 0, 0);
     }
 
     private void tickPatternOrganize(ServerLevel serverLevel, long deadline) {
@@ -955,6 +983,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void finishPatternTransfer(ServerLevel level, boolean unavailable) {
+        PatternTransferTask task = patternTransferTask;
+        if (task != null) {
+            task.coordinator().release(this);
+        }
         patternTransferTask = null;
         patternTransferInProgress = false;
         patternTransferIndexing = false;
@@ -963,10 +995,23 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void finishPatternOrganize(ServerLevel level) {
+        PatternOrganizeTask task = patternOrganizeTask;
+        if (task != null) {
+            task.coordinator().release(this);
+        }
         patternOrganizeTask = null;
         patternOrganizeInProgress = false;
         patternOrganizeScannedSlots = patternOrganizeTotalSlots;
         syncPatternOperationState(level.getGameTime(), true);
+    }
+
+    private void releasePatternMigrationLease() {
+        if (patternTransferTask != null) {
+            patternTransferTask.coordinator().release(this);
+        }
+        if (patternOrganizeTask != null) {
+            patternOrganizeTask.coordinator().release(this);
+        }
     }
 
     private void syncPatternTransferState(long gameTime, boolean force) {
@@ -982,11 +1027,17 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     private final class PatternOrganizeTask {
         private final List<PatternSlotRef> refs;
+        private final PatternMigrationCoordinator coordinator;
         private int nextReadSlot;
         private int nextWriteSlot;
 
-        private PatternOrganizeTask(List<PatternSlotRef> refs) {
+        private PatternOrganizeTask(List<PatternSlotRef> refs, PatternMigrationCoordinator coordinator) {
             this.refs = List.copyOf(refs);
+            this.coordinator = coordinator;
+        }
+
+        private PatternMigrationCoordinator coordinator() {
+            return coordinator;
         }
 
         private int totalSlots() {
@@ -1021,6 +1072,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private final class PatternTransferTask {
         private final IGrid grid;
         private final IECOPatternStorageService storageService;
+        private final PatternMigrationCoordinator coordinator;
         private List<ECOPatternSourceSlot> candidates = List.of();
         private int candidateIndex;
         private boolean prepared;
@@ -1033,6 +1085,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 IECOPatternStorageService storageService) {
             this.grid = grid;
             this.storageService = storageService;
+            this.coordinator = PatternMigrationCoordinator.forGrid(grid);
         }
 
         private IGrid grid() {
@@ -1041,6 +1094,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private IECOPatternStorageService storageService() {
             return storageService;
+        }
+
+        private PatternMigrationCoordinator coordinator() {
+            return coordinator;
         }
 
         private int totalSlots() {
