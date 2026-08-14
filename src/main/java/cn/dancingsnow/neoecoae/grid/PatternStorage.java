@@ -36,7 +36,22 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     private static final long EXTERNAL_PATTERN_CLAIM_TIMEOUT_TICKS = 200L;
 
     private final Map<IGridNode, IECOPatternStorage> patternStorages = new IdentityHashMap<>();
-    private final IECOPatternStorage combinedStorage = this::tryInsertPattern;
+    private final IECOPatternStorage combinedStorage = new IECOPatternStorage() {
+        @Override
+        public boolean insertPattern(ItemStack patternItem) {
+            return tryInsertPattern(patternItem) == ECOPatternInsertionResult.INSERTED;
+        }
+
+        @Override
+        public ECOPatternInsertionResult insertPatternWithResult(ItemStack patternItem) {
+            return tryInsertPattern(patternItem);
+        }
+
+        @Override
+        public ECOPatternInsertionResult insertPreparedPattern(ECOPreparedPattern prepared) {
+            return PatternStorage.this.insertPreparedPattern(prepared);
+        }
+    };
     private final Map<ECOCraftingPatternBusBlockEntity, Map<AEItemKey, Integer>> busPatternKeys =
             new IdentityHashMap<>();
     private final Map<ECOCraftingPatternBusBlockEntity, Integer> busPatternRevisions = new IdentityHashMap<>();
@@ -189,7 +204,9 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
                     ? storage.insertPreparedPatternKnownUnique(prepared)
                     : storage.insertPreparedPattern(prepared);
         }
-        return knownUnique ? storage.insertPatternKnownUnique(pattern) : storage.insertPattern(pattern);
+        return knownUnique
+                ? storage.insertPatternKnownUnique(pattern)
+                : storage.insertPatternWithResult(pattern);
     }
 
     @Override

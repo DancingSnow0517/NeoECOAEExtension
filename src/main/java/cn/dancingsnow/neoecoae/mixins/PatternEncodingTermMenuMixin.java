@@ -67,7 +67,8 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
         ItemStack itemStack = encodedPatternSlot.getItem();
         IECOPatternStorageService service = node.getGrid().getService(IECOPatternStorageService.class);
         if (service != null) {
-            if (service.getPatternStorage().insertPattern(itemStack.copy()) == ECOPatternInsertionResult.INSERTED) {
+            if (service.getPatternStorage().insertPatternWithResult(itemStack.copy())
+                    == ECOPatternInsertionResult.INSERTED) {
                 encodedPatternSlot.clearStack();
             }
         }

@@ -416,7 +416,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Override
-    public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
+    public boolean insertPattern(ItemStack itemStack) {
+        return insertPatternWithResult(itemStack) == ECOPatternInsertionResult.INSERTED;
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPatternWithResult(ItemStack itemStack) {
         // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
         // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
         ECOPreparedPattern prepared = preparePattern(itemStack);
