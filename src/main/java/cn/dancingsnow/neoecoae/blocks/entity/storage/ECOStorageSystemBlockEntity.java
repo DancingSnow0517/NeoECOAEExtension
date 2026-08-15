@@ -885,6 +885,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             IStorageProvider.requestUpdate(drive.getMainNode());
         }
         IStorageProvider.requestUpdate(getMainNode());
+        invalidateStorageCache();
     }
 
     /**
@@ -898,6 +899,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         lastInfiniteStorageRevision = revision;
+        invalidateStorageCache();
+    }
+
+    private void invalidateStorageCache() {
         getMainNode().ifPresent(grid -> grid.getStorageService().invalidateCache());
     }
 
@@ -921,6 +926,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             storageProviderRefreshQueued = false;
             if (!isServerStopping() && !isRemoved() && getMainNode().isOnline()) {
                 IStorageProvider.requestUpdate(getMainNode());
+                invalidateStorageCache();
             }
         });
     }
