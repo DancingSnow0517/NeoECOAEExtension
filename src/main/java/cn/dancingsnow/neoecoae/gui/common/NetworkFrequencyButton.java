@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -8,6 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -43,8 +45,18 @@ public final class NetworkFrequencyButton {
                 .adaptiveWidth(true)
                 .textAlignHorizontal(Horizontal.CENTER)
                 .textShadow(false));
-        label.layout(layout -> layout.width(width).height(height));
-        button.addChild(label);
+        label.layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(0)
+                .top(2)
+                .width(width)
+                .height(height));
+        UIElement content = new UIElement().layout(layout -> layout
+                .positionType(TaffyPosition.RELATIVE)
+                .width(width)
+                .height(height));
+        content.addChild(label);
+        button.addChild(content);
 
         BindableValue<Integer> syncedFrequency = new BindableValue<>(frequency.getAsInt());
         syncedFrequency.bind(DataBindingBuilder.intValS2C(frequency::getAsInt).build());

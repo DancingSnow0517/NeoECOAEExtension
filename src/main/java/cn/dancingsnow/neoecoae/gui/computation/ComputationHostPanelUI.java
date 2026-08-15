@@ -183,11 +183,11 @@ public final class ComputationHostPanelUI {
     }
 
     private static IGuiTexture fastPlanningIcon(boolean enabled) {
-        return AETextures.icon(enabled ? Icon.S_MACHINE : Icon.CLEAR);
+        return AETextures.icon(enabled ? Icon.COG : Icon.CLEAR);
     }
 
     private static IGuiTexture substitutionIgnoringIcon(boolean enabled) {
-        return AETextures.icon(enabled ? Icon.S_SUBSTITUTION_DISABLED : Icon.S_SUBSTITUTION_ENABLED);
+        return AETextures.icon(enabled ? Icon.PATTERN_ACCESS_SHOW : Icon.PATTERN_ACCESS_HIDE);
     }
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {

@@ -114,7 +114,7 @@ public final class MultiblockBuilderUI {
     public static Button createInlineOpenButton(UIElement window) {
         Button button = new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
+            .addPostIcon(AETextures.icon(Icon.VIEW_MODE_ALL))
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(Component.translatable("gui.neoecoae.multiblock.builder")),

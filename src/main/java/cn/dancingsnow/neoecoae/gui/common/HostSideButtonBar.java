@@ -1,12 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 
 import java.util.Arrays;
@@ -20,9 +20,20 @@ public final class HostSideButtonBar {
     }
 
     private static final int WIDTH = 23;
+    private static final int BUTTON_WIDTH = 18;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BUTTON_LEFT = 3;
+    private static final int FIRST_BUTTON_TOP = 3;
+    private static final int OTHER_BUTTON_TOP = 2;
+    private static final int PRESSED_CONTENT_OFFSET = 1;
+    private static final int BAR_TOP = 1;
+    private static final int LEFT_BAR_OFFSET = -20;
+    private static final int RIGHT_BAR_OFFSET = -32;
     private static final int TOP_HEIGHT = 30;
     private static final int MIDDLE_HEIGHT = 24;
     private static final int BOTTOM_HEIGHT = 27;
+    private static final int FIRST_SEGMENT_STEP = 23;
+    private static final int MIDDLE_SEGMENT_STEP = 22;
 
     private HostSideButtonBar() {
     }
@@ -55,21 +66,20 @@ public final class HostSideButtonBar {
         int totalHeight = heightFor(buttons.size());
         UIElement bar = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.top(0);
+            layout.top(BAR_TOP);
             layout.width(WIDTH);
             layout.height(totalHeight);
             if (side == Side.LEFT) {
-                layout.left(-WIDTH);
+                layout.left(LEFT_BAR_OFFSET);
             } else {
-                layout.right(-WIDTH);
+                layout.right(RIGHT_BAR_OFFSET);
             }
-        }).setAllowHitTest(false);
+        });
 
-        int top = 0;
         int buttonCount = buttons.size();
         for (int index = 0; index < buttonCount; index++) {
+            int segmentTop = segmentTop(index);
             int segmentHeight = segmentHeight(index, buttonCount);
-            int segmentTop = top;
             IGuiTexture segmentTexture = texture(index, buttonCount, side);
             UIElement segment = new UIElement().layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
@@ -77,16 +87,50 @@ public final class HostSideButtonBar {
                 layout.top(segmentTop);
                 layout.width(WIDTH);
                 layout.height(segmentHeight);
-                layout.flexDirection(FlexDirection.ROW);
-                layout.alignItems(AlignItems.CENTER);
-                layout.justifyContent(AlignContent.CENTER);
-            }).style(style -> style.backgroundTexture(segmentTexture))
-                .setAllowHitTest(false);
+            }).style(style -> style.backgroundTexture(segmentTexture));
+            applyButtonStyle(buttons.get(index), index == 0 ? FIRST_BUTTON_TOP : OTHER_BUTTON_TOP);
             segment.addChild(buttons.get(index));
             bar.addChild(segment);
-            top += segmentHeight;
         }
         return bar;
+    }
+
+    private static void applyButtonStyle(UIElement element, int top) {
+        if (element instanceof Button button) {
+            button.layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(BUTTON_LEFT);
+                layout.top(top);
+                layout.width(BUTTON_WIDTH);
+                layout.height(BUTTON_HEIGHT);
+            });
+            button.buttonStyle(style -> style
+                    .baseTexture(NETextures.BUTTON)
+                    .hoverTexture(NETextures.BUTTON_HOVER)
+                    .pressedTexture(NETextures.BUTTON_HIGHLIGHTED));
+            button.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if (button.isActive()) {
+                    setContentOffset(button, PRESSED_CONTENT_OFFSET);
+                }
+            });
+            button.addEventListener(UIEvents.MOUSE_UP, event -> setContentOffset(button, 0));
+            button.addEventListener(UIEvents.MOUSE_LEAVE, event -> setContentOffset(button, 0));
+        }
+    }
+
+    private static void setContentOffset(Button button, int offset) {
+        for (UIElement child : button.getChildren()) {
+            child.layout(layout -> layout
+                    .positionType(TaffyPosition.RELATIVE)
+                    .top(offset));
+        }
+    }
+
+    private static int segmentTop(int index) {
+        if (index == 0) {
+            return 0;
+        }
+        return FIRST_SEGMENT_STEP + (index - 1) * MIDDLE_SEGMENT_STEP;
     }
 
     public static int heightFor(int buttonCount) {
@@ -96,7 +140,7 @@ public final class HostSideButtonBar {
         if (buttonCount == 1) {
             return TOP_HEIGHT;
         }
-        return TOP_HEIGHT + (buttonCount - 2) * MIDDLE_HEIGHT + BOTTOM_HEIGHT;
+        return FIRST_SEGMENT_STEP + (buttonCount - 2) * MIDDLE_SEGMENT_STEP + BOTTOM_HEIGHT;
     }
 
     private static int segmentHeight(int index, int buttonCount) {

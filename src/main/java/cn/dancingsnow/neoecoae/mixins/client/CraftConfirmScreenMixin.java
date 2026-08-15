@@ -162,7 +162,11 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
             int localY = mouseY - getGuiTop();
             if (localX >= point.getX() - width / 2 && localX <= point.getX() + width / 2
                 && localY >= point.getY() - font.lineHeight && localY <= point.getY() + font.lineHeight) {
+                // drawFG runs with the GUI origin already translated into the pose stack.
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().translate(-offsetX, -offsetY, 0);
                 drawTooltip(guiGraphics, mouseX, mouseY, tooltip);
+                guiGraphics.pose().popPose();
             }
         }
     }
