@@ -951,7 +951,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         row.addChild(new TextElement()
             .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
             .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.HOVER_ROLL)
+                .textWrap(TextWrap.NONE)
                 .adaptiveHeight(true))
             .layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);

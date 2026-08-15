@@ -69,7 +69,7 @@ public final class ComputationInterfaceUI {
         return new TextElement()
             .setText(Component.translatable("block.neoecoae.computation_interface"))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
-                .textWrap(TextWrap.HOVER_ROLL).textColor(0x3F3D52).textShadow(false))
+                .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
             .layout(layout -> layout.widthPercent(100).height(12));
     }
 

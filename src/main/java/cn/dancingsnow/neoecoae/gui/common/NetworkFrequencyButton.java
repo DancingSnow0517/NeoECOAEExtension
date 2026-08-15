@@ -1,11 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
@@ -38,41 +39,49 @@ public final class NetworkFrequencyButton {
         button.addClass("eco-host-frequency-button");
         button.layout(layout -> layout.width(width).height(height));
 
-        Label label = new Label();
-        label.setText(frequencyText(frequency.getAsInt()));
-        label.textStyle(style -> style
-                .adaptiveHeight(true)
-                .adaptiveWidth(true)
-                .textAlignHorizontal(Horizontal.CENTER)
-                .textShadow(false));
-        label.layout(layout -> layout
+        UIElement icon = new UIElement()
+                .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
-                .left(0)
-                .top(2)
-                .width(width)
-                .height(height));
+                .left(2)
+                .top(-1)
+                .width(12)
+                .height(12))
+                .style(style -> style.backgroundTexture(frequencyIcon(frequency.getAsInt())));
         UIElement content = new UIElement().layout(layout -> layout
                 .positionType(TaffyPosition.RELATIVE)
+                .left(0)
+                .top(0)
                 .width(width)
                 .height(height));
-        content.addChild(label);
+        content.addChild(icon);
         button.addChild(content);
 
         BindableValue<Integer> syncedFrequency = new BindableValue<>(frequency.getAsInt());
         syncedFrequency.bind(DataBindingBuilder.intValS2C(frequency::getAsInt).build());
-        syncedFrequency.registerValueListener(value -> label.setText(frequencyText(value == null ? 0 : value)));
+        syncedFrequency.registerValueListener(value -> icon.style(
+                style -> style.backgroundTexture(frequencyIcon(value == null ? 0 : value))));
         syncedFrequency.setDisplay(false);
         button.addChild(syncedFrequency);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            int selected = syncedFrequency.getValue() == null ? 0 : syncedFrequency.getValue();
+            int selected = normalizedFrequency(syncedFrequency.getValue() == null ? 0 : syncedFrequency.getValue()) + 1;
             event.hoverTooltips = new HoverTooltips(List.of(
-                    Component.translatable("gui.neoecoae.host.network.frequency", selected + 1),
+                    Component.translatable("gui.neoecoae.host.network.frequency", selected),
                     Component.translatable("gui.neoecoae.host.network.frequency.tooltip")), null, null, null);
         });
         return button;
     }
 
-    private static Component frequencyText(int frequency) {
-        return Component.literal(Integer.toString(Math.max(0, frequency) + 1));
+    private static IGuiTexture frequencyIcon(int frequency) {
+        return switch (normalizedFrequency(frequency)) {
+            case 0 -> NETextures.FREQUENCY_1;
+            case 1 -> NETextures.FREQUENCY_2;
+            case 2 -> NETextures.FREQUENCY_3;
+            case 3 -> NETextures.FREQUENCY_4;
+            default -> NETextures.FREQUENCY_1;
+        };
+    }
+
+    private static int normalizedFrequency(int frequency) {
+        return Math.floorMod(frequency, NEFrequencyAllocator.FREQUENCY_COUNT);
     }
 }

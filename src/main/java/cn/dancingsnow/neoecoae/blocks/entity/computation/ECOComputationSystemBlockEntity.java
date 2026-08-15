@@ -206,9 +206,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 .setText(getItemFromBlockEntity().getDescription())
                 .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
                 .layout(layout -> layout.widthPercent(100).height(10)));
-        titleBlock.addChild(HostNetworkStatusElement.create(
+        titleBlock.addChild(HostNetworkStatusElement.createWithStatus(
                 () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
-                () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
+                () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
+                () -> 0,
+                ignored -> Component.translatable("gui.neoecoae.crafting.run_status.normal")
+                        .withColor(0x55FF8A)));
         header.addChild(titleBlock);
         root.addChild(header);
 
@@ -238,7 +241,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                         panelConfig.networkFrequency(),
                         panelConfig.adjustNetworkFrequency(),
                         18,
-                        18),
+                        20),
                 ComputationHostPanelUI.createCpuSelectionButton(panelConfig)));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
@@ -246,7 +249,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52)
+        style.adaptiveHeight(true).adaptiveWidth(true).fontSize(9.0F).textWrap(TextWrap.NONE).textColor(0x3f3d52)
                 .textShadow(false);
     }
 

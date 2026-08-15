@@ -9,6 +9,7 @@ import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.crafting.pattern.AESmithingTablePattern;
 import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2LTOverloadPatternCompatibility;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -123,7 +124,9 @@ final class ECOAE2PatternCompatibility {
             );
         } else if (isKnownBuiltIn(details)) {
             return assessBuiltInAlternatives(details, inputs);
-        } else if (hasOnlyCanonicalOrConfiguredFuzzyInputs(inputs, level, fuzzyItemIds)) {
+        } else if (hasOnlyCanonicalOrConfiguredFuzzyInputs(
+            details, inputs, level, fuzzyItemIds
+        )) {
             // A marked input explicitly opts this third-party pattern into component-insensitive
             // planning; every other input must remain a fixed strict input.
             return Assessment.accepted(
@@ -180,16 +183,19 @@ final class ECOAE2PatternCompatibility {
     }
 
     private static boolean hasOnlyCanonicalOrConfiguredFuzzyInputs(
+        IPatternDetails details,
         IPatternDetails.IInput[] inputs,
         Level level,
         Set<ResourceLocation> fuzzyItemIds
     ) {
         try {
-            for (IPatternDetails.IInput input : inputs) {
+            for (int slot = 0; slot < inputs.length; slot++) {
+                IPatternDetails.IInput input = inputs[slot];
                 if (input == null) {
                     return false;
                 }
-                if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
+                if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)
+                    || AE2LTOverloadPatternCompatibility.ignoresComponents(details, slot)) {
                     continue;
                 }
                 GenericStack[] possible = input.getPossibleInputs();

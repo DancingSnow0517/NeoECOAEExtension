@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -22,8 +23,10 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 
 /**
@@ -137,6 +140,15 @@ public final class NEComputationNetworkCluster {
         for (ECOComputationSystemBlockEntity controller : controllers) {
             controller.setLocalSubstitutionIgnoringEnabled(enabled);
         }
+    }
+
+    /** Fuzzy planning filters belong to the logical network, regardless of the selected host. */
+    public Set<ResourceLocation> getFuzzyPlanningItemIds() {
+        Set<ResourceLocation> result = new LinkedHashSet<>();
+        for (NEComputationCluster cluster : physicalClusters) {
+            result.addAll(cluster.getLocalFuzzyPlanningItemIds());
+        }
+        return Set.copyOf(result);
     }
 
     /** Each host contributes its local capacity multiplied by its switch tier. */

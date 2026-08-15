@@ -7,10 +7,13 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** A reusable vertical button rail attached to the side of a host UI. */
 public final class HostSideButtonBar {
@@ -22,12 +25,14 @@ public final class HostSideButtonBar {
     private static final int WIDTH = 23;
     private static final int BUTTON_WIDTH = 18;
     private static final int BUTTON_HEIGHT = 20;
+    private static final int ICON_SIZE = 14;
     private static final int BUTTON_LEFT = 3;
     private static final int FIRST_BUTTON_TOP = 3;
     private static final int OTHER_BUTTON_TOP = 2;
-    private static final int PRESSED_CONTENT_OFFSET = 1;
-    private static final int BAR_TOP = 1;
-    private static final int LEFT_BAR_OFFSET = -20;
+    private static final int HOVER_CONTENT_OFFSET = 1;
+    private static final int LEFT_BAR_TOP = 0;
+    private static final int RIGHT_BAR_TOP = 1;
+    private static final int LEFT_BAR_OFFSET = -21;
     private static final int RIGHT_BAR_OFFSET = -32;
     private static final int TOP_HEIGHT = 30;
     private static final int MIDDLE_HEIGHT = 24;
@@ -66,7 +71,7 @@ public final class HostSideButtonBar {
         int totalHeight = heightFor(buttons.size());
         UIElement bar = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.top(BAR_TOP);
+            layout.top(side == Side.LEFT ? LEFT_BAR_TOP : RIGHT_BAR_TOP);
             layout.width(WIDTH);
             layout.height(totalHeight);
             if (side == Side.LEFT) {
@@ -104,25 +109,84 @@ public final class HostSideButtonBar {
                 layout.width(BUTTON_WIDTH);
                 layout.height(BUTTON_HEIGHT);
             });
+            button.setOverflowVisible(true);
             button.buttonStyle(style -> style
-                    .baseTexture(NETextures.BUTTON)
-                    .hoverTexture(NETextures.BUTTON_HOVER)
-                    .pressedTexture(NETextures.BUTTON_HIGHLIGHTED));
+                    .baseTexture(IGuiTexture.EMPTY)
+                    .hoverTexture(IGuiTexture.EMPTY)
+                    .pressedTexture(IGuiTexture.EMPTY));
+            if (button.hasClass("eco-host-toolbar-button")) {
+                for (UIElement child : button.getChildren()) {
+                    if (child != button.text && child.getStyle().backgroundTexture() != null) {
+                        child.layout(layout -> layout
+                                .width(ICON_SIZE)
+                                .height(ICON_SIZE)
+                                .alignSelf(AlignItems.CENTER));
+                    }
+                }
+            }
+            Map<UIElement, Integer> baseContentTop = new IdentityHashMap<>();
+            for (UIElement child : button.getChildren()) {
+                baseContentTop.put(child, Math.round(child.getTaffyStyle().style.inset.top.resolveOrZero(0)));
+            }
+            UIElement background = new UIElement().layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(0);
+                layout.top(0);
+                layout.width(BUTTON_WIDTH);
+                layout.height(BUTTON_HEIGHT);
+            }).style(style -> style.backgroundTexture(NETextures.BUTTON)).setAllowHitTest(false);
+            button.addChildAt(background, 0);
+            boolean[] hovered = {false};
+
+            button.addEventListener(UIEvents.MOUSE_ENTER,
+                    event -> {
+                        hovered[0] = true;
+                        setVisualState(background, NETextures.BUTTON_HOVER, HOVER_CONTENT_OFFSET, baseContentTop);
+                    }, true);
             button.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-                if (button.isActive()) {
-                    setContentOffset(button, PRESSED_CONTENT_OFFSET);
+                if (event.button == 0 && button.isActive()) {
+                    setVisualState(background, NETextures.BUTTON_HIGHLIGHTED, HOVER_CONTENT_OFFSET,
+                            baseContentTop);
                 }
             });
-            button.addEventListener(UIEvents.MOUSE_UP, event -> setContentOffset(button, 0));
-            button.addEventListener(UIEvents.MOUSE_LEAVE, event -> setContentOffset(button, 0));
+            button.addEventListener(UIEvents.MOUSE_UP, event -> {
+                hovered[0] = button.isSelfOrChildHover();
+                setVisualState(
+                        background,
+                        hovered[0] ? NETextures.BUTTON_HOVER : NETextures.BUTTON,
+                        hovered[0] ? HOVER_CONTENT_OFFSET : 0,
+                        baseContentTop);
+            });
+            button.addEventListener(UIEvents.MOUSE_LEAVE, event -> {
+                hovered[0] = false;
+                setVisualState(background, NETextures.BUTTON, 0, baseContentTop);
+            }, true);
+            button.addEventListener(UIEvents.TICK, event -> {
+                boolean isHovered = button.isSelfOrChildHover();
+                if (hovered[0] != isHovered) {
+                    hovered[0] = isHovered;
+                    setVisualState(
+                            background,
+                            isHovered ? NETextures.BUTTON_HOVER : NETextures.BUTTON,
+                            isHovered ? HOVER_CONTENT_OFFSET : 0,
+                            baseContentTop);
+                }
+            });
         }
     }
 
-    private static void setContentOffset(Button button, int offset) {
-        for (UIElement child : button.getChildren()) {
+    private static void setVisualState(
+            UIElement background,
+            IGuiTexture backgroundTexture,
+            int offset,
+            Map<UIElement, Integer> baseContentTop) {
+        background.style(style -> style.backgroundTexture(backgroundTexture));
+        background.layout(layout -> layout.top(offset));
+        for (UIElement child : baseContentTop.keySet()) {
+            int baseTop = baseContentTop.getOrDefault(child, 0);
             child.layout(layout -> layout
                     .positionType(TaffyPosition.RELATIVE)
-                    .top(offset));
+                    .top(baseTop + offset));
         }
     }
 

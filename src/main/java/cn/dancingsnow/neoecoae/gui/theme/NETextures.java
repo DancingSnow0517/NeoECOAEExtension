@@ -42,6 +42,11 @@ public class NETextures {
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
+    public static final IGuiTexture FREQUENCY_1 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_1.png"));
+    public static final IGuiTexture FREQUENCY_2 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_2.png"));
+    public static final IGuiTexture FREQUENCY_3 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_3.png"));
+    public static final IGuiTexture FREQUENCY_4 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_4.png"));
+
     public static IGuiTexture SWITCH_OFF = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
         .setSprite(0,28, 22, 12);
     public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))

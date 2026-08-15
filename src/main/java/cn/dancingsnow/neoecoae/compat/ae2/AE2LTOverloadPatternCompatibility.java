@@ -13,19 +13,36 @@ public final class AE2LTOverloadPatternCompatibility {
         protected Bindings computeValue(Class<?> type) {
             try {
                 Method fuzzyInput = type.getMethod("isFuzzyInput", int.class);
-                Method identity = type.getMethod("overloadPatternIdentity");
+                if (fuzzyInput.getReturnType() == boolean.class
+                        && hasOverloadIdentityMethods(type)) {
+                    return new Bindings(fuzzyInput, null, null, null);
+                }
+            } catch (ReflectiveOperationException | LinkageError ignored) {
+                // Fall through to AE2LT's current inputMode API.
+            }
+            try {
                 Method details = type.getMethod("overloadPatternDetailsView");
-                Method hostKind = type.getMethod("requiredHostKind");
-                if (fuzzyInput.getReturnType() != boolean.class
-                        || identity.getReturnType() != String.class
-                        || details.getReturnType() == void.class
-                        || hostKind.getReturnType() == void.class) {
+                Method inputMode = details.getReturnType().getMethod("inputMode", int.class);
+                Method ignoresComponents = inputMode.getReturnType().getMethod("ignoresComponents");
+                if (details.getReturnType() == void.class
+                        || inputMode.getReturnType() == void.class
+                        || ignoresComponents.getReturnType() != boolean.class) {
                     return Bindings.NONE;
                 }
-                return new Bindings(fuzzyInput);
+                return new Bindings(null, details, inputMode, ignoresComponents);
             } catch (ReflectiveOperationException | LinkageError ignored) {
                 return Bindings.NONE;
             }
+        }
+
+        private static boolean hasOverloadIdentityMethods(Class<?> type)
+            throws ReflectiveOperationException {
+            Method identity = type.getMethod("overloadPatternIdentity");
+            Method details = type.getMethod("overloadPatternDetailsView");
+            Method hostKind = type.getMethod("requiredHostKind");
+            return identity.getReturnType() == String.class
+                && details.getReturnType() != void.class
+                && hostKind.getReturnType() != void.class;
         }
     };
 
@@ -37,21 +54,41 @@ public final class AE2LTOverloadPatternCompatibility {
         if (details == null || slot < 0) {
             return false;
         }
-        Method fuzzyInput = BINDINGS.get(details.getClass()).fuzzyInput();
-        if (fuzzyInput == null) {
+        Bindings bindings = BINDINGS.get(details.getClass());
+        if (bindings == Bindings.NONE) {
             return false;
         }
         try {
-            if (!fuzzyInput.canAccess(details) && !fuzzyInput.trySetAccessible()) {
-                return false;
+            if (bindings.fuzzyInput() != null) {
+                return invokeBoolean(bindings.fuzzyInput(), details, slot);
             }
-            return Boolean.TRUE.equals(fuzzyInput.invoke(details, slot));
+            Object detailsView = invoke(bindings.detailsView(), details);
+            Object inputMode = invoke(bindings.inputMode(), detailsView, slot);
+            return invokeBoolean(bindings.ignoresComponents(), inputMode);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return false;
         }
     }
 
-    private record Bindings(Method fuzzyInput) {
-        private static final Bindings NONE = new Bindings(null);
+    private static Object invoke(Method method, Object target, Object... args)
+        throws ReflectiveOperationException {
+        if (!method.canAccess(target) && !method.trySetAccessible()) {
+            throw new IllegalAccessException("Unable to access " + method);
+        }
+        return method.invoke(target, args);
+    }
+
+    private static boolean invokeBoolean(Method method, Object target, Object... args)
+        throws ReflectiveOperationException {
+        return Boolean.TRUE.equals(invoke(method, target, args));
+    }
+
+    private record Bindings(
+        Method fuzzyInput,
+        Method detailsView,
+        Method inputMode,
+        Method ignoresComponents
+    ) {
+        private static final Bindings NONE = new Bindings(null, null, null, null);
     }
 }

@@ -127,7 +127,7 @@ final class StorageCapacityPanelUI {
     private static void inventoryTitleTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true)
             .adaptiveWidth(true)
-            .textWrap(TextWrap.HOVER_ROLL)
+            .textWrap(TextWrap.NONE)
             .textColor(0x3f3d52)
             .textShadow(false);
     }

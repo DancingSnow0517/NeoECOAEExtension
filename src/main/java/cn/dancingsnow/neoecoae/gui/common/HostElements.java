@@ -161,7 +161,7 @@ public final class HostElements {
     }
 
     private static void lineTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textShadow(false);
     }
 
     private static void sectionTextStyle(TextElement.TextStyle style) {
@@ -172,7 +172,7 @@ public final class HostElements {
         style.adaptiveHeight(true)
             .adaptiveWidth(false)
             .textAlignHorizontal(Horizontal.CENTER)
-            .textWrap(TextWrap.HOVER_ROLL)
+            .textWrap(TextWrap.NONE)
             .textShadow(false);
     }
 

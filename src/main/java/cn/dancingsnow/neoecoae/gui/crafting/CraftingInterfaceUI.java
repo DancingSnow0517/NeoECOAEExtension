@@ -714,7 +714,7 @@ public final class CraftingInterfaceUI {
         Label label = new Label();
         label.setText(text.get());
         label.bind(DataBindingBuilder.componentS2C(text).build());
-        label.textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).adaptiveWidth(false).adaptiveHeight(true));
+        label.textStyle(style -> style.textWrap(TextWrap.NONE).adaptiveWidth(false).adaptiveHeight(true));
         label.layout(layout -> layout.widthPercent(100).height(12));
         return label;
     }

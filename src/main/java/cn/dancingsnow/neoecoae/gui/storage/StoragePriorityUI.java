@@ -84,6 +84,9 @@ public final class StoragePriorityUI {
             .noText()
             .addPostIcon(AETextures.icon(Icon.PRIORITY))
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        button.getChildren().get(button.getChildren().size() - 1).layout(layout -> layout
+            .width(14)
+            .height(14));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS,
             event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.open"));
         button.layout(layout -> {
@@ -157,14 +160,14 @@ public final class StoragePriorityUI {
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x3f3d52).textShadow(false);
     }
 
     private static void buttonTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xffffff).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0xffffff).textShadow(false);
     }
 
     private static void helpTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x3f3d52).textShadow(false);
     }
 }

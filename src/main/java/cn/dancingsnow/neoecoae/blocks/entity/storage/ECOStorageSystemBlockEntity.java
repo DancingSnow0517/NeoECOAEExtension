@@ -433,7 +433,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x3f3d52).textShadow(false);
     }
 
     private StorageHostPanelUI.Config createStoragePanelConfig() {

@@ -132,7 +132,7 @@ public final class ComputationHostPanelUI {
                 .setOnServerClick(event -> config.toggleFastPlanning.run());
         button.layout(layout -> layout.width(18).height(20));
         UIElement icon = new UIElement()
-                .layout(layout -> layout.width(12).height(12))
+                .layout(layout -> layout.width(14).height(14))
                 .style(style -> style.backgroundTexture(fastPlanningIcon(config.fastPlanningEnabled.getAsBoolean())));
         button.addChild(icon);
 
@@ -161,7 +161,7 @@ public final class ComputationHostPanelUI {
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.layout(layout -> layout.width(18).height(20));
         UIElement icon = new UIElement()
-                .layout(layout -> layout.width(12).height(12))
+                .layout(layout -> layout.width(14).height(14))
                 .style(style -> style.backgroundTexture(substitutionIgnoringIcon(
                         config.substitutionIgnoringEnabled.getAsBoolean())));
         button.addChild(icon);
@@ -192,7 +192,7 @@ public final class ComputationHostPanelUI {
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {
         return new UIElement()
-                .layout(layout -> layout.width(12).height(12))
+                .layout(layout -> layout.width(14).height(14))
                 .style(style -> style.backgroundTexture(cpuSelectionModeIcon(mode)));
     }
 
@@ -226,7 +226,7 @@ public final class ComputationHostPanelUI {
     }
 
     private static void inventoryTitleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52)
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x3f3d52)
                 .textShadow(false);
     }
 

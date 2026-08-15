@@ -689,7 +689,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         root.addChild(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.NONE).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
         UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW).marginBottom(5));
         // Input Fluid
@@ -866,7 +866,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         root.addChild(new TextElement()
             .setText("container.inventory", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.NONE).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
 
@@ -952,7 +952,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         titleBar.addChild(new TextElement()
             .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.NONE).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
         titleBar.addChild(new Button()
             .noText()

@@ -6,8 +6,6 @@ import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
@@ -17,13 +15,13 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
-import java.util.function.IntSupplier;
 import java.util.List;
 
 /** Package-private header composition for the crafting host page. */
 final class CraftingHeaderUI {
     private static final int HEADER_HEIGHT = 28;
-    private static final int TOOLBAR_BUTTON_SIZE = 16;
+    private static final int TOOLBAR_BUTTON_WIDTH = 18;
+    private static final int TOOLBAR_BUTTON_HEIGHT = 20;
 
     private CraftingHeaderUI() {
     }
@@ -39,23 +37,23 @@ final class CraftingHeaderUI {
 
         Label title = HostElements.textSegment(config.title(), () -> CraftingHostStyles.ROOT_TEXT);
         title.addClass("eco-host-title");
-        title.textStyle(CraftingHostStyles::compact);
+        title.textStyle(style -> {
+                CraftingHostStyles.compact(style);
+                style.fontSize(9.0F);
+        });
         title.layout(layout -> layout.widthPercent(100).height(10));
-        UIElement networkStatus = HostNetworkStatusElement.create(config.networkMultiplier(), config.networkConnected());
-        UIElement statusRow = new UIElement().layout(layout -> layout
-                .widthPercent(100)
-                .height(12)
-                .flexDirection(FlexDirection.ROW)
-                .alignItems(AlignItems.CENTER)
-                .gapAll(5));
-        statusRow.addChildren(networkStatus, runStatusLabel(config.runStatus()));
+        UIElement networkStatus = HostNetworkStatusElement.createWithStatus(
+                config.networkMultiplier(),
+                config.networkConnected(),
+                config.runStatus(),
+                CraftingHeaderUI::runStatusText);
 
         UIElement titleBlock = new UIElement().layout(layout -> layout
                 .flex(1)
                 .height(24)
                 .flexDirection(FlexDirection.COLUMN)
                 .gapAll(2));
-        titleBlock.addChildren(title, statusRow);
+        titleBlock.addChildren(title, networkStatus);
 
         header.addChild(titleBlock);
         return header;
@@ -63,7 +61,8 @@ final class CraftingHeaderUI {
 
     static List<Button> createToolbarButtons(CraftingHostPanelUI.Config config) {
         return List.of(
-                NetworkFrequencyButton.create(config.networkFrequency(), config.adjustNetworkFrequency(), 16, 16),
+                NetworkFrequencyButton.create(config.networkFrequency(), config.adjustNetworkFrequency(),
+                        TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT),
                 toolbarButton(config.toggleOverclocked(), Icon.POWER_UNIT_AE, config.overclocked(),
                         "gui.neoecoae.crafting.overclock.on", "gui.neoecoae.crafting.overclock.off"),
                 toolbarButton(config.toggleActiveCooling(), Icon.TYPE_FILTER_ALL, config.activeCooling(),
@@ -80,27 +79,9 @@ final class CraftingHeaderUI {
                 .hoverTexture(Sprites.RECT_RD_LIGHT)
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.addClass("eco-host-toolbar-button");
-        button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
+        button.layout(layout -> layout.width(TOOLBAR_BUTTON_WIDTH).height(TOOLBAR_BUTTON_HEIGHT));
         HostElements.tooltips(button, Component.translatable("gui.neoecoae.crafting.clear_output_fluid.tooltip"));
         return button;
-    }
-
-    private static Label runStatusLabel(IntSupplier status) {
-        Label label = new Label();
-        label.setText(runStatusText(status.getAsInt()));
-        label.textStyle(style -> style
-                .adaptiveHeight(true)
-                .adaptiveWidth(false)
-                .fontSize(CraftingHostStyles.COMPACT_FONT_SIZE)
-                .textAlignHorizontal(Horizontal.LEFT)
-                .textWrap(TextWrap.HOVER_ROLL)
-                .textShadow(false));
-        label.layout(layout -> layout.flex(1).height(10));
-
-        BindableValue<Integer> syncedStatus = HostElements.syncedInt(status);
-        syncedStatus.registerValueListener(value -> label.setText(runStatusText(value == null ? 0 : value)));
-        label.addChild(syncedStatus);
-        return label;
     }
 
     private static Component runStatusText(int status) {
@@ -129,7 +110,7 @@ final class CraftingHeaderUI {
                 .hoverTexture(Sprites.RECT_RD_LIGHT)
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.addClass("eco-host-toolbar-button");
-        button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
+        button.layout(layout -> layout.width(TOOLBAR_BUTTON_WIDTH).height(TOOLBAR_BUTTON_HEIGHT));
 
         BindableValue<Boolean> syncedEnabled = HostElements.syncedBoolean(enabled);
         button.addChild(syncedEnabled);

@@ -205,7 +205,7 @@ final class StorageSystemLoadPanelUI {
         style.adaptiveHeight(true)
             .adaptiveWidth(true)
             .fontSize(RIGHT_DETAIL_FONT_SIZE)
-            .textWrap(TextWrap.HOVER_ROLL)
+            .textWrap(TextWrap.NONE)
             .textShadow(false);
     }
 

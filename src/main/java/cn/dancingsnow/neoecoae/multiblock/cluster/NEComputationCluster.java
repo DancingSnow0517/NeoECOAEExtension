@@ -324,6 +324,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public Set<ResourceLocation> getFuzzyPlanningItemIds() {
+        return networkCluster == null
+            ? getLocalFuzzyPlanningItemIds()
+            : networkCluster.getFuzzyPlanningItemIds();
+    }
+
+    public Set<ResourceLocation> getLocalFuzzyPlanningItemIds() {
         return computationInterface == null ? Set.of() : computationInterface.getFuzzyPlanningItemIds();
     }
 

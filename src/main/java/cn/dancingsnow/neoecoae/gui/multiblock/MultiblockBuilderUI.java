@@ -116,6 +116,11 @@ public final class MultiblockBuilderUI {
             .noText()
             .addPostIcon(AETextures.icon(Icon.VIEW_MODE_ALL))
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        button.getChildren().get(button.getChildren().size() - 1).layout(layout -> layout
+            .positionType(TaffyPosition.RELATIVE)
+            .width(14)
+            .height(14)
+            .top(-1));
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
                 null,
@@ -309,15 +314,15 @@ public final class MultiblockBuilderUI {
     }
 
     private static void darkTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x3f3d52).textShadow(false);
     }
 
     private static void hintTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x6d6a82).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x6d6a82).textShadow(false);
     }
 
     private static void sectionTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x236f80).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.NONE).textColor(0x236f80).textShadow(false);
     }
 
     private static final class PreviewElements {

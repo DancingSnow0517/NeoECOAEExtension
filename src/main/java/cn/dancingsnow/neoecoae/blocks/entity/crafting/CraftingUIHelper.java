@@ -35,7 +35,7 @@ public final class CraftingUIHelper {
         });
         titleContainer.addChild(new TextElement()
             .setText(titleKey, true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.NONE).adaptiveHeight(true)));
         root.addChild(titleContainer);
 
         UIElement slotContainer = new UIElement().layout(layout -> {

@@ -25,7 +25,7 @@ final class CraftingHostStyles {
         style.adaptiveHeight(true)
                 .adaptiveWidth(false)
                 .fontSize(COMPACT_FONT_SIZE)
-                .textWrap(com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap.HOVER_ROLL)
+                .textWrap(com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap.NONE)
                 .textShadow(false);
     }
 
@@ -33,7 +33,7 @@ final class CraftingHostStyles {
         style.adaptiveHeight(true)
                 .adaptiveWidth(true)
                 .fontSize(INLINE_STATS_FONT_SIZE)
-                .textWrap(com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap.HOVER_ROLL)
+                .textWrap(com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap.NONE)
                 .textShadow(false);
     }
 }
