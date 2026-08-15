@@ -110,6 +110,8 @@
   "gui.neoecoae.crafting.active_cooling.tooltip": "從流體輸入倉消耗冷卻劑以增強效能並消除超頻的額外能耗。\n可用冷卻劑可在JEI中查詢。\n若機器運行時冷卻劑不足，將停止運行。\n若流體輸出倉已滿，則無法從流體輸入倉消耗冷卻劑，導致機器無法補充冷卻劑。",
   "gui.neoecoae.crafting.clear_coolant": "清空",
   "gui.neoecoae.crafting.clear_coolant.tooltip": "清空當前快取的冷卻值，方便切換到其他冷卻液。",
+  "gui.neoecoae.crafting.clear_output_fluid": "清空輸出液",
+  "gui.neoecoae.crafting.clear_output_fluid.tooltip": "清空當前 ECO 流體輸出倉中的液體。",
   "gui.neoecoae.crafting.coolant_max_overclock": "當前冷卻液支援的最高超頻: %d",
   "gui.neoecoae.crafting.coolant_max_overclock.none": "當前冷卻液支援的最高超頻: 無",
   "gui.neoecoae.crafting.enable_active_cooling": "啟用主動冷卻: ",

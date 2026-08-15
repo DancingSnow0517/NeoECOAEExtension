@@ -110,6 +110,8 @@
   "gui.neoecoae.crafting.active_cooling.tooltip": "自流質入倉耗涼劑以增其效，並除超頻之額耗。\n可用涼劑可於JEI中查之。\n若機運時涼劑不足，則止。\n若流質出倉已滿，則無法自流質入倉耗涼劑，致機無以補涼劑。",
   "gui.neoecoae.crafting.clear_coolant": "清空",
   "gui.neoecoae.crafting.clear_coolant.tooltip": "清今所蓄涼值，以便易他種涼液。",
+  "gui.neoecoae.crafting.clear_output_fluid": "清輸液",
+  "gui.neoecoae.crafting.clear_output_fluid.tooltip": "清今ECO流質出倉所蓄之液。",
   "gui.neoecoae.crafting.coolant_max_overclock": "今涼液可支之極超頻: %d",
   "gui.neoecoae.crafting.coolant_max_overclock.none": "今涼液可支之極超頻: 無",
   "gui.neoecoae.crafting.enable_active_cooling": "啟主動涼卻: ",

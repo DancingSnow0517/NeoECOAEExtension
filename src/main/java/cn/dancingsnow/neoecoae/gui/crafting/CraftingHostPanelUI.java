@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
@@ -59,5 +60,13 @@ public final class CraftingHostPanelUI {
         root.addChildren(CraftingHeaderUI.create(config), CraftingTopPanelsUI.create(config),
                 CraftingBottomPanelsUI.create(config));
         return root;
+    }
+
+    public static List<Button> createToolbarButtons(Config config) {
+        return CraftingHeaderUI.createToolbarButtons(config);
+    }
+
+    public static Button createClearOutputFluidButton(Runnable action) {
+        return CraftingHeaderUI.createClearOutputFluidButton(action);
     }
 }

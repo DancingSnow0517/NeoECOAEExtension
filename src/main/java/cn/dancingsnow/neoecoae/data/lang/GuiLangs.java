@@ -200,6 +200,9 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
                 provider.add("gui.neoecoae.crafting.clear_coolant.tooltip",
                                 "Clears the cached coolant so you can switch to a different coolant.");
+                provider.add("gui.neoecoae.crafting.clear_output_fluid", "Clear Output Fluid");
+                provider.add("gui.neoecoae.crafting.clear_output_fluid.tooltip",
+                                "Clears the liquid stored in this ECO fluid output hatch.");
                 provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
                 provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Current Coolant Max Overclock: None");
                 provider.add("gui.neoecoae.host.crafting.working_threads", "Working Threads");

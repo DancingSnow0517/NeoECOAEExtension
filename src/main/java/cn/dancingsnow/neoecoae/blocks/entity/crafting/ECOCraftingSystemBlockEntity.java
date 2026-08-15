@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -878,6 +879,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         clearLocalCoolant();
     }
 
+    public void clearOutputFluid() {
+        if (cluster == null || cluster.getOutputHatch() == null) {
+            return;
+        }
+        FluidTank outputHatch = cluster.getOutputHatch().tank;
+        if (outputHatch.getFluidAmount() > 0) {
+            outputHatch.drain(outputHatch.getFluidAmount(), IFluidHandler.FluidAction.EXECUTE);
+        }
+    }
+
     public void clearLocalCoolant() {
         coolant = 0;
         coolantMaxOverclock = -1;
@@ -1183,8 +1194,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
 
-        UIElement root = CraftingHostPanelUI.create(createCraftingPanelConfig());
-        root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
+        CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig();
+        UIElement root = CraftingHostPanelUI.create(panelConfig);
+        List<UIElement> sideButtons = new ArrayList<>();
+        sideButtons.add(MultiblockBuilderUI.createInlineOpenButton(buildWindow));
+        sideButtons.addAll(CraftingHostPanelUI.createToolbarButtons(panelConfig));
+        sideButtons.add(CraftingHostPanelUI.createClearOutputFluidButton(this::clearOutputFluid));
+        root.addChild(HostSideButtonBar.left(sideButtons));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
                 holder.player);

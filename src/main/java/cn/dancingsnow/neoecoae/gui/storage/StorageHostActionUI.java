@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -38,8 +39,10 @@ public final class StorageHostActionUI {
         UIElement priorityWindow
     ) {
         public void addTo(UIElement root) {
-            root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
-            root.addChild(StoragePriorityUI.createOpenButton(priorityWindow));
+            root.addChild(HostSideButtonBar.left(
+                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+                StoragePriorityUI.createInlineOpenButton(priorityWindow)
+            ));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
         }

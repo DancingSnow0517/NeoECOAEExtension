@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -20,7 +19,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
@@ -153,15 +151,7 @@ public final class ComputationHostPanelUI {
         return button;
     }
 
-    public static UIElement createFastPlanningOpenButton(Config config) {
-        return createLeftUtilityButton(createFastPlanningButton(config), 26);
-    }
-
-    public static UIElement createSubstitutionIgnoringOpenButton(Config config) {
-        return createLeftUtilityButton(createSubstitutionIgnoringButton(config), 52);
-    }
-
-    private static Button createSubstitutionIgnoringButton(Config config) {
+    public static Button createSubstitutionIgnoringButton(Config config) {
         Button button = new Button()
                 .noText()
                 .setOnServerClick(event -> config.toggleSubstitutionIgnoring.run());
@@ -190,18 +180,6 @@ public final class ComputationHostPanelUI {
                             : "gui.neoecoae.host.computation.ignore_substitutions.disabled"));
         });
         return button;
-    }
-
-    private static UIElement createLeftUtilityButton(Button button, int top) {
-        UIElement buttonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(top);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buttonPanel.addChild(button);
-        return buttonPanel;
     }
 
     private static IGuiTexture fastPlanningIcon(boolean enabled) {

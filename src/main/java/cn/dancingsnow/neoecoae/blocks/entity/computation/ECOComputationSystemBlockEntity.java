@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -36,7 +37,6 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -210,12 +210,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
                 () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
         header.addChild(titleBlock);
-        header.addChild(NetworkFrequencyButton.create(
-                panelConfig.networkFrequency(),
-                panelConfig.adjustNetworkFrequency(),
-                18,
-                18));
-        header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
 
         UIElement panels = new UIElement().layout(layout -> layout
@@ -236,9 +230,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         panels.addChild(ComputationHostPanelUI.createRightPanel(panelConfig));
 
         root.addChild(panels);
-        root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
-        root.addChild(ComputationHostPanelUI.createFastPlanningOpenButton(panelConfig));
-        root.addChild(ComputationHostPanelUI.createSubstitutionIgnoringOpenButton(panelConfig));
+        root.addChild(HostSideButtonBar.left(
+                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+                ComputationHostPanelUI.createFastPlanningButton(panelConfig),
+                ComputationHostPanelUI.createSubstitutionIgnoringButton(panelConfig),
+                NetworkFrequencyButton.create(
+                        panelConfig.networkFrequency(),
+                        panelConfig.adjustNetworkFrequency(),
+                        18,
+                        18),
+                ComputationHostPanelUI.createCpuSelectionButton(panelConfig)));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
                 holder.player);

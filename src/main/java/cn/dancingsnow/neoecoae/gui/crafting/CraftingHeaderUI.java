@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
+import java.util.List;
 
 /** Package-private header composition for the crafting host page. */
 final class CraftingHeaderUI {
@@ -56,18 +57,32 @@ final class CraftingHeaderUI {
                 .gapAll(2));
         titleBlock.addChildren(title, statusRow);
 
-        UIElement toolbar = new UIElement()
-                .addClass("eco-host-toolbar")
-                .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
-        toolbar.addChildren(
+        header.addChild(titleBlock);
+        return header;
+    }
+
+    static List<Button> createToolbarButtons(CraftingHostPanelUI.Config config) {
+        return List.of(
                 NetworkFrequencyButton.create(config.networkFrequency(), config.adjustNetworkFrequency(), 16, 16),
                 toolbarButton(config.toggleOverclocked(), Icon.POWER_UNIT_AE, config.overclocked(),
                         "gui.neoecoae.crafting.overclock.on", "gui.neoecoae.crafting.overclock.off"),
                 toolbarButton(config.toggleActiveCooling(), Icon.TYPE_FILTER_ALL, config.activeCooling(),
                         "gui.neoecoae.crafting.active_cooling.on", "gui.neoecoae.crafting.active_cooling.off"));
+    }
 
-        header.addChildren(titleBlock, toolbar);
-        return header;
+    static Button createClearOutputFluidButton(Runnable action) {
+        Button button = new Button()
+                .noText()
+                .addPreIcon(AETextures.icon(Icon.CLEAR))
+                .setOnServerClick(event -> action.run());
+        button.buttonStyle(style -> style
+                .baseTexture(Sprites.RECT_RD)
+                .hoverTexture(Sprites.RECT_RD_LIGHT)
+                .pressedTexture(Sprites.RECT_RD_DARK));
+        button.addClass("eco-host-toolbar-button");
+        button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
+        HostElements.tooltips(button, Component.translatable("gui.neoecoae.crafting.clear_output_fluid.tooltip"));
+        return button;
     }
 
     private static Label runStatusLabel(IntSupplier status) {

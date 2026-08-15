@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.multiblock;
 
 import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
@@ -107,15 +108,7 @@ public final class MultiblockBuilderUI {
     }
 
     public static UIElement createOpenButton(UIElement window) {
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(createInlineOpenButton(window));
-        return buildButtonPanel;
+        return HostSideButtonBar.left(createInlineOpenButton(window));
     }
 
     public static Button createInlineOpenButton(UIElement window) {
