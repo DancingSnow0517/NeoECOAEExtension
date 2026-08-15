@@ -222,6 +222,18 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.host.crafting.host_line", "%s · Task Slots %d · Batch %d");
                 provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
                 provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer", "Transfer Network Patterns");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.no_target",
+                                "No available F-series pattern bus found");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.indexing", "Indexing %d%%");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.progress", "Transferring %d / %d");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.ready", "Ready to transfer");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_primary",
+                                "Transferred %d; Already present %d");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary",
+                                "No space %d; Incompatible %d");
+                provider.add("gui.neoecoae.host.crafting.pattern_transfer.unavailable",
+                                "Crafting subsystem is not connected to an available network");
                 provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
                 provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
                 provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
@@ -235,6 +247,26 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
                 provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
                 provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
+                provider.add("gui.neoecoae.crafting_interface.preview", "Patterns Stored on F Host");
+                provider.add("gui.neoecoae.crafting_interface.preview.search", "Search ingredients or outputs");
+                provider.add("gui.neoecoae.crafting_interface.preview.search.tooltip",
+                                "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.");
+                provider.add("gui.neoecoae.crafting_interface.preview.filter_substitutions",
+                                "Show/hide substitution patterns");
+                provider.add("gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions",
+                                "Show/hide fluid substitution patterns");
+                provider.add("gui.neoecoae.crafting_interface.preview.refresh", "Refresh F host patterns");
+                provider.add("gui.neoecoae.crafting_interface.preview.organize", "Organize F host patterns");
                 provider.add("gui.neoecoae.crafting_interface.preview.organizing", "Organizing F host patterns %d%%");
+                provider.add("gui.neoecoae.crafting_interface.preview.organize.result_primary",
+                                "Organization complete: recovered %d invalid patterns, %d duplicate patterns");
+                provider.add("gui.neoecoae.crafting_interface.preview.organize.result_secondary",
+                                "Inventory space insufficient, %d patterns remain to be recovered");
+                provider.add("gui.neoecoae.crafting_interface.preview.scanning",
+                                "Scanning F host patterns %d / %d");
+                provider.add("gui.neoecoae.crafting_interface.preview.search_results", "Matching patterns: %d");
+                provider.add("gui.neoecoae.crafting_interface.preview.entries", "%d patterns stored on F host");
+                provider.add("gui.neoecoae.crafting_interface.preview.slots", "F host pattern slots: %d");
+                provider.add("gui.neoecoae.crafting_interface.preview.scroll", "Row %d / %d");
         }
 }

@@ -32,6 +32,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.planning.diagnostic.component_mismatch", "The item data component does not match the pattern contract");
         provider.add("gui.neoecoae.planning.diagnostic.component_no_producer", "No producer was found for this item data component");
         provider.add("gui.neoecoae.planning.diagnostic.provider_scoped_nbt", "The pattern uses provider-scoped NBT / NBT Tear data");
+        provider.add("gui.neoecoae.planning.diagnostic.stateful_output", "The output changes item components or state and cannot be safely snapshotted");
         provider.add("gui.neoecoae.planning.diagnostic.substitution_pattern", "A substitution pattern is present");
         provider.add("gui.neoecoae.planning.diagnostic.damageable_input", "A damageable or durability-bearing input cannot be snapshotted safely");
         provider.add("gui.neoecoae.planning.diagnostic.variant_expansion_limit", "Input variants expand beyond the ECO limit");

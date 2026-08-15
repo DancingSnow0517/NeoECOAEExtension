@@ -1,3 +1,0 @@
-{
-  "gui.neoecoae.planning.diagnostic.stateful_output": "The output changes item components or state and cannot be safely snapshotted"
-}
