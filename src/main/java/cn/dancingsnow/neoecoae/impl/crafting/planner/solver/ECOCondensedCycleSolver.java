@@ -42,6 +42,12 @@ public final class ECOCondensedCycleSolver {
     private ECOCondensedCycleSolver() {
     }
 
+    static void clearCache() {
+        synchronized (CYCLE_ANALYSIS_LOCK) {
+            DETERMINISTIC_ANALYSIS_CACHE.clear();
+        }
+    }
+
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
         ECOPlanningProblem<K, R> problem,
         ECOPlanningGraph<K, R> graph,

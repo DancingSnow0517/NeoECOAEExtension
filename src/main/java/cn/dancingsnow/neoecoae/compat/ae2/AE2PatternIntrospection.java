@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -122,6 +123,7 @@ public final class AE2PatternIntrospection {
         RELOAD_GENERATION.incrementAndGet();
         ECOCraftingFastPathCache.clearAllCaches();
         ECOFastPathDiagnostics.clear();
+        ECOPlanningService.clearCaches();
     }
 
     public static long getReloadGeneration() {

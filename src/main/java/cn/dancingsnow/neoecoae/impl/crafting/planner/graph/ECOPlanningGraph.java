@@ -40,6 +40,10 @@ public final class ECOPlanningGraph<K, R> {
         this.revision = fingerprintWithMaterials(this.operations, this.materials);
     }
 
+    public static void clearTopologyCache() {
+        ECOPlanningTopologyCache.clear();
+    }
+
     public List<ECOPlanningOperation<K, R>> operations() {
         return operations;
     }

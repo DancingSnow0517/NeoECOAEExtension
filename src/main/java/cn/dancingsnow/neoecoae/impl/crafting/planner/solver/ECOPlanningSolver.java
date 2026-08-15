@@ -27,6 +27,11 @@ public final class ECOPlanningSolver {
     private ECOPlanningSolver() {
     }
 
+    public static void clearCaches() {
+        ECOPlannerComputationCache.clear();
+        ECOCondensedCycleSolver.clearCache();
+    }
+
     public static <K, R> ECOHyperflowResult<R> solve(
         ECOPlanningProblem<K, R> problem,
         ECOSolveBudget budget

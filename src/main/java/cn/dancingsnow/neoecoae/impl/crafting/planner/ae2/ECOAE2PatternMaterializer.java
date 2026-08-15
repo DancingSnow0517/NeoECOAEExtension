@@ -195,6 +195,9 @@ final class ECOAE2PatternMaterializer {
                     + " slots=" + slots.size()
             );
         }
+        // The bounded basis packs inventory remainders, so its operation set is sensitive to
+        // quantities even when the candidate list itself came only from the pattern metadata.
+        inventoryDependent |= useBoundedMixableBasis;
 
         boolean truncated = false;
         if (statefulSlots > 1) {

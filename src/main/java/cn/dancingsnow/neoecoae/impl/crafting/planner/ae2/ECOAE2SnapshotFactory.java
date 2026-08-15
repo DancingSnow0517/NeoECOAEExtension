@@ -45,6 +45,12 @@ public final class ECOAE2SnapshotFactory {
     private ECOAE2SnapshotFactory() {
     }
 
+    public static void clearCache() {
+        synchronized (GRAPH_CACHE) {
+            GRAPH_CACHE.clear();
+        }
+    }
+
     public static Optional<ECOAE2PlanningSnapshot> capture(
         IGrid grid,
         ICraftingSimulationRequester requester,
@@ -454,7 +460,7 @@ public final class ECOAE2SnapshotFactory {
         CachedGraphs cached;
         InventoryGraphKey inventoryKey = new InventoryGraphKey(
             requestedKey,
-            Set.copyOf(inventory.keySet()),
+            Map.copyOf(inventory),
             fuzzyItemIds,
             ignoreSubstitutionPatterns
         );
@@ -490,7 +496,7 @@ public final class ECOAE2SnapshotFactory {
                     "inventory_graph_cache_hit generation=" + craftableGeneration
                         + " operations=" + graph.operations().size()
                         + " materials=" + graph.materialCount()
-                        + " inventoryKeys=" + inventoryKey.availableKeys().size()
+                        + " inventoryKeys=" + inventoryKey.availableAmounts().size()
                 );
                 return graph;
             }
@@ -1121,12 +1127,12 @@ public final class ECOAE2SnapshotFactory {
 
     private record InventoryGraphKey(
         AEKey requestedKey,
-        Set<AEKey> availableKeys,
+        Map<AEKey, Long> availableAmounts,
         Set<ResourceLocation> fuzzyItemIds,
         boolean ignoreSubstitutionPatterns
     ) {
         private InventoryGraphKey {
-            availableKeys = Set.copyOf(availableKeys);
+            availableAmounts = Map.copyOf(availableAmounts);
             fuzzyItemIds = Set.copyOf(fuzzyItemIds);
         }
     }

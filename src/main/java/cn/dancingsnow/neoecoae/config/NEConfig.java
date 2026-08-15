@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -352,6 +353,7 @@ public class NEConfig {
         ecoPlannerTopologyCacheSize = ECO_PLANNER_TOPOLOGY_CACHE_SIZE.get();
         ecoPlannerCycleCacheSize = ECO_PLANNER_CYCLE_CACHE_SIZE.get();
         ecoPlannerResultCacheSize = ECO_PLANNER_RESULT_CACHE_SIZE.get();
+        ECOPlanningService.clearCaches();
     }
 
     public static int getCraftingPatternBusPages() {

@@ -22,6 +22,7 @@ final class ECOPlannerComputationCache {
     private static final ConcurrentHashMap<PlanningKey, CompletableFuture<ECOHyperflowResult<?>>> IN_FLIGHT =
         new ConcurrentHashMap<>();
     private static long activeRevision = Long.MIN_VALUE;
+    private static long cacheGeneration;
 
     private ECOPlannerComputationCache() {
     }
@@ -33,8 +34,9 @@ final class ECOPlannerComputationCache {
         long deadlineNanos,
         Supplier<ECOHyperflowResult<R>> computation
     ) {
-        PlanningKey key = PlanningKey.of(problem, graph, budget);
+        PlanningKey key;
         synchronized (LOCK) {
+            key = PlanningKey.of(problem, graph, budget, cacheGeneration);
             invalidateRevisionLocked(key.graphRevision());
             ECOHyperflowResult<?> cached = RESULTS.get(key);
             if (cached != null) {
@@ -47,10 +49,12 @@ final class ECOPlannerComputationCache {
         if (running == null) {
             try {
                 ECOHyperflowResult<R> result = computation.get();
-                if (result.status() != ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {
+                if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
                     synchronized (LOCK) {
-                        RESULTS.put(key, result);
-                        trimResultsLocked();
+                        if (key.cacheGeneration() == cacheGeneration) {
+                            RESULTS.put(key, result);
+                            trimResultsLocked();
+                        }
                     }
                 }
                 created.complete(result);
@@ -91,6 +95,7 @@ final class ECOPlannerComputationCache {
         synchronized (LOCK) {
             RESULTS.clear();
             activeRevision = Long.MIN_VALUE;
+            cacheGeneration++;
         }
     }
 
@@ -139,6 +144,7 @@ final class ECOPlannerComputationCache {
     }
 
     private record PlanningKey(
+        long cacheGeneration,
         long graphRevision,
         long recipeBindingVersion,
         Object requested,
@@ -150,14 +156,17 @@ final class ECOPlannerComputationCache {
         long maxDurationNanos,
         int componentMaterialLimit,
         int componentOperationLimit,
-        int plannerBudgetVersion
+        int plannerBudgetVersion,
+        int componentSolveMillis
     ) {
         private static <K, R> PlanningKey of(
             ECOPlanningProblem<K, R> problem,
             ECOPlanningGraph<K, R> graph,
-            ECOSolveBudget budget
+            ECOSolveBudget budget,
+            long cacheGeneration
         ) {
             return new PlanningKey(
+                cacheGeneration,
                 graph.revision(),
                 graph.recipeBindingVersion(),
                 problem.requested(),
@@ -169,7 +178,8 @@ final class ECOPlannerComputationCache {
                 budget.maxDurationNanos(),
                 NEConfig.ecoPlannerMaxComponentMaterials,
                 NEConfig.ecoPlannerMaxComponentOperations,
-                NEConfig.ECO_PLANNER_BUDGET_VERSION
+                NEConfig.ECO_PLANNER_BUDGET_VERSION,
+                NEConfig.ecoPlannerComponentSolveMillis
             );
         }
     }

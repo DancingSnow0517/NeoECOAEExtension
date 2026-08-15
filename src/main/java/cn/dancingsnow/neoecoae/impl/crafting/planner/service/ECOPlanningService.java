@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PatternVariant;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOOversizedPlanEstimator;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
@@ -44,6 +45,12 @@ public final class ECOPlanningService {
     });
 
     private ECOPlanningService() {
+    }
+
+    public static void clearCaches() {
+        ECOAE2SnapshotFactory.clearCache();
+        ECOPlanningGraph.clearTopologyCache();
+        ECOPlanningSolver.clearCaches();
     }
 
     public static Future<ICraftingPlan> submit(
