@@ -42,8 +42,8 @@ public final class NetworkFrequencyButton {
         UIElement icon = new UIElement()
                 .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
-                .left(2)
-                .top(-1)
+                .left(1)
+                .top(1)
                 .width(12)
                 .height(12))
                 .style(style -> style.backgroundTexture(frequencyIcon(frequency.getAsInt())));

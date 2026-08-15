@@ -117,8 +117,8 @@ public final class HostSideButtonBar {
                 if (child != button.text && child.getStyle().backgroundTexture() != null) {
                     child.layout(layout -> layout
                             .positionType(TaffyPosition.ABSOLUTE)
-                            .left(0)
-                            .top(1)
+                            .left(1)
+                            .top(3)
                             .width(ICON_SIZE)
                             .height(ICON_SIZE));
                 }
