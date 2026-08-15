@@ -23,7 +23,7 @@ public final class NetworkFrequencyButton {
     }
 
     public static Button create(IntSupplier frequency, IntConsumer adjust, int width, int height) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
                 .noText()
                 .setOnServerClick(event -> {
                     if (event.button == 0) {
@@ -48,11 +48,11 @@ public final class NetworkFrequencyButton {
                 .height(12))
                 .style(style -> style.backgroundTexture(frequencyIcon(frequency.getAsInt())));
         UIElement content = new UIElement().layout(layout -> layout
-                .positionType(TaffyPosition.RELATIVE)
+                .positionType(TaffyPosition.ABSOLUTE)
                 .left(0)
                 .top(0)
-                .width(width)
-                .height(height));
+                .width(16)
+                .height(16));
         content.addChild(icon);
         button.addChild(content);
 

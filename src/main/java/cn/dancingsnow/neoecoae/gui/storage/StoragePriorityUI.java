@@ -80,7 +80,7 @@ public final class StoragePriorityUI {
     }
 
     public static Button createInlineOpenButton(UIElement window) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
             .noText()
             .addPostIcon(AETextures.icon(Icon.PRIORITY))
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));

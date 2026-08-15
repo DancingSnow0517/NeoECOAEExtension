@@ -4,6 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
@@ -101,7 +102,7 @@ public final class ComputationHostPanelUI {
     }
 
     public static Button createCpuSelectionButton(Config config) {
-        Button button = new Button().noText();
+        Button button = HostSideButtonBar.createButton().noText();
         button.buttonStyle(style -> style
                 .baseTexture(Sprites.RECT_RD)
                 .hoverTexture(Sprites.RECT_RD_LIGHT)
@@ -127,7 +128,7 @@ public final class ComputationHostPanelUI {
     }
 
     public static Button createFastPlanningButton(Config config) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
                 .noText()
                 .setOnServerClick(event -> config.toggleFastPlanning.run());
         button.layout(layout -> layout.width(18).height(20));
@@ -152,7 +153,7 @@ public final class ComputationHostPanelUI {
     }
 
     public static Button createSubstitutionIgnoringButton(Config config) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
                 .noText()
                 .setOnServerClick(event -> config.toggleSubstitutionIgnoring.run());
         button.buttonStyle(style -> style

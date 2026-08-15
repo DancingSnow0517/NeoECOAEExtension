@@ -1,13 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import dev.vfyjxf.taffy.style.AlignItems;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import appeng.client.gui.Icon;
 
 import java.util.Arrays;
 import java.util.List;
@@ -20,10 +21,11 @@ public final class HostSideButtonBar {
     }
 
     private static final int WIDTH = 23;
-    private static final int BUTTON_WIDTH = 18;
-    private static final int BUTTON_HEIGHT = 20;
+    private static final int BUTTON_WIDTH = 16;
+    private static final int BUTTON_HEIGHT = 16;
     private static final int ICON_SIZE = 14;
-    private static final int BUTTON_LEFT = 3;
+    // The 18x20 visual background extends one pixel beyond the 16x16 hitbox.
+    private static final int BUTTON_LEFT = 4;
     private static final int FIRST_BUTTON_TOP = 3;
     private static final int OTHER_BUTTON_TOP = 2;
     private static final int LEFT_BAR_TOP = 0;
@@ -57,6 +59,11 @@ public final class HostSideButtonBar {
 
     public static UIElement create(Side side, UIElement... buttons) {
         return create(side, Arrays.asList(buttons));
+    }
+
+    /** Creates a button with AE2's 16x16 hitbox and 18x20 visual rendering. */
+    public static Button createButton() {
+        return new AE2IconButton();
     }
 
     public static UIElement create(Side side, List<? extends UIElement> buttons) {
@@ -106,20 +113,47 @@ public final class HostSideButtonBar {
                 layout.height(BUTTON_HEIGHT);
             });
             button.setOverflowVisible(true);
-            button.buttonStyle(style -> style
-                    .baseTexture(NETextures.AE2_BUTTON)
-                    .hoverTexture(NETextures.AE2_BUTTON_HIGHLIGHTED)
-                    .pressedTexture(NETextures.AE2_BUTTON_HIGHLIGHTED));
-            if (button.hasClass("eco-host-toolbar-button")) {
-                for (UIElement child : button.getChildren()) {
-                    if (child != button.text && child.getStyle().backgroundTexture() != null) {
-                        child.layout(layout -> layout
-                                .width(ICON_SIZE)
-                                .height(ICON_SIZE)
-                                .alignSelf(AlignItems.CENTER));
-                    }
+            for (UIElement child : button.getChildren()) {
+                if (child != button.text && child.getStyle().backgroundTexture() != null) {
+                    child.layout(layout -> layout
+                            .positionType(TaffyPosition.ABSOLUTE)
+                            .left(0)
+                            .top(1)
+                            .width(ICON_SIZE)
+                            .height(ICON_SIZE));
                 }
             }
+        }
+    }
+
+    /**
+     * LDLib2 sizes a button's background to the widget itself. AE2 instead uses a 16x16 widget and draws an 18x20
+     * toolbar background around it. Translating the complete contents keeps the icon and background in lockstep.
+     */
+    private static final class AE2IconButton extends Button {
+        @Override
+        public void drawBackgroundAdditional(GUIContext guiContext) {
+            IGuiTexture background = switch (getState()) {
+                case DEFAULT -> isFocused()
+                        ? AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS)
+                        : AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND);
+                case HOVERED, PRESSED -> AETextures.icon(Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER);
+            };
+            guiContext.drawTexture(background, getPositionX() - 1, getPositionY(), 18, 20);
+        }
+
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            int yOffset = getState() == State.DEFAULT ? 0 : 1;
+            if (yOffset == 0) {
+                super.drawContents(guiContext);
+                return;
+            }
+
+            guiContext.pose.pushPose();
+            guiContext.pose.translate(0, yOffset, 0);
+            super.drawContents(guiContext);
+            guiContext.pose.popPose();
         }
     }
 

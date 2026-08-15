@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -70,7 +71,7 @@ final class CraftingHeaderUI {
     }
 
     static Button createClearOutputFluidButton(Runnable action) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
                 .noText()
                 .addPreIcon(AETextures.icon(Icon.CLEAR))
                 .setOnServerClick(event -> action.run());
@@ -101,7 +102,7 @@ final class CraftingHeaderUI {
             BooleanSupplier enabled,
             String enabledTooltipKey,
             String disabledTooltipKey) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
                 .noText()
                 .addPreIcon(AETextures.icon(icon))
                 .setOnServerClick(event -> action.run());
