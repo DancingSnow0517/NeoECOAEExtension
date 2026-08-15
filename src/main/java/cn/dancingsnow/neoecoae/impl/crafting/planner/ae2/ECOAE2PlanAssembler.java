@@ -50,6 +50,13 @@ public final class ECOAE2PlanAssembler {
         var candidate = result.candidate();
         Map<AEKey, Long> missing = findMissingSources(problem, result);
         addMissingCycleSeed(problem, result, missing);
+        var probeSchedule = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
+            && result.cycleTrace().isPresent()
+            ? ECOInventoryScheduler.schedule(problem, candidate)
+            : null;
+        if (probeSchedule != null && !probeSchedule.executable()) {
+            addMissingCycleBlockedInputs(problem, result, probeSchedule.blockedBy(), missing);
+        }
         boolean stateCapacityCovered = stateCapacityCovers(snapshot, candidate);
         if (((snapshot.truncatedStateExpansion() && !stateCapacityCovered) || snapshot.excludedDynamicPaths())
             && result.status() != ECOHyperflowResult.Status.COMPLETE) {
@@ -407,6 +414,35 @@ public final class ECOAE2PlanAssembler {
                 long deficit = Math.max(0L, amount - problem.inventory().getOrDefault(key, 0L));
                 if (deficit > 0L) {
                     missing.merge(key, deficit, Math::max);
+                }
+            }));
+    }
+
+    private static void addMissingCycleBlockedInputs(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOHyperflowResult<ECOAE2PatternVariant> result,
+        Map<AEKey, Long> blockedBy,
+        Map<AEKey, Long> missing
+    ) {
+        Set<ECOAE2PatternVariant> operations = result.cycleTrace()
+            .map(trace -> trace.missingSeedStarters().isEmpty()
+                ? trace.operations()
+                : trace.missingSeedStarters())
+            .orElse(Set.of());
+        if (operations.isEmpty()) {
+            return;
+        }
+        problem.operations().stream()
+            .filter(operation -> operations.contains(operation.reference()))
+            .forEach(operation -> operation.inputs().forEach((key, amount) -> {
+                if (problem.isUnlimited(key)) {
+                    return;
+                }
+                long blocked = blockedBy.getOrDefault(key, 0L);
+                long initialDeficit = Math.max(0L,
+                    amount - problem.inventory().getOrDefault(key, 0L));
+                if (blocked > 0L && initialDeficit > 0L) {
+                    missing.merge(key, Math.max(blocked, initialDeficit), Math::max);
                 }
             }));
     }

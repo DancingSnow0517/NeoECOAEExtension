@@ -5,7 +5,7 @@ import java.util.Collection;
 /** Assigns stable logical-network frequencies to newly formed hosts. */
 public final class NEFrequencyAllocator {
     public static final int UNASSIGNED = -1;
-    public static final int FREQUENCY_COUNT = 4;
+    public static final int FREQUENCY_COUNT = 16;
     public static final int HOST_LIMIT = 8;
 
     private NEFrequencyAllocator() {

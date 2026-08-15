@@ -10,6 +10,7 @@ public enum ECOPlannerDiagnostic {
     COMPONENT_MISMATCH("component_mismatch"),
     COMPONENT_NO_PRODUCER("component_no_producer"),
     PROVIDER_SCOPED_NBT("provider_scoped_nbt"),
+    STATEFUL_OUTPUT("stateful_output"),
     SUBSTITUTION_PATTERN("substitution_pattern"),
     DAMAGEABLE_INPUT("damageable_input"),
     VARIANT_EXPANSION_LIMIT("variant_expansion_limit"),
@@ -49,6 +50,9 @@ public enum ECOPlannerDiagnostic {
         Set<ECOPlannerDiagnostic> result = new LinkedHashSet<>();
         if (normalized.contains("provider_scoped_nbt")) {
             result.add(PROVIDER_SCOPED_NBT);
+        }
+        if (normalized.contains("stateful_output")) {
+            result.add(STATEFUL_OUTPUT);
         }
         if (normalized.contains("undeclared_dynamic_input")
             || normalized.contains("third-party pattern with dynamic")

@@ -539,6 +539,7 @@
   "gui.neoecoae.multiblock.variant.standard": "常",
   "gui.neoecoae.planning.eco_fast_suffix": " · ECO 捷冶 · %s ms",
   "gui.neoecoae.planning.reason.dynamic_smithing": "冶計 · 有可替式",
+  "gui.neoecoae.planning.diagnostic.stateful_output": "輸出將變物件元件或狀態，不能安取快照",
   "gui.neoecoae.planning.title": "冶造之計",
   "gui.neoecoae.storage.status.domain_closed": "藏離網",
   "gui.neoecoae.storage.status.domain_loading": "載藏",

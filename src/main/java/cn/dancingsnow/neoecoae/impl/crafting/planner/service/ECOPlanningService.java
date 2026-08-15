@@ -75,12 +75,8 @@ public final class ECOPlanningService {
                     snapshot.diagnostics()
                 );
             }
-            ECOPlanningFailureDiagnostics.logFailure(
+            ECOPlanningFailureDiagnostics.logDetail(
                 ECOPlanningFailureDiagnostics.Stage.ENTRY,
-                ECOPlannerFallbackReason.PLANNING_FAILURE,
-                snapshot.requestedKey(),
-                snapshot.requestedAmount(),
-                strategy,
                 "operations=" + snapshot.problem().operations().size()
                     + " inventory=" + snapshot.problem().inventory().size()
                     + " multiplePaths=" + snapshot.multiplePaths()

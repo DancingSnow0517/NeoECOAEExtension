@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
@@ -272,6 +273,21 @@ public final class ECOComponentDemandSolver {
             graph.materials(),
             expansions
         );
+        if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
+            var schedule = ECOInventoryScheduler.schedule(problem, result.candidate(), graph);
+            if (!schedule.executable()) {
+                ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                    ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                    materialKey(problem),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "component",
+                    "complete_result_not_schedulable blockedBy=" + schedule.blockedBy()
+                        + " steps=" + schedule.steps().size()
+                );
+                return Optional.empty();
+            }
+        }
         if (ECOPlanningFailureDiagnostics.canLogDetail(
             ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
         )) {

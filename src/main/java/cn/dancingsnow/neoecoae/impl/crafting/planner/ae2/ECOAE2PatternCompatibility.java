@@ -81,9 +81,11 @@ final class ECOAE2PatternCompatibility {
             return Assessment.rejected("pattern returned null inputs");
         }
         boolean configuredFuzzyInput = hasConfiguredFuzzyInput(inputs, fuzzyItemIds);
+        boolean configuredFuzzyOutput = hasConfiguredFuzzyOutput(details, fuzzyItemIds);
+        boolean configuredFuzzyPattern = configuredFuzzyInput || configuredFuzzyOutput;
         boolean ignoredSubstitution = ignoreSubstitutionPatterns && isSubstitutionPattern(details);
         if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)
-            && !configuredFuzzyInput) {
+            && !configuredFuzzyPattern) {
             return Assessment.rejected("provider_scoped_nbt");
         }
 
@@ -125,12 +127,13 @@ final class ECOAE2PatternCompatibility {
         } else if (isKnownBuiltIn(details)) {
             return assessBuiltInAlternatives(details, inputs);
         } else if (hasOnlyCanonicalOrConfiguredFuzzyInputs(
-            details, inputs, level, fuzzyItemIds
+            details, inputs, level, fuzzyItemIds, configuredFuzzyOutput
         )) {
-            // A marked input explicitly opts this third-party pattern into component-insensitive
-            // planning; every other input must remain a fixed strict input.
+            // A marked input, or a marked output that identifies this pattern, explicitly opts
+            // this third-party pattern into finite component-insensitive planning. Every input
+            // still needs at least one valid advertised candidate.
             return Assessment.accepted(
-                configuredFuzzyInput
+                configuredFuzzyPattern
                     ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
                     : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
                 false,
@@ -182,11 +185,37 @@ final class ECOAE2PatternCompatibility {
         return false;
     }
 
+    private static boolean hasConfiguredFuzzyOutput(
+        IPatternDetails details,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        if (fuzzyItemIds == null || fuzzyItemIds.isEmpty()) {
+            return false;
+        }
+        try {
+            List<GenericStack> outputs = details.getOutputs();
+            if (outputs == null) {
+                return false;
+            }
+            for (GenericStack output : outputs) {
+                if (output != null
+                    && output.what().getType().equals(appeng.api.stacks.AEKeyType.items())
+                    && fuzzyItemIds.contains(output.what().getId())) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+        return false;
+    }
+
     private static boolean hasOnlyCanonicalOrConfiguredFuzzyInputs(
         IPatternDetails details,
         IPatternDetails.IInput[] inputs,
         Level level,
-        Set<ResourceLocation> fuzzyItemIds
+        Set<ResourceLocation> fuzzyItemIds,
+        boolean allowMarkedPattern
     ) {
         try {
             for (int slot = 0; slot < inputs.length; slot++) {
@@ -199,11 +228,28 @@ final class ECOAE2PatternCompatibility {
                     continue;
                 }
                 GenericStack[] possible = input.getPossibleInputs();
-                if (possible == null
-                    || possible.length != 1
-                    || possible[0] == null
-                    || possible[0].amount() <= 0L
-                    || !input.isValid(possible[0].what(), level)) {
+                if (possible == null || possible.length == 0) {
+                    return false;
+                }
+                if (possible.length == 1
+                    && possible[0] != null
+                    && possible[0].amount() > 0L
+                    && input.isValid(possible[0].what(), level)) {
+                    continue;
+                }
+                if (!allowMarkedPattern) {
+                    return false;
+                }
+                boolean hasValidCandidate = false;
+                for (GenericStack candidate : possible) {
+                    if (candidate != null
+                        && candidate.amount() > 0L
+                        && input.isValid(candidate.what(), level)) {
+                        hasValidCandidate = true;
+                        break;
+                    }
+                }
+                if (!hasValidCandidate) {
                     return false;
                 }
             }

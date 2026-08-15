@@ -30,6 +30,7 @@
   "gui.neoecoae.planning.diagnostic.component_mismatch": "物品组件与样板输入契约不匹配",
   "gui.neoecoae.planning.diagnostic.component_no_producer": "没有找到该物品组件的生产者",
   "gui.neoecoae.planning.diagnostic.provider_scoped_nbt": "样板使用了提供器作用域的 NBT / NBT Tear 数据",
+  "gui.neoecoae.planning.diagnostic.stateful_output": "输出会改变物品组件或状态，无法安全快照",
   "gui.neoecoae.planning.diagnostic.substitution_pattern": "存在替换样板",
   "gui.neoecoae.planning.diagnostic.damageable_input": "输入带有耐久度或可损耗状态，无法安全快照",
   "gui.neoecoae.planning.diagnostic.variant_expansion_limit": "输入变体展开数量超过 ECO 限制",

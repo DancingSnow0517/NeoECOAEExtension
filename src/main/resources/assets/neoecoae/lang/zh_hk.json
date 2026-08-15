@@ -539,6 +539,7 @@
   "gui.neoecoae.multiblock.variant.standard": "標準",
   "gui.neoecoae.planning.eco_fast_suffix": " · ECO 快速合成 · %s ms",
   "gui.neoecoae.planning.reason.dynamic_smithing": "合成計劃 · 存在可替換樣板",
+  "gui.neoecoae.planning.diagnostic.stateful_output": "輸出會改變物品元件或狀態，無法安全快照",
   "gui.neoecoae.planning.title": "合成計劃",
   "gui.neoecoae.storage.status.domain_closed": "儲存已離線",
   "gui.neoecoae.storage.status.domain_loading": "正在載入儲存資料",

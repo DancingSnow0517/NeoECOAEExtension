@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
@@ -198,6 +199,17 @@ public final class ECOCondensedCycleSolver {
         Set<R> effectiveMissingSeedStarters = originalSchedule.executable()
             ? Set.of()
             : Set.copyOf(missingSeedStarters);
+        if (!originalSchedule.executable() && effectiveMissingSeedStarters.isEmpty()) {
+            inferMissingCycleSeeds(
+                problem,
+                topology,
+                candidate,
+                cycleOperations,
+                missingSeedStarters,
+                missingSeedAmounts
+            );
+            effectiveMissingSeedStarters = Set.copyOf(missingSeedStarters);
+        }
         ECOHyperflowResult.Status status = built.status();
         if (!effectiveMissingSeedStarters.isEmpty() && status == ECOHyperflowResult.Status.COMPLETE) {
             status = ECOHyperflowResult.Status.MISSING_SOURCES;
@@ -235,6 +247,55 @@ public final class ECOCondensedCycleSolver {
             expansions,
             Optional.of(new ECOCycleTrace<>(cycleOperations, effectiveMissingSeedStarters))
         ));
+    }
+
+    /**
+     * A coupled cycle can balance every material algebraically while still having no first
+     * executable operation. Convert that zero-seed case into an explicit missing-source result.
+     */
+    private static <K, R> void inferMissingCycleSeeds(
+        ECOPlanningProblem<K, R> problem,
+        ECOStrongComponents.Topology<K, R> topology,
+        ECOPlanCandidate<R> candidate,
+        Set<R> cycleOperations,
+        Set<R> missingSeedStarters,
+        Map<K, Long> missingSeedAmounts
+    ) {
+        for (var component : topology.cyclicComponents()) {
+            if (component.materials().size() < 2) {
+                continue;
+            }
+            List<ECOPlanningOperation<K, R>> active = topology.localOperationsOf(component).stream()
+                .filter(operation -> cycleOperations.contains(operation.reference()))
+                .filter(operation -> candidate.executions().getOrDefault(operation.reference(), 0L) > 0L)
+                .toList();
+            if (active.isEmpty() || active.stream().anyMatch(operation -> canStart(operation, problem.inventory()))) {
+                continue;
+            }
+            ECOPlanningOperation<K, R> starter = active.stream()
+                .min(java.util.Comparator.comparingLong(operation ->
+                    missingInputTotal(operation, problem.inventory())))
+                .orElse(null);
+            if (starter == null) {
+                continue;
+            }
+            missingSeedStarters.add(starter.reference());
+            starter.inputs().forEach((key, amount) -> {
+                if (problem.isUnlimited(key)) {
+                    return;
+                }
+                long missing = Math.max(0L, amount - problem.inventory().getOrDefault(key, 0L));
+                if (missing > 0L) {
+                    missingSeedAmounts.merge(key, missing, Math::max);
+                }
+            });
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                "cycle_seed_inferred componentMaterials=" + component.materials().size()
+                    + " starter=" + starter.reference()
+                    + " missing=" + missingSeedAmounts
+            );
+        }
     }
 
     private static <K, R> boolean expandAcyclic(

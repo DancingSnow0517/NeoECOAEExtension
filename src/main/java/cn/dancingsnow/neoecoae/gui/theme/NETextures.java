@@ -42,6 +42,12 @@ public class NETextures {
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
+    public static final IGuiTexture AE2_BUTTON = SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button.png"));
+    public static final IGuiTexture AE2_BUTTON_HIGHLIGHTED =
+        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_highlighted.png"));
+    public static final IGuiTexture AE2_BUTTON_DISABLED =
+        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_disabled.png"));
+
     public static final IGuiTexture FREQUENCY_1 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_1.png"));
     public static final IGuiTexture FREQUENCY_2 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_2.png"));
     public static final IGuiTexture FREQUENCY_3 = SpriteTexture.of(NeoECOAE.id("textures/gui/number/num_3.png"));
