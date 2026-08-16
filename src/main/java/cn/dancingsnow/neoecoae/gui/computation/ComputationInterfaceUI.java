@@ -14,7 +14,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -34,11 +33,9 @@ public final class ComputationInterfaceUI {
     private static final int ROOT_GAP = 5;
     private static final int TITLE_HEIGHT = 12;
     private static final int SECTION_TITLE_HEIGHT = 12;
-    private static final int SECTION_PADDING = 5;
     private static final int SECTION_GAP = 2;
-    private static final int FILTER_SECTION_HEIGHT = GRID_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_PADDING * 2 + SECTION_GAP;
-    private static final int INVENTORY_SECTION_HEIGHT = PLAYER_INVENTORY_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_PADDING * 2
-        + SECTION_GAP;
+    private static final int FILTER_SECTION_HEIGHT = GRID_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_GAP;
+    private static final int INVENTORY_SECTION_HEIGHT = PLAYER_INVENTORY_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_GAP;
     private static final int ROOT_WIDTH = PLAYER_INVENTORY_WIDTH + ROOT_PADDING * 2;
     private static final int ROOT_HEIGHT = ROOT_PADDING * 2 + TITLE_HEIGHT
         + FILTER_SECTION_HEIGHT + INVENTORY_SECTION_HEIGHT + ROOT_GAP * 2;
@@ -125,10 +122,9 @@ public final class ComputationInterfaceUI {
         return new UIElement().layout(layout -> layout
             .widthPercent(100)
             .height(height)
-            .paddingAll(SECTION_PADDING)
             .gapAll(SECTION_GAP)
             .flexDirection(FlexDirection.COLUMN)
-        ).style(style -> style.backgroundTexture(Sprites.BORDER_THICK_RT1));
+        );
     }
 
     private static UIElement sectionTitle(Component text) {
