@@ -503,7 +503,8 @@ public final class ECOPlanningFailureDiagnostics {
     private static boolean shouldPersist(String result) {
         return !"eco_executable_plan".equals(result)
             && !"eco_missing_sources_simulation".equals(result)
-            && !"delegated_ae2vm_or_native".equals(result);
+            && !"delegated_ae2vm_or_native".equals(result)
+            && !"native_planner_passthrough".equals(result);
     }
 
     private static void discardRetainedEntries(String requestId) {

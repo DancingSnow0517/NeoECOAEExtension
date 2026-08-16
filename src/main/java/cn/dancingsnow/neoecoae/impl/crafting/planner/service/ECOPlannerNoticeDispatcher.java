@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.service;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
@@ -13,6 +14,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Delivers planner status only to the player viewing the affected crafting menu. */
 public final class ECOPlannerNoticeDispatcher {
+    private static final AtomicLong NEXT_REQUEST_ID = new AtomicLong();
+
     private ECOPlannerNoticeDispatcher() {
     }
 
@@ -24,7 +27,7 @@ public final class ECOPlannerNoticeDispatcher {
         return actionSource.player()
             .filter(ServerPlayer.class::isInstance)
             .map(ServerPlayer.class::cast)
-            .map(player -> new Target(player, player.containerMenu.containerId))
+            .map(player -> new Target(player, player.containerMenu.containerId, NEXT_REQUEST_ID.incrementAndGet()))
             .orElse(null);
     }
 
@@ -76,6 +79,7 @@ public final class ECOPlannerNoticeDispatcher {
                 player,
                 new ECOPlannerNoticePayload(
                     target.containerId(),
+                    target.requestId(),
                     reason.id(),
                     Math.max(0L, elapsedNanos),
                     formattedBytes,
@@ -108,6 +112,6 @@ public final class ECOPlannerNoticeDispatcher {
         });
     }
 
-    public record Target(ServerPlayer player, int containerId) {
+    public record Target(ServerPlayer player, int containerId, long requestId) {
     }
 }

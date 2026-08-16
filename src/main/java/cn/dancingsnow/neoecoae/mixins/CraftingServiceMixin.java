@@ -146,14 +146,12 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
         if (level == null || simRequester == null) {
             return;
         }
-        // The host button is a network-wide master switch. Returning before diagnostics,
-        // notices, snapshot capture, AE2-VM delegation, or worker submission makes the
-        // disabled state a completely silent pass-through to AE2's native planner.
-        if (!ECOPlanningHostLease.isPlanningEnabled(this.neoecoae$computationClusters)) {
-            return;
-        }
         String diagnosticRequestId = ECOPlanningFailureDiagnostics.beginRequest(what, amount, strategy);
         try (var diagnosticScope = ECOPlanningFailureDiagnostics.bindRequest(diagnosticRequestId)) {
+            if (!ECOPlanningHostLease.isPlanningEnabled(this.neoecoae$computationClusters)) {
+                ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "native_planner_passthrough");
+                return;
+            }
             var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
 
         if (AE2VMPlanningBridge.isEnabled()

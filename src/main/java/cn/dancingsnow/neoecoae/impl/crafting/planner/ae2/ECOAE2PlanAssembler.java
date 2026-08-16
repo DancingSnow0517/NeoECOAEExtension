@@ -160,10 +160,12 @@ public final class ECOAE2PlanAssembler {
                     snapshot.requestedKey(),
                     snapshot.requestedAmount(),
                     "assembler",
-                    "simulation_schedule_incomplete_missing_only blockedBy=" + schedule.blockedBy()
+                    "simulation_schedule_incomplete_retaining_pattern_summary blockedBy=" + schedule.blockedBy()
                         + " steps=" + schedule.steps().size()
                 );
-                return Optional.of(missingOnlyPlan(snapshot, missing, estimateBytes(snapshot, candidate)));
+                return Optional.of(missingSimulationPlan(
+                    snapshot, candidate, missing, estimateBytes(snapshot, candidate)
+                ));
             }
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
@@ -649,6 +651,28 @@ public final class ECOAE2PlanAssembler {
             new KeyCounter(),
             toCounter(missing),
             Map.of()
+        );
+    }
+
+    /**
+     * Keeps the calculated crafting summary visible for deficient simulations that cannot be
+     * ordered into an executable schedule. The simulation flag prevents submission to a CPU.
+     */
+    static CraftingPlan missingSimulationPlan(
+        ECOAE2PlanningSnapshot snapshot,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
+        Map<AEKey, Long> missing,
+        long bytes
+    ) {
+        return new CraftingPlan(
+            new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
+            Math.max(1L, bytes),
+            true,
+            snapshot.multiplePaths(),
+            new KeyCounter(),
+            new KeyCounter(),
+            toCounter(missing),
+            aggregatePatternExecutions(candidate)
         );
     }
 

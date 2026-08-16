@@ -20,6 +20,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 /** Synchronizes planner status only to the player currently viewing the affected crafting menu. */
 public record ECOPlannerNoticePayload(
     int containerId,
+    long requestId,
     String reasonId,
     long elapsedNanos,
     String formattedBytes,
@@ -27,16 +28,19 @@ public record ECOPlannerNoticePayload(
 ) implements CustomPacketPayload {
     public ECOPlannerNoticePayload(
         int containerId,
+        long requestId,
         String reasonId,
         long elapsedNanos,
         String formattedBytes
     ) {
-        this(containerId, reasonId, elapsedNanos, formattedBytes, "");
+        this(containerId, requestId, reasonId, elapsedNanos, formattedBytes, "");
     }
     public static final Type<ECOPlannerNoticePayload> TYPE = new Type<>(NeoECOAE.id("planner_notice"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOPlannerNoticePayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.VAR_INT,
         ECOPlannerNoticePayload::containerId,
+        ByteBufCodecs.VAR_LONG,
+        ECOPlannerNoticePayload::requestId,
         ByteBufCodecs.STRING_UTF8,
         ECOPlannerNoticePayload::reasonId,
         ByteBufCodecs.VAR_LONG,
@@ -55,7 +59,7 @@ public record ECOPlannerNoticePayload(
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        event.registrar("1").playToClient(TYPE, STREAM_CODEC, ECOPlannerNoticePayload::handle);
+        event.registrar("2").playToClient(TYPE, STREAM_CODEC, ECOPlannerNoticePayload::handle);
     }
 
     public static Optional<ECOPlannerFallbackReason> getClientNotice(int containerId) {
@@ -76,12 +80,18 @@ public record ECOPlannerNoticePayload(
                 return;
             }
             ECOPlannerFallbackReason reason = ECOPlannerFallbackReason.fromId(payload.reasonId());
-            CLIENT_NOTICES.put(payload.containerId(), new ClientNotice(
+            ClientNotice incoming = new ClientNotice(
+                payload.requestId(),
                 reason,
                 payload.elapsedNanos(),
                 payload.formattedBytes(),
                 parseDiagnostics(payload.diagnosticIds())
-            ));
+            );
+            ClientNotice previous = CLIENT_NOTICES.get(payload.containerId());
+            if (previous != null && previous.requestId() > incoming.requestId()) {
+                return;
+            }
+            CLIENT_NOTICES.put(payload.containerId(), incoming);
             if (reason == ECOPlannerFallbackReason.FAST_PATH || reason == ECOPlannerFallbackReason.OVERFLOW) {
                 return;
             }
@@ -96,6 +106,7 @@ public record ECOPlannerNoticePayload(
     }
 
     public record ClientNotice(
+        long requestId,
         ECOPlannerFallbackReason reason,
         long elapsedNanos,
         String formattedBytes,
