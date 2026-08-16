@@ -4,11 +4,20 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.crafting.inv.ListCraftingInventory;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import net.minecraft.core.NonNullList;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
@@ -52,6 +61,74 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
         for (int i = 0; i < expandedSlots.size(); i++) {
             this.originalSlots[i] = expandedSlots.get(i);
         }
+    }
+
+    /**
+     * Resolves planner templates to the concrete component variants currently held by the CPU.
+     * The returned view is strict: extraction and provider validation see only those concrete
+     * keys, while the planner itself remains component-insensitive.
+     */
+    public static ECOSelectedInputPatternDetails resolve(
+        IPatternDetails delegate,
+        List<ECOAE2InputSelection> selectedInputs,
+        ListCraftingInventory inventory,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        Objects.requireNonNull(inventory, "inventory");
+        Objects.requireNonNull(fuzzyItemIds, "fuzzyItemIds");
+        var available = new LinkedHashMap<AEKey, Long>();
+        for (var entry : inventory.list) {
+            if (entry.getLongValue() > 0L) {
+                available.put(entry.getKey(), entry.getLongValue());
+            }
+        }
+        List<ECOAE2InputSelection> resolved = new ArrayList<>(selectedInputs.size());
+        for (ECOAE2InputSelection selection : selectedInputs) {
+            List<ECOAE2InputSelection.Alternative> alternatives = new ArrayList<>();
+            for (ECOAE2InputSelection.Alternative alternative : selection.alternatives()) {
+                GenericStack template = alternative.template();
+                long remainingUnits = alternative.multiplier();
+                boolean fuzzy = template.what().getType() == AEKeyType.items()
+                    && fuzzyItemIds.contains(template.what().getId());
+                for (var entry : available.entrySet()) {
+                    if (remainingUnits <= 0L) {
+                        break;
+                    }
+                    AEKey candidate = entry.getKey();
+                    if (fuzzy
+                        ? candidate.getType() != AEKeyType.items()
+                            || !fuzzyItemIds.contains(candidate.getId())
+                            || !candidate.getId().equals(template.what().getId())
+                        : !candidate.equals(template.what())) {
+                        continue;
+                    }
+                    long units = Math.min(remainingUnits, entry.getValue() / template.amount());
+                    if (units <= 0L) {
+                        continue;
+                    }
+                    alternatives.add(new ECOAE2InputSelection.Alternative(
+                        new GenericStack(candidate, template.amount()), units
+                    ));
+                    entry.setValue(entry.getValue() - Math.multiplyExact(template.amount(), units));
+                    remainingUnits -= units;
+                }
+                if (remainingUnits > 0L) {
+                    throw new IllegalStateException(
+                        "Planner-selected input is not available in the CPU inventory: " + template
+                    );
+                }
+            }
+            resolved.add(new ECOAE2InputSelection(alternatives));
+        }
+        return new ECOSelectedInputPatternDetails(delegate, resolved);
+    }
+
+    /** Adds the molecular-assembler contract while retaining the selected exact input view. */
+    public IPatternDetails asMolecularPattern() {
+        if (!(delegate instanceof IMolecularAssemblerSupportedPattern molecular)) {
+            return this;
+        }
+        return new MolecularView(molecular);
     }
 
     /** Restores the delegate's input-array shape after exact per-alternative extraction. */
@@ -144,6 +221,82 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
         @Override
         public AEKey getRemainingKey(AEKey what) {
             return delegate.getRemainingKey(what);
+        }
+    }
+
+    private final class MolecularView implements IMolecularAssemblerSupportedPattern {
+        private final IMolecularAssemblerSupportedPattern delegate;
+
+        private MolecularView(IMolecularAssemblerSupportedPattern delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public AEItemKey getDefinition() {
+            return ECOSelectedInputPatternDetails.this.getDefinition();
+        }
+
+        @Override
+        public IInput[] getInputs() {
+            return ECOSelectedInputPatternDetails.this.getInputs();
+        }
+
+        @Override
+        public GenericStack getPrimaryOutput() {
+            return ECOSelectedInputPatternDetails.this.getPrimaryOutput();
+        }
+
+        @Override
+        public List<GenericStack> getOutputs() {
+            return ECOSelectedInputPatternDetails.this.getOutputs();
+        }
+
+        @Override
+        public boolean supportsPushInputsToExternalInventory() {
+            return ECOSelectedInputPatternDetails.this.supportsPushInputsToExternalInventory();
+        }
+
+        @Override
+        public void pushInputsToExternalInventory(KeyCounter[] inputHolder, PatternInputSink inputSink) {
+            ECOSelectedInputPatternDetails.this.pushInputsToExternalInventory(inputHolder, inputSink);
+        }
+
+        @Override
+        public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
+            return ECOSelectedInputPatternDetails.this.getTooltip(level, flags);
+        }
+
+        @Override
+        public ItemStack assemble(CraftingInput input, Level level) {
+            return delegate.assemble(input, level);
+        }
+
+        @Override
+        public NonNullList<ItemStack> getRemainingItems(CraftingInput input) {
+            return delegate.getRemainingItems(input);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, AEItemKey key, Level level) {
+            return slot >= 0
+                && slot < inputs.length
+                && inputs[slot].isValid(key, level);
+        }
+
+        @Override
+        public boolean isSlotEnabled(int slot) {
+            if (slot < 0 || slot >= originalSlots.length) {
+                return false;
+            }
+            return delegate.isSlotEnabled(originalSlots[slot]);
+        }
+
+        @Override
+        public void fillCraftingGrid(KeyCounter[] inputHolder, CraftingGridAccessor accessor) {
+            KeyCounter[] collapsed = inputHolder.length == originalInputCount
+                ? inputHolder
+                : collapseInputHolder(inputHolder);
+            delegate.fillCraftingGrid(collapsed, accessor);
         }
     }
 }

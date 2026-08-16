@@ -56,7 +56,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
-import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyInputPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchAdmission;
 import cn.dancingsnow.neoecoae.impl.crafting.processingbatch.ECOProcessingBatchDiagnostics;
@@ -395,23 +394,32 @@ public class ECOCraftingCPULogic {
                         task.getValue().value,
                         plannedInputCount
                     );
-                    @Nullable ECOSelectedInputPatternDetails selectedDetails = usePlannedInputs
-                        ? new ECOSelectedInputPatternDetails(details, plannedInputs)
-                        : null;
+                    @Nullable ECOSelectedInputPatternDetails selectedDetails = null;
+                    if (usePlannedInputs) {
+                        try {
+                            selectedDetails = ECOSelectedInputPatternDetails.resolve(
+                                details, plannedInputs, inventory, job.fuzzyItemIds
+                            );
+                        } catch (IllegalStateException unavailableSelection) {
+                            // The reservation and the live CPU inventory can diverge after a
+                            // restart or provider-side mutation. Drop the stale planned segment
+                            // and let the strict AE2 path re-evaluate the original pattern.
+                            job.discardPlannedInputs(details);
+                            continue taskLoop;
+                        }
+                    }
                     boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
-                    if (!job.fuzzyItemIds.isEmpty()) {
-                        extractionDetails = new ECOFuzzyInputPatternDetails(extractionDetails, job.fuzzyItemIds);
-                    }
+                    IPatternDetails executionDetails = selectedDetails != null && fastPathCandidate
+                        ? selectedDetails.asMolecularPattern()
+                        : details;
                     long batchTaskRemaining = fastPathCandidate || plannedInputs == null
                         ? task.getValue().value
                         : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
                             : task.getValue().value;
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
-                    @Nullable
-                    ICraftingInventory executionInventory = new ECOFuzzyCraftingInventory(
-                        inventory, job.fuzzyItemIds);
+                    ICraftingInventory executionInventory = inventory;
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
@@ -432,7 +440,7 @@ public class ECOCraftingCPULogic {
                     }
 
                     ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
-                            details, craftingContainer, expectedOutputs, expectedContainerItems, level,
+                            executionDetails, craftingContainer, expectedOutputs, expectedContainerItems, level,
                             fastPathCandidate);
 
                     // A normal CPU evaluates the remaining item against each concrete input. A
@@ -659,6 +667,12 @@ public class ECOCraftingCPULogic {
                         }
 
                         if (!pushed) {
+                            if (!job.fuzzyItemIds.isEmpty()) {
+                                // A normal provider saw the original pattern and rejected the
+                                // concrete component. Do not replay the same fuzzy selection on
+                                // the next tick; the next attempt must use strict AE2 matching.
+                                job.discardPlannedInputs(details);
+                            }
                             deferSlowPathProvider(provider, details);
                             ae2ltBatchBridge.recordFailedSinglePush(provider, details);
                             megacellsBatchBridge.recordFailedSinglePush(provider, details);
@@ -1323,9 +1337,13 @@ public class ECOCraftingCPULogic {
         long taskRemaining,
         long plannedInputCount
     ) {
-        return !ecoFastPathCandidate
-            && plannedInputsPresent
-            && shouldUsePlannedInputs(taskRemaining, plannedInputCount);
+        // A fuzzy planner selection is still the authoritative physical choice for the next
+        // segment. Resolving it before extraction keeps ECO workers and ordinary providers on
+        // the same concrete input set; batch sizing is handled separately by the caller.
+        return plannedInputsPresent
+            && (ecoFastPathCandidate
+                ? plannedInputCount > 0L
+                : shouldUsePlannedInputs(taskRemaining, plannedInputCount));
     }
 
     private static String describeInventoryConstraint(
@@ -1365,15 +1383,9 @@ public class ECOCraftingCPULogic {
         ECOExtractedPatternExecution execution,
         Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds
     ) {
-        if (fuzzyItemIds.isEmpty() || execution.expectedContainerItems().isEmpty()) {
-            return true;
-        }
-        for (GenericStack input : execution.inputItems()) {
-            if (ECOFuzzyCraftingInventory.isConfiguredFuzzy(input.what(), fuzzyItemIds)) {
-                return false;
-            }
-        }
-        return true;
+        // A component-insensitive plan is resolved one concrete craft at a time. Batch snapshots
+        // cannot safely reuse the first component-dependent assembly for later variants.
+        return fuzzyItemIds.isEmpty();
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {

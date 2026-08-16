@@ -255,21 +255,31 @@ public final class ECOAE2SnapshotFactory {
                 return CaptureResult.failure(ECOPlannerFallbackReason.SNAPSHOT_REJECTED, List.copyOf(diagnostics));
             }
 
+            AEKey plannerRequestedKey = graph.plannerRequestedKey();
+            Map<AEKey, Long> plannerInventory = normalizePlannerInventory(
+                inventory, graph.fuzzyRepresentatives(), fuzzyItemIds
+            );
+            Set<AEKey> plannerUnlimitedInventory = normalizePlannerUnlimitedInventory(
+                unlimitedInventory, graph.fuzzyRepresentatives(), fuzzyItemIds
+            );
+
             // Existing copies of the requested output must not short-circuit a normal request,
             // but they remain valid seed material for a self-increasing target.
             boolean requestedIsInput = operations.stream()
-                .anyMatch(operation -> operation.inputs().containsKey(requestedKey));
+                .anyMatch(operation -> operation.inputs().containsKey(plannerRequestedKey));
             if (!requestedIsInput) {
-                inventory.remove(requestedKey);
-                unlimitedInventory.remove(requestedKey);
+                plannerInventory.remove(plannerRequestedKey);
+                plannerUnlimitedInventory.remove(plannerRequestedKey);
             }
-            retainRelevantInventory(inventory, unlimitedInventory, operations, requestedKey);
+            retainRelevantInventory(
+                plannerInventory, plannerUnlimitedInventory, operations, plannerRequestedKey
+            );
 
             var problem = new ECOPlanningProblem<>(
                 operations,
-                inventory,
-                Map.of(requestedKey, requestedAmount),
-                unlimitedInventory
+                plannerInventory,
+                Map.of(plannerRequestedKey, requestedAmount),
+                plannerUnlimitedInventory
             );
             Optional<ECOAE2PlanningSnapshot> snapshot = Optional.of(new ECOAE2PlanningSnapshot(
                 problem,
@@ -291,7 +301,7 @@ public final class ECOAE2SnapshotFactory {
                 ECOPlanningFailureDiagnostics.logDetail(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
                 "snapshot_ready operations=" + operations.size()
-                    + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
+                    + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(plannerInventory)
                     + " unresolved=" + summarizeKeys(graph.unresolvedMaterials())
                     + " multiplePaths=" + graph.multiplePaths()
                     + " truncatedStateExpansion=" + graph.truncatedStateExpansion()
@@ -556,6 +566,7 @@ public final class ECOAE2SnapshotFactory {
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new LinkedHashSet<>();
         Set<AEKey> unresolvedMaterials = new LinkedHashSet<>();
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives = new LinkedHashMap<>();
         Map<AEItemKey, CapturedPattern> canonicalPatterns = new LinkedHashMap<>();
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = new ArrayList<>();
         Map<ECOAE2PatternVariant, Integer> inputSlotCounts = new LinkedHashMap<>();
@@ -568,7 +579,8 @@ public final class ECOAE2SnapshotFactory {
         boolean stateful = false;
         boolean dynamicSmithing = false;
         boolean cacheable = true;
-        pending.add(requestedKey);
+        AEKey plannerRequestedKey = internPlannerKey(requestedKey, fuzzyItemIds, fuzzyRepresentatives);
+        pending.add(plannerRequestedKey);
 
         while (!pending.isEmpty()) {
             AEKey material = pending.removeFirst();
@@ -785,12 +797,21 @@ public final class ECOAE2SnapshotFactory {
                     );
                 }
                 canonicalPatterns.put(definition, new CapturedPattern(details, expansion));
-                operations.addAll(expansion.operations());
+                List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> plannerOperations =
+                    expansion.operations().stream()
+                        .map(operation -> normalizePlannerOperation(
+                            operation, fuzzyItemIds, fuzzyRepresentatives
+                        ))
+                        .toList();
+                Set<AEKey> plannerDependencies = expansion.dependencyKeys().stream()
+                    .map(key -> internPlannerKey(key, fuzzyItemIds, fuzzyRepresentatives))
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+                operations.addAll(plannerOperations);
                 stateCapacityTemplates.addAll(expansion.stateCapacityTemplates());
-                for (var operation : expansion.operations()) {
+                for (var operation : plannerOperations) {
                     inputSlotCounts.put(operation.reference(), operation.reference().selectedInputs().size());
                 }
-                pending.addAll(expansion.dependencyKeys());
+                pending.addAll(plannerDependencies);
                 multiplePaths |= expansion.operations().size() > 1;
                 truncatedStateExpansion |= expansion.truncatedStateExpansion();
                 inventoryDependent |= expansion.inventoryDependent();
@@ -805,7 +826,7 @@ public final class ECOAE2SnapshotFactory {
                     "pattern_materialized " + patternContext
                         + " variants=" + expansion.operations().size()
                         + " dependencyCount=" + expansion.dependencyKeys().size()
-                        + " dependencies=" + summarizeKeys(expansion.dependencyKeys())
+                        + " dependencies=" + summarizeKeys(plannerDependencies)
                         + " inventoryDependent=" + expansion.inventoryDependent()
                         + " stateful=" + expansion.stateful()
                         + " truncatedStateExpansion=" + expansion.truncatedStateExpansion()
@@ -838,9 +859,93 @@ public final class ECOAE2SnapshotFactory {
             stateful,
             visitedMaterials.size(),
             unresolvedMaterials,
-            !unresolvedMaterials.contains(requestedKey),
-            dynamicSmithing
+            !unresolvedMaterials.contains(plannerRequestedKey),
+            dynamicSmithing,
+            plannerRequestedKey,
+            fuzzyRepresentatives
         );
+    }
+
+    private static AEKey plannerKey(
+        AEKey key,
+        Set<ResourceLocation> fuzzyItemIds,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
+    ) {
+        if (key == null || key.getType() != appeng.api.stacks.AEKeyType.items()
+            || !fuzzyItemIds.contains(key.getId())) {
+            return key;
+        }
+        return fuzzyRepresentatives.getOrDefault(key.getId(), key);
+    }
+
+    private static AEKey internPlannerKey(
+        AEKey key,
+        Set<ResourceLocation> fuzzyItemIds,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
+    ) {
+        if (key == null || key.getType() != appeng.api.stacks.AEKeyType.items()
+            || !fuzzyItemIds.contains(key.getId())) {
+            return key;
+        }
+        return fuzzyRepresentatives.computeIfAbsent(key.getId(), ignored -> key);
+    }
+
+    private static ECOPlanningOperation<AEKey, ECOAE2PatternVariant> normalizePlannerOperation(
+        ECOPlanningOperation<AEKey, ECOAE2PatternVariant> operation,
+        Set<ResourceLocation> fuzzyItemIds,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
+    ) {
+        Map<AEKey, Long> inputs = normalizePlannerAmounts(
+            operation.inputs(), fuzzyItemIds, fuzzyRepresentatives
+        );
+        Map<AEKey, Long> outputs = normalizePlannerAmounts(
+            operation.outputs(), fuzzyItemIds, fuzzyRepresentatives
+        );
+        Set<AEKey> selectableOutputs = operation.selectableOutputs().stream()
+            .map(key -> internPlannerKey(key, fuzzyItemIds, fuzzyRepresentatives))
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<AEKey> stateTransitions = operation.stateTransitionInputs().stream()
+            .map(key -> internPlannerKey(key, fuzzyItemIds, fuzzyRepresentatives))
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return new ECOPlanningOperation<>(
+            operation.reference(), inputs, outputs, selectableOutputs, stateTransitions
+        );
+    }
+
+    private static Map<AEKey, Long> normalizePlannerAmounts(
+        Map<AEKey, Long> source,
+        Set<ResourceLocation> fuzzyItemIds,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
+    ) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        source.forEach((key, amount) -> result.merge(
+            internPlannerKey(key, fuzzyItemIds, fuzzyRepresentatives), amount, Math::addExact
+        ));
+        return result;
+    }
+
+    private static Map<AEKey, Long> normalizePlannerInventory(
+        Map<AEKey, Long> inventory,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        inventory.forEach((key, amount) -> result.merge(
+            plannerKey(key, fuzzyItemIds, fuzzyRepresentatives), amount, Math::addExact
+        ));
+        return result;
+    }
+
+    private static Set<AEKey> normalizePlannerUnlimitedInventory(
+        Set<AEKey> inventory,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        Set<AEKey> result = new LinkedHashSet<>();
+        for (AEKey key : inventory) {
+            result.add(plannerKey(key, fuzzyItemIds, fuzzyRepresentatives));
+        }
+        return result;
     }
 
     private static boolean dynamicSmithingPattern(
@@ -1115,13 +1220,17 @@ public final class ECOAE2SnapshotFactory {
         int materialCount,
         Set<AEKey> unresolvedMaterials,
         boolean targetHasProducer,
-        boolean dynamicSmithing
+        boolean dynamicSmithing,
+        AEKey plannerRequestedKey,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
     ) {
         private PatternGraph {
             operations = List.copyOf(operations);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
             stateCapacityTemplates = List.copyOf(stateCapacityTemplates);
             unresolvedMaterials = Set.copyOf(unresolvedMaterials);
+            Objects.requireNonNull(plannerRequestedKey, "plannerRequestedKey");
+            fuzzyRepresentatives = Map.copyOf(fuzzyRepresentatives);
         }
     }
 

@@ -84,8 +84,9 @@ final class ECOAE2PatternCompatibility {
         boolean configuredFuzzyOutput = hasConfiguredFuzzyOutput(details, fuzzyItemIds);
         boolean configuredFuzzyPattern = configuredFuzzyInput || configuredFuzzyOutput;
         boolean ignoredSubstitution = ignoreSubstitutionPatterns && isSubstitutionPattern(details);
-        if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)
-            && !configuredFuzzyPattern) {
+        // Provider-scoped NBT is execution-owned state. A planner marker may group ordinary
+        // item components, but it cannot make provider-specific state safe to model.
+        if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)) {
             return Assessment.rejected("provider_scoped_nbt");
         }
 

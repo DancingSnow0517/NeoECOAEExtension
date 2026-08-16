@@ -57,11 +57,14 @@ public record ECOAE2PlanningSnapshot(
         if (amount <= 0) {
             throw new IllegalArgumentException("amount must be positive");
         }
+        AEKey plannerRequestedKey = problem.requested().keySet().stream()
+            .findFirst()
+            .orElse(requestedKey);
         return new ECOAE2PlanningSnapshot(
             new ECOPlanningProblem<>(
                 problem.operations(),
                 problem.inventory(),
-                Map.of(requestedKey, amount),
+                Map.of(plannerRequestedKey, amount),
                 problem.unlimitedInventory()
             ),
             requestedKey,

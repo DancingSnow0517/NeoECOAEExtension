@@ -131,6 +131,9 @@ final class ECOAE2PatternMaterializer {
                 candidate.remainingKey().ifPresent(dependencyKeys::add);
                 if (candidate.hasStateTransition()) {
                     stateful = true;
+                    if (isConfiguredFuzzyItem(candidate.template().what(), fuzzyItemIds)) {
+                        throw reject("configured_fuzzy_state_transition slot=" + slot);
+                    }
                     if (!assessment.stateExpansionAllowed()) {
                         throw reject("undeclared_dynamic_input slot=" + slot);
                     }
@@ -463,7 +466,9 @@ final class ECOAE2PatternMaterializer {
         if (matchMode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY) {
             addItemOnlyInventoryVariants(choices, input, inventory, level, slot);
         } else if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
-            addConfiguredFuzzyInventoryVariants(choices, inventory, fuzzyItemIds);
+            // A marked item is one planner material. Keep the canonical template in the
+            // operation and resolve the concrete component from the CPU inventory at dispatch.
+            collapseConfiguredFuzzyChoices(choices, fuzzyItemIds, slot);
         } else if (assessment.includeFuzzyInventory()) {
             addFuzzyCraftableVariants(choices, input, craftingService, level, slot);
             addFuzzyInventoryVariants(choices, input, inventory, level, slot);
@@ -854,27 +859,30 @@ final class ECOAE2PatternMaterializer {
      * to keys whose item id is present in the computation interface, so ordinary item inputs stay
      * exact and no provider-specific state leaks into unrelated patterns.
      */
-    private static void addConfiguredFuzzyInventoryVariants(
+    private static void collapseConfiguredFuzzyChoices(
         Map<AEKey, Long> choices,
-        Map<AEKey, Long> inventory,
-        Set<ResourceLocation> fuzzyItemIds
+        Set<ResourceLocation> fuzzyItemIds,
+        int slot
     ) {
-        Map<ResourceLocation, Long> itemAmounts = new LinkedHashMap<>();
+        Map<ResourceLocation, Map.Entry<AEKey, Long>> canonical = new LinkedHashMap<>();
         for (var entry : choices.entrySet()) {
             if (!isConfiguredFuzzyItem(entry.getKey(), fuzzyItemIds)) {
                 continue;
             }
-            Long previous = itemAmounts.putIfAbsent(entry.getKey().getId(), entry.getValue());
-            if (previous != null && previous.longValue() != entry.getValue()) {
+            Map.Entry<AEKey, Long> previous = canonical.putIfAbsent(entry.getKey().getId(), entry);
+            if (previous != null && previous.getValue().longValue() != entry.getValue()) {
                 throw reject("candidate_template_amount_conflict key=" + entry.getKey());
             }
         }
-        for (AEKey key : inventory.keySet()) {
-            Long amount = key.getType().equals(AEKeyType.items()) ? itemAmounts.get(key.getId()) : null;
-            if (amount != null) {
-                putChoice(choices, key, amount);
-            }
+        if (canonical.isEmpty()) {
+            throw reject("configured_fuzzy_choice_missing slot=" + slot);
         }
+        choices.entrySet().removeIf(entry -> {
+            if (!isConfiguredFuzzyItem(entry.getKey(), fuzzyItemIds)) {
+                return false;
+            }
+            return canonical.get(entry.getKey().getId()).getKey() != entry.getKey();
+        });
     }
 
     private static boolean hasConfiguredFuzzyTemplate(
