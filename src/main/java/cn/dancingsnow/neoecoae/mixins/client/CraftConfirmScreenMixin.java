@@ -8,12 +8,18 @@ import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.stacks.AmountFormat;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.menu.me.crafting.CraftingPlanSummary;
+import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
+import cn.dancingsnow.neoecoae.network.ECOPlanningMissingPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import cn.dancingsnow.neoecoae.network.ECOSubmissionMissingPayload;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -21,6 +27,7 @@ import net.minecraft.world.entity.player.Inventory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Surfaces the server's planner-path choice in AE2's existing Crafting Plan title slot. */
@@ -45,6 +52,37 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
             // The ECO list supersedes AE2's single-item error screen and keeps retry available.
             getMenu().clearError();
         }
+    }
+
+    @Redirect(
+        method = "drawFG",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/menu/me/crafting/CraftingPlanSummary;getEntries()Ljava/util/List;"
+        )
+    )
+    private List<CraftingPlanSummaryEntry> neoecoae$prioritizeMissingEntries(CraftingPlanSummary plan) {
+        List<CraftingPlanSummaryEntry> entries = plan.getEntries();
+        var planningMissing = ECOPlanningMissingPayload.getClientMissing(getMenu().containerId)
+            .orElse(java.util.Map.of());
+        var submissionMissing = ECOSubmissionMissingPayload.getClientMissing(getMenu().containerId)
+            .orElse(java.util.Map.of());
+        if (planningMissing.isEmpty() && submissionMissing.isEmpty()) {
+            return entries;
+        }
+
+        List<CraftingPlanSummaryEntry> sorted = new ArrayList<>(entries);
+        sorted.sort(Comparator.comparingInt(entry -> {
+            if (entry.getMissingAmount() > 0L) {
+                return 0;
+            }
+            if (planningMissing.getOrDefault(entry.getWhat(), 0L) > 0L
+                || submissionMissing.getOrDefault(entry.getWhat(), 0L) > 0L) {
+                return 1;
+            }
+            return 2;
+        }));
+        return sorted;
     }
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
