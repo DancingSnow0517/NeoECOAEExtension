@@ -15,6 +15,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -23,22 +24,18 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 /** Configuration surface for the computation host's fast-planning item match rules. */
 public final class ComputationInterfaceUI {
     private static final int GRID_COLUMNS = 9;
-    private static final int GRID_ROWS = 4;
+    private static final int GRID_ROWS = 7;
     private static final int SLOT_SIZE = 18;
     private static final int GRID_WIDTH = GRID_COLUMNS * SLOT_SIZE;
     private static final int GRID_HEIGHT = GRID_ROWS * SLOT_SIZE;
     private static final int PLAYER_INVENTORY_WIDTH = 9 * SLOT_SIZE;
     private static final int PLAYER_INVENTORY_HEIGHT = 4 * SLOT_SIZE;
-    private static final int ROOT_PADDING = 8;
-    private static final int ROOT_GAP = 5;
-    private static final int TITLE_HEIGHT = 12;
-    private static final int SECTION_TITLE_HEIGHT = 12;
-    private static final int SECTION_GAP = 2;
-    private static final int FILTER_SECTION_HEIGHT = GRID_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_GAP;
-    private static final int INVENTORY_SECTION_HEIGHT = PLAYER_INVENTORY_HEIGHT + SECTION_TITLE_HEIGHT + SECTION_GAP;
-    private static final int ROOT_WIDTH = PLAYER_INVENTORY_WIDTH + ROOT_PADDING * 2;
-    private static final int ROOT_HEIGHT = ROOT_PADDING * 2 + TITLE_HEIGHT
-        + FILTER_SECTION_HEIGHT + INVENTORY_SECTION_HEIGHT + ROOT_GAP * 2;
+    private static final int ROOT_WIDTH = 176;
+    private static final int ROOT_HEIGHT = 253;
+    private static final int GRID_LEFT = 8;
+    private static final int GRID_TOP = 29;
+    private static final int INVENTORY_LEFT = 8;
+    private static final int INVENTORY_TOP = 168;
 
     private ComputationInterfaceUI() {
     }
@@ -50,13 +47,10 @@ public final class ComputationInterfaceUI {
         UIElement root = new UIElement().layout(layout -> layout
             .width(ROOT_WIDTH)
             .height(ROOT_HEIGHT)
-            .paddingAll(ROOT_PADDING)
-            .gapAll(ROOT_GAP)
-            .flexDirection(FlexDirection.COLUMN)
-        ).addClass("panel_bg");
+        ).style(style -> style.backgroundTexture(NETextures.NBT_BENCH));
         root.addChild(title());
-        root.addChild(filterSection(computationInterface));
-        root.addChild(playerInventorySection());
+        root.addChild(fuzzyItemSlots(computationInterface));
+        root.addChild(playerInventory());
         return new ModularUI(
             UI.of(root, java.util.List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
             player
@@ -68,7 +62,9 @@ public final class ComputationInterfaceUI {
             .setText(Component.translatable("block.neoecoae.computation_interface"))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
                 .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
-            .layout(layout -> layout.widthPercent(100).height(12));
+            .layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(8).top(6).width(160).height(12));
     }
 
     private static UIElement fuzzyItemSlots(
@@ -77,6 +73,9 @@ public final class ComputationInterfaceUI {
         UIElement grid = new UIElement().layout(layout -> layout
             .width(GRID_WIDTH)
             .height(GRID_HEIGHT)
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(GRID_LEFT)
+            .top(GRID_TOP)
             .flexDirection(FlexDirection.COLUMN)
         );
         for (int row = 0; row < GRID_ROWS; row++) {
@@ -96,43 +95,16 @@ public final class ComputationInterfaceUI {
         return grid;
     }
 
-    private static UIElement filterSection(
-        ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface
-    ) {
-        UIElement section = section(FILTER_SECTION_HEIGHT);
-        section.addChild(sectionTitle(Component.translatable("gui.neoecoae.host.computation.fast_planning")));
-        section.addChild(fuzzyItemSlots(computationInterface));
-        return section;
-    }
-
-    private static UIElement playerInventorySection() {
-        UIElement section = section(INVENTORY_SECTION_HEIGHT);
-        section.addChild(sectionTitle(Component.translatable("container.inventory")));
-
+    private static UIElement playerInventory() {
         InventorySlots playerInventory = new InventorySlots();
         playerInventory.layout(layout -> layout
             .width(PLAYER_INVENTORY_WIDTH)
             .height(PLAYER_INVENTORY_HEIGHT)
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(INVENTORY_LEFT)
+            .top(INVENTORY_TOP)
         );
-        section.addChild(playerInventory);
-        return section;
-    }
-
-    private static UIElement section(int height) {
-        return new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(height)
-            .gapAll(SECTION_GAP)
-            .flexDirection(FlexDirection.COLUMN)
-        );
-    }
-
-    private static UIElement sectionTitle(Component text) {
-        return new TextElement()
-            .setText(text)
-            .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
-                .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
-            .layout(layout -> layout.widthPercent(100).height(SECTION_TITLE_HEIGHT));
+        return playerInventory;
     }
 
     /** A JEI-targetable filter slot: its displayed stack is configuration only, never an item transfer. */

@@ -75,7 +75,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_ORGANIZE_MAX_SLOTS_PER_TICK = 24;
     private static final int PATTERN_ORGANIZE_MAX_MOVES_PER_TICK = 8;
-    public static final int FUZZY_PLANNING_SLOT_COUNT = 36;
+    public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
 
     @Getter

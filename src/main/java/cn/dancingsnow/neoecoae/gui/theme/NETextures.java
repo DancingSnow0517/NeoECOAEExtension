@@ -26,6 +26,8 @@ public class NETextures {
     public static final IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/card_background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(3, 3, 3, 3);
+    public static final IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/gui/nbtbench.png"))
+        .setSprite(0, 0, 176, 253);
 
     public static final IGuiTexture HOST_PANEL_BORDER = Sprites.BORDER_THICK_RT1;
 
