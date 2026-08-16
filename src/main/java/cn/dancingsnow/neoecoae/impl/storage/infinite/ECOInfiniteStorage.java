@@ -37,7 +37,11 @@ public final class ECOInfiniteStorage implements MEStorage {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        return engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
+        // Keep preference consistent with insert(): storage-cell items that cannot be
+        // nested must never be advertised as preferred, or AE2 may route an insert
+        // here only to receive a zero-amount rejection.
+        return ECOStorageCell.canStoreKeyInsideStorageCell(what)
+            && engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
     }
 
     @Override
