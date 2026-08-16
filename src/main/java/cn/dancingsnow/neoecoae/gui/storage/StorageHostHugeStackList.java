@@ -200,7 +200,8 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         } else {
             DrawerHelper.drawItemStack(guiContext.graphics, entry.key().wrapForDisplayOrFilter(), Math.round(x + 1), Math.round(y + 1), -1, null);
         }
-        String amount = HostText.hugeStackAmount(parseAmount(entry.amount()));
+        BigInteger value = parseAmount(entry.amount());
+        String amount = HostText.fitHugeAmount(value, 36, Minecraft.getInstance().font::width);
         guiContext.graphics.pose().pushPose();
         guiContext.graphics.pose().translate(x + 17, y + 17, 0);
         guiContext.graphics.pose().scale(0.48F, 0.48F, 1);
@@ -211,15 +212,17 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
 
     private void drawScrollbar(GUIContext guiContext, float x, float y) {
         float max = maxScrollPixels();
-        if (max <= 0.0F) {
-            return;
-        }
         float trackX = x + getSizeWidth() - 2;
         float trackHeight = getSizeHeight();
-        float thumbHeight = Math.max(10, trackHeight * trackHeight / (rowCount() * ROW_HEIGHT));
-        float thumbY = y + (trackHeight - thumbHeight) * scrollPixels / max;
+        float thumbHeight = max <= 0.0F
+            ? trackHeight
+            : Math.max(10, trackHeight * trackHeight / (rowCount() * ROW_HEIGHT));
+        float thumbY = max <= 0.0F
+            ? y
+            : y + (trackHeight - thumbHeight) * scrollPixels / max;
         guiContext.graphics.fill(Math.round(trackX), Math.round(y), Math.round(trackX + 2), Math.round(y + trackHeight), 0xAA17141E);
-        guiContext.graphics.fill(Math.round(trackX), Math.round(thumbY), Math.round(trackX + 2), Math.round(thumbY + thumbHeight), 0xFF8377FF);
+        guiContext.graphics.fill(Math.round(trackX), Math.round(thumbY), Math.round(trackX + 2), Math.round(thumbY + thumbHeight),
+            max <= 0.0F ? 0xFF686878 : 0xFF8377FF);
     }
 
     @Nullable

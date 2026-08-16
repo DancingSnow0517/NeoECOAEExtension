@@ -53,6 +53,10 @@ public final class StorageBigIntPreviewUI {
             .height(WINDOW_HEIGHT)
         ).setOverflowVisible(true).addClass("panel_bg");
 
+        window.addChild(new TerminalRowsBackground()
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
+                .width(WINDOW_WIDTH).height(17 + VISIBLE_ROWS * SLOT_SIZE)));
+
         UIElement titleBar = new UIElement().layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
             .left(0)
@@ -69,10 +73,6 @@ public final class StorageBigIntPreviewUI {
         titleBar.addChild(closeButton(window));
         WindowDragHelper.setDragMove(titleBar, window, null, null);
         window.addChild(titleBar);
-
-        window.addChild(new TerminalRowsBackground()
-            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
-                .width(WINDOW_WIDTH).height(17 + VISIBLE_ROWS * SLOT_SIZE)));
 
         window.addChild(new UIElement().layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
