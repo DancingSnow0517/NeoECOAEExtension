@@ -21,6 +21,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
 import java.util.Optional;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.math.BigInteger;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
@@ -74,6 +76,7 @@ public final class ECOPlanningService {
             long planningStarted = System.nanoTime();
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
             ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
+            ECOPlannerNoticeDispatcher.sendPlanningMissing(noticeTarget, Map.of());
             if (snapshot.dynamicSmithing()) {
                 ECOPlannerNoticeDispatcher.send(
                     noticeTarget,
@@ -156,6 +159,10 @@ public final class ECOPlanningService {
                 Optional<CraftingPlan> ecoPlan = attempt.plan();
                 if (ecoPlan.isPresent()) {
                     boolean simulation = ecoPlan.get().simulation();
+                    ECOPlannerNoticeDispatcher.sendPlanningMissing(
+                        noticeTarget,
+                        collectMissingItems(ecoPlan.get())
+                    );
                     ECOPlanningFailureDiagnostics.logTiming(
                         ECOPlanningFailureDiagnostics.Stage.ENTRY,
                         snapshot.requestedKey(), snapshot.requestedAmount(), strategy,
@@ -426,6 +433,16 @@ public final class ECOPlanningService {
             LOGGER.debug("ECO CRAFT_LESS candidate calculation failed", failure);
             return Optional.empty();
         }
+    }
+
+    private static Map<AEKey, Long> collectMissingItems(ICraftingPlan plan) {
+        Map<AEKey, Long> missing = new LinkedHashMap<>();
+        for (var entry : plan.missingItems()) {
+            if (entry.getLongValue() > 0L) {
+                missing.put(entry.getKey(), entry.getLongValue());
+            }
+        }
+        return Map.copyOf(missing);
     }
 
     private static void markFailure(ECOPlannerFallbackReason reason) {

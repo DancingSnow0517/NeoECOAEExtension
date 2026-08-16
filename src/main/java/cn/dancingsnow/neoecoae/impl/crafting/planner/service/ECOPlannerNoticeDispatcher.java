@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
+import cn.dancingsnow.neoecoae.network.ECOPlanningMissingPayload;
+import appeng.api.stacks.AEKey;
+import java.util.Map;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -113,5 +116,25 @@ public final class ECOPlannerNoticeDispatcher {
     }
 
     public record Target(ServerPlayer player, int containerId, long requestId) {
+    }
+
+    public static void sendPlanningMissing(@Nullable Target target, Map<AEKey, Long> missing) {
+        if (target == null) {
+            return;
+        }
+        MinecraftServer server = target.player().getServer();
+        if (server == null) {
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = target.player();
+            if (player.getServer() != server || player.containerMenu.containerId != target.containerId()) {
+                return;
+            }
+            PacketDistributor.sendToPlayer(
+                player,
+                new ECOPlanningMissingPayload(target.containerId(), target.requestId(), missing)
+            );
+        });
     }
 }

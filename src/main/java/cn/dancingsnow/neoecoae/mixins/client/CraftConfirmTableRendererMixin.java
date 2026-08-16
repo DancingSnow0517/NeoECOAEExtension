@@ -7,6 +7,7 @@ import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.network.ECOSubmissionMissingPayload;
+import cn.dancingsnow.neoecoae.network.ECOPlanningMissingPayload;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.ChatFormatting;
@@ -20,15 +21,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(CraftConfirmTableRenderer.class)
 public abstract class CraftConfirmTableRendererMixin {
     private static final int ECO_CYCLE_OVERLAY = 0x383FA9F5;
+    private static final int ECO_MISSING_OVERLAY = 0x33FF9800;
 
     @Inject(method = "getEntryOverlayColor", at = @At("RETURN"), cancellable = true)
     private void neoecoae$highlightCycleMaterial(
         CraftingPlanSummaryEntry entry,
         CallbackInfoReturnable<Integer> cir
     ) {
-        Long missing = currentSubmissionMissing().get(entry.getWhat());
-        if (missing != null && missing > 0L) {
-            cir.setReturnValue(0x1AFF0000);
+        // AE2's own concrete deficit always keeps its standard red overlay.
+        if (entry.getMissingAmount() > 0L) {
+            return;
+        }
+        if (currentEcoMissing(entry) > 0L) {
+            cir.setReturnValue(ECO_MISSING_OVERLAY);
             return;
         }
         var diagnostics = currentDiagnostics();
@@ -42,8 +47,11 @@ public abstract class CraftConfirmTableRendererMixin {
         CraftingPlanSummaryEntry entry,
         CallbackInfoReturnable<List<Component>> cir
     ) {
-        Long missing = currentSubmissionMissing().get(entry.getWhat());
-        if (missing == null || missing <= 0L) {
+        if (entry.getMissingAmount() > 0L) {
+            return;
+        }
+        long missing = currentEcoMissing(entry);
+        if (missing <= 0L) {
             return;
         }
         List<Component> lines = new ArrayList<>(3);
@@ -63,14 +71,14 @@ public abstract class CraftConfirmTableRendererMixin {
         CraftingPlanSummaryEntry entry,
         CallbackInfoReturnable<List<Component>> cir
     ) {
-        Long liveMissing = currentSubmissionMissing().get(entry.getWhat());
-        if (liveMissing != null && liveMissing > 0L) {
+        long ecoMissing = entry.getMissingAmount() > 0L ? 0L : currentEcoMissing(entry);
+        if (ecoMissing > 0L) {
             List<Component> lines = AEKeyRendering.getTooltip(entry.getWhat());
-            long available = Math.max(0L, entry.getStoredAmount() - liveMissing);
+            long available = Math.max(0L, entry.getStoredAmount() - ecoMissing);
             if (available > 0L) {
                 lines.add(GuiText.FromStorage.text(entry.getWhat().formatAmount(available, AmountFormat.FULL)));
             }
-            lines.add(GuiText.Missing.text(entry.getWhat().formatAmount(liveMissing, AmountFormat.FULL)));
+            lines.add(GuiText.Missing.text(entry.getWhat().formatAmount(ecoMissing, AmountFormat.FULL)));
             if (entry.getCraftAmount() > 0L) {
                 lines.add(GuiText.ToCraft.text(
                     entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.FULL)));
@@ -97,6 +105,21 @@ public abstract class CraftConfirmTableRendererMixin {
         cycleLines.add(Component.translatable("gui.neoecoae.planning.cycle_tooltip.produced", produced));
         cycleLines.add(Component.translatable("gui.neoecoae.planning.cycle_tooltip.remaining", remaining));
         cir.getReturnValue().addAll(0, cycleLines);
+    }
+
+    private static long currentEcoMissing(CraftingPlanSummaryEntry entry) {
+        long planning = currentPlanningMissing().getOrDefault(entry.getWhat(), 0L);
+        long submission = currentSubmissionMissing().getOrDefault(entry.getWhat(), 0L);
+        return Math.max(planning, submission);
+    }
+
+    private static java.util.Map<appeng.api.stacks.AEKey, Long> currentPlanningMissing() {
+        var player = Minecraft.getInstance().player;
+        if (player == null) {
+            return java.util.Map.of();
+        }
+        return ECOPlanningMissingPayload.getClientMissing(player.containerMenu.containerId)
+            .orElse(java.util.Map.of());
     }
 
     private static java.util.Map<appeng.api.stacks.AEKey, Long> currentSubmissionMissing() {
