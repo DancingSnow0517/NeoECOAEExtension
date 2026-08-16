@@ -43,7 +43,7 @@ public final class StorageBigIntPreviewUI {
             .display(TaffyDisplay.NONE)
             .width(WINDOW_WIDTH)
             .height(WINDOW_HEIGHT)
-        ).setOverflowVisible(true).style(style -> style.backgroundTexture(NETextures.CARD_BACKGROUND));
+        ).setOverflowVisible(true).addClass("panel_bg");
 
         UIElement titleBar = new UIElement().layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
