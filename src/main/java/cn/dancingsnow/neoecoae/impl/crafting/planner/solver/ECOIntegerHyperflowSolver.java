@@ -61,6 +61,7 @@ public final class ECOIntegerHyperflowSolver {
         private final Map<ECOPlanningOperation<K, R>, Integer> operationIndices = new HashMap<>();
         private final Set<K> expandableMaterials = new HashSet<>();
         private final Set<CountVector> visited = new HashSet<>();
+        private final boolean optimizeCompleteRoutes;
         private ECOPlanCandidate<R> best;
         private ECOPlanCandidate<R> completeBest;
         private long expandedStates;
@@ -80,6 +81,12 @@ public final class ECOIntegerHyperflowSolver {
             this.budget = budget;
             this.deadlineNanos = deadlineNanos;
             this.operations = graph.operations();
+            this.optimizeCompleteRoutes = graph.materials().stream().anyMatch(material ->
+                graph.producersOf(material).stream()
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                    .limit(2)
+                    .count() > 1L
+            );
             for (int i = 0; i < operations.size(); i++) {
                 var operation = operations.get(i);
                 operationIndices.put(operation, i);
@@ -185,6 +192,10 @@ public final class ECOIntegerHyperflowSolver {
                     return;
                 }
             }
+            if (optimizeCompleteRoutes && completeBest != null
+                && executionCount(counts) >= completeBest.totalExecutions()) {
+                return;
+            }
             Deficiency<K> deficiency = chooseExpandableDeficiency(
                 evaluation.balances, evaluation.bootstrapSupply);
             if (deficiency == null) {
@@ -235,7 +246,8 @@ public final class ECOIntegerHyperflowSolver {
             // keeps a usable route ahead of combinations that can consume the
             // entire state budget without ever reaching a source-backed branch.
             for (var producer : producers) {
-                if (completeBest != null && !containsProductiveSelfCycle(completeBest)) {
+                if (!optimizeCompleteRoutes
+                    && completeBest != null && !containsProductiveSelfCycle(completeBest)) {
                     return;
                 }
                 if (shouldStop()) {
@@ -268,7 +280,8 @@ public final class ECOIntegerHyperflowSolver {
                 }
             }
             for (var producer : producers) {
-                if (completeBest != null && !containsProductiveSelfCycle(completeBest)) {
+                if (!optimizeCompleteRoutes
+                    && completeBest != null && !containsProductiveSelfCycle(completeBest)) {
                     return;
                 }
                 if (shouldStop()) {
@@ -559,6 +572,14 @@ public final class ECOIntegerHyperflowSolver {
 
         private boolean shouldStop() {
             return ECOSolveBudget.shouldStop(deadlineNanos);
+        }
+
+        private long executionCount(long[] counts) {
+            long total = 0L;
+            for (long count : counts) {
+                total = ECOPlannerMath.saturatedAdd(total, count);
+            }
+            return total;
         }
 
         private boolean hasPositiveProducer(K material) {

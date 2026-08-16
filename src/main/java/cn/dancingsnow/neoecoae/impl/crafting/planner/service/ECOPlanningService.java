@@ -264,8 +264,10 @@ public final class ECOPlanningService {
         ECOPlannerNoticeDispatcher.Target noticeTarget
     ) {
         try {
+            ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph =
+                ECOGraphPruner.targetReachable(snapshot.problem());
             long solverStarted = System.nanoTime();
-            var result = ECOPlanningSolver.solve(snapshot.problem(), budget, deadlineNanos);
+            var result = ECOPlanningSolver.solve(snapshot.problem(), graph, budget, deadlineNanos);
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
                 snapshot.requestedKey(), snapshot.requestedAmount(), "solver",
@@ -285,7 +287,7 @@ public final class ECOPlanningService {
                 markFailure(ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED);
             }
             long assemblerStarted = System.nanoTime();
-            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result);
+            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result, graph);
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
                 snapshot.requestedKey(), snapshot.requestedAmount(), "assembler",
@@ -410,7 +412,7 @@ public final class ECOPlanningService {
             } else if (result.status() == ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {
                 markFailure(ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED);
             }
-            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result);
+            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result, graph);
             if (plan.isEmpty()
                 && result.status() != ECOHyperflowResult.Status.NO_ROUTE
                 && result.status() != ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {

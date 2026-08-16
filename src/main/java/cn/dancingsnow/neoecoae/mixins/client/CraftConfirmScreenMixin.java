@@ -46,17 +46,14 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
                 ).withColor(0xFF8080);
                 setTextContent("dialog_title", title);
             } else if (notice.elapsedNanos() > 0L
-                && menu.getPlan() != null
-                && !menu.getPlan().isSimulation()) {
+                && menu.getPlan() != null) {
                 String elapsed = String.format(Locale.ROOT, "%.2f", notice.elapsedNanos() / 1_000_000.0D);
                 Component title = Component.translatable("gui.neoecoae.planning.title")
                     .append(Component.translatable("gui.neoecoae.planning.eco_fast_suffix", elapsed)
                         .withColor(0x8377FF))
                     .append(Component.literal(" · " + ByteAmountFormatter.format(menu.getPlan().getUsedBytes())));
                 setTextContent("dialog_title", title);
-            } else if (reason == cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.FAST_PATH) {
-                setTextContent("dialog_title", Component.translatable("gui.neoecoae.planning.title"));
-            } else {
+            } else if (reason != cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.FAST_PATH) {
                 setTextContent(
                     "dialog_title",
                     reason == cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.DYNAMIC_SMITHING

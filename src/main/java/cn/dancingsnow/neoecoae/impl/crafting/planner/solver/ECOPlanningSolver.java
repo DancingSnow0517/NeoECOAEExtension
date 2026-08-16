@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
@@ -235,6 +236,7 @@ public final class ECOPlanningSolver {
         }
         if (component.isPresent()
             && (component.get().status() == ECOHyperflowResult.Status.COMPLETE
+                && !requiresIntegerOptimization(graph)
                 || componentMissingIsConclusive)) {
             logSelected(problem, "component", component.get());
             return component.get();
@@ -257,8 +259,37 @@ public final class ECOPlanningSolver {
         );
         logPhase(problem, "integer", phaseStarted,
             "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
+        if (component.isPresent()
+            && component.get().status() == ECOHyperflowResult.Status.COMPLETE
+            && (integer.status() != ECOHyperflowResult.Status.COMPLETE
+                || compareCandidates(component.get().candidate(), integer.candidate()) <= 0)) {
+            logSelected(problem, "component_after_integer_optimization", component.get());
+            return component.get();
+        }
         logSelected(problem, "integer", integer);
         return integer;
+    }
+
+    private static <R> int compareCandidates(
+        ECOPlanCandidate<R> left,
+        ECOPlanCandidate<R> right
+    ) {
+        int result = Long.compare(left.requestedShortfall(), right.requestedShortfall());
+        if (result == 0) result = Long.compare(left.dependencyShortfall(), right.dependencyShortfall());
+        if (result == 0) result = Long.compare(left.sourceShortfall(), right.sourceShortfall());
+        if (result == 0) result = Long.compare(left.totalExecutions(), right.totalExecutions());
+        if (result == 0) result = Long.compare(left.surplus(), right.surplus());
+        if (result == 0) result = Integer.compare(left.executions().size(), right.executions().size());
+        return result;
+    }
+
+    private static <K, R> boolean requiresIntegerOptimization(ECOPlanningGraph<K, R> graph) {
+        return graph.materials().stream().anyMatch(material ->
+            graph.producersOf(material).stream()
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                .limit(2)
+                .count() > 1L
+        );
     }
 
     private static long componentDeadline(long deadlineNanos) {
@@ -367,6 +398,15 @@ public final class ECOPlanningSolver {
                 residualInventory.put(key, amount);
             }
         });
+        // Requested inventory is not output credit, but it is still a valid bootstrap input for
+        // a self-growing recipe. Keep it in the residual problem so the integer fallback and its
+        // scheduler can prove that the cycle starts.
+        problem.requested().keySet().forEach(key -> {
+            long seed = problem.inventory().getOrDefault(key, 0L);
+            if (seed > 0L) {
+                residualInventory.put(key, seed);
+            }
+        });
         Set<K> residualUnlimited = new HashSet<>(problem.unlimitedInventory());
         residualUnlimited.retainAll(residualInventory.keySet());
         return new ECOPlanningProblem<>(
@@ -456,7 +496,7 @@ public final class ECOPlanningSolver {
         Set<K> reachable = new HashSet<>();
         ArrayDeque<K> newlyReachable = new ArrayDeque<>();
         problem.inventory().forEach((key, amount) -> {
-            if (amount > 0L && !problem.requested().containsKey(key)) {
+            if (amount > 0L) {
                 reachable.add(key);
                 newlyReachable.addLast(key);
             }

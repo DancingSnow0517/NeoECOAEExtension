@@ -9,6 +9,7 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2LTOverloadPatternCompatibility;
+import cn.dancingsnow.neoecoae.compat.ae2.UselessModPatternCompatibility;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
@@ -165,8 +166,8 @@ final class ECOAE2PatternMaterializer {
             }
         }
 
-        if (hasStateChangingOutput(slots, fixedOutputs)) {
-            throw reject("stateful_output");
+        if (hasConfiguredFuzzyStateChangingOutput(slots, fixedOutputs, fuzzyItemIds)) {
+            throw reject("configured_fuzzy_stateful_output");
         }
 
         int variantLimit = stateful ? MAX_STATEFUL_VARIANTS_PER_PATTERN : MAX_VARIANTS_PER_PATTERN;
@@ -415,6 +416,7 @@ final class ECOAE2PatternMaterializer {
             }
         }
         return AE2LTOverloadPatternCompatibility.ignoresComponents(details, slot)
+            || UselessModPatternCompatibility.ignoresComponents(details, slot)
             ? IECOPlannerInputPolicy.MatchMode.ITEM_ONLY
             : IECOPlannerInputPolicy.MatchMode.STRICT;
     }
@@ -463,11 +465,14 @@ final class ECOAE2PatternMaterializer {
             throw reject("input_has_no_valid_choice slot=" + slot);
         }
 
+        Set<AEKey> configuredFuzzyRuntimeCandidates = new LinkedHashSet<>();
         if (matchMode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY) {
             addItemOnlyInventoryVariants(choices, input, inventory, level, slot);
         } else if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
             // A marked item is one planner material. Keep the canonical template in the
             // operation and resolve the concrete component from the CPU inventory at dispatch.
+            configuredFuzzyRuntimeCandidates.addAll(choices.keySet());
+            configuredFuzzyRuntimeCandidates.addAll(inventory.keySet());
             collapseConfiguredFuzzyChoices(choices, fuzzyItemIds, slot);
         } else if (assessment.includeFuzzyInventory()) {
             addFuzzyCraftableVariants(choices, input, craftingService, level, slot);
@@ -483,7 +488,69 @@ final class ECOAE2PatternMaterializer {
                 slot
             ));
         }
+        if (hasConfiguredFuzzyTemplate(input, fuzzyItemIds)) {
+            Candidate canonical = result.getFirst();
+            validateConfiguredFuzzyRemainders(
+                input,
+                canonical.template().what(),
+                canonical.remainingKey().orElse(null),
+                configuredFuzzyRuntimeCandidates,
+                fuzzyItemIds,
+                slot
+            );
+        }
         return result;
+    }
+
+    private static void validateConfiguredFuzzyRemainders(
+        IPatternDetails.IInput input,
+        AEKey template,
+        AEKey expected,
+        Set<AEKey> runtimeCandidates,
+        Set<ResourceLocation> fuzzyItemIds,
+        int slot
+    ) {
+        for (AEKey candidate : runtimeCandidates) {
+            if (candidate.equals(template)
+                || candidate.getType() != AEKeyType.items()
+                || !candidate.getId().equals(template.getId())) {
+                continue;
+            }
+            AEKey actual = remainingKey(input, candidate, slot);
+            if (!equivalentFuzzyRemainder(expected, actual, fuzzyItemIds)) {
+                throw reject(
+                    "configured_fuzzy_remaining_key_mismatch slot=" + slot
+                        + " template=" + template
+                        + " candidate=" + candidate
+                        + " templateRemaining=" + expected
+                        + " candidateRemaining=" + actual
+                );
+            }
+        }
+    }
+
+    private static AEKey remainingKey(IPatternDetails.IInput input, AEKey key, int slot) {
+        try {
+            return input.getRemainingKey(key);
+        } catch (RuntimeException | LinkageError failure) {
+            throw reject("remaining_key_exception slot=" + slot, failure);
+        }
+    }
+
+    private static boolean equivalentFuzzyRemainder(
+        AEKey expected,
+        AEKey actual,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        if (Objects.equals(expected, actual)) {
+            return true;
+        }
+        return expected != null
+            && actual != null
+            && expected.getType() == AEKeyType.items()
+            && actual.getType() == AEKeyType.items()
+            && expected.getId().equals(actual.getId())
+            && fuzzyItemIds.contains(expected.getId());
     }
 
     private static void rejectUndeclaredInventoryVariants(
@@ -610,12 +677,7 @@ final class ECOAE2PatternMaterializer {
         if (template == null || template.amount() <= 0L) {
             throw reject("invalid_candidate slot=" + slot);
         }
-        AEKey remaining;
-        try {
-            remaining = input.getRemainingKey(template.what());
-        } catch (RuntimeException | LinkageError failure) {
-            throw reject("remaining_key_exception slot=" + slot, failure);
-        }
+        AEKey remaining = remainingKey(input, template.what(), slot);
         Optional<AEKey> remainingKey = remaining == null ? Optional.empty() : Optional.of(remaining);
         boolean stateTransition = remainingKey.isPresent()
             && !remainingKey.get().equals(template.what())
@@ -932,14 +994,19 @@ final class ECOAE2PatternMaterializer {
         return List.copyOf(templates);
     }
 
-    private static boolean hasStateChangingOutput(
+    private static boolean hasConfiguredFuzzyStateChangingOutput(
         List<SlotMaterialization> slots,
-        List<GenericStack> outputs
+        List<GenericStack> outputs,
+        Set<ResourceLocation> fuzzyItemIds
     ) {
+        if (fuzzyItemIds.isEmpty()) {
+            return false;
+        }
         for (SlotMaterialization slot : slots) {
             for (Candidate candidate : slot.candidates()) {
                 AEKey input = candidate.template().what();
-                if (!input.getType().equals(AEKeyType.items())) {
+                if (!input.getType().equals(AEKeyType.items())
+                    || !fuzzyItemIds.contains(input.getId())) {
                     continue;
                 }
                 for (GenericStack output : outputs) {

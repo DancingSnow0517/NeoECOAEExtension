@@ -11,6 +11,7 @@ import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2LTOverloadPatternCompatibility;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.compat.ae2.UselessModPatternCompatibility;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -124,6 +125,12 @@ final class ECOAE2PatternCompatibility {
         } else if (details.getClass() == AEProcessingPattern.class) {
             return Assessment.accepted(
                 IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, true
+            );
+        } else if (UselessModPatternCompatibility.isCompatible(
+            details, inputs.length, safeOutputCount(details)
+        )) {
+            return Assessment.accepted(
+                IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES, false, true
             );
         } else if (isKnownBuiltIn(details)) {
             return assessBuiltInAlternatives(details, inputs);
@@ -286,6 +293,26 @@ final class ECOAE2PatternCompatibility {
             || details.getClass() == AECraftingPattern.class
             || details.getClass() == AESmithingTablePattern.class
             || details.getClass() == AEStonecuttingPattern.class;
+    }
+
+    static boolean isKnownCompatibleThirdParty(IPatternDetails details) {
+        try {
+            IPatternDetails.IInput[] inputs = details.getInputs();
+            return inputs != null && UselessModPatternCompatibility.isCompatible(
+                details, inputs.length, safeOutputCount(details)
+            );
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
+
+    private static int safeOutputCount(IPatternDetails details) {
+        try {
+            List<GenericStack> outputs = details.getOutputs();
+            return outputs == null ? -1 : outputs.size();
+        } catch (RuntimeException | LinkageError ignored) {
+            return -1;
+        }
     }
 
     static boolean isSubstitutionPattern(IPatternDetails details) {

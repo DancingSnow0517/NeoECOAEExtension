@@ -157,6 +157,23 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         return engine;
     }
 
+    /** Loads a strict V2 snapshot without consulting DimensionDataStorage's in-memory cache. */
+    static SavedDataInfiniteStorageEngine loadFromDisk(
+        HolderLookup.Provider registries,
+        UUID expectedDomainId,
+        DimensionDataStorage dataStorage,
+        Path dataFile
+    ) throws IOException {
+        CompoundTag root;
+        try (InputStream input = Files.newInputStream(dataFile)) {
+            root = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+        }
+        if (!root.contains("data", Tag.TAG_COMPOUND)) {
+            throw new IOException("Infinite-storage SavedData is missing its data root");
+        }
+        return load(root.getCompound("data"), registries, expectedDomainId, dataStorage, dataFile);
+    }
+
     synchronized void importLegacy(
         Map<AEKey, HugeAmount> importedAmounts,
         Collection<UUID> importedReceipts,

@@ -9,6 +9,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECORepeatedBlock;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduleEntry;
@@ -31,6 +33,14 @@ public final class ECOAE2PlanAssembler {
         ECOAE2PlanningSnapshot snapshot,
         ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
+        return assemble(snapshot, result, ECOGraphPruner.targetReachable(snapshot.problem()));
+    }
+
+    public static Optional<CraftingPlan> assemble(
+        ECOAE2PlanningSnapshot snapshot,
+        ECOHyperflowResult<ECOAE2PatternVariant> result,
+        ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph
+    ) {
         if (result.status() != ECOHyperflowResult.Status.COMPLETE
             && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
             ECOPlanningFailureDiagnostics.logFailure(
@@ -52,7 +62,7 @@ public final class ECOAE2PlanAssembler {
         addMissingCycleSeed(problem, result, missing);
         var probeSchedule = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
             && result.cycleTrace().isPresent()
-            ? ECOInventoryScheduler.schedule(problem, candidate)
+            ? ECOInventoryScheduler.schedule(problem, candidate, graph)
             : null;
         if (probeSchedule != null && !probeSchedule.executable()) {
             addMissingCycleBlockedInputs(problem, result, probeSchedule.blockedBy(), missing);
@@ -141,7 +151,7 @@ public final class ECOAE2PlanAssembler {
             problem.unlimitedInventory()
         );
         long schedulerStarted = System.nanoTime();
-        var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate);
+        var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate, graph);
         ECOPlanningFailureDiagnostics.logTiming(
             ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
             snapshot.requestedKey(), snapshot.requestedAmount(), "scheduler",
@@ -401,6 +411,17 @@ public final class ECOAE2PlanAssembler {
         ECOHyperflowResult<ECOAE2PatternVariant> result,
         Map<AEKey, Long> missing
     ) {
+        Map<?, Long> exactAmounts = result.cycleTrace()
+            .map(trace -> trace.missingSeedAmounts())
+            .orElse(Map.of());
+        if (!exactAmounts.isEmpty()) {
+            exactAmounts.forEach((key, amount) -> {
+                if (key instanceof AEKey aeKey && !problem.isUnlimited(aeKey) && amount > 0L) {
+                    missing.merge(aeKey, amount, Math::max);
+                }
+            });
+            return;
+        }
         Set<ECOAE2PatternVariant> starters = result.cycleTrace()
             .map(trace -> trace.missingSeedStarters())
             .orElse(Set.of());
@@ -426,6 +447,9 @@ public final class ECOAE2PlanAssembler {
         Map<AEKey, Long> blockedBy,
         Map<AEKey, Long> missing
     ) {
+        if (result.cycleTrace().map(trace -> !trace.missingSeedAmounts().isEmpty()).orElse(false)) {
+            return;
+        }
         Set<ECOAE2PatternVariant> operations = result.cycleTrace()
             .map(trace -> trace.missingSeedStarters().isEmpty()
                 ? trace.operations()
@@ -664,16 +688,47 @@ public final class ECOAE2PlanAssembler {
         Map<AEKey, Long> missing,
         long bytes
     ) {
+        // The scheduler can be incomplete for a deficient graph, but the plan summary must still
+        // expose the inventory portion and retain patternTimes so AE2 can render its recipe tree.
+        KeyCounter usedItems = estimateUsedItemsForSimulation(snapshot.problem(), candidate);
         return new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             Math.max(1L, bytes),
             true,
             snapshot.multiplePaths(),
-            new KeyCounter(),
+            usedItems,
             new KeyCounter(),
             toCounter(missing),
             aggregatePatternExecutions(candidate)
         );
+    }
+
+    private static KeyCounter estimateUsedItemsForSimulation(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
+    ) {
+        Map<AEKey, Long> required = new LinkedHashMap<>();
+        for (var operation : problem.operations()) {
+            long executions = candidate.executions().getOrDefault(operation.reference(), 0L);
+            if (executions <= 0L) {
+                continue;
+            }
+            for (var input : operation.inputs().entrySet()) {
+                long amount = saturatedMultiply(input.getValue(), executions);
+                required.merge(input.getKey(), amount, ECOAE2PlanAssembler::saturatedAdd);
+            }
+        }
+        KeyCounter used = new KeyCounter();
+        required.forEach((key, amount) -> {
+            if (problem.isUnlimited(key)) {
+                return;
+            }
+            long available = problem.inventory().getOrDefault(key, 0L);
+            if (available > 0L && amount > 0L) {
+                used.add(key, Math.min(available, amount));
+            }
+        });
+        return used;
     }
 
     private static void mergeScaled(Map<AEKey, Long> balances, AEKey key, long amount, long count) {

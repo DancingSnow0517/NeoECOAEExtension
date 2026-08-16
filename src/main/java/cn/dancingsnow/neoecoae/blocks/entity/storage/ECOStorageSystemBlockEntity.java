@@ -369,13 +369,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-    /** Reopens a cleanly closed domain once when an administrator/player inspects the controller. */
+    /** Reopens a closed or safely reloadable quarantined domain when it is inspected. */
     private void recoverInfiniteDomainOnUiOpen(Player player) {
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
             return;
         }
         ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.openExisting(serverLevel, infiniteDomainId);
-        if (engine.getState() != ECOInfiniteDomainState.CLOSED) {
+        ECOInfiniteDomainState state = engine.getState();
+        if (state != ECOInfiniteDomainState.CLOSED && state != ECOInfiniteDomainState.QUARANTINED) {
             return;
         }
         engine = ECOInfiniteStorageDomains.recover(serverLevel, infiniteDomainId);

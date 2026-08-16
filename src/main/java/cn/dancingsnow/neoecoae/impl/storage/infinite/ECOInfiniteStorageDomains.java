@@ -61,7 +61,7 @@ public final class ECOInfiniteStorageDomains {
         return created;
     }
 
-    /** Reopens a domain that was closed after its most recent successful persistence check. */
+    /** Reopens a cleanly closed domain or reloads a quarantined domain from its strict disk snapshot. */
     public static synchronized ECOInfiniteStorageEngine recover(ServerLevel level, UUID domainId) {
         Path worldRoot = worldRoot(level);
         String key = keyFor(worldRoot, domainId);
@@ -368,17 +368,64 @@ public final class ECOInfiniteStorageDomains {
 
         private synchronized void recover() {
             if (delegate != null) {
-                if (delegate.getState() == ECOInfiniteDomainState.CLOSED && delegate.reopenAndVerify()) {
+                ECOInfiniteDomainState delegateState = delegate.getState();
+                if (delegateState == ECOInfiniteDomainState.CLOSED && delegate.reopenAndVerify()) {
                     offlineState = ECOInfiniteDomainState.READY;
                     failureReason = null;
+                } else if (delegateState == ECOInfiniteDomainState.QUARANTINED
+                        || offlineState == ECOInfiniteDomainState.QUARANTINED) {
+                    reloadQuarantinedV2();
                 }
                 return;
             }
-            if (offlineState == ECOInfiniteDomainState.CLOSED) {
+            if (offlineState == ECOInfiniteDomainState.CLOSED
+                    || offlineState == ECOInfiniteDomainState.QUARANTINED) {
                 offlineState = ECOInfiniteDomainState.LOADING;
                 failureReason = null;
                 initialize(false);
+                if (delegate != null
+                        && (delegate.getState() == ECOInfiniteDomainState.QUARANTINED
+                            || offlineState == ECOInfiniteDomainState.QUARANTINED)) {
+                    reloadQuarantinedV2();
+                }
                 advanceMigration(false);
+            }
+        }
+
+        private synchronized void reloadQuarantinedV2() {
+            try {
+                if (!Files.isRegularFile(dataFile, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IOException("The V2 SavedData file is missing or is not a regular file");
+                }
+                SavedDataInfiniteStorageEngine reloaded = SavedDataInfiniteStorageEngine.loadFromDisk(
+                    registries,
+                    domainId,
+                    dataStorage,
+                    dataFile
+                );
+                dataStorage.set(savedDataName, reloaded);
+                delegate = reloaded;
+                reloaded.flushAndAwait();
+                if (reloaded.getState() != ECOInfiniteDomainState.READY) {
+                    throw new IOException(
+                        reloaded.getFailureReason().orElse("The persisted V2 snapshot failed read-back verification")
+                    );
+                }
+                offlineState = ECOInfiniteDomainState.LOADING;
+                failureReason = null;
+                finishInterruptedArchive(
+                    findLegacyDomainPaths(worldRoot, domainId),
+                    Files.isDirectory(archiveDomain, LinkOption.NOFOLLOW_LINKS)
+                );
+                if (offlineState == ECOInfiniteDomainState.QUARANTINED) {
+                    return;
+                }
+                offlineState = ECOInfiniteDomainState.READY;
+                failureReason = null;
+                loadJustCompleted = true;
+                LOGGER.info("Reloaded quarantined infinite-storage domain {} from its verified V2 snapshot", domainId);
+            } catch (Exception e) {
+                quarantine("Unable to reload quarantined V2 infinite-storage domain", e);
             }
         }
 

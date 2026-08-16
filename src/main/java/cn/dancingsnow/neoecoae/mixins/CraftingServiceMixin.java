@@ -268,6 +268,10 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             cir.cancel();
             return;
         }
+        // Publish the in-progress state before the worker can complete and return a plan.
+        // Otherwise the client may receive a simulation plan first and briefly render it
+        // as a completed, title-only crafting plan instead of AE2's calculating screen.
+        ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
         var ecoPlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () -> ECOPlanningService.submit(
             capture.snapshot().orElseThrow(), strategy, lease.get(), noticeTarget, fallback::run);
         cir.setReturnValue(ecoPlanning.get());

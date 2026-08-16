@@ -12,6 +12,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.pattern.AESmithingTablePattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
+import cn.dancingsnow.neoecoae.compat.ae2.UselessModPatternCompatibility;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
@@ -256,11 +257,11 @@ public final class ECOAE2SnapshotFactory {
             }
 
             AEKey plannerRequestedKey = graph.plannerRequestedKey();
-            Map<AEKey, Long> plannerInventory = normalizePlannerInventory(
-                inventory, graph.fuzzyRepresentatives(), fuzzyItemIds
-            );
             Set<AEKey> plannerUnlimitedInventory = normalizePlannerUnlimitedInventory(
                 unlimitedInventory, graph.fuzzyRepresentatives(), fuzzyItemIds
+            );
+            Map<AEKey, Long> plannerInventory = normalizePlannerInventory(
+                inventory, plannerUnlimitedInventory, graph.fuzzyRepresentatives(), fuzzyItemIds
             );
 
             // Existing copies of the requested output must not short-circuit a normal request,
@@ -471,10 +472,13 @@ public final class ECOAE2SnapshotFactory {
         InventoryGraphKey inventoryKey = new InventoryGraphKey(
             requestedKey,
             Map.copyOf(inventory),
+            level,
             fuzzyItemIds,
             ignoreSubstitutionPatterns
         );
-        GraphKey graphKey = new GraphKey(requestedKey, fuzzyItemIds, ignoreSubstitutionPatterns);
+        GraphKey graphKey = new GraphKey(
+            requestedKey, level, fuzzyItemIds, ignoreSubstitutionPatterns
+        );
         synchronized (GRAPH_CACHE) {
             cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
@@ -563,6 +567,9 @@ public final class ECOAE2SnapshotFactory {
         Set<ResourceLocation> fuzzyItemIds,
         boolean ignoreSubstitutionPatterns
     ) {
+        // A pattern may explicitly declare item-id output semantics. Keep this local to the
+        // snapshot so the exact AE2 service index remains untouched for unrelated requests.
+        fuzzyItemIds = new LinkedHashSet<>(fuzzyItemIds);
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new LinkedHashSet<>();
         Set<AEKey> unresolvedMaterials = new LinkedHashSet<>();
@@ -596,14 +603,9 @@ public final class ECOAE2SnapshotFactory {
 
             List<IPatternDetails> producers;
             try {
-                var rawProducers = craftingService.getCraftingFor(material);
-                if (rawProducers == null) {
-                    throw reject(
-                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        "crafting_for_returned_null material=" + material
-                    );
-                }
-                producers = new ArrayList<>(rawProducers);
+                producers = craftingForMaterial(
+                    craftingService, material, fuzzyItemIds, fuzzyRepresentatives
+                );
             } catch (RuntimeException | LinkageError failure) {
                 throw reject(
                     ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
@@ -797,14 +799,15 @@ public final class ECOAE2SnapshotFactory {
                     );
                 }
                 canonicalPatterns.put(definition, new CapturedPattern(details, expansion));
+                Set<ResourceLocation> plannerFuzzyItemIds = fuzzyItemIds;
                 List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> plannerOperations =
                     expansion.operations().stream()
                         .map(operation -> normalizePlannerOperation(
-                            operation, fuzzyItemIds, fuzzyRepresentatives
+                            operation, plannerFuzzyItemIds, fuzzyRepresentatives
                         ))
                         .toList();
                 Set<AEKey> plannerDependencies = expansion.dependencyKeys().stream()
-                    .map(key -> internPlannerKey(key, fuzzyItemIds, fuzzyRepresentatives))
+                    .map(key -> internPlannerKey(key, plannerFuzzyItemIds, fuzzyRepresentatives))
                     .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
                 operations.addAll(plannerOperations);
                 stateCapacityTemplates.addAll(expansion.stateCapacityTemplates());
@@ -864,6 +867,87 @@ public final class ECOAE2SnapshotFactory {
             plannerRequestedKey,
             fuzzyRepresentatives
         );
+    }
+
+    private static List<IPatternDetails> craftingForMaterial(
+        ICraftingService craftingService,
+        AEKey material,
+        Set<ResourceLocation> fuzzyItemIds,
+        Map<ResourceLocation, AEKey> fuzzyRepresentatives
+    ) {
+        var rawProducers = craftingService.getCraftingFor(material);
+        if (rawProducers == null) {
+            throw reject(
+                ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                "crafting_for_returned_null material=" + material
+            );
+        }
+        List<IPatternDetails> producers = new ArrayList<>(rawProducers);
+        if (material.getType() != appeng.api.stacks.AEKeyType.items()) {
+            return producers;
+        }
+        if (!producers.isEmpty() && !fuzzyItemIds.contains(material.getId())) {
+            return producers;
+        }
+
+        Set<AEKey> fuzzyCraftables = craftingService.getCraftables(
+            candidate -> candidate.getType() == material.getType()
+                && Objects.equals(candidate.getPrimaryKey(), material.getPrimaryKey())
+        );
+        if (fuzzyCraftables == null || fuzzyCraftables.isEmpty()) {
+            return producers;
+        }
+
+        boolean componentInsensitiveOutput = false;
+        for (AEKey fuzzyCraftable : fuzzyCraftables) {
+            if (fuzzyCraftable.equals(material)) {
+                continue;
+            }
+            var fuzzyProducers = craftingService.getCraftingFor(fuzzyCraftable);
+            if (fuzzyProducers == null) {
+                continue;
+            }
+            for (IPatternDetails details : fuzzyProducers) {
+                if (hasComponentInsensitiveOutput(details, material, fuzzyItemIds)) {
+                    producers.add(details);
+                    componentInsensitiveOutput = true;
+                }
+            }
+        }
+        if (componentInsensitiveOutput) {
+            fuzzyItemIds.add(material.getId());
+            fuzzyRepresentatives.putIfAbsent(material.getId(), material);
+        }
+        return producers;
+    }
+
+    private static boolean hasComponentInsensitiveOutput(
+        IPatternDetails details,
+        AEKey material,
+        Set<ResourceLocation> fuzzyItemIds
+    ) {
+        try {
+            List<GenericStack> outputs = details.getOutputs();
+            if (outputs == null) {
+                return false;
+            }
+            for (int slot = 0; slot < outputs.size(); slot++) {
+                GenericStack output = outputs.get(slot);
+                if (output == null
+                    || output.what().getType() != appeng.api.stacks.AEKeyType.items()
+                    || !Objects.equals(output.what().getPrimaryKey(), material.getPrimaryKey())) {
+                    continue;
+                }
+                if (output.what().equals(material)
+                    || fuzzyItemIds.contains(material.getId())
+                    || UselessModPatternCompatibility.ignoresComponentsOutput(details, slot)) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+        return false;
     }
 
     private static AEKey plannerKey(
@@ -926,13 +1010,19 @@ public final class ECOAE2SnapshotFactory {
 
     private static Map<AEKey, Long> normalizePlannerInventory(
         Map<AEKey, Long> inventory,
+        Set<AEKey> normalizedUnlimitedInventory,
         Map<ResourceLocation, AEKey> fuzzyRepresentatives,
         Set<ResourceLocation> fuzzyItemIds
     ) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
-        inventory.forEach((key, amount) -> result.merge(
-            plannerKey(key, fuzzyItemIds, fuzzyRepresentatives), amount, Math::addExact
-        ));
+        inventory.forEach((key, amount) -> {
+            AEKey normalized = plannerKey(key, fuzzyItemIds, fuzzyRepresentatives);
+            if (normalizedUnlimitedInventory.contains(normalized)) {
+                result.put(normalized, Long.MAX_VALUE);
+            } else {
+                result.merge(normalized, amount, Math::addExact);
+            }
+        });
         return result;
     }
 
@@ -1119,7 +1209,8 @@ public final class ECOAE2SnapshotFactory {
         ECOAE2PatternMaterializer.PatternExpansion expansion
     ) {
         return (details instanceof IECOPlannerCompatiblePattern
-                || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
+                || ECOAE2PatternCompatibility.isKnownBuiltIn(details)
+                || ECOAE2PatternCompatibility.isKnownCompatibleThirdParty(details))
             && !expansion.inventoryDependent()
             && !expansion.stateful();
     }
@@ -1129,7 +1220,8 @@ public final class ECOAE2SnapshotFactory {
         ECOAE2PatternMaterializer.PatternExpansion expansion
     ) {
         return (details instanceof IECOPlannerCompatiblePattern
-                || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
+                || ECOAE2PatternCompatibility.isKnownBuiltIn(details)
+                || ECOAE2PatternCompatibility.isKnownCompatibleThirdParty(details))
             && !expansion.stateful();
     }
 
@@ -1237,6 +1329,7 @@ public final class ECOAE2SnapshotFactory {
     private record InventoryGraphKey(
         AEKey requestedKey,
         Map<AEKey, Long> availableAmounts,
+        Level level,
         Set<ResourceLocation> fuzzyItemIds,
         boolean ignoreSubstitutionPatterns
     ) {
@@ -1281,6 +1374,7 @@ public final class ECOAE2SnapshotFactory {
 
     private record GraphKey(
         AEKey requestedKey,
+        Level level,
         Set<ResourceLocation> fuzzyItemIds,
         boolean ignoreSubstitutionPatterns
     ) {

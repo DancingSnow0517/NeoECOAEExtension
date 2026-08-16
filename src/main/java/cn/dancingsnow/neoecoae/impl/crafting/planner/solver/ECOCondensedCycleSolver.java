@@ -251,7 +251,11 @@ public final class ECOCondensedCycleSolver {
             status,
             candidate,
             expansions,
-            Optional.of(new ECOCycleTrace<>(cycleOperations, effectiveMissingSeedStarters))
+            Optional.of(new ECOCycleTrace<>(
+                cycleOperations,
+                effectiveMissingSeedStarters,
+                effectiveMissingSeedStarters.isEmpty() ? Map.of() : missingSeedAmounts
+            ))
         ));
     }
 
