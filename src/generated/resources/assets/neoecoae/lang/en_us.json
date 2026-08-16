@@ -338,6 +338,8 @@
   "gui.neoecoae.storage_priority.insert_hint": "When inserting: higher-priority storage is preferred.",
   "gui.neoecoae.storage_priority.open": "Open priority panel",
   "gui.neoecoae.storage_priority.title": "Priority",
+  "gui.neoecoae.storage.bigint_preview": "BigInt Storage Preview",
+  "gui.neoecoae.storage.bigint_preview.open": "Open BigInt storage preview",
   "gui.neoecoae.crafting_interface.title": "Crafting Subsystem Interface",
   "gui.neoecoae.crafting_interface.preview": "Patterns Stored on F Host",
   "gui.neoecoae.crafting_interface.preview.search": "Search ingredients or outputs",

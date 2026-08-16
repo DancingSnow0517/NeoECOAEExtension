@@ -112,6 +112,8 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.storage_priority.title", "Priority");
                 provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
                 provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
+                provider.add("gui.neoecoae.storage.bigint_preview", "BigInt Storage Preview");
+                provider.add("gui.neoecoae.storage.bigint_preview.open", "Open BigInt storage preview");
                 provider.add("gui.neoecoae.storage_priority.insert_hint",
                                 "When inserting: higher-priority storage is preferred.");
                 provider.add("gui.neoecoae.storage_priority.extract_hint",

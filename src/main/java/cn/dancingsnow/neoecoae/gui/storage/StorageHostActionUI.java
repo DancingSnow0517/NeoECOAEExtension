@@ -5,8 +5,10 @@ import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.player.Player;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
@@ -30,21 +32,26 @@ public final class StorageHostActionUI {
         Supplier<MultiBlockPlacementPlan> previewPlan,
         IntSupplier priority,
         IntConsumer setPriority,
-        IntConsumer changePriority
+        IntConsumer changePriority,
+        Supplier<HolderLookup.Provider> registries,
+        Supplier<List<StorageHostHugeStackList.Entry>> hugeStacks
     ) {
     }
 
     public record Elements(
         UIElement buildWindow,
-        UIElement priorityWindow
+        UIElement priorityWindow,
+        UIElement bigIntPreviewWindow
     ) {
         public void addTo(UIElement root) {
             root.addChild(HostSideButtonBar.left(
                 MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-                StoragePriorityUI.createInlineOpenButton(priorityWindow)
+                StoragePriorityUI.createInlineOpenButton(priorityWindow),
+                StorageBigIntPreviewUI.createInlineOpenButton(bigIntPreviewWindow)
             ));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
+            root.addChild(bigIntPreviewWindow);
         }
     }
 
@@ -66,6 +73,9 @@ public final class StorageHostActionUI {
             config.setPriority(),
             config.changePriority()
         ));
-        return new Elements(buildWindow, priorityWindow);
+        UIElement bigIntPreviewWindow = StorageBigIntPreviewUI.createFloatingPanel(
+            config.registries(), config.hugeStacks()
+        );
+        return new Elements(buildWindow, priorityWindow, bigIntPreviewWindow);
     }
 }

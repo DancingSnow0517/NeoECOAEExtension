@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEFluidKey;
@@ -53,6 +54,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
     private final Supplier<HolderLookup.Provider> registries;
     private final Supplier<? extends Collection<Entry>> entries;
     private final int panelHeight;
+    private final int columns;
     private List<Entry> syncedEntries = List.of();
     private CompoundTag syncedTag = new CompoundTag();
     private float scrollPixels;
@@ -65,9 +67,20 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         int width,
         int height
     ) {
+        this(registries, entries, width, height, 1);
+    }
+
+    StorageHostHugeStackList(
+        Supplier<HolderLookup.Provider> registries,
+        Supplier<? extends Collection<Entry>> entries,
+        int width,
+        int height,
+        int columns
+    ) {
         this.registries = registries;
         this.entries = entries;
         this.panelHeight = height;
+        this.columns = Math.max(1, columns);
         layout(layout -> layout.width(width).height(height));
         bind(DataBindingBuilder.create(
             () -> writeEntries(this.registries.get(), this.entries.get()),
@@ -88,7 +101,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
             event.stopImmediatePropagation();
         });
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            Entry entry = entryAt(event.y);
+            Entry entry = entryAt(event.x, event.y);
             if (entry != null) {
                 List<Component> lines = new ArrayList<>();
                 lines.add(entry.key().getDisplayName());
@@ -114,11 +127,22 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
             Math.round(x + getSizeWidth()),
             Math.round(y + getSizeHeight())
         );
-        int firstIndex = Math.max(0, (int)Math.floor(scrollPixels / ROW_HEIGHT));
-        float firstY = y - (scrollPixels - firstIndex * ROW_HEIGHT);
-        int visible = Math.min(syncedEntries.size() - firstIndex, visibleRows() + 1);
+        int firstRow = Math.max(0, (int)Math.floor(scrollPixels / ROW_HEIGHT));
+        float firstY = y - (scrollPixels - firstRow * ROW_HEIGHT);
+        int visible = Math.min(rowCount() - firstRow, visibleRows() + 1);
         for (int row = 0; row < visible; row++) {
-            drawRow(guiContext, syncedEntries.get(firstIndex + row), x, firstY + row * ROW_HEIGHT);
+            for (int column = 0; column < columns; column++) {
+                int entryIndex = (firstRow + row) * columns + column;
+                float entryX = x + column * ROW_HEIGHT;
+                float entryY = firstY + row * ROW_HEIGHT;
+                if (columns > 1) {
+                    guiContext.drawTexture(NETextures.ITEM_SLOT, entryX, entryY, ROW_HEIGHT, ROW_HEIGHT);
+                }
+                if (entryIndex >= syncedEntries.size()) {
+                    continue;
+                }
+                drawEntry(guiContext, syncedEntries.get(entryIndex), entryX, entryY);
+            }
         }
         guiContext.graphics.disableScissor();
         drawScrollbar(guiContext, x, y);
@@ -139,7 +163,11 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         return this;
     }
 
-    private void drawRow(GUIContext guiContext, Entry entry, float x, float y) {
+    private void drawEntry(GUIContext guiContext, Entry entry, float x, float y) {
+        if (columns > 1) {
+            drawGridEntry(guiContext, entry, x, y);
+            return;
+        }
         if (entry.key() instanceof AEFluidKey fluidKey) {
             FluidStack fluid = fluidKey.toStack(1);
             DrawerHelper.drawFluidForGui(guiContext.graphics, fluid, x, y + 1, ICON_SIZE, ICON_SIZE, -1);
@@ -169,6 +197,21 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         guiContext.graphics.pose().popPose();
     }
 
+    private void drawGridEntry(GUIContext guiContext, Entry entry, float x, float y) {
+        if (entry.key() instanceof AEFluidKey fluidKey) {
+            DrawerHelper.drawFluidForGui(guiContext.graphics, fluidKey.toStack(1), x + 1, y + 1, ICON_SIZE, ICON_SIZE, -1);
+        } else {
+            DrawerHelper.drawItemStack(guiContext.graphics, entry.key().wrapForDisplayOrFilter(), Math.round(x + 1), Math.round(y + 1), -1, null);
+        }
+        String amount = HostText.fitHugeAmount(parseAmount(entry.amount()), 18, Minecraft.getInstance().font::width);
+        guiContext.graphics.pose().pushPose();
+        guiContext.graphics.pose().translate(x + 17, y + 17, 0);
+        guiContext.graphics.pose().scale(0.48F, 0.48F, 1);
+        Font font = Minecraft.getInstance().font;
+        guiContext.graphics.drawString(font, amount, -font.width(amount), -font.lineHeight, HostText.USED, true);
+        guiContext.graphics.pose().popPose();
+    }
+
     private void drawScrollbar(GUIContext guiContext, float x, float y) {
         float max = maxScrollPixels();
         if (max <= 0.0F) {
@@ -176,19 +219,23 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         }
         float trackX = x + getSizeWidth() - 2;
         float trackHeight = getSizeHeight();
-        float thumbHeight = Math.max(10, trackHeight * trackHeight / (syncedEntries.size() * ROW_HEIGHT));
+        float thumbHeight = Math.max(10, trackHeight * trackHeight / (rowCount() * ROW_HEIGHT));
         float thumbY = y + (trackHeight - thumbHeight) * scrollPixels / max;
         guiContext.graphics.fill(Math.round(trackX), Math.round(y), Math.round(trackX + 2), Math.round(y + trackHeight), 0xAA17141E);
         guiContext.graphics.fill(Math.round(trackX), Math.round(thumbY), Math.round(trackX + 2), Math.round(thumbY + thumbHeight), 0xFF8377FF);
     }
 
     @Nullable
-    private Entry entryAt(double mouseY) {
+    private Entry entryAt(double mouseX, double mouseY) {
         float localY = (float)mouseY - getPositionY();
         if (localY < 0.0F || localY >= panelHeight) {
             return null;
         }
-        int index = (int)Math.floor((localY + scrollPixels) / ROW_HEIGHT);
+        int row = (int)Math.floor((localY + scrollPixels) / ROW_HEIGHT);
+        int column = columns == 1 ? 0 : Math.clamp(
+            (int)Math.floor(((float)mouseX - getPositionX()) / ROW_HEIGHT), 0, columns - 1
+        );
+        int index = row * columns + column;
         return index >= 0 && index < syncedEntries.size() ? syncedEntries.get(index) : null;
     }
 
@@ -196,8 +243,12 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         return Math.max(1, panelHeight / ROW_HEIGHT);
     }
 
+    private int rowCount() {
+        return (syncedEntries.size() + columns - 1) / columns;
+    }
+
     private float maxScrollPixels() {
-        return Math.max(0.0F, syncedEntries.size() * ROW_HEIGHT - panelHeight);
+        return Math.max(0.0F, rowCount() * ROW_HEIGHT - panelHeight);
     }
 
     private void updateSmoothScroll() {

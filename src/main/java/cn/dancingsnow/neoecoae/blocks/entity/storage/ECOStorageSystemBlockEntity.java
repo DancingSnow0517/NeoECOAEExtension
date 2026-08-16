@@ -858,7 +858,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             this::createLocalPreviewPlan,
             () -> storagePriority,
             priority -> setStoragePriority(holder.player, priority),
-            delta -> changeStoragePriority(holder.player, delta)
+            delta -> changeStoragePriority(holder.player, delta),
+            () -> level.registryAccess(),
+            this::getHugeStackUiEntries
         ));
     }
 

@@ -353,6 +353,8 @@
   "gui.neoecoae.storage_priority.insert_hint": "存入时：高优先级设备优先。",
   "gui.neoecoae.storage_priority.open": "打开优先级面板",
   "gui.neoecoae.storage_priority.title": "优先级",
+  "gui.neoecoae.storage.bigint_preview": "BigInt 存储预览",
+  "gui.neoecoae.storage.bigint_preview.open": "打开 BigInt 存储预览",
   "item.neoecoae.aluminum_alloy_axe": "铝合金斧",
   "item.neoecoae.aluminum_alloy_dust": "铝合金粉",
   "item.neoecoae.aluminum_alloy_hoe": "铝合金锄",
