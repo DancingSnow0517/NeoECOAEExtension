@@ -33,8 +33,10 @@ public final class ComputationInterfaceUI {
     private static final int PLAYER_INVENTORY_HEIGHT = 4 * SLOT_SIZE;
     private static final int ROOT_WIDTH = 176;
     private static final int ROOT_HEIGHT = 253;
-    private static final int GRID_LEFT = 8;
-    private static final int GRID_TOP = 29;
+    // ItemSlot renders its contents one pixel inside its bounds; offset the interactive grid to
+    // align the item art with the slot wells baked into nbtbench.png.
+    private static final int GRID_LEFT = 7;
+    private static final int GRID_TOP = 28;
     private static final int INVENTORY_LEFT = 8;
     private static final int INVENTORY_TOP = 168;
 
@@ -105,6 +107,7 @@ public final class ComputationInterfaceUI {
             .left(INVENTORY_LEFT)
             .top(INVENTORY_TOP)
         );
+        playerInventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         return playerInventory;
     }
 
