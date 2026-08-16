@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
@@ -119,7 +120,9 @@ public final class ComputationInterfaceUI {
             super(new FuzzyPlanningFilterSlot(computationInterface.getFuzzyPlanningItemHandler(), inventorySlot));
             this.computationInterface = computationInterface;
             this.inventorySlot = inventorySlot;
-            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
+            // The workbench background already contains the slot grid; drawing a slot texture here
+            // would create a visible double border.
+            getStyle().backgroundTexture(IGuiTexture.EMPTY);
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
                     setValue(ItemStack.EMPTY, true);
