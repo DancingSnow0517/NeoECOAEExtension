@@ -4,10 +4,13 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.CraftConfirmScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.api.client.AEKeyRendering;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.stacks.AmountFormat;
+import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import cn.dancingsnow.neoecoae.network.ECOSubmissionMissingPayload;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerDiagnostic;
 import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import java.util.Locale;
@@ -30,6 +33,18 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
         ScreenStyle style
     ) {
         super(menu, playerInventory, title, style);
+    }
+
+    @Inject(method = "updateBeforeRender", at = @At("HEAD"))
+    private void neoecoae$keepSubmissionDeficitsOnPlan(CallbackInfo ci) {
+        var missing = ECOSubmissionMissingPayload.getClientMissing(getMenu().containerId).orElse(java.util.Map.of());
+        var error = getMenu().submitError.result();
+        if (!missing.isEmpty()
+            && error != null
+            && error.errorCode() == CraftingSubmitErrorCode.MISSING_INGREDIENT) {
+            // The ECO list supersedes AE2's single-item error screen and keeps retry available.
+            getMenu().clearError();
+        }
     }
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
@@ -106,6 +121,12 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
     private void neoecoae$showMissingCycleSeed(CallbackInfo ci) {
+        var submissionMissing = ECOSubmissionMissingPayload.getClientMissing(getMenu().containerId)
+            .orElse(java.util.Map.of());
+        if (!submissionMissing.isEmpty()) {
+            setTextContent("cpu_status", GuiText.PartialPlan.text());
+            return;
+        }
         var diagnostics = ECOCycleDiagnosticsPayload.getClientDiagnostics(getMenu().containerId).orElse(null);
         if (diagnostics == null || diagnostics.missingSeeds().isEmpty()) {
             return;

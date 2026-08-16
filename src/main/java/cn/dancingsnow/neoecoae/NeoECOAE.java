@@ -30,6 +30,7 @@ import cn.dancingsnow.neoecoae.event.ECOStorageCommands;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
+import cn.dancingsnow.neoecoae.network.ECOSubmissionMissingPayload;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
@@ -91,6 +92,7 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(ECOPlannerNoticePayload::register);
         modBus.addListener(ECOCycleDiagnosticsPayload::register);
+        modBus.addListener(ECOSubmissionMissingPayload::register);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);

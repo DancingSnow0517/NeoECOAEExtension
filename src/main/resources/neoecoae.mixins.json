@@ -11,6 +11,7 @@
     "CraftingCPUMenuMixin",
     "ECOCraftingCpuNativeFastPathPriorityMixin",
     "CraftingServiceMixin",
+    "CraftConfirmMenuMixin",
     "CraftingStatusMenuMixin",
     "DriveCellValidInventoryFilterMixin",
     "IOPortBlockEntityMixin",
