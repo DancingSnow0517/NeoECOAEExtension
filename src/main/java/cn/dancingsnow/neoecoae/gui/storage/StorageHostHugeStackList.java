@@ -135,9 +135,6 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
                 int entryIndex = (firstRow + row) * columns + column;
                 float entryX = x + column * ROW_HEIGHT;
                 float entryY = firstY + row * ROW_HEIGHT;
-                if (columns > 1) {
-                    guiContext.drawTexture(NETextures.ITEM_SLOT, entryX, entryY, ROW_HEIGHT, ROW_HEIGHT);
-                }
                 if (entryIndex >= syncedEntries.size()) {
                     continue;
                 }
@@ -203,7 +200,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         } else {
             DrawerHelper.drawItemStack(guiContext.graphics, entry.key().wrapForDisplayOrFilter(), Math.round(x + 1), Math.round(y + 1), -1, null);
         }
-        String amount = HostText.fitHugeAmount(parseAmount(entry.amount()), 18, Minecraft.getInstance().font::width);
+        String amount = HostText.hugeStackAmount(parseAmount(entry.amount()));
         guiContext.graphics.pose().pushPose();
         guiContext.graphics.pose().translate(x + 17, y + 17, 0);
         guiContext.graphics.pose().scale(0.48F, 0.48F, 1);

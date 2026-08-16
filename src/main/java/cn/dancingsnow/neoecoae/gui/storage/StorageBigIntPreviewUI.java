@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import appeng.client.gui.Icon;
+import appeng.core.AppEng;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -11,6 +12,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.core.HolderLookup;
@@ -26,8 +30,12 @@ public final class StorageBigIntPreviewUI {
     private static final int SLOT_SIZE = 18;
     private static final int CONTENT_WIDTH = COLUMNS * SLOT_SIZE;
     private static final int CONTENT_HEIGHT = VISIBLE_ROWS * SLOT_SIZE;
-    private static final int WINDOW_WIDTH = 180;
+    private static final int WINDOW_WIDTH = 195;
     private static final int WINDOW_HEIGHT = 138;
+    private static final IGuiTexture TERMINAL_HEADER = terminalSlice(0, 0, 195, 17);
+    private static final IGuiTexture TERMINAL_FIRST_ROW = terminalSlice(0, 17, 195, 18);
+    private static final IGuiTexture TERMINAL_ROW = terminalSlice(0, 35, 195, 18);
+    private static final IGuiTexture TERMINAL_LAST_ROW = terminalSlice(0, 53, 195, 18);
 
     private StorageBigIntPreviewUI() {
     }
@@ -62,6 +70,10 @@ public final class StorageBigIntPreviewUI {
         WindowDragHelper.setDragMove(titleBar, window, null, null);
         window.addChild(titleBar);
 
+        window.addChild(new TerminalRowsBackground()
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
+                .width(WINDOW_WIDTH).height(17 + VISIBLE_ROWS * SLOT_SIZE)));
+
         window.addChild(new UIElement().layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
             .left(7)
@@ -85,6 +97,26 @@ public final class StorageBigIntPreviewUI {
                 List.of(Component.translatable("gui.neoecoae.storage.bigint_preview.open")), null, null, null
             ));
         return button;
+    }
+
+    private static IGuiTexture terminalSlice(int x, int y, int width, int height) {
+        return SpriteTexture.of(AppEng.makeId("textures/guis/terminal.png"))
+            .setSprite(x, y, width, height);
+    }
+
+    private static final class TerminalRowsBackground extends UIElement {
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            float x = getPositionX();
+            float y = getPositionY();
+            guiContext.drawTexture(TERMINAL_HEADER, x, y, WINDOW_WIDTH, 17);
+            guiContext.drawTexture(TERMINAL_FIRST_ROW, x, y + 17, WINDOW_WIDTH, SLOT_SIZE);
+            for (int row = 1; row < VISIBLE_ROWS - 1; row++) {
+                guiContext.drawTexture(TERMINAL_ROW, x, y + 17 + row * SLOT_SIZE, WINDOW_WIDTH, SLOT_SIZE);
+            }
+            guiContext.drawTexture(TERMINAL_LAST_ROW, x, y + 17 + (VISIBLE_ROWS - 1) * SLOT_SIZE,
+                WINDOW_WIDTH, SLOT_SIZE);
+        }
     }
 
     private static Button closeButton(UIElement window) {
