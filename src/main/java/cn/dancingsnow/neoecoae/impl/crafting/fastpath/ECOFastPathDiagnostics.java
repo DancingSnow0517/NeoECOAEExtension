@@ -153,7 +153,7 @@ public final class ECOFastPathDiagnostics {
         }
         logFailure(
             details,
-            ECOFastPathFallbackReason.INVENTORY_LIMIT,
+            ECOFastPathFallbackReason.INPUT_RESERVATION_FAILED,
             ECOFastPathStage.INPUT_RESERVATION,
             ownerPos,
             tick,
