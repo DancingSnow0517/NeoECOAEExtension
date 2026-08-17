@@ -24,6 +24,10 @@ public final class ECOPlanningSolver {
     private static final long COMPONENT_PHASE_NANOS = 500_000_000L;
     private static final long DEBUG_CYCLE_PHASE_NANOS = 10_000_000_000L;
     private static final long DEBUG_COMPONENT_PHASE_NANOS = 5_000_000_000L;
+    // A complete component solution is already executable. Give the integer optimizer only a
+    // short opportunity to improve producer selection before returning that solution to AE2.
+    private static final long INTEGER_OPTIMIZATION_PHASE_NANOS = 250_000_000L;
+    private static final long INTEGER_OPTIMIZATION_DEBUG_PHASE_NANOS = 1_000_000_000L;
 
     private ECOPlanningSolver() {
     }
@@ -241,21 +245,33 @@ public final class ECOPlanningSolver {
             logSelected(problem, "component", component.get());
             return component.get();
         }
-        ECOPlanningFailureDiagnostics.logFailure(
-            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-            component.isEmpty()
-                ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
-                : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
-            problem.requested().keySet().stream().findFirst().orElse(null),
-            problem.requested().values().stream().findFirst().orElse(0L),
-            "solver",
-            component.isEmpty()
-                ? "component_no_result_or_limit; switch_to_integer"
-                : "component_status=" + component.get().status() + "; switch_to_integer"
-        );
+        boolean completeComponent = component.isPresent()
+            && component.get().status() == ECOHyperflowResult.Status.COMPLETE;
+        if (!completeComponent) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                component.isEmpty()
+                    ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
+                    : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "solver",
+                component.isEmpty()
+                    ? "component_no_result_or_limit; switch_to_integer"
+                    : "component_status=" + component.get().status() + "; switch_to_integer"
+            );
+        }
+        long integerDeadline = completeComponent
+            ? ECOSolveBudget.phaseDeadline(
+                deadlineNanos,
+                NEConfig.debugECOPlanner
+                    ? INTEGER_OPTIMIZATION_DEBUG_PHASE_NANOS
+                    : INTEGER_OPTIMIZATION_PHASE_NANOS
+            )
+            : deadlineNanos;
         phaseStarted = System.nanoTime();
         ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(
-            problem, integerGraph, budget, deadlineNanos
+            problem, integerGraph, budget, integerDeadline
         );
         logPhase(problem, "integer", phaseStarted,
             "result=" + integer.status() + " expandedStates=" + integer.expandedStates());

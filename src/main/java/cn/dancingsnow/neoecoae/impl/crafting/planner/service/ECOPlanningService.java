@@ -112,6 +112,7 @@ public final class ECOPlanningService {
                         ? PlanningAttempt.plan(solveCraftLess(snapshot, budget, deadlineNanos, noticeTarget))
                         : solve(snapshot, budget, deadlineNanos, noticeTarget);
                 } catch (CancellationException cancelled) {
+                    diagnosticResult = "cancelled";
                     throw cancelled;
                 } catch (StackOverflowError overflow) {
                     markFailure(ECOPlannerFallbackReason.PLANNING_FAILURE);

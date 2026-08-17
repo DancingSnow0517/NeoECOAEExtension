@@ -225,6 +225,36 @@ class ECOAE2PlanAssemblerTest {
     }
 
     @Test
+    void usedItemsSaturateUnlimitedOutputs() {
+        ComponentKey input = new ComponentKey("honeycomb", 0);
+        ComponentKey honey = new ComponentKey("honey", 0);
+        ComponentKey wax = new ComponentKey("wax", 0);
+        ComponentKey output = new ComponentKey("redstone", 0);
+        ECOAE2PatternVariant variant = new ECOAE2PatternVariant(pattern("omniversal"), 0, List.of());
+        var operation = new ECOPlanningOperation<AEKey, ECOAE2PatternVariant>(
+            variant,
+            Map.of(input, 4L),
+            Map.of(honey, 400L, wax, 4L, output, 3L)
+        );
+        var problem = new ECOPlanningProblem<AEKey, ECOAE2PatternVariant>(
+            List.of(operation),
+            Map.of(input, Long.MAX_VALUE, honey, Long.MAX_VALUE, wax, 3_971_846_019L),
+            Map.of(output, 1_000L),
+            Set.of(input, honey)
+        );
+        var candidate = new ECOPlanCandidate<>(Map.of(variant, 334L), 0L, 0L, 0L, 0L);
+        var steps = List.<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduleEntry<ECOAE2PatternVariant>>of(
+            new cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<>(variant, 334L)
+        );
+
+        var used = ECOAE2PlanAssembler.calculateUsedItems(problem, candidate, Map.of(), steps)
+            .orElseThrow();
+
+        assertEquals(1_336L, used.get(input));
+        assertEquals(0L, used.get(honey));
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void fuzzyUnlimitedVariantDominatesFiniteVariantsWithoutOverflow() throws Exception {
         ComponentKey unlimited = new ComponentKey("fuzzy_unlimited", 1);

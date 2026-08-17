@@ -74,9 +74,9 @@ public final class ECODagDemandSolver {
                 return Optional.empty();
             }
             ECOPlanningOperation<K, R> operation = producers.getFirst();
-            long missing = -balances.get(deficientMaterial);
+            long missing = ECOPlannerMath.saturatedNegate(balances.get(deficientMaterial));
             long batches = ECOPlannerMath.ceilDiv(missing, ECOPlannerMath.positiveNet(operation, deficientMaterial));
-            executions.merge(operation.reference(), batches, Math::addExact);
+            executions.merge(operation.reference(), batches, ECOPlannerMath::saturatedAdd);
             operation.inputs().forEach((key, amount) -> {
                 mergeScaled(problem, balances, key, amount, -batches);
                 enqueueIfDeficient(key, problem, balances, graph, deficientMaterials, queued);
@@ -97,19 +97,19 @@ public final class ECODagDemandSolver {
                 continue;
             }
             if (entry.getValue() < 0) {
-                long missing = -entry.getValue();
+                long missing = ECOPlannerMath.saturatedNegate(entry.getValue());
                 boolean requested = problem.requested().containsKey(entry.getKey());
                 List<ECOPlanningOperation<K, R>> positiveProducers = graph.producersOf(entry.getKey()).stream()
                     .filter(operation -> ECOPlannerMath.positiveNet(operation, entry.getKey()) > 0L)
                     .toList();
                 if (requested && !positiveProducers.isEmpty()) {
-                    requestedShortfall = Math.addExact(requestedShortfall, missing);
+                    requestedShortfall = ECOPlannerMath.saturatedAdd(requestedShortfall, missing);
                 }
                 if (positiveProducers.isEmpty()) {
-                    sourceShortfall = Math.addExact(sourceShortfall, missing);
+                    sourceShortfall = ECOPlannerMath.saturatedAdd(sourceShortfall, missing);
                 } else {
                     if (!requested) {
-                        dependencyShortfall = Math.addExact(dependencyShortfall, missing);
+                        dependencyShortfall = ECOPlannerMath.saturatedAdd(dependencyShortfall, missing);
                     }
                 }
             } else {
@@ -161,7 +161,11 @@ public final class ECODagDemandSolver {
         long batches
     ) {
         if (!problem.isUnlimited(key)) {
-            balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
+            balances.merge(
+                key,
+                ECOPlannerMath.saturatedMultiply(amount, batches),
+                ECOPlannerMath::saturatedAdd
+            );
         }
     }
 }

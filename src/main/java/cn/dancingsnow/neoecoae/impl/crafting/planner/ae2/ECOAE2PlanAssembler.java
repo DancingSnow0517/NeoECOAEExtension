@@ -552,7 +552,17 @@ public final class ECOAE2PlanAssembler {
         }
         for (var output : operation.outputs().entrySet()) {
             long produced = Math.multiplyExact(output.getValue(), step.batches());
-            current.merge(output.getKey(), produced, Math::addExact);
+            // Unlimited-inventory entries use Long.MAX_VALUE as a sentinel. Keep the
+            // sentinel saturated when a recipe also emits that material (common for
+            // dynamic/omniversal recipes), otherwise the assembly accounting overflows
+            // even though the actual plan is valid.
+            current.merge(
+                output.getKey(),
+                produced,
+                problem.isUnlimited(output.getKey())
+                    ? ECOAE2PlanAssembler::saturatedAdd
+                    : Math::addExact
+            );
         }
         return true;
     }
@@ -583,7 +593,10 @@ public final class ECOAE2PlanAssembler {
         }
         long additionalRepetitions = block.repetitions() - 1L;
         for (var change : delta.entrySet()) {
-            if (change.getValue() == 0L || problem.isUnlimited(change.getKey())) {
+            if (change.getValue() == 0L) {
+                continue;
+            }
+            if (problem.isUnlimited(change.getKey()) && change.getValue() > 0L) {
                 continue;
             }
             long totalChange = Math.multiplyExact(change.getValue(), additionalRepetitions);

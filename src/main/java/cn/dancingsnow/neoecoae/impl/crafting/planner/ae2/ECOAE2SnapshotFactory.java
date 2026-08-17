@@ -974,7 +974,7 @@ public final class ECOAE2SnapshotFactory {
         return fuzzyRepresentatives.computeIfAbsent(key.getId(), ignored -> key);
     }
 
-    private static ECOPlanningOperation<AEKey, ECOAE2PatternVariant> normalizePlannerOperation(
+    static ECOPlanningOperation<AEKey, ECOAE2PatternVariant> normalizePlannerOperation(
         ECOPlanningOperation<AEKey, ECOAE2PatternVariant> operation,
         Set<ResourceLocation> fuzzyItemIds,
         Map<ResourceLocation, AEKey> fuzzyRepresentatives
@@ -1008,7 +1008,7 @@ public final class ECOAE2SnapshotFactory {
         return result;
     }
 
-    private static Map<AEKey, Long> normalizePlannerInventory(
+    static Map<AEKey, Long> normalizePlannerInventory(
         Map<AEKey, Long> inventory,
         Set<AEKey> normalizedUnlimitedInventory,
         Map<ResourceLocation, AEKey> fuzzyRepresentatives,
