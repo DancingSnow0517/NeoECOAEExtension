@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
@@ -11,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -164,7 +166,11 @@ public final class ECOComponentDemandSolver {
                 long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
                     material, producers, balances, problem.requested()
                 );
-                long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
+                boolean selfGrowth = ECOCycleBootstrap.isSelfGrowth(producer, material);
+                // A missing self-growth seed is a one-batch starter, not 64 copies of the
+                // upper request. Plan the full net-growth batches so later reporting can
+                // keep the bootstrap deficit instead of the raw source hole.
+                long demand = selfGrowth || bootstrapDeficit <= 0L ? deficit : bootstrapDeficit;
                 long batches = ECOPlannerMath.ceilDiv(demand, net);
                 long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(producer, balances);
                 if (!producer.stateTransitionInputs().isEmpty()) {
@@ -276,6 +282,12 @@ public final class ECOComponentDemandSolver {
         if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
             var schedule = ECOInventoryScheduler.schedule(problem, result.candidate(), graph);
             if (!schedule.executable()) {
+                Optional<ECOHyperflowResult<R>> bootstrap = missingSelfGrowthSeed(
+                    problem, graph, result, schedule.blockedBy(), expansions
+                );
+                if (bootstrap.isPresent()) {
+                    return bootstrap;
+                }
                 ECOPlanningFailureDiagnostics.logFailure(
                     ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
                     ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
@@ -313,6 +325,66 @@ public final class ECOComponentDemandSolver {
         return Optional.of(result);
     }
 
+    private static <K, R> Optional<ECOHyperflowResult<R>> missingSelfGrowthSeed(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph,
+        ECOHyperflowResult<R> complete,
+        Map<K, Long> blockedBy,
+        long expansions
+    ) {
+        Map<K, Long> missingSeeds = new LinkedHashMap<>();
+        Set<R> starters = new LinkedHashSet<>();
+        Set<R> cycleOperations = new LinkedHashSet<>();
+        for (var operation : graph.operations()) {
+            if (complete.candidate().executions().getOrDefault(operation.reference(), 0L) <= 0L) {
+                continue;
+            }
+            for (K material : operation.inputs().keySet()) {
+                if (!ECOCycleBootstrap.isSelfGrowth(operation, material)
+                    || !blockedBy.containsKey(material)
+                    || problem.isUnlimited(material)) {
+                    continue;
+                }
+                long seed = Math.max(0L,
+                    operation.inputAmount(material) - problem.inventory().getOrDefault(material, 0L));
+                if (seed <= 0L) {
+                    continue;
+                }
+                long previous = missingSeeds.getOrDefault(material, Long.MAX_VALUE);
+                if (seed <= previous) {
+                    missingSeeds.put(material, seed);
+                    starters.add(operation.reference());
+                    cycleOperations.add(operation.reference());
+                }
+            }
+        }
+        if (missingSeeds.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<K, Long> synthetic = new LinkedHashMap<>(problem.inventory());
+        missingSeeds.forEach((key, amount) -> synthetic.merge(key, amount, Math::addExact));
+        var seeded = new ECOPlanningProblem<>(
+            problem.operations(), synthetic, problem.requested(), problem.unlimitedInventory()
+        );
+        if (!ECOInventoryScheduler.schedule(seeded, complete.candidate(), graph).executable()) {
+            return Optional.empty();
+        }
+        long sourceShortfall = missingSeeds.values().stream().mapToLong(Long::longValue).sum();
+        var candidate = new ECOPlanCandidate<>(
+            complete.candidate().executions(),
+            0L,
+            0L,
+            sourceShortfall,
+            complete.candidate().surplus()
+        );
+        return Optional.of(new ECOHyperflowResult<>(
+            ECOHyperflowResult.Status.MISSING_SOURCES,
+            candidate,
+            expansions,
+            Optional.of(new ECOCycleTrace<>(cycleOperations, starters, Map.copyOf(missingSeeds)))
+        ));
+    }
+
     private static <K, R> ProducerChoice<K, R> chooseProducer(
         K material,
         long deficit,
@@ -336,7 +408,8 @@ public final class ECOComponentDemandSolver {
             if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                 return null;
             }
-            if (!ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
+            boolean selfGrowth = ECOCycleBootstrap.isSelfGrowth(operation, material);
+            if (!selfGrowth && !ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
                 continue;
             }
             long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, balances);
@@ -349,7 +422,7 @@ public final class ECOComponentDemandSolver {
             if (net <= 0) {
                 continue;
             }
-            long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
+            long demand = selfGrowth || bootstrapDeficit <= 0L ? deficit : bootstrapDeficit;
             long batches = ECOPlannerMath.ceilDiv(demand, net);
             long inventoryCapacity = !hasPositiveBalance
                 ? 0L

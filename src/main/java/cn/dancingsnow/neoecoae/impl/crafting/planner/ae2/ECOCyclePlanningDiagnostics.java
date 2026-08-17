@@ -47,7 +47,13 @@ public record ECOCyclePlanningDiagnostics(
         }
 
         Map<AEKey, Long> missingSeeds = new LinkedHashMap<>();
-        if (trace.isPresent() && !trace.get().missingSeedStarters().isEmpty()) {
+        if (trace.isPresent() && !trace.get().missingSeedAmounts().isEmpty()) {
+            trace.get().missingSeedAmounts().forEach((key, amount) -> {
+                if (key instanceof AEKey aeKey && !snapshot.problem().isUnlimited(aeKey) && amount > 0L) {
+                    missingSeeds.put(aeKey, amount);
+                }
+            });
+        } else if (trace.isPresent() && !trace.get().missingSeedStarters().isEmpty()) {
             snapshot.problem().operations().stream()
                 .filter(operation -> trace.get().missingSeedStarters().contains(operation.reference()))
                 .forEach(operation -> operation.inputs().forEach((key, amount) -> {

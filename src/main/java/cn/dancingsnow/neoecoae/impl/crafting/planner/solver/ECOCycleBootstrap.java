@@ -16,6 +16,11 @@ public final class ECOCycleBootstrap {
     private ECOCycleBootstrap() {
     }
 
+    public static <K, R> boolean isSelfGrowth(ECOPlanningOperation<K, R> operation, K material) {
+        long input = operation.inputAmount(material);
+        return input > 0L && operation.outputAmount(material) > input;
+    }
+
     public static <K, R> boolean canPotentiallyStart(
         ECOPlanningOperation<K, R> operation,
         Map<K, Long> balances,

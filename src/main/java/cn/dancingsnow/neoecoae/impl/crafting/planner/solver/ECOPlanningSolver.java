@@ -211,6 +211,7 @@ public final class ECOPlanningSolver {
         }
         boolean componentMissingIsConclusive = component.isPresent()
             && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
+            && !hasUnresolvedSelfGrowth(problem, graph)
             && (problem.inventory().isEmpty()
                 || inventoryRoute == null
                 || !inventoryRoute.reachesTarget()
@@ -381,6 +382,17 @@ public final class ECOPlanningSolver {
         return new ECOPlanningProblem<>(
             graph.operations(), residualInventory, problem.requested(), residualUnlimited
         );
+    }
+
+    private static <K, R> boolean hasUnresolvedSelfGrowth(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph
+    ) {
+        return graph.operations().stream().anyMatch(operation ->
+            operation.inputs().keySet().stream().anyMatch(material ->
+                ECOCycleBootstrap.isSelfGrowth(operation, material)
+                    && problem.inventory().getOrDefault(material, 0L)
+                        < operation.inputAmount(material)));
     }
 
     /**

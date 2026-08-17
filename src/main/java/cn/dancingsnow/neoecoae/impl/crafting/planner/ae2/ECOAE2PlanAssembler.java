@@ -417,7 +417,11 @@ public final class ECOAE2PlanAssembler {
         if (!exactAmounts.isEmpty()) {
             exactAmounts.forEach((key, amount) -> {
                 if (key instanceof AEKey aeKey && !problem.isUnlimited(aeKey) && amount > 0L) {
-                    missing.merge(aeKey, amount, Math::max);
+                    if (plannedSelfGrowth(problem, result.candidate(), aeKey)) {
+                        missing.put(aeKey, amount);
+                    } else {
+                        missing.merge(aeKey, amount, Math::max);
+                    }
                 }
             });
             return;
@@ -439,6 +443,17 @@ public final class ECOAE2PlanAssembler {
                     missing.merge(key, deficit, Math::max);
                 }
             }));
+    }
+
+    private static boolean plannedSelfGrowth(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
+        AEKey material
+    ) {
+        return problem.operations().stream().anyMatch(operation ->
+            candidate.executions().getOrDefault(operation.reference(), 0L) > 0L
+                && operation.inputAmount(material) > 0L
+                && operation.outputAmount(material) > operation.inputAmount(material));
     }
 
     private static void addMissingCycleBlockedInputs(

@@ -148,6 +148,77 @@ class ECOAE2PlanAssemblerTest {
     }
 
     @Test
+    void fullPlannerReportsOneSeedWhenUpperRequestStartsAtSixtyFour() {
+        TestKey seed = new TestKey("seed");
+        TestKey target = new TestKey("target");
+        ECOAE2PatternVariant grow = new ECOAE2PatternVariant(pattern("grow"), 0, List.of());
+        ECOAE2PatternVariant consume = new ECOAE2PatternVariant(pattern("consume"), 0, List.of());
+        var problem = new ECOPlanningProblem<AEKey, ECOAE2PatternVariant>(
+            List.of(
+                new ECOPlanningOperation<>(grow, Map.of(seed, 1L), Map.of(seed, 2L)),
+                new ECOPlanningOperation<>(consume, Map.of(seed, 1L), Map.of(target, 1L))
+            ),
+            Map.of(),
+            Map.of(target, 64L)
+        );
+        var snapshot = new ECOAE2PlanningSnapshot(
+            problem, target, 64L, false, Map.of(), false, false
+        );
+
+        var result = ECOPlanningSolver.solve(
+            problem, new ECOSolveBudget(10_000, 32, 2, TimeUnit.SECONDS.toNanos(5))
+        );
+        var plan = ECOAE2PlanAssembler.assemble(snapshot, result).orElseThrow();
+
+        assertEquals(ECOHyperflowResult.Status.MISSING_SOURCES, result.status(),
+            () -> "status=" + result.status()
+                + " executions=" + result.candidate().executions()
+                + " shortfall=" + result.candidate().sourceShortfall()
+                + " trace=" + result.cycleTrace());
+        assertEquals(64L, result.candidate().executions().get(grow));
+        assertEquals(64L, result.candidate().executions().get(consume));
+        assertEquals(1L, plan.missingItems().get(seed),
+            () -> "missing=" + plan.missingItems() + " used=" + plan.usedItems());
+        assertEquals(0L, plan.usedItems().get(seed));
+    }
+
+    @Test
+    void nestedSelfGrowthAssemblerDoesNotReportSixtyFourSeeds() {
+        TestKey seed = new TestKey("seed");
+        TestKey target = new TestKey("target");
+        ECOAE2PatternVariant growSeed = new ECOAE2PatternVariant(pattern("grow_seed"), 0, List.of());
+        ECOAE2PatternVariant growTarget = new ECOAE2PatternVariant(pattern("grow_target"), 0, List.of());
+        var problem = new ECOPlanningProblem<AEKey, ECOAE2PatternVariant>(
+            List.of(
+                new ECOPlanningOperation<>(growSeed, Map.of(seed, 1L), Map.of(seed, 2L)),
+                new ECOPlanningOperation<>(growTarget, Map.of(target, 1L, seed, 64L), Map.of(target, 2L))
+            ),
+            Map.of(),
+            Map.of(target, 64L)
+        );
+        var snapshot = new ECOAE2PlanningSnapshot(
+            problem, target, 64L, false, Map.of(), false, false
+        );
+
+        var result = ECOPlanningSolver.solve(
+            problem, new ECOSolveBudget(10_000, 32, 2, TimeUnit.SECONDS.toNanos(5))
+        );
+        var plan = ECOAE2PlanAssembler.assemble(snapshot, result).orElseThrow();
+
+        assertEquals(ECOHyperflowResult.Status.MISSING_SOURCES, result.status(),
+            () -> "status=" + result.status()
+                + " executions=" + result.candidate().executions()
+                + " trace=" + result.cycleTrace());
+        assertEquals(1L, plan.missingItems().get(seed),
+            () -> "missing=" + plan.missingItems()
+                + " used=" + plan.usedItems()
+                + " executions=" + result.candidate().executions()
+                + " trace=" + result.cycleTrace());
+        assertEquals(1L, plan.missingItems().get(target),
+            () -> "missing=" + plan.missingItems());
+    }
+
+    @Test
     void selfIncreasingPatternMaterializesOneTemplateIntoTwo() {
         TestKey template = new TestKey("upgrade_template");
         TestKey diamond = new TestKey("diamond");

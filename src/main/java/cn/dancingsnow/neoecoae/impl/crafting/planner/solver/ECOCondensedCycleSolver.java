@@ -272,7 +272,7 @@ public final class ECOCondensedCycleSolver {
         Map<K, Long> missingSeedAmounts
     ) {
         for (var component : topology.cyclicComponents()) {
-            if (component.materials().size() < 2) {
+            if (component.materials().isEmpty()) {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> active = topology.localOperationsOf(component).stream()
@@ -1065,24 +1065,29 @@ public final class ECOCondensedCycleSolver {
         if (component.size() != 1) {
             return null;
         }
-        // If another operation can create the seed without consuming it, the
-        // self-cycle shortcut must leave that upstream route to the SCC model.
-        // Otherwise the shortcut reports a source deficit before the seed
-        // producer has a chance to be scheduled.
+        // An inbound starter that can already run from stock should be left to
+        // the SCC model. A missing inbound recipe must not hide the 1-seed
+        // self-growth route behind a 64-item source deficit.
         if (operations.stream().anyMatch(operation ->
             operation.inputAmount(deficientMaterial) == 0L
-                && ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)) {
+                && ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L
+                && canStart(operation, initialInventory))) {
             return null;
         }
         List<ECOPlanningOperation<K, R>> producers = operations.stream()
-            .filter(operation -> operation.inputAmount(deficientMaterial) > 0L)
-            .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)
+            .filter(operation -> ECOCycleBootstrap.isSelfGrowth(operation, deficientMaterial))
             .toList();
-        if (producers.size() != 1) {
+        if (producers.isEmpty()) {
             return null;
         }
 
-        ECOPlanningOperation<K, R> operation = producers.getFirst();
+        ECOPlanningOperation<K, R> operation = producers.stream()
+            .min(java.util.Comparator.comparingLong(candidate ->
+                candidate.inputAmount(deficientMaterial)))
+            .orElse(null);
+        if (operation == null) {
+            return null;
+        }
         long deficit = ECOPlannerMath.saturatedNegate(balances.getOrDefault(deficientMaterial, 0L));
         long net = ECOPlannerMath.positiveNet(operation, deficientMaterial);
         if (deficit <= 0L || net <= 0L) {
