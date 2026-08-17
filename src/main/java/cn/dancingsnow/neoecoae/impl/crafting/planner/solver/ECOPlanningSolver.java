@@ -180,10 +180,10 @@ public final class ECOPlanningSolver {
         );
         phaseStarted = System.nanoTime();
         Optional<ECOHyperflowResult<R>> component;
-        if (graph.topology(problem.unlimitedInventory()).hasCycle()) {
+        if (graph.topology(problem.unlimitedInventory()).hasMultiMaterialCycle()) {
             ECOPlanningFailureDiagnostics.logDetail(
                 ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
-                "component_skipped_cyclic_graph sccCount="
+                "component_skipped_multi_material_cycle sccCount="
                     + graph.topology(problem.unlimitedInventory()).cyclicComponents().size()
                     + " graphMaterials=" + graph.materials().size()
                     + " graphOperations=" + graph.operations().size()

@@ -63,14 +63,14 @@ public final class ECOComponentDemandSolver {
         }
         Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
         var topology = graph.topology(problem.unlimitedInventory());
-        if (topology.hasCycle()) {
+        if (topology.hasMultiMaterialCycle()) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
                 ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
                 materialKey(problem),
                 problem.requested().values().stream().findFirst().orElse(0L),
                 "component",
-                "cyclic_graph_rejected cyclicComponents=" + topology.cyclicComponents().size()
+                "multi_material_cycle_rejected cyclicComponents=" + topology.cyclicComponents().size()
                     + " materials=" + graph.materials().size()
                     + " operations=" + graph.operations().size()
             );

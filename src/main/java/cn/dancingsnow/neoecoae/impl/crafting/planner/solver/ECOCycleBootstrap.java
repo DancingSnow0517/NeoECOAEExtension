@@ -69,6 +69,15 @@ public final class ECOCycleBootstrap {
         Map<K, Long> requested,
         Set<K> unlimited
     ) {
+        // Keep the dedicated self-growth handling in the solvers. A graph-level
+        // dependency check must not turn an unseeded A -> 2A operation into a
+        // normal source-backed producer.
+        for (K input : operation.inputs().keySet()) {
+            if (isSelfGrowth(operation, input)
+                && availableBeforeRequest(input, balances, requested) < operation.inputAmount(input)) {
+                return false;
+            }
+        }
         Map<K, Boolean> memo = new HashMap<>();
         Set<K> visiting = new HashSet<>();
         for (K input : operation.inputs().keySet()) {
@@ -103,10 +112,23 @@ public final class ECOCycleBootstrap {
         }
         boolean available = false;
         for (var producer : graph.producersOf(material)) {
-            if (producer.outputAmount(material) <= 0L
-                || producer.inputs().keySet().stream().anyMatch(input ->
-                    !isMaterialPotentiallyAvailable(
-                        input, graph, balances, requested, unlimited, memo, visiting))) {
+            if (producer.outputAmount(material) <= 0L) {
+                continue;
+            }
+            boolean inputsAvailable = true;
+            for (K input : producer.inputs().keySet()) {
+                // A self-growth producer is a valid bootstrap route, but its
+                // self-input is reported separately as the missing seed.
+                if (input.equals(material) && isSelfGrowth(producer, material)) {
+                    continue;
+                }
+                if (!isMaterialPotentiallyAvailable(
+                    input, graph, balances, requested, unlimited, memo, visiting)) {
+                    inputsAvailable = false;
+                    break;
+                }
+            }
+            if (!inputsAvailable) {
                 continue;
             }
             available = true;

@@ -292,6 +292,11 @@ public final class ECOStrongComponents {
             return !cyclicComponents.isEmpty();
         }
 
+        /** Returns whether the graph contains a cycle spanning multiple materials. */
+        public boolean hasMultiMaterialCycle() {
+            return cyclicComponents.stream().anyMatch(component -> component.materials().size() > 1);
+        }
+
         private static <K, R> Map<Component<K>, List<ECOPlanningOperation<K, R>>> freezeMapOfLists(
             Map<Component<K>, List<ECOPlanningOperation<K, R>>> source
         ) {
