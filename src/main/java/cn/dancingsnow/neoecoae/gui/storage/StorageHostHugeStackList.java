@@ -55,6 +55,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
     private final Supplier<? extends Collection<Entry>> entries;
     private final int panelHeight;
     private final int columns;
+    private final int scrollbarX;
     private List<Entry> syncedEntries = List.of();
     private CompoundTag syncedTag = new CompoundTag();
     private float scrollPixels;
@@ -67,7 +68,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         int width,
         int height
     ) {
-        this(registries, entries, width, height, 1);
+        this(registries, entries, width, height, 1, width - 2);
     }
 
     StorageHostHugeStackList(
@@ -77,10 +78,22 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         int height,
         int columns
     ) {
+        this(registries, entries, width, height, columns, width - 2);
+    }
+
+    StorageHostHugeStackList(
+        Supplier<HolderLookup.Provider> registries,
+        Supplier<? extends Collection<Entry>> entries,
+        int width,
+        int height,
+        int columns,
+        int scrollbarX
+    ) {
         this.registries = registries;
         this.entries = entries;
         this.panelHeight = height;
         this.columns = Math.max(1, columns);
+        this.scrollbarX = scrollbarX;
         layout(layout -> layout.width(width).height(height));
         bind(DataBindingBuilder.create(
             () -> writeEntries(this.registries.get(), this.entries.get()),
@@ -212,7 +225,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
 
     private void drawScrollbar(GUIContext guiContext, float x, float y) {
         float max = maxScrollPixels();
-        float trackX = x + getSizeWidth() - 2;
+        float trackX = x + scrollbarX;
         float trackHeight = getSizeHeight();
         float thumbHeight = max <= 0.0F
             ? trackHeight
