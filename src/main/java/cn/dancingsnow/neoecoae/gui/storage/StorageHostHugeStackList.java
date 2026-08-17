@@ -233,9 +233,14 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         float thumbY = max <= 0.0F
             ? y
             : y + (trackHeight - thumbHeight) * scrollPixels / max;
-        guiContext.graphics.fill(Math.round(trackX), Math.round(y), Math.round(trackX + 2), Math.round(y + trackHeight), 0xAA17141E);
-        guiContext.graphics.fill(Math.round(trackX), Math.round(thumbY), Math.round(trackX + 2), Math.round(thumbY + thumbHeight),
-            max <= 0.0F ? 0xFF686878 : 0xFF8377FF);
+        int left = Math.round(trackX);
+        int top = Math.round(thumbY);
+        int right = left + 6;
+        int bottom = Math.round(thumbY + thumbHeight);
+        guiContext.graphics.fill(left, top, right, bottom, 0xFFFCFCFC);
+        guiContext.graphics.fill(left + 1, top + 1, right, bottom, 0xFF555465);
+        guiContext.graphics.fill(left + 1, top + 1, right - 1, bottom - 1,
+            max <= 0.0F ? 0xFFAAAABC : 0xFF8C86A8);
     }
 
     @Nullable

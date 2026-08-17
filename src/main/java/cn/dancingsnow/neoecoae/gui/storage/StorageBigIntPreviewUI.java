@@ -92,6 +92,7 @@ public final class StorageBigIntPreviewUI {
             .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)));
         button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(171).top(-4).width(20).height(20));
+        button.getChildren().getLast().layout(layout -> layout.width(14).height(14));
         return button;
     }
 }

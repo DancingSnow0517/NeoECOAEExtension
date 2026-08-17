@@ -108,6 +108,9 @@ public final class ComputationInterfaceUI {
             .top(INVENTORY_TOP)
         );
         playerInventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
+        playerInventory.getChildren().forEach(
+            child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY)
+        );
         return playerInventory;
     }
 
