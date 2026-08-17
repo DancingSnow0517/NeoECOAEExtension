@@ -1081,7 +1081,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
-            if (isInfiniteNetworkAmount(entry.getLongValue())) continue;
+            if (isEffectivelyInfiniteSource(network, entry.getKey(), entry.getLongValue(), source)) continue;
             if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
             long keyRemaining = Math.min(entry.getLongValue(), remaining);
             if (keyRemaining <= 0L) continue;
@@ -1144,7 +1144,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
-            if (skipInfiniteSourceEntries && isInfiniteNetworkAmount(entry.getLongValue())) continue;
+            if (skipInfiniteSourceEntries
+                && isEffectivelyInfiniteSource(from, entry.getKey(), entry.getLongValue(), source)) continue;
             if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
             long amount = Math.min(entry.getLongValue(), remaining);
             if (amount <= 0L) continue;
@@ -1160,8 +1161,23 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
     }
 
-    private static boolean isInfiniteNetworkAmount(long amount) {
-        return amount == Long.MAX_VALUE || amount == Integer.MAX_VALUE;
+    private static boolean isEffectivelyInfiniteSource(
+        MEStorage storage,
+        AEKey key,
+        long visibleAmount,
+        IActionSource source
+    ) {
+        if (storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE) {
+            return true;
+        }
+
+        long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
+        long conventionalInfiniteAmount = saturatedMultiply(Integer.MAX_VALUE, amountPerUnit);
+        return visibleAmount >= conventionalInfiniteAmount;
+    }
+
+    private static long saturatedMultiply(long left, long right) {
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private void updateInfiniteStorageMode() {
