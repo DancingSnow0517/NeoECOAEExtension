@@ -119,6 +119,106 @@ class ECOAE2PlanAssemblerTest {
     }
 
     @Test
+    void cycleFallbackDoesNotUseUpperRecipeDemandAsBootstrapSeed() {
+        TestKey seed = new TestKey("seed");
+        TestKey target = new TestKey("target");
+        ECOAE2PatternVariant grow = new ECOAE2PatternVariant(pattern("grow"), 0, List.of());
+        ECOAE2PatternVariant consume = new ECOAE2PatternVariant(pattern("consume"), 0, List.of());
+        var problem = new ECOPlanningProblem<AEKey, ECOAE2PatternVariant>(
+            List.of(
+                new ECOPlanningOperation<>(grow, Map.of(seed, 1L), Map.of(seed, 2L)),
+                new ECOPlanningOperation<>(consume, Map.of(seed, 64L), Map.of(target, 1L))
+            ),
+            Map.of(),
+            Map.of(target, 1L)
+        );
+        var snapshot = new ECOAE2PlanningSnapshot(
+            problem, target, 1L, false, Map.of(), false, false
+        );
+        var result = new ECOHyperflowResult<>(
+            ECOHyperflowResult.Status.MISSING_SOURCES,
+            new ECOPlanCandidate<>(Map.of(grow, 64L, consume, 1L), 0L, 0L, 0L, 0L),
+            1L,
+            Optional.of(new ECOCycleTrace<>(Set.of(grow), Set.of(grow), Map.of()))
+        );
+
+        var plan = ECOAE2PlanAssembler.assemble(snapshot, result).orElseThrow();
+
+        assertEquals(1L, plan.missingItems().get(seed));
+    }
+
+    @Test
+    void selfIncreasingPatternMaterializesOneTemplateIntoTwo() {
+        TestKey template = new TestKey("upgrade_template");
+        TestKey diamond = new TestKey("diamond");
+        TestKey netherrack = new TestKey("netherrack");
+        var pattern = new FixedPattern(
+            List.of(
+                new FixedInput(template, 1L),
+                new FixedInput(diamond, 7L),
+                new FixedInput(netherrack, 1L)
+            ),
+            template,
+            2L
+        );
+        var assessment = ECOAE2PatternCompatibility.assess(pattern, craftingServiceStub(), null);
+
+        assertTrue(assessment.compatible(), assessment.rejection());
+        var expansion = ECOAE2PatternMaterializer.expand(
+            pattern, assessment, Map.of(template, 1L), craftingServiceStub(), null
+        );
+
+        assertEquals(1, expansion.operations().size());
+        var operation = expansion.operations().getFirst();
+        assertEquals(Map.of(template, 1L, diamond, 7L, netherrack, 1L), operation.inputs());
+        assertEquals(Map.of(template, 2L), operation.outputs());
+    }
+
+    @Test
+    void selfIncreasingPatternSuppliesThirtyTwoThousandUpperCrafts() {
+        TestKey template = new TestKey("upgrade_template");
+        TestKey diamond = new TestKey("diamond");
+        TestKey netherrack = new TestKey("netherrack");
+        TestKey target = new TestKey("target");
+        var growPattern = new FixedPattern(
+            List.of(
+                new FixedInput(template, 1L),
+                new FixedInput(diamond, 7L),
+                new FixedInput(netherrack, 1L)
+            ),
+            template,
+            2L
+        );
+        var assessment = ECOAE2PatternCompatibility.assess(growPattern, craftingServiceStub(), null);
+        var grow = ECOAE2PatternMaterializer.expand(
+            growPattern, assessment, Map.of(template, 64L), craftingServiceStub(), null
+        ).operations().getFirst();
+        IPatternDetails upperPattern = pattern("upper");
+        ECOAE2PatternVariant upper = new ECOAE2PatternVariant(upperPattern, 0, List.of());
+        var problem = new ECOPlanningProblem<AEKey, ECOAE2PatternVariant>(
+            List.of(
+                new ECOPlanningOperation<>(upper, Map.of(template, 1L), Map.of(target, 1L)),
+                grow
+            ),
+            Map.of(template, 64L, diamond, 228_928L, netherrack, 32_704L),
+            Map.of(target, 32_768L)
+        );
+        var snapshot = new ECOAE2PlanningSnapshot(
+            problem, target, 32_768L, false, Map.of(), false, false
+        );
+
+        var result = ECOPlanningSolver.solve(
+            problem, new ECOSolveBudget(100_000, 64, 5, TimeUnit.SECONDS.toNanos(10))
+        );
+        var plan = ECOAE2PlanAssembler.assemble(snapshot, result).orElseThrow();
+
+        assertEquals(ECOHyperflowResult.Status.COMPLETE, result.status());
+        assertEquals(32_704L, plan.patternTimes().get(growPattern));
+        assertEquals(32_768L, plan.patternTimes().get(upperPattern));
+        assertEquals(0L, plan.missingItems().get(template));
+    }
+
+    @Test
     void requestedInventoryRemainsReachableAsACycleSeed() throws Exception {
         ECOPlanningOperation<String, String> grow = new ECOPlanningOperation<>(
             "grow", Map.of("target", 1L), Map.of("target", 2L)
@@ -317,6 +417,53 @@ class ECOAE2PlanAssemblerTest {
                 default -> defaultValue(method.getReturnType());
             }
         );
+    }
+
+    private record FixedInput(AEKey key, long amount) implements IPatternDetails.IInput {
+        @Override
+        public appeng.api.stacks.GenericStack[] getPossibleInputs() {
+            return new appeng.api.stacks.GenericStack[] {
+                new appeng.api.stacks.GenericStack(key, amount)
+            };
+        }
+
+        @Override
+        public long getMultiplier() {
+            return 1L;
+        }
+
+        @Override
+        public boolean isValid(AEKey input, Level level) {
+            return key.equals(input);
+        }
+
+        @Override
+        public AEKey getRemainingKey(AEKey input) {
+            return null;
+        }
+    }
+
+    private record FixedPattern(List<FixedInput> inputs, AEKey output, long outputAmount)
+        implements IPatternDetails, cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern {
+        @Override
+        public InputSemantics getECOPlannerInputSemantics() {
+            return InputSemantics.CANONICAL_ONLY;
+        }
+
+        @Override
+        public IInput[] getInputs() {
+            return inputs.toArray(IInput[]::new);
+        }
+
+        @Override
+        public List<appeng.api.stacks.GenericStack> getOutputs() {
+            return List.of(new appeng.api.stacks.GenericStack(output, outputAmount));
+        }
+
+        @Override
+        public appeng.api.stacks.AEItemKey getDefinition() {
+            return null;
+        }
     }
 
     private record FuzzyInput(ComponentKey template, Map<AEKey, AEKey> remainders)

@@ -96,6 +96,7 @@ final class ECOAE2PatternCompatibility {
                 && AE2PatternIntrospection.classifyPatternEligibility(details)
                     == AE2PatternIntrospection.PatternEligibility.SPECIAL_RECIPE
                 && !AE2PatternIntrospection.isProductiveBeesConfigurableCombBlockRecipe(details)
+                && !isFixedSelfIncreasingRecipe(details, inputs, level)
                 && (!ignoredSubstitution || !(details instanceof AESmithingTablePattern))) {
                 return Assessment.rejected("special_recipe");
             }
@@ -266,6 +267,42 @@ final class ECOAE2PatternCompatibility {
         } catch (RuntimeException | LinkageError ignored) {
             return false;
         }
+    }
+
+    /**
+     * Some vanilla/mod recipe implementations are marked special even though AE2 has already
+     * reduced them to a deterministic operation. Preserve the narrow self-increasing case here:
+     * every input must be canonical and one input material must also be the output with a strictly
+     * larger amount. Dynamic special recipes remain rejected.
+     */
+    private static boolean isFixedSelfIncreasingRecipe(
+        IPatternDetails details,
+        IPatternDetails.IInput[] inputs,
+        Level level
+    ) {
+        try {
+            List<GenericStack> outputs = details.getOutputs();
+            if (outputs == null || outputs.isEmpty()
+                || !hasOnlyCanonicalOrConfiguredFuzzyInputs(details, inputs, level, Set.of(), false)) {
+                return false;
+            }
+            for (GenericStack output : outputs) {
+                if (output == null || output.amount() <= 1L) {
+                    continue;
+                }
+                for (IPatternDetails.IInput input : inputs) {
+                    GenericStack[] possible = input.getPossibleInputs();
+                    if (possible != null && possible.length == 1 && possible[0] != null
+                        && possible[0].what().equals(output.what())
+                        && possible[0].amount() == 1L) {
+                        return true;
+                    }
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
+        return false;
     }
 
     private static boolean hasConfiguredFuzzyTemplate(

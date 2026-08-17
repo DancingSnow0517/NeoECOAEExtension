@@ -458,6 +458,15 @@ public final class ECOAE2PlanAssembler {
         if (operations.isEmpty()) {
             return;
         }
+        Set<AEKey> cycleInputs = new java.util.LinkedHashSet<>();
+        Set<AEKey> cycleOutputs = new java.util.LinkedHashSet<>();
+        problem.operations().stream()
+            .filter(candidate -> operations.contains(candidate.reference()))
+            .forEach(candidate -> {
+                cycleInputs.addAll(candidate.inputs().keySet());
+                cycleOutputs.addAll(candidate.outputs().keySet());
+            });
+        cycleInputs.retainAll(cycleOutputs);
         problem.operations().stream()
             .filter(operation -> operations.contains(operation.reference()))
             .forEach(operation -> operation.inputs().forEach((key, amount) -> {
@@ -468,7 +477,16 @@ public final class ECOAE2PlanAssembler {
                 long initialDeficit = Math.max(0L,
                     amount - problem.inventory().getOrDefault(key, 0L));
                 if (blocked > 0L && initialDeficit > 0L) {
-                    missing.merge(key, Math.max(blocked, initialDeficit), Math::max);
+                    // blockedBy is aggregated over every pending operation. For a cycle
+                    // material it therefore includes the downstream request (for example,
+                    // 64 items consumed by the upper recipe), while the bootstrap only needs
+                    // the starter operation's one-batch input. Keep the per-batch deficit for
+                    // materials produced within the traced cycle; external inputs still use the
+                    // scheduler's larger blocked amount.
+                    long required = cycleInputs.contains(key)
+                        ? initialDeficit
+                        : Math.max(blocked, initialDeficit);
+                    missing.merge(key, required, Math::max);
                 }
             }));
     }
