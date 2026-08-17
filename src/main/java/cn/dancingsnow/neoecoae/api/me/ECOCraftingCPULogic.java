@@ -98,6 +98,10 @@ public class ECOCraftingCPULogic {
     /** Missing inputs accepted by ExtendedAE Plus's forced-start plan. */
     private final ListCraftingInventory manualWaitingFor = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
+    /** Patterns that failed first-input extraction at the current inventory revision. */
+    private final IdentityHashMap<IPatternDetails, Long> inputExtractionBlockedRevisions =
+        new IdentityHashMap<>();
+    private long inventoryStateRevision;
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
      */
@@ -172,6 +176,7 @@ public class ECOCraftingCPULogic {
             ECOPlannedInputs.takeFuzzyItemIds(plannedInputPlan),
             plannedInputPlan
         );
+        inputExtractionBlockedRevisions.clear();
         setManualWaiting(manualMissing);
         registerJobOutputRoute();
 
@@ -420,6 +425,10 @@ public class ECOCraftingCPULogic {
                         ? task.getValue().value
                         : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
                             : task.getValue().value;
+                    if (!shouldRetryInputExtraction(
+                        inputExtractionBlockedRevisions.get(details), inventoryStateRevision)) {
+                        continue taskLoop;
+                    }
                     ICraftingInventory executionInventory = inventory;
                     KeyCounter[] craftingContainer = null;
                     KeyCounter expectedOutputs = new KeyCounter();
@@ -436,6 +445,7 @@ public class ECOCraftingCPULogic {
                                 extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
                     }
                     if (craftingContainer == null) {
+                        inputExtractionBlockedRevisions.put(details, inventoryStateRevision);
                         if (fastPathCandidate) {
                             ECOFastPathDiagnostics.logCpuPreflightFailure(
                                 details,
@@ -450,6 +460,7 @@ public class ECOCraftingCPULogic {
                         }
                         continue taskLoop;
                     }
+                    inputExtractionBlockedRevisions.remove(details);
                     if (selectedDetails != null) {
                         craftingContainer = selectedDetails.collapseInputHolder(craftingContainer);
                     }
@@ -1407,6 +1418,10 @@ public class ECOCraftingCPULogic {
         return taskRemaining <= 0L || plannedInputCount >= taskRemaining;
     }
 
+    static boolean shouldRetryInputExtraction(@Nullable Long blockedRevision, long currentRevision) {
+        return blockedRevision == null || blockedRevision.longValue() != currentRevision;
+    }
+
     static boolean shouldUsePlannedInputsForDispatch(
         boolean ecoFastPathCandidate,
         boolean plannedInputsPresent,
@@ -1740,6 +1755,7 @@ public class ECOCraftingCPULogic {
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
         // 结束任务。
+        inputExtractionBlockedRevisions.clear();
         this.job = null;
         JOB_OUTPUT_ROUTES.remove(craftingJobId, this);
 
@@ -1839,6 +1855,7 @@ public class ECOCraftingCPULogic {
     }
 
     private void postChange(@Nullable AEKey what) {
+        inventoryStateRevision++;
         if (batchingStatusChanges) {
             batchedAnyStatusChange = true;
             if (what == null) {
