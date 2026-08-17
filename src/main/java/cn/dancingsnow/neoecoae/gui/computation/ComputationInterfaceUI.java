@@ -37,8 +37,8 @@ public final class ComputationInterfaceUI {
     // align the item art with the slot wells baked into nbtbench.png.
     private static final int GRID_LEFT = 7;
     private static final int GRID_TOP = 28;
-    private static final int INVENTORY_LEFT = 8;
-    private static final int INVENTORY_TOP = 168;
+    private static final int INVENTORY_LEFT = 7;
+    private static final int INVENTORY_TOP = 167;
 
     private ComputationInterfaceUI() {
     }
@@ -52,6 +52,7 @@ public final class ComputationInterfaceUI {
             .height(ROOT_HEIGHT)
         ).style(style -> style.backgroundTexture(NETextures.NBT_BENCH));
         root.addChild(title());
+        root.addChild(fuzzyHint());
         root.addChild(fuzzyItemSlots(computationInterface));
         root.addChild(playerInventory());
         return new ModularUI(
@@ -68,6 +69,16 @@ public final class ComputationInterfaceUI {
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(8).top(6).width(160).height(12));
+    }
+
+    private static UIElement fuzzyHint() {
+        return new TextElement()
+            .setText(Component.literal("标记物品用于忽略其组件差异"))
+            .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
+                .textWrap(TextWrap.NONE).textColor(0x6D6A82).textShadow(false))
+            .layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(8).top(18).width(160).height(10));
     }
 
     private static UIElement fuzzyItemSlots(
