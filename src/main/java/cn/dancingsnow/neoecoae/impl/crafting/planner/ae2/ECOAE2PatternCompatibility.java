@@ -95,6 +95,7 @@ final class ECOAE2PatternCompatibility {
             if (details instanceof AECraftingPattern
                 && AE2PatternIntrospection.classifyPatternEligibility(details)
                     == AE2PatternIntrospection.PatternEligibility.SPECIAL_RECIPE
+                && !AE2PatternIntrospection.isProductiveBeesConfigurableCombBlockRecipe(details)
                 && (!ignoredSubstitution || !(details instanceof AESmithingTablePattern))) {
                 return Assessment.rejected("special_recipe");
             }

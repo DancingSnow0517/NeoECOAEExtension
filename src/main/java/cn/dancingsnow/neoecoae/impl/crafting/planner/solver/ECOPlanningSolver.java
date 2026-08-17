@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningBalances;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
@@ -24,10 +23,6 @@ public final class ECOPlanningSolver {
     private static final long COMPONENT_PHASE_NANOS = 500_000_000L;
     private static final long DEBUG_CYCLE_PHASE_NANOS = 10_000_000_000L;
     private static final long DEBUG_COMPONENT_PHASE_NANOS = 5_000_000_000L;
-    // A complete component solution is already executable. Give the integer optimizer only a
-    // short opportunity to improve producer selection before returning that solution to AE2.
-    private static final long INTEGER_OPTIMIZATION_PHASE_NANOS = 250_000_000L;
-    private static final long INTEGER_OPTIMIZATION_DEBUG_PHASE_NANOS = 1_000_000_000L;
 
     private ECOPlanningSolver() {
     }
@@ -240,72 +235,30 @@ public final class ECOPlanningSolver {
         }
         if (component.isPresent()
             && (component.get().status() == ECOHyperflowResult.Status.COMPLETE
-                && !requiresIntegerOptimization(graph)
                 || componentMissingIsConclusive)) {
             logSelected(problem, "component", component.get());
             return component.get();
         }
-        boolean completeComponent = component.isPresent()
-            && component.get().status() == ECOHyperflowResult.Status.COMPLETE;
-        if (!completeComponent) {
-            ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
-                component.isEmpty()
-                    ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
-                    : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
-                problem.requested().keySet().stream().findFirst().orElse(null),
-                problem.requested().values().stream().findFirst().orElse(0L),
-                "solver",
-                component.isEmpty()
-                    ? "component_no_result_or_limit; switch_to_integer"
-                    : "component_status=" + component.get().status() + "; switch_to_integer"
-            );
-        }
-        long integerDeadline = completeComponent
-            ? ECOSolveBudget.phaseDeadline(
-                deadlineNanos,
-                NEConfig.debugECOPlanner
-                    ? INTEGER_OPTIMIZATION_DEBUG_PHASE_NANOS
-                    : INTEGER_OPTIMIZATION_PHASE_NANOS
-            )
-            : deadlineNanos;
+        ECOPlanningFailureDiagnostics.logFailure(
+            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+            component.isEmpty()
+                ? ECOPlannerFallbackReason.SOLVER_NO_ROUTE
+                : ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+            problem.requested().keySet().stream().findFirst().orElse(null),
+            problem.requested().values().stream().findFirst().orElse(0L),
+            "solver",
+            component.isEmpty()
+                ? "component_no_result_or_limit; switch_to_integer"
+                : "component_status=" + component.get().status() + "; switch_to_integer"
+        );
         phaseStarted = System.nanoTime();
         ECOHyperflowResult<R> integer = ECOIntegerHyperflowSolver.solve(
-            problem, integerGraph, budget, integerDeadline
+            problem, integerGraph, budget, deadlineNanos
         );
         logPhase(problem, "integer", phaseStarted,
             "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
-        if (component.isPresent()
-            && component.get().status() == ECOHyperflowResult.Status.COMPLETE
-            && (integer.status() != ECOHyperflowResult.Status.COMPLETE
-                || compareCandidates(component.get().candidate(), integer.candidate()) <= 0)) {
-            logSelected(problem, "component_after_integer_optimization", component.get());
-            return component.get();
-        }
         logSelected(problem, "integer", integer);
         return integer;
-    }
-
-    private static <R> int compareCandidates(
-        ECOPlanCandidate<R> left,
-        ECOPlanCandidate<R> right
-    ) {
-        int result = Long.compare(left.requestedShortfall(), right.requestedShortfall());
-        if (result == 0) result = Long.compare(left.dependencyShortfall(), right.dependencyShortfall());
-        if (result == 0) result = Long.compare(left.sourceShortfall(), right.sourceShortfall());
-        if (result == 0) result = Long.compare(left.totalExecutions(), right.totalExecutions());
-        if (result == 0) result = Long.compare(left.surplus(), right.surplus());
-        if (result == 0) result = Integer.compare(left.executions().size(), right.executions().size());
-        return result;
-    }
-
-    private static <K, R> boolean requiresIntegerOptimization(ECOPlanningGraph<K, R> graph) {
-        return graph.materials().stream().anyMatch(material ->
-            graph.producersOf(material).stream()
-                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
-                .limit(2)
-                .count() > 1L
-        );
     }
 
     private static long componentDeadline(long deadlineNanos) {

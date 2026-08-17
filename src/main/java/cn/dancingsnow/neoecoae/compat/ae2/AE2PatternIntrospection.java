@@ -126,6 +126,29 @@ public final class AE2PatternIntrospection {
         ECOPlanningService.clearCaches();
     }
 
+    /**
+     * Productive Bees' configurable comb block recipe is special only because its output keeps
+     * the BeeType component from its single input. The AE2 pattern already exposes that input as
+     * a concrete stack, so ECO can safely treat this one-input conversion as a normal operation.
+     */
+    public static boolean isProductiveBeesConfigurableCombBlockRecipe(IPatternDetails details) {
+        if (!(details instanceof AECraftingPatternAccessor accessor)) {
+            return false;
+        }
+        try {
+            CraftingRecipe recipe = accessor.neoecoae$getRecipe();
+            return recipe != null
+                && "cy.jdkdigital.productivebees.common.recipe.ConfigurableCombBlockRecipe"
+                    .equals(recipe.getClass().getName())
+                && details.getInputs() != null
+                && details.getInputs().length == 1
+                && details.getOutputs() != null
+                && !details.getOutputs().isEmpty();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     public static long getReloadGeneration() {
         return RELOAD_GENERATION.get();
     }
