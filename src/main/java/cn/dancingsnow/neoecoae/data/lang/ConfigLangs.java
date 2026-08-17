@@ -6,6 +6,48 @@ public class ConfigLangs {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("neoecoae.configuration.structure", "Structure");
         provider.add("neoecoae.configuration.structure.tooltip", "Multiblock structure size limits.");
+
+        provider.add("neoecoae.configuration.planner", "Planner");
+        provider.add(
+            "neoecoae.configuration.planner.tooltip",
+            "ECO planner safety limits and bounded computation caches."
+        );
+        provider.add("neoecoae.configuration.maxComponentMaterials", "Max Component Materials");
+        provider.add(
+            "neoecoae.configuration.maxComponentMaterials.tooltip",
+            "Maximum number of distinct materials allowed in one condensed recipe component."
+        );
+        provider.add("neoecoae.configuration.maxComponentOperations", "Max Component Operations");
+        provider.add(
+            "neoecoae.configuration.maxComponentOperations.tooltip",
+            "Maximum number of operations allowed in one condensed recipe component."
+        );
+        provider.add("neoecoae.configuration.componentSolveMillis", "Component Solve Millis");
+        provider.add(
+            "neoecoae.configuration.componentSolveMillis.tooltip",
+            "Maximum time in milliseconds allowed to solve one condensed recipe component."
+        );
+        provider.add("neoecoae.configuration.topologyCacheSize", "Topology Cache Size");
+        provider.add(
+            "neoecoae.configuration.topologyCacheSize.tooltip",
+            "Maximum number of topology entries retained by the planner cache."
+        );
+        provider.add("neoecoae.configuration.reachableGraphCacheSize", "Reachable Graph Cache Size");
+        provider.add(
+            "neoecoae.configuration.reachableGraphCacheSize.tooltip",
+            "Maximum number of reachable graph entries retained by the planner cache."
+        );
+        provider.add("neoecoae.configuration.cycleCacheSize", "Cycle Cache Size");
+        provider.add(
+            "neoecoae.configuration.cycleCacheSize.tooltip",
+            "Maximum number of condensed cycle entries retained by the planner cache."
+        );
+        provider.add("neoecoae.configuration.resultCacheSize", "Result Cache Size");
+        provider.add(
+            "neoecoae.configuration.resultCacheSize.tooltip",
+            "Maximum number of solved planning results retained by the planner cache."
+        );
+
         provider.add("neoecoae.configuration.craftingSystemMaxLength", "Max Length of Crafting System");
         provider.add(
             "neoecoae.configuration.craftingSystemMaxLength.tooltip",
