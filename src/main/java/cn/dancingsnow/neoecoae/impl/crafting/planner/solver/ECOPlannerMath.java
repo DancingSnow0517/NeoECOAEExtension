@@ -153,11 +153,22 @@ final class ECOPlannerMath {
         Map<K, Long> balances,
         Map<K, Long> requested
     ) {
+        return findStartableMaterials(graph, expandableMaterials, balances, requested, Set.of());
+    }
+
+    static <K, R> Set<K> findStartableMaterials(
+        ECOPlanningGraph<K, R> graph,
+        Set<K> expandableMaterials,
+        Map<K, Long> balances,
+        Map<K, Long> requested,
+        Set<K> unlimited
+    ) {
         java.util.LinkedHashSet<K> startable = new java.util.LinkedHashSet<>();
         for (K material : expandableMaterials) {
             boolean canStart = graph.producersOf(material).stream().anyMatch(operation ->
                 positiveNet(operation, material) > 0L
-                    && ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)
+                    && ECOCycleBootstrap.canPotentiallyStart(
+                        operation, graph, balances, requested, unlimited)
             );
             if (canStart) {
                 startable.add(material);

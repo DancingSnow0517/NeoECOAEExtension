@@ -62,6 +62,20 @@ public final class ECOComponentDemandSolver {
             return Optional.empty();
         }
         Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
+        var topology = graph.topology(problem.unlimitedInventory());
+        if (topology.hasCycle()) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                materialKey(problem),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "component",
+                "cyclic_graph_rejected cyclicComponents=" + topology.cyclicComponents().size()
+                    + " materials=" + graph.materials().size()
+                    + " operations=" + graph.operations().size()
+            );
+            return Optional.empty();
+        }
         Map<R, Long> executions = new LinkedHashMap<>();
         Set<K> expandableMaterials = findExpandableMaterials(graph);
         ArrayDeque<K> queue = new ArrayDeque<>();
@@ -274,7 +288,7 @@ public final class ECOComponentDemandSolver {
             executions,
             problem.requested(),
             ECOPlannerMath.findStartableMaterials(
-                graph, expandableMaterials, balances, problem.requested()
+                graph, expandableMaterials, balances, problem.requested(), problem.unlimitedInventory()
             ),
             graph.materials(),
             expansions
@@ -409,7 +423,9 @@ public final class ECOComponentDemandSolver {
                 return null;
             }
             boolean selfGrowth = ECOCycleBootstrap.isSelfGrowth(operation, material);
-            if (!selfGrowth && !ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
+            if (!selfGrowth && !ECOCycleBootstrap.canPotentiallyStart(
+                operation, graph, balances, requested
+            )) {
                 continue;
             }
             long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, balances);

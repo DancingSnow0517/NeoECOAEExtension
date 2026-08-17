@@ -76,6 +76,7 @@ public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_INPUT_EXTRACTION_ATTEMPTS = 5;
     private static final int MAX_MISSING_INPUT_DIAGNOSTICS = 16;
+    private static final int MAX_INPUT_CANDIDATE_DIAGNOSTICS = 8;
     private static final String NBT_MANUAL_WAITING = "manualWaiting";
     private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
     private static final Map<CraftingService, SlowPathNetworkBudget> SLOW_PATH_NETWORK_BUDGETS =
@@ -101,6 +102,9 @@ public class ECOCraftingCPULogic {
     /** Patterns that failed first-input extraction at the current inventory revision. */
     private final IdentityHashMap<IPatternDetails, Long> inputExtractionBlockedRevisions =
         new IdentityHashMap<>();
+    /** Snapshot of the local CPU inventory immediately after the current job reservation. */
+    private final KeyCounter initialReservedItems = new KeyCounter();
+    private boolean initialReservationKnown;
     private long inventoryStateRevision;
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
@@ -151,10 +155,14 @@ public class ECOCraftingCPULogic {
         ICraftingPlan plannedInputPlan = ExtendedAEPlusCraftingPlanCompat.unwrap(plan);
         KeyCounter manualMissing = ExtendedAEPlusCraftingPlanCompat.getManualMissingItems(plan);
         Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds = ECOPlannedInputs.peekFuzzyItemIds(plannedInputPlan);
+        initialReservedItems.clear();
+        initialReservationKnown = false;
         var missingIngredient = ECOFuzzyCraftingInventory.tryExtractInitialItems(
             plan, grid, inventory, src, fuzzyItemIds);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
+        initialReservedItems.addAll(inventory.list);
+        initialReservationKnown = true;
         ECOFastPathDiagnostics.logCpuReservation(
             plan,
             inventory.list,
@@ -455,7 +463,7 @@ public class ECOCraftingCPULogic {
                                 plannedInputs != null,
                                 plannedInputCount,
                                 inputExtractionAttempts,
-                                describeMissingPatternInputs(extractionDetails, inventory, level)
+                                describeMissingPatternInputs(extractionDetails, inventory, level, job)
                             );
                         }
                         continue taskLoop;
@@ -1043,13 +1051,30 @@ public class ECOCraftingCPULogic {
         return patternBuses == null ? List.of() : patternBuses;
     }
 
-    private static String describeMissingPatternInputs(
-            IPatternDetails details, ListCraftingInventory inventory, Level level) {
+    private String describeMissingPatternInputs(
+            IPatternDetails details,
+            ListCraftingInventory inventory,
+            Level level,
+            ExecutingCraftingJob currentJob) {
         Map<AEKey, Long> available = new LinkedHashMap<>();
         for (var entry : inventory.list) {
             if (entry.getLongValue() > 0L) {
                 available.put(entry.getKey(), entry.getLongValue());
             }
+        }
+
+        KeyCounter networkAvailable = null;
+        String networkSnapshot = "unavailable";
+        try {
+            IGrid grid = cpu.getGrid();
+            if (grid != null) {
+                networkAvailable = grid.getStorageService().getInventory().getAvailableStacks();
+                networkSnapshot = "ready keys=" + countPositiveKeys(networkAvailable);
+            } else {
+                networkSnapshot = "no_grid";
+            }
+        } catch (RuntimeException e) {
+            networkSnapshot = "error=" + e.getClass().getSimpleName();
         }
 
         List<String> missing = new ArrayList<>();
@@ -1077,26 +1102,110 @@ public class ECOCraftingCPULogic {
                 }
             }
 
+            List<String> auditCandidates = new ArrayList<>();
+            int candidateCount = 0;
+            for (GenericStack possible : input.getPossibleInputs()) {
+                if (possible == null || possible.amount() <= 0L
+                        || candidateCount >= MAX_INPUT_CANDIDATE_DIAGNOSTICS) {
+                    continue;
+                }
+                long cpuAmount = available.getOrDefault(possible.what(), 0L);
+                long requiredItems = scaledPatternAmount(possible.amount(), remainingUnits);
+                long networkAmount = networkAvailable == null
+                    ? -1L
+                    : availableFromCounter(networkAvailable, possible.what(), currentJob.fuzzyItemIds);
+                long reservedAtStart = initialReservationKnown
+                    ? availableFromCounter(initialReservedItems, possible.what(), currentJob.fuzzyItemIds)
+                    : -1L;
+                long waitingFor = currentJob.waitingFor.extract(
+                    possible.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+                long pendingInput = safePendingInputAmount(possible.what());
+                boolean valid = input.isValid(possible.what(), level);
+                auditCandidates.add(
+                    possible.what()
+                        + " required=" + requiredItems
+                        + " cpu=" + cpuAmount
+                        + " network=" + networkAmount
+                        + " reservedAtStart=" + reservedAtStart
+                        + " waitingFor=" + waitingFor
+                        + " pendingInput=" + pendingInput
+                        + " valid=" + valid
+                        + " source=" + classifyInputSource(
+                            cpuAmount, networkAmount, reservedAtStart, waitingFor)
+                );
+                if (candidates.isEmpty()) {
+                    candidates.add(formatMissingInput(possible.what(), requiredItems, cpuAmount));
+                }
+                candidateCount++;
+            }
+            if (candidates.isEmpty()) {
+                candidates.add("no_valid_candidate");
+            }
             if (remainingUnits > 0L) {
-                if (candidates.isEmpty()) {
-                    for (GenericStack possible : input.getPossibleInputs()) {
-                        if (possible == null || possible.amount() <= 0L) {
-                            continue;
-                        }
-                        long availableItems = available.getOrDefault(possible.what(), 0L);
-                        long requiredItems = scaledPatternAmount(possible.amount(), remainingUnits);
-                        candidates.add(formatMissingInput(possible.what(), requiredItems, availableItems));
-                    }
-                }
-                if (candidates.isEmpty()) {
-                    candidates.add("no_valid_candidate");
-                }
                 missing.add("slot=" + slot + " remainingUnits=" + remainingUnits
-                        + " candidates=" + candidates);
+                        + " candidates=" + candidates
+                        + " audit=" + auditCandidates
+                        + " networkSnapshot=" + networkSnapshot);
             }
         }
 
         return missing.isEmpty() ? "unknown" : missing.toString();
+    }
+
+    private static int countPositiveKeys(KeyCounter counter) {
+        int count = 0;
+        for (var entry : counter) {
+            if (entry.getLongValue() > 0L) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static long availableFromCounter(
+            KeyCounter counter,
+            AEKey key,
+            Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds) {
+        if (!ECOFuzzyCraftingInventory.isConfiguredFuzzy(key, fuzzyItemIds)) {
+            return counter.get(key);
+        }
+        long total = 0L;
+        for (var entry : counter.findFuzzy(key, appeng.api.config.FuzzyMode.IGNORE_ALL)) {
+            long amount = entry.getLongValue();
+            total = total > Long.MAX_VALUE - amount ? Long.MAX_VALUE : total + amount;
+        }
+        return total;
+    }
+
+    private long safePendingInputAmount(AEKey key) {
+        try {
+            return pendingInputAmount(key);
+        } catch (RuntimeException e) {
+            return -1L;
+        }
+    }
+
+    private static String classifyInputSource(
+            long cpuAmount,
+            long networkAmount,
+            long reservedAtStart,
+            long waitingFor) {
+        if (cpuAmount > 0L) {
+            return "cpu_inventory";
+        }
+        if (waitingFor > 0L) {
+            return "waiting_for_output";
+        }
+        if (networkAmount > 0L) {
+            if (reservedAtStart > 0L) {
+                return "reserved_at_start_now_gone";
+            }
+            return "network_only_not_reserved";
+        }
+        if (networkAmount == 0L) {
+            return "network_missing_or_key_mismatch";
+        }
+        return "network_unknown";
     }
 
     private static String formatMissingInput(AEKey key, long required, long available) {

@@ -1,8 +1,12 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Guards positive-net operations that also consume the material they produce.
@@ -38,6 +42,79 @@ public final class ECOCycleBootstrap {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Checks startability through the producer graph, not only within one operation.
+     *
+     * <p>The old overload can detect {@code A -> 2A}, but it cannot distinguish
+     * {@code A -> B} plus {@code B -> A} from a source-backed route. This overload
+     * computes the least fixed point of materials that have either initial supply or
+     * a producer whose inputs are themselves startable. A producer in an unseeded
+     * dependency cycle therefore remains unavailable.</p>
+     */
+    public static <K, R> boolean canPotentiallyStart(
+        ECOPlanningOperation<K, R> operation,
+        ECOPlanningGraph<K, R> graph,
+        Map<K, Long> balances,
+        Map<K, Long> requested
+    ) {
+        return canPotentiallyStart(operation, graph, balances, requested, Set.of());
+    }
+
+    public static <K, R> boolean canPotentiallyStart(
+        ECOPlanningOperation<K, R> operation,
+        ECOPlanningGraph<K, R> graph,
+        Map<K, Long> balances,
+        Map<K, Long> requested,
+        Set<K> unlimited
+    ) {
+        Map<K, Boolean> memo = new HashMap<>();
+        Set<K> visiting = new HashSet<>();
+        for (K input : operation.inputs().keySet()) {
+            if (!isMaterialPotentiallyAvailable(
+                input, graph, balances, requested, unlimited, memo, visiting)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static <K, R> boolean isMaterialPotentiallyAvailable(
+        K material,
+        ECOPlanningGraph<K, R> graph,
+        Map<K, Long> balances,
+        Map<K, Long> requested,
+        Set<K> unlimited,
+        Map<K, Boolean> memo,
+        Set<K> visiting
+    ) {
+        Boolean cached = memo.get(material);
+        if (cached != null) {
+            return cached;
+        }
+        if (unlimited.contains(material)
+            || availableBeforeRequest(material, balances, requested) > 0L) {
+            memo.put(material, true);
+            return true;
+        }
+        if (!visiting.add(material)) {
+            return false;
+        }
+        boolean available = false;
+        for (var producer : graph.producersOf(material)) {
+            if (producer.outputAmount(material) <= 0L
+                || producer.inputs().keySet().stream().anyMatch(input ->
+                    !isMaterialPotentiallyAvailable(
+                        input, graph, balances, requested, unlimited, memo, visiting))) {
+                continue;
+            }
+            available = true;
+            break;
+        }
+        visiting.remove(material);
+        memo.put(material, available);
+        return available;
     }
 
     /** Scores a missing self-input without treating future loop output as a source. */

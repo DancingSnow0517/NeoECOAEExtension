@@ -196,7 +196,9 @@ public final class ECOCondensedCycleSolver {
             balances,
             executions,
             problem.requested(),
-            ECOPlannerMath.findStartableMaterials(graph, expandable, balances, problem.requested()),
+            ECOPlannerMath.findStartableMaterials(
+                graph, expandable, balances, problem.requested(), problem.unlimitedInventory()
+            ),
             graph.materials(),
             expansions
         );
@@ -415,8 +417,9 @@ public final class ECOCondensedCycleSolver {
             null,
             incumbentBoundaryUpper
         );
-        Optimisation.Result solved = solveModel(model, deadlineNanos);
-        if (!solved.getState().isFeasible() || ECOSolveBudget.shouldStop(deadlineNanos)) {
+        Optimisation.Result solved = solveModel(model, deadlineNanos, "primary");
+        if (solved == null || !solved.getState().isFeasible()
+            || ECOSolveBudget.shouldStop(deadlineNanos)) {
             return finiteIncumbent;
         }
         Map<ECOPlanningOperation<K, R>, BigInteger> exactCounts = exactCounts(model, solved);
@@ -450,8 +453,8 @@ public final class ECOCondensedCycleSolver {
                 externalUpper,
                 optimalBoundary
             );
-            Optimisation.Result boundarySolved = solveModel(boundaryModel, deadlineNanos);
-            if (boundarySolved.getState().isFeasible()
+            Optimisation.Result boundarySolved = solveModel(boundaryModel, deadlineNanos, "external_tiebreak");
+            if (boundarySolved != null && boundarySolved.getState().isFeasible()
                 && !ECOSolveBudget.shouldStop(deadlineNanos)) {
                 Map<ECOPlanningOperation<K, R>, BigInteger> boundaryCounts = exactCounts(
                     boundaryModel, boundarySolved
@@ -701,10 +704,35 @@ public final class ECOCondensedCycleSolver {
 
     private static <K, R> Optimisation.Result solveModel(
         ComponentModel<K, R> model,
-        long deadlineNanos
+        long deadlineNanos,
+        String pass
     ) {
-        model.model().options.time_abort = remainingMillis(deadlineNanos);
-        return model.model().minimise();
+        long remainingMillis = remainingMillis(deadlineNanos);
+        model.model().options.time_abort = remainingMillis;
+        try {
+            Optimisation.Result result = model.model().minimise();
+            if (ECOPlanningFailureDiagnostics.canLogDetail(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
+            )) {
+                ECOPlanningFailureDiagnostics.logDetail(
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                    "cycle_milp_result pass=" + pass
+                        + " state=" + result.getState()
+                        + " feasible=" + result.getState().isFeasible()
+                        + " timeAbortMillis=" + remainingMillis
+                );
+            }
+            return result;
+        } catch (RuntimeException failure) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                "cycle_milp_result pass=" + pass
+                    + " state=EXCEPTION exceptionClass=" + failure.getClass().getName()
+                    + " exceptionMessage=" + String.valueOf(failure.getMessage())
+                    + " timeAbortMillis=" + remainingMillis
+            );
+            return null;
+        }
     }
 
     private static <K, R> Map<ECOPlanningOperation<K, R>, BigInteger> exactCounts(

@@ -221,7 +221,9 @@ public final class ECOIntegerHyperflowSolver {
             );
             if (producers.size() == 1) {
                 ECOPlanningOperation<K, R> producer = producers.getFirst();
-                if (ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
+                if (ECOCycleBootstrap.canPotentiallyStart(
+                    producer, graph, evaluation.bootstrapSupply, Map.of(), problem.unlimitedInventory()
+                )) {
                     long net = ECOPlannerMath.positiveNet(producer, deficiency.material);
                     if (net > 0L) {
                         long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
@@ -257,7 +259,9 @@ public final class ECOIntegerHyperflowSolver {
                         : Termination.DEADLINE;
                     return;
                 }
-                if (!ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
+                if (!ECOCycleBootstrap.canPotentiallyStart(
+                    producer, graph, evaluation.bootstrapSupply, Map.of(), problem.unlimitedInventory()
+                )) {
                     continue;
                 }
                 long net = ECOPlannerMath.positiveNet(producer, deficiency.material);
@@ -291,7 +295,9 @@ public final class ECOIntegerHyperflowSolver {
                         : Termination.DEADLINE;
                     return;
                 }
-                if (!ECOCycleBootstrap.canPotentiallyStart(producer, evaluation.bootstrapSupply, Map.of())) {
+                if (!ECOCycleBootstrap.canPotentiallyStart(
+                    producer, graph, evaluation.bootstrapSupply, Map.of(), problem.unlimitedInventory()
+                )) {
                     continue;
                 }
                 long net = ECOPlannerMath.positiveNet(producer, deficiency.material);
@@ -444,7 +450,9 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 for (var producer : graph.producersOf(requested)) {
                     if (ECOPlannerMath.positiveNet(producer, requested) <= 0L
-                        || ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply, Map.of())) {
+                        || ECOCycleBootstrap.canPotentiallyStart(
+                            producer, graph, bootstrapSupply, Map.of(), problem.unlimitedInventory()
+                        )) {
                         continue;
                     }
                     for (var input : producer.inputs().entrySet()) {
@@ -465,7 +473,8 @@ public final class ECOIntegerHyperflowSolver {
         private boolean hasStartableProducer(K material, Map<K, Long> bootstrapSupply) {
             return graph.producersOf(material).stream().anyMatch(operation ->
                 ECOPlannerMath.positiveNet(operation, material) > 0L
-                    && ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply, Map.of()));
+                && ECOCycleBootstrap.canPotentiallyStart(
+                    operation, graph, bootstrapSupply, Map.of(), problem.unlimitedInventory()));
         }
 
         private List<Long> branchIncrements(

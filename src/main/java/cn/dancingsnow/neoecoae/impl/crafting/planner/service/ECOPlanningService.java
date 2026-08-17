@@ -63,7 +63,10 @@ public final class ECOPlanningService {
         Supplier<ICraftingPlan> ae2Fallback
     ) {
         AtomicBoolean cancellationRequested = new AtomicBoolean();
+        AtomicBoolean taskStarted = new AtomicBoolean();
+        AtomicBoolean requestEnded = new AtomicBoolean();
         FutureTask<ICraftingPlan> task = new FutureTask<>(() -> {
+            taskStarted.set(true);
             try (var diagnosticScope = ECOPlanningFailureDiagnostics.bindRequest(
                 snapshot.diagnosticRequestId()
             )) {
@@ -245,10 +248,12 @@ public final class ECOPlanningService {
                     "failureReason=" + FAILURE_REASON.get()
                 );
                 lease.close();
-                ECOPlanningFailureDiagnostics.endRequest(
-                    snapshot.diagnosticRequestId(),
-                    diagnosticResult
-                );
+                if (requestEnded.compareAndSet(false, true)) {
+                    ECOPlanningFailureDiagnostics.endRequest(
+                        snapshot.diagnosticRequestId(),
+                        diagnosticResult
+                    );
+                }
                 FAILURE_REASON.remove();
             }
             }
@@ -256,9 +261,26 @@ public final class ECOPlanningService {
             @Override
             public boolean cancel(boolean mayInterruptIfRunning) {
                 cancellationRequested.set(true);
-                // AE2's fallback waits through handlePausing(). Interrupting that worker makes
-                // AE2 log an InterruptedException instead of treating this as a normal cancel.
-                return super.cancel(false);
+                // AE2's fallback is registered with TickHandler and may be blocked in
+                // CraftingCalculation.handlePausing(). The interrupt is required to make its
+                // run() method reach finish(), otherwise TickHandler keeps simulating it forever.
+                return super.cancel(mayInterruptIfRunning);
+            }
+
+            @Override
+            protected void done() {
+                // FutureTask does not execute its callable when cancellation wins the race
+                // before the worker starts. Release the host lease and diagnostics in that case;
+                // a started task owns both until its callable finally block runs.
+                if (!taskStarted.get()) {
+                    lease.close();
+                    if (requestEnded.compareAndSet(false, true)) {
+                        ECOPlanningFailureDiagnostics.endRequest(
+                            snapshot.diagnosticRequestId(),
+                            "cancelled_before_execution"
+                        );
+                    }
+                }
             }
         };
         PLANNING_POOL.execute(task);

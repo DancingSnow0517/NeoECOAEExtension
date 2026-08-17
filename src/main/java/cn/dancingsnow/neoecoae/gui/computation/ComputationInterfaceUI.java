@@ -122,6 +122,9 @@ public final class ComputationInterfaceUI {
         playerInventory.getChildren().forEach(
             child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY)
         );
+        for (InventorySlots.Row row : playerInventory.rows) {
+            row.apply(slot -> slot.transform(transform -> transform.translate(0, 1)));
+        }
         return playerInventory;
     }
 

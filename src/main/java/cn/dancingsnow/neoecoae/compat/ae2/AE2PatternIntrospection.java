@@ -58,13 +58,10 @@ public final class AE2PatternIntrospection {
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
         details = ECOSelectedInputPatternDetails.unwrap(details);
         if (details instanceof AESmithingTablePattern smithingPattern) {
-            // Strict smithing patterns have fixed template, base, and addition slots. Their
-            // concrete inputs and verified output are included in the FastPath cache entry.
-            // Substitution remains on the slow path until its alternative-input semantics are
-            // modeled explicitly.
-            return smithingPattern.canSubstitute()
-                ? PatternEligibility.SPECIAL_RECIPE
-                : PatternEligibility.ELIGIBLE;
+            // Both strict and substitution smithing patterns become concrete before the key is
+            // built. The selected template/base/addition and the assembled output are verified by
+            // the worker, so the cache entry remains tied to one exact input selection.
+            return PatternEligibility.ELIGIBLE;
         }
         if (details instanceof AEStonecuttingPattern) {
             // A stonecutting pattern stores one concrete recipe and output. Input substitution

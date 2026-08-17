@@ -180,20 +180,31 @@ public final class ECOPlanningSolver {
         );
         phaseStarted = System.nanoTime();
         Optional<ECOHyperflowResult<R>> component;
-        try {
-            component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
-        } catch (StackOverflowError overflow) {
-            ECOPlanningFailureDiagnostics.logFailure(
+        if (graph.topology(problem.unlimitedInventory()).hasCycle()) {
+            ECOPlanningFailureDiagnostics.logDetail(
                 ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
-                ECOPlannerFallbackReason.PLANNING_FAILURE,
-                problem.requested().keySet().stream().findFirst().orElse(null),
-                problem.requested().values().stream().findFirst().orElse(0L),
-                "component",
-                "stack_overflow_fallback_to_integer graphMaterials=" + graph.materials().size()
-                    + " graphOperations=" + graph.operations().size(),
-                overflow
+                "component_skipped_cyclic_graph sccCount="
+                    + graph.topology(problem.unlimitedInventory()).cyclicComponents().size()
+                    + " graphMaterials=" + graph.materials().size()
+                    + " graphOperations=" + graph.operations().size()
             );
             component = Optional.empty();
+        } else {
+            try {
+                component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
+            } catch (StackOverflowError overflow) {
+                ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                    ECOPlannerFallbackReason.PLANNING_FAILURE,
+                    problem.requested().keySet().stream().findFirst().orElse(null),
+                    problem.requested().values().stream().findFirst().orElse(0L),
+                    "component",
+                    "stack_overflow_fallback_to_integer graphMaterials=" + graph.materials().size()
+                        + " graphOperations=" + graph.operations().size(),
+                    overflow
+                );
+                component = Optional.empty();
+            }
         }
         logPhase(problem, "component", phaseStarted,
             "result=" + (component.isPresent() ? component.get().status() : "empty"));
