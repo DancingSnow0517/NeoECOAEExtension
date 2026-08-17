@@ -131,6 +131,32 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
         return new MolecularView(molecular);
     }
 
+    /** The planner-unaware AE2 pattern this view restricts. */
+    public IPatternDetails unwrap() {
+        return delegate;
+    }
+
+    /**
+     * Peels ECO selected-input wrappers so FastPath type checks see the original AE2 pattern.
+     * {@code MolecularView} is not an {@code AECraftingPattern}, so leaving it wrapped makes
+     * every planner-selected crafting pattern look unsupported.
+     */
+    public static IPatternDetails unwrap(IPatternDetails details) {
+        IPatternDetails current = details;
+        for (int depth = 0; current != null && depth < 8; depth++) {
+            if (current instanceof ECOSelectedInputPatternDetails selected) {
+                current = selected.delegate;
+                continue;
+            }
+            if (current instanceof MolecularView view) {
+                current = view.delegate;
+                continue;
+            }
+            return current;
+        }
+        return current;
+    }
+
     /** Restores the delegate's input-array shape after exact per-alternative extraction. */
     public KeyCounter[] collapseInputHolder(KeyCounter[] expanded) {
         Objects.requireNonNull(expanded, "expanded");

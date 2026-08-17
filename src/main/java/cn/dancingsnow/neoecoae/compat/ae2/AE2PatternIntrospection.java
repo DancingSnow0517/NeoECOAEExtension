@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
@@ -47,6 +48,7 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
+        details = ECOSelectedInputPatternDetails.unwrap(details);
         return details instanceof AECraftingPattern
             || details instanceof AESmithingTablePattern
             || details instanceof AEStonecuttingPattern
@@ -54,6 +56,7 @@ public final class AE2PatternIntrospection {
     }
 
     public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
+        details = ECOSelectedInputPatternDetails.unwrap(details);
         if (details instanceof AESmithingTablePattern smithingPattern) {
             // Strict smithing patterns have fixed template, base, and addition slots. Their
             // concrete inputs and verified output are included in the FastPath cache entry.
@@ -132,6 +135,7 @@ public final class AE2PatternIntrospection {
      * a concrete stack, so ECO can safely treat this one-input conversion as a normal operation.
      */
     public static boolean isProductiveBeesConfigurableCombBlockRecipe(IPatternDetails details) {
+        details = ECOSelectedInputPatternDetails.unwrap(details);
         if (!(details instanceof AECraftingPatternAccessor accessor)) {
             return false;
         }
@@ -154,6 +158,7 @@ public final class AE2PatternIntrospection {
     }
 
     private static AEItemKey readDefinition(IPatternDetails details) {
+        details = ECOSelectedInputPatternDetails.unwrap(details);
         if (details instanceof AECraftingPatternAccessor accessor) {
             AEItemKey definition = accessor.neoecoae$getDefinitionKey();
             if (definition != null) {
