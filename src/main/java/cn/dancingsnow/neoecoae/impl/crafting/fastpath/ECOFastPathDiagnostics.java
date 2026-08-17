@@ -144,7 +144,9 @@ public final class ECOFastPathDiagnostics {
         long tick,
         long taskRemaining,
         boolean plannedInputsPresent,
-        long plannedInputCount
+        long plannedInputCount,
+        int inputExtractionAttempts,
+        String missingInputs
     ) {
         if (!NEConfig.debugEcoFastPath) {
             return;
@@ -156,8 +158,10 @@ public final class ECOFastPathDiagnostics {
             ownerPos,
             tick,
             "first_input_unavailable taskRemaining=" + taskRemaining
+                + " attempts=" + inputExtractionAttempts
                 + " plannedInputsPresent=" + plannedInputsPresent
                 + " plannedInputCount=" + plannedInputCount
+                + " missingInputs=" + missingInputs
         );
     }
 

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -73,6 +74,8 @@ import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final int MAX_INPUT_EXTRACTION_ATTEMPTS = 5;
+    private static final int MAX_MISSING_INPUT_DIAGNOSTICS = 16;
     private static final String NBT_MANUAL_WAITING = "manualWaiting";
     private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
     private static final Map<CraftingService, SlowPathNetworkBudget> SLOW_PATH_NETWORK_BUDGETS =
@@ -417,11 +420,21 @@ public class ECOCraftingCPULogic {
                         ? task.getValue().value
                         : usePlannedInputs ? Math.min(task.getValue().value, plannedInputCount)
                             : task.getValue().value;
-                    var expectedOutputs = new KeyCounter();
-                    var expectedContainerItems = new KeyCounter();
                     ICraftingInventory executionInventory = inventory;
-                    var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
+                    KeyCounter[] craftingContainer = null;
+                    KeyCounter expectedOutputs = new KeyCounter();
+                    KeyCounter expectedContainerItems = new KeyCounter();
+                    int inputExtractionAttempts = 0;
+                    while (craftingContainer == null
+                            && inputExtractionAttempts < MAX_INPUT_EXTRACTION_ATTEMPTS) {
+                        inputExtractionAttempts++;
+                        // A failed AE2 extraction reinjects its partial holder. Recreate the expected
+                        // output/container counters so a retry cannot retain diagnostics from a partial attempt.
+                        expectedOutputs = new KeyCounter();
+                        expectedContainerItems = new KeyCounter();
+                        craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                                extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
+                    }
                     if (craftingContainer == null) {
                         if (fastPathCandidate) {
                             ECOFastPathDiagnostics.logCpuPreflightFailure(
@@ -430,7 +443,9 @@ public class ECOCraftingCPULogic {
                                 currentTick,
                                 task.getValue().value,
                                 plannedInputs != null,
-                                plannedInputCount
+                                plannedInputCount,
+                                inputExtractionAttempts,
+                                describeMissingPatternInputs(extractionDetails, inventory, level)
                             );
                         }
                         continue taskLoop;
@@ -1015,6 +1030,67 @@ public class ECOCraftingCPULogic {
             }
         }
         return patternBuses == null ? List.of() : patternBuses;
+    }
+
+    private static String describeMissingPatternInputs(
+            IPatternDetails details, ListCraftingInventory inventory, Level level) {
+        Map<AEKey, Long> available = new LinkedHashMap<>();
+        for (var entry : inventory.list) {
+            if (entry.getLongValue() > 0L) {
+                available.put(entry.getKey(), entry.getLongValue());
+            }
+        }
+
+        List<String> missing = new ArrayList<>();
+        IPatternDetails.IInput[] inputs = details.getInputs();
+        for (int slot = 0; slot < inputs.length && missing.size() < MAX_MISSING_INPUT_DIAGNOSTICS; slot++) {
+            IPatternDetails.IInput input = inputs[slot];
+            long remainingUnits = input.getMultiplier();
+            if (remainingUnits <= 0L) {
+                continue;
+            }
+
+            List<String> candidates = new ArrayList<>();
+            for (InputTemplate template : CraftingCpuHelper.getValidItemTemplates(inventory, input, level)) {
+                long availableItems = available.getOrDefault(template.key(), 0L);
+                long requiredItems = scaledPatternAmount(template.amount(), remainingUnits);
+                long availableUnits = availableItems / template.amount();
+                long extractedUnits = Math.min(remainingUnits, availableUnits);
+                candidates.add(formatMissingInput(template.key(), requiredItems, availableItems));
+                if (extractedUnits > 0L) {
+                    available.put(template.key(), availableItems - scaledPatternAmount(template.amount(), extractedUnits));
+                    remainingUnits -= extractedUnits;
+                }
+                if (remainingUnits == 0L) {
+                    break;
+                }
+            }
+
+            if (remainingUnits > 0L) {
+                if (candidates.isEmpty()) {
+                    for (GenericStack possible : input.getPossibleInputs()) {
+                        if (possible == null || possible.amount() <= 0L) {
+                            continue;
+                        }
+                        long availableItems = available.getOrDefault(possible.what(), 0L);
+                        long requiredItems = scaledPatternAmount(possible.amount(), remainingUnits);
+                        candidates.add(formatMissingInput(possible.what(), requiredItems, availableItems));
+                    }
+                }
+                if (candidates.isEmpty()) {
+                    candidates.add("no_valid_candidate");
+                }
+                missing.add("slot=" + slot + " remainingUnits=" + remainingUnits
+                        + " candidates=" + candidates);
+            }
+        }
+
+        return missing.isEmpty() ? "unknown" : missing.toString();
+    }
+
+    private static String formatMissingInput(AEKey key, long required, long available) {
+        long missing = Math.max(0L, required - available);
+        return key + " required=" + required + " available=" + available + " missing=" + missing;
     }
 
     private boolean hasReadyProvider(List<ICraftingProvider> providers, IPatternDetails details) {
