@@ -44,6 +44,11 @@ public final class ECOPlanningGraph<K, R> {
         ECOPlanningTopologyCache.clear();
     }
 
+    public static void clearCaches() {
+        ECOPlanningGraphCache.clear();
+        ECOPlanningTopologyCache.clear();
+    }
+
     public List<ECOPlanningOperation<K, R>> operations() {
         return operations;
     }

@@ -51,7 +51,7 @@ public final class ECOPlanningService {
 
     public static void clearCaches() {
         ECOAE2SnapshotFactory.clearCache();
-        ECOPlanningGraph.clearTopologyCache();
+        ECOPlanningGraph.clearCaches();
         ECOPlanningSolver.clearCaches();
     }
 
@@ -372,8 +372,7 @@ public final class ECOPlanningService {
         ECOPlannerNoticeDispatcher.Target noticeTarget
     ) {
         ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph = ECOGraphPruner.targetReachable(
-            new ECOPlanningGraph<>(snapshot.problem().operations()),
-            snapshot.problem().requested().keySet()
+            snapshot.problem().operations(), snapshot.problem().requested().keySet()
         );
         long low = 0L;
         long high = snapshot.requestedAmount();

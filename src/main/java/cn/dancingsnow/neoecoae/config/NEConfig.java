@@ -100,6 +100,9 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue ECO_PLANNER_TOPOLOGY_CACHE_SIZE = BUILDER
         .defineInRange("topologyCacheSize", 128, 16, ECO_PLANNER_CACHE_HARD_MAX);
 
+    private static final ModConfigSpec.IntValue ECO_PLANNER_REACHABLE_GRAPH_CACHE_SIZE = BUILDER
+        .defineInRange("reachableGraphCacheSize", 128, 16, ECO_PLANNER_CACHE_HARD_MAX);
+
     private static final ModConfigSpec.IntValue ECO_PLANNER_CYCLE_CACHE_SIZE = BUILDER
         .defineInRange("cycleCacheSize", 256, 16, ECO_PLANNER_CACHE_HARD_MAX);
 
@@ -298,6 +301,7 @@ public class NEConfig {
     public static int ecoPlannerMaxComponentOperations = 64;
     public static int ecoPlannerComponentSolveMillis = 2_000;
     public static int ecoPlannerTopologyCacheSize = 128;
+    public static int ecoPlannerReachableGraphCacheSize = 128;
     public static int ecoPlannerCycleCacheSize = 256;
     public static int ecoPlannerResultCacheSize = 128;
 
@@ -351,6 +355,7 @@ public class NEConfig {
         ecoPlannerMaxComponentOperations = ECO_PLANNER_MAX_COMPONENT_OPERATIONS.get();
         ecoPlannerComponentSolveMillis = ECO_PLANNER_COMPONENT_SOLVE_MILLIS.get();
         ecoPlannerTopologyCacheSize = ECO_PLANNER_TOPOLOGY_CACHE_SIZE.get();
+        ecoPlannerReachableGraphCacheSize = ECO_PLANNER_REACHABLE_GRAPH_CACHE_SIZE.get();
         ecoPlannerCycleCacheSize = ECO_PLANNER_CYCLE_CACHE_SIZE.get();
         ecoPlannerResultCacheSize = ECO_PLANNER_RESULT_CACHE_SIZE.get();
         ECOPlanningService.clearCaches();

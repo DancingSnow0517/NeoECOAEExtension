@@ -34,6 +34,14 @@ public final class ECOGraphPruner {
 
     /** Convenience overload that extracts operations and requested keys from a problem. */
     public static <K, R> ECOPlanningGraph<K, R> targetReachable(ECOPlanningProblem<K, R> problem) {
-        return targetReachable(new ECOPlanningGraph<>(problem.operations()), problem.requested().keySet());
+        return ECOPlanningGraphCache.targetReachable(problem.operations(), problem.requested().keySet());
+    }
+
+    /** Returns a cached target graph for the immutable materialized operation set. */
+    public static <K, R> ECOPlanningGraph<K, R> targetReachable(
+        java.util.List<ECOPlanningOperation<K, R>> operations,
+        Set<K> requested
+    ) {
+        return ECOPlanningGraphCache.targetReachable(operations, requested);
     }
 }
