@@ -113,7 +113,9 @@ public class NELangGenerator {
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
         provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
-        provider.add("tooltip.neoecoae.infinite_component.unlock", "Insert 64 components and install 12 L9 storage matrices to unlock infinite storage");
+        provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage: Activation Requirements");
+        provider.add("tooltip.neoecoae.infinite_component.components", "Component slot: 64 infinite storage components in one storage host");
+        provider.add("tooltip.neoecoae.infinite_component.matrices", "Drives: any 12 L9 storage matrices in that same host");
         provider.add("tooltip.neoecoae.storage.infinite_member", "Managed by the storage host");
         provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
 

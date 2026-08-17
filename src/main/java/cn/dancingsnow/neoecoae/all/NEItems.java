@@ -827,8 +827,12 @@ public class NEItems {
         .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
             @Override
             public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.header")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.components")
+                    .withStyle(ChatFormatting.GRAY));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.matrices")
+                    .withStyle(ChatFormatting.AQUA));
             }
         })
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
