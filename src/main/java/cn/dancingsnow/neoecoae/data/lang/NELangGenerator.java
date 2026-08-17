@@ -161,8 +161,8 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.network_switch.computation_cooling", "Requires a cooling controller on this host");
         provider.add("tooltip.neoecoae.network_switch.computation_high_energy_cooling", "Requires a C9 cooling controller on this host");
         provider.add("tooltip.neoecoae.network_switch.computation_ultimate", "8 high-energy C9 hosts with at least 10 Threading Cores and every drive filled raise aggregate parallel count to INT32_MAX and CPU storage to INT64_MAX");
-        provider.add("tooltip.neoecoae.network_switch.crafting_cooling", "Shared pool: 4 coolant per active task thread per tick; active exchange continuously draws full rated power");
-        provider.add("tooltip.neoecoae.network_switch.crafting_high_energy_cooling", "Highest-tier shared pool: 16 coolant per active task thread per tick; active exchange continuously draws full rated power");
+        provider.add("tooltip.neoecoae.network_switch.crafting_cooling", "Shared pool: 2000 coolant per active task thread per tick; active exchange continuously draws full rated power");
+        provider.add("tooltip.neoecoae.network_switch.crafting_high_energy_cooling", "Highest-tier shared pool: 8000 coolant per active task thread per tick; active exchange continuously draws full rated power");
         addLangs(provider, "tooltip.neoecoae.computation_system_desc",
             "The computation subsystem introduces virtual Crafting Processors (vCPUs):",
             "The host provides only one vCPU to the ME network at a time, with capacity equal to all currently available bytes in the subsystem",

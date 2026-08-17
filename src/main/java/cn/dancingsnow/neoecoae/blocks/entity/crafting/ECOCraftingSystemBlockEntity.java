@@ -81,8 +81,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
-    private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
-    private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
+    private static final int NETWORK_COOLANT_PER_SLOT_TICK = 2000;
+    private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 8000;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
