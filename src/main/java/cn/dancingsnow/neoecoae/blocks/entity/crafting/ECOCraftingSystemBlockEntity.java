@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -1197,6 +1198,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig();
         UIElement root = CraftingHostPanelUI.create(panelConfig);
         List<UIElement> sideButtons = new ArrayList<>();
+        sideButtons.add(GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"));
         sideButtons.add(MultiblockBuilderUI.createInlineOpenButton(buildWindow));
         sideButtons.addAll(CraftingHostPanelUI.createToolbarButtons(panelConfig));
         sideButtons.add(CraftingHostPanelUI.createClearOutputFluidButton(this::clearOutputFluid));

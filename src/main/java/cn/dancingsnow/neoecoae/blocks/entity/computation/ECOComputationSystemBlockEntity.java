@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -234,6 +235,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
         root.addChild(panels);
         root.addChild(HostSideButtonBar.left(
+                GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
                 MultiblockBuilderUI.createInlineOpenButton(buildWindow),
                 ComputationHostPanelUI.createFastPlanningButton(panelConfig),
                 ComputationHostPanelUI.createSubstitutionIgnoringButton(panelConfig),
