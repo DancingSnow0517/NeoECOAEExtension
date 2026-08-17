@@ -75,6 +75,28 @@ class ECOInventorySchedulerTest {
     }
 
     @Test
+    void preservesBootstrapSeedWhenUpperConsumerIsListedFirst() {
+        ECOPlanningOperation<String, String> consumer = new ECOPlanningOperation<>(
+            "consumer", Map.of("seed", 1L), Map.of("product", 1L)
+        );
+        ECOPlanningOperation<String, String> grow = new ECOPlanningOperation<>(
+            "grow", Map.of("seed", 1L), Map.of("seed", 2L)
+        );
+        ECOPlanningProblem<String, String> problem = new ECOPlanningProblem<>(
+            List.of(consumer, grow), Map.of("seed", 1L), Map.of("product", 64L)
+        );
+        ECOPlanCandidate<String> candidate = new ECOPlanCandidate<>(
+            Map.of("consumer", 64L, "grow", 64L), 0L, 0L, 0L, 0L
+        );
+
+        var schedule = ECOInventoryScheduler.schedule(problem, candidate);
+
+        assertTrue(schedule.executable());
+        assertEquals(64L, scheduledBatches(schedule, "consumer"));
+        assertEquals(64L, scheduledBatches(schedule, "grow"));
+    }
+
+    @Test
     void schedulesLargeFiveOperationCycleFromDiagnosticRegression() {
         var energized = new ECOPlanningOperation<>("energized",
             Map.of("charged", 32L, "energized_dust", 32L, "water", 500L),

@@ -178,10 +178,11 @@ public final class ECOExtractedPatternExecution {
             return ECOFastPathFallbackReason.UNSAFE_EXPECTED_OUTPUT;
         }
         ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, containers);
-        if (ECOFastPathStacks.hasStateChange(inputs, outputs)
-            || ECOFastPathStacks.hasStateChange(inputs, plan.ordinaryRemainingPerCraft())) {
-            return ECOFastPathFallbackReason.STATEFUL_ITEM;
-        }
+        // A component-only transition (for example ExtendedAE's staged Basic Core) is
+        // deterministic for a concrete AE2 pattern: every craft consumes the exact input key
+        // and produces the exact output key captured above.  FastPath batches those keys as
+        // separate inventory entries, so differing components do not make the operation unsafe.
+        // Mutable/damageable items remain excluded by isSafeForFastPath below.
         if (!ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)) {
             return ECOFastPathFallbackReason.UNSAFE_CONTAINER_ITEM;
         }

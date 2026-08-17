@@ -294,6 +294,12 @@ public final class ECOInventoryScheduler {
         long seedPreserving = seedPreservingExecutable(
             problem, operation, inventory, remaining, cycleOperations, executable
         );
+        // A zero result means this operation would consume a seed reserved for another
+        // pending cycle operation. There is no safe compressed batch in that state; treating
+        // zero as "no breakpoint" lets an external consumer exhaust the only bootstrap seed.
+        if (seedPreserving == 0L) {
+            return 0L;
+        }
         long unlocking = unlockingExecutable(problem, operation, inventory, remaining, executable);
         Set<Long> breakpoints = new LinkedHashSet<>();
         breakpoints.add(executable);
