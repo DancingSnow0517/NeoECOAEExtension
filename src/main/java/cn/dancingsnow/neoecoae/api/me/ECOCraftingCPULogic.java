@@ -35,6 +35,7 @@ import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.storage.MEStorage;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -454,7 +455,7 @@ public class ECOCraftingCPULogic {
                     }
                     if (craftingContainer == null) {
                         inputExtractionBlockedRevisions.put(details, inventoryStateRevision);
-                        if (fastPathCandidate) {
+                        if (fastPathCandidate && NEConfig.debugEcoFastPath) {
                             ECOFastPathDiagnostics.logCpuPreflightFailure(
                                 details,
                                 cpu.getOwner() == null ? net.minecraft.core.BlockPos.ZERO : cpu.getOwner().getBlockPos(),
@@ -1063,13 +1064,15 @@ public class ECOCraftingCPULogic {
             }
         }
 
-        KeyCounter networkAvailable = null;
+        MEStorage networkStorage = null;
+        KeyCounter fuzzyNetworkAvailable = null;
+        boolean fuzzyNetworkSnapshotLoaded = false;
         String networkSnapshot = "unavailable";
         try {
             IGrid grid = cpu.getGrid();
             if (grid != null) {
-                networkAvailable = grid.getStorageService().getInventory().getAvailableStacks();
-                networkSnapshot = "ready keys=" + countPositiveKeys(networkAvailable);
+                networkStorage = grid.getStorageService().getInventory();
+                networkSnapshot = "ready";
             } else {
                 networkSnapshot = "no_grid";
             }
@@ -1078,6 +1081,8 @@ public class ECOCraftingCPULogic {
         }
 
         List<String> missing = new ArrayList<>();
+        Map<AEKey, Long> networkAmounts = new LinkedHashMap<>();
+        Map<AEKey, Long> pendingInputAmounts = new LinkedHashMap<>();
         IPatternDetails.IInput[] inputs = details.getInputs();
         for (int slot = 0; slot < inputs.length && missing.size() < MAX_MISSING_INPUT_DIAGNOSTICS; slot++) {
             IPatternDetails.IInput input = inputs[slot];
@@ -1111,15 +1116,42 @@ public class ECOCraftingCPULogic {
                 }
                 long cpuAmount = available.getOrDefault(possible.what(), 0L);
                 long requiredItems = scaledPatternAmount(possible.amount(), remainingUnits);
-                long networkAmount = networkAvailable == null
-                    ? -1L
-                    : availableFromCounter(networkAvailable, possible.what(), currentJob.fuzzyItemIds);
+                Long cachedNetworkAmount = networkAmounts.get(possible.what());
+                long networkAmount;
+                if (cachedNetworkAmount != null) {
+                    networkAmount = cachedNetworkAmount;
+                } else if (networkStorage == null) {
+                    networkAmount = -1L;
+                } else {
+                    try {
+                        if (ECOFuzzyCraftingInventory.isConfiguredFuzzy(
+                                possible.what(), currentJob.fuzzyItemIds)) {
+                            if (!fuzzyNetworkSnapshotLoaded) {
+                                fuzzyNetworkSnapshotLoaded = true;
+                                fuzzyNetworkAvailable = networkStorage.getAvailableStacks();
+                                networkSnapshot = "ready_fuzzy_snapshot";
+                            }
+                            networkAmount = fuzzyNetworkAvailable == null
+                                ? -1L
+                                : availableFromCounter(
+                                    fuzzyNetworkAvailable, possible.what(), currentJob.fuzzyItemIds);
+                        } else {
+                            networkAmount = networkStorage.extract(
+                                possible.what(), Long.MAX_VALUE, Actionable.SIMULATE, cpu.getActionSource());
+                        }
+                    } catch (RuntimeException e) {
+                        networkAmount = -1L;
+                        networkSnapshot = "error=" + e.getClass().getSimpleName();
+                    }
+                    networkAmounts.put(possible.what(), networkAmount);
+                }
                 long reservedAtStart = initialReservationKnown
                     ? availableFromCounter(initialReservedItems, possible.what(), currentJob.fuzzyItemIds)
                     : -1L;
                 long waitingFor = currentJob.waitingFor.extract(
                     possible.what(), Long.MAX_VALUE, Actionable.SIMULATE);
-                long pendingInput = safePendingInputAmount(possible.what());
+                long pendingInput = pendingInputAmounts.computeIfAbsent(
+                    possible.what(), this::safePendingInputAmount);
                 boolean valid = input.isValid(possible.what(), level);
                 auditCandidates.add(
                     possible.what()
@@ -1150,16 +1182,6 @@ public class ECOCraftingCPULogic {
         }
 
         return missing.isEmpty() ? "unknown" : missing.toString();
-    }
-
-    private static int countPositiveKeys(KeyCounter counter) {
-        int count = 0;
-        for (var entry : counter) {
-            if (entry.getLongValue() > 0L) {
-                count++;
-            }
-        }
-        return count;
     }
 
     private static long availableFromCounter(
