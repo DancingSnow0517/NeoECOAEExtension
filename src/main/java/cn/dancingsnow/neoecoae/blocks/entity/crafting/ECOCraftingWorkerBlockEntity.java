@@ -245,7 +245,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         if (result.isNegative()) {
             getFastPathCache().recordFallbackSlowPath();
-            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE,
+            ECOFastPathDiagnostics.logFailure(execution,
+                result.negativeReason() == null
+                    ? ECOFastPathFallbackReason.NEGATIVE_CACHE
+                    : result.negativeReason(),
                 ECOFastPathStage.CACHE_LOOKUP, getBlockPos(), tick, "negative_cache_result");
             return null;
         }

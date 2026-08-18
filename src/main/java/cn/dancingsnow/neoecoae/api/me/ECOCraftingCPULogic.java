@@ -1,12 +1,14 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashSet;
-import java.util.List;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -456,6 +458,14 @@ public class ECOCraftingCPULogic {
                     if (craftingContainer == null) {
                         inputExtractionBlockedRevisions.put(details, inventoryStateRevision);
                         if (fastPathCandidate && NEConfig.debugEcoFastPath) {
+                            MissingPatternInputDiagnostic diagnostic = describeMissingPatternInputs(
+                                extractionDetails, inventory, level, job
+                            );
+                            // A downstream task can legitimately wait for an upstream task's output or
+                            // for that producer to dispatch it. Neither state is a FastPath failure.
+                            if (diagnostic.hasNormalDependencyWait()) {
+                                continue taskLoop;
+                            }
                             ECOFastPathDiagnostics.logCpuPreflightFailure(
                                 details,
                                 cpu.getOwner() == null ? net.minecraft.core.BlockPos.ZERO : cpu.getOwner().getBlockPos(),
@@ -464,7 +474,7 @@ public class ECOCraftingCPULogic {
                                 plannedInputs != null,
                                 plannedInputCount,
                                 inputExtractionAttempts,
-                                describeMissingPatternInputs(extractionDetails, inventory, level, job)
+                                diagnostic.description()
                             );
                         }
                         continue taskLoop;
@@ -1052,11 +1062,11 @@ public class ECOCraftingCPULogic {
         return patternBuses == null ? List.of() : patternBuses;
     }
 
-    private String describeMissingPatternInputs(
-            IPatternDetails details,
-            ListCraftingInventory inventory,
-            Level level,
-            ExecutingCraftingJob currentJob) {
+    private MissingPatternInputDiagnostic describeMissingPatternInputs(
+        IPatternDetails details,
+        ListCraftingInventory inventory,
+        Level level,
+        ExecutingCraftingJob currentJob) {
         Map<AEKey, Long> available = new LinkedHashMap<>();
         for (var entry : inventory.list) {
             if (entry.getLongValue() > 0L) {
@@ -1066,7 +1076,9 @@ public class ECOCraftingCPULogic {
 
         MEStorage networkStorage = null;
         KeyCounter fuzzyNetworkAvailable = null;
+        KeyCounter exactNetworkAvailable = null;
         boolean fuzzyNetworkSnapshotLoaded = false;
+        boolean exactNetworkSnapshotLoaded = false;
         String networkSnapshot = "unavailable";
         try {
             IGrid grid = cpu.getGrid();
@@ -1081,6 +1093,7 @@ public class ECOCraftingCPULogic {
         }
 
         List<String> missing = new ArrayList<>();
+        boolean hasNormalDependencyWait = false;
         Map<AEKey, Long> networkAmounts = new LinkedHashMap<>();
         Map<AEKey, Long> pendingInputAmounts = new LinkedHashMap<>();
         IPatternDetails.IInput[] inputs = details.getInputs();
@@ -1118,6 +1131,8 @@ public class ECOCraftingCPULogic {
                 long requiredItems = scaledPatternAmount(possible.amount(), remainingUnits);
                 Long cachedNetworkAmount = networkAmounts.get(possible.what());
                 long networkAmount;
+                boolean fuzzyConfigured = ECOFuzzyCraftingInventory.isConfiguredFuzzy(
+                    possible.what(), currentJob.fuzzyItemIds);
                 if (cachedNetworkAmount != null) {
                     networkAmount = cachedNetworkAmount;
                 } else if (networkStorage == null) {
@@ -1145,6 +1160,24 @@ public class ECOCraftingCPULogic {
                     }
                     networkAmounts.put(possible.what(), networkAmount);
                 }
+                boolean exactKeyMismatch = false;
+                boolean exactKeyMismatchKnown = false;
+                if (networkAmount == 0L && networkStorage != null && !fuzzyConfigured) {
+                    if (!exactNetworkSnapshotLoaded) {
+                        exactNetworkSnapshotLoaded = true;
+                        try {
+                            exactNetworkAvailable = networkStorage.getAvailableStacks();
+                            networkSnapshot = "ready_exact_variant_snapshot";
+                        } catch (RuntimeException e) {
+                            networkSnapshot = "error=" + e.getClass().getSimpleName();
+                        }
+                    }
+                    if (exactNetworkAvailable != null) {
+                        exactKeyMismatchKnown = true;
+                        exactKeyMismatch = hasDifferentExactVariant(
+                            exactNetworkAvailable, possible.what());
+                    }
+                }
                 long reservedAtStart = initialReservationKnown
                     ? availableFromCounter(initialReservedItems, possible.what(), currentJob.fuzzyItemIds)
                     : -1L;
@@ -1153,6 +1186,17 @@ public class ECOCraftingCPULogic {
                 long pendingInput = pendingInputAmounts.computeIfAbsent(
                     possible.what(), this::safePendingInputAmount);
                 boolean valid = input.isValid(possible.what(), level);
+                String source = classifyInputSource(
+                    cpuAmount,
+                    networkAmount,
+                    reservedAtStart,
+                    waitingFor,
+                    pendingInput,
+                    requiredItems,
+                    exactKeyMismatch,
+                    exactKeyMismatchKnown
+                );
+                hasNormalDependencyWait |= isNormalDependencyWaitSource(source);
                 auditCandidates.add(
                     possible.what()
                         + " required=" + requiredItems
@@ -1162,8 +1206,7 @@ public class ECOCraftingCPULogic {
                         + " waitingFor=" + waitingFor
                         + " pendingInput=" + pendingInput
                         + " valid=" + valid
-                        + " source=" + classifyInputSource(
-                            cpuAmount, networkAmount, reservedAtStart, waitingFor)
+                        + " source=" + source
                 );
                 if (candidates.isEmpty()) {
                     candidates.add(formatMissingInput(possible.what(), requiredItems, cpuAmount));
@@ -1181,7 +1224,16 @@ public class ECOCraftingCPULogic {
             }
         }
 
-        return missing.isEmpty() ? "unknown" : missing.toString();
+        return new MissingPatternInputDiagnostic(
+            missing.isEmpty() ? "unknown" : missing.toString(),
+            hasNormalDependencyWait
+        );
+    }
+
+    private record MissingPatternInputDiagnostic(
+        String description,
+        boolean hasNormalDependencyWait
+    ) {
     }
 
     private static long availableFromCounter(
@@ -1211,23 +1263,57 @@ public class ECOCraftingCPULogic {
             long cpuAmount,
             long networkAmount,
             long reservedAtStart,
-            long waitingFor) {
+            long waitingFor,
+            long pendingInput,
+            long requiredItems,
+            boolean exactKeyMismatch,
+            boolean exactKeyMismatchKnown) {
         if (cpuAmount > 0L) {
             return "cpu_inventory";
         }
         if (waitingFor > 0L) {
             return "waiting_for_output";
         }
+        if (pendingInput > 0L) {
+            return "planned_upstream_not_dispatched";
+        }
         if (networkAmount > 0L) {
+            if (networkAmount < requiredItems) {
+                return "insufficient_network_quantity";
+            }
             if (reservedAtStart > 0L) {
                 return "reserved_at_start_now_gone";
             }
             return "network_only_not_reserved";
         }
         if (networkAmount == 0L) {
-            return "network_missing_or_key_mismatch";
+            if (exactKeyMismatchKnown && exactKeyMismatch) {
+                return "exact_key_mismatch";
+            }
+            return "network_absent";
         }
         return "network_unknown";
+    }
+
+    private static boolean isNormalDependencyWaitSource(String source) {
+        return "waiting_for_output".equals(source)
+            || "planned_upstream_not_dispatched".equals(source);
+    }
+
+    private static boolean hasDifferentExactVariant(KeyCounter available, AEKey requested) {
+        for (var entry : available) {
+            if (entry.getLongValue() <= 0L) {
+                continue;
+            }
+            AEKey candidate = entry.getKey();
+            if (candidate != null
+                && candidate.getClass() == requested.getClass()
+                && Objects.equals(candidate.getPrimaryKey(), requested.getPrimaryKey())
+                && !candidate.equals(requested)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String formatMissingInput(AEKey key, long required, long available) {
@@ -1296,14 +1382,26 @@ public class ECOCraftingCPULogic {
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
+        long lookupStarted = System.nanoTime();
+        int busesScanned = 0;
+        int candidateBuses = 0;
+        int verifiedCandidates = 0;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
+            busesScanned++;
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller == null || !visitedControllers.add(controller)) {
+            if (controller == null) {
+                continue;
+            }
+            candidateBuses++;
+            if (!visitedControllers.add(controller)) {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested, job.link.getCraftingID());
+            if (offer != null) {
+                verifiedCandidates++;
+            }
             if (offer != null && offer.maxBatchSize() >= minimumBatchSize
-                    && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
+                && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;
                 selectedOffer = offer;
                 if (offer.maxBatchSize() >= requested) {
@@ -1311,11 +1409,23 @@ public class ECOCraftingCPULogic {
                 }
             }
         }
+        long lookupMicros = Math.max(0L, (System.nanoTime() - lookupStarted) / 1_000L);
+        ECOFastPathDiagnostics.logCacheLookup(
+            execution,
+            cpu.getOwner().getBlockPos(),
+            TickHandler.instance().getCurrentTick(),
+            patternBuses.size(),
+            busesScanned,
+            candidateBuses,
+            verifiedCandidates,
+            lookupMicros
+        );
         if (selectedPatternBus == null || selectedOffer == null) {
-            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NO_BATCH_OFFER,
+            ECOFastPathDiagnostics.logExpectedFallback(execution, ECOFastPathFallbackReason.NO_BATCH_OFFER,
                 ECOFastPathStage.CACHE_LOOKUP, cpu.getOwner().getBlockPos(),
                 TickHandler.instance().getCurrentTick(),
-                "requested=" + requested + " patternBuses=" + patternBuses.size()
+                "requestedBefore=" + requested + " probeCrafts=1 expectedRemaining=" + Math.max(0L, requested - 1L)
+                    + " patternBuses=" + patternBuses.size()
                     + " no_worker_exposed_a_matching_verified_result");
             return 0;
         }
@@ -1409,6 +1519,15 @@ public class ECOCraftingCPULogic {
             coolantBatchSize,
             inventoryBatchSize,
             describeInventoryConstraint(inventoryBatchLimit),
+            true,
+            1L,
+            inventoryBatchLimit.formulaAvailable(),
+            inventoryBatchLimit.formulaPerCraft(),
+            availableExtraCrafts,
+            lookupMicros,
+            busesScanned,
+            candidateBuses,
+            verifiedCandidates,
             batchSize
         );
 
@@ -1551,6 +1670,115 @@ public class ECOCraftingCPULogic {
 
     static boolean shouldRetryInputExtraction(@Nullable Long blockedRevision, long currentRevision) {
         return blockedRevision == null || blockedRevision.longValue() != currentRevision;
+    }
+
+    /** Small dependency scheduler shared by CPU task scheduling tests and future wake-up paths. */
+    static final class TaskScheduler<T> {
+        private final ArrayDeque<T> ready = new ArrayDeque<>();
+        private final Set<T> queued = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final IdentityHashMap<T, InputDependencies> blocked = new IdentityHashMap<>();
+        private final IdentityHashMap<T, Long> deferredUntil = new IdentityHashMap<>();
+        private long currentTick = Long.MIN_VALUE;
+
+        void startJob(List<T> tasks) {
+            ready.clear();
+            queued.clear();
+            blocked.clear();
+            deferredUntil.clear();
+            for (T task : tasks) {
+                enqueue(task);
+            }
+        }
+
+        @Nullable
+        T poll() {
+            T task = ready.poll();
+            if (task != null) {
+                queued.remove(task);
+            }
+            return task;
+        }
+
+        void block(T task, InputDependencies dependencies) {
+            if (queued.remove(task)) {
+                ready.remove(task);
+            }
+            deferredUntil.remove(task);
+            blocked.put(task, dependencies);
+        }
+
+        void wake(AEKey key) {
+            List<T> awakened = new ArrayList<>();
+            for (var entry : blocked.entrySet()) {
+                if (entry.getValue().matches(key)) {
+                    awakened.add(entry.getKey());
+                }
+            }
+            for (T task : awakened) {
+                blocked.remove(task);
+                enqueue(task);
+            }
+        }
+
+        void wakeFuzzy(net.minecraft.resources.ResourceLocation fuzzyItemId) {
+            List<T> awakened = new ArrayList<>();
+            for (var entry : blocked.entrySet()) {
+                if (entry.getValue().matchesFuzzy(fuzzyItemId)) {
+                    awakened.add(entry.getKey());
+                }
+            }
+            for (T task : awakened) {
+                blocked.remove(task);
+                enqueue(task);
+            }
+        }
+
+        void beginTick(long tick) {
+            currentTick = tick;
+            List<T> awakened = new ArrayList<>();
+            for (var entry : deferredUntil.entrySet()) {
+                if (entry.getValue() <= tick) {
+                    awakened.add(entry.getKey());
+                }
+            }
+            for (T task : awakened) {
+                deferredUntil.remove(task);
+                enqueue(task);
+            }
+        }
+
+        void deferUntilNextTick(T task) {
+            if (queued.remove(task)) {
+                ready.remove(task);
+            }
+            long nextTick = currentTick == Long.MAX_VALUE ? Long.MAX_VALUE : currentTick + 1L;
+            deferredUntil.put(task, nextTick);
+        }
+
+        private void enqueue(T task) {
+            if (!blocked.containsKey(task) && !deferredUntil.containsKey(task) && queued.add(task)) {
+                ready.add(task);
+            }
+        }
+    }
+
+    record InputDependencies(
+        Set<AEKey> exactKeys,
+        Set<net.minecraft.resources.ResourceLocation> fuzzyItemIds,
+        boolean wakeOnAnyChange
+    ) {
+        InputDependencies {
+            exactKeys = Set.copyOf(exactKeys);
+            fuzzyItemIds = Set.copyOf(fuzzyItemIds);
+        }
+
+        private boolean matches(AEKey key) {
+            return wakeOnAnyChange || exactKeys.contains(key);
+        }
+
+        private boolean matchesFuzzy(net.minecraft.resources.ResourceLocation fuzzyItemId) {
+            return wakeOnAnyChange || fuzzyItemIds.contains(fuzzyItemId);
+        }
     }
 
     static boolean shouldUsePlannedInputsForDispatch(
@@ -1798,13 +2026,12 @@ public class ECOCraftingCPULogic {
                         for (var alternative : selection.alternatives()) {
                             GenericStack selected = alternative.template();
                             if (what.equals(selected.what())) {
-                                perBatch = Math.addExact(perBatch,
-                                    Math.multiplyExact(selected.amount(), alternative.multiplier()));
+                                perBatch = saturatingAdd(perBatch,
+                                    scaledPatternAmount(selected.amount(), alternative.multiplier()));
                             }
                         }
                     }
-                    total = Math.addExact(total,
-                        Math.multiplyExact(perBatch, plannedBatch.remaining()));
+                    total = saturatingAdd(total, scaledPatternAmount(perBatch, plannedBatch.remaining()));
                 }
                 continue;
             }
@@ -1814,14 +2041,21 @@ public class ECOCraftingCPULogic {
                 for (var possible : input.getPossibleInputs()) {
                     if (possible != null && possible.amount() > 0L && what.equals(possible.what())) {
                         selectedAmount = Math.max(selectedAmount,
-                            Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                            scaledPatternAmount(possible.amount(), input.getMultiplier()));
                     }
                 }
-                perBatch = Math.addExact(perBatch, selectedAmount);
+                perBatch = saturatingAdd(perBatch, selectedAmount);
             }
-            total = Math.addExact(total, Math.multiplyExact(perBatch, batches));
+            total = saturatingAdd(total, scaledPatternAmount(perBatch, batches));
         }
         return total;
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right <= 0L) {
+            return Math.max(0L, left);
+        }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
@@ -2216,7 +2450,8 @@ public class ECOCraftingCPULogic {
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
                     if (template.matches(output)) {
-                        count += output.amount() * t.getValue().value;
+                        count = saturatingAdd(count,
+                            scaledPatternAmount(output.amount(), t.getValue().value));
                     }
                 }
             }
@@ -2237,7 +2472,7 @@ public class ECOCraftingCPULogic {
             out.addAll(this.manualWaitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
-                    out.add(output.what(), output.amount() * t.getValue().value);
+                    out.add(output.what(), scaledPatternAmount(output.amount(), t.getValue().value));
                 }
             }
         }

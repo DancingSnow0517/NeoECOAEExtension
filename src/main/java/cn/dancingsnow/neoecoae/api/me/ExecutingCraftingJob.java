@@ -110,9 +110,13 @@ public class ExecutingCraftingJob {
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
         }
         for (var entry : plan.patternTimes().entrySet()) {
-            tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress()).value += entry.getValue();
+            TaskProgress task = tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress());
+            task.value = saturatingAdd(task.value, entry.getValue());
             for (var output : entry.getKey().getOutputs()) {
-                var amount = output.amount() * entry.getValue() * output.what().getAmountPerUnit();
+                var amount = saturatingMultiply(
+                    saturatingMultiply(output.amount(), entry.getValue()),
+                    output.what().getAmountPerUnit()
+                );
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
@@ -298,6 +302,13 @@ public class ExecutingCraftingJob {
             return Math.max(0L, left);
         }
         return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private static void writePlannedInputs(

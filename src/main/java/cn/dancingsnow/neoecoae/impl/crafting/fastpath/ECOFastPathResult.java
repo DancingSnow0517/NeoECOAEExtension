@@ -2,21 +2,26 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathResult {
     private final boolean negative;
+    @Nullable
+    private final ECOFastPathFallbackReason negativeReason;
     private final List<GenericStack> outputEntries;
     private final List<GenericStack> remainingEntries;
     private final List<GenericStack> inputEntries;
     private final long createdTick;
     private ECOFastPathResult(
         boolean negative,
+        @Nullable ECOFastPathFallbackReason negativeReason,
         List<GenericStack> outputEntries,
         List<GenericStack> remainingEntries,
         List<GenericStack> inputEntries,
         long createdTick
     ) {
         this.negative = negative;
+        this.negativeReason = negativeReason;
         this.outputEntries = List.copyOf(outputEntries);
         this.remainingEntries = List.copyOf(remainingEntries);
         this.inputEntries = List.copyOf(inputEntries);
@@ -29,15 +34,24 @@ public final class ECOFastPathResult {
         List<GenericStack> inputEntries,
         long tick
     ) {
-        return new ECOFastPathResult(false, outputEntries, remainingEntries, inputEntries, tick);
+        return new ECOFastPathResult(false, null, outputEntries, remainingEntries, inputEntries, tick);
     }
 
     public static ECOFastPathResult negative(long tick) {
-        return new ECOFastPathResult(true, List.of(), List.of(), List.of(), tick);
+        return negative(null, tick);
+    }
+
+    public static ECOFastPathResult negative(@Nullable ECOFastPathFallbackReason reason, long tick) {
+        return new ECOFastPathResult(true, reason, List.of(), List.of(), List.of(), tick);
     }
 
     public boolean isNegative() {
         return negative;
+    }
+
+    @Nullable
+    public ECOFastPathFallbackReason negativeReason() {
+        return negativeReason;
     }
 
     public List<GenericStack> outputEntries() {

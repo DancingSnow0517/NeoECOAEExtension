@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.ECOStorageCommands;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathWarmupService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
@@ -102,6 +103,7 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
+        NeoForge.EVENT_BUS.addListener(ECOFastPathWarmupService::onServerTick);
         NeoForge.EVENT_BUS.addListener(ECOStorageCommands::register);
     }
 

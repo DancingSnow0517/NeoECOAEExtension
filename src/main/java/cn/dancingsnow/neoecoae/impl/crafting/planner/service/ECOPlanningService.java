@@ -62,9 +62,15 @@ public final class ECOPlanningService {
         CalculationStrategy strategy,
         ECOPlannerNoticeDispatcher.Target noticeTarget
     ) {
+        long lookupStarted = System.nanoTime();
         Optional<CraftingPlan> cached = ECOAE2CraftingPlanCache.get(snapshot, strategy);
         cached.ifPresent(plan -> {
-            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
+            long lookupElapsed = Math.max(1L, System.nanoTime() - lookupStarted);
+            ECOPlannerNoticeDispatcher.send(
+                noticeTarget,
+                ECOPlannerFallbackReason.FAST_PATH,
+                lookupElapsed
+            );
             ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
             ECOPlannerNoticeDispatcher.sendPlanningMissing(noticeTarget, collectMissingItems(plan));
         });

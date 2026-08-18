@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathWarmupService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
@@ -94,6 +95,16 @@ public final class AE2PatternIntrospection {
         }
     }
 
+    /** Returns true only for static assembler recipes that can be safely pre-warmed without inventory. */
+    public static boolean isDeterministicWarmupPattern(IPatternDetails details) {
+        details = ECOSelectedInputPatternDetails.unwrap(details);
+        if (details instanceof AESmithingTablePattern || details instanceof AEStonecuttingPattern) {
+            return true;
+        }
+        return details instanceof AECraftingPattern
+            && classifyPatternEligibility(details) == PatternEligibility.ELIGIBLE;
+    }
+
     public static Optional<ECOFastPathKey> buildFastPathKey(
         IPatternDetails details,
         KeyCounter[] craftingContainer,
@@ -123,6 +134,7 @@ public final class AE2PatternIntrospection {
         RELOAD_GENERATION.incrementAndGet();
         ECOCraftingFastPathCache.clearAllCaches();
         ECOFastPathDiagnostics.clear();
+        ECOFastPathWarmupService.onRecipeReloadOrServerReload();
         ECOPlanningService.clearCaches();
     }
 

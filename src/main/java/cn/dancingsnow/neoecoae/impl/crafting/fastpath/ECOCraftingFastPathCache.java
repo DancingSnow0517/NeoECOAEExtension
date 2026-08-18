@@ -97,7 +97,7 @@ public final class ECOCraftingFastPathCache {
             || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remaining, Integer.MAX_VALUE, false)
             || !ECOBatchCraftingHelper.areValidPersistedItemStacks(inputs, Integer.MAX_VALUE, false)
             || !ECOFastPathStacks.isSafeForFastPath(outputs, remaining, inputs)) {
-            putNegative(key, tick);
+            putNegative(key, ECOFastPathFallbackReason.CACHE_VALIDATION_REJECTED, tick);
             return false;
         }
         entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
@@ -106,12 +106,24 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {
-        entries.put(key, ECOFastPathResult.negative(tick));
+        putNegative(key, null, tick);
+    }
+
+    public void putNegative(
+        ECOFastPathKey key,
+        @Nullable ECOFastPathFallbackReason reason,
+        long tick
+    ) {
+        entries.put(key, ECOFastPathResult.negative(reason, tick));
         verifyRejectCount++;
     }
 
     public void clear() {
         entries.clear();
+    }
+
+    public void invalidate(ECOFastPathKey key) {
+        entries.remove(key);
     }
 
     public static void clearAllCaches() {

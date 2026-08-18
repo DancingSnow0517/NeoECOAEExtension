@@ -36,7 +36,25 @@ public final class ECOFastPathDiagnostics {
         BlockPos workerPos,
         long tick
     ) {
-        logFailure(execution, reason, stageFor(reason), workerPos, tick, "fallback_to_ae2");
+        if (isExpectedFallback(reason)) {
+            logExpectedFallback(execution, reason, stageFor(reason), workerPos, tick, "fallback_to_ae2");
+        } else {
+            logFailure(execution, reason, stageFor(reason), workerPos, tick, "fallback_to_ae2");
+        }
+    }
+
+    public static void logExpectedFallback(
+        ECOExtractedPatternExecution execution,
+        ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
+        BlockPos ownerPos,
+        long tick,
+        String context
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        logDiagnostic(execution.details(), reason, stage, ownerPos, tick, context, "fallback");
     }
 
     public static void logFailure(
@@ -81,6 +99,15 @@ public final class ECOFastPathDiagnostics {
         long coolantLimit,
         long inventoryLimit,
         String inventoryConstraint,
+        boolean currentCraftIncluded,
+        long reservedForCurrentCraft,
+        long inventoryAvailable,
+        long inventoryPerCraft,
+        long additionalCraftsByInventory,
+        long lookupMicros,
+        int busesScanned,
+        int candidateBuses,
+        int verifiedCandidates,
         long finalBatch
     ) {
         if (!NEConfig.debugEcoFastPath) {
@@ -95,7 +122,7 @@ public final class ECOFastPathDiagnostics {
             trimBatchDecisions();
         }
         LOGGER.info(
-            "ECO FastPath batch decision: definition={} definitionHash={} primaryOutput={} owner={} tick={} taskRemaining={} requested={} laneLimit={} safeLimit={} energyLimit={} coolantLimit={} inventoryLimit={} inventoryConstraint={} finalBatch={}",
+            "ECO FastPath batch decision: definition={} definitionHash={} primaryOutput={} owner={} tick={} taskRemaining={} requested={} laneLimit={} safeLimit={} energyLimit={} coolantLimit={} inventoryLimit={} inventoryConstraint={} currentCraftIncluded={} reservedForCurrentCraft={} inventoryAvailable={} additionalCraftsByInventory={} inventoryFormula={} lookupMicros={} busesScanned={} candidateBuses={} verifiedCandidates={} finalBatch={}",
             pattern.definition(),
             Integer.toUnsignedString(pattern.identityHash(), 16),
             pattern.primaryOutput(),
@@ -109,7 +136,67 @@ public final class ECOFastPathDiagnostics {
             coolantLimit,
             inventoryLimit,
             inventoryConstraint,
+            currentCraftIncluded,
+            reservedForCurrentCraft,
+            inventoryAvailable,
+            additionalCraftsByInventory,
+            inventoryFormula(currentCraftIncluded, reservedForCurrentCraft, inventoryAvailable,
+                inventoryPerCraft, additionalCraftsByInventory),
+            lookupMicros,
+            busesScanned,
+            candidateBuses,
+            verifiedCandidates,
             finalBatch
+        );
+    }
+
+    public static void logCacheLookup(
+        ECOExtractedPatternExecution execution,
+        BlockPos ownerPos,
+        long tick,
+        int patternBuses,
+        int busesScanned,
+        int candidateBuses,
+        int verifiedCandidates,
+        long lookupMicros
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        PatternDescription pattern = describe(execution.details());
+        DiagnosticKey key = new DiagnosticKey(
+            ECOFastPathFallbackReason.NO_BATCH_OFFER,
+            ECOFastPathStage.CACHE_LOOKUP,
+            pattern.definition(),
+            pattern.identityHash(),
+            pattern.primaryOutput(),
+            pattern.implementation(),
+            "cache_lookup_performance"
+        );
+        synchronized (LOGGED) {
+            if (budgetTick != tick) {
+                budgetTick = tick;
+                logsThisTick = 0;
+            }
+            if (LOGGED.contains(key) || logsThisTick >= MAX_LOGS_PER_TICK) {
+                return;
+            }
+            LOGGED.add(key);
+            trimRetainedEntries();
+            logsThisTick++;
+        }
+        LOGGER.info(
+            "ECO FastPath cache lookup: definition={} definitionHash={} primaryOutput={} owner={} tick={} patternBuses={} busesScanned={} candidateBuses={} verifiedCandidates={} lookupMicros={}",
+            pattern.definition(),
+            Integer.toUnsignedString(pattern.identityHash(), 16),
+            pattern.primaryOutput(),
+            ownerPos.toShortString(),
+            tick,
+            patternBuses,
+            busesScanned,
+            candidateBuses,
+            verifiedCandidates,
+            lookupMicros
         );
     }
 
@@ -173,6 +260,18 @@ public final class ECOFastPathDiagnostics {
         long tick,
         String context
     ) {
+        logDiagnostic(details, reason, stage, ownerPos, tick, context, "failure");
+    }
+
+    private static void logDiagnostic(
+        IPatternDetails details,
+        ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
+        BlockPos ownerPos,
+        long tick,
+        String context,
+        String kind
+    ) {
         PatternDescription pattern = describe(details);
         DiagnosticKey key = new DiagnosticKey(
             reason,
@@ -197,7 +296,8 @@ public final class ECOFastPathDiagnostics {
         }
 
         LOGGER.info(
-            "ECO FastPath failure: stage={} reason={} definition={} definitionHash={} primaryOutput={} implementation={} owner={} tick={} context={}",
+            "ECO FastPath {}: stage={} reason={} definition={} definitionHash={} primaryOutput={} implementation={} owner={} tick={} context={}",
+            kind,
             stage,
             reason.code(),
             pattern.definition(),
@@ -208,6 +308,11 @@ public final class ECOFastPathDiagnostics {
             tick,
             context
         );
+    }
+
+    private static boolean isExpectedFallback(ECOFastPathFallbackReason reason) {
+        return reason == ECOFastPathFallbackReason.CACHE_MISS_VERIFYING
+            || reason == ECOFastPathFallbackReason.NO_BATCH_OFFER;
     }
 
     public static void clear() {
@@ -282,6 +387,24 @@ public final class ECOFastPathDiagnostics {
             entries.add("... total=" + total);
         }
         return entries.toString();
+    }
+
+    private static String inventoryFormula(
+        boolean currentCraftIncluded,
+        long reservedForCurrentCraft,
+        long inventoryAvailable,
+        long inventoryPerCraft,
+        long additionalCraftsByInventory
+    ) {
+        if (!currentCraftIncluded) {
+            return "currentCraftIncluded=false";
+        }
+        if (inventoryPerCraft <= 0L) {
+            return reservedForCurrentCraft + "+no_consumed_inputs="
+                + (reservedForCurrentCraft + additionalCraftsByInventory);
+        }
+        return reservedForCurrentCraft + "+floor(" + inventoryAvailable + "/" + inventoryPerCraft + ")="
+            + (reservedForCurrentCraft + additionalCraftsByInventory);
     }
 
     private static ECOFastPathStage stageFor(ECOFastPathFallbackReason reason) {

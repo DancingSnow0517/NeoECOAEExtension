@@ -21,8 +21,10 @@ import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathWarmupService;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -384,6 +386,15 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return cluster.getController();
         }
         return null;
+    }
+
+    @Nullable
+    public ECOCraftingFastPathCache getFastPathCache() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getFastPathCache();
+        }
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        return controller == null ? null : controller.getFastPathCache();
     }
 
     @Override
@@ -841,6 +852,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         // The interface search directory reads the decoded-slot cache above. Publish its completed revision,
         // rather than leaving a brief window where the visible stack and its keywords describe different patterns.
         notifyPatternInterfaceHosts();
+        ECOFastPathWarmupService.enqueue(this);
     }
 
     private static String buildPatternSearchKeywords(ItemStack stack, @Nullable IPatternDetails details) {
