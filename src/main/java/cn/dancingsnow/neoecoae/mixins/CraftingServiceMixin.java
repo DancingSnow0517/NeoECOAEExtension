@@ -202,9 +202,32 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "no_eco_host");
             return;
         }
-        // AE2 constructs its calculation on the server thread because the constructor
-        // snapshots mutable network state. Keep that object ready before dispatching
-        // the ECO planner worker.
+        var capture = ECOAE2SnapshotFactory.captureWithDiagnostics(
+            this.grid,
+            simRequester,
+            what,
+            amount,
+            strategy,
+            this.lastProcessedCraftableChangeTick,
+            level,
+            lease.get().fuzzyPlanningItemIds(),
+            lease.get().substitutionIgnoringEnabled()
+        );
+        if (capture.snapshot().isPresent()) {
+            var cachedPlan = ECOPlanningService.findCachedPlan(
+                capture.snapshot().orElseThrow(), strategy, noticeTarget
+            );
+            if (cachedPlan.isPresent()) {
+                lease.get().close();
+                cir.setReturnValue(java.util.concurrent.CompletableFuture.completedFuture(cachedPlan.get()));
+                cir.cancel();
+                ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "exact_plan_cache_hit");
+                return;
+            }
+        }
+
+        // A fallback calculation snapshots mutable AE2 state and therefore must still be
+        // created on the server thread. Exact ECO plan hits return before paying this cost.
         CraftingCalculation fallback;
         try {
             fallback = new CraftingCalculation(
@@ -229,17 +252,6 @@ public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
             ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "fallback_setup_failed");
             return;
         }
-        var capture = ECOAE2SnapshotFactory.captureWithDiagnostics(
-            this.grid,
-            simRequester,
-            what,
-            amount,
-            strategy,
-            this.lastProcessedCraftableChangeTick,
-            level,
-            lease.get().fuzzyPlanningItemIds(),
-            lease.get().substitutionIgnoringEnabled()
-        );
         if (capture.snapshot().isEmpty()) {
             var captureReason = capture.reason();
             ECOPlanningFailureDiagnostics.logFailure(

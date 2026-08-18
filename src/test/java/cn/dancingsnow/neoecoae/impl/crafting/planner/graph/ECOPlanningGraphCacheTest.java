@@ -1,6 +1,10 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.graph;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,6 +19,7 @@ class ECOPlanningGraphCacheTest {
     @AfterEach
     void clearCaches() {
         ECOPlanningGraph.clearCaches();
+        ECOPlanningSolver.clearCaches();
     }
 
     @Test
@@ -48,6 +53,30 @@ class ECOPlanningGraphCacheTest {
 
         assertNotSame(first, second);
         assertNotSame(first, afterClear);
+    }
+
+    @Test
+    void solvedResultsSurviveInterleavedTargetRevisions() {
+        ECOPlanningProblem<String, String> firstProblem = new ECOPlanningProblem<>(
+            List.of(operation("make_first", Map.of("raw", 1L), Map.of("first", 1L))),
+            Map.of("raw", 1L),
+            Map.of("first", 1L)
+        );
+        ECOPlanningProblem<String, String> secondProblem = new ECOPlanningProblem<>(
+            List.of(operation("make_second", Map.of("raw", 1L), Map.of("second", 1L))),
+            Map.of("raw", 1L),
+            Map.of("second", 1L)
+        );
+        ECOPlanningGraph<String, String> firstGraph = new ECOPlanningGraph<>(firstProblem.operations());
+        ECOPlanningGraph<String, String> secondGraph = new ECOPlanningGraph<>(secondProblem.operations());
+        ECOSolveBudget budget = new ECOSolveBudget(1_000L, 32, 2, 1_000_000_000L);
+
+        ECOHyperflowResult<String> first = ECOPlanningSolver.solve(firstProblem, firstGraph, budget);
+        ECOPlanningSolver.solve(secondProblem, secondGraph, budget);
+        ECOHyperflowResult<String> repeated = ECOPlanningSolver.solve(firstProblem, firstGraph, budget);
+
+        assertEquals(ECOHyperflowResult.Status.COMPLETE, first.status());
+        assertSame(first, repeated);
     }
 
     private static ECOPlanningOperation<String, String> operation(

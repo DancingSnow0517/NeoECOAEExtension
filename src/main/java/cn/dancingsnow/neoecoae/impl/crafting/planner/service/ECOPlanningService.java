@@ -10,6 +10,7 @@ import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2CraftingPlanCache;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PatternVariant;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
@@ -51,8 +52,23 @@ public final class ECOPlanningService {
 
     public static void clearCaches() {
         ECOAE2SnapshotFactory.clearCache();
+        ECOAE2CraftingPlanCache.clear();
         ECOPlanningGraph.clearCaches();
         ECOPlanningSolver.clearCaches();
+    }
+
+    public static Optional<CraftingPlan> findCachedPlan(
+        ECOAE2PlanningSnapshot snapshot,
+        CalculationStrategy strategy,
+        ECOPlannerNoticeDispatcher.Target noticeTarget
+    ) {
+        Optional<CraftingPlan> cached = ECOAE2CraftingPlanCache.get(snapshot, strategy);
+        cached.ifPresent(plan -> {
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
+            ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
+            ECOPlannerNoticeDispatcher.sendPlanningMissing(noticeTarget, collectMissingItems(plan));
+        });
+        return cached;
     }
 
     public static Future<ICraftingPlan> submit(
@@ -162,6 +178,7 @@ public final class ECOPlanningService {
                 }
                 Optional<CraftingPlan> ecoPlan = attempt.plan();
                 if (ecoPlan.isPresent()) {
+                    ECOAE2CraftingPlanCache.put(snapshot, strategy, ecoPlan.get());
                     boolean simulation = ecoPlan.get().simulation();
                     ECOPlannerNoticeDispatcher.sendPlanningMissing(
                         noticeTarget,

@@ -4,8 +4,8 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,7 +21,6 @@ final class ECOPlannerComputationCache {
         new LinkedHashMap<>(16, 0.75F, true);
     private static final ConcurrentHashMap<PlanningKey, CompletableFuture<ECOHyperflowResult<?>>> IN_FLIGHT =
         new ConcurrentHashMap<>();
-    private static long activeRevision = Long.MIN_VALUE;
     private static long cacheGeneration;
 
     private ECOPlannerComputationCache() {
@@ -37,7 +36,6 @@ final class ECOPlannerComputationCache {
         PlanningKey key;
         synchronized (LOCK) {
             key = PlanningKey.of(problem, graph, budget, cacheGeneration);
-            invalidateRevisionLocked(key.graphRevision());
             ECOHyperflowResult<?> cached = RESULTS.get(key);
             if (cached != null) {
                 return cast(cached);
@@ -94,23 +92,8 @@ final class ECOPlannerComputationCache {
     static void clear() {
         synchronized (LOCK) {
             RESULTS.clear();
-            activeRevision = Long.MIN_VALUE;
             cacheGeneration++;
         }
-    }
-
-    private static void invalidateRevisionLocked(long revision) {
-        if (activeRevision == Long.MIN_VALUE || activeRevision == revision) {
-            activeRevision = revision;
-            return;
-        }
-        Iterator<Map.Entry<PlanningKey, ECOHyperflowResult<?>>> entries = RESULTS.entrySet().iterator();
-        while (entries.hasNext()) {
-            if (entries.next().getKey().graphRevision() != revision) {
-                entries.remove();
-            }
-        }
-        activeRevision = revision;
     }
 
     private static void trimResultsLocked() {
@@ -147,6 +130,7 @@ final class ECOPlannerComputationCache {
         long cacheGeneration,
         long graphRevision,
         long recipeBindingVersion,
+        List<?> operations,
         Object requested,
         Object inventory,
         Object unlimitedInventory,
@@ -169,6 +153,7 @@ final class ECOPlannerComputationCache {
                 cacheGeneration,
                 graph.revision(),
                 graph.recipeBindingVersion(),
+                graph.operations(),
                 problem.requested(),
                 problem.inventory(),
                 problem.unlimitedInventory(),

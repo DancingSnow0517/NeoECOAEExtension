@@ -4,9 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
@@ -34,8 +38,55 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 
 class ECOAE2PlanAssemblerTest {
+    @AfterEach
+    void clearPlanCache() {
+        ECOAE2CraftingPlanCache.clear();
+    }
+
+    @Test
+    void exactPlanCacheIsInventorySensitiveAndReturnsDefensiveCopies() {
+        TestKey source = new TestKey("cached_source");
+        TestKey target = new TestKey("cached_target");
+        IPatternDetails pattern = pattern("cached_recipe");
+        ECOAE2PatternVariant variant = new ECOAE2PatternVariant(pattern, 0, List.of());
+        var operation = new ECOPlanningOperation<AEKey, ECOAE2PatternVariant>(
+            variant, Map.of(source, 1L), Map.of(target, 1L)
+        );
+        var firstSnapshot = new ECOAE2PlanningSnapshot(
+            new ECOPlanningProblem<>(List.of(operation), Map.of(source, 2L), Map.of(target, 1L)),
+            target, 1L, false, Map.of(), false, false
+        );
+        var changedInventory = new ECOAE2PlanningSnapshot(
+            new ECOPlanningProblem<>(List.of(operation), Map.of(source, 3L), Map.of(target, 1L)),
+            target, 1L, false, Map.of(), false, false
+        );
+        KeyCounter used = new KeyCounter();
+        used.add(source, 1L);
+        CraftingPlan plan = new CraftingPlan(
+            new GenericStack(target, 1L), 64L, false, false,
+            used, new KeyCounter(), new KeyCounter(), Map.of(pattern, 1L)
+        );
+
+        ECOAE2CraftingPlanCache.put(
+            firstSnapshot, CalculationStrategy.REPORT_MISSING_ITEMS, plan
+        );
+        CraftingPlan firstHit = ECOAE2CraftingPlanCache.get(
+            firstSnapshot, CalculationStrategy.REPORT_MISSING_ITEMS
+        ).orElseThrow();
+        firstHit.usedItems().add(source, 10L);
+        CraftingPlan secondHit = ECOAE2CraftingPlanCache.get(
+            firstSnapshot, CalculationStrategy.REPORT_MISSING_ITEMS
+        ).orElseThrow();
+
+        assertEquals(1L, secondHit.usedItems().get(source));
+        assertTrue(ECOAE2CraftingPlanCache.get(
+            changedInventory, CalculationStrategy.REPORT_MISSING_ITEMS
+        ).isEmpty());
+    }
+
     @Test
     void missingSimulationRetainsCraftChainSummary() {
         TestKey source = new TestKey("source");
