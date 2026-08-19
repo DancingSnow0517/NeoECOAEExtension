@@ -4,8 +4,11 @@ import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -26,6 +29,19 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
+        }
+        if (serverData.contains("storageInterfaceMode")) {
+            int mode = serverData.getInt("storageInterfaceMode");
+            if (mode == ECOStorageInterfaceMode.INPUT.ordinal()) {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_input_mode")
+                    .withStyle(ChatFormatting.GREEN));
+                return;
+            }
+            if (mode == ECOStorageInterfaceMode.OUTPUT.ordinal()) {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_output_mode")
+                    .withStyle(ChatFormatting.GREEN));
+                return;
+            }
         }
         if (serverData.contains("mounted")) {
             boolean mounted = serverData.getBoolean("mounted");
@@ -62,6 +78,12 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (blockAccessor.getBlockEntity() instanceof ECODriveBlockEntity be) {
             compoundTag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(be.getCellStack()));
             compoundTag.putBoolean("mounted", be.isMounted());
+            if (be.getCluster() instanceof NEStorageCluster storageCluster) {
+                ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = storageCluster.getTheInterface();
+                if (storageInterface != null && storageInterface.isStorageTransferMode()) {
+                    compoundTag.putInt("storageInterfaceMode", storageInterface.getStorageInterfaceMode().ordinal());
+                }
+            }
             IECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {
                 compoundTag.putLong("usedBytes", cellInventory.getUsedBytes());

@@ -413,6 +413,8 @@
   "jade.neoecoae.coolant_max_overclock.none": "ǝuoN :ʞɔoןɔɹǝʌO xɐW ʇuɐןooƆ",
   "jade.neoecoae.drive_mounted": "pǝʇunoW ǝʌıɹᗡ OƆƎ",
   "jade.neoecoae.drive_unmounted": "pǝʇunoɯu∩ ǝʌıɹᗡ OƆƎ",
+  "jade.neoecoae.drive_input_mode": "ǝpoW ʇnduI uı ǝʌıɹᗡ OƆƎ",
+  "jade.neoecoae.drive_output_mode": "ǝpoW ʇndʇnO uı ǝʌıɹᗡ OƆƎ",
   "jade.neoecoae.overclock_status": "%d\\%d :ʞɔoןɔɹǝʌO ǝʌıʇɔǝɟɟƎ\\ןɐɔıʇǝɹoǝɥ⟘",
   "jade.neoecoae.overclocked": "pǝןqɐuƎ ʞɔoןɔɹǝʌO",
   "jade.neoecoae.worker_task": "%3$s - %2$sx %1$s  ",

@@ -464,6 +464,8 @@
   "jade.neoecoae.coolant_max_overclock.none": "冷却液最高超频: 无",
   "jade.neoecoae.drive_mounted": "ECO 驱动器已挂载",
   "jade.neoecoae.drive_unmounted": "ECO 驱动器未挂载",
+  "jade.neoecoae.drive_input_mode": "处于输入模式中",
+  "jade.neoecoae.drive_output_mode": "处于输出模式中",
   "jade.neoecoae.overclock_status": "理论/生效超频: %d/%d",
   "jade.neoecoae.overclocked": "超频已启用",
   "jade.neoecoae.worker_task": "  %s x%s - %s",

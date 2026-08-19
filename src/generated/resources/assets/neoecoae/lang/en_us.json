@@ -464,6 +464,8 @@
   "jade.neoecoae.coolant_max_overclock.none": "Coolant Max Overclock: None",
   "jade.neoecoae.drive_mounted": "ECO Drive Mounted",
   "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted",
+  "jade.neoecoae.drive_input_mode": "ECO Drive in Input Mode",
+  "jade.neoecoae.drive_output_mode": "ECO Drive in Output Mode",
   "jade.neoecoae.overclock_status": "Theoretical/Effective Overclock: %d/%d",
   "jade.neoecoae.overclocked": "Overclock Enabled",
   "jade.neoecoae.worker_task": "  %s x%s - %s",
