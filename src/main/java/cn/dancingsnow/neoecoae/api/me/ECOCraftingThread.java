@@ -759,19 +759,59 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     record PowerProgress(int completed, double remainder) {}
 
     private boolean ejectOutputs() {
+        boolean timingEnabled = NEConfig.debugEcoFastPath && batchFastPathWork;
+        long ejectionStarted = timingEnabled ? System.nanoTime() : 0L;
         IGrid grid = worker.getMainNode().getGrid();
         if (grid == null) {
             return false;
         }
 
-        CraftingService craftingService = (CraftingService) grid.getCraftingService();
-        MEStorage storage = grid.getStorageService().getInventory();
         ItemStack eventOutput = NEConfig.postCraftingEvent
             ? (craftingEventOutput.isEmpty() ? firstOutputItem().copy() : craftingEventOutput.copy())
             : ItemStack.EMPTY;
+        long collectStarted = timingEnabled ? System.nanoTime() : 0L;
         KeyCounter outputs = collectOutputItems();
+        long collectMicros = elapsedMicros(collectStarted, timingEnabled);
 
+        // A completed worker can legitimately have no deliverable stack (for example after a
+        // recovery callback already transferred the output). Do not rebuild CraftingService/
+        // storage state or run remainder bookkeeping for that empty transition.
+        if (isEmpty(outputs)) {
+            if (timingEnabled) {
+                ECOFastPathDiagnostics.logBatchEjectionTiming(
+                    worker.getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    outputs,
+                    new KeyCounter(),
+                    collectMicros,
+                    0L,
+                    elapsedMicros(ejectionStarted, true)
+                );
+            }
+            if (NEConfig.postCraftingEvent) {
+                postCraftingEventSafely(eventOutput);
+            }
+            worker.onThreadStop(occupiedThreadSlots);
+            clearWork();
+            return true;
+        }
+
+        CraftingService craftingService = (CraftingService) grid.getCraftingService();
+        MEStorage storage = grid.getStorageService().getInventory();
+
+        long deliveryStarted = timingEnabled ? System.nanoTime() : 0L;
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
+        if (timingEnabled) {
+            ECOFastPathDiagnostics.logBatchEjectionTiming(
+                worker.getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                outputs,
+                remainder,
+                collectMicros,
+                elapsedMicros(deliveryStarted, true),
+                elapsedMicros(ejectionStarted, true)
+            );
+        }
         if (!isEmpty(remainder)) {
             retainRemainderForRetry(remainder, RecoveryState.ACTIVE);
             return false;
@@ -854,6 +894,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ECOCraftingCPULogic.JobOutputDelivery delivery = ECOCraftingCPULogic.deliverJobOutput(
                     craftingJobId, key, remaining, Actionable.MODULATE
                 );
+                if (delivery.retryLater()) {
+                    // The CPU has accepted the worker route but is finishing a durable
+                    // post-ownership accounting record. Keep these outputs on this worker until
+                    // that record is applied instead of leaking them into unrelated storage.
+                    continue;
+                }
                 long remainingAfterOwner = remainingAfterOwnerDelivery(
                     delivery.routeAvailable(), remaining, delivery.inserted()
                 );
@@ -902,6 +948,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             );
         }
         return inserted;
+    }
+
+    private static long elapsedMicros(long started, boolean enabled) {
+        return enabled ? Math.max(0L, (System.nanoTime() - started) / 1_000L) : 0L;
     }
 
     /** Returns the amount that must continue through the normal AE2 fallback route. */

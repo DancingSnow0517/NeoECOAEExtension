@@ -69,8 +69,6 @@ public final class ECOBatchCraftingHelper {
         AEKey limitingKey = null;
         long limitingAvailable = 0L;
         long limitingPerCraft = 0L;
-        long formulaAvailable = 0L;
-        long formulaPerCraft = 0L;
         Map<Object, GenericStack> grouped = new java.util.LinkedHashMap<>();
         for (GenericStack stack : perCraft) {
             Object group = ECOFuzzyCraftingInventory.isConfiguredFuzzy(stack.what(), fuzzyItemIds)
@@ -94,10 +92,6 @@ public final class ECOBatchCraftingHelper {
             long available = inventory instanceof ECOFuzzyCraftingInventory fuzzyInventory
                 ? fuzzyInventory.extractTemplate(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE)
                 : inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
-            if (formulaPerCraft == 0L) {
-                formulaAvailable = available;
-                formulaPerCraft = stack.amount();
-            }
             long ingredientLimit = available / stack.amount();
             if (ingredientLimit < max) {
                 max = ingredientLimit;
@@ -113,22 +107,15 @@ public final class ECOBatchCraftingHelper {
             max,
             limitingKey,
             limitingAvailable,
-            limitingPerCraft,
-            formulaAvailable,
-            formulaPerCraft
+            limitingPerCraft
         );
     }
 
     public record InventoryBatchLimit(
-            long crafts,
-            AEKey limitingKey,
-            long available,
-            long perCraft,
-            long formulaAvailable,
-            long formulaPerCraft) {
-        public InventoryBatchLimit(long crafts, AEKey limitingKey, long available, long perCraft) {
-            this(crafts, limitingKey, available, perCraft, available, perCraft);
-        }
+        long crafts,
+        AEKey limitingKey,
+        long available,
+        long perCraft) {
     }
 
     /**

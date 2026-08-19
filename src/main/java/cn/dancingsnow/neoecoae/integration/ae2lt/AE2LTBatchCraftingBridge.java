@@ -12,6 +12,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.execution.ECOFuzzyCraftingInventory;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -157,15 +158,51 @@ public final class AE2LTBatchCraftingBridge {
                 continue;
             }
 
-            List<GenericStack> extraInputTemplates = ECOBatchCraftingHelper.multiply(
-                inputsPerCraft, requested - 1
-            );
+            double requiredPower = patternPower * requested;
+            if (!Double.isFinite(requiredPower) || requiredPower < 0.0D) {
+                defer(provider, details);
+                logContractFailure(
+                    provider,
+                    "reserveBatchEnergy",
+                    new IllegalStateException("Invalid batch crafting power: " + requiredPower)
+                );
+                continue;
+            }
+            ECOBatchEnergyReservation energyReservation =
+                ECOBatchEnergyReservation.tryReserve(energyService, requiredPower, false);
+            if (energyReservation == null || !energyReservation.isFullyReserved()) {
+                if (energyReservation != null) {
+                    RuntimeException refundFailure = energyReservation.refundSafely();
+                    if (refundFailure != null) {
+                        LOGGER.error("AE2LT batch energy refund failed after a partial reservation", refundFailure);
+                    }
+                }
+                continue;
+            }
+
+            List<GenericStack> extraInputTemplates;
+            try {
+                extraInputTemplates = ECOBatchCraftingHelper.multiply(
+                    inputsPerCraft, requested - 1
+                );
+            } catch (RuntimeException e) {
+                RuntimeException refundFailure = energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("AE2LT batch energy refund failed after input expansion failure", refundFailure);
+                }
+                logContractFailure(provider, "expandBatchInputs", e);
+                continue;
+            }
             List<GenericStack> extractedExtraInputs;
             try {
                 extractedExtraInputs = ECOBatchCraftingHelper.extractExactReturning(
                     extractionInventory, extraInputTemplates, fuzzyItemIds
                 );
             } catch (RuntimeException e) {
+                RuntimeException refundFailure = energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("AE2LT batch energy refund failed after input reservation failure", refundFailure);
+                }
                 logContractFailure(provider, "reserveBatchInputs", e);
                 return 0;
             }
@@ -187,6 +224,10 @@ public final class AE2LTBatchCraftingBridge {
                 }
             } catch (RuntimeException e) {
                 ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
+                RuntimeException refundFailure = energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("AE2LT batch energy refund failed after provider rejection", refundFailure);
+                }
                 logContractFailure(provider, "pushBatch", e);
                 continue;
             }
@@ -194,6 +235,10 @@ public final class AE2LTBatchCraftingBridge {
             int accepted = requested - (int) leftover;
             if (accepted <= 0) {
                 ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
+                RuntimeException refundFailure = energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("AE2LT batch energy refund failed after zero acceptance", refundFailure);
+                }
                 continue;
             }
 
@@ -206,6 +251,11 @@ public final class AE2LTBatchCraftingBridge {
                         fuzzyItemIds
                     )
                 );
+            }
+            RuntimeException energySettlementFailure = energyReservation.commitConsumed(patternPower * accepted);
+            if (energySettlementFailure != null) {
+                LOGGER.error("AE2LT batch energy excess refund failed after partial provider acceptance",
+                    energySettlementFailure);
             }
             return accepted;
         }

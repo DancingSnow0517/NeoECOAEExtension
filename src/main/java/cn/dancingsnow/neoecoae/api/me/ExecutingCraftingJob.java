@@ -58,6 +58,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
+    private static final String NBT_RETAINED_FINAL_OUTPUT = "retainedFinalOutput";
     private static final String NBT_PLANNED_INPUTS = "plannedInputs";
     private static final String NBT_PLANNED_INPUT_COUNT = "count";
     private static final String NBT_PLANNED_INPUT_SLOTS = "slots";
@@ -67,6 +68,23 @@ public class ExecutingCraftingJob {
     // Legacy homogeneous-selection format written before mixed inputs were supported.
     private static final String NBT_PLANNED_INPUT_STACKS = "stacks";
     private static final String NBT_FUZZY_ITEM_IDS = "fuzzyItemIds";
+    private static final String NBT_PENDING_ACCOUNTING = "pendingAccounting";
+    private static final String NBT_PENDING_ACCOUNTING_PATTERN = "pattern";
+    private static final String NBT_PENDING_ACCOUNTING_COUNT = "count";
+    private static final String NBT_PENDING_ACCOUNTING_RETAINED = "retainReusableInputs";
+    private static final String NBT_PENDING_ACCOUNTING_OUTPUTS = "outputs";
+    private static final String NBT_PENDING_ACCOUNTING_CONTAINERS = "containers";
+    private static final String NBT_PENDING_ACCOUNTING_RETURNED_INPUTS = "returnedInputs";
+    private static final String NBT_PENDING_ACCOUNTING_OUTPUTS_APPLIED = "outputsApplied";
+    private static final String NBT_PENDING_ACCOUNTING_CONTAINERS_APPLIED = "containersApplied";
+    private static final String NBT_PENDING_ACCOUNTING_RETURNED_APPLIED = "returnedInputsApplied";
+    private static final String NBT_PENDING_ACCOUNTING_TASK_APPLIED = "taskApplied";
+    private static final String NBT_PENDING_ACCOUNTING_DISCARD_PLANNED = "discardPlannedInputs";
+    private static final String NBT_PENDING_ACCOUNTING_OWNERSHIP = "ownershipTransferred";
+    private static final String NBT_PENDING_ACCOUNTING_ROLLBACK_INPUTS = "rollbackInputs";
+    private static final String NBT_PENDING_ACCOUNTING_OUTPUT_INDEX = "outputIndex";
+    private static final String NBT_PENDING_ACCOUNTING_CONTAINER_INDEX = "containerIndex";
+    private static final String NBT_PENDING_ACCOUNTING_RETURNED_INDEX = "returnedIndex";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
@@ -77,9 +95,12 @@ public class ExecutingCraftingJob {
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
     long remainingAmount;
+    long retainedFinalOutputAmount;
     @Nullable
     Integer playerId;
     boolean suspended;
+    @Nullable
+    PendingAccounting pendingAccounting;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -105,6 +126,7 @@ public class ExecutingCraftingJob {
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
         this.bufferedFinalOutput = new ECOFinalOutputBuffer();
+        this.retainedFinalOutputAmount = 0L;
         for (var entry : plan.emittedItems()) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
@@ -125,6 +147,7 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+        this.pendingAccounting = null;
     }
 
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
@@ -136,6 +159,7 @@ public class ExecutingCraftingJob {
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         this.bufferedFinalOutput = new ECOFinalOutputBuffer(Math.max(0L, data.getLong(NBT_BUFFERED_FINAL_OUTPUT)));
+        this.retainedFinalOutputAmount = Math.max(0L, data.getLong(NBT_RETAINED_FINAL_OUTPUT));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
         } else {
@@ -162,7 +186,10 @@ public class ExecutingCraftingJob {
             }
         }
 
-        this.suspended = data.getBoolean(NBT_SUSPENDED) || invalidPlannedInputs;
+        this.pendingAccounting = readPendingAccounting(data, registries);
+        boolean invalidPendingAccounting = data.contains(NBT_PENDING_ACCOUNTING, Tag.TAG_COMPOUND)
+            && this.pendingAccounting == null;
+        this.suspended = data.getBoolean(NBT_SUSPENDED) || invalidPlannedInputs || invalidPendingAccounting;
         Set<ResourceLocation> restoredFuzzyItemIds = new java.util.LinkedHashSet<>();
         var fuzzyIdsTag = data.getList(NBT_FUZZY_ITEM_IDS, Tag.TAG_STRING);
         for (int i = 0; i < fuzzyIdsTag.size(); i++) {
@@ -191,6 +218,7 @@ public class ExecutingCraftingJob {
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
         data.putLong(NBT_BUFFERED_FINAL_OUTPUT, bufferedFinalOutput.amount());
+        data.putLong(NBT_RETAINED_FINAL_OUTPUT, retainedFinalOutputAmount);
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {
@@ -207,6 +235,9 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        if (pendingAccounting != null) {
+            data.put(NBT_PENDING_ACCOUNTING, pendingAccounting.writeToNBT(registries));
+        }
         var fuzzyIdsTag = new ListTag();
         for (ResourceLocation id : fuzzyItemIds) {
             fuzzyIdsTag.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
@@ -256,6 +287,202 @@ public class ExecutingCraftingJob {
 
     void discardPlannedInputs(IPatternDetails details) {
         plannedInputs.remove(details);
+    }
+
+    void beginPendingAccounting(
+            IPatternDetails details,
+            List<GenericStack> outputs,
+            List<GenericStack> containers,
+            List<GenericStack> returnedInputs,
+            long crafts,
+            boolean retainReusableInputsOnce) {
+        beginPendingAccounting(
+            details, outputs, containers, returnedInputs, List.of(), crafts,
+            retainReusableInputsOnce, false);
+    }
+
+    void beginPendingAccounting(
+            IPatternDetails details,
+            List<GenericStack> outputs,
+            List<GenericStack> containers,
+            List<GenericStack> returnedInputs,
+            List<GenericStack> rollbackInputs,
+            long crafts,
+            boolean retainReusableInputsOnce,
+            boolean discardPlannedInputs) {
+        if (crafts <= 0L) {
+            throw new IllegalArgumentException("crafts must be positive");
+        }
+        if (pendingAccounting != null) {
+            throw new IllegalStateException("A crafting accounting operation is already pending");
+        }
+        pendingAccounting = new PendingAccounting(
+            details.getDefinition(),
+            List.copyOf(outputs),
+            List.copyOf(containers),
+            List.copyOf(returnedInputs),
+            List.copyOf(rollbackInputs),
+            crafts,
+            retainReusableInputsOnce,
+            discardPlannedInputs
+        );
+    }
+
+    @Nullable
+    PendingAccounting pendingAccounting() {
+        return pendingAccounting;
+    }
+
+    void clearPendingAccounting() {
+        pendingAccounting = null;
+    }
+
+    void markPendingAccountingOwnershipTransferred() {
+        if (pendingAccounting == null) {
+            throw new IllegalStateException("No pending accounting operation");
+        }
+        pendingAccounting.ownershipTransferred = true;
+    }
+
+    long retainedFinalOutputAmount() {
+        return retainedFinalOutputAmount;
+    }
+
+    void addRetainedFinalOutput(long amount) {
+        retainedFinalOutputAmount = saturatingAdd(retainedFinalOutputAmount, amount);
+    }
+
+    void consumeRetainedFinalOutput(long amount) {
+        if (amount > 0L) {
+            retainedFinalOutputAmount = Math.max(0L, retainedFinalOutputAmount - amount);
+        }
+    }
+
+    static final class PendingAccounting {
+        final AEItemKey pattern;
+        final List<GenericStack> outputs;
+        final List<GenericStack> containers;
+        final List<GenericStack> returnedInputs;
+        final List<GenericStack> rollbackInputs;
+        final long crafts;
+        final boolean retainReusableInputsOnce;
+        final boolean discardPlannedInputs;
+        boolean ownershipTransferred;
+        boolean outputsApplied;
+        boolean containersApplied;
+        boolean returnedInputsApplied;
+        boolean taskApplied;
+        int outputIndex;
+        int containerIndex;
+        int returnedInputIndex;
+
+        private PendingAccounting(
+                AEItemKey pattern,
+                List<GenericStack> outputs,
+                List<GenericStack> containers,
+                List<GenericStack> returnedInputs,
+                List<GenericStack> rollbackInputs,
+                long crafts,
+                boolean retainReusableInputsOnce,
+                boolean discardPlannedInputs) {
+            this.pattern = pattern;
+            this.outputs = outputs;
+            this.containers = containers;
+            this.returnedInputs = returnedInputs;
+            this.rollbackInputs = rollbackInputs;
+            this.crafts = crafts;
+            this.retainReusableInputsOnce = retainReusableInputsOnce;
+            this.discardPlannedInputs = discardPlannedInputs;
+        }
+
+        private CompoundTag writeToNBT(HolderLookup.Provider registries) {
+            CompoundTag tag = new CompoundTag();
+            tag.put(NBT_PENDING_ACCOUNTING_PATTERN, pattern.toTag(registries));
+            tag.putLong(NBT_PENDING_ACCOUNTING_COUNT, crafts);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_RETAINED, retainReusableInputsOnce);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_DISCARD_PLANNED, discardPlannedInputs);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_OWNERSHIP, ownershipTransferred);
+            tag.put(NBT_PENDING_ACCOUNTING_OUTPUTS, writeStacks(registries, outputs));
+            tag.put(NBT_PENDING_ACCOUNTING_CONTAINERS, writeStacks(registries, containers));
+            tag.put(NBT_PENDING_ACCOUNTING_RETURNED_INPUTS, writeStacks(registries, returnedInputs));
+            tag.put(NBT_PENDING_ACCOUNTING_ROLLBACK_INPUTS, writeStacks(registries, rollbackInputs));
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_OUTPUTS_APPLIED, outputsApplied);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_CONTAINERS_APPLIED, containersApplied);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_RETURNED_APPLIED, returnedInputsApplied);
+            tag.putBoolean(NBT_PENDING_ACCOUNTING_TASK_APPLIED, taskApplied);
+            tag.putInt(NBT_PENDING_ACCOUNTING_OUTPUT_INDEX, outputIndex);
+            tag.putInt(NBT_PENDING_ACCOUNTING_CONTAINER_INDEX, containerIndex);
+            tag.putInt(NBT_PENDING_ACCOUNTING_RETURNED_INDEX, returnedInputIndex);
+            return tag;
+        }
+
+        private static ListTag writeStacks(HolderLookup.Provider registries, List<GenericStack> stacks) {
+            ListTag result = new ListTag();
+            for (GenericStack stack : stacks) {
+                if (stack != null && stack.amount() > 0L) {
+                    result.add(GenericStack.writeTag(registries, stack));
+                }
+            }
+            return result;
+        }
+    }
+
+    @Nullable
+    private static PendingAccounting readPendingAccounting(
+            CompoundTag data, HolderLookup.Provider registries) {
+        if (!data.contains(NBT_PENDING_ACCOUNTING, Tag.TAG_COMPOUND)) {
+            return null;
+        }
+        CompoundTag tag = data.getCompound(NBT_PENDING_ACCOUNTING);
+        AEItemKey pattern = AEItemKey.fromTag(registries, tag.getCompound(NBT_PENDING_ACCOUNTING_PATTERN));
+        long crafts = tag.getLong(NBT_PENDING_ACCOUNTING_COUNT);
+        if (pattern == null || crafts <= 0L) {
+            return null;
+        }
+        List<GenericStack> outputs = readStacks(tag, NBT_PENDING_ACCOUNTING_OUTPUTS, registries);
+        List<GenericStack> containers = readStacks(tag, NBT_PENDING_ACCOUNTING_CONTAINERS, registries);
+        List<GenericStack> returnedInputs = readStacks(tag, NBT_PENDING_ACCOUNTING_RETURNED_INPUTS, registries);
+        List<GenericStack> rollbackInputs = readStacks(tag, NBT_PENDING_ACCOUNTING_ROLLBACK_INPUTS, registries);
+        if (outputs == null || containers == null || returnedInputs == null || rollbackInputs == null) {
+            return null;
+        }
+        PendingAccounting result = new PendingAccounting(
+            pattern, outputs, containers, returnedInputs, rollbackInputs, crafts,
+            tag.getBoolean(NBT_PENDING_ACCOUNTING_RETAINED),
+            tag.getBoolean(NBT_PENDING_ACCOUNTING_DISCARD_PLANNED)
+        );
+        result.outputsApplied = tag.getBoolean(NBT_PENDING_ACCOUNTING_OUTPUTS_APPLIED);
+        result.containersApplied = tag.getBoolean(NBT_PENDING_ACCOUNTING_CONTAINERS_APPLIED);
+        result.returnedInputsApplied = tag.getBoolean(NBT_PENDING_ACCOUNTING_RETURNED_APPLIED);
+        result.taskApplied = tag.getBoolean(NBT_PENDING_ACCOUNTING_TASK_APPLIED);
+        result.ownershipTransferred = tag.getBoolean(NBT_PENDING_ACCOUNTING_OWNERSHIP);
+        result.outputIndex = Math.max(0, tag.getInt(NBT_PENDING_ACCOUNTING_OUTPUT_INDEX));
+        result.containerIndex = Math.max(0, tag.getInt(NBT_PENDING_ACCOUNTING_CONTAINER_INDEX));
+        result.returnedInputIndex = Math.max(0, tag.getInt(NBT_PENDING_ACCOUNTING_RETURNED_INDEX));
+        if (result.outputIndex > outputs.size()
+            || result.containerIndex > containers.size()
+            || result.returnedInputIndex > returnedInputs.size()) {
+            return null;
+        }
+        return result;
+    }
+
+    @Nullable
+    private static List<GenericStack> readStacks(
+            CompoundTag tag, String key, HolderLookup.Provider registries) {
+        if (!tag.contains(key, Tag.TAG_LIST)) {
+            return List.of();
+        }
+        ListTag serialized = tag.getList(key, Tag.TAG_COMPOUND);
+        List<GenericStack> result = new ArrayList<>(serialized.size());
+        for (int index = 0; index < serialized.size(); index++) {
+            GenericStack stack = GenericStack.readTag(registries, serialized.getCompound(index));
+            if (stack == null || stack.amount() <= 0L) {
+                return null;
+            }
+            result.add(stack);
+        }
+        return List.copyOf(result);
     }
 
     static long compatiblePlannedInputCount(

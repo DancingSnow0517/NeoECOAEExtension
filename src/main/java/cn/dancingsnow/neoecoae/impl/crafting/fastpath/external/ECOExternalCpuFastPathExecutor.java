@@ -35,6 +35,7 @@ public final class ECOExternalCpuFastPathExecutor {
             IEnergyService energyService,
             Level level,
             ECOExternalCpuJobView job) {
+        ECOBatchEnergyReservation.retryPendingRefunds(energyService);
         var ae2ltBatchBridge = new AE2LTBatchCraftingBridge();
         var megacellsBatchBridge = new MEGACellsBatchCraftingBridge();
         var taskIterator = job.tasks();
@@ -86,9 +87,6 @@ public final class ECOExternalCpuFastPathExecutor {
                                 powerPerCraft, taskRemaining);
                     }
                     if (externalBatchResult > 0) {
-                        energyService.extractAEPower(
-                                powerPerCraft * externalBatchResult,
-                                Actionable.MODULATE, PowerMultiplier.CONFIG);
                         var reusablePlan = ECOReusableCraftingPlan.of(
                                 execution.inputItems(), execution.expectedContainerItems());
                         providerAccepted = true;
@@ -107,7 +105,7 @@ public final class ECOExternalCpuFastPathExecutor {
                     double bootstrapPower = CraftingCpuHelper.calculatePatternPower(firstInputs);
                     energyReservation = ECOBatchEnergyReservation.tryReserve(
                             energyService, bootstrapPower, false);
-                    if (energyReservation == null) {
+                    if (energyReservation == null || !energyReservation.isFullyReserved()) {
                         continue;
                     }
 
@@ -181,7 +179,7 @@ public final class ECOExternalCpuFastPathExecutor {
                 double totalPower = virtualCrafting ? 0.0D : powerPerCraft * batchSize;
                 energyReservation = ECOBatchEnergyReservation.tryReserve(
                         energyService, totalPower, virtualCrafting);
-                if (energyReservation == null) {
+                if (energyReservation == null || !energyReservation.isFullyReserved()) {
                     continue;
                 }
 
