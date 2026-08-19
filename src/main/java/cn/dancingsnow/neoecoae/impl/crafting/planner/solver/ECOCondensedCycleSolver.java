@@ -161,8 +161,21 @@ public final class ECOCondensedCycleSolver {
                         + " deficit=" + Math.negateExact(balances.get(material)));
                     return Optional.empty();
                 }
-                local.executions().forEach((reference, count) ->
-                    executions.merge(reference, count, Math::addExact));
+                local.executions().forEach((reference, count) -> {
+                    long previous = executions.getOrDefault(reference, 0L);
+                    executions.merge(reference, count, Math::addExact);
+                    long merged = executions.getOrDefault(reference, 0L);
+                    logSccDetail(
+                        "scc_local_solution component=" + component.id()
+                            + " componentMaterials="
+                            + ECOPlanningFailureDiagnostics.describeIterable(
+                                componentMaterials, componentMaterials.size())
+                            + " operationRef=" + describe(reference)
+                            + " localExecutionCount=" + count
+                            + " previousGlobalExecutionCount=" + previous
+                            + " mergedGlobalExecutionCount=" + merged
+                    );
+                });
                 cycleOperations.addAll(local.operationReferences());
                 if (local.missingSeedStarter() != null) {
                     missingSeedStarters.add(local.missingSeedStarter().reference());
@@ -170,6 +183,13 @@ public final class ECOCondensedCycleSolver {
                 local.missingSeedAmounts().forEach((key, amount) ->
                     missingSeedAmounts.merge(key, amount, Math::max));
                 apply(localOperations, local.executions(), balances);
+                componentMaterials.stream()
+                    .filter(ECOCondensedCycleSolver::isDiagnosticMaterial)
+                    .forEach(key -> logSccDetail(
+                        "component_balance_after component=" + component.id()
+                            + " material=" + describe(key)
+                            + " balance=" + balances.getOrDefault(key, 0L)
+                    ));
                 terminalBoundaryDeficits.addAll(local.boundaryDeficits().keySet());
                 local.boundaryDeficits().forEach((key, amount) ->
                     boundaryDeficitAmounts.merge(key, amount, Math::addExact));
@@ -396,6 +416,14 @@ public final class ECOCondensedCycleSolver {
             return finiteIncumbent;
         }
 
+        logTargetCapacityBound(
+            component,
+            operations,
+            deficientMaterial,
+            balances,
+            unlimited
+        );
+
         BigInteger incumbentExternalUpper = finiteIncumbent == null
             ? null
             : externalObjectiveCostByReference(
@@ -418,9 +446,11 @@ public final class ECOCondensedCycleSolver {
             incumbentBoundaryUpper
         );
         Optimisation.Result solved = solveModel(model, deadlineNanos, "primary");
-        if (solved == null || !solved.getState().isFeasible()
-            || ECOSolveBudget.shouldStop(deadlineNanos)) {
+        if (solved == null || ECOSolveBudget.shouldStop(deadlineNanos)) {
             return finiteIncumbent;
+        }
+        if (!solved.getState().isFeasible()) {
+            return null;
         }
         Map<ECOPlanningOperation<K, R>, BigInteger> exactCounts = exactCounts(model, solved);
         if (exactCounts == null) {
@@ -681,6 +711,58 @@ public final class ECOCondensedCycleSolver {
         return upper.max(BigInteger.ZERO)
             .min(BigInteger.valueOf(MAX_MILP_VARIABLE_BOUND))
             .longValue();
+    }
+
+    /** Logs a one-sided proof that the bounded model cannot cover the target deficit. */
+    private static <K, R> void logTargetCapacityBound(
+        Set<K> component,
+        List<ECOPlanningOperation<K, R>> operations,
+        K deficientMaterial,
+        Map<K, Long> balances,
+        Set<K> unlimited
+    ) {
+        long balance = balances.getOrDefault(deficientMaterial, 0L);
+        if (balance >= 0L) {
+            return;
+        }
+        BigInteger requiredGain = BigInteger.valueOf(balance).negate();
+        BigInteger positiveCapacity = BigInteger.ZERO;
+        List<String> contributions = new ArrayList<>();
+        for (var operation : operations) {
+            long externalInput = operation.inputs().entrySet().stream()
+                .filter(entry -> !component.contains(entry.getKey()))
+                .filter(entry -> !unlimited.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .reduce(0L, ECOPlannerMath::saturatedAdd);
+            long upper = modelOperationUpper(null, externalInput);
+            BigInteger net = BigInteger.valueOf(operation.outputAmount(deficientMaterial))
+                .subtract(BigInteger.valueOf(operation.inputAmount(deficientMaterial)));
+            if (net.signum() <= 0 || upper <= 0L) {
+                continue;
+            }
+            BigInteger contribution = net.multiply(BigInteger.valueOf(upper));
+            positiveCapacity = positiveCapacity.add(contribution);
+            contributions.add(
+                "{operationRef=" + describe(operation.reference())
+                    + ",net=" + net
+                    + ",modelUpper=" + upper
+                    + ",maxContribution=" + contribution + "}"
+            );
+        }
+        if (positiveCapacity.compareTo(requiredGain) >= 0) {
+            return;
+        }
+        ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+            "target_capacity_bound_insufficient deficientMaterial="
+                + describe(deficientMaterial)
+                + " required=" + requiredGain
+                + " positiveCapacity=" + positiveCapacity
+                + " shortfall=" + requiredGain.subtract(positiveCapacity)
+                + " componentMaterials="
+                + ECOPlanningFailureDiagnostics.describeIterable(component, component.size())
+                + " contributions=" + contributions
+        );
     }
 
     private static <K, R> long modelBoundaryUpper(
@@ -1646,6 +1728,36 @@ public final class ECOCondensedCycleSolver {
         long remaining = deadlineNanos - System.nanoTime();
         if (remaining <= 0L) return 1L;
         return Math.min(configured, Math.max(1L, remaining / 1_000_000L));
+    }
+
+    private static void logSccDetail(String context) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                context
+            );
+        }
+    }
+
+    private static boolean isDiagnosticMaterial(Object material) {
+        String value = describe(material);
+        return value.contains("data_energistics:data_crystal")
+            || value.contains("data_energistics:data_dust")
+            || value.contains("data_crystal")
+            || value.contains("data_dust");
+    }
+
+    private static String describe(Object value) {
+        if (value == null) {
+            return "none";
+        }
+        try {
+            return value.toString();
+        } catch (Throwable ignored) {
+            return value.getClass().getName();
+        }
     }
 
     private static <K, R> void logFailure(ECOPlanningProblem<K, R> problem, String context) {

@@ -90,10 +90,19 @@ public final class ECOInventoryScheduler {
                 queued.remove(operation.reference());
                 long pending = remaining.getOrDefault(operation.reference(), 0L);
                 if (pending <= 0L) continue;
-                long executable = maxExecutable(problem, operation, inventory, pending);
-                if (executable <= 0L) continue;
-                if (cycleOperations.contains(operation.reference())) {
-                    executable = compressedExecutable(
+                boolean cyclic = cycleOperations.contains(operation.reference());
+                logOperationClassification(operation, cyclic, topology);
+                long executable = maxExecutable(problem, operation, inventory, pending, "scheduler");
+                long maxExecutable = executable;
+                if (executable <= 0L) {
+                    logBatchDecision(
+                        problem, operation, topology, cyclic, pending,
+                        maxExecutable, null, null, null, 0L, inventory, remaining, cycleOperations
+                    );
+                    continue;
+                }
+                if (cyclic) {
+                    CompressionResult<K, R> compression = compressedExecutable(
                         problem,
                         operation,
                         inventory,
@@ -102,13 +111,38 @@ public final class ECOInventoryScheduler {
                         pending,
                         executable
                     );
+                    executable = compression.selectedExecutable();
+                    logBatchDecision(
+                        problem, operation, topology, true, pending,
+                        maxExecutable,
+                        compression.seedPreserving().executable(),
+                        compression.unlockingExecutable(),
+                        compression.selectedExecutable(),
+                        executable,
+                        inventory,
+                        remaining,
+                        cycleOperations,
+                        compression.seedPreserving().reserves()
+                    );
                     if (executable <= 0L) continue;
+                } else {
+                    logBatchDecision(
+                        problem, operation, topology, false, pending,
+                        maxExecutable, null, null, null, executable,
+                        inventory, remaining, cycleOperations
+                    );
                 }
+                long pendingBefore = pending;
+                Map<K, Long> inventoryBeforeExecution = snapshotInventory(problem, operation, inventory);
                 apply(problem, operation.inputs(), inventory, executable, false);
                 apply(problem, operation.outputs(), inventory, executable, true);
                 long left = pending - executable;
                 remaining.put(operation.reference(), left);
                 appendStep(steps, operation.reference(), executable);
+                logExecution(
+                    problem, operation, topology, executable, pendingBefore, left,
+                    inventoryBeforeExecution, inventory
+                );
                 progress = true;
                 if (fastForwardRepeatedBlock(problem, byReference, remaining, inventory, steps)) {
                     if (!visitedStates.add(state(problem, remaining, inventory))) {
@@ -137,7 +171,9 @@ public final class ECOInventoryScheduler {
                 }
             }
             if (!progress && remaining.values().stream().anyMatch(value -> value > 0L)) {
-                progress = executeBootstrapStep(problem, remaining, inventory, steps, cycleOperations);
+                progress = executeBootstrapStep(
+                    problem, remaining, inventory, steps, cycleOperations, topology
+                );
             }
             if (steps.size() >= MAX_SCHEDULE_STEPS) {
                 progress = false;
@@ -157,7 +193,19 @@ public final class ECOInventoryScheduler {
                     return;
                 }
                 long missing = amount - inventory.getOrDefault(key, 0L);
-                if (missing > 0) blockedBy.merge(key, missing, Math::max);
+                if (missing > 0) {
+                    logBlockedDetail(problem, operation, topology, key, amount, missing, inventory, remaining);
+                    long previous = blockedBy.getOrDefault(key, 0L);
+                    long merged = Math.max(previous, missing);
+                    logSchedulerDetail(
+                        "blocked_merge key=" + describe(key)
+                            + " operationRef=" + describe(operation.reference())
+                            + " incomingDeficit=" + missing
+                            + " previous=" + previous
+                            + " merged=" + merged
+                    );
+                    blockedBy.put(key, merged);
+                }
             });
         }
         if (remaining.values().stream().noneMatch(value -> value > 0)) {
@@ -257,19 +305,43 @@ public final class ECOInventoryScheduler {
         ECOPlanningProblem<K, R> problem,
         ECOPlanningOperation<K, R> operation,
         Map<K, Long> inventory,
-        long pending
+        long pending,
+        String evaluation
     ) {
         long result = pending;
+        List<MaxInput<K>> inputTraces = new ArrayList<>();
         for (var input : operation.inputs().entrySet()) {
             long available = ECOPlanningBalances.available(problem, inventory, input.getKey());
             long output = operation.outputs().getOrDefault(input.getKey(), 0L);
+            long candidateLimit = available / input.getValue();
+            boolean stateTransition = operation.stateTransitionInputs().contains(input.getKey());
+            MaxInput<K> inputTrace = new MaxInput<>(
+                input.getKey(), available, input.getValue(), output,
+                stateTransition, candidateLimit
+            );
+            inputTraces.add(inputTrace);
             if (!operation.stateTransitionInputs().contains(input.getKey()) && output >= input.getValue()) {
                 if (available < input.getValue()) {
+                    for (MaxInput<K> trace : inputTraces) {
+                        logMaxExecutable(operation, pending, evaluation, trace, 0L);
+                    }
                     return 0L;
                 }
                 continue;
             }
             result = Math.min(result, available / input.getValue());
+        }
+        for (MaxInput<K> trace : inputTraces) {
+            logMaxExecutable(operation, pending, evaluation, trace, result);
+        }
+        if (operation.inputs().isEmpty()) {
+            if (isDiagnosticOperation(operation, pending)) {
+                logSchedulerDetail(
+                        "scheduler_max_executable operationRef=" + describe(operation.reference())
+                        + " evaluation=" + evaluation
+                        + " pending=" + pending + " finalMaxExecutable=" + result
+                );
+            }
         }
         return result;
     }
@@ -279,7 +351,7 @@ public final class ECOInventoryScheduler {
      * represent operation completion, another operation becoming startable, and a material
      * reaching its reserve boundary. No one-batch stepping is needed to cross a stable interval.
      */
-    private static <K, R> long compressedExecutable(
+    private static <K, R> CompressionResult<K, R> compressedExecutable(
         ECOPlanningProblem<K, R> problem,
         ECOPlanningOperation<K, R> operation,
         Map<K, Long> inventory,
@@ -289,23 +361,25 @@ public final class ECOInventoryScheduler {
         long executable
     ) {
         if (executable <= 0L) {
-            return 0L;
+            return new CompressionResult<>(
+                0L, new SeedPreservingResult<>(0L, Map.of()), null
+            );
         }
-        long seedPreserving = seedPreservingExecutable(
+        SeedPreservingResult<K, R> seedPreserving = seedPreservingExecutable(
             problem, operation, inventory, remaining, cycleOperations, executable
         );
         // A zero result means this operation would consume a seed reserved for another
         // pending cycle operation. There is no safe compressed batch in that state; treating
         // zero as "no breakpoint" lets an external consumer exhaust the only bootstrap seed.
-        if (seedPreserving == 0L) {
-            return 0L;
+        if (seedPreserving.executable() == 0L) {
+            return new CompressionResult<>(0L, seedPreserving, null);
         }
         long unlocking = unlockingExecutable(problem, operation, inventory, remaining, executable);
         Set<Long> breakpoints = new LinkedHashSet<>();
         breakpoints.add(executable);
         breakpoints.add(Math.min(pending, executable));
-        if (seedPreserving > 0L) {
-            breakpoints.add(seedPreserving);
+        if (seedPreserving.executable() > 0L) {
+            breakpoints.add(seedPreserving.executable());
         }
         if (unlocking > 0L) {
             breakpoints.add(unlocking);
@@ -316,15 +390,15 @@ public final class ECOInventoryScheduler {
             if (breakpoint <= 0L || breakpoint > executable) {
                 continue;
             }
-            if (seedPreserving > 0L && breakpoint > seedPreserving) {
+            if (seedPreserving.executable() > 0L && breakpoint > seedPreserving.executable()) {
                 continue;
             }
-            if (seedPreserving == 0L && unlocking > 0L && breakpoint != unlocking) {
+            if (seedPreserving.executable() == 0L && unlocking > 0L && breakpoint != unlocking) {
                 continue;
             }
             selected = Math.max(selected, breakpoint);
         }
-        return selected;
+        return new CompressionResult<>(selected, seedPreserving, unlocking);
     }
 
     private static <K, R> SchedulerState<K, R> state(
@@ -357,7 +431,7 @@ public final class ECOInventoryScheduler {
      * Re-evaluating the reserve after the batch is reduced reaches a stable cap without
      * expanding large cyclic plans one craft at a time.
      */
-    private static <K, R> long seedPreservingExecutable(
+    private static <K, R> SeedPreservingResult<K, R> seedPreservingExecutable(
         ECOPlanningProblem<K, R> problem,
         ECOPlanningOperation<K, R> operation,
         Map<K, Long> inventory,
@@ -366,6 +440,7 @@ public final class ECOInventoryScheduler {
         long executable
     ) {
         long result = executable;
+        Map<K, SeedReserve<R>> reserves = new LinkedHashMap<>();
         for (int pass = 0; pass < 2; pass++) {
             long previous = result;
             for (var input : operation.inputs().entrySet()) {
@@ -373,24 +448,38 @@ public final class ECOInventoryScheduler {
                     || operation.outputs().getOrDefault(input.getKey(), 0L) >= input.getValue()) {
                     continue;
                 }
-                long reserve = minimumPendingSeed(
+                SeedReserve<R> seed = minimumPendingSeed(
                     problem, input.getKey(), operation.reference(), result, remaining, cycleOperations
                 );
+                reserves.put(input.getKey(), seed);
                 long available = inventory.getOrDefault(input.getKey(), 0L);
-                if (available <= reserve) {
+                long resulting = available <= seed.amount()
+                    ? 0L
+                    : Math.min(result, (available - seed.amount()) / input.getValue());
+                logSchedulerDetail(
+                    "seed_preserve operationRef=" + describe(operation.reference())
+                        + " material=" + describe(input.getKey())
+                        + " currentExecutable=" + result
+                        + " pass=" + pass
+                        + " available=" + available
+                        + " inputPerBatch=" + input.getValue()
+                        + " reserve=" + seed.amount()
+                        + " resultingExecutable=" + resulting
+                );
+                if (available <= seed.amount()) {
                     result = 0L;
                     break;
                 }
-                result = Math.min(result, (available - reserve) / input.getValue());
+                result = resulting;
             }
             if (result == previous) {
                 break;
             }
         }
-        return result;
+        return new SeedPreservingResult<>(result, Map.copyOf(reserves));
     }
 
-    private static <K, R> long minimumPendingSeed(
+    private static <K, R> SeedReserve<R> minimumPendingSeed(
         ECOPlanningProblem<K, R> problem,
         K material,
         R current,
@@ -399,22 +488,104 @@ public final class ECOInventoryScheduler {
         Set<R> cycleOperations
     ) {
         long reserve = Long.MAX_VALUE;
+        R selectedFromOperation = null;
+        List<R> selectedConsumers = new ArrayList<>();
+        boolean sawCyclicCandidate = false;
+        boolean sawPendingCyclicCandidate = false;
+        boolean sawInputCandidate = false;
+        boolean sawCurrentConsumed = false;
         for (var candidate : problem.operations()) {
-            if (!cycleOperations.contains(candidate.reference())) {
+            long rawPending = remaining.getOrDefault(candidate.reference(), 0L);
+            boolean candidateCyclic = cycleOperations.contains(candidate.reference());
+            sawCyclicCandidate |= candidateCyclic;
+            long candidatePending = rawPending;
+            String reason;
+            if (!candidateCyclic) {
+                reason = "candidate_not_in_cycleOperations";
+                logSeedCandidate(
+                    current, material, candidate, rawPending, candidatePending,
+                    candidateCyclic, candidate.inputs().getOrDefault(material, 0L), false, reason
+                );
                 continue;
             }
-            long pending = remaining.getOrDefault(candidate.reference(), 0L);
             if (candidate.reference().equals(current)) {
-                pending -= currentBatch;
+                candidatePending -= currentBatch;
             }
-            if (pending > 0L) {
-                long input = candidate.inputs().getOrDefault(material, 0L);
-                if (input > 0L) {
+            if (candidatePending <= 0L) {
+                reason = rawPending <= 0L ? "candidate_pending_zero" : "current_operation_consumed";
+                sawCurrentConsumed |= candidate.reference().equals(current) && rawPending > 0L;
+                logSeedCandidate(
+                    current, material, candidate, rawPending, candidatePending,
+                    candidateCyclic, candidate.inputs().getOrDefault(material, 0L), false, reason
+                );
+                continue;
+            }
+            sawPendingCyclicCandidate = true;
+            long input = candidate.inputs().getOrDefault(material, 0L);
+            if (input > 0L) {
+                sawInputCandidate = true;
+                reason = "considered";
+                boolean considered = true;
+                logSeedCandidate(
+                    current, material, candidate, rawPending, candidatePending,
+                    candidateCyclic, input, considered, reason
+                );
+                if (input < reserve) {
+                    selectedConsumers.clear();
+                    selectedConsumers.add(candidate.reference());
+                    selectedFromOperation = candidate.reference();
                     reserve = Math.min(reserve, input);
+                } else if (input == reserve) {
+                    selectedConsumers.add(candidate.reference());
                 }
+            } else {
+                reason = "consumer_input_absent";
+                logSeedCandidate(
+                    current, material, candidate, rawPending, candidatePending,
+                    candidateCyclic, input, false, reason
+                );
             }
         }
-        return reserve == Long.MAX_VALUE ? 0L : reserve;
+        long existingMinimumReserve = reserve == Long.MAX_VALUE ? 0L : reserve;
+        long currentPendingAfter = remaining.getOrDefault(current, 0L) - currentBatch;
+        long currentNextBatchReserve = currentPendingAfter > 0L
+            ? problem.operations().stream()
+                .filter(candidate -> candidate.reference().equals(current))
+                .mapToLong(candidate -> candidate.inputs().getOrDefault(material, 0L))
+                .max()
+                .orElse(0L)
+            : 0L;
+        long effectiveReserve = Math.max(existingMinimumReserve, currentNextBatchReserve);
+        logSchedulerDetail(
+            "minimum_pending_seed currentOperation=" + describe(current)
+                + " material=" + describe(material)
+                + " existingMinimumReserve=" + existingMinimumReserve
+                + " currentNextBatchReserve=" + currentNextBatchReserve
+                + " effectiveReserve=" + effectiveReserve
+                + " reserve=" + effectiveReserve
+                + " effectiveReserveSource=" + reserveSource(
+                    existingMinimumReserve, currentNextBatchReserve
+                )
+                + " selectedFromOperation=" + describe(selectedFromOperation)
+                + " reason=" + (currentNextBatchReserve > existingMinimumReserve
+                    ? "current_operation_floor"
+                    : effectiveReserve > 0L
+                        ? "selected_minimum"
+                    : sawPendingCyclicCandidate && !sawInputCandidate
+                        ? "consumer_input_absent"
+                        : sawCurrentConsumed
+                            ? "current_operation_consumed"
+                            : sawCyclicCandidate
+                                ? "consumer_pending_zero"
+                                : "no_pending_cyclic_consumer")
+        );
+        return new SeedReserve<>(
+            effectiveReserve,
+            selectedFromOperation,
+            List.copyOf(selectedConsumers),
+            existingMinimumReserve,
+            currentNextBatchReserve
+        );
     }
 
     private static <K, R> boolean executeBootstrapStep(
@@ -422,7 +593,8 @@ public final class ECOInventoryScheduler {
         Map<R, Long> remaining,
         Map<K, Long> inventory,
         List<ECOScheduleEntry<R>> steps,
-        Set<R> cycleOperations
+        Set<R> cycleOperations,
+        ECOStrongComponents.Topology<K, R> topology
     ) {
         if (steps.size() >= MAX_SCHEDULE_STEPS) {
             return false;
@@ -432,15 +604,27 @@ public final class ECOInventoryScheduler {
             if (pending <= 0L || !cycleOperations.contains(operation.reference())) {
                 continue;
             }
-            long executable = maxExecutable(problem, operation, inventory, pending);
+            long executable = maxExecutable(problem, operation, inventory, pending, "bootstrap");
             long unlocking = unlockingExecutable(problem, operation, inventory, remaining, executable);
             if (unlocking <= 0L) {
                 continue;
             }
+            logOperationClassification(operation, true, topology);
+            logBatchDecision(
+                problem, operation, topology, true, pending,
+                executable, null, unlocking, null, unlocking,
+                inventory, remaining, cycleOperations
+            );
+            Map<K, Long> inventoryBeforeExecution = snapshotInventory(problem, operation, inventory);
             apply(problem, operation.inputs(), inventory, unlocking, false);
             apply(problem, operation.outputs(), inventory, unlocking, true);
-            remaining.put(operation.reference(), pending - unlocking);
+            long left = pending - unlocking;
+            remaining.put(operation.reference(), left);
             appendStep(steps, operation.reference(), unlocking);
+            logExecution(
+                problem, operation, topology, unlocking, pending, left,
+                inventoryBeforeExecution, inventory
+            );
             return true;
         }
         return false;
@@ -461,7 +645,7 @@ public final class ECOInventoryScheduler {
         for (var consumer : problem.operations()) {
             if (remaining.getOrDefault(consumer.reference(), 0L) <= 0L
                 || maxExecutable(problem, consumer, inventory,
-                    remaining.getOrDefault(consumer.reference(), 0L)) > 0L) {
+                    remaining.getOrDefault(consumer.reference(), 0L), "unlocking_probe") > 0L) {
                 continue;
             }
             for (var output : producer.outputs().entrySet()) {
@@ -484,13 +668,28 @@ public final class ECOInventoryScheduler {
     private static <R> void appendStep(List<ECOScheduleEntry<R>> steps, R operation, long batches) {
         if (!steps.isEmpty() && steps.getLast() instanceof ECOScheduledStep<R> previous) {
             if (previous.operation().equals(operation)) {
-                steps.set(steps.size() - 1, new ECOScheduledStep<>(
-                    operation, Math.addExact(previous.batches(), batches)
-                ));
+                long recorded = Math.addExact(previous.batches(), batches);
+                steps.set(steps.size() - 1, new ECOScheduledStep<>(operation, recorded));
+                if (batches > 1_000_000L || recorded > 1_000_000L) {
+                    logSchedulerDetail(
+                        "scheduler_step_record operationRef=" + describe(operation)
+                            + " appendedBatches=" + batches
+                            + " recordedStepBatches=" + recorded
+                            + " merged=true"
+                    );
+                }
                 return;
             }
         }
         steps.add(new ECOScheduledStep<>(operation, batches));
+        if (batches > 1_000_000L) {
+            logSchedulerDetail(
+                "scheduler_step_record operationRef=" + describe(operation)
+                    + " appendedBatches=" + batches
+                    + " recordedStepBatches=" + batches
+                    + " merged=false"
+            );
+        }
     }
 
     private static <K, R> boolean fastForwardRepeatedBlock(
@@ -561,11 +760,27 @@ public final class ECOInventoryScheduler {
             }
 
             long repetitionsToAppend = repetitions;
+            Map<K, Long> inventoryBefore = new LinkedHashMap<>();
+            delta.keySet().forEach(material -> {
+                if (isDiagnosticMaterial(material)) {
+                    inventoryBefore.put(material, ECOPlanningBalances.available(problem, inventory, material));
+                }
+            });
             bodyExecutions.forEach((reference, count) -> remaining.merge(
                 reference, -Math.multiplyExact(count, repetitionsToAppend), Math::addExact
             ));
             delta.forEach((material, amount) -> ECOPlanningBalances.merge(
                 problem, inventory, material, Math.multiplyExact(amount, repetitionsToAppend)
+            ));
+            inventoryBefore.forEach((material, before) -> logSchedulerDetail(
+                "scheduler_fast_forward bodyOperations="
+                    + ECOPlanningFailureDiagnostics.describeMap(bodyExecutions)
+                    + " repeatCount=" + repetitionsToAppend
+                    + " material=" + describe(material)
+                    + " inventoryBefore=" + before
+                    + " prefixMinimum=" + prefixMinimum.getOrDefault(material, 0L)
+                    + " delta=" + delta.getOrDefault(material, 0L)
+                    + " inventoryAfter=" + ECOPlanningBalances.available(problem, inventory, material)
             ));
             entries.add(new ECORepeatedBlock<>(body, repetitionsToAppend));
             return true;
@@ -586,6 +801,304 @@ public final class ECOInventoryScheduler {
             delta.put(material, updated);
             prefixMinimum.merge(material, updated, Math::min);
         });
+    }
+
+    private static <K, R> void logOperationClassification(
+        ECOPlanningOperation<K, R> operation,
+        boolean cyclic,
+        ECOStrongComponents.Topology<K, R> topology
+    ) {
+        if (!isDiagnosticOperation(operation, 0L)) {
+            return;
+        }
+        logSchedulerDetail(
+            "scheduler_operation_classification operationRef=" + describe(operation.reference())
+                + " cyclic=" + cyclic
+                + " owningComponent=" + componentId(topology.owningComponentOf(operation.reference()))
+                + " localComponentMemberships=" + localComponentMemberships(topology, operation.reference())
+        );
+        logSchedulerDetail(
+            "operation_components operationRef=" + describe(operation.reference())
+                + " owningComponent=" + componentId(topology.owningComponentOf(operation.reference()))
+                + " localComponents=" + localComponentMemberships(topology, operation.reference())
+                + " cyclicOperationReference=" + cyclic
+        );
+    }
+
+    private static <K, R> void logMaxExecutable(
+        ECOPlanningOperation<K, R> operation,
+        long pending,
+        String evaluation,
+        MaxInput<K> input,
+        long finalMaxExecutable
+    ) {
+        if (!isDiagnosticMaterial(input.material()) && !isDiagnosticOperation(operation, pending)) {
+            return;
+        }
+        logSchedulerDetail(
+            "scheduler_max_executable operationRef=" + describe(operation.reference())
+                + " evaluation=" + evaluation
+                + " pending=" + pending
+                + " key=" + describe(input.material())
+                + " available=" + input.available()
+                + " inputPerBatch=" + input.inputPerBatch()
+                + " outputPerBatch=" + input.outputPerBatch()
+                + " stateTransition=" + input.stateTransition()
+                + " candidateLimit=" + input.candidateLimit()
+                + " finalMaxExecutable=" + finalMaxExecutable
+        );
+    }
+
+    private static <K, R> void logSeedCandidate(
+        R current,
+        K material,
+        ECOPlanningOperation<K, R> candidate,
+        long rawPending,
+        long candidatePending,
+        boolean candidateCyclic,
+        long inputPerBatch,
+        boolean considered,
+        String reason
+    ) {
+        if (!isDiagnosticMaterial(material)) {
+            return;
+        }
+        logSchedulerDetail(
+            "seed_candidate currentOperation=" + describe(current)
+                + " material=" + describe(material)
+                + " candidateOperation=" + describe(candidate.reference())
+                + " candidatePending=" + candidatePending
+                + " rawPending=" + rawPending
+                + " candidateCyclic=" + candidateCyclic
+                + " candidateInputPerBatch=" + inputPerBatch
+                + " considered=" + considered
+                + " reason=" + reason
+        );
+    }
+
+    private static <K, R> void logBatchDecision(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        ECOStrongComponents.Topology<K, R> topology,
+        boolean cyclic,
+        long pending,
+        long maxExecutable,
+        Long seedPreservingExecutable,
+        Long unlockingExecutable,
+        Long compressedExecutable,
+        long selectedExecutable,
+        Map<K, Long> inventory,
+        Map<R, Long> remaining,
+        Set<R> cycleOperations
+    ) {
+        logBatchDecision(
+            problem, operation, topology, cyclic, pending, maxExecutable,
+            seedPreservingExecutable, unlockingExecutable, compressedExecutable,
+            selectedExecutable, inventory, remaining, cycleOperations, Map.of()
+        );
+    }
+
+    private static <K, R> void logBatchDecision(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        ECOStrongComponents.Topology<K, R> topology,
+        boolean cyclic,
+        long pending,
+        long maxExecutable,
+        Long seedPreservingExecutable,
+        Long unlockingExecutable,
+        Long compressedExecutable,
+        long selectedExecutable,
+        Map<K, Long> inventory,
+        Map<R, Long> remaining,
+        Set<R> cycleOperations,
+        Map<K, SeedReserve<R>> reserves
+    ) {
+        if (!isDiagnosticOperation(operation, Math.max(maxExecutable, selectedExecutable))) {
+            return;
+        }
+        List<String> inputs = new ArrayList<>();
+        operation.inputs().forEach((key, amount) -> {
+            SeedReserve<R> reserve = reserves.get(key);
+            inputs.add(
+                "{key=" + describe(key)
+                    + ",requiredPerBatch=" + amount
+                    + ",availableBefore=" + ECOPlanningBalances.available(problem, inventory, key)
+                    + ",outputPerBatch=" + operation.outputs().getOrDefault(key, 0L)
+                    + ",unlimited=" + problem.isUnlimited(key)
+                    + ",reserve=" + (reserve == null ? "not_applicable" : reserve.amount())
+                    + ",existingMinimumReserve="
+                    + (reserve == null ? "not_applicable" : reserve.existingMinimumReserve())
+                    + ",currentNextBatchReserve="
+                    + (reserve == null ? "not_applicable" : reserve.currentNextBatchReserve())
+                    + ",reserveConsumers="
+                    + (reserve == null ? "not_applicable" : reserve.consumers())
+                    + "}"
+            );
+        });
+        logSchedulerDetail(
+            "scheduler_batch_decision operationRef=" + describe(operation.reference())
+                + " cyclic=" + cyclic
+                + " owningComponent=" + componentId(topology.owningComponentOf(operation.reference()))
+                + " localComponentMemberships=" + localComponentMemberships(topology, operation.reference())
+                + " pending=" + pending
+                + " maxExecutable=" + maxExecutable
+                + " seedPreservingExecutable=" + valueOrNotApplicable(seedPreservingExecutable, cyclic)
+                + " unlockingExecutable=" + valueOrNotApplicable(unlockingExecutable, cyclic)
+                + " compressedExecutable=" + valueOrNotApplicable(compressedExecutable, cyclic)
+                + " selectedExecutable=" + selectedExecutable
+                + " inputs=" + inputs
+                + " cycleOperationReference=" + cycleOperations.contains(operation.reference())
+                + " remainingOperationCount=" + remaining.size()
+        );
+    }
+
+    private static <K, R> void logExecution(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        ECOStrongComponents.Topology<K, R> topology,
+        long batches,
+        long pendingBefore,
+        long pendingAfter,
+        Map<K, Long> inventoryBefore,
+        Map<K, Long> inventory
+    ) {
+        if (!isDiagnosticOperation(operation, batches)) {
+            return;
+        }
+        List<String> inputs = new ArrayList<>();
+        operation.inputs().forEach((key, amount) -> inputs.add(
+            "{key=" + describe(key)
+                + ",availableBefore=" + inventoryBefore.getOrDefault(key, 0L)
+                + ",consume=" + ECOPlanningBalances.saturatedMultiply(amount, batches)
+                + ",availableAfter=" + ECOPlanningBalances.available(problem, inventory, key) + "}"
+        ));
+        List<String> outputs = new ArrayList<>();
+        operation.outputs().forEach((key, amount) -> outputs.add(
+            "{key=" + describe(key)
+                + ",produce=" + ECOPlanningBalances.saturatedMultiply(amount, batches)
+                + ",availableAfter=" + ECOPlanningBalances.available(problem, inventory, key) + "}"
+        ));
+        logSchedulerDetail(
+            "scheduler_execute operationRef=" + describe(operation.reference())
+                + " batches=" + batches
+                + " cyclic=" + topology.cyclicOperationReferences().contains(operation.reference())
+                + " pendingBefore=" + pendingBefore
+                + " pendingAfter=" + pendingAfter
+                + " inputs=" + inputs
+                + " outputs=" + outputs
+        );
+    }
+
+    private static <K, R> Map<K, Long> snapshotInventory(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        Map<K, Long> inventory
+    ) {
+        Map<K, Long> result = new LinkedHashMap<>();
+        operation.inputs().keySet().forEach(key ->
+            result.put(key, ECOPlanningBalances.available(problem, inventory, key))
+        );
+        operation.outputs().keySet().forEach(key ->
+            result.putIfAbsent(key, ECOPlanningBalances.available(problem, inventory, key))
+        );
+        return result;
+    }
+
+    private static <K, R> void logBlockedDetail(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningOperation<K, R> operation,
+        ECOStrongComponents.Topology<K, R> topology,
+        K key,
+        long requiredPerBatch,
+        long deficit,
+        Map<K, Long> inventory,
+        Map<R, Long> remaining
+    ) {
+        logSchedulerDetail(
+            "scheduler_blocked_detail key=" + describe(key)
+                + " requiredPerBatch=" + requiredPerBatch
+                + " available=" + inventory.getOrDefault(key, 0L)
+                + " deficit=" + deficit
+                + " operationRef=" + describe(operation.reference())
+                + " pendingExecutions=" + remaining.getOrDefault(operation.reference(), 0L)
+                + " cyclic=" + topology.cyclicOperationReferences().contains(operation.reference())
+                + " owningComponent=" + componentId(topology.owningComponentOf(operation.reference()))
+                + " localComponentMemberships=" + localComponentMemberships(topology, operation.reference())
+                + " inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
+                + " outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs())
+        );
+    }
+
+    private static void logSchedulerDetail(String context) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.SCHEDULER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+                context
+            );
+        }
+    }
+
+    private static <K, R> boolean isDiagnosticOperation(
+        ECOPlanningOperation<K, R> operation,
+        long batches
+    ) {
+        return batches > 1_000_000L
+            || operation.inputs().keySet().stream().anyMatch(ECOInventoryScheduler::isDiagnosticMaterial)
+            || operation.outputs().keySet().stream().anyMatch(ECOInventoryScheduler::isDiagnosticMaterial);
+    }
+
+    private static boolean isDiagnosticMaterial(Object material) {
+        String value = describe(material);
+        return value.contains("data_energistics:data_crystal")
+            || value.contains("data_energistics:data_dust")
+            || value.contains("data_crystal")
+            || value.contains("data_dust");
+    }
+
+    private static <K> String componentId(ECOStrongComponents.Component<K> component) {
+        return component == null ? "none" : Integer.toString(component.id());
+    }
+
+    private static <K, R> String localComponentMemberships(
+        ECOStrongComponents.Topology<K, R> topology,
+        R reference
+    ) {
+        List<Integer> components = new ArrayList<>();
+        topology.cyclicComponents().forEach(component -> {
+            if (topology.localOperationsOf(component).stream()
+                .anyMatch(operation -> operation.reference().equals(reference))) {
+                components.add(component.id());
+            }
+        });
+        return components.toString();
+    }
+
+    private static String valueOrNotApplicable(Long value, boolean cyclic) {
+        return value == null ? (cyclic ? "not_evaluated" : "not_applicable") : value.toString();
+    }
+
+    private static String reserveSource(long existingMinimumReserve, long currentNextBatchReserve) {
+        if (currentNextBatchReserve > existingMinimumReserve) {
+            return "current_operation_floor";
+        }
+        if (existingMinimumReserve > 0L) {
+            return "pending_consumer_minimum";
+        }
+        return "none";
+    }
+
+    private static String describe(Object value) {
+        if (value == null) {
+            return "none";
+        }
+        try {
+            return value.toString();
+        } catch (Throwable ignored) {
+            return value.getClass().getName();
+        }
     }
 
     private static <K, R> String describePending(
@@ -658,5 +1171,37 @@ public final class ECOInventoryScheduler {
     }
 
     private record SchedulerState<K, R>(Map<R, Long> remaining, Map<K, Long> inventory) {
+    }
+
+    private record MaxInput<K>(
+        K material,
+        long available,
+        long inputPerBatch,
+        long outputPerBatch,
+        boolean stateTransition,
+        long candidateLimit
+    ) {
+    }
+
+    private record SeedReserve<R>(
+        long amount,
+        R selectedFromOperation,
+        List<R> consumers,
+        long existingMinimumReserve,
+        long currentNextBatchReserve
+    ) {
+    }
+
+    private record SeedPreservingResult<K, R>(
+        long executable,
+        Map<K, SeedReserve<R>> reserves
+    ) {
+    }
+
+    private record CompressionResult<K, R>(
+        long selectedExecutable,
+        SeedPreservingResult<K, R> seedPreserving,
+        Long unlockingExecutable
+    ) {
     }
 }

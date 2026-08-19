@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
@@ -78,6 +79,11 @@ public final class ECOFastPathWarmupService {
     }
 
     public static void onServerTick(ServerTickEvent.Post event) {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        long nextTick = currentTick == Long.MAX_VALUE
+            ? Long.MAX_VALUE
+            : currentTick + 1L;
+        ECOFastPathDiagnostics.flushTickProfile(nextTick);
         if (!event.hasTime() || !NEConfig.ecoAe2FastPathEnabled) {
             return;
         }
