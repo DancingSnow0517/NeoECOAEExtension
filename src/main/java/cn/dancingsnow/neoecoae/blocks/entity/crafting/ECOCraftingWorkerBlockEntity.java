@@ -434,6 +434,15 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return recoveredAll;
     }
 
+    public boolean hasInFlightJob(UUID craftingJobId) {
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.belongsToJob(craftingJobId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void releaseJobOutputsToNetwork(UUID craftingJobId) {
         for (ECOCraftingThread thread : craftingThreads) {
             thread.releaseJobOutputsToNetwork(craftingJobId);

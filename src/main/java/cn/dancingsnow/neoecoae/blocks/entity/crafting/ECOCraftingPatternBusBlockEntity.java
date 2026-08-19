@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathWarmupService;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
@@ -210,6 +211,23 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             nextWorkerIndex = nextIndex;
             return true;
         }
+        // Offers are a point-in-time capacity snapshot. A stale largest offer must not prevent
+        // another worker from accepting the same already-prepared batch.
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        int start = Math.floorMod(nextWorkerIndex, Math.max(1, workers.size()));
+        for (int offset = 0; offset < workers.size(); offset++) {
+            ECOCraftingWorkerBlockEntity worker = workers.get((start + offset) % workers.size());
+            if (worker == offer.worker() || worker.getAvailableThreadSlots() <= 0) {
+                continue;
+            }
+            ECOFastPathResult result = worker.getFastPathCache().peek(request.key());
+            if (result != null && !result.isNegative()
+                && result.matchesBatchRequest(request)
+                && worker.pushBatch(request, result)) {
+                nextWorkerIndex = nextWorkerIndexAfter(worker);
+                return true;
+            }
+        }
         return false;
     }
 
@@ -386,6 +404,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return cluster.getController();
         }
         return null;
+    }
+
+    @Nullable
+    public NECraftingNetworkCluster getFastPathNetworkCluster() {
+        return cluster == null ? null : cluster.getNetworkCluster();
     }
 
     @Nullable
@@ -571,6 +594,21 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (!patternCapacityIndexInitialized || indexedPatternSlotCount != slotCount) {
             rebuildPatternCapacityIndex(slotCount);
         }
+    }
+
+    public boolean hasInFlightJob(UUID craftingJobId) {
+        if (cluster == null) {
+            return false;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getWorkers()
+            : cluster.getWorkers();
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            if (worker.hasInFlightJob(craftingJobId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void rebuildPatternCapacityIndex() {

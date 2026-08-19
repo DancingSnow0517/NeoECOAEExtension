@@ -71,6 +71,7 @@ public final class NECraftingNetworkCluster {
                 .filter(cluster -> cluster != null && !cluster.isDestroyed() && cluster.getController() != null)
                 .sorted(CLUSTER_ORDER)
                 .toList();
+        boolean topologyChanged = !sameIdentityList(physicalClusters, clusters);
         this.physicalClusters = List.copyOf(clusters);
 
         List<ECOCraftingSystemBlockEntity> nextControllers = new ArrayList<>();
@@ -93,6 +94,11 @@ public final class NECraftingNetworkCluster {
         this.parallelCores = nextParallelCores.stream()
                 .sorted(Comparator.comparing(core -> core.getBlockPos().asLong()))
                 .toList();
+        if (topologyChanged) {
+            // The manager reuses a partition object across rebuilds. Its verified recipe results
+            // must not survive a split/merge into a different physical member set.
+            fastPathCache.clear();
+        }
         if (controllers.isEmpty()) {
             overclocked = false;
             activeCooling = false;
@@ -119,7 +125,20 @@ public final class NECraftingNetworkCluster {
         workers = List.of();
         patternBuses = List.of();
         parallelCores = List.of();
+        fastPathCache.clear();
         revision++;
+    }
+
+    private static boolean sameIdentityList(List<?> first, List<?> second) {
+        if (first.size() != second.size()) {
+            return false;
+        }
+        for (int index = 0; index < first.size(); index++) {
+            if (first.get(index) != second.get(index)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public List<NECraftingCluster> getPhysicalClusters() {
@@ -556,6 +575,26 @@ public final class NECraftingNetworkCluster {
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
             return true;
+        }
+        // The selected offer is only a capacity snapshot. Retry other compatible workers after
+        // a safe pre-ownership rejection so one stale worker cannot starve the network.
+        for (ECOCraftingWorkerBlockEntity candidate : workers) {
+            if (candidate == worker || (grid != null && candidate.getMainNode().getGrid() != grid)
+                    || candidate.getAvailableThreadSlots() <= 0) {
+                continue;
+            }
+            NECraftingCluster candidatePhysical = candidate.getCluster();
+            ECOCraftingSystemBlockEntity candidateController = candidatePhysical == null
+                    ? null : candidatePhysical.getController();
+            if (candidateController == null || getAvailableLogicalSlots(candidate) <= 0) {
+                continue;
+            }
+            ECOFastPathResult result = candidate.getFastPathCache().peek(request.key());
+            if (result != null && !result.isNegative()
+                    && result.matchesBatchRequest(request)
+                    && candidate.pushBatch(request, result)) {
+                return true;
+            }
         }
         return false;
     }
