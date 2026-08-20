@@ -119,15 +119,6 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 
 <ItemLink id="neoecoae:computation_casing" /> 方块构成多方块结构的框架。
 
-### 网络交换模块
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_network_switch" />
-  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
-</ItemGrid>
-
-网络交换模块用于连接多台 C9 计算主机。结构位置和详细倍率、资源汇总、无限存储规则请参阅 [网络交换与无限存储](network_exchange.md)。
-
 ## 搭建结构
 
 1. 放置**主机**，使其朝外

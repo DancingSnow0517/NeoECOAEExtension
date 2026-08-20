@@ -117,14 +117,6 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 
 <ItemLink id="neoecoae:crafting_casing" /> 方块构成多方块结构的框架。
 
-### 网络交换模块
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_network_switch" />
-  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
-</ItemGrid>
-
-网络交换模块用于连接多台 F9 合成主机。结构位置、倍率、冷却、批量计算和虚拟合成规则请参阅 [网络交换与无限存储](network_exchange.md)。
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
