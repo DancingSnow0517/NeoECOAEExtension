@@ -10,19 +10,18 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
-import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 /** Delegates universal cell storage to AE2 OmniCells while exposing ECO drive metadata. */
 public final class ECOUniversalStorageCell implements IECOStorageCell {
     private final StorageCell delegate;
-    private final ItemStack stack;
     private final ECOUniversalStorageCellItem item;
 
     public ECOUniversalStorageCell(StorageCell delegate, ItemStack stack, ECOUniversalStorageCellItem item) {
         this.delegate = delegate;
-        this.stack = stack;
         this.item = item;
     }
 
@@ -38,7 +37,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long getStoredItemTypes() {
-        return IAEUniversalCell.getUsedTypes(stack);
+        return snapshot().storedTypes();
     }
 
     @Override
@@ -53,7 +52,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long getUsedBytes() {
-        return IAEUniversalCell.getUsedBytes(stack);
+        return snapshot().usedBytes();
     }
 
     @Override
@@ -63,10 +62,32 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public CellState getStatus() {
-        if (item.isExternallyUnlimited() && getUsedBytes() >= getTotalBytes()) {
+        if (!item.isExternallyUnlimited()) {
+            return delegate.getStatus();
+        }
+
+        StorageSnapshot current = snapshot();
+        if (current.storedTypes() == 0L) {
+            return CellState.EMPTY;
+        }
+
+        if (current.usedBytes() > getTotalBytes()) {
             return CellState.FULL;
         }
-        return delegate.getStatus();
+
+        boolean hasPartialBucket = false;
+        for (Long2LongMap.Entry entry : current.bucketSums().long2LongEntrySet()) {
+            if (entry.getLongValue() > 0L && entry.getLongValue() % entry.getLongKey() != 0L) {
+                hasPartialBucket = true;
+                break;
+            }
+        }
+        boolean hasFreeBytes = current.usedBytes() < getTotalBytes();
+        boolean canHoldNewType = item.getTotalTypes() < 0 || current.storedTypes() < item.getTotalTypes();
+        if (canHoldNewType && (hasFreeBytes || hasPartialBucket)) {
+            return CellState.NOT_EMPTY;
+        }
+        return hasFreeBytes || hasPartialBucket ? CellState.TYPES_FULL : CellState.FULL;
     }
 
     @Override
@@ -86,7 +107,11 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        return delegate.isPreferredStorageFor(what, source);
+        if (!item.isExternallyUnlimited()) {
+            return delegate.isPreferredStorageFor(what, source);
+        }
+        return insert(what, 1L, Actionable.SIMULATE, source) > 0L
+                || extract(what, 1L, Actionable.SIMULATE, source) > 0L;
     }
 
     @Override
@@ -95,10 +120,58 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
             return delegate.insert(what, amount, mode, source);
         }
 
+        if (amount <= 0L) {
+            return 0L;
+        }
+
+        StorageSnapshot current = snapshot();
+        long currentAmount = current.amounts().get(what);
+        if (currentAmount <= 0L && item.getTotalTypes() >= 0 && current.storedTypes() >= item.getTotalTypes()) {
+            return 0L;
+        }
+
         long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
-        long freeBytes = Math.max(0L, getTotalBytes() - getUsedBytes());
-        long capacityBound = saturatingMultiply(freeBytes, amountPerByte);
+        long targetBucketAmount = current.bucketSums().get(amountPerByte);
+        long capacityBound =
+                calculateRemainingAmount(getTotalBytes(), current.usedBytes(), targetBucketAmount, amountPerByte);
         return delegate.insert(what, Math.min(amount, capacityBound), mode, source);
+    }
+
+    static long calculateUsedBytes(Long2LongMap bucketSums) {
+        long usedBytes = 0L;
+        for (Long2LongMap.Entry entry : bucketSums.long2LongEntrySet()) {
+            long amountPerByte = Math.max(1L, entry.getLongKey());
+            long amount = Math.max(0L, entry.getLongValue());
+            usedBytes = saturatingAdd(usedBytes, ceilDivide(amount, amountPerByte));
+        }
+        return usedBytes;
+    }
+
+    static long calculateRemainingAmount(long totalBytes, long usedBytes, long targetBucketAmount, long amountPerByte) {
+        if (totalBytes <= 0L || usedBytes > totalBytes) {
+            return 0L;
+        }
+
+        amountPerByte = Math.max(1L, amountPerByte);
+        long unitsToCompleteBucket =
+                targetBucketAmount <= 0L ? 0L : (amountPerByte - targetBucketAmount % amountPerByte) % amountPerByte;
+        long freeBytes = totalBytes - usedBytes;
+        return saturatingAdd(unitsToCompleteBucket, saturatingMultiply(freeBytes, amountPerByte));
+    }
+
+    private static long ceilDivide(long dividend, long divisor) {
+        if (dividend <= 0L) {
+            return 0L;
+        }
+        long quotient = dividend / divisor;
+        return dividend % divisor == 0L ? quotient : saturatingAdd(quotient, 1L);
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right > 0L && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
     }
 
     private static long saturatingMultiply(long left, long right) {
@@ -107,6 +180,29 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         }
         return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
+
+    /** Rebuilds OmniCells' bucket accounting from the live SavedData-backed inventory. */
+    private StorageSnapshot snapshot() {
+        KeyCounter available = new KeyCounter();
+        delegate.getAvailableStacks(available);
+
+        Long2LongOpenHashMap bucketSums = new Long2LongOpenHashMap();
+        bucketSums.defaultReturnValue(0L);
+        long storedTypes = 0L;
+        for (var entry : available) {
+            long amount = entry.getLongValue();
+            if (amount <= 0L) {
+                continue;
+            }
+            storedTypes = saturatingAdd(storedTypes, 1L);
+            long amountPerByte = Math.max(1L, entry.getKey().getType().getAmountPerByte());
+            bucketSums.put(amountPerByte, saturatingAdd(bucketSums.get(amountPerByte), amount));
+        }
+        return new StorageSnapshot(available, bucketSums, storedTypes, calculateUsedBytes(bucketSums));
+    }
+
+    private record StorageSnapshot(
+            KeyCounter amounts, Long2LongOpenHashMap bucketSums, long storedTypes, long usedBytes) {}
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {

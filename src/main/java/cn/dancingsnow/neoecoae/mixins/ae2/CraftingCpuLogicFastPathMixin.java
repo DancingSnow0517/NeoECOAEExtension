@@ -11,8 +11,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.AE2ExternalCpuJobView;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuFastPathExecutor;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuOutputRoutes;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
@@ -22,6 +20,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CraftingCpuLogic.class, remap = false, priority = 2000)
 public abstract class CraftingCpuLogicFastPathMixin implements ECOExternalCpuOutputRoutes.Sink {
@@ -70,29 +69,20 @@ public abstract class CraftingCpuLogicFastPathMixin implements ECOExternalCpuOut
         return insert(what, amount, type);
     }
 
-    @WrapOperation(
-            method = "tickCraftingLogic",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lappeng/crafting/execution/CraftingCpuLogic;executeCrafting"
-                                    + "(ILappeng/me/service/CraftingService;Lappeng/api/networking/energy/IEnergyService;"
-                                    + "Lnet/minecraft/world/level/Level;)I"))
-    private int neoecoae$dispatchFastPath(
-            CraftingCpuLogic self,
+    @Inject(method = "executeCrafting", at = @At("HEAD"), cancellable = true, require = 0)
+    private void neoecoae$dispatchFastPath(
             int remainingOperations,
             CraftingService craftingService,
             IEnergyService energyService,
             Level level,
-            Operation<Integer> original) {
+            CallbackInfoReturnable<Integer> cir) {
         if (job != null
                 && ECOExternalCpuFastPathExecutor.dispatchOne(
                         craftingService,
                         energyService,
                         level,
                         new AE2ExternalCpuJobView(job, getInventory(), cluster))) {
-            return 1;
+            cir.setReturnValue(1);
         }
-        return original.call(self, remainingOperations, craftingService, energyService, level);
     }
 }
