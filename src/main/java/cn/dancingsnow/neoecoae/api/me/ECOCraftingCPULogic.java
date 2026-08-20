@@ -2235,11 +2235,17 @@ public class ECOCraftingCPULogic {
         if (taskRemaining < minimumBatchSize) {
             return 0;
         }
-        // Offer the complete remaining task. The selected ECO controller/worker applies its
-        // actual lane capacity (for example 4096) and the next scheduler pass fills the next
-        // free lane. Dividing by the number of free lanes here makes a 44-slot controller submit
-        // batches of 1 when only 44 crafts remain, defeating FastPath batching.
-        long requested = calculateBatchRequestSize(taskRemaining);
+        // Offer the remaining task subject to the amount of final output that is still needed.
+        // F9 virtual workers can accept the whole request in one lane, so the output-side bound
+        // must be applied before selecting a worker; otherwise a recipe that produces two final
+        // items per craft can turn a request for 500 into a 1000-item batch.
+        long requested = Math.min(
+            calculateBatchRequestSize(taskRemaining),
+            maxCraftsNeededForFinalOutput(execution)
+        );
+        if (requested < minimumBatchSize) {
+            return 0;
+        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -2675,6 +2681,55 @@ public class ECOCraftingCPULogic {
             }
             throw e;
         }
+    }
+
+    private long maxCraftsNeededForFinalOutput(ECOExtractedPatternExecution execution) {
+        if (job == null || job.finalOutput == null) {
+            return Long.MAX_VALUE;
+        }
+        long finalOutputPerCraft = finalOutputAmountPerCraft(execution.expectedOutputs());
+        if (finalOutputPerCraft <= 0L) {
+            return Long.MAX_VALUE;
+        }
+        long waitingForFinalOutput = job.waitingFor.extract(
+            job.finalOutput.what(), Long.MAX_VALUE, Actionable.SIMULATE
+        );
+        long inFlightFinalOutput = saturatingAdd(
+            waitingForFinalOutput,
+            job.bufferedFinalOutput.amount()
+        );
+        return maxCraftsForFinalOutputDemand(
+            job.remainingAmount,
+            inFlightFinalOutput,
+            finalOutputPerCraft
+        );
+    }
+
+    private long finalOutputAmountPerCraft(List<GenericStack> outputsPerCraft) {
+        if (job == null || job.finalOutput == null) {
+            return 0L;
+        }
+        long amount = 0L;
+        for (GenericStack output : outputsPerCraft) {
+            if (output != null && output.what().matches(job.finalOutput)) {
+                amount = saturatingAdd(amount, output.amount());
+            }
+        }
+        return amount;
+    }
+
+    static long maxCraftsForFinalOutputDemand(
+            long remainingAmount,
+            long inFlightAmount,
+            long outputAmountPerCraft) {
+        if (outputAmountPerCraft <= 0L) {
+            return Long.MAX_VALUE;
+        }
+        long outstanding = remainingAmount - Math.max(0L, inFlightAmount);
+        if (outstanding <= 0L) {
+            return 0L;
+        }
+        return 1L + (outstanding - 1L) / outputAmountPerCraft;
     }
 
     static long calculateBatchRequestSize(long taskRemaining) {
