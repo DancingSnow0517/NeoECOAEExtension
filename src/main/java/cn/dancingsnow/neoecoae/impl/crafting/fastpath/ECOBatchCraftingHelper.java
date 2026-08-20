@@ -5,7 +5,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.AELog;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.inv.ICraftingInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -164,14 +163,8 @@ public final class ECOBatchCraftingHelper {
             }
         }
         if (outputAmountPerCraft <= 0L) {
-            // BUG: No matching output found! The recipe doesn't produce the final output,
-            // or the matching logic is failing. Log this for debugging.
-            AELog.warn("NeoECO FastPath limitByFinalOutputDemand: outputAmountPerCraft=0! "
-                    + "finalOutput=%s remainingAmount=%d inFlightAmount=%d outputsPerCraft.size=%d requested=%d",
-                    finalOutput, remainingAmount, inFlightAmount, outputsPerCraft.size(), requested);
-            if (!outputsPerCraft.isEmpty()) {
-                AELog.warn("  First output: %s", outputsPerCraft.get(0));
-            }
+            // Intermediate tasks do not produce the job's final output. In that case this
+            // optional output-side bound has no effect and the caller's task limit is correct.
             return requested;
         }
 
