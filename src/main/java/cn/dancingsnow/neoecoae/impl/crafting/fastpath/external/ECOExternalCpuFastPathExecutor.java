@@ -48,6 +48,45 @@ public final class ECOExternalCpuFastPathExecutor {
             IPatternDetails details = task.details();
             List<ICraftingProvider> providers = new ArrayList<>();
             craftingService.getProviders(details).forEach(providers::add);
+            if (GTLCorePatternBufferDispatcher.dispatch(
+                            providers,
+                            details,
+                            taskRemaining,
+                            level,
+                            energyService,
+                            new GTLCorePatternBufferDispatcher.BatchTarget() {
+                                @Override
+                                public appeng.crafting.inv.ListCraftingInventory inventory() {
+                                    return job.inventory();
+                                }
+
+                                @Override
+                                public appeng.crafting.inv.ListCraftingInventory waitingFor() {
+                                    return job.waitingFor();
+                                }
+
+                                @Override
+                                public void consume(long operations) {
+                                    long remaining = task.remaining() - operations;
+                                    task.remaining(remaining);
+                                    if (remaining <= 0L) {
+                                        taskIterator.remove();
+                                    }
+                                }
+
+                                @Override
+                                public void addContainerMaxItems(long amount, appeng.api.stacks.AEKeyType keyType) {
+                                    job.addContainerMaxItems(amount, keyType);
+                                }
+
+                                @Override
+                                public void markDirty() {
+                                    job.markDirty();
+                                }
+                            })
+                    > 0L) {
+                return true;
+            }
             List<ECOCraftingPatternBusBlockEntity> patternBuses = findPatternBuses(providers);
             if (patternBuses.isEmpty()) {
                 continue;

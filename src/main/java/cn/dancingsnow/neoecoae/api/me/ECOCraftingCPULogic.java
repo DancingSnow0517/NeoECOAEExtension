@@ -35,6 +35,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.GTLCorePatternBufferDispatcher;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import com.google.common.base.Preconditions;
@@ -320,6 +321,59 @@ public class ECOCraftingCPULogic {
                     continue;
                 }
                 List<ECOCraftingPatternBusBlockEntity> patternBuses = collectPatternBuses(providers);
+                if (pushedPatterns < maxPatterns && job.peekPlannedInputs(details) == null) {
+                    long gtlBatch = GTLCorePatternBufferDispatcher.dispatch(
+                            providers,
+                            details,
+                            task.getValue().value,
+                            level,
+                            energyService,
+                            new GTLCorePatternBufferDispatcher.BatchTarget() {
+                                @Override
+                                public ListCraftingInventory inventory() {
+                                    return ECOCraftingCPULogic.this.inventory;
+                                }
+
+                                @Override
+                                public ListCraftingInventory waitingFor() {
+                                    return job.waitingFor;
+                                }
+
+                                @Override
+                                public void consume(long operations) {
+                                    task.getValue().value -= operations;
+                                    if (task.getValue().value <= 0L) {
+                                        it.remove();
+                                    }
+                                }
+
+                                @Override
+                                public void addContainerMaxItems(long amount, appeng.api.stacks.AEKeyType keyType) {
+                                    job.timeTracker.addMaxItems(amount, keyType);
+                                }
+
+                                @Override
+                                public double networkPowerMultiplier() {
+                                    return cpu.getCluster().getNetworkPowerMultiplier();
+                                }
+
+                                @Override
+                                public void markDirty() {
+                                    cpu.markDirty();
+                                }
+                            });
+                    if (gtlBatch > 0L) {
+                        pushedPatterns++;
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0L) {
+                            continue taskLoop;
+                        }
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+                        continue taskLoop;
+                    }
+                }
                 // FastPath 元数据只有 ECO 智能样板总线能够消费；纯第三方提供者不应支付其构建成本。
                 boolean fastPathCandidate = !patternBuses.isEmpty();
 
