@@ -166,7 +166,7 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 
 The structure is extensible - add more threading cores, parallel cores, drives, and transmitters to increase capacity.
 
-If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
+To assemble the structure more quickly, hold the Structure Terminal and normal right-click the controller. Follow [Multiblock Auto Builder](multiblock_builder.md) to select the length and build mode, then hold Shift and right-click the controller to execute.
 
 ## Computation Cells
 

@@ -3,11 +3,13 @@ navigation:
   title: Multiblock Auto Builder
   icon: neoecoae:crafting_system_l9
   parent: neoecoae_intro/index.md
+item_ids:
+  - neoecoae:structure_terminal
 ---
 
 # Multiblock Auto Builder
 
-Neo ECO AE provides an automatic building feature for its main multiblock systems, making large structures much easier to assemble.
+In 1.20.1, Neo ECO AE provides automatic multiblock construction through the **Structure Terminal**. The terminal selects a structure, shows its pattern and materials, and starts construction after confirmation.
 
 ## Supported Systems
 
@@ -17,37 +19,44 @@ The auto builder currently supports the following multiblock systems:
 - [ECO Computation System](computation_system.md)
 - [ECO Crafting System](crafting_system.md)
 
-## Opening the Builder Panel
+## Opening the Structure Terminal
 
-When you open a multiblock controller GUI, a structure builder button appears on the side of the interface. Clicking it opens a separate floating panel.
+When holding the <ItemLink id="neoecoae:structure_terminal" />:
 
-The panel can be dragged, allowing you to inspect system information and builder controls at the same time.
+- Normal right-click in the air or on a block opens the Structure Terminal panel.
+- Normal right-click on a multiblock controller opens the panel and links that controller to the terminal. The system and tier are detected automatically.
+- If you open the panel in the air, you can select the crafting, storage, or computation system and its tier manually. A controller must still be linked before construction can be executed.
+
+The terminal remembers its linked controller. The controller must be in the same dimension and within interaction range.
 
 ## Panel Features
 
-The auto builder panel provides the following features:
+The Structure Terminal panel provides the following features:
 
-- Length adjustment: selects the current multiblock length to build
-- Preview: checks missing blocks, conflicting blocks, reusable blocks, and required item counts
-- Build: starts automatic placement after confirming the required materials
-- Status display: shows preview results, build progress, and interruption states
+- System and tier selection: chooses the crafting, storage, or computation system and its L4/C4/F4, L6/C6/F6, or L9/C9 tier
+- Length adjustment: uses `-` and `+` to select the variable structure length
+- Pattern view: switches between the prototype, formed, and mirrored pattern, with layer navigation
+- Material list: shows the blocks and quantities required by the selected pattern
+- Operation mode: selects standard build, mirrored build, or dismantle
+- Status display: shows the linked controller's formed state, material state, and build progress
 
-## Preview Behavior
+## Preview and Build Flow
 
-When you click Preview, the system generates a structure plan based on the controller orientation and selected length, then reports:
+1. Place the target system's controller and confirm that it is facing the intended direction.
+2. Hold the Structure Terminal and normal right-click the controller to open the panel and link the target.
+3. Select the system, tier, and length, then check the pattern, mirror direction, and material list.
+4. Select **Build** or **Mirrored Build**, then close the terminal panel. The selected mode is stored in the terminal.
+5. Hold Shift and right-click the linked controller with the same Structure Terminal to start construction.
 
-- Missing blocks
-- Conflicting blocks
-- Reusable blocks
-- Required item count
+The pattern view shows the construction plan. Selecting **Build** or **Mirrored Build** only arms the operation; it does not place blocks immediately. The world positions and materials are checked again when construction starts.
 
-If the world already contains blocks that should not be replaced, they are marked as conflicts and the auto builder will not overwrite them automatically.
+Blocks that should not be replaced are treated as conflicts and are not overwritten. Construction also does not run again when the controller is already formed.
 
 ## Auto Build Behavior
 
 ### Creative Mode
 
-In creative mode, if the structure has no conflicts, all missing blocks are placed instantly.
+In creative mode, after the Shift-right-click, all missing blocks are placed instantly when the structure has no conflicts.
 
 ### Survival Mode
 
@@ -61,7 +70,7 @@ This behavior exists to:
 
 ## Material Consumption Rules
 
-The auto builder does not consume all materials up front. Instead, it consumes items only when a block is successfully placed.
+The Structure Terminal does not consume all materials up front. Instead, it consumes items only when a block is successfully placed.
 
 The system can count and consume materials from accessible inventory sources, including container items with item handler support, such as:
 
@@ -78,11 +87,15 @@ The auto builder may fail to start or may stop midway in cases such as:
 - The player leaving or becoming unavailable for the build session
 - Target positions becoming blocked during the build process
 
-The panel will show the corresponding state so you can preview again and adjust the structure.
+The Structure Terminal panel shows the corresponding state so you can review the pattern, materials, and target position.
+
+## Dismantling
+
+Select **Dismantle**, close the panel, then hold Shift and right-click the linked controller. Confirm the linked controller and operation mode before dismantling.
 
 ## Tips
 
-- Place the controller first and confirm its facing before using the auto builder
-- For large structures, preview first to confirm the selected length and available space
-- Watch the preview counts before changing structure scale
+- Place the controller first and confirm its facing before linking the terminal
+- For large structures, check the pattern and material list before confirming the selected length and available space
+- Check the mirrored pattern before building a mirrored structure
 - In survival mode, keep enough materials available in your inventory or supported container items

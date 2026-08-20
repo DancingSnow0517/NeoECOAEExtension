@@ -177,7 +177,7 @@ Each active virtual task consumes a fixed **10,000 mB** from the shared coolant 
 
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
 
-If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
+To assemble the structure more quickly, hold the Structure Terminal and normal right-click the controller. Follow [Multiblock Auto Builder](multiblock_builder.md) to select the length and build mode, then hold Shift and right-click the controller to execute.
 
 ## Usage
 

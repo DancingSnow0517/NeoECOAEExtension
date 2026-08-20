@@ -105,7 +105,7 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 
 结构可扩展——你可以添加更多驱动器和能量元件以增加容量。
 
-若希望快速完成结构搭建，可参考 [多方块自动搭建](multiblock_builder.md) 中的自动预览与建造功能。
+若希望快速完成结构搭建，请手持结构终端普通右键主方块，按 [多方块自动搭建](multiblock_builder.md) 中的流程选择长度和搭建模式，再按住 Shift 右键主方块执行。
 
 <GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/store_min.nbt" />

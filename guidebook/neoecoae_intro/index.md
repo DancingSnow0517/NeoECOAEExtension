@@ -33,7 +33,7 @@ The [ECO Crafting System](crafting_system.md) is an advanced pattern provider wi
 - Three tiers: F4, F6, F9
 
 ### Multiblock Auto Builder
-The [Multiblock Auto Builder](multiblock_builder.md) explains the controller-side building panel, including structure preview, length adjustment, material checks, and automatic placement.
+The [Multiblock Auto Builder](multiblock_builder.md) explains how to use the Structure Terminal to view patterns, adjust length, check materials, and start construction with Shift-right-click on a controller.
 
 ## Energized Budding Crystal
 
@@ -47,9 +47,10 @@ The [Integrated Working Station](integrated_working_station.md) is an advanced c
 
 1. Gather materials and craft the required components for your chosen system
 2. Build the multiblock structure according to the system's requirements
-3. You can also use the [Multiblock Auto Builder](multiblock_builder.md) to preview and place missing blocks automatically
-4. Right-click the controller to verify the structure is formed correctly
-5. Connect the system to your ME Network through the interface block
+3. Craft and hold the Structure Terminal, then right-click the controller to view its pattern and material list
+4. Select a build mode in the terminal, close the panel, and hold Shift while right-clicking the controller to place missing blocks automatically
+5. Right-click the controller to verify that the structure formed correctly
+6. Connect the system to your ME Network through the interface block
 
 ## Tier System
 
@@ -59,4 +60,3 @@ All multiblock systems use a tiered architecture:
 - **Tier 9 (L9/C9/F9)** - Top tier, epic rarity
 
 Higher tiers provide increased capacity, speed, and efficiency.
-
