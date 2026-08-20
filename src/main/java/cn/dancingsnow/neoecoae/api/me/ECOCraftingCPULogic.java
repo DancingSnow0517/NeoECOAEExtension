@@ -152,11 +152,11 @@ public class ECOCraftingCPULogic {
     private long slowPathDeferredProvidersTick = Long.MIN_VALUE;
     @Nullable
     private SlowPathPushBudget tickSlowPathPushBudget;
-    @Nullable
-    private CpuTickTiming activeCpuTickTiming;
+    private final ECOCraftingDiagnostics diagnostics;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
+        this.diagnostics = new ECOCraftingDiagnostics(cpu);
     }
 
     public ICraftingSubmitResult trySubmitJob(
@@ -247,16 +247,8 @@ public class ECOCraftingCPULogic {
         // Tick only active CPUs.
         if (!cpu.isActive())
             return;
-        boolean cpuTickTimingEnabled = NEConfig.debugEcoFastPath;
-        long cpuTickStarted = cpuTickTimingEnabled ? System.nanoTime() : 0L;
         long cpuTick = TickHandler.instance().getCurrentTick();
-        CpuTickTiming cpuTickTiming = cpuTickTimingEnabled
-            ? new CpuTickTiming(ECOFastPathDiagnostics.currentTickApplyMicros(cpuTick))
-            : null;
-        if (cpuTickTiming != null && this.job != null) {
-            cpuTickTiming.taskCount = this.job.tasks.size();
-        }
-        activeCpuTickTiming = cpuTickTiming;
+        diagnostics.startTickTiming(cpuTick, this.job == null ? 0 : this.job.tasks.size());
         try {
             cantStoreItems = false;
             // With no job, only try to store local items.
@@ -281,11 +273,9 @@ public class ECOCraftingCPULogic {
                 return;
             }
 
-            long outputRetryStarted = cpuTickTimingEnabled ? System.nanoTime() : 0L;
+            long outputRetryStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
             retryBufferedFinalOutput();
-            if (cpuTickTiming != null) {
-                cpuTickTiming.ejectionMicros = elapsedMicros(outputRetryStarted, true);
-            }
+            diagnostics.recordOutputRetry(elapsedMicros(outputRetryStarted, true));
             if (job == null) {
                 return;
             }
@@ -298,12 +288,10 @@ public class ECOCraftingCPULogic {
                 return;
             }
 
-            long schedulerStarted = cpuTickTimingEnabled ? System.nanoTime() : 0L;
+            long schedulerStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
             var remainingOperations = getOperationLimit();
             tickSlowPathPushBudget = new SlowPathPushBudget(cc);
-            if (cpuTickTiming != null) {
-                cpuTickTiming.schedulerMicros = elapsedMicros(schedulerStarted, true);
-            }
+            diagnostics.recordScheduler(elapsedMicros(schedulerStarted, true));
 
             try {
                 if (remainingOperations > 0) {
@@ -324,77 +312,7 @@ public class ECOCraftingCPULogic {
                 tickSlowPathPushBudget = null;
             }
         } finally {
-            activeCpuTickTiming = null;
-            if (cpuTickTiming != null) {
-                long totalCpuTickMicros = elapsedMicros(cpuTickStarted, true);
-                cpuTickTiming.fastPathApplyMicros = Math.max(
-                    0L,
-                    ECOFastPathDiagnostics.currentTickApplyMicros(cpuTick)
-                        - cpuTickTiming.fastPathApplyBaselineMicros
-                );
-                long accounted = saturatingAdd(
-                    saturatingAdd(
-                        saturatingAdd(
-                            saturatingAdd(
-                                cpuTickTiming.fastPathApplyMicros,
-                                cpuTickTiming.fastPathCoordinationMicros
-                            ),
-                            cpuTickTiming.ejectionMicros
-                        ),
-                        saturatingAdd(cpuTickTiming.schedulerMicros, cpuTickTiming.dependencyMicros)
-                    ),
-                    saturatingAdd(
-                        saturatingAdd(
-                            saturatingAdd(cpuTickTiming.fallbackMicros, cpuTickTiming.taskIterationMicros),
-                            saturatingAdd(cpuTickTiming.taskStateMicros, cpuTickTiming.patternPreparationMicros)
-                        ),
-                        saturatingAdd(
-                            saturatingAdd(cpuTickTiming.pendingInputSnapshotMicros, cpuTickTiming.inputDiagnosticMicros),
-                            saturatingAdd(
-                                saturatingAdd(cpuTickTiming.accountingMicros, cpuTickTiming.statusChangeMicros),
-                                cpuTickTiming.setupMicros
-                            )
-                        )
-                    )
-                );
-                long trueOtherMicros = Math.max(0L, totalCpuTickMicros - accounted);
-                ECOFastPathDiagnostics.logCpuTickProfile(
-                    cpu.getOwner() == null ? net.minecraft.core.BlockPos.ZERO : cpu.getOwner().getBlockPos(),
-                    cpuTick,
-                    totalCpuTickMicros,
-                    cpuTickTiming.fastPathApplyMicros,
-                    cpuTickTiming.fastPathCoordinationMicros,
-                    cpuTickTiming.ejectionMicros,
-                    cpuTickTiming.schedulerMicros,
-                    cpuTickTiming.dependencyMicros,
-                    cpuTickTiming.fallbackMicros,
-                    cpuTickTiming.fallbackFastPathMicros,
-                    cpuTickTiming.fallbackAe2ltMicros,
-                    cpuTickTiming.fallbackMegacellsMicros,
-                    cpuTickTiming.fallbackProviderMicros,
-                    cpuTickTiming.fastPathFallbackCount,
-                    cpuTickTiming.ae2ltFallbackCount,
-                    cpuTickTiming.megacellsFallbackCount,
-                    cpuTickTiming.providerAttemptCount,
-                    cpuTickTiming.taskIterationMicros,
-                    cpuTickTiming.taskStateMicros,
-                    cpuTickTiming.patternPreparationMicros,
-                    cpuTickTiming.pendingInputSnapshotMicros,
-                    cpuTickTiming.inputDiagnosticMicros,
-                    cpuTickTiming.accountingMicros,
-                    cpuTickTiming.statusChangeMicros,
-                    cpuTickTiming.setupMicros,
-                    trueOtherMicros,
-                    cpuTickTiming.inputDiagnosticCount,
-                    cpuTickTiming.inputDiagnosticUniqueKeys,
-                    cpuTickTiming.inputDiagnosticCacheHits,
-                    cpuTickTiming.inputDiagnosticCacheMisses,
-                    cpuTickTiming.inputDiagnosticNetworkMicros,
-                    cpuTickTiming.dependencyWaitDiagnosticCount,
-                    cpuTickTiming.hardFailureDiagnosticCount,
-                    cpuTickTiming.taskCount
-                );
-            }
+            diagnostics.endTickTiming();
         }
     }
 
@@ -508,18 +426,14 @@ public class ECOCraftingCPULogic {
             return 0;
 
         long currentTick = TickHandler.instance().getCurrentTick();
-        long setupStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+        long setupStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
         ae2ltBatchBridge.beginTick(currentTick);
         megacellsBatchBridge.beginTick(currentTick);
         beginSlowPathProviderTick(currentTick);
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
-        if (activeCpuTickTiming != null) {
-            activeCpuTickTiming.setupMicros = saturatingAdd(
-                activeCpuTickTiming.setupMicros,
-                elapsedMicros(setupStarted, true));
-        }
+        diagnostics.recordSetup(elapsedMicros(setupStarted, true));
         Map<AEKey, Long> pendingInputSnapshot = null;
         InputDiagnosticContext inputDiagnosticContext = null;
         try {
@@ -528,7 +442,7 @@ public class ECOCraftingCPULogic {
                 32L, Math.min(4096L, Math.max(1L, (long) maxPatterns) * 8L));
             int taskPolls = 0;
             taskLoop: while (taskPolls++ < taskPollBudget) {
-                long taskIterationStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                long taskIterationStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                 taskScheduler.releaseLeasedIfUnresolved();
                 IPatternDetails nextDetails = taskScheduler.poll();
                 if (nextDetails == null) {
@@ -542,56 +456,36 @@ public class ECOCraftingCPULogic {
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
                     removeTask(task.getKey());
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.taskIterationMicros = saturatingAdd(
-                            activeCpuTickTiming.taskIterationMicros,
-                            elapsedMicros(taskIterationStarted, true));
-                    }
+                    diagnostics.recordTaskIteration(elapsedMicros(taskIterationStarted, true));
                     continue;
                 }
-                if (activeCpuTickTiming != null) {
-                    activeCpuTickTiming.taskIterationMicros = saturatingAdd(
-                        activeCpuTickTiming.taskIterationMicros,
-                        elapsedMicros(taskIterationStarted, true));
-                }
+                diagnostics.recordTaskIteration(elapsedMicros(taskIterationStarted, true));
 
                 var details = task.getKey();
                 // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
-                long schedulerStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                long schedulerStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                 List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
-                if (activeCpuTickTiming != null) {
-                    activeCpuTickTiming.schedulerMicros = saturatingAdd(
-                        activeCpuTickTiming.schedulerMicros,
-                        elapsedMicros(schedulerStarted, true));
-                }
+                diagnostics.recordScheduler(elapsedMicros(schedulerStarted, true));
                 if (providers.isEmpty()) {
                     taskScheduler.deferUntilNextTick(details);
                     continue;
                 }
-                schedulerStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                schedulerStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                 List<ECOCraftingPatternBusBlockEntity> patternBuses = collectPatternBuses(providers);
-                if (activeCpuTickTiming != null) {
-                    activeCpuTickTiming.schedulerMicros = saturatingAdd(
-                        activeCpuTickTiming.schedulerMicros,
-                        elapsedMicros(schedulerStarted, true));
-                }
+                diagnostics.recordScheduler(elapsedMicros(schedulerStarted, true));
                 // FastPath 元数据只有 ECO 智能样板总线能够消费；纯第三方提供者不应支付其构建成本。
                 boolean fastPathCandidate = !patternBuses.isEmpty();
 
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    long dependencyStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    long dependencyStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     boolean readyProvider = hasReadyProvider(providers, details);
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.dependencyMicros = saturatingAdd(
-                            activeCpuTickTiming.dependencyMicros,
-                            elapsedMicros(dependencyStarted, true));
-                    }
+                    diagnostics.recordDependency(elapsedMicros(dependencyStarted, true));
                     if (!readyProvider) {
                         taskScheduler.deferUntilNextTick(details);
                         continue taskLoop;
                     }
 
-                    dependencyStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    dependencyStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     @Nullable List<ECOAE2InputSelection> plannedInputs = job.peekPlannedInputs(details);
                     long plannedInputCount = plannedInputs == null
                         ? 0L
@@ -616,20 +510,12 @@ public class ECOCraftingCPULogic {
                             // restart or provider-side mutation. Drop the stale planned segment
                             // and let the strict AE2 path re-evaluate the original pattern.
                             discardPlannedInputs(details);
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.dependencyMicros = saturatingAdd(
-                                    activeCpuTickTiming.dependencyMicros,
-                                    elapsedMicros(dependencyStarted, true));
-                            }
+                            diagnostics.recordDependency(elapsedMicros(dependencyStarted, true));
                             continue taskLoop;
                         }
                     }
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.dependencyMicros = saturatingAdd(
-                            activeCpuTickTiming.dependencyMicros,
-                            elapsedMicros(dependencyStarted, true));
-                    }
-                    long taskStateStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    diagnostics.recordDependency(elapsedMicros(dependencyStarted, true));
+                    long taskStateStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
                     IPatternDetails executionDetails = selectedDetails != null && fastPathCandidate
@@ -641,11 +527,7 @@ public class ECOCraftingCPULogic {
                             : task.getValue().value;
                     if (!shouldRetryInputExtraction(
                         inputExtractionBlockedRevisions.get(details), inventoryStateRevision)) {
-                        if (activeCpuTickTiming != null) {
-                            activeCpuTickTiming.taskStateMicros = saturatingAdd(
-                                activeCpuTickTiming.taskStateMicros,
-                                elapsedMicros(taskStateStarted, true));
-                        }
+                        diagnostics.recordTaskState(elapsedMicros(taskStateStarted, true));
                         taskScheduler.block(details, dependenciesFor(details));
                         continue taskLoop;
                     }
@@ -654,12 +536,8 @@ public class ECOCraftingCPULogic {
                     KeyCounter expectedOutputs = new KeyCounter();
                     KeyCounter expectedContainerItems = new KeyCounter();
                     int inputExtractionAttempts = 0;
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.taskStateMicros = saturatingAdd(
-                            activeCpuTickTiming.taskStateMicros,
-                            elapsedMicros(taskStateStarted, true));
-                    }
-                    dependencyStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    diagnostics.recordTaskState(elapsedMicros(taskStateStarted, true));
+                    dependencyStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     // A failed extraction does not change the CPU inventory. An ECO candidate can
                     // classify the missing input immediately instead of repeating the same failed
                     // reservation five times in one pass; retain the legacy retry budget for the
@@ -677,38 +555,25 @@ public class ECOCraftingCPULogic {
                         craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             extractionDetails, executionInventory, level, expectedOutputs, expectedContainerItems);
                     }
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.dependencyMicros = saturatingAdd(
-                            activeCpuTickTiming.dependencyMicros,
-                            elapsedMicros(dependencyStarted, true));
-                    }
+                    diagnostics.recordDependency(elapsedMicros(dependencyStarted, true));
                     if (craftingContainer == null) {
                         inputExtractionBlockedRevisions.put(details, inventoryStateRevision);
                         taskScheduler.block(details, dependenciesFor(details));
                         if (fastPathCandidate && NEConfig.debugEcoFastPath) {
                             if (pendingInputSnapshot == null) {
-                                long snapshotStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                                long snapshotStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                                 pendingInputSnapshot = buildPendingInputAmounts(job);
-                                if (activeCpuTickTiming != null) {
-                                    activeCpuTickTiming.pendingInputSnapshotMicros = saturatingAdd(
-                                        activeCpuTickTiming.pendingInputSnapshotMicros,
-                                        elapsedMicros(snapshotStarted, true));
-                                }
+                                diagnostics.recordPendingInputSnapshot(elapsedMicros(snapshotStarted, true));
                             }
                             if (inputDiagnosticContext == null) {
                                 inputDiagnosticContext = new InputDiagnosticContext(
                                     pendingInputSnapshot, inventory, job);
                             }
-                            long diagnosticStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                            long diagnosticStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                             MissingPatternInputDiagnostic diagnostic = describeMissingPatternInputs(
                                 extractionDetails, level, inputDiagnosticContext
                             );
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.inputDiagnosticMicros = saturatingAdd(
-                                    activeCpuTickTiming.inputDiagnosticMicros,
-                                    elapsedMicros(diagnosticStarted, true));
-                                activeCpuTickTiming.inputDiagnosticCount++;
-                            }
+                            diagnostics.recordInputDiagnostic(elapsedMicros(diagnosticStarted, true));
                             // A downstream task can legitimately wait for an upstream task's output or
                             // for that producer to dispatch it. Neither state is a FastPath failure.
                             if (diagnostic.result() == InputReservationResult.DEPENDENCY_WAIT) {
@@ -727,7 +592,7 @@ public class ECOCraftingCPULogic {
                         }
                         continue taskLoop;
                     }
-                    long patternPreparationStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    long patternPreparationStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     inputExtractionBlockedRevisions.remove(details);
                     if (selectedDetails != null) {
                         craftingContainer = selectedDetails.collapseInputHolder(craftingContainer);
@@ -752,15 +617,11 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.patternPreparationMicros = saturatingAdd(
-                            activeCpuTickTiming.patternPreparationMicros,
-                            elapsedMicros(patternPreparationStarted, true));
-                    }
-                    long fastPathStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
-                    long fastPathApplyBaseline = activeCpuTickTiming == null
-                        ? 0L
-                        : ECOFastPathDiagnostics.currentTickApplyMicros(currentTick);
+                    diagnostics.recordPatternPreparation(elapsedMicros(patternPreparationStarted, true));
+                    long fastPathStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
+                    long fastPathApplyBaseline = diagnostics.isTimingEnabled()
+                        ? ECOFastPathDiagnostics.currentTickApplyMicros(currentTick)
+                        : 0L;
                     long batchResult = fuzzyBatchSafe
                         ? tryPushVerifiedFastPathBatch(
                             job,
@@ -774,28 +635,23 @@ public class ECOCraftingCPULogic {
                             job.fuzzyItemIds,
                             runtimeInputFallback)
                         : 0L;
-                    if (activeCpuTickTiming != null && fuzzyBatchSafe && batchResult <= 0L) {
+                    if (diagnostics.isTimingEnabled() && fuzzyBatchSafe && batchResult <= 0L) {
                         long fallbackElapsed = elapsedMicros(fastPathStarted, true);
-                        activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                            activeCpuTickTiming.fallbackMicros,
-                            fallbackElapsed);
-                        activeCpuTickTiming.fallbackFastPathMicros = saturatingAdd(
-                            activeCpuTickTiming.fallbackFastPathMicros,
-                            fallbackElapsed);
-                        activeCpuTickTiming.fastPathFallbackCount++;
-                    } else if (activeCpuTickTiming != null) {
+                        diagnostics.recordFallback(fallbackElapsed);
+                        diagnostics.recordFallbackFastPath(fallbackElapsed);
+                        diagnostics.incrementFastPathFallback();
+                    } else if (diagnostics.isTimingEnabled()) {
                         long applyMicros = Math.max(
                             0L,
                             ECOFastPathDiagnostics.currentTickApplyMicros(currentTick)
                                 - fastPathApplyBaseline
                         );
-                        activeCpuTickTiming.fastPathCoordinationMicros = saturatingAdd(
-                            activeCpuTickTiming.fastPathCoordinationMicros,
+                        diagnostics.recordFastPathCoordination(
                             Math.max(0L, elapsedMicros(fastPathStarted, true) - applyMicros)
                         );
                     }
                     if (batchResult > 0) {
-                        long accountingStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                        long accountingStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                         try {
                             // One provider dispatch consumes one CPU scheduling operation regardless of how many
                             // crafts the F-series host accepted in that batch.
@@ -815,11 +671,7 @@ public class ECOCraftingCPULogic {
                             }
                             continue taskLoop;
                         } finally {
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.accountingMicros = saturatingAdd(
-                                    activeCpuTickTiming.accountingMicros,
-                                    elapsedMicros(accountingStarted, true));
-                            }
+                            diagnostics.recordAccounting(elapsedMicros(accountingStarted, true));
                         }
                     } else if (batchResult < 0) {
                         if (job.pendingAccounting() != null) {
@@ -829,7 +681,7 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
-                    long fallbackStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    long fallbackStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     int ae2ltBatchResult = fuzzyBatchSafe
                         ? job.fuzzyItemIds.isEmpty()
                             ? ae2ltBatchBridge.tryPushBatch(
@@ -852,23 +704,19 @@ public class ECOCraftingCPULogic {
                                 job.fuzzyItemIds
                             )
                         : 0;
-                    if (activeCpuTickTiming != null) {
+                    if (diagnostics.isTimingEnabled()) {
                         long fallbackElapsed = elapsedMicros(fallbackStarted, true);
-                        activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                            activeCpuTickTiming.fallbackMicros,
-                            fallbackElapsed);
+                        diagnostics.recordFallback(fallbackElapsed);
                         if (fuzzyBatchSafe) {
-                            activeCpuTickTiming.fallbackAe2ltMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackAe2ltMicros,
-                                fallbackElapsed);
+                            diagnostics.recordAe2ltFallback(fallbackElapsed);
                             if (ae2ltBatchResult <= 0) {
-                                activeCpuTickTiming.ae2ltFallbackCount++;
+                                diagnostics.incrementAe2ltFallback();
                             }
                         }
                         fallbackStarted = System.nanoTime();
                     }
                     if (ae2ltBatchResult > 0) {
-                        long accountingStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                        long accountingStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                         try {
                             pushedPatterns++;
                             if (this.job != job) {
@@ -906,11 +754,7 @@ public class ECOCraftingCPULogic {
                             }
                             continue taskLoop;
                         } finally {
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.accountingMicros = saturatingAdd(
-                                    activeCpuTickTiming.accountingMicros,
-                                    elapsedMicros(accountingStarted, true));
-                            }
+                            diagnostics.recordAccounting(elapsedMicros(accountingStarted, true));
                         }
                     }
 
@@ -926,23 +770,19 @@ public class ECOCraftingCPULogic {
                             job.fuzzyItemIds
                         )
                         : 0;
-                    if (activeCpuTickTiming != null) {
+                    if (diagnostics.isTimingEnabled()) {
                         long fallbackElapsed = elapsedMicros(fallbackStarted, true);
-                        activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                            activeCpuTickTiming.fallbackMicros,
-                            fallbackElapsed);
+                        diagnostics.recordFallback(fallbackElapsed);
                         if (fuzzyBatchSafe) {
-                            activeCpuTickTiming.fallbackMegacellsMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackMegacellsMicros,
-                                fallbackElapsed);
+                            diagnostics.recordMegacellsFallback(fallbackElapsed);
                             if (megacellsBatchResult <= 0) {
-                                activeCpuTickTiming.megacellsFallbackCount++;
+                                diagnostics.incrementMegacellsFallback();
                             }
                         }
                         fallbackStarted = System.nanoTime();
                     }
                     if (megacellsBatchResult > 0) {
-                        long accountingStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                        long accountingStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                         try {
                             pushedPatterns++;
                             if (this.job != job) {
@@ -980,11 +820,7 @@ public class ECOCraftingCPULogic {
                             }
                             continue taskLoop;
                         } finally {
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.accountingMicros = saturatingAdd(
-                                    activeCpuTickTiming.accountingMicros,
-                                    elapsedMicros(accountingStarted, true));
-                            }
+                            diagnostics.recordAccounting(elapsedMicros(accountingStarted, true));
                         }
                     }
 
@@ -1013,17 +849,13 @@ public class ECOCraftingCPULogic {
                                 limitedBatchTaskRemaining)
                             : 0L;
                         if (processingBatchResult > 0L) {
-                            if (activeCpuTickTiming != null) {
+                            if (diagnostics.isTimingEnabled()) {
                                 long fallbackElapsed = elapsedMicros(fallbackStarted, true);
-                                activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                                    activeCpuTickTiming.fallbackMicros,
-                                    fallbackElapsed);
-                                activeCpuTickTiming.fallbackProviderMicros = saturatingAdd(
-                                    activeCpuTickTiming.fallbackProviderMicros,
-                                    fallbackElapsed);
+                                diagnostics.recordFallback(fallbackElapsed);
+                                diagnostics.recordProviderFallback(fallbackElapsed);
                                 fallbackStarted = 0L;
                             }
-                            long accountingStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                            long accountingStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                             try {
                                 pushedPatterns++;
                                 if (this.job != job) {
@@ -1062,11 +894,7 @@ public class ECOCraftingCPULogic {
                                 pushed = true;
                                 break;
                             } finally {
-                                if (activeCpuTickTiming != null) {
-                                    activeCpuTickTiming.accountingMicros = saturatingAdd(
-                                        activeCpuTickTiming.accountingMicros,
-                                        elapsedMicros(accountingStarted, true));
-                                }
+                                diagnostics.recordAccounting(elapsedMicros(accountingStarted, true));
                             }
                         }
 
@@ -1112,8 +940,8 @@ public class ECOCraftingCPULogic {
                             runtimeInputFallback
                         );
 
-                        if (activeCpuTickTiming != null) {
-                            activeCpuTickTiming.providerAttemptCount++;
+                        if (diagnostics.isTimingEnabled()) {
+                            diagnostics.incrementProviderAttempt();
                         }
                         try {
                             if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
@@ -1178,18 +1006,14 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
 
-                        if (activeCpuTickTiming != null) {
+                        if (diagnostics.isTimingEnabled()) {
                             long fallbackElapsed = elapsedMicros(fallbackStarted, true);
-                            activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackMicros,
-                                fallbackElapsed);
-                            activeCpuTickTiming.fallbackProviderMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackProviderMicros,
-                                fallbackElapsed);
+                            diagnostics.recordFallback(fallbackElapsed);
+                            diagnostics.recordProviderFallback(fallbackElapsed);
                             fallbackStarted = 0L;
                         }
 
-                        long accountingStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                        long accountingStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                         try {
                             pushedPatterns++;
                             if (this.job != job) {
@@ -1212,22 +1036,14 @@ public class ECOCraftingCPULogic {
 
                             break;
                         } finally {
-                            if (activeCpuTickTiming != null) {
-                                activeCpuTickTiming.accountingMicros = saturatingAdd(
-                                    activeCpuTickTiming.accountingMicros,
-                                    elapsedMicros(accountingStarted, true));
-                            }
+                            diagnostics.recordAccounting(elapsedMicros(accountingStarted, true));
                         }
                         }
                     } finally {
-                        if (activeCpuTickTiming != null) {
+                        if (diagnostics.isTimingEnabled()) {
                             long fallbackElapsed = elapsedMicros(fallbackStarted, true);
-                            activeCpuTickTiming.fallbackMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackMicros,
-                                fallbackElapsed);
-                            activeCpuTickTiming.fallbackProviderMicros = saturatingAdd(
-                                activeCpuTickTiming.fallbackProviderMicros,
-                                fallbackElapsed);
+                            diagnostics.recordFallback(fallbackElapsed);
+                            diagnostics.recordProviderFallback(fallbackElapsed);
                         }
                     }
 
@@ -1239,13 +1055,9 @@ public class ECOCraftingCPULogic {
                 }
                 } finally {
                     mergeInputDiagnosticContext(inputDiagnosticContext);
-                    long statusStarted = activeCpuTickTiming == null ? 0L : System.nanoTime();
+                    long statusStarted = diagnostics.isTimingEnabled() ? System.nanoTime() : 0L;
                     endStatusChangeBatchSafely();
-                    if (activeCpuTickTiming != null) {
-                        activeCpuTickTiming.statusChangeMicros = saturatingAdd(
-                            activeCpuTickTiming.statusChangeMicros,
-                            elapsedMicros(statusStarted, true));
-                    }
+                    diagnostics.recordStatusChange(elapsedMicros(statusStarted, true));
                 }
 
         return pushedPatterns;
@@ -1877,21 +1689,17 @@ public class ECOCraftingCPULogic {
     }
 
     private void mergeInputDiagnosticContext(@Nullable InputDiagnosticContext context) {
-        if (context == null || activeCpuTickTiming == null) {
+        if (context == null) {
             return;
         }
-        activeCpuTickTiming.inputDiagnosticKeys.addAll(context.uniqueKeys);
-        activeCpuTickTiming.inputDiagnosticUniqueKeys = activeCpuTickTiming.inputDiagnosticKeys.size();
-        activeCpuTickTiming.inputDiagnosticCacheHits = saturatingAdd(
-            activeCpuTickTiming.inputDiagnosticCacheHits, context.cacheHits);
-        activeCpuTickTiming.inputDiagnosticCacheMisses = saturatingAdd(
-            activeCpuTickTiming.inputDiagnosticCacheMisses, context.cacheMisses);
-        activeCpuTickTiming.inputDiagnosticNetworkMicros = saturatingAdd(
-            activeCpuTickTiming.inputDiagnosticNetworkMicros, context.networkMicros());
-        activeCpuTickTiming.dependencyWaitDiagnosticCount = saturatingAdd(
-            activeCpuTickTiming.dependencyWaitDiagnosticCount, context.dependencyWaitCount);
-        activeCpuTickTiming.hardFailureDiagnosticCount = saturatingAdd(
-            activeCpuTickTiming.hardFailureDiagnosticCount, context.hardFailureCount);
+        diagnostics.recordInputDiagnosticContext(
+            context.uniqueKeys,
+            context.cacheHits,
+            context.cacheMisses,
+            context.networkMicros(),
+            context.dependencyWaitCount,
+            context.hardFailureCount
+        );
     }
 
     private enum InputReservationResult {
@@ -2763,45 +2571,6 @@ public class ECOCraftingCPULogic {
 
     static boolean shouldRetryInputExtraction(@Nullable Long blockedRevision, long currentRevision) {
         return blockedRevision == null || blockedRevision.longValue() != currentRevision;
-    }
-
-    private static final class CpuTickTiming {
-        private long fastPathApplyMicros;
-        private final long fastPathApplyBaselineMicros;
-        private long fastPathCoordinationMicros;
-        private long ejectionMicros;
-        private long schedulerMicros;
-        private long dependencyMicros;
-        private long fallbackMicros;
-        private long fallbackFastPathMicros;
-        private long fallbackAe2ltMicros;
-        private long fallbackMegacellsMicros;
-        private long fallbackProviderMicros;
-        private long fastPathFallbackCount;
-        private long ae2ltFallbackCount;
-        private long megacellsFallbackCount;
-        private long providerAttemptCount;
-        private long taskIterationMicros;
-        private long taskStateMicros;
-        private long patternPreparationMicros;
-        private long pendingInputSnapshotMicros;
-        private long inputDiagnosticMicros;
-        private long inputDiagnosticUniqueKeys;
-        private long inputDiagnosticCacheHits;
-        private long inputDiagnosticCacheMisses;
-        private long inputDiagnosticNetworkMicros;
-        private long dependencyWaitDiagnosticCount;
-        private long hardFailureDiagnosticCount;
-        private final Set<AEKey> inputDiagnosticKeys = new HashSet<>();
-        private long accountingMicros;
-        private long statusChangeMicros;
-        private long setupMicros;
-        private long inputDiagnosticCount;
-        private int taskCount;
-
-        private CpuTickTiming(long fastPathApplyBaselineMicros) {
-            this.fastPathApplyBaselineMicros = fastPathApplyBaselineMicros;
-        }
     }
 
     /** The single ready/blocked/deferred scheduler used by the production CPU task loop. */
