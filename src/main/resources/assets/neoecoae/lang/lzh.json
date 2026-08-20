@@ -512,7 +512,7 @@
   "tooltip.neoecoae.crafting_worker.1": "ECO - FX 工之心可藏冶務三十又二，每工治一務",
   "tooltip.neoecoae.holdshift": "按[Shift]顯詳",
   "tooltip.neoecoae.infinite_component.header": "無限藏：啟用之法",
-  "tooltip.neoecoae.infinite_component.components": "件槽：六十四無限藏件（同一藏器主機）",
+  "tooltip.neoecoae.infinite_component.components": "件槽：六十四無限藏件（置於藏器主機頁之槽位）",
   "tooltip.neoecoae.infinite_component.matrices": "驅動器：任意十二 L9 藏矩（同一藏器主機內）",
   "tooltip.neoecoae.max_lenth": "構之極長: %d",
   "tooltip.neoecoae.max_parallel_count": "極並之數 +%d",

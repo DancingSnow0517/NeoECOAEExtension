@@ -519,7 +519,7 @@
   "tooltip.neoecoae.crafting_worker.1": "x1 時每個 FX 工作核心提供 1 個任務槽；網路交換生效時，每個本地主機內的 FX 工作核心按已連接 F 主機數提供任務槽。x2/x8 只提升單槽批量，不增加任務槽",
   "tooltip.neoecoae.holdshift": "按住[Shift]顯示更多資訊",
   "tooltip.neoecoae.infinite_component.header": "無限儲存：啟用條件",
-  "tooltip.neoecoae.infinite_component.components": "組件槽：64 個無限儲存組件（同一台儲存主機）",
+  "tooltip.neoecoae.infinite_component.components": "組件槽：64 個無限儲存組件（放入儲存主機頁面的槽位中）",
   "tooltip.neoecoae.infinite_component.matrices": "驅動器：任意 12 個 L9 儲存矩陣（同一台儲存主機內）",
   "tooltip.neoecoae.max_lenth": "結構最大長度: %d",
   "tooltip.neoecoae.max_parallel_count": "最大並行數量 +%d",

@@ -520,7 +520,7 @@
   "tooltip.neoecoae.crafting_worker.1": "ǝʌıʇɔɐ sı ǝbuɐɥɔxǝ ʞɹoʍʇǝu ǝןıɥʍ ʇsoɥ Ⅎ buıʇɐdıɔıʇɹɐd ɹǝd pɐǝɹɥʇ ǝuo ɹo 'Ɩx ʇɐ pɐǝɹɥʇ Ɩ sǝpıʌoɹd ɹǝʞɹoM XℲ ɥɔɐƎ",
   "tooltip.neoecoae.holdshift": "oɟuı ǝɹoɯ ʍoɥs oʇ [ʇɟıɥS] pןoH",
   "tooltip.neoecoae.infinite_component.header": "Infinite Storage: Activation Requirements",
-  "tooltip.neoecoae.infinite_component.components": "Component slot: 64 infinite storage components in one storage host",
+  "tooltip.neoecoae.infinite_component.components": "Component slot: put 64 infinite storage components in the storage host screen slot",
   "tooltip.neoecoae.infinite_component.matrices": "Drives: any 12 L9 storage matrices in that same host",
   "tooltip.neoecoae.max_lenth": "%d :ǝɹnʇɔnɹʇs ɟo ɥʇbuǝן ɯnɯıxɐW",
   "tooltip.neoecoae.max_parallel_count": "%d+ ʇunoɔ ןǝןןɐɹɐd xɐW",
