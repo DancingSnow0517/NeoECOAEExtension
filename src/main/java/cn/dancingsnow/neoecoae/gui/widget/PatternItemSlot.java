@@ -1,19 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
-import appeng.crafting.pattern.EncodedPatternItem;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.function.BooleanSupplier;
 
 @LDLRegister(name = "pattern-item-slot", group = "inventory", registry = "ldlib2:ui_element")
 public class PatternItemSlot extends ItemSlot {
-    private static final int SEARCH_HIGHLIGHT_COLOR = 0xFFFFD95A;
     private BooleanSupplier highlighted = () -> false;
 
     public PatternItemSlot() {
@@ -29,23 +24,7 @@ public class PatternItemSlot extends ItemSlot {
         return this;
     }
 
-    @Override
-    protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-        if (itemStack.getItem() instanceof EncodedPatternItem<?> patternItem) {
-            ItemStack output = patternItem.getOutput(itemStack);
-            if (!output.isEmpty()) {
-                DrawerHelper.drawItemStack(guiContext.graphics, output, 0, 0, -1, null);
-            } else {
-                super.drawItemStack(guiContext, itemStack);
-            }
-        } else {
-            super.drawItemStack(guiContext, itemStack);
-        }
-        if (highlighted.getAsBoolean()) {
-            guiContext.graphics.fill(0, 0, 18, 1, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(0, 17, 18, 18, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(0, 0, 1, 18, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(17, 0, 18, 18, SEARCH_HIGHLIGHT_COLOR);
-        }
+    public boolean isHighlighted() {
+        return highlighted.getAsBoolean();
     }
 }

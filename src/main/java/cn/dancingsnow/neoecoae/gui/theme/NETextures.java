@@ -93,6 +93,11 @@ public class NETextures {
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
 
+    public static IGuiTexture aeIcon(int x, int y, int width, int height) {
+        return SpriteTexture.of(AppEng.makeId("textures/guis/states.png"))
+            .setSprite(x, y, width, height);
+    }
+
     public static final IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
         .setSpriteSize(Size.of(6, 18));
 

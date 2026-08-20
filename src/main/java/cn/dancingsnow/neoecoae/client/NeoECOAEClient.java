@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -84,18 +83,18 @@ public class NeoECOAEClient {
         if (event.getScreen() instanceof AbstractContainerScreen<?> screen
                 && screen.getMenu() instanceof IModularUIHolder holder
                 && holder.getModularUI() != null) {
-            CraftingInterfaceUI.attachNativeSearchFields(event, holder.getModularUI());
+            CraftingInterfaceClientUI.attachNativeSearchFields(event, holder.getModularUI());
         }
     }
 
     @SubscribeEvent
     public static void onScreenMouseClicked(ScreenEvent.MouseButtonPressed.Pre event) {
-        CraftingInterfaceUI.prepareSearchFields(event.getScreen());
+        CraftingInterfaceClientUI.prepareSearchFields(event.getScreen());
     }
 
     @SubscribeEvent
     public static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        if (CraftingInterfaceUI.handleSearchKeyPressed(
+        if (CraftingInterfaceClientUI.handleSearchKeyPressed(
                 event.getScreen(), event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
             event.setCanceled(true);
         }
@@ -103,7 +102,7 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onScreenCharTyped(ScreenEvent.CharacterTyped.Pre event) {
-        if (CraftingInterfaceUI.handleSearchCharTyped(
+        if (CraftingInterfaceClientUI.handleSearchCharTyped(
                 event.getScreen(), event.getCodePoint(), event.getModifiers())) {
             event.setCanceled(true);
         }
@@ -111,7 +110,7 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onScreenMouseClickedPost(ScreenEvent.MouseButtonPressed.Post event) {
-        CraftingInterfaceUI.reclaimSearchFieldFocus(event.getScreen());
+        CraftingInterfaceClientUI.reclaimSearchFieldFocus(event.getScreen());
     }
 
     @SuppressWarnings("unchecked")

@@ -1,16 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
-import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -27,21 +25,17 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /** Control surface for browsing network patterns and moving compatible ones into ECO crafting buses. */
@@ -60,8 +54,13 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
     private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int PREVIEW_QUERY_MAX_LENGTH = 128;
-    private static final int SEARCH_TEXT_INSET_X = 2;
-    private static final int SEARCH_TEXT_INSET_Y = 3;
+    private static final String CLIENT_UI_CLASS =
+            "cn.dancingsnow.neoecoae.client.CraftingInterfaceClientUI";
+    private static final IGuiTexture SUBSTITUTION_ENABLED = NETextures.aeIcon(224, 208, 8, 8);
+    private static final IGuiTexture SUBSTITUTION_DISABLED = NETextures.aeIcon(232, 208, 8, 8);
+    private static final IGuiTexture FLUID_SUBSTITUTION_ENABLED = NETextures.aeIcon(224, 216, 8, 8);
+    private static final IGuiTexture FLUID_SUBSTITUTION_DISABLED = NETextures.aeIcon(232, 216, 8, 8);
+    private static final IGuiTexture PATTERN_ACCESS_SHOW = NETextures.aeIcon(64, 80, 16, 16);
 
     private CraftingInterfaceUI() {
     }
@@ -160,18 +159,18 @@ public final class CraftingInterfaceUI {
         header.addChild(patternFilterButton(
                 previewState,
                 PreviewState::showsSubstitutionPatterns,
-                Icon.S_SUBSTITUTION_ENABLED,
-                Icon.S_SUBSTITUTION_DISABLED,
+                SUBSTITUTION_ENABLED,
+                SUBSTITUTION_DISABLED,
                 PreviewState::toggleSubstitutionPatterns,
                 "gui.neoecoae.crafting_interface.preview.filter_substitutions"));
         header.addChild(patternFilterButton(
                 previewState,
                 PreviewState::showsFluidSubstitutionPatterns,
-                Icon.S_FLUID_SUBSTITUTION_ENABLED,
-                Icon.S_FLUID_SUBSTITUTION_DISABLED,
+                FLUID_SUBSTITUTION_ENABLED,
+                FLUID_SUBSTITUTION_DISABLED,
                 PreviewState::toggleFluidSubstitutionPatterns,
                 "gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions"));
-        header.addChild(iconButton(Icon.PATTERN_ACCESS_SHOW, "gui.neoecoae.crafting_interface.preview.organize",
+        header.addChild(iconButton(PATTERN_ACCESS_SHOW, "gui.neoecoae.crafting_interface.preview.organize",
                 () -> {
                     if (player instanceof ServerPlayer serverPlayer) {
                         craftingInterface.organizePatternBuses(serverPlayer);
@@ -180,221 +179,51 @@ public final class CraftingInterfaceUI {
         return header;
     }
 
-    private static NativeSearchField patternSearchField(PreviewState previewState) {
-        NativeSearchField field = new NativeSearchField(previewState::setSearch);
+    private static SearchField patternSearchField(PreviewState previewState) {
+        SearchField field = createClientSearchField(previewState::setSearch);
         field.layout(layout -> layout.flex(1).height(TOOL_BUTTON_SIZE));
         return HostElements.tooltips(field,
                 Component.translatable("gui.neoecoae.crafting_interface.preview.search.tooltip"));
     }
 
-    /**
-     * AE2-Lightning-Tech and AE2 terminals add a vanilla {@link EditBox} with
-     * {@code addRenderableWidget} / {@code setInitialFocus}. LowDragLib's widget stays the Screen's
-     * focused child and reclaims that focus on every ModularUI click, so Windows IME never sees a
-     * native text widget. Register the EditBox first in the Screen child list, give it initial
-     * focus, and keep reclaiming that focus while this field owns input.
-     */
-    public static void attachNativeSearchFields(ScreenEvent.Init.Post event, ModularUI modularUI) {
-        if (modularUI == null) {
-            return;
-        }
-
-        var widget = modularUI.getWidget();
-        NativeSearchField first = null;
-        for (NativeSearchField field : modularUI.getElementsByType(NativeSearchField.class)) {
-            // Re-register on every init/resize. Screen.rebuildWidgets() clears children.
-            event.removeListener(field.editBox);
-            event.removeListener(widget);
-            event.addListener(field.editBox);
-            event.addListener(widget);
-            if (first == null) {
-                first = field;
+    private static SearchField createClientSearchField(Consumer<String> responder) {
+        try {
+            Object field = Class.forName(CLIENT_UI_CLASS)
+                    .getMethod("createSearchField", Consumer.class)
+                    .invoke(null, responder);
+            if (field instanceof SearchField searchField) {
+                return searchField;
             }
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // Dedicated servers do not have the client-only search implementation.
         }
-        if (first != null) {
-            first.claimNativeFocus(event.getScreen());
-        }
+        return new SearchField(responder);
     }
 
-    public static void prepareSearchFields(Screen screen) {
-        for (NativeSearchField field : searchFields(screen)) {
-            field.syncNativeBounds();
-        }
-    }
+    public static class SearchField extends UIElement {
+        private final Consumer<String> responder;
 
-    public static boolean handleSearchKeyPressed(Screen screen, int keyCode, int scanCode, int modifiers) {
-        NativeSearchField field = focusedSearchField(screen);
-        return field != null && field.keyPressedNative(keyCode, scanCode, modifiers);
-    }
-
-    public static boolean handleSearchCharTyped(Screen screen, char codePoint, int modifiers) {
-        NativeSearchField field = focusedSearchField(screen);
-        return field != null && field.charTypedNative(codePoint, modifiers);
-    }
-
-    public static void reclaimSearchFieldFocus(Screen screen) {
-        NativeSearchField field = focusedSearchField(screen);
-        if (field != null) {
-            field.claimNativeFocus(screen);
-        }
-    }
-
-    private static NativeSearchField focusedSearchField(Screen screen) {
-        for (NativeSearchField field : searchFields(screen)) {
-            if (field.ownsNativeInput(screen)) {
-                return field;
-            }
-        }
-        return null;
-    }
-
-    private static List<NativeSearchField> searchFields(Screen screen) {
-        if (screen instanceof AbstractContainerScreen<?> container
-                && container.getMenu() instanceof IModularUIHolder holder
-                && holder.getModularUI() != null) {
-            return holder.getModularUI().getElementsByType(NativeSearchField.class);
-        }
-        return List.of();
-    }
-
-    public static final class NativeSearchField extends UIElement {
-        private final PositionedEditBox editBox;
-
-        private NativeSearchField(java.util.function.Consumer<String> responder) {
-            editBox = new PositionedEditBox();
-            editBox.setBordered(false);
-            editBox.setTextColor(0xFFFFFF);
-            editBox.setTextShadow(false);
-            editBox.setMaxLength(PREVIEW_QUERY_MAX_LENGTH);
-            editBox.setFilter(value -> true);
-            editBox.setCanLoseFocus(true);
-            editBox.setHint(Component.translatable("gui.neoecoae.crafting_interface.preview.search"));
-            editBox.setResponder(responder);
-            editBox.setVisible(true);
-            editBox.active = true;
-
+        public SearchField(Consumer<String> responder) {
+            this.responder = responder == null ? value -> { } : responder;
             setFocusable(true);
             style(style -> style.backgroundTexture(Sprites.RECT_RD));
-            addEventListener(UIEvents.TICK, event -> {
-                syncNativeBounds();
-                if (isFocused()) {
-                    claimNativeFocus(Minecraft.getInstance().screen);
-                }
-            });
         }
 
-        private boolean ownsNativeInput(Screen screen) {
-            return isFocused() || (screen != null && screen.getFocused() == editBox);
-        }
-
-        private void claimNativeFocus(Screen screen) {
-            syncNativeBounds();
-            if (screen != null && screen.getFocused() != editBox) {
-                screen.setFocused(editBox);
-            }
-            if (!editBox.isFocused()) {
-                editBox.setFocused(true);
-            }
-        }
-
-        private boolean keyPressedNative(int keyCode, int scanCode, int modifiers) {
-            return editBox.keyPressed(keyCode, scanCode, modifiers);
-        }
-
-        private boolean charTypedNative(char codePoint, int modifiers) {
-            return editBox.charTyped(codePoint, modifiers);
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
-            syncNativeBounds();
-            editBox.renderNative(guiContext.graphics, guiContext.mouseX, guiContext.mouseY, guiContext.partialTick);
-        }
-
-        private void syncNativeBounds() {
-            // The ModularUI sprite has a recessed inner area, while an unbordered vanilla EditBox starts drawing at
-            // its exact bounds. Keep the native text, cursor, and selection inside that recessed area.
-            editBox.setX(Math.round(getPositionX()) + SEARCH_TEXT_INSET_X);
-            editBox.setY(Math.round(getPositionY()) + SEARCH_TEXT_INSET_Y);
-            editBox.setWidth(Math.max(1, Math.round(getSizeWidth())));
-            editBox.setHeight(Math.max(1, Math.round(getSizeHeight())));
-        }
-
-        /** Keep the Screen's hit test in the same coordinate system as ModularUI, even before the next render. */
-        private final class PositionedEditBox extends EditBox {
-            private PositionedEditBox() {
-                super(Minecraft.getInstance().font, 0, 0, 1, TOOL_BUTTON_SIZE,
-                        Component.translatable("gui.neoecoae.crafting_interface.preview.search"));
-            }
-
-            @Override
-            public void renderWidget(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY,
-                                     float partialTick) {
-                // Screen owns this widget for the native keyboard/IME focus path. Its visual pass is rendered by
-                // NativeSearchField so the ModularUI panel remains the final layer on screen.
-            }
-
-            private void renderNative(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY,
-                                      float partialTick) {
-                super.renderWidget(graphics, mouseX, mouseY, partialTick);
-            }
-
-            @Override
-            public boolean isMouseOver(double mouseX, double mouseY) {
-                syncNativeBounds();
-                return super.isMouseOver(mouseX, mouseY);
-            }
-
-            @Override
-            public boolean mouseClicked(double mouseX, double mouseY, int button) {
-                syncNativeBounds();
-                if (!isMouseOver(mouseX, mouseY)) {
-                    return false;
-                }
-                if (button == 1) {
-                    setValue("");
-                    setFocused(true);
-                    return true;
-                }
-                return super.mouseClicked(mouseX, mouseY, button);
-            }
-
-            @Override
-            public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-                syncNativeBounds();
-                return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-            }
-
-            @Override
-            public boolean mouseReleased(double mouseX, double mouseY, int button) {
-                syncNativeBounds();
-                return super.mouseReleased(mouseX, mouseY, button);
-            }
-
-            @Override
-            public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-                if (super.keyPressed(keyCode, scanCode, modifiers)) {
-                    return true;
-                }
-                // Same swallow as AE2's AETextField: keep E from closing the GUI while typing.
-                return isFocused() && canConsumeInput()
-                        && keyCode != GLFW.GLFW_KEY_TAB
-                        && keyCode != GLFW.GLFW_KEY_ESCAPE;
-            }
+        protected final void updateSearch(String value) {
+            responder.accept(value);
         }
     }
 
     private static Button patternFilterButton(
             PreviewState previewState,
             java.util.function.Function<PreviewState, Boolean> enabled,
-            Icon enabledIcon,
-            Icon disabledIcon,
+            IGuiTexture enabledIcon,
+            IGuiTexture disabledIcon,
             java.util.function.Consumer<PreviewState> action,
             String tooltip) {
         Button button = new Button()
                 .noText()
-                .addPreIcon(AETextures.icon(enabled.apply(previewState) ? enabledIcon : disabledIcon))
+                .addPreIcon(enabled.apply(previewState) ? enabledIcon : disabledIcon)
                 .setOnClick(event -> action.accept(previewState));
         button.buttonStyle(style -> style
                 .baseTexture(Sprites.RECT_RD)
@@ -402,7 +231,7 @@ public final class CraftingInterfaceUI {
                 .pressedTexture(Sprites.RECT_RD_DARK));
         button.layout(layout -> layout.width(TOOL_BUTTON_SIZE).height(TOOL_BUTTON_SIZE));
         button.addEventListener(UIEvents.TICK, event -> button.getChildren().getFirst().style(style ->
-                style.backgroundTexture(AETextures.icon(enabled.apply(previewState) ? enabledIcon : disabledIcon))));
+                style.backgroundTexture(enabled.apply(previewState) ? enabledIcon : disabledIcon)));
         return HostElements.tooltips(button, Component.translatable(tooltip));
     }
 
@@ -521,10 +350,10 @@ public final class CraftingInterfaceUI {
         return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
-    private static Button iconButton(Icon icon, String tooltip, Runnable action) {
+    private static Button iconButton(IGuiTexture icon, String tooltip, Runnable action) {
         Button button = new Button()
                 .noText()
-                .addPreIcon(AETextures.icon(icon))
+                .addPreIcon(icon)
                 .setOnServerClick(event -> action.run());
         button.buttonStyle(style -> style
                 .baseTexture(Sprites.RECT_RD)
@@ -560,7 +389,7 @@ public final class CraftingInterfaceUI {
         private PatternItemSlot createSlot(int visualSlot) {
             ItemHandlerSlot itemHandlerSlot = new ItemHandlerSlot(handler, visualSlot)
                     .addChangeListener(this::markContentDirty);
-            PatternItemSlot slot = new PatternItemSlot(itemHandlerSlot);
+            PatternItemSlot slot = createClientPatternSlot(itemHandlerSlot);
             slot.highlighted(() -> highlightedSlots[visualSlot]);
             slot.slotStyle(style -> style.slotOverlay(NETextures.PATTERN_OVERLAY));
             slot.layout(layout -> layout
@@ -571,6 +400,20 @@ public final class CraftingInterfaceUI {
                     .height(18));
             slots.add(slot);
             return slot;
+        }
+
+        private static PatternItemSlot createClientPatternSlot(Slot slot) {
+            try {
+                Object patternSlot = Class.forName(CLIENT_UI_CLASS)
+                        .getMethod("createPatternSlot", Slot.class)
+                        .invoke(null, slot);
+                if (patternSlot instanceof PatternItemSlot clientSlot) {
+                    return clientSlot;
+                }
+            } catch (ReflectiveOperationException | LinkageError ignored) {
+                // The public slot is sufficient for the server-side menu tree.
+            }
+            return new PatternItemSlot(slot);
         }
 
         /** Slot packets and managed revision packets can arrive in either order. */
