@@ -75,16 +75,32 @@ public final class ECOExternalCpuFastPathExecutor {
                     continue;
                 }
 
-                var selection = selectOffer(patternBuses, execution, taskRemaining, job.craftingId());
+                GenericStack finalOutput = job.finalOutput();
+                if (finalOutput == null) {
+                    continue;
+                }
+                long inFlightFinalOutput = job.waitingFor().extract(
+                        finalOutput.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+                long requestedTaskRemaining = ECOBatchCraftingHelper.limitByFinalOutputDemand(
+                        finalOutput,
+                        job.remainingOutputAmount(),
+                        inFlightFinalOutput,
+                        execution.expectedOutputs(),
+                        taskRemaining);
+                if (requestedTaskRemaining < 2L) {
+                    continue;
+                }
+
+                var selection = selectOffer(patternBuses, execution, requestedTaskRemaining, job.craftingId());
                 if (selection == null) {
                     double powerPerCraft = CraftingCpuHelper.calculatePatternPower(firstInputs);
                     int externalBatchResult = ae2ltBatchBridge.tryPushBatch(
                             providers, details, firstInputs, job.inventory(), energyService,
-                            powerPerCraft, taskRemaining);
+                            powerPerCraft, requestedTaskRemaining);
                     if (externalBatchResult <= 0) {
                         externalBatchResult = megacellsBatchBridge.tryPushBatch(
                                 providers, details, firstInputs, job.inventory(), energyService,
-                                powerPerCraft, taskRemaining);
+                                powerPerCraft, requestedTaskRemaining);
                     }
                     if (externalBatchResult > 0) {
                         var reusablePlan = ECOReusableCraftingPlan.of(
@@ -143,7 +159,7 @@ public final class ECOExternalCpuFastPathExecutor {
 
                 var reusablePlan = ECOReusableCraftingPlan.of(
                         execution.inputItems(), execution.expectedContainerItems());
-                long batchSize = Math.min(taskRemaining, selection.offer().maxBatchSize());
+                long batchSize = Math.min(requestedTaskRemaining, selection.offer().maxBatchSize());
                 batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
                         reusablePlan.consumedInputsPerCraft(), execution.expectedOutputs(),
                         reusablePlan.ordinaryRemainingPerCraft(), batchSize);

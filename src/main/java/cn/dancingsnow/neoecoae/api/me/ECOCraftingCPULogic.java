@@ -2687,10 +2687,6 @@ public class ECOCraftingCPULogic {
         if (job == null || job.finalOutput == null) {
             return Long.MAX_VALUE;
         }
-        long finalOutputPerCraft = finalOutputAmountPerCraft(execution.expectedOutputs());
-        if (finalOutputPerCraft <= 0L) {
-            return Long.MAX_VALUE;
-        }
         long waitingForFinalOutput = job.waitingFor.extract(
             job.finalOutput.what(), Long.MAX_VALUE, Actionable.SIMULATE
         );
@@ -2698,10 +2694,12 @@ public class ECOCraftingCPULogic {
             waitingForFinalOutput,
             job.bufferedFinalOutput.amount()
         );
-        return maxCraftsForFinalOutputDemand(
+        return ECOBatchCraftingHelper.limitByFinalOutputDemand(
+            job.finalOutput,
             job.remainingAmount,
             inFlightFinalOutput,
-            finalOutputPerCraft
+            execution.expectedOutputs(),
+            Long.MAX_VALUE
         );
     }
 

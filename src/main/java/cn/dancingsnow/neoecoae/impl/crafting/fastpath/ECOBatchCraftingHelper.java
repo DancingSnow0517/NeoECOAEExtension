@@ -136,6 +136,45 @@ public final class ECOBatchCraftingHelper {
         return Math.min(requested, Math.min(inputLimit, outputLimit));
     }
 
+    /**
+     * Limits a batch to the number of crafts that can still contribute to the requested final
+     * output. The task count is normally a recipe-execution count, while the final output demand
+     * is an item count; keeping this conversion at the batch boundary prevents a recipe that
+     * yields multiple items from doubling a request.
+     */
+    public static long limitByFinalOutputDemand(
+            GenericStack finalOutput,
+            long remainingAmount,
+            long inFlightAmount,
+            List<GenericStack> outputsPerCraft,
+            long requested) {
+        if (requested <= 0L || finalOutput == null) {
+            return Math.max(0L, requested);
+        }
+
+        long outputAmountPerCraft = 0L;
+        for (GenericStack output : outputsPerCraft) {
+            if (output != null && output.amount() > 0L && output.what().matches(finalOutput)) {
+                if (output.amount() > Long.MAX_VALUE - outputAmountPerCraft) {
+                    outputAmountPerCraft = Long.MAX_VALUE;
+                    break;
+                }
+                outputAmountPerCraft += output.amount();
+            }
+        }
+        if (outputAmountPerCraft <= 0L) {
+            return requested;
+        }
+
+        long normalizedInFlight = Math.max(0L, inFlightAmount);
+        if (normalizedInFlight >= remainingAmount) {
+            return 0L;
+        }
+        long outstanding = remainingAmount - normalizedInFlight;
+        long craftsNeeded = 1L + (outstanding - 1L) / outputAmountPerCraft;
+        return Math.min(requested, craftsNeeded);
+    }
+
     public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
         return canExtractExact(inventory, stacks, Set.of());
     }

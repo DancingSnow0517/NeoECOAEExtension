@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath.external;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.crafting.execution.ExecutingCraftingJob;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
@@ -40,6 +41,16 @@ public final class AE2ExternalCpuJobView implements ECOExternalCpuJobView {
     @Override
     public ListCraftingInventory waitingFor() {
         return ((ExecutingCraftingJobAccessor) (Object) job).neoecoae$getWaitingFor();
+    }
+
+    @Override
+    public GenericStack finalOutput() {
+        return ((ExecutingCraftingJobAccessor) (Object) job).neoecoae$getFinalOutput();
+    }
+
+    @Override
+    public long remainingOutputAmount() {
+        return ((ExecutingCraftingJobAccessor) (Object) job).neoecoae$getRemainingAmount();
     }
 
     @Override

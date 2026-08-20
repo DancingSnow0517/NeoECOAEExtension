@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.aae;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import java.util.Map;
@@ -23,4 +24,10 @@ public interface AdvExecutingCraftingJobAccessor {
 
     @Accessor("link")
     CraftingLink neoecoae$getLink();
+
+    @Accessor("finalOutput")
+    GenericStack neoecoae$getFinalOutput();
+
+    @Accessor("remainingAmount")
+    long neoecoae$getRemainingAmount();
 }

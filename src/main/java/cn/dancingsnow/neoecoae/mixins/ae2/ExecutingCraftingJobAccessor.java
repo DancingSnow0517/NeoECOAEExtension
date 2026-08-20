@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.ae2;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.ElapsedTimeTracker;
 import appeng.crafting.execution.ExecutingCraftingJob;
@@ -22,4 +23,10 @@ public interface ExecutingCraftingJobAccessor {
 
     @Accessor("link")
     CraftingLink neoecoae$getLink();
+
+    @Accessor("finalOutput")
+    GenericStack neoecoae$getFinalOutput();
+
+    @Accessor("remainingAmount")
+    long neoecoae$getRemainingAmount();
 }
