@@ -61,6 +61,37 @@ public final class ECOProcessingBatchCapacity {
         }
     }
 
+    /** Captures the complete currently simulatable target capacity without a request cap. */
+    @Nullable
+    static ECOProcessingBatchCapacity capturePhysical(
+            ECOProcessingBatchTarget target,
+            KeyCounter[] prototype) {
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(prototype, "prototype");
+        try {
+            KeyCounter aggregated = aggregate(prototype);
+            if (!aggregated.iterator().hasNext()) {
+                return new ECOProcessingBatchCapacity(target, Long.MAX_VALUE);
+            }
+
+            long admitted = Long.MAX_VALUE;
+            for (var entry : aggregated) {
+                long perCraft = entry.getLongValue();
+                if (perCraft <= 0L) {
+                    return null;
+                }
+                long inserted = target.insert(entry.getKey(), Long.MAX_VALUE, Actionable.SIMULATE);
+                if (inserted < 0L) {
+                    return null;
+                }
+                admitted = Math.min(admitted, inserted / perCraft);
+            }
+            return new ECOProcessingBatchCapacity(target, admitted);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     public ECOProcessingBatchTarget target() {
         return target;
     }

@@ -10,6 +10,7 @@ public final class ECOProcessingBatchAdmission {
     private final long count;
     private final KeyCounter[] preparedPrototype;
     private final BiFunction<KeyCounter[], Runnable, Boolean> commitAction;
+    private ECOProcessingBatchProposal processingProposal;
     private boolean attempted;
     private boolean inputOwnershipTransferred;
 
@@ -25,8 +26,28 @@ public final class ECOProcessingBatchAdmission {
         this.commitAction = Objects.requireNonNull(commitAction, "commitAction");
     }
 
+    ECOProcessingBatchAdmission(
+            ECOProcessingBatchProposal proposal,
+            KeyCounter[] preparedPrototype,
+            BiFunction<KeyCounter[], Runnable, Boolean> commitAction) {
+        this(
+                Objects.requireNonNull(proposal, "proposal").requestedCrafts(),
+                preparedPrototype,
+                commitAction
+        );
+        this.processingProposal = proposal;
+    }
+
     public long count() {
         return count;
+    }
+
+    public long requestedCount() {
+        return processingProposal == null ? count : processingProposal.requestedCrafts();
+    }
+
+    public long physicalCapacity() {
+        return processingProposal == null ? count : processingProposal.physicalCapacityCrafts();
     }
 
     public boolean hasTransferredInputOwnership() {

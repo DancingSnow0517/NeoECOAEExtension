@@ -80,6 +80,7 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     private final Map<ECOPatternSourceSlot, UUID> externalPatternClaims = new HashMap<>();
     private final Map<UUID, Set<ECOPatternSourceSlot>> externalPatternClaimsByOwner = new HashMap<>();
     private final Map<UUID, Long> externalPatternClaimTicks = new HashMap<>();
+    private long providerPublicationRevision;
 
     @Override
     public void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
@@ -228,6 +229,23 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     public long getPatternCapacityGeneration() {
         refreshPatternIndexes();
         return patternCapacityGeneration;
+    }
+
+    public long currentProviderPublicationRevision() {
+        return providerPublicationRevision;
+    }
+
+    public void captureProviderPublicationRevision(long capturedRevision) {
+        if (capturedRevision > providerPublicationRevision) {
+            providerPublicationRevision = capturedRevision;
+        }
+    }
+
+    public void onPatternStorageMutation(@Nullable IECOPatternStorage source) {
+        providerPublicationRevision = providerPublicationRevision == Long.MAX_VALUE
+                ? 1L
+                : providerPublicationRevision + 1L;
+        invalidateExternalPatternIndex();
     }
 
     @Override
