@@ -141,9 +141,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getMergedPatterns()
-            : getLocalAvailablePatterns();
+        // Each provider publishes only its local patterns to avoid N×M refresh cost.
+        // The cluster handles pattern deduplication and distribution separately.
+        return getLocalAvailablePatterns();
     }
 
     public List<IPatternDetails> getLocalAvailablePatterns() {
@@ -837,16 +837,26 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     /** Re-mount the provider after AE2 has completed a power or pathing transition. */
     private void queueCraftingProviderRefresh() {
-        if (!(level instanceof ServerLevel serverLevel) || craftingProviderRefreshQueued) {
+        if (!(level instanceof ServerLevel serverLevel)
+            || craftingProviderRefreshQueued
+            || isServerStopping()) {
             return;
         }
+
         craftingProviderRefreshQueued = true;
-        ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+        var server = serverLevel.getServer();
+        int targetTick = server.getTickCount() + 1;
+
+        server.tell(new TickTask(targetTick, () -> {
             craftingProviderRefreshQueued = false;
-            if (!isServerStopping() && !isRemoved() && getMainNode().isOnline()) {
+
+            if (!isServerStopping()
+                && !isRemoved()
+                && level == serverLevel
+                && getMainNode().isOnline()) {
                 ICraftingProvider.requestUpdate(getMainNode());
             }
-        });
+        }));
     }
 
     private void updatePatternDetails() {
@@ -880,13 +890,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 patternDetails.add(details);
             }
         }
+
+        // Schedule a single merged refresh for the entire cluster to avoid redundant updates.
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getNetworkCluster().getPatternBuses()) {
-                ICraftingProvider.requestUpdate(patternBus.getMainNode());
-            }
+            cluster.getNetworkCluster().queueProviderRefresh();
         } else {
             ICraftingProvider.requestUpdate(this.getMainNode());
         }
+
         // The interface search directory reads the decoded-slot cache above. Publish its completed revision,
         // rather than leaving a brief window where the visible stack and its keywords describe different patterns.
         notifyPatternInterfaceHosts();

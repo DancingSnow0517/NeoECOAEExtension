@@ -562,7 +562,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         List<ECOCraftingPatternBusBlockEntity> buses = new ArrayList<>();
         if (formed && supportsCraftingInterfaceUi() && grid != null) {
             buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
-            buses.removeIf(bus -> bus.getGrid() != grid || bus.isRemoved());
+            buses.removeIf(bus -> bus.getGrid() != grid || bus.isRemoved() || bus.getBlockPos() == null);
             buses.sort(Comparator.comparingLong(bus -> bus.getBlockPos().asLong()));
         }
 

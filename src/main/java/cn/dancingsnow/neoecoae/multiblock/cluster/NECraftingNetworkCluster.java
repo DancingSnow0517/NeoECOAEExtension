@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.crafting.IPatternDetails;
@@ -16,6 +17,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -57,6 +59,7 @@ public final class NECraftingNetworkCluster {
     private boolean overclocked;
     private boolean activeCooling;
     private long revision;
+    private transient boolean providerRefreshQueued;
 
     public NECraftingNetworkCluster(ServerLevel level) {
         this.level = level;
@@ -515,6 +518,32 @@ public final class NECraftingNetworkCluster {
             }
         }
         return List.copyOf(merged.values());
+    }
+
+    /** Queue a single merged provider refresh for the entire cluster in the next tick. */
+    public void queueProviderRefresh() {
+        if (providerRefreshQueued) {
+            return;
+        }
+        providerRefreshQueued = true;
+
+        var server = level.getServer();
+        if (server == null) {
+            providerRefreshQueued = false;
+            return;
+        }
+
+        int targetTick = server.getTickCount() + 1;
+        server.tell(new TickTask(targetTick, () -> {
+            providerRefreshQueued = false;
+
+            // Refresh all pattern buses in this cluster in a single batch
+            for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
+                if (!patternBus.isRemoved() && patternBus.getMainNode().isOnline()) {
+                    ICraftingProvider.requestUpdate(patternBus.getMainNode());
+                }
+            }
+        }));
     }
 
     public boolean tryPushPattern(

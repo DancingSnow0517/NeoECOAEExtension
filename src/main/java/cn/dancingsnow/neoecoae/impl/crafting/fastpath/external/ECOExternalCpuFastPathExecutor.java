@@ -79,14 +79,28 @@ public final class ECOExternalCpuFastPathExecutor {
                 if (finalOutput == null) {
                     continue;
                 }
-                long inFlightFinalOutput = job.waitingFor().extract(
+                long waitingForFinalOutput = job.waitingFor().extract(
                         finalOutput.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+                long bufferedAmount = job.bufferedFinalOutputAmount();
+                long inFlightFinalOutput = saturatingAdd(
+                        waitingForFinalOutput,
+                        bufferedAmount);
+                long remainingOutputAmount = job.remainingOutputAmount();
                 long requestedTaskRemaining = ECOBatchCraftingHelper.limitByFinalOutputDemand(
                         finalOutput,
-                        job.remainingOutputAmount(),
+                        remainingOutputAmount,
                         inFlightFinalOutput,
                         execution.expectedOutputs(),
                         taskRemaining);
+
+                // Debug logging for over-delivery investigation
+                if (requestedTaskRemaining != taskRemaining) {
+                    AELog.info("NeoECO FastPath limit: remainingOutput=%d waitingFor=%d buffered=%d inFlight=%d "
+                            + "taskRemaining=%d -> requestedTaskRemaining=%d pattern=%s",
+                            remainingOutputAmount, waitingForFinalOutput, bufferedAmount, inFlightFinalOutput,
+                            taskRemaining, requestedTaskRemaining, details.getClass().getSimpleName());
+                }
+
                 if (requestedTaskRemaining < 2L) {
                     continue;
                 }
@@ -230,6 +244,9 @@ public final class ECOExternalCpuFastPathExecutor {
                 ECOBatchCraftingHelper.insertAll(job.inventory(), reusablePlan.reusableInputs());
                 try {
                     recordExpectedOutputs(job, execution, reusablePlan, batchSize);
+                    // Debug logging for dispatch tracking
+                    AELog.info("NeoECO FastPath dispatched: batchSize=%d taskRemaining=%d->%d pattern=%s",
+                            batchSize, taskRemaining, remaining, details.getClass().getSimpleName());
                 } catch (RuntimeException accountingFailure) {
                     // The worker already owns the inputs. The task count must stay consumed so this
                     // physical batch cannot be scheduled twice, even if UI/output accounting fails.
@@ -334,6 +351,16 @@ public final class ECOExternalCpuFastPathExecutor {
             return 0L;
         }
         return value > Long.MAX_VALUE / multiplier ? Long.MAX_VALUE : value * multiplier;
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (left <= 0L) {
+            return Math.max(0L, right);
+        }
+        if (right <= 0L) {
+            return left;
+        }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     private record Selection(

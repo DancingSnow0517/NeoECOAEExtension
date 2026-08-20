@@ -69,6 +69,13 @@ public final class AE2ExternalCpuJobView implements ECOExternalCpuJobView {
         cluster.markDirty();
     }
 
+    @Override
+    public long bufferedFinalOutputAmount() {
+        // AE2 vanilla jobs don't buffer final output separately;
+        // completed items stay in waitingFor until delivered.
+        return 0L;
+    }
+
     private static final class TaskIterator implements Iterator<Task> {
         private final Iterator<Map.Entry<IPatternDetails, Object>> delegate;
 

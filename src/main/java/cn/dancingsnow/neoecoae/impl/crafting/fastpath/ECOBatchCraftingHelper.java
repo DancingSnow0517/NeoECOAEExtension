@@ -5,6 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.core.AELog;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.inv.ICraftingInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -163,6 +164,14 @@ public final class ECOBatchCraftingHelper {
             }
         }
         if (outputAmountPerCraft <= 0L) {
+            // BUG: No matching output found! The recipe doesn't produce the final output,
+            // or the matching logic is failing. Log this for debugging.
+            AELog.warn("NeoECO FastPath limitByFinalOutputDemand: outputAmountPerCraft=0! "
+                    + "finalOutput=%s remainingAmount=%d inFlightAmount=%d outputsPerCraft.size=%d requested=%d",
+                    finalOutput, remainingAmount, inFlightAmount, outputsPerCraft.size(), requested);
+            if (!outputsPerCraft.isEmpty()) {
+                AELog.warn("  First output: %s", outputsPerCraft.get(0));
+            }
             return requested;
         }
 
@@ -387,14 +396,30 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        insertAll((ICraftingInventory) inventory, stacks);
+        insertAll((ICraftingInventory) inventory, stacks, null);
     }
 
     public static void insertAll(ICraftingInventory inventory, List<GenericStack> stacks) {
+        insertAll(inventory, stacks, null);
+    }
+
+    /**
+     * Inserts all stacks into the inventory and optionally triggers inventory change events.
+     * @param inventory target inventory
+     * @param stacks stacks to insert
+     * @param changeCallback optional callback invoked for each inserted key to trigger scheduler wake-up
+     */
+    public static void insertAll(
+            ICraftingInventory inventory,
+            List<GenericStack> stacks,
+            java.util.function.Consumer<AEKey> changeCallback) {
         // ListCraftingInventory 是 CPU 的本地记账库存；向其插入是内存级别的回滚操作，
         // 预期不会像网络存储那样拒绝物品。
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
+            if (changeCallback != null) {
+                changeCallback.accept(stack.what());
+            }
         }
     }
 

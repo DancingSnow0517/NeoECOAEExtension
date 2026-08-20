@@ -744,6 +744,12 @@ public class ECOCraftingCPULogic {
                     // later fuzzy component variant. Keep those patterns on AE2's per-craft path.
                     boolean fuzzyBatchSafe = canBatchConfiguredFuzzyInputs(execution, job.fuzzyItemIds);
 
+                    // Apply final output demand limit for ALL batch dispatch paths (FastPath and fallback).
+                    // This prevents over-delivery when recipes produce multiple final items per craft.
+                    // The limit must be applied BEFORE any batch dispatch attempt.
+                    long maxNeededForFinalOutput = maxCraftsNeededForFinalOutput(execution);
+                    long limitedBatchTaskRemaining = Math.min(batchTaskRemaining, maxNeededForFinalOutput);
+
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
                     if (activeCpuTickTiming != null) {
@@ -764,7 +770,7 @@ public class ECOCraftingCPULogic {
                             patternBuses,
                             energyService,
                             patternPower,
-                            batchTaskRemaining,
+                            limitedBatchTaskRemaining,
                             job.fuzzyItemIds,
                             runtimeInputFallback)
                         : 0L;
@@ -833,7 +839,7 @@ public class ECOCraftingCPULogic {
                                 inventory,
                                 energyService,
                                 patternPower,
-                                batchTaskRemaining
+                                limitedBatchTaskRemaining
                             )
                             : ae2ltBatchBridge.tryPushFuzzyBatch(
                                 providers,
@@ -842,7 +848,7 @@ public class ECOCraftingCPULogic {
                                 inventory,
                                 energyService,
                                 patternPower,
-                                batchTaskRemaining,
+                                limitedBatchTaskRemaining,
                                 job.fuzzyItemIds
                             )
                         : 0;
@@ -916,7 +922,7 @@ public class ECOCraftingCPULogic {
                             inventory,
                             energyService,
                             patternPower,
-                            batchTaskRemaining,
+                            limitedBatchTaskRemaining,
                             job.fuzzyItemIds
                         )
                         : 0;
@@ -1004,7 +1010,7 @@ public class ECOCraftingCPULogic {
                                 provider,
                                 energyService,
                                 patternPower,
-                                batchTaskRemaining)
+                                limitedBatchTaskRemaining)
                             : 0L;
                         if (processingBatchResult > 0L) {
                             if (activeCpuTickTiming != null) {
@@ -1410,7 +1416,7 @@ public class ECOCraftingCPULogic {
             List<GenericStack> extractedExtraInputs,
             @Nullable ECOBatchEnergyReservation energyReservation) {
         if (extractedExtraInputs != null && !extractedExtraInputs.isEmpty()) {
-            ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs);
+            ECOBatchCraftingHelper.insertAll(inventory, extractedExtraInputs, this::postInventoryChange);
         }
         if (energyReservation != null) {
             RuntimeException refundFailure = energyReservation.refundSafely();
@@ -2637,6 +2643,13 @@ public class ECOCraftingCPULogic {
                 totalApplyMicros,
                 patternPrepareTiming
             );
+
+            // Debug logging for over-delivery investigation
+            if (NEConfig.debugEcoFastPath) {
+                AELog.info("NeoECO CPU FastPath dispatched: batchSize=%d taskRemaining=%d->%d requested=%d",
+                    batchSize, taskRemaining, taskRemaining - batchSize, requested);
+            }
+
             return batchSize;
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
@@ -2694,13 +2707,23 @@ public class ECOCraftingCPULogic {
             waitingForFinalOutput,
             job.bufferedFinalOutput.amount()
         );
-        return ECOBatchCraftingHelper.limitByFinalOutputDemand(
+
+        long maxNeeded = ECOBatchCraftingHelper.limitByFinalOutputDemand(
             job.finalOutput,
             job.remainingAmount,
             inFlightFinalOutput,
             execution.expectedOutputs(),
             Long.MAX_VALUE
         );
+
+        // Debug logging for over-delivery investigation
+        if (NEConfig.debugEcoFastPath && maxNeeded != Long.MAX_VALUE) {
+            AELog.info("NeoECO CPU maxCraftsNeededForFinalOutput: remainingAmount=%d waitingFor=%d buffered=%d inFlight=%d maxNeeded=%d",
+                job.remainingAmount, waitingForFinalOutput, job.bufferedFinalOutput.amount(),
+                inFlightFinalOutput, maxNeeded);
+        }
+
+        return maxNeeded;
     }
 
     private long finalOutputAmountPerCraft(List<GenericStack> outputsPerCraft) {
@@ -3065,7 +3088,7 @@ public class ECOCraftingCPULogic {
         }
 
         if (extraInputsExtracted) {
-            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs, this::postInventoryChange);
         }
     }
 
@@ -3149,7 +3172,7 @@ public class ECOCraftingCPULogic {
                 if (hasInFlightWorkerJob(acceptedJob.link.getCraftingID())) {
                     acceptedJob.markPendingAccountingOwnershipTransferred();
                 } else {
-                    ECOBatchCraftingHelper.insertAll(inventory, pending.rollbackInputs);
+                    ECOBatchCraftingHelper.insertAll(inventory, pending.rollbackInputs, this::postInventoryChange);
                     acceptedJob.clearPendingAccounting();
                     cpu.markDirty();
                     return true;
@@ -3170,6 +3193,8 @@ public class ECOCraftingCPULogic {
                 while (pending.returnedInputIndex < pending.returnedInputs.size()) {
                     GenericStack returned = pending.returnedInputs.get(pending.returnedInputIndex);
                     inventory.insert(returned.what(), returned.amount(), Actionable.MODULATE);
+                    // Trigger scheduler wake-up for returned reusable inputs
+                    postInventoryChange(returned.what());
                     pending.returnedInputIndex++;
                 }
                 pending.returnedInputsApplied = true;
@@ -3305,6 +3330,8 @@ public class ECOCraftingCPULogic {
         if (type == Actionable.MODULATE) {
             this.manualWaitingFor.extract(what, consumed, Actionable.MODULATE);
             this.inventory.insert(what, consumed, Actionable.MODULATE);
+            // Trigger scheduler wake-up for manual insertions
+            postInventoryChange(what);
             this.cpu.markDirty();
         }
         return accepted + consumed;
@@ -3352,6 +3379,8 @@ public class ECOCraftingCPULogic {
                 currentJob.waitingFor.extract(what, retained, Actionable.MODULATE);
                 inventory.insert(what, retained, Actionable.MODULATE);
                 currentJob.addRetainedFinalOutput(retained);
+                // Trigger scheduler wake-up for retained final output used as intermediate input
+                postInventoryChange(what);
             }
 
             long finalAmount = amount - retained;
@@ -3375,6 +3404,9 @@ public class ECOCraftingCPULogic {
         } else {
             if (type == Actionable.MODULATE) {
                 inventory.insert(what, amount, Actionable.MODULATE);
+                // Trigger scheduler wake-up so blocked downstream tasks can resume
+                postInventoryChange(what);
+                cpu.markDirty();
             }
         }
 
@@ -3452,6 +3484,13 @@ public class ECOCraftingCPULogic {
             return Math.max(0L, left);
         }
         return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
+    private static long saturatedMultiply(long value, long multiplier) {
+        if (value <= 0L || multiplier <= 0L) {
+            return 0L;
+        }
+        return value > Long.MAX_VALUE / multiplier ? Long.MAX_VALUE : value * multiplier;
     }
 
     private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
@@ -3573,10 +3612,10 @@ public class ECOCraftingCPULogic {
         if (pending != null) {
             if (pending.ownershipTransferred) {
                 if (!pending.returnedInputsApplied) {
-                    ECOBatchCraftingHelper.insertAll(inventory, pending.returnedInputs);
+                    ECOBatchCraftingHelper.insertAll(inventory, pending.returnedInputs, this::postInventoryChange);
                 }
             } else {
-                ECOBatchCraftingHelper.insertAll(inventory, pending.rollbackInputs);
+                ECOBatchCraftingHelper.insertAll(inventory, pending.rollbackInputs, this::postInventoryChange);
             }
             job.clearPendingAccounting();
             cpu.markDirty();
@@ -3868,13 +3907,20 @@ public class ECOCraftingCPULogic {
      */
     public static JobOutputDelivery deliverJobOutput(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         ECOCraftingCPULogic logic = JOB_OUTPUT_ROUTES.get(craftingJobId);
-        if (logic != null && logic.job != null && craftingJobId.equals(logic.job.link.getCraftingID())) {
-            long inserted = logic.insert(what, amount, type);
-            return new JobOutputDelivery(
-                true,
-                inserted,
-                logic.job.pendingAccounting() != null && type == Actionable.MODULATE && inserted <= 0L
-            );
+        if (logic != null) {
+            ExecutingCraftingJob routedJob = logic.job;
+            if (routedJob != null && craftingJobId.equals(routedJob.link.getCraftingID())) {
+                long inserted = logic.insert(what, amount, type);
+                // CRITICAL: Check inserted amount FIRST before accessing logic.job again.
+                // If inserted > 0, the CPU successfully took ownership and the delivery succeeded,
+                // regardless of whether insert() triggered finishJob() and set logic.job to null.
+                // Only retry if nothing was inserted AND the job still exists with pending accounting.
+                boolean retryLater = inserted <= 0L
+                    && type == Actionable.MODULATE
+                    && logic.job == routedJob
+                    && routedJob.pendingAccounting() != null;
+                return new JobOutputDelivery(true, inserted, retryLater);
+            }
         }
         if (logic != null) {
             JOB_OUTPUT_ROUTES.remove(craftingJobId, logic);

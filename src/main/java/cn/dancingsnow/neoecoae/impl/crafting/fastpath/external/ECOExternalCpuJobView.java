@@ -24,6 +24,14 @@ public interface ECOExternalCpuJobView {
 
     void markDirty();
 
+    /**
+     * Returns the amount of final output items that have been completed by workers
+     * and accepted into a delivery buffer, but not yet delivered to the requester.
+     * This is used together with waitingFor() to calculate the total in-flight amount
+     * for limiting batch dispatch.
+     */
+    long bufferedFinalOutputAmount();
+
     interface Task {
         IPatternDetails details();
 
