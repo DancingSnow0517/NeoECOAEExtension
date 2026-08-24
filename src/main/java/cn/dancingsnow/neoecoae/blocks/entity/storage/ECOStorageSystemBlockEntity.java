@@ -42,7 +42,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
-import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -50,6 +49,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -785,7 +785,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (remaining <= 0L) {
                     break;
                 }
-                long inserted = simulateInsertForMigration(target.simulatedCell(), key, remaining, target.simulatedContents());
+                long inserted =
+                        simulateInsertForMigration(target.simulatedCell(), key, remaining, target.simulatedContents());
                 if (inserted > 0L) {
                     target.simulatedContents().add(key, inserted);
                     remaining -= inserted;

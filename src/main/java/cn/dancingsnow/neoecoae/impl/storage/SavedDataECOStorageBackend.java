@@ -26,8 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Minecraft-native persistence for one ordinary ECO storage cell. */
-final class SavedDataECOStorageBackend extends SavedData
-        implements ECOStorageBackend, ECOSavedDataPersistence.Backend {
+final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBackend, ECOSavedDataPersistence.Backend {
     private static final Logger LOGGER = LoggerFactory.getLogger(SavedDataECOStorageBackend.class);
 
     private static final int FORMAT_VERSION = 1;
