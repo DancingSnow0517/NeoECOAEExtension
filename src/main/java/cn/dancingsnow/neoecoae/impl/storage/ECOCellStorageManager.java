@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -31,7 +30,6 @@ import org.slf4j.LoggerFactory;
  */
 public final class ECOCellStorageManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOCellStorageManager.class);
-    private static final long PERSISTENCE_PROBE_INTERVAL_TICKS = 200L;
     private static final String SAVED_DATA_DIRECTORY = "neoecoae_cells";
     private static final String LEGACY_DIRECTORY = "neoecoae";
     private static final String LEGACY_ARCHIVE_DIRECTORY = "neoecoae_cell_storage_v1_archive";
@@ -40,7 +38,6 @@ public final class ECOCellStorageManager {
     private static final Map<UUID, SavedDataECOStorageBackend> CELLS = new HashMap<>();
     private static final Map<UUID, ISaveProvider> OWNERS = new HashMap<>();
     private static final Map<ISaveProvider, UUID> OWNER_IDS = new IdentityHashMap<>();
-    private static long lastPersistenceProbeTick = Long.MIN_VALUE;
 
     private ECOCellStorageManager() {}
 
@@ -146,37 +143,15 @@ public final class ECOCellStorageManager {
 
     /** SavedData is recovered by Minecraft before cells are mounted; there is no ordinary-cell WAL to replay. */
     public static synchronized void onServerStarted(MinecraftServer server) {
+        ECOSavedDataPersistence.clear();
         CELLS.clear();
         OWNERS.clear();
         OWNER_IDS.clear();
-        lastPersistenceProbeTick = Long.MIN_VALUE;
-    }
-
-    /** Compatibility hook retained for the shared lifecycle event. */
-    public static synchronized void awaitPreviousTick() {}
-
-    /** Periodically persists and read-back verifies dirty open cells between normal world saves. */
-    public static synchronized void tick() {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
-            return;
-        }
-        long gameTime = server.overworld().getGameTime();
-        if (lastPersistenceProbeTick != Long.MIN_VALUE
-                && gameTime - lastPersistenceProbeTick < PERSISTENCE_PROBE_INTERVAL_TICKS) {
-            return;
-        }
-        lastPersistenceProbeTick = gameTime;
-        for (SavedDataECOStorageBackend backend : new ArrayList<>(CELLS.values())) {
-            backend.flushBudgeted(0L);
-        }
     }
 
     /** Flushes the open ordinary-cell SavedData records. The old time budget is not needed by SavedData. */
     public static synchronized void flushBudgeted(long maxNanos) {
-        for (SavedDataECOStorageBackend backend : new ArrayList<>(CELLS.values())) {
-            backend.flushAndAwait();
-        }
+        ECOSavedDataPersistence.flushAll();
     }
 
     public static synchronized void closeAll() {
@@ -186,7 +161,6 @@ public final class ECOCellStorageManager {
             CELLS.clear();
             OWNERS.clear();
             OWNER_IDS.clear();
-            lastPersistenceProbeTick = Long.MIN_VALUE;
         }
     }
 
@@ -389,6 +363,7 @@ public final class ECOCellStorageManager {
         SavedDataECOStorageBackend backend = CELLS.remove(id);
         if (backend != null) {
             backend.closeAndFlush();
+            ECOSavedDataPersistence.unregister(backend);
         }
     }
 

@@ -26,7 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Minecraft-native persistence for one ordinary ECO storage cell. */
-final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBackend {
+final class SavedDataECOStorageBackend extends SavedData
+        implements ECOStorageBackend, ECOSavedDataPersistence.Backend {
     private static final Logger LOGGER = LoggerFactory.getLogger(SavedDataECOStorageBackend.class);
 
     private static final int FORMAT_VERSION = 1;
@@ -50,7 +51,6 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     private long storedAmount;
     private int storedTypes;
     private long revision;
-    private long lastVerifiedRevision;
     private boolean degraded;
 
     @Nullable private String failureReason;
@@ -63,6 +63,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         this.storageId = storageId;
         this.dataStorage = dataStorage;
         this.dataFile = dataFile.toAbsolutePath().normalize();
+        ECOSavedDataPersistence.register(this);
     }
 
     static SavedDataECOStorageBackend createNew(UUID storageId, DimensionDataStorage dataStorage, Path dataFile) {
@@ -76,7 +77,6 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         backend.amounts.putAll(parsed.amounts());
         backend.encodedKeys.putAll(parsed.encodedKeys());
         backend.revision = parsed.revision();
-        backend.lastVerifiedRevision = parsed.revision();
         backend.legacyFingerprint = parsed.legacyFingerprint();
         backend.lastSerializedSnapshot = tag.copy();
         backend.rebuildIndexes();
@@ -106,7 +106,6 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         replaceContents(snapshot.amounts());
         revision = Math.max(0L, snapshot.revision());
         legacyFingerprint = snapshot.sourceFingerprint();
-        lastVerifiedRevision = revision;
         setDirty();
     }
 
@@ -259,7 +258,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     @Override
     public synchronized boolean flushBudgeted(long maxNanos) {
-        boolean pending = !degraded && revision != lastVerifiedRevision;
+        boolean pending = !degraded && isDirty();
         if (pending) {
             flushAndAwait();
         }
@@ -270,14 +269,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         if (degraded) {
             return;
         }
-        try {
-            Files.createDirectories(dataFile.getParent());
-            dataStorage.save();
-            verifyDiskSnapshot();
-            lastVerifiedRevision = revision;
-        } catch (Exception e) {
-            quarantine("Unable to persist and verify ECO storage SavedData", e);
-        }
+        ECOSavedDataPersistence.flush(this);
     }
 
     @Override
@@ -312,6 +304,31 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         tag.put(TAG_ENTRIES, entries);
         lastSerializedSnapshot = tag.copy();
         return tag;
+    }
+
+    @Override
+    public synchronized DimensionDataStorage dataStorage() {
+        return dataStorage;
+    }
+
+    @Override
+    public synchronized boolean needsPersistence() {
+        return !degraded && isDirty();
+    }
+
+    @Override
+    public synchronized void preparePersistence() throws Exception {
+        Files.createDirectories(dataFile.getParent());
+    }
+
+    @Override
+    public synchronized void verifyPersistence() throws Exception {
+        verifyDiskSnapshot();
+    }
+
+    @Override
+    public synchronized void persistenceFailed(Exception cause) {
+        quarantine("Unable to persist and verify ECO storage SavedData", cause);
     }
 
     private boolean canOperate(@Nullable AEKey key, long amount) {

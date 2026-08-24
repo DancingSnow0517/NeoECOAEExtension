@@ -1,7 +1,11 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
+import appeng.api.storage.cells.ISaveProvider;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +32,34 @@ class ECOUniversalStorageCellCapacityTest {
     @Test
     void anAlreadyOverCapacityCellAcceptsNothing() {
         assertEquals(0L, ECOUniversalStorageCell.calculateRemainingAmount(10L, 11L, 3L, 4L));
+    }
+
+    @Test
+    void onlyAnEmptyUniversalCellCanFitInsideAnotherCell() {
+        assertTrue(ECOUniversalStorageCell.isEmptyStorage(0L));
+        assertFalse(ECOUniversalStorageCell.isEmptyStorage(1L));
+    }
+
+    @Test
+    void rewrittenUniversalCellIdIsRejected() {
+        assertTrue(ECOUniversalCellHandler.isStorageIdStable("", "generated"));
+        assertTrue(ECOUniversalCellHandler.isStorageIdStable("same", "same"));
+        assertFalse(ECOUniversalCellHandler.isStorageIdStable("original", "generated"));
+    }
+
+    @Test
+    void removedBatchedHostCanReleaseItsRuntimeClaim() {
+        ISaveProvider removedHost = new IBatchedECOCellSaveProvider() {
+            @Override
+            public boolean isHostRemoved() {
+                return true;
+            }
+
+            @Override
+            public void saveChanges() {}
+        };
+
+        assertTrue(ECOUniversalCellHandler.isDeadHost(removedHost));
     }
 
     private static Long2LongOpenHashMap buckets(long... values) {

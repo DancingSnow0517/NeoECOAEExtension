@@ -168,14 +168,6 @@ public final class ECOInfiniteStorageDomains {
         // another controller still references; normal autosaves and closeAll() own persistence.
     }
 
-    /** Runs a low-frequency read-back probe for an already-open domain without creating one. */
-    public static synchronized void pollPersistence(ServerLevel level, UUID domainId, long gameTime) {
-        DomainEntry entry = ENTRIES.get(keyFor(worldRoot(level), domainId));
-        if (entry != null) {
-            entry.pollPersistence(gameTime);
-        }
-    }
-
     /**
      * Explicitly replays an archived V1 domain after an administrator has confirmed the recovery.
      * Startup discovery intentionally refuses this path so a missing V2 file cannot silently roll back.
@@ -204,18 +196,6 @@ public final class ECOInfiniteStorageDomains {
             }
         } finally {
             ENTRIES.clear();
-        }
-    }
-
-    /** SavedData has no per-tick write queue, so these compatibility hooks are intentionally no-ops. */
-    public static synchronized void awaitPreviousTick() {}
-
-    public static synchronized void flushTick() {}
-
-    /** Saves and verifies open domains before an explicit level save or server shutdown. */
-    public static synchronized void flushAll() {
-        for (DomainEntry entry : ENTRIES.values()) {
-            entry.flushAndAwait();
         }
     }
 
@@ -529,12 +509,6 @@ public final class ECOInfiniteStorageDomains {
             }
             migrationFuture = null;
             return false;
-        }
-
-        private synchronized void pollPersistence(long gameTime) {
-            if (delegate != null) {
-                delegate.pollPersistence(gameTime);
-            }
         }
 
         private void tryDiscardWorkingCopy() {

@@ -97,7 +97,50 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return delegate.canFitInsideCell();
+        // OmniCells' delegate reports true unconditionally, which would let a fully loaded disk be disassembled
+        // (stranding its SavedData contents behind a consumed UUID) or nested inside another cell. Mirror the
+        // native ECO cell semantics instead: only an empty universal disk may be dismantled or nested.
+        KeyCounter available = new KeyCounter();
+        delegate.getAvailableStacks(available);
+        return isEmptyStorage(available.size());
+    }
+
+    static boolean isEmptyStorage(long storedTypes) {
+        return storedTypes == 0L;
+    }
+
+    /** Clears the SavedData-backed source only after its contents were durably copied into an infinite domain. */
+    public boolean clearAllStoredStacksForMigration() {
+        KeyCounter available = new KeyCounter();
+        delegate.getAvailableStacks(available);
+        for (var entry : available) {
+            long amount = entry.getLongValue();
+            if (amount > 0L
+                    && delegate.extract(entry.getKey(), amount, Actionable.MODULATE, IActionSource.empty()) != amount) {
+                return false;
+            }
+        }
+        delegate.persist();
+        return true;
+    }
+
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+        if (amount <= 0L) {
+            return 0L;
+        }
+        StorageSnapshot current = snapshot(simulatedContents);
+        long currentAmount = current.amounts().get(what);
+        if (currentAmount <= 0L && item.getTotalTypes() >= 0 && current.storedTypes() >= item.getTotalTypes()) {
+            return 0L;
+        }
+        long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
+        long capacity = calculateRemainingAmount(
+                getTotalBytes(), current.usedBytes(), current.bucketSums().get(amountPerByte), amountPerByte);
+        return Math.min(amount, capacity);
+    }
+
+    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
+        return snapshot(simulatedContents).usedBytes();
     }
 
     @Override
@@ -185,7 +228,10 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
     private StorageSnapshot snapshot() {
         KeyCounter available = new KeyCounter();
         delegate.getAvailableStacks(available);
+        return snapshot(available);
+    }
 
+    private static StorageSnapshot snapshot(KeyCounter available) {
         Long2LongOpenHashMap bucketSums = new Long2LongOpenHashMap();
         bucketSums.defaultReturnValue(0L);
         long storedTypes = 0L;

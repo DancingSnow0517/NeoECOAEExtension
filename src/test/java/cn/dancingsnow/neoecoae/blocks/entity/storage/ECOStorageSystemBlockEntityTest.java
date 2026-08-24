@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.jupiter.api.Test;
 
@@ -12,5 +13,10 @@ class ECOStorageSystemBlockEntityTest {
         assertEquals(100, ECOStorageSystemBlockEntity.migrationProgressPercent(16, 16));
         assertEquals(100, ECOStorageSystemBlockEntity.migrationProgressPercent(20, 16));
         assertEquals(0, ECOStorageSystemBlockEntity.migrationProgressPercent(1, 0));
+    }
+
+    @Test
+    void missingCellIsNotAnInfiniteMigrationCandidate() {
+        assertFalse(ECOStorageSystemBlockEntity.isInfiniteMigrationCandidate(null));
     }
 }

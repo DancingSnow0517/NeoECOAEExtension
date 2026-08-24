@@ -91,8 +91,6 @@ public class NeoECOAE {
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageCommands::register);
-        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
-        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NELightningTransformEvents::onEntityJoinLevel);
     }

@@ -226,7 +226,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
         if (!level.isClientSide) {
             ECOStorageCell cellInventory = getCellInventory(stack);
-            if (cellInventory != null && !cellInventory.canFitInsideCell()) {
+            // Fail closed: do not consume a cell if its contents cannot be opened and verified as empty.
+            if (cellInventory == null || !cellInventory.canFitInsideCell()) {
                 player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
                 return false;
             }

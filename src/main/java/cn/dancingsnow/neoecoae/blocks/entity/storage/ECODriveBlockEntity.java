@@ -42,7 +42,17 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
     private LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
-    private final IBatchedECOCellSaveProvider cellSaveProvider = this::markCellContentDirty;
+    private final IBatchedECOCellSaveProvider cellSaveProvider = new IBatchedECOCellSaveProvider() {
+        @Override
+        public void saveChanges() {
+            markCellContentDirty();
+        }
+
+        @Override
+        public boolean isHostRemoved() {
+            return ECODriveBlockEntity.this.isRemoved();
+        }
+    };
 
     @Nullable private ItemStack cellStack = null;
 

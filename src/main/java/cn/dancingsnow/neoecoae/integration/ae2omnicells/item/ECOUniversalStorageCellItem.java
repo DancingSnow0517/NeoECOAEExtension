@@ -172,7 +172,9 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
 
         if (!level.isClientSide) {
             IECOStorageCell cellInventory = ECOStorageCells.getCellInventory(stack, null);
-            if (cellInventory != null && !cellInventory.canFitInsideCell()) {
+            // A missing inventory can mean a rejected/failed SavedData lookup. Consuming the item in that state
+            // would discard its UUID and make any recoverable OmniCells data permanently unreachable.
+            if (cellInventory == null || !cellInventory.canFitInsideCell()) {
                 player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
                 return false;
             }

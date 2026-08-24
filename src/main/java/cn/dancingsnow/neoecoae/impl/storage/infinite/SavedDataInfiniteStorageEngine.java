@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -38,7 +39,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Minecraft-native V2 infinite storage. One instance is stored in one SavedData file. */
-final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfiniteStorageEngine {
+final class SavedDataInfiniteStorageEngine extends SavedData
+        implements ECOInfiniteStorageEngine, ECOSavedDataPersistence.Backend {
     private static final Logger LOGGER = LoggerFactory.getLogger(SavedDataInfiniteStorageEngine.class);
     private static final int FORMAT_VERSION = 2;
     private static final String TAG_FORMAT = "format";
@@ -56,7 +58,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private static final ResourceLocation AE2_MISSING_CONTENT =
             ResourceLocation.fromNamespaceAndPath("ae2", "missing_content");
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
-    private static final long PERSISTENCE_PROBE_INTERVAL_TICKS = 200L;
 
     private final UUID domainId;
     private final DimensionDataStorage dataStorage;
@@ -88,8 +89,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private boolean storedAmountSnapshotDirty;
     private boolean typeStatsSnapshotDirty = true;
     private boolean hugeStacksSnapshotDirty = true;
-    private long lastPersistenceProbeTick = Long.MIN_VALUE;
-    private long lastVerifiedRevision;
 
     @Nullable private CompoundTag lastSerializedSnapshot;
 
@@ -97,6 +96,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         this.domainId = domainId;
         this.dataStorage = dataStorage;
         this.dataFile = dataFile.toAbsolutePath().normalize();
+        ECOSavedDataPersistence.register(this);
     }
 
     static SavedDataInfiniteStorageEngine createNew(UUID domainId, DimensionDataStorage dataStorage, Path dataFile) {
@@ -115,7 +115,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         engine.legacyTransferReceipts.addAll(parsed.legacyTransferReceipts());
         engine.transferReceipts.putAll(parsed.transferReceipts());
         engine.revision = parsed.revision();
-        engine.lastVerifiedRevision = parsed.revision();
         engine.legacyFingerprint = parsed.legacyFingerprint();
         engine.acknowledgedOrphanedFingerprint = parsed.acknowledgedOrphanedFingerprint();
         engine.lastSerializedSnapshot = tag.copy();
@@ -161,7 +160,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         legacyTransferReceipts.addAll(importedReceipts);
         legacyFingerprint = sourceFingerprint;
         revision = Math.max(0L, importedRevision);
-        lastVerifiedRevision = revision;
         rebuildIndexes();
         setDirty();
     }
@@ -417,26 +415,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         if (state != ECOInfiniteDomainState.READY) {
             return;
         }
-        try {
-            Files.createDirectories(dataFile.getParent());
-            dataStorage.save();
-            verifyDiskSnapshot();
-            lastVerifiedRevision = revision;
-        } catch (Exception e) {
-            quarantine("Unable to persist and verify infinite-storage domain", e);
-        }
-    }
-
-    synchronized void pollPersistence(long gameTime) {
-        if (state != ECOInfiniteDomainState.READY || revision == lastVerifiedRevision) {
-            return;
-        }
-        if (lastPersistenceProbeTick != Long.MIN_VALUE
-                && gameTime - lastPersistenceProbeTick < PERSISTENCE_PROBE_INTERVAL_TICKS) {
-            return;
-        }
-        lastPersistenceProbeTick = gameTime;
-        flushAndAwait();
+        ECOSavedDataPersistence.flush(this);
     }
 
     @Override
@@ -449,7 +428,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         }
     }
 
-    /** Re-enables a cleanly closed runtime instance and verifies its persisted snapshot. */
+    /** Re-enables a runtime instance that was cleanly closed after its last successful verification. */
     synchronized boolean reopenAndVerify() {
         if (state != ECOInfiniteDomainState.CLOSED) {
             return state == ECOInfiniteDomainState.READY;
@@ -525,6 +504,31 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         tag.put(TAG_RECEIPTS, receipts);
         lastSerializedSnapshot = tag.copy();
         return tag;
+    }
+
+    @Override
+    public synchronized DimensionDataStorage dataStorage() {
+        return dataStorage;
+    }
+
+    @Override
+    public synchronized boolean needsPersistence() {
+        return state == ECOInfiniteDomainState.READY && isDirty();
+    }
+
+    @Override
+    public synchronized void preparePersistence() throws Exception {
+        Files.createDirectories(dataFile.getParent());
+    }
+
+    @Override
+    public synchronized void verifyPersistence() throws Exception {
+        verifyDiskSnapshot();
+    }
+
+    @Override
+    public synchronized void persistenceFailed(Exception cause) {
+        quarantine("Unable to persist and verify infinite-storage domain", cause);
     }
 
     private boolean canOperate(@Nullable AEKey key, long amount) {

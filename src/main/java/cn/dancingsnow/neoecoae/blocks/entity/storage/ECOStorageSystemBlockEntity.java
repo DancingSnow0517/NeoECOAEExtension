@@ -42,6 +42,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -267,9 +268,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         try {
             updateInfiniteStorageMode();
             flushInfiniteEngineBudgeted();
-            if (level instanceof ServerLevel serverLevel && infiniteDomainId != null) {
-                ECOInfiniteStorageDomains.pollPersistence(serverLevel, infiniteDomainId, level.getGameTime());
-            }
             long transferred = transferStorageInterfaceContents();
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
@@ -562,7 +560,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         int count = 0;
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             IECOStorageCell cell = drive.getCellInventory();
-            if (cell != null && cell.getTier() == ECOTier.L9) {
+            if (isInfiniteMigrationCandidate(cell)) {
                 count++;
             }
         }
@@ -596,15 +594,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell cell = drive.getCellInventory();
-            if (stack == null || stack.isEmpty() || cell == null || cell.getTier() != ECOTier.L9) {
+            if (stack == null || stack.isEmpty() || !isInfiniteMigrationCandidate(cell)) {
                 continue;
             }
             if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                 continue;
             }
             hasPending = true;
-            migrateDriveToDomain(drive, cell, engine, domainId);
-            migratedAny = true;
+            migratedAny = migrateDriveToDomain(drive, cell, engine, domainId);
             break;
         }
         if (!hasPending && countInfiniteMembers() >= getInfiniteMemberRequirement()) {
@@ -619,11 +616,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
-    private void migrateDriveToDomain(
+    private boolean migrateDriveToDomain(
             ECODriveBlockEntity drive, IECOStorageCell cell, ECOInfiniteStorageEngine engine, UUID domainId) {
         ItemStack sourceStack = drive.getCellStack();
         if (sourceStack == null || sourceStack.isEmpty()) {
-            return;
+            return false;
         }
         // A stable matrix identity survives block replacement and retry after an interrupted migration.
         ECOInfiniteStorageMember.ensureMatrixId(sourceStack);
@@ -659,10 +656,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     "Unable to durably migrate ECO storage matrix at {} into infinite domain {}; keeping source cell",
                     drive.getBlockPos(),
                     domainId);
-            return;
+            return false;
         }
-        if (cell instanceof ECOStorageCell storageCell) {
-            storageCell.clearAllStoredStacks();
+        if (!clearMigratedCell(cell)) {
+            LOGGER.error(
+                    "Unable to clear migrated ECO storage matrix at {}; keeping it out of infinite mode to avoid duplication",
+                    drive.getBlockPos());
+            return false;
         }
         drive.convertCellToInfiniteMember(domainId);
         drive.requestStorageProviderUpdate();
@@ -671,6 +671,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         setChanged();
         engine.flushAndAwait();
         ECOCellStorageManager.flushBudgeted(0L);
+        return true;
+    }
+
+    static boolean isInfiniteMigrationCandidate(@Nullable IECOStorageCell cell) {
+        return (cell instanceof ECOStorageCell || cell instanceof ECOUniversalStorageCell)
+                && cell.getTier() == ECOTier.L9;
+    }
+
+    private static boolean clearMigratedCell(IECOStorageCell cell) {
+        if (cell instanceof ECOStorageCell storageCell) {
+            storageCell.clearAllStoredStacks();
+            return true;
+        }
+        return cell instanceof ECOUniversalStorageCell universalCell
+                && universalCell.clearAllStoredStacksForMigration();
     }
 
     private UUID migrationTransactionId(
@@ -770,8 +785,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (remaining <= 0L) {
                     break;
                 }
-                long inserted =
-                        target.simulatedCell().simulateInsertForMigration(key, remaining, target.simulatedContents());
+                long inserted = simulateInsertForMigration(target.simulatedCell(), key, remaining, target.simulatedContents());
                 if (inserted > 0L) {
                     target.simulatedContents().add(key, inserted);
                     remaining -= inserted;
@@ -811,13 +825,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             ItemStack simulationStack = stack.copy();
             ECOInfiniteStorageMember.clearMember(simulationStack);
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
-            if (!(simulatedCell instanceof ECOStorageCell ecoCell) || ecoCell.getTier() != ECOTier.L9) {
+            if (!isInfiniteMigrationCandidate(simulatedCell)) {
                 continue;
             }
-            ecoCell.ensureRuntimeLoaded();
+            if (simulatedCell instanceof ECOStorageCell ecoCell) {
+                ecoCell.ensureRuntimeLoaded();
+            }
             KeyCounter simulatedContents = new KeyCounter();
-            ecoCell.getAvailableStacks(simulatedContents);
-            targets.add(new RestoreTarget(drive, ecoCell, simulatedContents));
+            simulatedCell.getAvailableStacks(simulatedContents);
+            targets.add(new RestoreTarget(drive, simulatedCell, simulatedContents));
         }
         return targets;
     }
@@ -826,7 +842,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long used = 0L;
         long total = 0L;
         for (RestoreTarget target : targets) {
-            used = saturatedAdd(used, target.simulatedCell().getUsedBytesForMigration(target.simulatedContents()));
+            used = saturatedAdd(used, getUsedBytesForMigration(target.simulatedCell(), target.simulatedContents()));
             total = saturatedAdd(total, target.simulatedCell().getTotalBytes());
         }
         if (total <= 0L) {
@@ -871,7 +887,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             long original = remaining;
             for (RestoreTarget target : plan.targets()) {
                 IECOStorageCell cell = target.drive().getCellInventory();
-                if (!(cell instanceof ECOStorageCell ecoCell)) {
+                if (cell == null) {
                     continue;
                 }
                 UUID transactionId =
@@ -885,7 +901,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
                 long inserted;
                 if (receipt != null) {
-                    if (receipt.amount() > remaining || !restoreReceiptMatches(ecoCell, key, receipt)) {
+                    if (receipt.amount() > remaining || !restoreReceiptMatches(cell, key, receipt)) {
                         LOGGER.error(
                                 "Restore receipt no longer matches matrix {}",
                                 target.drive().getBlockPos());
@@ -893,9 +909,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     }
                     inserted = receipt.amount();
                 } else {
-                    inserted = insertForRestore(ecoCell, key, remaining, Actionable.MODULATE, source);
+                    inserted = insertForRestore(cell, key, remaining, Actionable.MODULATE, source);
                     if (inserted > 0L) {
-                        long postAmount = getCellStoredAmount(ecoCell, key);
+                        long postAmount = getCellStoredAmount(cell, key);
                         if (postAmount < inserted) {
                             LOGGER.error(
                                     "Unable to verify restore write in matrix {}",
@@ -1045,12 +1061,33 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return restored;
     }
 
-    private long insertForRestore(ECOStorageCell cell, AEKey key, long amount, Actionable mode, IActionSource source) {
-        return cell.insertForMigration(key, amount, mode);
+    private long simulateInsertForMigration(
+            IECOStorageCell cell, AEKey key, long amount, KeyCounter simulatedContents) {
+        if (cell instanceof ECOStorageCell storageCell) {
+            return storageCell.simulateInsertForMigration(key, amount, simulatedContents);
+        }
+        return cell instanceof ECOUniversalStorageCell universalCell
+                ? universalCell.simulateInsertForMigration(key, amount, simulatedContents)
+                : 0L;
+    }
+
+    private long getUsedBytesForMigration(IECOStorageCell cell, KeyCounter simulatedContents) {
+        if (cell instanceof ECOStorageCell storageCell) {
+            return storageCell.getUsedBytesForMigration(simulatedContents);
+        }
+        return cell instanceof ECOUniversalStorageCell universalCell
+                ? universalCell.getUsedBytesForMigration(simulatedContents)
+                : Long.MAX_VALUE;
+    }
+
+    private long insertForRestore(IECOStorageCell cell, AEKey key, long amount, Actionable mode, IActionSource source) {
+        return cell instanceof ECOStorageCell storageCell
+                ? storageCell.insertForMigration(key, amount, mode)
+                : cell.insert(key, amount, mode, source);
     }
 
     private record RestoreTarget(
-            ECODriveBlockEntity drive, ECOStorageCell simulatedCell, KeyCounter simulatedContents) {}
+            ECODriveBlockEntity drive, IECOStorageCell simulatedCell, KeyCounter simulatedContents) {}
 
     private record RestorePlan(boolean canRestore, List<RestoreTarget> targets, long engineRevision, String reason) {
         private static RestorePlan allowed(List<RestoreTarget> targets, long engineRevision) {
