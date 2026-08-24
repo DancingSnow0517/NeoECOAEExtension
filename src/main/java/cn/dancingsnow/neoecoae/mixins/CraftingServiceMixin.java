@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Future;
 import net.minecraft.world.level.Level;
@@ -49,10 +50,18 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
     private Set<AEKey> currentlyCrafting;
 
     @Shadow
+    private long lastProcessedCraftingLogicChangeTick;
+
+    @Shadow
     private boolean updateList;
 
     @Shadow
     public abstract void addLink(CraftingLink link);
+
+    /** ECO CPUs are ticked before AE2's own crafting bookkeeping runs. */
+    private Set<AEKey> neoecoae$pendingComputationCrafting = Set.of();
+
+    private Set<AEKey> neoecoae$lastComputationCrafting = Set.of();
 
     @Override
     public boolean isBatchFairSchedulingEnabled() {
@@ -142,10 +151,25 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
 
     @Inject(method = "onServerEndTick", at = @At("HEAD"))
     private void neoecoae$tickComputationCpus(CallbackInfo ci) {
+        Set<AEKey> computationCrafting = new HashSet<>();
         if (NeoECOCraftingServiceBridge.tickComputationCpus(
-                (CraftingService) (Object) this, this.grid, this.energyGrid, this.currentlyCrafting)) {
+                (CraftingService) (Object) this, this.grid, this.energyGrid, computationCrafting)) {
             this.updateList = true;
         }
+        this.neoecoae$pendingComputationCrafting = Set.copyOf(computationCrafting);
+        if (!this.neoecoae$lastComputationCrafting.equals(computationCrafting)) {
+            // Make AE2 rebuild currentlyCrafting and notify its CraftingWatcher instances.
+            this.lastProcessedCraftingLogicChangeTick = Long.MIN_VALUE;
+        }
+        this.neoecoae$lastComputationCrafting = this.neoecoae$pendingComputationCrafting;
+    }
+
+    @Inject(
+            method = "onServerEndTick",
+            at = @At(value = "INVOKE", target = "java/util/Set.clear()V", ordinal = 0, shift = At.Shift.AFTER))
+    private void neoecoae$mergeComputationCrafting(CallbackInfo ci) {
+        // This is immediately after AE2 clears currentlyCrafting and before it rebuilds the vanilla CPU entries.
+        this.currentlyCrafting.addAll(this.neoecoae$pendingComputationCrafting);
     }
 
     @Inject(

@@ -54,7 +54,7 @@ public final class NeoECOCraftingServiceBridge {
     }
 
     public static boolean tickComputationCpus(
-            CraftingService service, IGrid grid, IEnergyService energyGrid, Set<AEKey> currentlyCrafting) {
+            CraftingService service, IGrid grid, IEnergyService energyGrid, Set<AEKey> computationCrafting) {
         boolean changed = false;
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
             for (ECOCraftingCPU cpu : cluster.getActiveCPUs(grid)) {
@@ -69,7 +69,7 @@ public final class NeoECOCraftingServiceBridge {
                     changed = true;
                 }
 
-                cpu.getLogic().getAllWaitingFor(currentlyCrafting);
+                cpu.getLogic().getAllWaitingFor(computationCrafting);
             }
         }
         return changed;
