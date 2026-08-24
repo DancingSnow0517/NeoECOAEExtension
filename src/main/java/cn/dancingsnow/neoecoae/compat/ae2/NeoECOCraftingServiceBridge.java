@@ -97,6 +97,12 @@ public final class NeoECOCraftingServiceBridge {
             ICraftingRequester requestingMachine,
             @Nullable ICraftingCPU target,
             IActionSource src) {
+        // This bridge is called from a HEAD injection, before AE2's native
+        // submitJob implementation rejects incomplete (missing-material) plans.
+        if (job.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
+
         if (target instanceof ECOCraftingCPU ecoCpu) {
             return ecoCpu.isAllocationProxy()
                     ? ecoCpu.getCluster().submitJob(grid, job, src, requestingMachine)
