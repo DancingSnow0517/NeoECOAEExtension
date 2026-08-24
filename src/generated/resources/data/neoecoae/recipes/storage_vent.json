@@ -9,7 +9,7 @@
       "item": "minecraft:blue_ice"
     },
     "C": {
-      "item": "ae2:quartz_block"
+      "tag": "forge:storage_blocks/certus_quartz"
     }
   },
   "pattern": [

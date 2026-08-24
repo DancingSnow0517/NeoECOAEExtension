@@ -918,7 +918,7 @@ public class NEBlocks {
                         .pattern("ABA")
                         .define('A', NEBlocks.STORAGE_CASING)
                         .define('B', Blocks.BLUE_ICE)
-                        .define('C', AEBlocks.QUARTZ_BLOCK)
+                        .define('C', NETags.Items.CERTUS_QUARTZ_BLOCK)
                         .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
                         .save(prov);
             })
@@ -1305,7 +1305,7 @@ public class NEBlocks {
                         .pattern("ABA")
                         .define('A', NEBlocks.CRAFTING_CASING)
                         .define('B', Blocks.BLUE_ICE)
-                        .define('C', AEBlocks.QUARTZ_BLOCK)
+                        .define('C', NETags.Items.CERTUS_QUARTZ_BLOCK)
                         .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
                         .save(prov);
             })

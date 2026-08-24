@@ -21,6 +21,7 @@ public final class GTCEuRecipes {
     private static final String L9_CELL_COMPONENT_RESEARCH = ne("eco_cell_component_256m");
 
     private static final int HV = 512;
+    private static final int LV = 32;
     private static final int IV = 8_192;
     private static final int LUV = 32_768;
     private static final int UV = 524_288;
@@ -107,37 +108,37 @@ public final class GTCEuRecipes {
     }
 
     private static void saveInscriberGtMachineRecipes(RegistrateRecipeProvider provider) {
-        macerator("iron_dust", HV, 60)
+        macerator("iron_dust", LV, 60)
                 .itemInputTag(forge("ingots/iron"), 1)
                 .itemOutput(ne("iron_dust"), 1)
                 .save(provider);
 
-        macerator("aluminum_dust", HV, 60)
+        macerator("aluminum_dust", LV, 60)
                 .itemInputTag(forge("ingots/aluminum"), 1)
                 .itemOutput(ne("aluminum_dust"), 1)
                 .save(provider);
 
-        macerator("tungsten_dust", HV, 80)
+        macerator("tungsten_dust", LV, 80)
                 .itemInputTag(forge("ingots/tungsten"), 1)
                 .itemOutput(ne("tungsten_dust"), 1)
                 .save(provider);
 
-        macerator("aluminum_alloy_dust", HV, 80)
+        macerator("aluminum_alloy_dust", LV, 80)
                 .itemInputTag(forge("ingots/aluminum_alloy"), 1)
                 .itemOutput(ne("aluminum_alloy_dust"), 1)
                 .save(provider);
 
-        macerator("black_tungsten_alloy_dust", HV, 100)
+        macerator("black_tungsten_alloy_dust", LV, 100)
                 .itemInputTag(forge("ingots/black_tungsten_alloy"), 1)
                 .itemOutput(ne("black_tungsten_alloy_dust"), 1)
                 .save(provider);
 
-        macerator("energized_crystal_dust", HV, 80)
+        macerator("energized_crystal_dust", LV, 80)
                 .itemInputTag(forge("gems/energized_crystal"), 1)
                 .itemOutput(ne("energized_crystal_dust"), 1)
                 .save(provider);
 
-        macerator("energized_fluix_crystal_dust", HV, 100)
+        macerator("energized_fluix_crystal_dust", LV, 100)
                 .itemInputTag(forge("gems/energized_fluix_crystal"), 1)
                 .itemOutput(ne("energized_fluix_crystal_dust"), 1)
                 .save(provider);
@@ -473,6 +474,25 @@ public final class GTCEuRecipes {
 
         private void save(RegistrateRecipeProvider provider) {
             provider.accept(new ConditionalFinishedRecipe(this, new ModLoadedCondition(GTCEU)));
+            if (gt("chemical_reactor").equals(type)) {
+                provider.accept(new ConditionalFinishedRecipe(largeChemicalMirror(), new ModLoadedCondition(GTCEU)));
+            }
+        }
+
+        private GTRecipe largeChemicalMirror() {
+            GTRecipe mirror = new GTRecipe(
+                    NeoECOAE.id("large_chemical_reactor/"
+                            + id.getPath().substring(id.getPath().indexOf('/') + 1)),
+                    gt("large_chemical_reactor"),
+                    eu,
+                    duration);
+            mirror.itemInputs.addAll(itemInputs);
+            mirror.fluidInputs.addAll(fluidInputs);
+            mirror.itemOutputs.addAll(itemOutputs);
+            mirror.fluidOutputs.addAll(fluidOutputs);
+            mirror.recipeConditions.addAll(recipeConditions);
+            mirror.cwu = cwu;
+            return mirror;
         }
 
         @Override

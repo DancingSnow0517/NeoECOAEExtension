@@ -1,0 +1,13 @@
+{
+  "values": [
+    "ae2:quartz_block",
+    {
+      "id": "gtlcore:certus_quartz_crystal_block",
+      "required": false
+    },
+    {
+      "id": "gtlcore:certus_quartz_block",
+      "required": false
+    }
+  ]
+}

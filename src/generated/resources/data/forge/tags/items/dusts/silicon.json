@@ -1,5 +1,9 @@
 {
   "values": [
-    "ae2:silicon"
+    "ae2:silicon",
+    {
+      "id": "gtceu:silicon_dust",
+      "required": false
+    }
   ]
 }

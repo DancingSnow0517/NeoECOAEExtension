@@ -16,6 +16,7 @@ class GTCEuRecipesGeneratedJsonTest {
     private static final Path RECIPE_ROOT = Path.of("src/generated/resources/data/neoecoae/recipes");
     private static final Path TAG_ROOT = Path.of("src/generated/resources/data/neoecoae/tags/items");
     private static final int HV = 512;
+    private static final int LV = 32;
     private static final int IV = 8_192;
     private static final int LUV = 32_768;
     private static final int UV = 524_288;
@@ -64,18 +65,35 @@ class GTCEuRecipesGeneratedJsonTest {
             "mixer/energized_superconductive_ingot",
             "mixer/cryotheum",
             "mixer/cryotheum_solution",
+            "forming_press/superconducting_processor_press",
+            "forming_press/superconducting_processor_print",
+            "forming_press/superconducting_processor"
+        }) {
+            assertGtStage(path, gtType(path), HV);
+        }
+    }
+
+    @Test
+    void maceratorRecipesUseLv() throws IOException {
+        for (String path : new String[] {
             "macerator/iron_dust",
             "macerator/aluminum_dust",
             "macerator/tungsten_dust",
             "macerator/aluminum_alloy_dust",
             "macerator/black_tungsten_alloy_dust",
             "macerator/energized_crystal_dust",
-            "macerator/energized_fluix_crystal_dust",
-            "forming_press/superconducting_processor_press",
-            "forming_press/superconducting_processor_print",
-            "forming_press/superconducting_processor"
+            "macerator/energized_fluix_crystal_dust"
         }) {
-            assertGtStage(path, gtType(path), HV);
+            assertGtStage(path, "gtceu:macerator", LV);
+        }
+    }
+
+    @Test
+    void largeChemicalReactorRecipesUseNativeType() throws IOException {
+        for (String path : new String[] {
+            "large_chemical_reactor/energized_crystal", "large_chemical_reactor/energized_fluix_crystal"
+        }) {
+            assertGtStage(path, "gtceu:large_chemical_reactor", HV);
         }
     }
 
@@ -203,6 +221,36 @@ class GTCEuRecipesGeneratedJsonTest {
     }
 
     @Test
+    void siliconAndCertusQuartzCompatibilityTagsIncludeOptionalModItems() throws IOException {
+        JsonObject siliconTag = JsonParser.parseString(
+                        Files.readString(Path.of("src/generated/resources/data/forge/tags/items/dusts/silicon.json")))
+                .getAsJsonObject();
+        assertTrue(hasTagValue(siliconTag, "ae2:silicon"));
+        assertTrue(hasOptionalTagValue(siliconTag, "gtceu:silicon_dust"));
+        JsonObject transform = recipe("transform/energized_superconductive_ingot");
+        JsonObject transformSilicon =
+                transform.getAsJsonArray("ingredients").get(2).getAsJsonObject();
+        assertEquals("forge:dusts/silicon", transformSilicon.get("tag").getAsString());
+        JsonObject integratedWorkingStation = recipe("integrated_working_station/energized_superconductive_ingot");
+        JsonObject integratedSilicon =
+                integratedWorkingStation.getAsJsonArray("inputItems").get(2).getAsJsonObject();
+        assertEquals("forge:dusts/silicon", integratedSilicon.get("tag").getAsString());
+
+        JsonObject certusQuartzTag = JsonParser.parseString(Files.readString(
+                        Path.of("src/generated/resources/data/forge/tags/items/storage_blocks/certus_quartz.json")))
+                .getAsJsonObject();
+        assertTrue(hasTagValue(certusQuartzTag, "ae2:quartz_block"));
+        assertTrue(hasOptionalTagValue(certusQuartzTag, "gtlcore:certus_quartz_crystal_block"));
+
+        for (String path : new String[] {"crafting_vent", "storage_vent"}) {
+            JsonObject key = recipe(path).getAsJsonObject("key");
+            assertEquals(
+                    "forge:storage_blocks/certus_quartz",
+                    key.getAsJsonObject("C").get("tag").getAsString());
+        }
+    }
+
+    @Test
     void gtceuCompatibleAluminumDustTagsKeepEcoFallback() throws IOException {
         for (String path : new String[] {"dusts/aluminium", "dusts/aluminum"}) {
             JsonObject tag = JsonParser.parseString(
@@ -218,14 +266,6 @@ class GTCEuRecipesGeneratedJsonTest {
 
     @Test
     void inscriberRecipesHaveGtceuFormingPressAlternatives() throws IOException {
-        assertGtStage("macerator/iron_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/aluminum_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/tungsten_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/aluminum_alloy_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/black_tungsten_alloy_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/energized_crystal_dust", "gtceu:macerator", 512);
-        assertGtStage("macerator/energized_fluix_crystal_dust", "gtceu:macerator", 512);
-
         JsonObject printRecipe = gtRecipe("forming_press/superconducting_processor_print");
         assertEquals("gtceu:forming_press", printRecipe.get("type").getAsString());
         assertTrue(hasNonConsumableItem(printRecipe, "neoecoae:superconducting_processor_press"));
@@ -258,6 +298,7 @@ class GTCEuRecipesGeneratedJsonTest {
             "assembly_line/eco_infinite_cell_component",
             "forming_press/superconducting_processor",
             "chemical_reactor/energized_crystal",
+            "large_chemical_reactor/energized_crystal",
             "mixer/cryotheum_solution"
         }) {
             assertTrue(recipe(path).get("type").getAsString().startsWith("gtceu:"));

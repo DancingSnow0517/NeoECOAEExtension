@@ -715,12 +715,12 @@ public class NEItems {
                         TransformCircumstance.EXPLOSION,
                         Ingredient.of(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST),
                         Ingredient.of(NETags.Items.ALUMINIUM_DUST),
-                        Ingredient.of(ConventionTags.SILICON),
+                        Ingredient.of(NETags.Items.SILICON_DUST),
                         Ingredient.of(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE));
                 IntegratedWorkingStationRecipe.builder()
                         .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST, 4)
                         .require(NETags.Items.ALUMINIUM_DUST, 4)
-                        .require(ConventionTags.SILICON, 4)
+                        .require(NETags.Items.SILICON_DUST, 4)
                         .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE, 4)
                         .requireFluid(Fluids.LAVA, 2000)
                         .itemOutput(ctx.get(), 4)
