@@ -11,6 +11,9 @@ import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScroll
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
+import cn.dancingsnow.neoecoae.network.ECOCpuOverlayPayload;
+import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
@@ -32,6 +35,14 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onModelBakingCompleted);
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(MultiblockPreviewScrollHandler::onMouseScrolled);
+        // Container ids restart at 1 on every login, so per-menu client caches must not
+        // survive across connections or they would serve stale data to the next session.
+        MinecraftForge.EVENT_BUS.addListener(NeoECOAEClient::onClientLoggingIn);
+    }
+
+    private static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        ECOCpuOverlayPayload.clearClientOverlays();
+        ECOPlannerNoticePayload.clearAllClientNotices();
     }
 
     @SubscribeEvent

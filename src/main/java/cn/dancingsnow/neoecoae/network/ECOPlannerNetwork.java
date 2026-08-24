@@ -38,6 +38,13 @@ public final class ECOPlannerNetwork {
                 ECOCycleDiagnosticsPayload::decode,
                 ECOCycleDiagnosticsPayload::handle,
                 java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(
+                2,
+                ECOCpuOverlayPayload.class,
+                ECOCpuOverlayPayload::encode,
+                ECOCpuOverlayPayload::decode,
+                ECOCpuOverlayPayload::handle,
+                java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void sendToPlayer(ServerPlayer player, Object payload) {

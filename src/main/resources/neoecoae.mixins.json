@@ -8,7 +8,6 @@
     "CraftingServiceMixin",
     "CraftingServiceCpuListMixin",
     "CraftingCPUMenuMixin",
-    "CraftingCpuListEntryMixin",
     "CraftingStatusMenuMixin",
     "IOPortMenuMixin",
     "PatternEncodingTermMenuMixin",

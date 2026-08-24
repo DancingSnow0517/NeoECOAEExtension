@@ -48,6 +48,11 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId, long ela
         CLIENT_NOTICES.remove(containerId);
     }
 
+    /** Drops all cached notices; called on login because container ids restart at 1. */
+    public static void clearAllClientNotices() {
+        CLIENT_NOTICES.clear();
+    }
+
     public record ClientNotice(ECOPlannerFallbackReason reason, long elapsedNanos, String formattedBytes) {
         public boolean overflow() {
             return reason == ECOPlannerFallbackReason.OVERFLOW && !formattedBytes.isEmpty();

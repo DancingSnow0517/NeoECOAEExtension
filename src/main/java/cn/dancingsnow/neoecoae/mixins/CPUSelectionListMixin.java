@@ -7,17 +7,20 @@ import appeng.client.gui.widgets.CPUSelectionList;
 import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
-import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.network.ECOCpuOverlayPayload;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import net.minecraft.ResourceLocationException;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -29,6 +32,10 @@ public abstract class CPUSelectionListMixin {
     @Final
     private Blitter buttonBg;
 
+    @Shadow
+    @Final
+    private CraftingStatusMenu menu;
+
     // Small corner badge dimensions
     private static final int OVERLAY_W = 10;
     private static final int OVERLAY_H = 10;
@@ -36,6 +43,24 @@ public abstract class CPUSelectionListMixin {
     private static final int OVERLAY_TOP_MARGIN = 2;
     /** AE2 15.4.10 repeats its last byte divisor and overflows at this boundary. */
     private static final long AE2_BYTE_TOOLTIP_LIMIT = 1000L * 1024L * 1024L * 1024L;
+
+    /**
+     * Resolves the overlay texture for a CPU row from NeoECOAE's own out-of-band sync cache,
+     * keyed by the stable per-menu CPU serial. This deliberately does not ride along inside
+     * AE2's GuiSync frame: that stream has no per-field length prefix, so appended bytes would
+     * desynchronize it whenever reader and writer disagree (the "GUI field N" log bug).
+     */
+    @Unique private ResourceLocation neoecoae$getOverlayTexture(CraftingStatusMenu.CraftingCpuListEntry cpu) {
+        String texture = ECOCpuOverlayPayload.getClientOverlay(this.menu.containerId, cpu.serial());
+        if (texture == null) {
+            return null;
+        }
+        try {
+            return ResourceLocation.parse(texture);
+        } catch (ResourceLocationException e) {
+            return null;
+        }
+    }
 
     @WrapOperation(
             method = "drawBackgroundLayer",
@@ -53,7 +78,7 @@ public abstract class CPUSelectionListMixin {
             @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu) {
         original.call(infoBar, guiGraphics, infoBarX, infoBarY);
 
-        var overlay = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
+        var overlay = neoecoae$getOverlayTexture(cpu);
         if (overlay != null) {
             // InfoBar starts two pixels into its row and twelve pixels above its bottom edge.
             int rowX = infoBarX - 2;
@@ -91,7 +116,7 @@ public abstract class CPUSelectionListMixin {
     @Inject(method = "formatStorage", at = @At("RETURN"), cancellable = true, require = 0)
     private void neoecoae$formatStorage(
             CraftingStatusMenu.CraftingCpuListEntry cpu, CallbackInfoReturnable<String> cir) {
-        var overlay = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
+        var overlay = neoecoae$getOverlayTexture(cpu);
         if (overlay != null) {
             // AE2 stores bytes; its default format divides by 1024 → KB → appends "k".
             // We convert bytes → KB, then pass to formatKiloUnit for compact display.
