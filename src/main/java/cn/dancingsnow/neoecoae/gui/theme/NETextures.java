@@ -42,6 +42,34 @@ public class NETextures {
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
+    // AE2's priority panel uses its own atlas instead of the mod's generic controls.
+    public static final IGuiTexture AE2_BUTTON = SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button.png"))
+        .setSprite(0, 0, 200, 20)
+        .setBorder(3);
+    public static final IGuiTexture AE2_BUTTON_HIGHLIGHTED =
+        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_highlighted.png"))
+            .setSprite(0, 0, 200, 20)
+            .setBorder(3);
+    public static final IGuiTexture AE2_BUTTON_DISABLED =
+        SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_disabled.png"))
+            .setSprite(0, 0, 200, 20)
+            .setBorder(3);
+    public static final IGuiTexture PRIORITY_BACKGROUND =
+        SpriteTexture.of(AppEng.makeId("textures/guis/priority.png"))
+            .setSprite(0, 0, 176, 125);
+    public static final IGuiTexture PRIORITY_TEXT_FIELD =
+        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+            .setSprite(0, 0, 128, 12)
+            .setBorder(1, 0, 1, 0);
+    public static final IGuiTexture PRIORITY_TEXT_FIELD_DISABLED =
+        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+            .setSprite(0, 12, 128, 12)
+            .setBorder(1, 0, 1, 0);
+    public static final IGuiTexture PRIORITY_TEXT_FIELD_FOCUS =
+        SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
+            .setSprite(0, 24, 128, 12)
+            .setBorder(1, 0, 1, 0);
+
     public static IGuiTexture SWITCH_OFF = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
         .setSprite(0,28, 22, 12);
     public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
