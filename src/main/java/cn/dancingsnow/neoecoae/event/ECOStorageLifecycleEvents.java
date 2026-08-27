@@ -1,27 +1,17 @@
 package cn.dancingsnow.neoecoae.event;
 
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {
     }
 
-    public static void onServerStopping(ServerStoppingEvent event) {
-        ECOInfiniteStorageDomains.closeAll();
-    }
-
-    public static void onLevelSave(LevelEvent.Save event) {
-        ECOInfiniteStorageDomains.flushAll();
-    }
-
-    public static void onServerTickPre(ServerTickEvent.Pre event) {
-        ECOInfiniteStorageDomains.awaitPreviousTick();
-    }
-
-    public static void onServerTickPost(ServerTickEvent.Post event) {
-        ECOInfiniteStorageDomains.flushTick();
+    /**
+     * Infinite storage domains are saved with the world, so there is nothing to write here. Only the engine cache of
+     * the stopped server is dropped, which matters for the integrated server where the process outlives the world.
+     */
+    public static void onServerStopped(ServerStoppedEvent event) {
+        ECOInfiniteStorageDomains.onServerStopped(event.getServer());
     }
 }

@@ -14,6 +14,10 @@ public interface ECOInfiniteStorageEngine {
 
     long insert(AEKey key, long amount, Actionable mode);
 
+    /**
+     * Inserts at most once for the given transaction id. Repeating a call that already succeeded reports the same
+     * amount again without storing it a second time, so an interrupted migration can simply be run again.
+     */
     default long insertOnce(UUID transactionId, AEKey key, long amount) {
         return insert(key, amount, Actionable.MODULATE);
     }
@@ -24,27 +28,25 @@ public interface ECOInfiniteStorageEngine {
 
     void getAvailableStacks(KeyCounter out);
 
-    long getRevision();
-
     boolean isEmpty();
 
     default boolean isHealthy() {
         return true;
     }
 
-    HugeAmount getStoredAmount();
-
-    int getStoredTypes();
-
     Collection<TypeStats> getTypeStats();
 
     Collection<HugeStack> getHugeStacks();
 
     /**
-     * Flushes pending WAL records and schedules checkpoint work. A positive budget is a main-thread snapshot
-     * budget; the actual file I/O runs on the persistence workers.
+     * Writes the domain to disk right away. Ordinary inserts and extracts only mark the world data dirty and are
+     * saved with the world; this is reserved for the boundaries of a migration, where the same items briefly exist
+     * in both the domain and a storage cell.
      */
-    void flushBudgeted(long maxNanos);
+    void commit();
 
-    void closeAndFlush();
+    /**
+     * Drops the migration receipts of a finished transition, so they cannot accumulate across repeated switches.
+     */
+    void clearMigrationReceipts();
 }

@@ -912,12 +912,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         inserted,
                         amount
                     );
-                    engine.flushBudgeted(0L);
+                    engine.commit();
                     return;
                 }
             }
         }
-        engine.flushBudgeted(0L);
+        engine.commit();
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.clearAllStoredStacks();
         }
@@ -1087,7 +1087,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             if (remaining > 0L) {
                 LOGGER.warn("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
-                engine.flushBudgeted(0L);
+                engine.commit();
                 return;
             }
         }
@@ -1097,7 +1097,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
                 infiniteDomainId
             );
-            engine.flushBudgeted(0L);
+            engine.commit();
             return;
         }
         for (Object2LongMap.Entry<AEKey> entry : pending) {
@@ -1106,7 +1106,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 engine.extract(entry.getKey(), amount, Actionable.MODULATE);
             }
         }
-        engine.flushBudgeted(0L);
+        engine.commit();
         if (!engine.isEmpty()) {
             LOGGER.warn("Unable to fully restore ECO infinite storage domain {}; keeping it mounted to avoid data loss", infiniteDomainId);
             return;
@@ -1187,7 +1187,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         hostMode = formed ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED;
         if (level instanceof ServerLevel serverLevel && domainId != null) {
-            ECOInfiniteStorageDomains.close(serverLevel, domainId);
+            // The transition is complete, so the receipts of the migrations that made up this run are no longer
+            // needed. Dropping them keeps a host that is toggled repeatedly from accumulating them forever.
+            engine.clearMigrationReceipts();
+            engine.commit();
+            ECOInfiniteStorageDomains.release(serverLevel.getServer(), domainId);
         }
         infiniteDomainId = null;
         refreshDriveStorageProviders();
@@ -1245,24 +1249,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             "inventory",
             registries
         );
-    }
-
-    @Override
-    public void onChunkUnloaded() {
-        closeInfiniteEngine();
-        super.onChunkUnloaded();
-    }
-
-    @Override
-    public void setRemoved() {
-        closeInfiniteEngine();
-        super.setRemoved();
-    }
-
-    private void closeInfiniteEngine() {
-        if (level instanceof ServerLevel serverLevel && infiniteDomainId != null) {
-            ECOInfiniteStorageDomains.close(serverLevel, infiniteDomainId);
-        }
     }
 
     public boolean canExtractInfiniteComponents() {
