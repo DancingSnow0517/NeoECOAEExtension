@@ -1,0 +1,73 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "type": "ae2lt:overload_processing",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_lightning_cell_housing"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_cell_component_256m"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_cell_component_v"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:ultimate_overload_core"
+      },
+      "count": 2
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:firmament_alloy_ingot"
+      },
+      "count": 2
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:overload_alloy_plate"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "neoecoae:superconducting_processor"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_collapse_matrix"
+      },
+      "count": 1
+    }
+  ],
+  "inputFluid": {
+    "id": "neoecoae:cryotheum_solution",
+    "amount": 16000
+  },
+  "results": [
+    {
+      "id": "neoecoae:eco_lightning_cell_256m",
+      "count": 1
+    }
+  ],
+  "totalEnergy": 16000000,
+  "lightningCost": 128,
+  "lightningTier": "extreme_high_voltage"
+}
