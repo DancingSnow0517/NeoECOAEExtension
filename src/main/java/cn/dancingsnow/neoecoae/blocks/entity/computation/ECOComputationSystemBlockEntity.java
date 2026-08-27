@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
@@ -62,7 +63,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     @Persisted
     @DescSynced
-    private int selectedBuildLength = 1;
+    private int selectedBuildLength = NEConfig.computationSystemMaxLength - 4;
     @Persisted
     @DescSynced
     private boolean mirrorBuild;

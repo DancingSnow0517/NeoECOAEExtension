@@ -1014,7 +1014,7 @@ public class NEItems {
     ) {
         return REGISTRATE
             .item("eco_computation_cell_" + tierString, p -> new ECOComputationCellItem(
-                p.stacksTo(1).rarity(rarity),
+                p.stacksTo(8).rarity(rarity),
                 tier
             ))
             .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))

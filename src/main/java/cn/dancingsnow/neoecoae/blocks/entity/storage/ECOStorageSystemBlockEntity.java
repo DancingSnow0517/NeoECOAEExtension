@@ -105,7 +105,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Persisted
     @DescSynced
-    private int selectedBuildLength = 1;
+    private int selectedBuildLength = NEConfig.storageSystemMaxLength - 4;
     @Persisted
     @DescSynced
     private boolean mirrorBuild;

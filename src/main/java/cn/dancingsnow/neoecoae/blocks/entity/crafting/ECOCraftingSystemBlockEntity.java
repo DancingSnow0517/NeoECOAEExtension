@@ -119,7 +119,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private long performanceWindowNanos = 0L;
     @Persisted
     @DescSynced
-    private int selectedBuildLength = 1;
+    private int selectedBuildLength = NEConfig.craftingSystemMaxLength - 4;
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
