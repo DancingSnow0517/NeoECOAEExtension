@@ -17,12 +17,20 @@ public final class ECOStorageKeyHash {
     private ECOStorageKeyHash() {}
 
     public static int shardFor(HolderLookup.Provider registries, AEKey key, int shardCount) {
-        return Math.floorMod(stableHash(registries, key), shardCount);
+        return shardForTag(key.toTagGeneric(registries), shardCount);
     }
 
-    private static int stableHash(HolderLookup.Provider registries, AEKey key) {
+    /**
+     * Same hash as {@link #shardFor}, for callers that only have the serialized key. Reading a legacy shard file needs
+     * this because a key whose mod was removed can no longer be turned back into an {@link AEKey}.
+     */
+    public static int shardForTag(Tag keyTag, int shardCount) {
+        return Math.floorMod(stableHash(keyTag), shardCount);
+    }
+
+    private static int stableHash(Tag keyTag) {
         CRC32 crc = new CRC32();
-        updateTag(crc, key.toTagGeneric(registries));
+        updateTag(crc, keyTag);
         return (int) crc.getValue();
     }
 

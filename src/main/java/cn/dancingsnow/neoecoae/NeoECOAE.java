@@ -91,10 +91,7 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTickPre);
-        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTickPost);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
     }
 
     public static ResourceLocation id(String path) {
