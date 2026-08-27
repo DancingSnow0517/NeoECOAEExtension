@@ -1,0 +1,50 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 16000000,
+  "inputFluid": {
+    "amount": 16000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 16,
+      "item": "neoecoae:computation_network_switch"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:energy_cell_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_threading_core_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_parallel_core_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_cooling_controller_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_system_l9"
+    },
+    {
+      "count": 8,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:black_tungsten_alloy_block"
+    },
+    {
+      "count": 16,
+      "item": "ae2:cell_component_256k"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:computation_high_energy_network_switch"
+  }
+}

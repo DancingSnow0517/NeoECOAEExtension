@@ -1,0 +1,46 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 4000000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:energy_cell_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_threading_core_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_parallel_core_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_cooling_controller_l9"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:computation_system_l9"
+    },
+    {
+      "count": 16,
+      "item": "ae2:cell_component_256k"
+    },
+    {
+      "count": 1,
+      "item": "ae2:256k_crafting_storage"
+    },
+    {
+      "count": 8,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:crystal_matrix"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:computation_network_switch"
+  }
+}

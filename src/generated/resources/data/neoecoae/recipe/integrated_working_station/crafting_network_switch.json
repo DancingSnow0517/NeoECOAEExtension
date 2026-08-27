@@ -1,0 +1,46 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 4000000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 32,
+      "item": "ae2:engineering_processor"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 32,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:crafting_casing"
+    },
+    {
+      "count": 8,
+      "item": "ae2:molecular_assembler"
+    },
+    {
+      "count": 4,
+      "item": "ae2:256k_crafting_storage"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:crafting_parallel_core_l9"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:crafting_worker"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:crafting_network_switch"
+  }
+}
