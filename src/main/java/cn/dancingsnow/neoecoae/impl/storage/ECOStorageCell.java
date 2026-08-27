@@ -196,7 +196,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public double getIdleDrain() {
-        return (double) getTotalBytes() / (1 << 20);
+        return cellType.getIdleDrain();
     }
 
     @Override

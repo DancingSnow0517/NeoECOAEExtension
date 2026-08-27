@@ -4,7 +4,6 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -35,20 +34,18 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
 
     @Override
     protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (heldItem.getItem() instanceof ECOStorageCellItem) {
-            if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-                if (be.getCellStack() == null) {
-                    if (level.isClientSide) return ItemInteractionResult.SUCCESS;
-                    be.setCellStack(heldItem.copyWithCount(1));
-                    if (!player.isCreative()) {
-                        heldItem.shrink(1);
-                        if (heldItem.isEmpty()) {
-                            player.setItemInHand(hand, ItemStack.EMPTY);
-                        }
-                    }
-                    return ItemInteractionResult.sidedSuccess(level.isClientSide());
+        if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be
+            && be.getCellStack() == null
+            && be.isItemValid(heldItem)) {
+            if (level.isClientSide) return ItemInteractionResult.SUCCESS;
+            be.setCellStack(heldItem.copyWithCount(1));
+            if (!player.isCreative()) {
+                heldItem.shrink(1);
+                if (heldItem.isEmpty()) {
+                    player.setItemInHand(hand, ItemStack.EMPTY);
                 }
             }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide());
         }
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }

@@ -6,7 +6,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
@@ -443,8 +443,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 continue;
             }
             int cellTypeId = NERegistries.CELL_TYPE.getId(inv.getCellType());
-            if (cellTypeId >= 0 && drive.getCellStack().getItem() instanceof IBasicECOCellItem cellItem) {
-                cellTypesByKeyType.putIfAbsent(cellItem.getKeyType(), cellTypeId);
+            if (cellTypeId >= 0 && drive.getCellStack().getItem() instanceof IECOStorageCellItem cellItem) {
+                for (AEKeyType keyType : cellItem.getKeyTypes()) {
+                    cellTypesByKeyType.putIfAbsent(keyType, cellTypeId);
+                }
             }
             if (isInfiniteMemberCell(drive.getCellStack())) {
                 idleMatrices++;

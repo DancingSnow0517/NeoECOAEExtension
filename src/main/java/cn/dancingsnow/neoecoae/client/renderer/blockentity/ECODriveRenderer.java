@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
+import appeng.api.storage.cells.CellState;
 import appeng.client.render.tesr.CellLedRenderer;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -43,9 +43,9 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
-        IECOStorageCell cellInventory = blockEntity.getCellInventory();
-        if (cellInventory != null) {
-            int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());
+        CellState cellState = blockEntity.getCellState();
+        if (cellState != CellState.ABSENT) {
+            int stateColor = FastColor.ARGB32.color(255, cellState.getStateColor());
             renderLed(blockEntity, poseStack, bufferSource, stateColor);
         }
     }

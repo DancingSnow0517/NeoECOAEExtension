@@ -44,7 +44,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
@@ -53,21 +52,59 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final IECOTier tier;
     private final long totalBytes;
     private final int bytesPerType;
-    private final AEKeyType keyType;
+    private final double idleDrain;
+    private final Supplier<AEKeyType> keyType;
     private final Supplier<ECOCellType> cellType;
 
     public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
+        this(properties, tier, () -> keyType, cellType);
+    }
+
+    public ECOStorageCellItem(Properties properties, IECOTier tier, Supplier<AEKeyType> keyType, Supplier<ECOCellType> cellType) {
+        this(
+            properties,
+            tier,
+            keyType,
+            cellType,
+            tier.getStorageTotalBytes(),
+            1 << (12 + tier.getTier()),
+            (double) tier.getStorageTotalBytes() / (1 << 20)
+        );
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        AEKeyType keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
+        this(properties, tier, () -> keyType, cellType, totalBytes, bytesPerType, idleDrain);
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        Supplier<AEKeyType> keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
         super(properties);
         this.tier = tier;
-        this.totalBytes = tier.getStorageTotalBytes();
-        this.bytesPerType = 1 << (12 + tier.getTier());
+        this.totalBytes = totalBytes;
+        this.bytesPerType = bytesPerType;
+        this.idleDrain = idleDrain;
         this.keyType = keyType;
         this.cellType = cellType;
     }
 
     @Override
     public AEKeyType getKeyType() {
-        return keyType;
+        return keyType.get();
     }
 
     @Override
@@ -78,6 +115,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public int getBytesPerType() {
         return bytesPerType;
+    }
+
+    @Override
+    public double getIdleDrain() {
+        return idleDrain;
     }
 
     @Override
@@ -198,7 +240,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return CellConfig.create(Set.of(getKeyType()), is);
+        return CellConfig.create(getKeyTypes(), is);
     }
 
     @Override

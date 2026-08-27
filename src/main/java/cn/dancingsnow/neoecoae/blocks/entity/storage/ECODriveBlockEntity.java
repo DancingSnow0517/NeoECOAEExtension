@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
@@ -56,6 +57,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Getter
     @DescSynced
     private boolean online = false;
+    @Getter
+    @DescSynced
+    private CellState cellState = CellState.ABSENT;
+    @Nullable
+    private ItemStack cachedCellStack;
+    @Nullable
+    private IECOStorageCell cachedCellInventory;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -75,7 +83,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             && !ECOInfiniteStorageMember.isMember(cellStack)) {
             return;
         }
+        ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
+        invalidateCellInventoryCache();
         if (getLevel() != null && !isServerStopping()) {
             BlockState state = getBlockState();
             BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, cellStack != null);
@@ -116,6 +126,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (isServerStopping()) {
             return;
         }
+        updateCellState();
         double power = 256;
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
@@ -143,10 +154,32 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Nullable
     public IECOStorageCell getCellInventory() {
-        if (cellStack != null) {
-            return ECOStorageCells.getCellInventory(cellStack, this);
+        if (cellStack == null || cellStack.isEmpty()) {
+            invalidateCellInventoryCache();
+            return null;
         }
-        return null;
+        if (cachedCellStack != cellStack) {
+            cachedCellStack = cellStack;
+            cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, this);
+        }
+        return cachedCellInventory;
+    }
+
+    private void invalidateCellInventoryCache() {
+        cachedCellStack = null;
+        cachedCellInventory = null;
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        super.setRemoved();
     }
 
     @Override
@@ -159,11 +192,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
+                updateCellState();
                 setChanged();
                 return;
             }
         }
         mounted = false;
+        updateCellState();
         setChanged();
     }
 
@@ -187,14 +222,26 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+                updateCellState();
                 setChanged();
                 markForUpdate();
             });
         }
     }
 
+    private void updateCellState() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        IECOStorageCell cellInventory = getCellInventory();
+        cellState = cellInventory == null ? CellState.ABSENT : cellInventory.getStatus();
+    }
+
     @Override
     public void saveChanges() {
+        if (cachedCellInventory != null) {
+            cachedCellInventory.persist();
+        }
         notifyPersistence();
     }
 
