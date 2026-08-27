@@ -718,8 +718,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
         IActionSource source = IActionSource.ofMachine(storageInterface);
         long moved = storageInterface.isStorageInputMode()
-            ? transferLimited(network, domain, source)
-            : transferLimited(domain, network, source);
+            ? transferLimited(network, domain, source, true)
+            : transferLimited(domain, network, source, false);
         if (moved > 0L) {
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             setChanged();
@@ -728,12 +728,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return moved;
     }
 
-    private static long transferLimited(MEStorage from, MEStorage to, IActionSource source) {
+    private static long transferLimited(
+        MEStorage from,
+        MEStorage to,
+        IActionSource source,
+        boolean skipInfiniteSourceEntries
+    ) {
         KeyCounter available = new KeyCounter();
         from.getAvailableStacks(available);
         long total = 0L;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (skipInfiniteSourceEntries
+                && isEffectivelyInfiniteSource(from, entry.getKey(), entry.getLongValue(), source)) {
+                continue;
+            }
             if (visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
             long amount = entry.getLongValue();
             if (amount <= 0L) continue;
@@ -747,6 +756,27 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             total = total > Long.MAX_VALUE - inserted ? Long.MAX_VALUE : total + inserted;
         }
         return total;
+    }
+
+    private static boolean isEffectivelyInfiniteSource(
+        MEStorage storage,
+        AEKey key,
+        long visibleAmount,
+        IActionSource source
+    ) {
+        // MEStorage is aggregated. If any backing storage makes this key effectively infinite,
+        // conservatively skip the whole key instead of trying to split its physical sources.
+        if (storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE) {
+            return true;
+        }
+
+        long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
+        long conventionalInfiniteAmount = saturatedMultiply(Integer.MAX_VALUE, amountPerUnit);
+        return visibleAmount >= conventionalInfiniteAmount;
+    }
+
+    private static long saturatedMultiply(long left, long right) {
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private void updateInfiniteStorageMode() {
