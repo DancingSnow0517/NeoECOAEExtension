@@ -30,6 +30,10 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     FluidStack fluidOutput = FluidStack.EMPTY;
     @Setter
     int energy = 1000;
+    @Setter
+    boolean exactItemInputs;
+    @Setter
+    boolean requiresEmptyStorageCells;
 
     public IntegratedWorkingStationRecipeBuilder require(SizedIngredient ingredient) {
         inputItems.add(ingredient);
@@ -138,7 +142,9 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(
+            inputItems, inputFluid, itemOutput, fluidOutput, energy, exactItemInputs, requiresEmptyStorageCells
+        );
         recipeOutput.accept(id, recipe, null);
     }
 }

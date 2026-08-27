@@ -1,0 +1,26 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appflux"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "neoecoae:mega_energy_cell_housing"
+    },
+    {
+      "item": "megacells:cell_component_256m"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:eco_mega_energy_cell_256m"
+  }
+}

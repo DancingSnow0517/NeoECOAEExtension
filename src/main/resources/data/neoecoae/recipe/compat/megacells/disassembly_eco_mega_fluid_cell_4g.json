@@ -1,0 +1,16 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_mega_fluid_cell_4g",
+  "cell_disassembly_items": [
+    {
+      "count": 10,
+      "id": "neoecoae:eco_mega_fluid_cell_256m"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appflux"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "inputItems": [
+    {
+      "count": 10,
+      "item": "neoecoae:eco_mega_energy_cell_256m"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_mega_energy_cell_4g"
+  },
+  "energy": 144000,
+  "exactItemInputs": true,
+  "requiresEmptyStorageCells": true
+}

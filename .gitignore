@@ -42,3 +42,4 @@ src/generated/resources/.cache/
 logs/
 docs/
 src/test
+src/test/*
