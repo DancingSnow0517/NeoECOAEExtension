@@ -27,6 +27,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -108,11 +109,18 @@ public class ExecutingCraftingJob {
             this.playerId = null;
         }
 
+        // Without a level the patterns cannot be decoded, which would silently restore a job with an empty
+        // task list. Fail instead, so the caller keeps the persisted data and retries on the next reform.
+        Level level = logic.cpu.getLevel();
+        if (level == null) {
+            throw new IllegalStateException("Cannot restore an ECO crafting job without a level");
+        }
+
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(registries, item);
-            var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
+            var details = PatternDetailsHelper.decodePattern(pattern, level);
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);

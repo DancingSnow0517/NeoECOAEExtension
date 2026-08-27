@@ -100,7 +100,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         super.updateFormed(formed);
         if (formed) {
             recalculateRemainingStorage();
-            this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+            // The placeholder CPU is created lazily by getFakeCPU() and must never be replaced while the
+            // cluster lives, so it is deliberately not (re)assigned here.
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
             if (controller != null) {
                 this.selectionMode = controller.getCpuSelectionMode();
@@ -252,18 +253,29 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
+    /**
+     * The placeholder CPU reads the cluster's free storage live, so it stays a stable identity for the
+     * whole lifetime of the cluster. Recreating it would invalidate any CPU selection referring to it.
+     */
     public ECOCraftingCPU getFakeCPU() {
-        if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+        if (this.fakeCpu == null) {
+            this.fakeCpu = new ECOCraftingCPU(this, controller != null ? controller.getTier() : ECOTier.L4);
         }
         return fakeCpu;
     }
 
-    public void deactivate(ICraftingPlan plan) {
+    /**
+     * @return true if the given plan currently holds a byte reservation in this cluster.
+     */
+    public boolean isPlanRegistered(@Nullable ICraftingPlan plan) {
+        return plan != null && this.activeCpus.containsKey(plan);
+    }
+
+    public void deactivate(@Nullable ICraftingPlan plan) {
         ECOCraftingCPU cpu = this.activeCpus.remove(plan);
         this.recalculateRemainingStorage();
         this.updateGridForChangedCpu();
-        if (cpu != null) {
+        if (cpu != null && cpu.getOwner() != null) {
             cpu.getOwner().deactivate(cpu);
         }
     }
@@ -287,7 +299,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         cpu.getLogic().cancel();
         cpu.getLogic().markForDeletion();
         if (!cpu.hasRemainingItems()) {
-            cpu.getOwner().deactivate(cpu);
+            if (cpu.getOwner() != null) {
+                cpu.getOwner().deactivate(cpu);
+            }
             this.activeCpus.remove(plan);
         }
         if (recalculate) {

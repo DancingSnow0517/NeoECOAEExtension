@@ -322,6 +322,12 @@ public abstract class CraftingServiceMixin {
                     return;
                 }
             }
+            // getCpus() also advertises the placeholder CPU of a cluster with a free thread, so hasCpu
+            // has to recognise it or that entry can never be selected as a crafting target.
+            if (cluster.getActiveCPUs().size() < cluster.getMaxThreads() && cluster.getFakeCPU() == cpu) {
+                cir.setReturnValue(true);
+                return;
+            }
         }
     }
 }

@@ -172,11 +172,16 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        Level level = cpu.getLevel();
+        if (level == null) {
+            return;
+        }
+
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
             do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
+                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, level);
 
                 if (pushedPatterns > 0) {
                     remainingOperations -= pushedPatterns;
@@ -740,6 +745,7 @@ public class ECOCraftingCPULogic {
         }
         AEKey key = job.finalOutput.what();
         long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        // Overflow guard only: fail loudly rather than silently wrapping the CPU's own item ledger.
         Math.addExact(stored, buffered);
 
         // Move ownership between the two local ledgers before notifying observers.
@@ -1008,6 +1014,14 @@ public class ECOCraftingCPULogic {
         }
     }
 
+    /** Allocation-free counterpart of {@link #getOwnedItems(KeyCounter)}; must cover the same ledgers. */
+    public boolean hasOwnedItems() {
+        if (!this.inventory.list.isEmpty()) {
+            return true;
+        }
+        return this.job != null && this.job.finalOutput != null && this.job.bufferedFinalOutput.amount() > 0L;
+    }
+
     public boolean isJobSuspended() {
         return job != null && job.suspended;
     }
@@ -1026,7 +1040,12 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var server = cpu.getLevel().getServer();
+        Level level = cpu.getLevel();
+        if (level == null) {
+            return;
+        }
+
+        var server = level.getServer();
         var connectedPlayer = IPlayerRegistry.getConnected(server, playerId);
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
