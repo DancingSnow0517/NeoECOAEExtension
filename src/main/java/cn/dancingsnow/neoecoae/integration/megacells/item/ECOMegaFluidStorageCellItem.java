@@ -15,7 +15,7 @@ import java.util.function.Supplier;
 public final class ECOMegaFluidStorageCellItem extends ECOStorageCellItem {
     public ECOMegaFluidStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type, long capacity) {
         super(properties, tier, AEKeyType.fluids(), type, capacity,
-            MegaCellCapacities.bytesPerType(capacity), MegaCellCapacities.idleDrain(capacity));
+            MegaCellCapacities.normalBytesPerType(tier), MegaCellCapacities.normalIdleDrain(capacity));
     }
 
     @Override
@@ -24,8 +24,4 @@ public final class ECOMegaFluidStorageCellItem extends ECOStorageCellItem {
         MegaCellTooltips.append(this, lines);
     }
 
-    @Override
-    public int getTotalTypes() {
-        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
-    }
 }

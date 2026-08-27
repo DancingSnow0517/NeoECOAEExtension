@@ -1,24 +1,24 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
+
 public final class MegaCellCapacities {
-    public static final long BASE_16M_CAPACITY = 1L << 24;
-    public static final long BASE_64M_CAPACITY = 1L << 26;
-    public static final long BASE_256M_CAPACITY = 1L << 28;
-    public static final int ASSEMBLY_COMPONENT_COUNT = 10;
-    public static final long OMNI_ASSEMBLED_4G_CAPACITY = 1L << 32;
+    public static final long MEGA_4G_CAPACITY = 1L << 32;
+    public static final int MEGA_4G_TYPE_LIMIT = 315;
+    public static final int LONG_BULK_TYPE_LIMIT = 10;
 
     private MegaCellCapacities() {
     }
 
-    public static int bytesPerType(long capacity) {
-        return Math.toIntExact(capacity / 128L);
+    public static int normalBytesPerType(IECOTier tier) {
+        return 1 << (12 + tier.getTier());
     }
 
-    public static double idleDrain(long capacity) {
-        return (double) capacity / (1L << 20);
+    public static double normalIdleDrain(long capacity) {
+        return (double) capacity / (1L << 22);
     }
 
-    public static int typeLimit(long capacity, int normalTypeLimit) {
-        return capacity == OMNI_ASSEMBLED_4G_CAPACITY ? 1 : normalTypeLimit;
+    public static int normalTypeLimit() {
+        return MEGA_4G_TYPE_LIMIT;
     }
 }

@@ -18,6 +18,14 @@ public interface IECOStorageCell extends StorageCell {
         return false;
     }
 
+    /**
+     * Whether this storage cell may be migrated into the ECO infinite storage domain.
+     * Specialized finite cells can opt out while remaining usable in normal drives.
+     */
+    default boolean isInfiniteStorageEligible() {
+        return true;
+    }
+
     long getUsedBytes();
 
     long getTotalBytes();

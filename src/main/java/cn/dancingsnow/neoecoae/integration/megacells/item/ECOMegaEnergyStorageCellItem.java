@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 public final class ECOMegaEnergyStorageCellItem extends ECOStorageCellItem {
     public ECOMegaEnergyStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type, long capacity) {
         super(properties, tier, FluxKeyType.TYPE, type, capacity,
-            MegaCellCapacities.bytesPerType(capacity), MegaCellCapacities.idleDrain(capacity));
+            MegaCellCapacities.normalBytesPerType(tier), MegaCellCapacities.normalIdleDrain(capacity));
     }
 
     @Override
@@ -38,8 +38,4 @@ public final class ECOMegaEnergyStorageCellItem extends ECOStorageCellItem {
         }
     }
 
-    @Override
-    public int getTotalTypes() {
-        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
-    }
 }

@@ -862,6 +862,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 && !stack.isEmpty()
                 && cell != null
                 && cell.getTier() == ECOTier.L9
+                && cell.isInfiniteStorageEligible()
                 && !ECOInfiniteStorageMember.isMember(stack)) {
                 count++;
             }
@@ -895,7 +896,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell cell = drive.getCellInventory();
-            if (stack == null || stack.isEmpty() || cell == null || cell.getTier() != ECOTier.L9) {
+            if (stack == null || stack.isEmpty() || cell == null || cell.getTier() != ECOTier.L9
+                || !cell.isInfiniteStorageEligible()) {
                 continue;
             }
             if (ECOInfiniteStorageMember.isMember(stack)) {
@@ -1045,7 +1047,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             ItemStack simulationStack = stack.copy();
             ECOInfiniteStorageMember.clearMember(simulationStack);
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
-            if (simulatedCell != null && simulatedCell.getTier() == ECOTier.L9) {
+            if (simulatedCell != null && simulatedCell.getTier() == ECOTier.L9
+                && simulatedCell.isInfiniteStorageEligible()) {
                 targets.add(new RestoreTarget(drive, simulatedCell));
             }
         }

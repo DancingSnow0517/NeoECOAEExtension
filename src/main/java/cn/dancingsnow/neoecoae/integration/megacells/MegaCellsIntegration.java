@@ -47,23 +47,21 @@ public final class MegaCellsIntegration {
         event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
             for (ItemEntry<? extends ECOStorageCellItem> cell : allCells()) {
-                if (cell.get() == NEMegaItems.ECO_MEGA_ITEM_CELL_4G.get()) {
+                if (cell.get() == NEMegaItems.ECO_MEGA_LONG_BULK_CELL.get()) {
                     continue;
                 }
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
-            MegaCellsBackend.registerCompressionCard(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, group);
+            MegaCellsBackend.registerCompressionCard(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, group);
         });
     }
 
     private List<ItemEntry<? extends ECOStorageCellItem>> allCells() {
         List<ItemEntry<? extends ECOStorageCellItem>> cells = new ArrayList<>(List.of(
-            NEMegaItems.ECO_MEGA_ITEM_CELL_16M, NEMegaItems.ECO_MEGA_ITEM_CELL_64M,
-            NEMegaItems.ECO_MEGA_ITEM_CELL_256M, NEMegaItems.ECO_MEGA_ITEM_CELL_4G,
-            NEMegaItems.ECO_MEGA_FLUID_CELL_16M, NEMegaItems.ECO_MEGA_FLUID_CELL_64M,
-            NEMegaItems.ECO_MEGA_FLUID_CELL_256M, NEMegaItems.ECO_MEGA_FLUID_CELL_4G
+            NEMegaItems.ECO_MEGA_ITEM_CELL_4G, NEMegaItems.ECO_MEGA_FLUID_CELL_4G,
+            NEMegaItems.ECO_MEGA_LONG_BULK_CELL
         ));
         if (energyEnabled) cells.addAll(NEMegaEnergyItems.cells());
         if (chemicalEnabled) cells.addAll(NEMegaChemicalItems.cells());
@@ -71,40 +69,26 @@ public final class MegaCellsIntegration {
     }
 
     private void registerDeferredModels() {
-        registerFamily("mega_item", NEMegaItems.ECO_MEGA_ITEM_CELL_16M, NEMegaItems.ECO_MEGA_ITEM_CELL_64M,
-            NEMegaItems.ECO_MEGA_ITEM_CELL_256M, NEMegaItems.ECO_MEGA_ITEM_CELL_4G, false);
-        registerFamily("mega_fluid", NEMegaItems.ECO_MEGA_FLUID_CELL_16M, NEMegaItems.ECO_MEGA_FLUID_CELL_64M,
-            NEMegaItems.ECO_MEGA_FLUID_CELL_256M, NEMegaItems.ECO_MEGA_FLUID_CELL_4G, false);
-        if (energyEnabled) registerFamily("mega_energy", NEMegaEnergyItems.CELL_16M, NEMegaEnergyItems.CELL_64M,
-            NEMegaEnergyItems.CELL_256M, NEMegaEnergyItems.CELL_4G, false);
-        if (chemicalEnabled) registerFamily("mega_chemical", NEMegaChemicalItems.CELL_16M, NEMegaChemicalItems.CELL_64M,
-            NEMegaChemicalItems.CELL_256M, NEMegaChemicalItems.CELL_4G, false);
+        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "mega_item", false);
+        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "mega_fluid", false);
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "mega_item", false);
+        if (energyEnabled) registerCellModel(NEMegaEnergyItems.CELL_4G, "mega_energy", false);
+        if (chemicalEnabled) registerCellModel(NEMegaChemicalItems.CELL_4G, "mega_chemical", false);
     }
 
     private void registerResolvedModels() {
-        registerFamily("mega_item", NEMegaItems.ECO_MEGA_ITEM_CELL_16M, NEMegaItems.ECO_MEGA_ITEM_CELL_64M,
-            NEMegaItems.ECO_MEGA_ITEM_CELL_256M, NEMegaItems.ECO_MEGA_ITEM_CELL_4G, true);
-        registerFamily("mega_fluid", NEMegaItems.ECO_MEGA_FLUID_CELL_16M, NEMegaItems.ECO_MEGA_FLUID_CELL_64M,
-            NEMegaItems.ECO_MEGA_FLUID_CELL_256M, NEMegaItems.ECO_MEGA_FLUID_CELL_4G, true);
-        if (energyEnabled) registerFamily("mega_energy", NEMegaEnergyItems.CELL_16M, NEMegaEnergyItems.CELL_64M,
-            NEMegaEnergyItems.CELL_256M, NEMegaEnergyItems.CELL_4G, true);
-        if (chemicalEnabled) registerFamily("mega_chemical", NEMegaChemicalItems.CELL_16M, NEMegaChemicalItems.CELL_64M,
-            NEMegaChemicalItems.CELL_256M, NEMegaChemicalItems.CELL_4G, true);
+        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "mega_item", true);
+        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "mega_fluid", true);
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "mega_item", true);
+        if (energyEnabled) registerCellModel(NEMegaEnergyItems.CELL_4G, "mega_energy", true);
+        if (chemicalEnabled) registerCellModel(NEMegaChemicalItems.CELL_4G, "mega_chemical", true);
     }
 
-    private static void registerFamily(String family, ItemEntry<? extends ECOStorageCellItem> l4,
-        ItemEntry<? extends ECOStorageCellItem> l6, ItemEntry<? extends ECOStorageCellItem> l9,
-        ItemEntry<? extends ECOStorageCellItem> compressed, boolean resolved) {
+    private static void registerCellModel(ItemEntry<? extends ECOStorageCellItem> cell, String family, boolean resolved) {
         if (resolved) {
-            ECOCellModels.register(l4.get(), NeoECOAE.id("block/cell/storage_cell_l4_" + family));
-            ECOCellModels.register(l6.get(), NeoECOAE.id("block/cell/storage_cell_l6_" + family));
-            ECOCellModels.register(l9.get(), NeoECOAE.id("block/cell/storage_cell_l9_" + family));
-            ECOCellModels.register(compressed.get(), NeoECOAE.id("block/cell/storage_cell_l9_" + family));
+            ECOCellModels.register(cell.get(), NeoECOAE.id("block/cell/storage_cell_l9_" + family));
         } else {
-            ECOCellModels.register(l4, NeoECOAE.id("block/cell/storage_cell_l4_" + family));
-            ECOCellModels.register(l6, NeoECOAE.id("block/cell/storage_cell_l6_" + family));
-            ECOCellModels.register(l9, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
-            ECOCellModels.register(compressed, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
+            ECOCellModels.register(cell, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
         }
     }
 }

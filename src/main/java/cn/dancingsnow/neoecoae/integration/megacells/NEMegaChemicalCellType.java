@@ -8,7 +8,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 final class NEMegaChemicalCellType {
     static final NECellTypeEntry MEGA_CHEMICAL = REGISTRATE.cellType("mega_chemical")
         .desc(Component.translatable("cell_type.neoecoae.mega_chemical").withColor(0x37f89e))
-        .typeCount(25)
+        .typeCount(315)
         .register();
 
     static void register() {

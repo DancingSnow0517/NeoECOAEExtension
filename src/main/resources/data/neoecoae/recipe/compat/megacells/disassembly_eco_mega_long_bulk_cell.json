@@ -6,14 +6,18 @@
     }
   ],
   "type": "ae2:storage_cell_disassembly",
-  "cell": "neoecoae:eco_mega_fluid_cell_256m",
+  "cell": "neoecoae:eco_mega_long_bulk_cell",
   "cell_disassembly_items": [
     {
       "count": 1,
-      "id": "neoecoae:mega_fluid_cell_housing"
+      "id": "neoecoae:mega_item_cell_housing"
     },
     {
       "count": 1,
+      "id": "megacells:bulk_cell_component"
+    },
+    {
+      "count": 10,
       "id": "megacells:cell_component_256m"
     }
   ]

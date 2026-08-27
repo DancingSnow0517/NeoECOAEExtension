@@ -18,18 +18,13 @@ import java.util.function.Supplier;
 public final class ECOMegaChemicalStorageCellItem extends ECOStorageCellItem {
     public ECOMegaChemicalStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type, long capacity) {
         super(properties, tier, MekanismKeyType.TYPE, type, capacity,
-            MegaCellCapacities.bytesPerType(capacity), MegaCellCapacities.idleDrain(capacity));
+            MegaCellCapacities.normalBytesPerType(tier), MegaCellCapacities.normalIdleDrain(capacity));
     }
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, lines, flag);
         MegaCellTooltips.append(this, lines);
-    }
-
-    @Override
-    public int getTotalTypes() {
-        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
     }
 
     @Override
