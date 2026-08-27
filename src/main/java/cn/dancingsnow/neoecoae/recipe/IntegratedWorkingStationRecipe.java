@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import appeng.api.ids.AEComponents;
-import appeng.api.storage.StorageCells;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -30,9 +28,7 @@ public record IntegratedWorkingStationRecipe(
     SizedFluidIngredient inputFluid,
     ItemStack itemOutput,
     FluidStack fluidOutput,
-    int energy,
-    boolean exactItemInputs,
-    boolean requiresEmptyStorageCells
+    int energy
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
     public static IntegratedWorkingStationRecipeBuilder builder() {
@@ -58,9 +54,6 @@ public record IntegratedWorkingStationRecipe(
                 var s = provided.get(i);
                 if (s == null || s.isEmpty() || remaining[i] <= 0) continue;
                 if (req.ingredient().test(s)) {
-                    if (requiresEmptyStorageCells && !isPristineEmptyStorageCell(s)) {
-                        return false;
-                    }
                     int take = Math.min(remaining[i], needed);
                     remaining[i] -= take;
                     needed -= take;
@@ -70,34 +63,12 @@ public record IntegratedWorkingStationRecipe(
             if (needed > 0) return false;
         }
 
-        if (exactItemInputs) {
-            for (int count : remaining) {
-                if (count != 0) return false;
-            }
-        }
-
         FluidStack providedFluid = recipeInput.fluid();
 
         if (inputFluid.ingredient().isEmpty()) return true;
         if (providedFluid == null || providedFluid.isEmpty()) return false;
         if (!inputFluid.test(providedFluid)) return false;
         return providedFluid.getAmount() >= inputFluid.amount();
-    }
-
-    private static boolean isPristineEmptyStorageCell(ItemStack stack) {
-        var inventory = StorageCells.getCellInventory(stack, null);
-        if (inventory == null || !inventory.getAvailableStacks().isEmpty()) {
-            return false;
-        }
-        if (!stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()).isEmpty()) {
-            return false;
-        }
-        if (stack.getItem() instanceof appeng.api.storage.cells.ICellWorkbenchItem workbenchItem) {
-            for (var upgrade : workbenchItem.getUpgrades(stack)) {
-                if (!upgrade.isEmpty()) return false;
-            }
-        }
-        return true;
     }
 
     @Override
@@ -139,19 +110,13 @@ public record IntegratedWorkingStationRecipe(
         return !fluidOutput.isEmpty();
     }
 
-    private int recipeFlags() {
-        return (exactItemInputs ? 1 : 0) | (requiresEmptyStorageCells ? 2 : 0);
-    }
-
     public static class Serializer implements RecipeSerializer<IntegratedWorkingStationRecipe> {
         public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
             SizedIngredient.FLAT_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
             SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
             ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
             FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
-            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy),
-            Codec.BOOL.optionalFieldOf("exactItemInputs", false).forGetter(IntegratedWorkingStationRecipe::exactItemInputs),
-            Codec.BOOL.optionalFieldOf("requiresEmptyStorageCells", false).forGetter(IntegratedWorkingStationRecipe::requiresEmptyStorageCells)
+            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
         ).apply(ins, IntegratedWorkingStationRecipe::new));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
@@ -165,11 +130,7 @@ public record IntegratedWorkingStationRecipe(
             IntegratedWorkingStationRecipe::fluidOutput,
             ByteBufCodecs.VAR_INT,
             IntegratedWorkingStationRecipe::energy,
-            ByteBufCodecs.VAR_INT,
-            IntegratedWorkingStationRecipe::recipeFlags,
-            (items, inputFluid, itemOutput, fluidOutput, energy, flags) -> new IntegratedWorkingStationRecipe(
-                items, inputFluid, itemOutput, fluidOutput, energy, (flags & 1) != 0, (flags & 2) != 0
-            )
+            IntegratedWorkingStationRecipe::new
         );
 
         @Override

@@ -19,18 +19,26 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.BASE_16M_CAPACITY;
 import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.BASE_256M_CAPACITY;
 import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.BASE_64M_CAPACITY;
-import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.COMPRESSED_4G_CAPACITY;
+import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.OMNI_ASSEMBLED_4G_CAPACITY;
 
 public final class NEMegaItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.storage_type"), "MEGA storage type: %s");
-        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compressible"),
-            "Compression: combine exactly %s empty matching 256 MiB matrices");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.recipe"),
+            "Assembly: %s 256M components, 8 accumulation processors, 64 singularities, and the matching housing");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compressed"),
-            "Compressed tier: explicit 4 GiB capacity");
+            "Omni-style assembly tier: explicit 4 GiB capacity");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.single_type"),
+            "Stores exactly one key type");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.configure_item"),
+            "Configure one item in a Cell Workbench before use");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.partitioned_for"), "Configured for: %s");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.auto_compression"), "Automatic compression: %s");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.enabled"), "Enabled");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.disabled"), "Disabled");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.empty_only"),
-            "Compression and disassembly require an empty, unconfigured matrix");
+            "Only an empty storage matrix can be disassembled");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.housing"),
             "MEGA Cells housing for %s storage matrices");
     }
@@ -41,12 +49,12 @@ public final class NEMegaItems {
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_16M = itemCell("16m", ECOTier.L4, BASE_16M_CAPACITY, Rarity.UNCOMMON);
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_64M = itemCell("64m", ECOTier.L6, BASE_64M_CAPACITY, Rarity.RARE);
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_256M = itemCell("256m", ECOTier.L9, BASE_256M_CAPACITY, Rarity.EPIC);
-    public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G = itemCell("4g", ECOTier.L9, COMPRESSED_4G_CAPACITY, Rarity.EPIC);
+    public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G = itemCell("4g", ECOTier.L9, OMNI_ASSEMBLED_4G_CAPACITY, Rarity.EPIC);
 
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_16M = fluidCell("16m", ECOTier.L4, BASE_16M_CAPACITY, Rarity.UNCOMMON);
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_64M = fluidCell("64m", ECOTier.L6, BASE_64M_CAPACITY, Rarity.RARE);
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_256M = fluidCell("256m", ECOTier.L9, BASE_256M_CAPACITY, Rarity.EPIC);
-    public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G = fluidCell("4g", ECOTier.L9, COMPRESSED_4G_CAPACITY, Rarity.EPIC);
+    public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G = fluidCell("4g", ECOTier.L9, OMNI_ASSEMBLED_4G_CAPACITY, Rarity.EPIC);
 
     private static ItemEntry<Item> housing(String family) {
         return REGISTRATE.<Item>item(family + "_cell_housing",
@@ -97,9 +105,8 @@ public final class NEMegaItems {
 
     private static String cellName(String family, ECOTier tier, long capacity, String size) {
         String level = tier == ECOTier.L4 ? "4" : tier == ECOTier.L6 ? "6" : "9";
-        String compressed = size.equals("4g") ? " Compressed" : "";
-        return "ECO - LE" + level + compressed + " Storage Matrix (" + family + ", "
-            + (capacity >> 20) + " MiB)";
+        String capacityName = size.equals("4g") ? "4 GiB" : (capacity >> 20) + " MiB";
+        return "ECO - LE" + level + " Storage Matrix (" + family + ", " + capacityName + ")";
     }
 
     private static String displayFamily(String family) {

@@ -221,10 +221,14 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Nullable
     public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
-        if (stack.getItem() instanceof ECOStorageCellItem) {
-            return new ECOStorageCell(stack, host);
+        if (stack.getItem() instanceof ECOStorageCellItem cellItem) {
+            return cellItem.createCellInventory(stack, host);
         }
         return null;
+    }
+
+    protected ECOStorageCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        return new ECOStorageCell(stack, host);
     }
 
     @Override

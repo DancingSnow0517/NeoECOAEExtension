@@ -47,10 +47,14 @@ public final class MegaCellsIntegration {
         event.enqueueWork(() -> {
             String group = GuiText.StorageCells.getTranslationKey();
             for (ItemEntry<? extends ECOStorageCellItem> cell : allCells()) {
+                if (cell.get() == NEMegaItems.ECO_MEGA_ITEM_CELL_4G.get()) {
+                    continue;
+                }
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, group);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
+            MegaCellsBackend.registerCompressionCard(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, group);
         });
     }
 

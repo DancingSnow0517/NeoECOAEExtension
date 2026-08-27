@@ -28,6 +28,11 @@ public final class ECOMegaChemicalStorageCellItem extends ECOStorageCellItem {
     }
 
     @Override
+    public int getTotalTypes() {
+        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
+    }
+
+    @Override
     public boolean isBlackListed(ItemStack cellStack, AEKey what) {
         return !(what instanceof MekanismKey key) || !ChemicalAttributeValidator.DEFAULT.process(key.getStack());
     }

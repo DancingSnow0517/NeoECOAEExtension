@@ -23,4 +23,9 @@ public final class ECOMegaFluidStorageCellItem extends ECOStorageCellItem {
         super.appendHoverText(stack, context, lines, flag);
         MegaCellTooltips.append(this, lines);
     }
+
+    @Override
+    public int getTotalTypes() {
+        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
+    }
 }

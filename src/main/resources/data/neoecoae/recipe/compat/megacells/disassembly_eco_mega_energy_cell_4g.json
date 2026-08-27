@@ -13,8 +13,12 @@
   "cell": "neoecoae:eco_mega_energy_cell_4g",
   "cell_disassembly_items": [
     {
+      "count": 1,
+      "id": "neoecoae:mega_energy_cell_housing"
+    },
+    {
       "count": 10,
-      "id": "neoecoae:eco_mega_energy_cell_256m"
+      "id": "megacells:cell_component_256m"
     }
   ]
 }

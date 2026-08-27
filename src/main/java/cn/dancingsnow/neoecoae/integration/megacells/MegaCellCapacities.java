@@ -4,8 +4,8 @@ public final class MegaCellCapacities {
     public static final long BASE_16M_CAPACITY = 1L << 24;
     public static final long BASE_64M_CAPACITY = 1L << 26;
     public static final long BASE_256M_CAPACITY = 1L << 28;
-    public static final int COMPRESSION_INPUT_COUNT = 10;
-    public static final long COMPRESSED_4G_CAPACITY = 1L << 32;
+    public static final int ASSEMBLY_COMPONENT_COUNT = 10;
+    public static final long OMNI_ASSEMBLED_4G_CAPACITY = 1L << 32;
 
     private MegaCellCapacities() {
     }
@@ -16,5 +16,9 @@ public final class MegaCellCapacities {
 
     public static double idleDrain(long capacity) {
         return (double) capacity / (1L << 20);
+    }
+
+    public static int typeLimit(long capacity, int normalTypeLimit) {
+        return capacity == OMNI_ASSEMBLED_4G_CAPACITY ? 1 : normalTypeLimit;
     }
 }

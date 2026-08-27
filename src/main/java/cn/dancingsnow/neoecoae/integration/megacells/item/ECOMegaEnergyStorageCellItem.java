@@ -37,4 +37,9 @@ public final class ECOMegaEnergyStorageCellItem extends ECOStorageCellItem {
             }
         }
     }
+
+    @Override
+    public int getTotalTypes() {
+        return MegaCellCapacities.typeLimit(getBytes(), super.getTotalTypes());
+    }
 }

@@ -127,8 +127,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    // Ten slots are required by lossless MEGA-cell compression: storage cells are non-stackable.
-    private static final int MAX_INPUT_SLOTS = 10;
+    private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     // Holds one full high-energy network-switch recipe.
     private static final int MAX_POWER_STORAGE = 16_000_000;
@@ -712,10 +711,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         // Input slots
         UIElement inputSlots = new UIElement().addClass("panel_border").layout(layout -> layout.marginLeft(10).marginRight(10));
-        for (int y = 0; y < 2; y++) {
+        for (int x = 0; x < 3; x++) {
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
-            for (int x = 0; x < 5; x++) {
-                int i = x + y * 5;
+            for (int y = 0; y < 3; y++) {
+                int i = x + y * 3;
                 row.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), i)));
             }
             inputSlots.addChild(row);
@@ -730,7 +729,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         });
         UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.justifyContent(AlignContent.CENTER));
         outputSlots.addChild(outputSlot);
-        outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), MAX_INPUT_SLOTS)));
+        outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), 9)));
         inputArea.addChild(outputSlots);
 
         // progress bar
