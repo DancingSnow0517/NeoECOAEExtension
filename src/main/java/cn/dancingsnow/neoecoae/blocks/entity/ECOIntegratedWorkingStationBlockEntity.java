@@ -129,8 +129,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
-    private static final int MAX_POWER_STORAGE = 500000;
-    private static final int MAX_TANK_CAPACITY = 16000;
+    // Holds one full high-energy network-switch recipe.
+    private static final int MAX_POWER_STORAGE = 16_000_000;
+    private static final int MAX_TANK_CAPACITY = 64_000;
 
     private final IUpgradeInventory upgrades;
     private final IConfigManager configManager;
