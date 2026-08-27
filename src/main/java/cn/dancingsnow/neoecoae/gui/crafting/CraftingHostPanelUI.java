@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
@@ -141,26 +142,21 @@ public final class CraftingHostPanelUI {
         status.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
         status.layout(layout -> layout.width(FORMED_STATUS_WIDTH).height(10));
 
-        UIElement toolbar = new UIElement()
-            .addClass("eco-host-toolbar")
-            .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
-        toolbar.addChildren(
+        header.addChildren(title, status);
+        return header;
+    }
+
+    public static List<Button> createToolbarButtons(Config config) {
+        return List.of(
             toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, () -> Component.translatable(
                 config.overclocked.getAsBoolean() ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
             toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, () -> Component.translatable(
                 config.activeCooling.getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
         );
-
-        header.addChildren(
-            title,
-            status,
-            toolbar
-        );
-        return header;
     }
 
     private static Button toolbarButton(Runnable action, Icon icon, Supplier<Component> tooltip) {
-        Button button = new Button()
+        Button button = HostSideButtonBar.createButton()
             .noText()
             .addPreIcon(AETextures.icon(icon))
             .setOnServerClick(event -> action.run());

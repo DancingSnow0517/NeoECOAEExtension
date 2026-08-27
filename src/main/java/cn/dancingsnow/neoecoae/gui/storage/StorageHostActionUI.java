@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -34,12 +36,16 @@ public final class StorageHostActionUI {
     }
 
     public record Elements(
+        Player player,
         UIElement buildWindow,
         UIElement priorityWindow
     ) {
         public void addTo(UIElement root) {
-            root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
-            root.addChild(StoragePriorityUI.createOpenButton(priorityWindow));
+            root.addChild(HostSideButtonBar.left(
+                GuideButton.create(player, "neoecoae:neoecoae_intro/storage_system.md"),
+                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+                StoragePriorityUI.createInlineOpenButton(priorityWindow)
+            ));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
         }
@@ -63,6 +69,6 @@ public final class StorageHostActionUI {
             config.setPriority(),
             config.changePriority()
         ));
-        return new Elements(buildWindow, priorityWindow);
+        return new Elements(config.player(), buildWindow, priorityWindow);
     }
 }

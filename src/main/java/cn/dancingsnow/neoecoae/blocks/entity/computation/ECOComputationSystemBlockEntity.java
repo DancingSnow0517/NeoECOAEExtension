@@ -11,6 +11,8 @@ import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
@@ -162,7 +164,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             .setText(getItemFromBlockEntity().getDescription())
             .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
             .layout(layout -> layout.flex(1)));
-        header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
 
         UIElement panels = new UIElement().layout(layout -> layout
@@ -183,7 +184,11 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         panels.addChild(ComputationHostPanelUI.createRightPanel(panelConfig));
 
         root.addChild(panels);
-        root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
+        root.addChild(HostSideButtonBar.left(
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
+            MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+            ComputationHostPanelUI.createCpuSelectionButton(panelConfig)
+        ));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }

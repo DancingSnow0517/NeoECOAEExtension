@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 
 import appeng.client.gui.Icon;
@@ -75,23 +76,17 @@ public final class StoragePriorityUI {
     }
 
     public static UIElement createOpenButton(UIElement window) {
-        UIElement priorityButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(26);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        priorityButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.PRIORITY))
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.open"))
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-        return priorityButtonPanel;
+        return HostSideButtonBar.left(createInlineOpenButton(window));
+    }
+
+    public static Button createInlineOpenButton(UIElement window) {
+        Button button = HostSideButtonBar.createButton();
+        button.noText().addPostIcon(AETextures.icon(Icon.PRIORITY));
+        button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS,
+            event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.open"));
+        button.layout(layout -> layout.width(18).height(20));
+        return button;
     }
 
     private static UIElement buttonRow(Config config, int[] steps) {
