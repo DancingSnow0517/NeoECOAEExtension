@@ -10,6 +10,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
@@ -27,11 +28,12 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
-            if (blockEntity == null) {
+            BlockEntity candidate = level.getBlockEntity(blockPos);
+            if (!(candidate instanceof NEBlockEntity<?, ?>) || !isValidBlockEntity(candidate)) {
                 this.disconnect();
                 return;
             }
+            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) candidate;
             c.addBlockEntity(blockEntity);
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
