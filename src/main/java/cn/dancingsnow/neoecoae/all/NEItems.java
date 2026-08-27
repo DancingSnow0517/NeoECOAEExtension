@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.ids.AETags;
 import appeng.api.stacks.AEKeyType;
+import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
@@ -826,11 +827,31 @@ public class NEItems {
         .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
             @Override
             public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.header")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.components")
+                    .withStyle(ChatFormatting.GRAY));
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.matrices")
+                    .withStyle(ChatFormatting.AQUA));
             }
         })
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                // Keep the two 64-component stacks separate for the workstation input limit.
+                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
+                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
+                .require(AEItems.SINGULARITY, 64)
+                .require(NEItems.CRYSTAL_INGOT, 16)
+                .require(NEBlocks.STORAGE_SYSTEM_L9, 2)
+                .require(AEBlocks.DRIVE, 16)
+                .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 64_000)
+                .energy(1_000_000)
+                .itemOutput(ctx.get())
+                .save(prov);
+        })
         .lang("ECO Infinite Storage Component")
         .register();
 

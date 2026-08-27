@@ -87,7 +87,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
-    private static final int INFINITE_MEMBER_REQUIRED = 16;
+    private static final int INFINITE_MEMBER_REQUIRED = 12;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
@@ -336,7 +336,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 .toList(),
             this::isMigratingToInfinite,
             this::getInfiniteMigrationProgressPercent,
-            NEConfig::isInfiniteStorageEnabled,
             this::canExtractInfiniteComponents,
             infiniteComponentItemHandler,
             () -> level.registryAccess(),
@@ -765,11 +764,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
-        if (hostMode.isInfiniteState() && !NEConfig.isInfiniteStorageEnabled()) {
-            restoreInfiniteDomainToNormalStorage();
-            syncInfiniteModeChanges(previous);
-            return;
-        }
         if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
             restoreInfiniteDomainToNormalStorageIfPossible();
             syncInfiniteModeChanges(previous);
@@ -796,7 +790,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private boolean canStartInfiniteMigration() {
         return tier == ECOTier.L9
-            && NEConfig.isInfiniteStorageEnabled()
             && formed
             && cluster != null
             && hasRequiredInfiniteComponents()

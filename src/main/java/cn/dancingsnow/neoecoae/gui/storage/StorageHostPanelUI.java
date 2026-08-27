@@ -122,7 +122,6 @@ public final class StorageHostPanelUI {
         List<StorageTypeLine> storageTypes,
         BooleanSupplier migratingToInfinite,
         IntSupplier infiniteMigrationProgress,
-        BooleanSupplier enableInfiniteStorage,
         BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable infiniteComponentInventory,
         Supplier<HolderLookup.Provider> registries,
@@ -138,13 +137,7 @@ public final class StorageHostPanelUI {
             layout.width(LEFT_PANEL_WIDTH);
             layout.height(PANEL_HEIGHT);
         });
-        // Both logical sides must construct the exact same sync tree. Build both layouts and
-        // synchronize visibility instead of branching on a side-local config value.
-        panel.addChild(HostElements.syncedDisplay(
-                () -> !config.enableInfiniteStorage().getAsBoolean())
-            .addChild(createLeftStoragePanel(config, PANEL_HEIGHT)));
-        panel.addChild(HostElements.syncedDisplay(config.enableInfiniteStorage())
-            .addChild(createLeftPanelWithInventory(config)));
+        panel.addChild(createLeftPanelWithInventory(config));
         return panel;
     }
 
@@ -322,11 +315,7 @@ public final class StorageHostPanelUI {
                 RIGHT_HUGE_STACK_HEIGHT
             ));
             view.addChild(HostElements.absolute(
-                infiniteComponentSlot(
-                    config.enableInfiniteStorage(),
-                    config.canExtractInfiniteComponents(),
-                    config.infiniteComponentInventory()
-                ),
+                infiniteComponentSlot(config.canExtractInfiniteComponents(), config.infiniteComponentInventory()),
                 RIGHT_INFINITE_COMPONENT_SLOT_X,
                 RIGHT_INFINITE_COMPONENT_SLOT_Y,
                 RIGHT_INFINITE_COMPONENT_SLOT_SIZE,
@@ -365,11 +354,10 @@ public final class StorageHostPanelUI {
     }
 
     private static UIElement infiniteComponentSlot(
-        BooleanSupplier display,
         BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable infiniteComponentInventory
     ) {
-        UIElement wrapper = HostElements.syncedDisplay(display);
+        UIElement wrapper = new UIElement();
         ItemHandlerSlot slot = new ItemHandlerSlot(infiniteComponentInventory, 0)
             .setCanTake(player -> canTakeInfiniteComponent(player, canExtractInfiniteComponents));
         wrapper.addChild(new ItemSlot(slot));
