@@ -1,11 +1,12 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
-import appeng.items.materials.MaterialItem;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaFluidStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaItemStorageCellItem;
+import cn.dancingsnow.neoecoae.integration.megacells.item.MegaCellHousingItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -23,10 +24,19 @@ import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.C
 public final class NEMegaItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.storage_type"), "MEGA storage type: %s");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compressible"),
+            "Compression: combine exactly %s empty matching 256 MiB matrices");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compressed"),
+            "Compressed tier: explicit 4 GiB capacity");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.empty_only"),
+            "Compression and disassembly require an empty, unconfigured matrix");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.housing"),
+            "MEGA Cells housing for %s storage matrices");
     }
 
-    public static final ItemEntry<MaterialItem> MEGA_ITEM_CELL_HOUSING = housing("mega_item");
-    public static final ItemEntry<MaterialItem> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid");
+    public static final ItemEntry<Item> MEGA_ITEM_CELL_HOUSING = housing("mega_item");
+    public static final ItemEntry<Item> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid");
 
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_16M = itemCell("16m", ECOTier.L4, BASE_16M_CAPACITY, Rarity.UNCOMMON);
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_64M = itemCell("64m", ECOTier.L6, BASE_64M_CAPACITY, Rarity.RARE);
@@ -38,8 +48,9 @@ public final class NEMegaItems {
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_256M = fluidCell("256m", ECOTier.L9, BASE_256M_CAPACITY, Rarity.EPIC);
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G = fluidCell("4g", ECOTier.L9, COMPRESSED_4G_CAPACITY, Rarity.EPIC);
 
-    private static ItemEntry<MaterialItem> housing(String family) {
-        return REGISTRATE.item(family + "_cell_housing", MaterialItem::new)
+    private static ItemEntry<Item> housing(String family) {
+        return REGISTRATE.<Item>item(family + "_cell_housing",
+                p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
             .lang("ECO MEGA Storage Matrix Housing (" + displayFamily(family) + ")")
             .model(ItemModelUtil.compatHousingModel(family + "_cell_housing"))
             .register();
@@ -72,8 +83,9 @@ public final class NEMegaItems {
             .register();
     }
 
-    static ItemEntry<MaterialItem> optionalHousing(String family, String displayFamily) {
-        return REGISTRATE.item(family + "_cell_housing", MaterialItem::new)
+    static ItemEntry<Item> optionalHousing(String family, String displayFamily) {
+        return REGISTRATE.<Item>item(family + "_cell_housing",
+                p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
             .lang("ECO MEGA Storage Matrix Housing (" + displayFamily + ")")
             .model(ItemModelUtil.compatHousingModel(family + "_cell_housing"))
             .register();

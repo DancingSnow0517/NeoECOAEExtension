@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
-import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaEnergyStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.Item;
 
 import java.util.List;
 
@@ -14,7 +14,7 @@ import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.B
 import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.COMPRESSED_4G_CAPACITY;
 
 final class NEMegaEnergyItems {
-    static final ItemEntry<MaterialItem> MEGA_ENERGY_CELL_HOUSING =
+    static final ItemEntry<Item> MEGA_ENERGY_CELL_HOUSING =
         NEMegaItems.optionalHousing("mega_energy", "Mega Energy");
     static final ItemEntry<ECOMegaEnergyStorageCellItem> CELL_16M = cell("16m", ECOTier.L4, BASE_16M_CAPACITY, Rarity.UNCOMMON);
     static final ItemEntry<ECOMegaEnergyStorageCellItem> CELL_64M = cell("64m", ECOTier.L6, BASE_64M_CAPACITY, Rarity.RARE);
