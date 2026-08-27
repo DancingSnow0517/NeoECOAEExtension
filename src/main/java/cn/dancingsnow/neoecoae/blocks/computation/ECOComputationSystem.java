@@ -23,6 +23,8 @@ import net.minecraft.world.phys.BlockHitResult;
 public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntity> implements BlockUIMenuType.BlockUI{
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
+    public static final BooleanProperty NETWORK_SWITCH = BooleanProperty.create("network_switch");
+    public static final BooleanProperty HIGH_ENERGY_NETWORK_SWITCH = BooleanProperty.create("high_energy_network_switch");
 
     public ECOComputationSystem(Properties properties) {
         super(properties);
@@ -30,13 +32,15 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(MIRRORED, false)
+            .setValue(NETWORK_SWITCH, false)
+            .setValue(HIGH_ENERGY_NETWORK_SWITCH, false)
         );
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(MIRRORED);
+        builder.add(MIRRORED, NETWORK_SWITCH, HIGH_ENERGY_NETWORK_SWITCH);
     }
 
     @Override

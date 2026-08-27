@@ -14,10 +14,12 @@ import cn.dancingsnow.neoecoae.blocks.*;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationNetworkSwitch;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationTransmitter;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingNetworkSwitch;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingPatternBus;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
@@ -34,6 +36,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.BlockStateUtil;
 import cn.dancingsnow.neoecoae.util.LootTableUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
+import com.tterrag.registrate.util.nullness.NonNullFunction;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.Direction;
 import net.minecraft.data.recipes.RecipeCategory;
@@ -61,6 +64,48 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEBlocks {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
+    }
+
+    public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_NETWORK_SWITCH = networkSwitch(
+        "crafting_network_switch",
+        ECOCraftingNetworkSwitch::new,
+        "ECO Crafting Subsystem Network Switch Module"
+    );
+
+    public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
+        "crafting_high_energy_network_switch",
+        ECOCraftingNetworkSwitch::new,
+        "ECO Crafting Subsystem High-Energy Network Switch Module"
+    );
+
+    public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_NETWORK_SWITCH = networkSwitch(
+        "computation_network_switch",
+        ECOComputationNetworkSwitch::new,
+        "ECO Computation Subsystem Network Switch Module"
+    );
+
+    public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
+        "computation_high_energy_network_switch",
+        ECOComputationNetworkSwitch::new,
+        "ECO Computation Subsystem High-Energy Network Switch Module"
+    );
+
+    private static <T extends NENetworkSwitchBlock<?>> BlockEntry<T> networkSwitch(
+        String name,
+        NonNullFunction<BlockBehaviour.Properties, T> factory,
+        String englishName
+    ) {
+        return REGISTRATE.block(name, factory)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> prov.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(state -> ConfiguredModel.builder()
+                    .modelFile(prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())))
+                    .build(), NENetworkSwitchBlock.FORMED))
+            .loot((prov, block) -> prov.dropSelf(block))
+            .simpleItem()
+            .lang(englishName)
+            .register();
     }
 
     public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
@@ -1182,11 +1227,19 @@ public class NEBlocks {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed"));
                 ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed_mirrored"));
+                ModelFile networkFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_l9_network_switch_formed")) : formedModel;
+                ModelFile networkMirroredFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_l9_network_switch_formed_mirrored")) : mirroredFormedModel;
+                ModelFile powerNetworkFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_l9_power_network_switch_formed")) : formedModel;
+                ModelFile powerNetworkMirroredFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_l9_power_network_switch_formed_mirrored")) : mirroredFormedModel;
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOCraftingSystem.FORMED)
-                                ? (s.getValue(ECOCraftingSystem.MIRRORED) ? mirroredFormedModel : formedModel)
+                                ? (s.getValue(ECOCraftingSystem.MIRRORED)
+                                    ? (s.getValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkMirroredFormedModel
+                                        : s.getValue(ECOCraftingSystem.NETWORK_SWITCH) ? networkMirroredFormedModel : mirroredFormedModel)
+                                    : (s.getValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkFormedModel
+                                        : s.getValue(ECOCraftingSystem.NETWORK_SWITCH) ? networkFormedModel : formedModel))
                                 : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
@@ -1214,11 +1267,19 @@ public class NEBlocks {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_formed"));
                 ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_formed_mirrored"));
+                ModelFile networkFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_l9_network_switch_formed")) : formedModel;
+                ModelFile networkMirroredFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_l9_network_switch_formed_mirrored")) : mirroredFormedModel;
+                ModelFile powerNetworkFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_l9_power_network_switch_formed")) : formedModel;
+                ModelFile powerNetworkMirroredFormedModel = level.equals("l9") ? prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_l9_power_network_switch_formed_mirrored")) : mirroredFormedModel;
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOComputationSystem.FORMED)
-                                ? (s.getValue(ECOComputationSystem.MIRRORED) ? mirroredFormedModel : formedModel)
+                                ? (s.getValue(ECOComputationSystem.MIRRORED)
+                                    ? (s.getValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkMirroredFormedModel
+                                        : s.getValue(ECOComputationSystem.NETWORK_SWITCH) ? networkMirroredFormedModel : mirroredFormedModel)
+                                    : (s.getValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH) ? powerNetworkFormedModel
+                                        : s.getValue(ECOComputationSystem.NETWORK_SWITCH) ? networkFormedModel : formedModel))
                                 : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()

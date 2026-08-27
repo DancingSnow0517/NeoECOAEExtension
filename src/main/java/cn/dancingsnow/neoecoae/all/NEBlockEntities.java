@@ -9,11 +9,13 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationTransmitterBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
@@ -40,6 +42,30 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @SuppressWarnings("unused")
 public class NEBlockEntities {
+
+    public static final BlockEntityEntry<ECOCraftingNetworkSwitchBlockEntity> CRAFTING_NETWORK_SWITCH = REGISTRATE
+        .blockEntity("crafting_network_switch", ECOCraftingNetworkSwitchBlockEntity::new)
+        .validBlock(NEBlocks.CRAFTING_NETWORK_SWITCH)
+        .validBlock(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH)
+        .onRegister(type -> {
+            NEBlocks.CRAFTING_NETWORK_SWITCH.get().setBlockEntity(ECOCraftingNetworkSwitchBlockEntity.class, type, null, null);
+            NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOCraftingNetworkSwitchBlockEntity.class, type, null, null);
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+        })
+        .register();
+
+    public static final BlockEntityEntry<ECOComputationNetworkSwitchBlockEntity> COMPUTATION_NETWORK_SWITCH = REGISTRATE
+        .blockEntity("computation_network_switch", ECOComputationNetworkSwitchBlockEntity::new)
+        .validBlock(NEBlocks.COMPUTATION_NETWORK_SWITCH)
+        .validBlock(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH)
+        .onRegister(type -> {
+            NEBlocks.COMPUTATION_NETWORK_SWITCH.get().setBlockEntity(ECOComputationNetworkSwitchBlockEntity.class, type, null, null);
+            NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOComputationNetworkSwitchBlockEntity.class, type, null, null);
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+        })
+        .register();
 
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
         .<ECOMachineCasingBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(

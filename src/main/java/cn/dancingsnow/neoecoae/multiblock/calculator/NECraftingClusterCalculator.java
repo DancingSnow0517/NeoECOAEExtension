@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
@@ -60,16 +61,19 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction front = back.getOpposite();
         Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
         Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
+        Direction left = strategy.getSide(controllerState, RelativeSide.LEFT);
         Direction right = left.getOpposite();
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right)) {
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right)) {
             controller.setMirrored(false);
+            syncNetworkSwitchState(level, controllerPos, controllerState, false);
             return true;
         }
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left)) {
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, left)) {
             controller.setMirrored(true);
+            syncNetworkSwitchState(level, controllerPos, controllerState, true);
             return true;
         }
+        clearNetworkSwitchState(level, controllerPos, controllerState);
         controller.setMirrored(false);
         return false;
     }
@@ -83,10 +87,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction top,
         Direction down,
         Direction interfaceSide,
-        Direction expandSide
+        Direction expandSide,
+        Direction networkSwitchSide
     ) {
-        if (!validateCasing(level, controllerPos, top, down, interfaceSide)) return false;
-        if (!validateCasing(level, controllerPos, top, down, expandSide)) return false;
+        if (!validateCasingOrNetworkSwitch(level, controllerPos, tier, top, down, networkSwitchSide)) return false;
+        if (!validateCasing(level, controllerPos, top, down, interfaceSide == networkSwitchSide ? expandSide : interfaceSide)) return false;
         if (!validateCasing(level, controllerPos, top, down, back)) return false;
         if (!validateCasing(level, controllerPos.relative(back).relative(expandSide), top, down)) return false;
         BlockPos interfacePos = controllerPos.relative(back).relative(interfaceSide);
@@ -183,7 +188,48 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     public boolean isValidBlockEntity(BlockEntity te) {
+        if (te instanceof cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity sw) {
+            return sw.getLevel() instanceof ServerLevel level && isNetworkSwitchAt(level, sw.getBlockPos());
+        }
         return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
+    }
+
+    private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            if (level.getBlockEntity(switchPos.relative(direction)) instanceof ECOCraftingSystemBlockEntity controller
+                && NENetworkSwitchUtil.canUseNetworkSwitch(controller.getTier())
+                && NENetworkSwitchUtil.isSwitchPosition(switchPos, controller.getBlockPos(), controller.getBlockState())) return true;
+        }
+        return false;
+    }
+
+    private static void syncNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
+        BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored);
+        BlockState switchState = level.getBlockState(switchPos);
+        boolean normal = switchState.is(NEBlocks.CRAFTING_NETWORK_SWITCH);
+        boolean highEnergy = switchState.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
+        NENetworkSwitchUtil.syncFormed(level, controllerPos, controllerState, mirrored);
+        level.setBlock(controllerPos, level.getBlockState(controllerPos)
+            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.NETWORK_SWITCH, normal)
+            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergy), Block.UPDATE_CLIENTS);
+    }
+
+    private static void clearNetworkSwitchState(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
+        NENetworkSwitchUtil.clearFormed(level, controllerPos, controllerState);
+        BlockState current = level.getBlockState(controllerPos);
+        level.setBlock(controllerPos, current
+            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.NETWORK_SWITCH, false)
+            .setValue(cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, false), Block.UPDATE_CLIENTS);
+    }
+
+    private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
+        BlockPos center = controllerPos.relative(side);
+        BlockState state = level.getBlockState(center);
+        boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
+        if (!state.is(NEBlocks.CRAFTING_CASING) && !sw) return false;
+        if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
+        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.CRAFTING_CASING)
+            && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.CRAFTING_CASING);
     }
 
     private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
