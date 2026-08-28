@@ -51,13 +51,6 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
     public boolean cantStoreItems;
 
     @Inject(
-        method = {"<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Ljava/lang/Object;)V"},
-        at = {@At("TAIL")}
-    )
-    private void onInit(MenuType<?> menuType, int id, Inventory ip, Object te, CallbackInfo ci) {
-    }
-
-    @Inject(
         method = {"setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V"},
         at = {@At("HEAD")},
         cancellable = true

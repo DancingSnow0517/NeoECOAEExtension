@@ -66,6 +66,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -194,7 +195,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     level.setBlock(
                         worldPosition,
                         newState,
-                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                        Block.UPDATE_CLIENTS
                     );
                 }
             }

@@ -78,10 +78,6 @@ public final class ECOExtractedPatternExecution {
         );
     }
 
-    public IPatternDetails details() {
-        return details;
-    }
-
     public KeyCounter[] craftingContainer() {
         return craftingContainer;
     }

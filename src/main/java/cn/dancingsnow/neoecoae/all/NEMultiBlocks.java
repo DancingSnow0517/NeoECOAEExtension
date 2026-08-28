@@ -164,19 +164,7 @@ public class NEMultiBlocks {
             .setBlock(pos(0, 2, 1), casing)
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.COMPUTATION_TRANSMITTER.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
-//            .setBlockEntityRepeatable(pos(-1, 2, 0), Direction.WEST, (pos,state) -> {
-//                ECOComputationDriveBlockEntity be = NEBlockEntities.COMPUTATION_DRIVE.create(pos, state);
-//                be.setLowerDrive(false);
-//                be.setTier(threadingCore.get().getTier());
-//                return be;
-//            })
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
-//            .setBlockEntityRepeatable(pos(-1, 0, 0), Direction.WEST, (pos,state) -> {
-//                ECOComputationDriveBlockEntity be = NEBlockEntities.COMPUTATION_DRIVE.create(pos, state);
-//                be.setLowerDrive(true);
-//                be.setTier(threadingCore.get().getTier());
-//                return be;
-//            })
             .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, threadingCore.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))

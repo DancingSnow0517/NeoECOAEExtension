@@ -5,7 +5,6 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.config.CpuSelectionMode;
-import appeng.core.localization.Tooltips;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -97,7 +96,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @DescSynced
     private FluidStack currentCoolantFluid = FluidStack.EMPTY;
 
-    private int patternBusCount, parallelCount, workerCount = 0;
+    private int workerCount = 0;
 
     @Getter
     private int runningThreadCount = 0;
@@ -254,7 +253,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
-            int baseCrafts = NEConfig.getCraftingWorkerBaseCrafts();
+            int baseCrafts = NEConfig.CRAFTING_WORKER_BASE_CRAFTS;
             long calculatedPerWorker;
             if (overclocked) {
                 calculatedPerWorker = saturatingMultiply(
@@ -284,12 +283,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateCount() {
         if (cluster != null) {
-            parallelCount = cluster.getParallelCores().size();
-            patternBusCount = cluster.getPatternBuses().size();
             workerCount = cluster.getWorkers().size();
         } else {
-            parallelCount = 0;
-            patternBusCount = 0;
             workerCount = 0;
         }
     }
@@ -340,10 +335,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateOverlockTimes() {
         overlockTimes = calculateOverclockTimes(exactThreadCount, exactAvailableThreadCount);
-    }
-
-    static int getCoreThreadCount(IECOTier coreTier, boolean overclocked) {
-        return (int) Math.min(Integer.MAX_VALUE, getCoreThreadCountLong(coreTier, overclocked));
     }
 
     private static long getCoreThreadCountLong(IECOTier coreTier, boolean overclocked) {
@@ -432,14 +423,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getDisplayedCoolingMaxOverclock() {
         return getCurrentCoolingMaxOverclock();
-    }
-
-    public void clearCoolant() {
-        coolant = 0;
-        coolantMaxOverclock = -1;
-        currentCoolantFluid = FluidStack.EMPTY;
-        setChanged();
-        markForUpdate();
     }
 
     private int getOverflowThreads() {
@@ -829,16 +812,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
-    }
-
-    private Component buildOverclockSummaryComponent() {
-        int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
-        return Component.translatable(
-            "gui.neoecoae.host.crafting.overclock_summary",
-            overlockTimes,
-            getEffectiveOverclockTimes(),
-            displayedMaxOverclock < 0 ? "-" : Tooltips.ofNumber(displayedMaxOverclock)
-        );
     }
 
     private record TaskAggregateKey(UUID craftingJobId, ItemStack output) {

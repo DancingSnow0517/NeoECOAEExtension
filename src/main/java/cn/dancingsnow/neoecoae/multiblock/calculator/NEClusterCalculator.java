@@ -234,15 +234,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             start,
             blockPredicate
         );
-        if (end.equals(start)) {
-            if (validateBlock(
-                level,
-                end,
-                it -> blockPredicate.test(it, start)
-            )) {
-                return DataResult.success(end);
-            }
-        }
         return DataResult.success(end);
     }
 

@@ -43,7 +43,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public ECOStorageInterfaceMode getStorageInterfaceMode() { return storageInterfaceMode; }
     public long getTransferredLastTick() { return transferredLastTick; }
     public boolean isStorageInputMode() { return storageInterfaceMode == ECOStorageInterfaceMode.INPUT; }
-    public boolean isStorageOutputMode() { return storageInterfaceMode == ECOStorageInterfaceMode.OUTPUT; }
     public boolean isStorageTransferMode() { return storageInterfaceMode != ECOStorageInterfaceMode.STORAGE; }
     public boolean isInfiniteTransferAvailable() {
         return formed && cluster instanceof NEStorageCluster storage && storage.getController() != null

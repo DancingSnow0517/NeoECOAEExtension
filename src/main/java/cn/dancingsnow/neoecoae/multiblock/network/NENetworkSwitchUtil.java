@@ -14,7 +14,6 @@ public final class NENetworkSwitchUtil {
     private static final IOrientationStrategy HORIZONTAL = OrientationStrategies.horizontalFacing();
     private NENetworkSwitchUtil() {}
     public static Direction rightOfController(BlockState state) { return HORIZONTAL.getSide(state, RelativeSide.RIGHT); }
-    public static BlockPos switchPosition(BlockPos controllerPos, BlockState state) { return switchPosition(controllerPos, state, false); }
     public static BlockPos switchPosition(BlockPos controllerPos, BlockState state, boolean mirrored) {
         Direction side = mirrored ? HORIZONTAL.getSide(state, RelativeSide.LEFT) : rightOfController(state);
         return controllerPos.relative(side);

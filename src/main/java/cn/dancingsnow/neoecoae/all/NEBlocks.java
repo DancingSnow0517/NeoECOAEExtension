@@ -167,6 +167,7 @@ public class NEBlocks {
     public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
         .block("raw_tungsten_block", Block::new)
         .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
+        // Intentional progression: raw tungsten requires a higher mining tier than the refined storage block.
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_DIAMOND_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)

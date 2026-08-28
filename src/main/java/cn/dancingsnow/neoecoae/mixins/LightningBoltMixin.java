@@ -26,6 +26,7 @@ public abstract class LightningBoltMixin extends Entity {
         AEBlocks.FLAWLESS_BUDDING_QUARTZ.block(), NEBlocks.FLAWLESS_BUDDING_ENERGIZED_CRYSTAL.get(),
         AEBlocks.FLAWED_BUDDING_QUARTZ.block(), NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL.get(),
         AEBlocks.CHIPPED_BUDDING_QUARTZ.block(), NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get(),
+        // Intentional pity reward: the lowest-quality bud improves to CHIPPED instead of staying DAMAGED.
         AEBlocks.DAMAGED_BUDDING_QUARTZ.block(), NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get()
     );
 

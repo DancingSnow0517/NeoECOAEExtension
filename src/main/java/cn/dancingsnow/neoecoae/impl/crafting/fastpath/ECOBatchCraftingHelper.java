@@ -52,16 +52,6 @@ public final class ECOBatchCraftingHelper {
         return max;
     }
 
-    public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        for (GenericStack stack : stacks) {
-            long extracted = inventory.extract(stack.what(), stack.amount(), Actionable.SIMULATE);
-            if (extracted != stack.amount()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public static int maxAffordableCrafts(
         double patternPower,
         int requested,

@@ -11,7 +11,6 @@ public record ECOBatchCraftingWork(
     List<GenericStack> outputTotal,
     List<GenericStack> remainingTotal,
     @Nullable UUID craftingJobId,
-    int progress,
     int occupiedThreadSlots
 ) {
     public ECOBatchCraftingWork {
@@ -20,9 +19,6 @@ public record ECOBatchCraftingWork(
         }
         if (occupiedThreadSlots != batchSize) {
             throw new IllegalArgumentException("Batch work must occupy one thread slot per craft");
-        }
-        if (progress < 0) {
-            throw new IllegalArgumentException("progress must not be negative");
         }
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);

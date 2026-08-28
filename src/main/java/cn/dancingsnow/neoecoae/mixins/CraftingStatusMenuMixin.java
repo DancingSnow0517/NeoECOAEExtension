@@ -10,13 +10,11 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
-import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.ArrayList;
 
-@Debug(export = true)
 @Mixin(CraftingStatusMenu.class)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu {
 

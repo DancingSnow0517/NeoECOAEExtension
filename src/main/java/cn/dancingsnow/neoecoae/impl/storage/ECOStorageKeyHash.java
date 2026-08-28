@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.zip.CRC32;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -16,13 +15,9 @@ public final class ECOStorageKeyHash {
 
     private ECOStorageKeyHash() {}
 
-    public static int shardFor(HolderLookup.Provider registries, AEKey key, int shardCount) {
-        return shardForTag(key.toTagGeneric(registries), shardCount);
-    }
-
     /**
-     * Same hash as {@link #shardFor}, for callers that only have the serialized key. Reading a legacy shard file needs
-     * this because a key whose mod was removed can no longer be turned back into an {@link AEKey}.
+     * Computes the shard hash directly from a serialized key. Reading a legacy shard file needs this because a key
+     * whose mod was removed can no longer be turned back into an {@link AEKey}.
      */
     public static int shardForTag(Tag keyTag, int shardCount) {
         return Math.floorMod(stableHash(keyTag), shardCount);

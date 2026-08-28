@@ -39,16 +39,6 @@ public final class MultiBlockPlacementService {
         BlockPos controllerPos,
         BlockState controllerState,
         MultiBlockDefinition definition,
-        int repeats
-    ) {
-        return preview(level, controllerPos, controllerState, definition, repeats, false);
-    }
-
-    public static MultiBlockPlacementPlan preview(
-        Level level,
-        BlockPos controllerPos,
-        BlockState controllerState,
-        MultiBlockDefinition definition,
         int repeats,
         boolean mirrored
     ) {

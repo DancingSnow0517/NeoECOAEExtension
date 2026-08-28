@@ -67,10 +67,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return false;
     }
 
-    public boolean isCompressionEnabled() {
-        return compressionEnabled;
-    }
-
     @Override
     public CellState getStatus() {
         if (storedUnits.isEmpty()) {

@@ -138,10 +138,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return !isBusy;
     }
 
-    public int getProgress() {
-        return progress;
-    }
-
     public ItemStack getOutputItem() {
         return firstOutputItem().copy();
     }
@@ -162,23 +158,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             outputsReady,
             craftingJobId
         );
-    }
-
-    public boolean pushPattern(
-        IMolecularAssemblerSupportedPattern pattern,
-        KeyCounter[] table,
-        ECOCraftingSystemBlockEntity controller
-    ) {
-        return pushPattern(pattern, table, controller, null);
-    }
-
-    public boolean pushPattern(
-        IMolecularAssemblerSupportedPattern pattern,
-        KeyCounter[] table,
-        ECOCraftingSystemBlockEntity controller,
-        @Nullable UUID craftingJobId
-    ) {
-        return pushPattern(ECOExtractedPatternExecution.slow(pattern, table), controller, craftingJobId);
     }
 
     public boolean pushPattern(
@@ -225,7 +204,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             outputTotal,
             remainingTotal,
             request.craftingJobId(),
-            0,
             request.batchSize()
         );
         return acceptBatch(work, controller);
@@ -521,10 +499,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return 0.0D;
         }
         return acceleratorTax * Math.max(1, occupiedThreadSlots);
-    }
-
-    static int calculatePoweredProgress(double extractedPower, double powerPerProgress, int requestedProgress) {
-        return accumulatePoweredProgress(extractedPower, powerPerProgress, requestedProgress, 0.0D).completed();
     }
 
     static PowerProgress accumulatePoweredProgress(
@@ -916,29 +890,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         outputsReady = false;
         recoveryState = RecoveryState.RECOVERING_INPUTS;
         setChanged();
-    }
-
-    private static List<ItemStack> keyCounterToItemStacks(KeyCounter counter) {
-        List<ItemStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() <= 0) {
-                continue;
-            }
-            if (!(entry.getKey() instanceof AEItemKey itemKey) || entry.getLongValue() > Integer.MAX_VALUE) {
-                return List.of();
-            }
-            int remaining = (int) entry.getLongValue();
-            while (remaining > 0) {
-                int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
-                ItemStack stack = itemKey.toStack(count);
-                if (stack.isEmpty()) {
-                    return List.of();
-                }
-                stacks.add(stack);
-                remaining -= count;
-            }
-        }
-        return List.copyOf(stacks);
     }
 
     private static List<GenericStack> keyCounterToGenericStacks(KeyCounter counter) {

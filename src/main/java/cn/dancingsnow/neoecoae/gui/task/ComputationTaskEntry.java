@@ -86,18 +86,6 @@ public final class ComputationTaskEntry {
         return outputAmount;
     }
 
-    public long craftCount() {
-        return craftCount;
-    }
-
-    public long totalProgress() {
-        return totalProgress;
-    }
-
-    public long remainingProgress() {
-        return remainingProgress;
-    }
-
     public Status status() {
         return status;
     }

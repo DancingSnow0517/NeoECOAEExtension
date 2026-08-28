@@ -18,7 +18,4 @@ public final class MegaCellCapacities {
         return (double) capacity / (1L << 22);
     }
 
-    public static int normalTypeLimit() {
-        return MEGA_4G_TYPE_LIMIT;
-    }
 }

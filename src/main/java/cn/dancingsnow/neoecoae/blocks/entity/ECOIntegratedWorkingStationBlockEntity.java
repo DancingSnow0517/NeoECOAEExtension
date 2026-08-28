@@ -222,10 +222,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @SuppressWarnings("UnstableApiUsage")
     private final HashMap<Direction, Map<AEKeyType, ExternalStorageStrategy>> exportStrategies = new HashMap<>();
 
-    @Getter
-    @Setter
-    private boolean showWarning = false;
-
     public ECOIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
 
@@ -303,14 +299,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Override
     public InternalInventory getInternalInventory() {
         return this.inv;
-    }
-
-    public InternalInventory getInput() {
-        return this.inputInv;
-    }
-
-    public InternalInventory getOutput() {
-        return this.outputInv;
     }
 
     @Nullable
@@ -452,7 +440,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 if (powerReq > powerThreshold) {
                     src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
                     this.setProcessingTime(this.getProcessingTime() + speedFactor);
-                    setShowWarning(false);
                 } else if (powerReq != 0) {
                     var progressRatio = src == this
                         ? powerReq / powerConsumption
@@ -467,8 +454,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         var actualFactor = (int) Math.floor(extracted / powerConsumption * speedFactor);
                         this.setProcessingTime(this.getProcessingTime() + actualFactor);
                     }
-                    // Add warning
-                    setShowWarning(true);
                 }
             });
 
@@ -541,7 +526,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 }
             }
         } else {
-            setShowWarning(false);
         }
 
         if (this.pushOutResult()) {

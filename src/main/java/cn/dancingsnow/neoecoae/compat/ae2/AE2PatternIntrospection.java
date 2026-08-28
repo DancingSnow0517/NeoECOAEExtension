@@ -30,22 +30,6 @@ public final class AE2PatternIntrospection {
         return available;
     }
 
-    public static Object getStablePatternIdentity(IPatternDetails details) {
-        try {
-            if (details instanceof AECraftingPatternAccessor accessor) {
-                AEItemKey definition = accessor.neoecoae$getDefinitionKey();
-                if (definition != null) {
-                    return definition;
-                }
-            }
-            AEItemKey definition = details.getDefinition();
-            return definition != null ? definition : details;
-        } catch (Throwable e) {
-            disableOnce(e);
-            return details;
-        }
-    }
-
     public static boolean isKnownSafePatternType(IPatternDetails details) {
         return details instanceof AECraftingPattern;
     }
@@ -75,10 +59,6 @@ public final class AE2PatternIntrospection {
         ECOCraftingFastPathCache.clearAllCaches();
     }
 
-    public static long getReloadGeneration() {
-        return reloadGeneration;
-    }
-
     private static Optional<Object> getFastPathPatternIdentity(IPatternDetails details) {
         try {
             if (details instanceof AECraftingPatternAccessor accessor) {
@@ -101,9 +81,7 @@ public final class AE2PatternIntrospection {
         }
         selfChecked = true;
         try {
-            Class.forName(AECraftingPattern.class.getName());
-            Class.forName(CraftingCpuHelper.class.getName());
-            available = true;
+            available = AECraftingPattern.class != null && CraftingCpuHelper.class != null;
         } catch (Throwable e) {
             disableOnce(e);
         }

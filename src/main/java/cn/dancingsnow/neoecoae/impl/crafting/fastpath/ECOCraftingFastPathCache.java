@@ -73,7 +73,6 @@ public final class ECOCraftingFastPathCache {
             missCount++;
             return null;
         }
-        result.touch(tick);
         if (result.isNegative()) {
             negativeHitCount++;
         } else {
@@ -117,6 +116,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     public static void clearAllCaches() {
+        // Reload generations prevent stale entries from matching; clearing also frees their capacity immediately.
         synchronized (ACTIVE_CACHES) {
             for (ECOCraftingFastPathCache cache : ACTIVE_CACHES) {
                 cache.clear();
@@ -152,16 +152,8 @@ public final class ECOCraftingFastPathCache {
         expectedMismatchCount++;
     }
 
-    public void recordContainerMismatch() {
-        containerMismatchCount++;
-    }
-
     public void recordNonItemKey() {
         nonItemKeyCount++;
-    }
-
-    public void recordPostCraftingEvent() {
-        postCraftingEventCount++;
     }
 
     public void recordKeyBuildFailed() {
@@ -170,11 +162,6 @@ public final class ECOCraftingFastPathCache {
 
     public void recordException() {
         exceptionCount++;
-    }
-
-    public boolean matchesExecution(ECOFastPathKey key, ECOExtractedPatternExecution execution) {
-        ECOFastPathResult result = peek(key);
-        return result != null && result.matchesExecution(execution);
     }
 
     public void maybeLogStats(String owner, long tick) {
@@ -211,14 +198,6 @@ public final class ECOCraftingFastPathCache {
             coolantRejectCount,
             noThreadRejectCount
         );
-    }
-
-    int size() {
-        return entries.size();
-    }
-
-    int limit() {
-        return limit;
     }
 
     private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {

@@ -12,9 +12,6 @@ public class NEConfig {
     public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
-    public static final int CAPACITY_POWER_MIN = 0;
-    public static final int CAPACITY_POWER_MAX = 16;
-    private static final int CAPACITY_POWER_DEFAULT = 0;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -74,46 +71,6 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
-                "ECO 合成与运算系统的容量倍率暂时固定为默认值。",
-                "Capacity multipliers for ECO crafting and computation systems are temporarily locked to defaults.")
-            .push("capacity");
-    }
-
-    private static final ModConfigSpec.IntValue CRAFTING_CAPACITY_POWER = BUILDER
-        .comment(
-            "合成容量倍率暂时锁定为默认值 0（x1），无法调整。",
-            "L4/L6/L9 合成工作器和 FT 并行核心均使用各自的默认数值。",
-            "The crafting capacity multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
-            "L4/L6/L9 crafting workers and FT parallel cores use their respective default values.")
-        .worldRestart()
-        .defineInRange(
-            "craftingCapacityPower",
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT
-        );
-
-    private static final ModConfigSpec.IntValue COMPUTATION_PARALLEL_CORE_POWER = BUILDER
-        .comment(
-            "运算并行核心倍率暂时锁定为默认值 0（x1），无法调整。",
-            "L4/L6/L9 运算并行核心均使用各自的默认数值。",
-            "The computation parallel-core multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
-            "L4/L6/L9 computation parallel cores use their respective default values.")
-        .worldRestart()
-        .defineInRange(
-            "computationParallelCorePower",
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_DEFAULT
-        );
-
-    static {
-        BUILDER.pop();
-    }
-
-    static {
-        BUILDER
-            .comment(
                 "ECO AE2 快速路径缓存与批量合成选项。",
                 "如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
                 "ECO AE2 fast-path cache and batch crafting options.",
@@ -141,8 +98,10 @@ public class NEConfig {
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
             "实际值仍会受可用协处理器数量限制。",
+            "默认不限制；设置具体值可限制超大合成作业每 tick 的推送量。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
-            "The effective value is still limited by the number of available co-processors.")
+            "The effective value is still limited by the number of available co-processors.",
+            "The default is unlimited; set a concrete value to cap pushes per tick for very large crafting jobs.")
         .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
@@ -189,9 +148,6 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
-        CRAFTING_CAPACITY_POWER.get();
-        COMPUTATION_PARALLEL_CORE_POWER.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
@@ -208,24 +164,6 @@ public class NEConfig {
 
     public static int getMaxCraftingPatternBusSlotCount() {
         return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
-    }
-
-    public static int getCraftingWorkerBaseCrafts() {
-        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, CAPACITY_POWER_DEFAULT);
-    }
-
-    public static int getCraftingParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
-    }
-
-    public static int getComputationParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
-    }
-
-    static int multiplyByPowerOfTwo(int baseValue, int power) {
-        int clampedPower = Math.clamp(power, CAPACITY_POWER_MIN, CAPACITY_POWER_MAX);
-        long result = (long) Math.max(0, baseValue) << clampedPower;
-        return (int) Math.min(Integer.MAX_VALUE, result);
     }
 
 }

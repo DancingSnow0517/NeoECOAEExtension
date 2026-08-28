@@ -152,22 +152,6 @@ public final class ECOFastPathStacks {
         return tag;
     }
 
-    public static List<GenericStack> readGenericStacks(HolderLookup.Provider registries, ListTag tag) {
-        try {
-            List<GenericStack> stacks = new ArrayList<>(tag.size());
-            for (int i = 0; i < tag.size(); i++) {
-                CompoundTag stackTag = tag.getCompound(i);
-                GenericStack stack = GenericStack.readTag(registries, stackTag);
-                if (stack != null && stack.amount() > 0) {
-                    stacks.add(stack);
-                }
-            }
-            return List.copyOf(stacks);
-        } catch (RuntimeException e) {
-            return List.of();
-        }
-    }
-
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
         HolderLookup.Provider registries,
         ListTag tag,

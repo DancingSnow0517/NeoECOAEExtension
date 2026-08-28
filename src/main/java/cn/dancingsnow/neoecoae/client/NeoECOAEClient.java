@@ -46,20 +46,6 @@ public class NeoECOAEClient {
             NEBlockEntities.ECO_DRIVE.get(),
             new ECODriveRenderer()
         );
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
-//
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L6.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
-//
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L9.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
     }
 
     @SubscribeEvent

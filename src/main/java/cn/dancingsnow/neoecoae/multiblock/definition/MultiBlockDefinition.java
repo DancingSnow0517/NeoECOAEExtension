@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class MultiBlockDefinition {
     private final List<BlockInstruction> builderActions;
@@ -126,19 +124,6 @@ public class MultiBlockDefinition {
             return this;
         }
 
-        public Builder setBlockEntityWithRepeatShifted(BlockPos origin, Direction expandDirection, int shift, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
-            builder.add(context -> {
-                int i = context.getRepeats() + shift;
-                BlockPos pos = new BlockPos(
-                    origin.getX() + expandDirection.getStepX() * i,
-                    origin.getY() + expandDirection.getStepY() * i,
-                    origin.getZ() + expandDirection.getStepZ() * i
-                );
-                context.setBlockEntity(pos, sup);
-            });
-            return this;
-        }
-
         public Builder expandMax(int expandMax) {
             this.expandMax = expandMax;
             return this;
@@ -146,11 +131,6 @@ public class MultiBlockDefinition {
 
         public Builder expandMin(int expandMin) {
             this.expandMin = expandMin;
-            return this;
-        }
-
-        public Builder name(Component component) {
-            this.name = component;
             return this;
         }
 

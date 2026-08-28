@@ -10,6 +10,8 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.math.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -17,6 +19,7 @@ import java.lang.reflect.Modifier;
 
 @SuppressWarnings("unused")
 public class NETextures {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NETextures.class);
     public static final IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(2, 2, 2, 4);
@@ -156,10 +159,11 @@ public class NETextures {
                     String name = pathPrefix + field.getName();
                     provider.addResource(name, texture);
                     BuiltinPath path = new BuiltinPath("ui-eco:" + name);
-                    System.out.println("Registering builtin texture: " + path);
+                    LOGGER.debug("Registering builtin texture: {}", path);
                     IGuiTexture builtinTexture = new UIResourceTexture(path);
                     field.set(null, builtinTexture);
-                } catch (Exception ignore) {
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to register builtin texture field {}.{}", cls.getName(), field.getName(), e);
                 }
             }
         }

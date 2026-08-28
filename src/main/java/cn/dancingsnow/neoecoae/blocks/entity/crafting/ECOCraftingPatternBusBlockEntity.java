@@ -44,7 +44,6 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
@@ -145,13 +144,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             }
         }
         return false;
-    }
-
-    public boolean pushBatch(ECOBatchCraftingRequest request) {
-        BatchFastPathOffer offer = findBatchFastPathOffer(
-            request.key(), null, request, request.batchSize()
-        );
-        return pushBatch(request, offer);
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {

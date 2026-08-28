@@ -115,11 +115,6 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
         return this.entry(name, callback -> NECellTypeBuilder.create(this, parent, name, callback));
     }
 
-    public NERegistrate clearDefaultCreativeTab() {
-        defaultCreativeTab((ResourceKey<CreativeModeTab>) null);
-        return self();
-    }
-
     public void onCommonSetup(FMLCommonSetupEvent event) {
         for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
             //noinspection rawtypes

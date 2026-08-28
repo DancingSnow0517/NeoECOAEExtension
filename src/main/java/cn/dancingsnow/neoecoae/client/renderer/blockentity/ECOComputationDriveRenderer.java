@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Quaternionf;
 
@@ -21,9 +20,6 @@ public class ECOComputationDriveRenderer
     implements
     IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
     BlockEntityRenderer<ECOComputationDriveBlockEntity> {
-
-    private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
-
 
     public ECOComputationDriveRenderer() {
 
@@ -70,16 +66,6 @@ public class ECOComputationDriveRenderer
                 packedLight,
                 packedOverlay
             );
-//            tessellateModelWithAO(
-//                blockEntity.getLevel(),
-//                cellModel,
-//                blockEntity.getBlockState(),
-//                blockEntity.getBlockPos(),
-//                poseStack,
-//                bufferSource,
-//                RNG.get(),
-//                packedOverlay
-//            );
         }
         ResourceLocation cableModel = null;
         boolean connected = false;
@@ -124,23 +110,10 @@ public class ECOComputationDriveRenderer
             packedLight,
             packedOverlay
         );
-//        tessellateModelWithAO(
-//            blockEntity.getLevel(),
-//            cableModel,
-//            blockEntity.getBlockState(),
-//            blockEntity.getBlockPos(),
-//            poseStack,
-//            bufferSource,
-//            RNG.get(),
-//            packedOverlay
-//        );
         poseStack.popPose();
     }
 
     @Override
     public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
-//        if (PonderPlatformUtils.isPonderLevel(driveBlockEntity.getLevel()) || driveBlockEntity.getLevel() instanceof DummyWorld) {
-//            renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
-//        }
     }
 }

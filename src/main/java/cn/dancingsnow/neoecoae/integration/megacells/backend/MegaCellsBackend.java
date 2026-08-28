@@ -13,7 +13,6 @@ import net.neoforged.fml.ModList;
  */
 public final class MegaCellsBackend {
     public static final String MOD_ID = "megacells";
-    public static final String VERIFIED_VERSION = "4.11.0";
     public static final String APPFLUX_MOD_ID = "appflux";
     public static final String APPMEK_MOD_ID = "appmek";
     public static final String MEKANISM_MOD_ID = "mekanism";

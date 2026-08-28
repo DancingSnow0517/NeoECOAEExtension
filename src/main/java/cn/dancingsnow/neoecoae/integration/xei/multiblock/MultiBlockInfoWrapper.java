@@ -251,12 +251,6 @@ public class MultiBlockInfoWrapper {
                 .xeiRecipeIngredient(IngredientIO.INPUT)
                 .xeiRecipeSlot(IngredientIO.INPUT, 1));
         }
-//        for (int i = 0; i < itemHandler.getSlots(); i++) {
-//            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
-//                .setBackgroundTexture(ColorPattern.T_GRAY.rectTexture())
-//                .setIngredientIO(IngredientIO.INPUT);
-//            scrollableWidgetGroup.addWidget(widget);
-//        }
     }
 
     private static final class RequiredItemSlot extends ItemSlot {

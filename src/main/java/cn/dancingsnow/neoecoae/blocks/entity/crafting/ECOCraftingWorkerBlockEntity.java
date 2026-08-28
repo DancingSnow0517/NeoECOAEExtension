@@ -4,12 +4,9 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
@@ -87,18 +84,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         } else {
             return TickRateModulation.IDLE;
         }
-    }
-
-    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
-        return pushPattern(pattern, table, null);
-    }
-
-    public boolean pushPattern(
-        IMolecularAssemblerSupportedPattern pattern,
-        KeyCounter[] table,
-        UUID craftingJobId
-    ) {
-        return pushPattern(ECOExtractedPatternExecution.slow(pattern, table), craftingJobId);
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
@@ -236,24 +221,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.copyOf(snapshots);
     }
 
-    public ItemStack getActiveCraftOutput() {
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.isFree()) {
-                ItemStack output = thread.getOutputItem();
-                if (!output.isEmpty()) {
-                    return output;
-                }
-            }
-        }
-        return ItemStack.EMPTY;
-    }
-
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
         return Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
-    }
-
-    public void onThreadWork() {
-        onThreadWork(1);
     }
 
     public void onThreadWork(int occupiedThreadSlots) {
@@ -286,10 +255,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         if (this.level != null) {
             level.blockEntityChanged(getBlockPos());
         }
-    }
-
-    public void onThreadStop() {
-        onThreadStop(1);
     }
 
     public void onThreadStop(int occupiedThreadSlots) {
