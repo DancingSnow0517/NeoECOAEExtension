@@ -70,7 +70,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
-    private static final int ADVANCED_PROGRESS_PER_COOLANT = 20;
+    private static final int ADVANCED_FLUID_PER_COOLANT_UNIT = 1_000;
+    private static final int ADVANCED_PROGRESS_PER_COOLANT_UNIT = 20;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -399,9 +400,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     /**
-     * Advanced-worker clusters pay coolant while crafting work is actively progressing instead of
-     * reserving it when a pattern is accepted. The rate tracks the progress multiplier, keeping the
-     * total cost close to five coolant per occupied thread slot for a complete 100-progress craft.
+     * Advanced-worker clusters pay the equivalent of 500 mB per baseline progress tick and occupied
+     * thread while crafting work is actively progressing. The coolant buffer remains in recipe
+     * coolant units, so each coolant tier is converted back to its actual fluid amount here.
      */
     public boolean tryConsumeTickBasedCoolant(
         int occupiedThreadSlots,
@@ -411,35 +412,48 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (!activeCooling || !usesTickBasedCoolant()) {
             return true;
         }
-        TickCoolantCharge charge = calculateTickBasedCoolantCharge(
+        TickFluidCharge fluidCharge = calculateTickBasedFluidCharge(
             occupiedThreadSlots,
             attemptedProgress,
             advancedCoolantRemainder
         );
-        if (charge.amount() > 0 && !tryConsumeCoolant(charge.amount(), effectiveOverclock)) {
+        if (fluidCharge.amount() <= 0) {
+            advancedCoolantRemainder = fluidCharge.remainder();
+            return true;
+        }
+        CoolingRecipe recipe = getCoolingRecipe();
+        if (recipe == null || recipe.inputAmount() <= 0 || recipe.coolant() <= 0) {
             return false;
         }
-        advancedCoolantRemainder = charge.remainder();
+        long coolantCost = ((long) fluidCharge.amount() * recipe.coolant() + recipe.inputAmount() - 1L)
+            / recipe.inputAmount();
+        if (coolantCost > Integer.MAX_VALUE || !tryConsumeCoolant((int) coolantCost, effectiveOverclock)) {
+            return false;
+        }
+        advancedCoolantRemainder = fluidCharge.remainder();
         return true;
     }
 
-    static TickCoolantCharge calculateTickBasedCoolantCharge(
+    static TickFluidCharge calculateTickBasedFluidCharge(
         int occupiedThreadSlots,
         int attemptedProgress,
         long previousRemainder
     ) {
         long progressCost = NEMath.saturatingMultiply(
-            Math.max(1L, occupiedThreadSlots),
-            Math.max(0L, attemptedProgress)
+            NEMath.saturatingMultiply(
+                Math.max(1L, occupiedThreadSlots),
+                Math.max(0L, attemptedProgress)
+            ),
+            ADVANCED_FLUID_PER_COOLANT_UNIT
         );
-        long safeRemainder = Math.clamp(previousRemainder, 0L, ADVANCED_PROGRESS_PER_COOLANT - 1L);
+        long safeRemainder = Math.clamp(previousRemainder, 0L, ADVANCED_PROGRESS_PER_COOLANT_UNIT - 1L);
         long accumulated = NEMath.saturatingAdd(progressCost, safeRemainder);
-        int amount = (int) Math.min(Integer.MAX_VALUE, accumulated / ADVANCED_PROGRESS_PER_COOLANT);
-        long remainder = accumulated % ADVANCED_PROGRESS_PER_COOLANT;
-        return new TickCoolantCharge(amount, remainder);
+        int amount = (int) Math.min(Integer.MAX_VALUE, accumulated / ADVANCED_PROGRESS_PER_COOLANT_UNIT);
+        long remainder = accumulated % ADVANCED_PROGRESS_PER_COOLANT_UNIT;
+        return new TickFluidCharge(amount, remainder);
     }
 
-    record TickCoolantCharge(int amount, long remainder) {}
+    record TickFluidCharge(int amount, long remainder) {}
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
         if (!activeCooling || requestedCrafts <= 0) {
