@@ -9,8 +9,11 @@ import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.function.BooleanSupplier;
+
 @LDLRegister(name = "pattern-item-slot", group = "inventory", registry = "ldlib2:ui_element")
 public class PatternItemSlot extends ItemSlot {
+    private BooleanSupplier highlighted = () -> false;
 
     public PatternItemSlot() {
         this(new LocalSlot());
@@ -18,6 +21,15 @@ public class PatternItemSlot extends ItemSlot {
 
     public PatternItemSlot(Slot slot) {
         super(slot);
+    }
+
+    public PatternItemSlot highlighted(BooleanSupplier highlighted) {
+        this.highlighted = highlighted == null ? () -> false : highlighted;
+        return this;
+    }
+
+    public boolean isHighlighted() {
+        return highlighted.getAsBoolean();
     }
 
     @Override

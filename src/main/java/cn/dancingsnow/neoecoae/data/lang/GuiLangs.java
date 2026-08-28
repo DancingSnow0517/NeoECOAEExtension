@@ -119,5 +119,31 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
         provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
         provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
+
+        // crafting interface
+        provider.add("gui.neoecoae.crafting_interface.title", "Crafting Interface");
+        provider.add("gui.neoecoae.crafting_interface.preview.search", "Search ingredients or outputs");
+        provider.add("gui.neoecoae.crafting_interface.preview.search.tooltip",
+            "Searches pattern ingredients and outputs. Separate terms with spaces; right-click to clear.");
+        provider.add("gui.neoecoae.crafting_interface.preview.filter_substitutions", "Show/hide substitution patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.filter_fluid_substitutions", "Show/hide fluid substitution patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize", "Organize pattern buses");
+        provider.add("gui.neoecoae.crafting_interface.preview.organizing", "Organizing pattern buses %d%%");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize.result_primary",
+            "Organization complete: recovered %d invalid patterns, %d duplicate patterns");
+        provider.add("gui.neoecoae.crafting_interface.preview.organize.result_secondary",
+            "Inventory space insufficient, %d patterns remain to be recovered");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer", "Transfer Network Patterns");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.indexing", "Indexing %d%%");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.progress", "Transferring %d%%");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.ready", "Ready to transfer");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.unavailable",
+            "Crafting subsystem is not connected to an available network");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.no_target", "No available pattern bus found");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_primary", "Transferred %d; Already present %d");
+        provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary", "No space %d; Incompatible %d");
+
+        // computation interface
+        provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
     }
 }

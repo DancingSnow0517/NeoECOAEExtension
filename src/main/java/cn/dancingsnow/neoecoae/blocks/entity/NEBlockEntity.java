@@ -1,12 +1,15 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
@@ -33,6 +36,14 @@ import java.util.Set;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
+
+    private static final IGridNodeListener<NEBlockEntity<?, ?>> NODE_LISTENER =
+        new BlockEntityNodeListener<>() {
+            @Override
+            public void onGridChanged(NEBlockEntity<?, ?> nodeOwner, IGridNode node) {
+                nodeOwner.onMainNodeGridChanged();
+            }
+        };
 
     @Setter
     @Getter
@@ -81,6 +92,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     @Override
+    protected IManagedGridNode createMainNode() {
+        return GridHelper.createManagedNode(this, NODE_LISTENER);
+    }
+
+    @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         if (isServerStopping()) {
             return;
@@ -88,6 +104,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
+    }
+
+    protected void onMainNodeGridChanged() {
     }
 
     @Override

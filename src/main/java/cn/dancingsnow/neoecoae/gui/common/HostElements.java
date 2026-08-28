@@ -8,6 +8,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -50,6 +52,12 @@ public final class HostElements {
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(HostElements::lineTextStyle);
         return label;
+    }
+
+    public static <T extends UIElement> T tooltips(T element, Component... lines) {
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(lines));
+        return element;
     }
 
     public static UIElement horizontalRow(int height, int gap) {
