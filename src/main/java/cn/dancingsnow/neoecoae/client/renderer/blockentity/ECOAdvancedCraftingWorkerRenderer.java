@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
 import appeng.client.render.BlockEntityRenderHelper;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -21,7 +22,9 @@ public class ECOAdvancedCraftingWorkerRenderer implements BlockEntityRenderer<EC
         int packedOverlay
     ) {
         var displayedJob = blockEntity.getDisplayedJob();
-        if (!blockEntity.isAdvanced() || displayedJob == null) {
+        if (!blockEntity.isAdvanced()
+            || !blockEntity.getBlockState().getValue(NEBlock.FORMED)
+            || displayedJob == null) {
             return;
         }
 

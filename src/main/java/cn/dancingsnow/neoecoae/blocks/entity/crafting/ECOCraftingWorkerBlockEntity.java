@@ -116,6 +116,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                     }
                     if (thread.pushPattern(execution, controller, craftingJobId)) {
                         nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                        refreshDisplayedJob();
                         return true;
                     }
                 }
@@ -130,7 +131,11 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
             setChanged();
             markForUpdate();
-            return thread.pushPattern(execution, controller, craftingJobId);
+            boolean accepted = thread.pushPattern(execution, controller, craftingJobId);
+            if (accepted) {
+                refreshDisplayedJob();
+            }
+            return accepted;
         } else {
             return false;
         }
@@ -163,6 +168,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 }
                 if (thread.pushBatch(request, controller, verifiedResult)) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                    refreshDisplayedJob();
                     return true;
                 }
             }
@@ -177,7 +183,11 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
         setChanged();
         markForUpdate();
-        return thread.pushBatch(request, controller, verifiedResult);
+        boolean accepted = thread.pushBatch(request, controller, verifiedResult);
+        if (accepted) {
+            refreshDisplayedJob();
+        }
+        return accepted;
     }
 
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
@@ -269,8 +279,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     protected boolean readFromStream(RegistryFriendlyByteBuf data) {
         boolean changed = super.readFromStream(data);
+        GenericStack previousDisplayedJob = displayedJob;
         displayedJob = GenericStack.readBuffer(data);
-        return changed;
+        return changed || !java.util.Objects.equals(previousDisplayedJob, displayedJob);
     }
 
     @Override
