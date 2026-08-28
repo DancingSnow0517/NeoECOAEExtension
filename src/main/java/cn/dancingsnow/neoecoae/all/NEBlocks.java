@@ -1024,6 +1024,48 @@ public class NEBlocks {
         })
         .register();
 
+    public static final BlockEntry<ECOCraftingWorker> ADVANCED_CRAFTING_WORKER = REGISTRATE
+        .block("advanced_crafting_worker", ECOCraftingWorker::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ABA")
+                .define('A', AEBlocks.CRAFTING_STORAGE_256K)
+                .define('B', AEBlocks.CONTROLLER)
+                .define('C', NEBlocks.CRAFTING_WORKER)
+                .unlockedBy("has_crafting_worker", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_WORKER))
+                .save(prov);
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.EPIC))
+        .build()
+        .lang("ECO - Advanced FX Worker")
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker"));
+            ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker_formed"));
+            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker_working"));
+            prov.getVariantBuilder(ctx.get())
+                .forAllStates(s -> {
+                    Direction facing = s.getValue(ECOCraftingWorker.FACING);
+                    boolean formed = s.getValue(ECOCraftingWorker.FORMED);
+                    boolean working = s.getValue(ECOCraftingWorker.WORKING);
+                    ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
+                        .rotationY((int) ((facing.toYRot() + 180) % 360));
+                    if (working) {
+                        builder.modelFile(modelFileWorking);
+                    } else if (formed) {
+                        builder.modelFile(modelFileFormed);
+                    } else {
+                        builder.modelFile(modelFile);
+                    }
+                    return builder.build();
+                });
+        })
+        .register();
+
     public static final BlockEntry<ECOCraftingPatternBus> CRAFTING_PATTERN_BUS = REGISTRATE
         .block("crafting_pattern_bus", ECOCraftingPatternBus::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)

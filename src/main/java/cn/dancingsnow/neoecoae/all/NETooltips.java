@@ -106,6 +106,32 @@ public class NETooltips {
                 )
             );
         }
+
+        if (stack.is(NEBlocks.ADVANCED_CRAFTING_WORKER.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.advanced_crafting_worker.0"),
+                Component.translatable("tooltip.neoecoae.advanced_crafting_worker.1"),
+                Component.translatable("tooltip.neoecoae.overclocked"),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l4", ECOTier.L4.getOverclockedCrafterQueueMultiply() * 4)
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l6", ECOTier.L6.getOverclockedCrafterQueueMultiply() * 4)
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.crafting_jobs_l9", ECOTier.L9.getOverclockedCrafterQueueMultiply() * 4)
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l4", ECOTier.L4.getOverclockedCrafterPowerMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l6", ECOTier.L6.getOverclockedCrafterPowerMultiply())
+                ),
+                Component.literal("  ").append(
+                    Component.translatable("tooltip.neoecoae.power_multiply_l9", ECOTier.L9.getOverclockedCrafterPowerMultiply())
+                )
+            );
+        }
         if (stack.is(NEBlocks.CRAFTING_PATTERN_BUS.asItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.crafting_pattern_bus.0"),

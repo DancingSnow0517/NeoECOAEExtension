@@ -4,7 +4,9 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
@@ -18,6 +20,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -26,6 +29,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +46,10 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     private int nextFreeThreadIndex = 0;
 
+    @Getter
+    @Nullable
+    private GenericStack displayedJob;
+
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
         getMainNode().addService(IGridTickable.class, this);
@@ -50,7 +58,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64);
+        getMainNode().setIdlePowerUsage(64 * getCapacityMultiplier());
+        refreshDisplayedJob();
     }
 
     @Override
@@ -76,6 +85,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                         rate = r;
                     }
                 }
+                refreshDisplayedJob();
                 setChanged();
                 return rate;
             } finally {
@@ -89,7 +99,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+            int workerThreadCapacity = controller.getThreadCountForWorker(this);
+            if (getRunningThreads() >= workerThreadCapacity) {
                 fastPathCache.recordNoThreadReject();
                 return false;
             }
@@ -110,13 +121,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 }
             }
 
-            if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            if (craftingThreads.size() >= workerThreadCapacity) {
                 return false;
             }
 
             ECOCraftingThread thread = new ECOCraftingThread(this);
             craftingThreads.add(thread);
-            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
             setChanged();
             markForUpdate();
             return thread.pushPattern(execution, controller, craftingJobId);
@@ -134,6 +145,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
+        int workerThreadCapacity = controller.getThreadCountForWorker(this);
         if (request.batchSize() > getAvailableThreadSlots()
             || request.batchSize() > getControllerAvailableThreadSlots(controller)) {
             fastPathCache.recordNoThreadReject();
@@ -156,13 +168,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             }
         }
 
-        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+        if (craftingThreads.size() >= workerThreadCapacity) {
             return false;
         }
 
         ECOCraftingThread thread = new ECOCraftingThread(this);
         craftingThreads.add(thread);
-        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
         setChanged();
         markForUpdate();
         return thread.pushBatch(request, controller, verifiedResult);
@@ -201,7 +213,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public int getAvailableThreadSlots() {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
+            return Math.max(0, controller.getThreadCountForWorker(this) - getRunningThreads());
         }
         return 0;
     }
@@ -223,6 +235,48 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
         return Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+    }
+
+    public int getCapacityMultiplier() {
+        return getBlockState().is(NEBlocks.ADVANCED_CRAFTING_WORKER.get()) ? 4 : 1;
+    }
+
+    public boolean isAdvanced() {
+        return getCapacityMultiplier() > 1;
+    }
+
+    private void refreshDisplayedJob() {
+        GenericStack nextDisplay = null;
+        if (isAdvanced()) {
+            for (ECOCraftingThread thread : craftingThreads) {
+                ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+                if (!snapshot.busy() || snapshot.outputItem().isEmpty()) {
+                    continue;
+                }
+                GenericStack item = GenericStack.fromItemStack(snapshot.outputItem().copyWithCount(1));
+                if (item != null) {
+                    nextDisplay = new GenericStack(item.what(), Math.max(1L, snapshot.outputAmount()));
+                    break;
+                }
+            }
+        }
+        if (!java.util.Objects.equals(displayedJob, nextDisplay)) {
+            displayedJob = nextDisplay;
+            markForUpdate();
+        }
+    }
+
+    @Override
+    protected boolean readFromStream(RegistryFriendlyByteBuf data) {
+        boolean changed = super.readFromStream(data);
+        displayedJob = GenericStack.readBuffer(data);
+        return changed;
+    }
+
+    @Override
+    protected void writeToStream(RegistryFriendlyByteBuf data) {
+        super.writeToStream(data);
+        GenericStack.writeBuffer(displayedJob, data);
     }
 
     public void onThreadWork(int occupiedThreadSlots) {

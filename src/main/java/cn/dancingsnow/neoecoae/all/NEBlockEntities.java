@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
@@ -269,6 +270,16 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_WORKER)
         .validBlock(NEBlocks.CRAFTING_WORKER)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> ADVANCED_CRAFTING_WORKER = REGISTRATE
+        .blockEntityBlockLinked(
+            "advanced_crafting_worker",
+            ECOCraftingWorkerBlockEntity::new
+        )
+        .forBlock(NEBlocks.ADVANCED_CRAFTING_WORKER)
+        .validBlock(NEBlocks.ADVANCED_CRAFTING_WORKER)
+        .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE

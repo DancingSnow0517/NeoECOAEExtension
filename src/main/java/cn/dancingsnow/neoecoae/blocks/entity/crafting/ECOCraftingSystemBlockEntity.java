@@ -268,7 +268,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 calculatedPerWorker = Math.max(0L, baseCrafts);
                 threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, calculatedPerWorker);
             }
-            exactAvailableThreadCount = NEMath.saturatingMultiply(calculatedPerWorker, getWorkerCount());
+            exactAvailableThreadCount = cluster.getWorkers()
+                .stream()
+                .mapToLong(worker -> NEMath.saturatingMultiply(
+                    calculatedPerWorker,
+                    worker.getCapacityMultiplier()
+                ))
+                .reduce(0L, NEMath::saturatingAdd);
             exactThreadCount = cluster.getParallelCores()
                 .stream()
                 .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
@@ -311,6 +317,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             .sum();
         runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
         setChanged();
+    }
+
+    public int getThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
+        long capacity = NEMath.saturatingMultiply(
+            Math.max(0L, threadCountPerWorker),
+            Math.max(1L, worker.getCapacityMultiplier())
+        );
+        return (int) Math.min(Integer.MAX_VALUE, capacity);
     }
 
     private void updateOverlockTimes() {

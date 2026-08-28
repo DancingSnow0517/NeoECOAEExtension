@@ -28,7 +28,7 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECOCraftingWorkerBlockEntity worker) {
             if (worker.getCluster() != null && worker.getCluster().getController() != null) {
-                int max = worker.getCluster().getController().getThreadCountPerWorker();
+                int max = worker.getCluster().getController().getThreadCountForWorker(worker);
                 int running = worker.getRunningThreads();
                 compoundTag.putInt("running", running);
                 compoundTag.putInt("max", max);

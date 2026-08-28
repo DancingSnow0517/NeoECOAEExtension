@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:256k_crafting_storage"
+    },
+    "B": {
+      "item": "ae2:controller"
+    },
+    "C": {
+      "item": "neoecoae:crafting_worker"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "BCB",
+    "ABA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:advanced_crafting_worker"
+  }
+}

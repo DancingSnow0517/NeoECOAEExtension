@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/crafting_worker_working",
+  "textures": {
+    "0": "neoecoae:block/crafting/core/advanced_working_core_north_formed"
+  }
+}

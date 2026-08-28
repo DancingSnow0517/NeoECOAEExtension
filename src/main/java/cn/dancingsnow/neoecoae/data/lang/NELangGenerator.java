@@ -87,6 +87,10 @@ public class NELangGenerator {
             "ECO - FX Worker is the main part of the crafting subsystem",
             "ECO - FX Worker can store 32 crafting jobs, processing 1 crafting job per crafting"
         );
+        addLangs(provider, "tooltip.neoecoae.advanced_crafting_worker",
+            "ECO - Advanced FX Worker includes a MEGA-style crafting monitor",
+            "Stores 128 base crafting jobs; base and overclocked capacity are 4x a normal FX Worker"
+        );
         provider.add("tooltip.neoecoae.crafting_jobs_l4", "Store Crafting Jobs: x%d [L4]");
         provider.add("tooltip.neoecoae.crafting_jobs_l6", "Store Crafting Jobs: x%d [L6]");
         provider.add("tooltip.neoecoae.crafting_jobs_l9", "Store Crafting Jobs: x%d [L9]");
