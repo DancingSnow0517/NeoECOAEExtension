@@ -624,7 +624,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
 
-        CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig();
+        CraftingHostPanelUI.Config panelConfig = createCraftingPanelConfig(holder.player);
         UIElement root = CraftingHostPanelUI.create(panelConfig);
         List<UIElement> sideButtons = new ArrayList<>();
         sideButtons.add(GuideButton.create(holder.player, "neoecoae:neoecoae_intro/crafting_system.md"));
@@ -635,14 +635,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-    private CraftingHostPanelUI.Config createCraftingPanelConfig() {
+    private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             () -> getItemFromBlockEntity().getDescription(),
             () -> formed,
             () -> overclocked,
-            () -> setOverclocked(!overclocked),
+            () -> setOverclocked(player, !overclocked),
             () -> activeCooling,
-            () -> setActiveCooling(!activeCooling),
+            () -> setActiveCooling(player, !activeCooling),
             () -> Math.min(getAvailableThreads(), Math.max(0, runningThreadCount)),
             this::getAvailableThreads,
             () -> Math.max(0, Math.min(threadCount, getAvailableThreads())),
@@ -659,7 +659,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         );
     }
 
-    private void setOverclocked(boolean overclocked) {
+    private void setOverclocked(Player player, boolean overclocked) {
+        if (!canPlayerInteract(player)) return;
         if (this.overclocked == overclocked) {
             return;
         }
@@ -668,7 +669,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         setChanged();
     }
 
-    private void setActiveCooling(boolean activeCooling) {
+    private void setActiveCooling(Player player, boolean activeCooling) {
+        if (!canPlayerInteract(player)) return;
         if (this.activeCooling == activeCooling) {
             return;
         }
@@ -726,6 +728,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void increaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -735,6 +738,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void decreaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -744,6 +748,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void autoBuild(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -801,12 +806,17 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void setMirrorBuild(Player player, boolean mirrorBuild) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
         this.mirrorBuild = mirrorBuild;
         setChanged();
         markForUpdate();
+    }
+
+    private boolean canPlayerInteract(Player player) {
+        return level != null && ECOCraftingSystem.isPlayerCloseEnough(level, worldPosition, player);
     }
 
     private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {

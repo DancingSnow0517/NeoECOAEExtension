@@ -148,7 +148,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
-        ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig();
+        ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig(holder.player);
 
         UIElement root = new UIElement().layout(layout -> layout
             .width(340)
@@ -198,7 +198,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
     }
 
-    private ComputationHostPanelUI.Config createComputationPanelConfig() {
+    private ComputationHostPanelUI.Config createComputationPanelConfig(Player player) {
         return new ComputationHostPanelUI.Config(
             this::getUsedComputationBytes,
             this::getTotalBytes,
@@ -207,7 +207,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             this::getTotalThread,
             this::getParallelCount,
             this::getCpuSelectionMode,
-            this::cycleCpuSelectionMode,
+            () -> cycleCpuSelectionMode(player),
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries
         );
@@ -227,7 +227,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markForUpdate();
     }
 
-    private void cycleCpuSelectionMode() {
+    private void cycleCpuSelectionMode(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (cluster != null) {
             cluster.cycleSelectionMode();
         } else {
@@ -379,6 +380,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private void increaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -388,6 +390,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private void decreaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -397,6 +400,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private void autoBuild(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -461,12 +465,17 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private void setMirrorBuild(Player player, boolean mirrorBuild) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
         this.mirrorBuild = mirrorBuild;
         setChanged();
         markForUpdate();
+    }
+
+    private boolean canPlayerInteract(Player player) {
+        return level != null && ECOComputationSystem.isPlayerCloseEnough(level, worldPosition, player);
     }
 
     private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
