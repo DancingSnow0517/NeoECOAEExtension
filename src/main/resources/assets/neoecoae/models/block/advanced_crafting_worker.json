@@ -1,6 +1,7 @@
 {
   "parent": "neoecoae:block/crafting_worker",
   "textures": {
-    "0": "neoecoae:block/crafting/core/advanced_working_core_north"
+    "0": "neoecoae:block/crafting/core/advanced_working_core_north",
+    "1": "ae2:block/crafting/monitor_light_dark"
   }
 }

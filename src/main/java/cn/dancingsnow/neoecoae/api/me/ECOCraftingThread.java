@@ -99,7 +99,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.craftingInv = new TransientCraftingContainer(new AutoCraftingMenu(), 3, 3);
     }
 
-    public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
+    public TickRateModulation tick(
+        ECOCraftingSystemBlockEntity controller,
+        int overlockTimes,
+        int powerMultiply,
+        int ticksSinceLastCall
+    ) {
         if (!isBusy) {
             progress = 0;
             progressRemainder = 0.0D;
@@ -124,6 +129,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         int bonusValue = calculateProgressPerTick(overlockTimes);
+        int attemptedProgress = calculateRequestedProgress(
+            ticksSinceLastCall,
+            bonusValue,
+            MAX_PROGRESS - progress
+        );
+        if (!controller.tryConsumeTickBasedCoolant(occupiedThreadSlots, attemptedProgress, overlockTimes)) {
+            return TickRateModulation.SLOWER;
+        }
         progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
 
         if (this.progress >= MAX_PROGRESS) {
@@ -357,6 +370,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
         return !controller.isActiveCooling()
+            || controller.usesTickBasedCoolant()
             || controller.tryConsumeCoolant(5 * Math.max(1, craftCount), controller.getEffectiveOverclockTimes());
     }
 

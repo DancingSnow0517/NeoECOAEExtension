@@ -80,7 +80,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 int overlockTimes = controller.getEffectiveOverclockTimes();
                 TickRateModulation rate = TickRateModulation.IDLE;
                 for (ECOCraftingThread thread : craftingThreads) {
-                    TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
+                    TickRateModulation r = thread.tick(controller, overlockTimes, powerMultiply, ticksSinceLastCall);
                     if (r.ordinal() > rate.ordinal()) {
                         rate = r;
                     }

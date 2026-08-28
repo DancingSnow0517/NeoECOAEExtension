@@ -270,7 +270,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
         long workerRemaining = Math.max(
             0,
-            (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads
+            (long) controller.getTotalWorkerThreadCapacity() - runningThreads
         );
 
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));

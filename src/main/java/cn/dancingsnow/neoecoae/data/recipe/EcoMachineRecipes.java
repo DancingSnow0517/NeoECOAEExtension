@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.data.recipe;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.core.definitions.AEParts;
 import appeng.datagen.providers.tags.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
@@ -237,6 +238,18 @@ public class EcoMachineRecipes {
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
             .itemOutput(NEBlocks.CRAFTING_SYSTEM_L9)
             .energy(640000)
+            .save(provider);
+
+        // Advanced FX worker
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.CRAFTING_WORKER, 16)
+            .require(AEBlocks.MOLECULAR_ASSEMBLER, 32)
+            .require(AEParts.STORAGE_MONITOR)
+            .require(AEBlocks.CRAFTING_STORAGE_256K, 4)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
+            .itemOutput(NEBlocks.ADVANCED_CRAFTING_WORKER)
+            .energy(1024000)
             .save(provider);
 
         // crafting parallel core

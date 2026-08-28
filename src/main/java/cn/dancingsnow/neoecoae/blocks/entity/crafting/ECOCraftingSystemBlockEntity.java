@@ -70,6 +70,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
+    private static final int ADVANCED_PROGRESS_PER_COOLANT = 20;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -100,6 +101,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private FluidStack currentCoolantFluid = FluidStack.EMPTY;
 
     private int workerCount = 0;
+    private boolean hasAdvancedWorker = false;
+    private long advancedCoolantRemainder = 0L;
 
     @Getter
     private int runningThreadCount = 0;
@@ -275,9 +278,19 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     worker.getCapacityMultiplier()
                 ))
                 .reduce(0L, NEMath::saturatingAdd);
+            Map<BlockPos, Integer> workerCapacityMultipliers = new LinkedHashMap<>();
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                workerCapacityMultipliers.put(
+                    worker.getBlockPos(),
+                    Math.max(1, worker.getCapacityMultiplier())
+                );
+            }
             exactThreadCount = cluster.getParallelCores()
                 .stream()
-                .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
+                .mapToLong(core -> NEMath.saturatingMultiply(
+                    getCoreThreadCountLong(core.getTier(), overclocked),
+                    getParallelCoreMultiplier(core.getBlockPos(), workerCapacityMultipliers)
+                ))
                 .reduce(0L, NEMath::saturatingAdd);
             threadCount = (int) Math.min(Integer.MAX_VALUE, exactThreadCount);
             recalculateRunningThreadCountFromWorkers();
@@ -293,8 +306,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private void updateCount() {
         if (cluster != null) {
             workerCount = cluster.getWorkers().size();
+            hasAdvancedWorker = cluster.getWorkers().stream()
+                .anyMatch(ECOCraftingWorkerBlockEntity::isAdvanced);
         } else {
             workerCount = 0;
+            hasAdvancedWorker = false;
+        }
+        if (!hasAdvancedWorker) {
+            advancedCoolantRemainder = 0L;
         }
     }
 
@@ -339,6 +358,12 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return threads;
     }
 
+    static int getParallelCoreMultiplier(BlockPos corePos, Map<BlockPos, Integer> workerCapacityMultipliers) {
+        int aboveMultiplier = workerCapacityMultipliers.getOrDefault(corePos.above(), 1);
+        int belowMultiplier = workerCapacityMultipliers.getOrDefault(corePos.below(), 1);
+        return Math.max(1, Math.max(aboveMultiplier, belowMultiplier));
+    }
+
     private int calculateOverclockTimes(long threadCount, long availableThreads) {
         long overflow = threadCount - availableThreads;
         if (threadCount <= 0 || overflow <= 0) {
@@ -369,9 +394,59 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return true;
     }
 
+    public boolean usesTickBasedCoolant() {
+        return hasAdvancedWorker;
+    }
+
+    /**
+     * Advanced-worker clusters pay coolant while crafting work is actively progressing instead of
+     * reserving it when a pattern is accepted. The rate tracks the progress multiplier, keeping the
+     * total cost close to five coolant per occupied thread slot for a complete 100-progress craft.
+     */
+    public boolean tryConsumeTickBasedCoolant(
+        int occupiedThreadSlots,
+        int attemptedProgress,
+        int effectiveOverclock
+    ) {
+        if (!activeCooling || !usesTickBasedCoolant()) {
+            return true;
+        }
+        TickCoolantCharge charge = calculateTickBasedCoolantCharge(
+            occupiedThreadSlots,
+            attemptedProgress,
+            advancedCoolantRemainder
+        );
+        if (charge.amount() > 0 && !tryConsumeCoolant(charge.amount(), effectiveOverclock)) {
+            return false;
+        }
+        advancedCoolantRemainder = charge.remainder();
+        return true;
+    }
+
+    static TickCoolantCharge calculateTickBasedCoolantCharge(
+        int occupiedThreadSlots,
+        int attemptedProgress,
+        long previousRemainder
+    ) {
+        long progressCost = NEMath.saturatingMultiply(
+            Math.max(1L, occupiedThreadSlots),
+            Math.max(0L, attemptedProgress)
+        );
+        long safeRemainder = Math.clamp(previousRemainder, 0L, ADVANCED_PROGRESS_PER_COOLANT - 1L);
+        long accumulated = NEMath.saturatingAdd(progressCost, safeRemainder);
+        int amount = (int) Math.min(Integer.MAX_VALUE, accumulated / ADVANCED_PROGRESS_PER_COOLANT);
+        long remainder = accumulated % ADVANCED_PROGRESS_PER_COOLANT;
+        return new TickCoolantCharge(amount, remainder);
+    }
+
+    record TickCoolantCharge(int amount, long remainder) {}
+
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
         if (!activeCooling || requestedCrafts <= 0) {
             return Math.max(0, requestedCrafts);
+        }
+        if (usesTickBasedCoolant()) {
+            return ensureCoolantAvailable(1, requiredOverclock) ? requestedCrafts : 0;
         }
         if (coolantPerCraft <= 0) {
             return Math.max(0, requestedCrafts);
@@ -409,6 +484,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private int getAvailableThreads() {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, exactAvailableThreadCount));
+    }
+
+    /**
+     * Returns the combined queue capacity of all workers in this cluster.
+     * This includes per-worker capacity multipliers such as the advanced FX worker's 4x multiplier.
+     */
+    public int getTotalWorkerThreadCapacity() {
+        return getAvailableThreads();
     }
 
     private long getMaxEnergyUsage() {
@@ -599,6 +682,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return;
         }
         this.activeCooling = activeCooling;
+        if (!activeCooling) {
+            advancedCoolantRemainder = 0L;
+        }
         setChanged();
     }
 

@@ -1028,17 +1028,6 @@ public class NEBlocks {
         .block("advanced_crafting_worker", ECOCraftingWorker::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("ABA")
-                .pattern("BCB")
-                .pattern("ABA")
-                .define('A', AEBlocks.CRAFTING_STORAGE_256K)
-                .define('B', AEBlocks.CONTROLLER)
-                .define('C', NEBlocks.CRAFTING_WORKER)
-                .unlockedBy("has_crafting_worker", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_WORKER))
-                .save(prov);
-        })
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
         .build()
