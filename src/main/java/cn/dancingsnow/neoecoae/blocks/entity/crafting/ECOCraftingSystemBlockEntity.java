@@ -325,7 +325,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return threads;
     }
 
-    static int calculateOverclockTimes(long threadCount, long availableThreads) {
+    private int calculateOverclockTimes(long threadCount, long availableThreads) {
         long overflow = threadCount - availableThreads;
         if (threadCount <= 0 || overflow <= 0) {
             return 0;

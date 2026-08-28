@@ -249,7 +249,7 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    static boolean isFinalOutputSatisfied(long remainingAmount) {
+    private boolean isFinalOutputSatisfied(long remainingAmount) {
         // The buffer may still own recipe-rounding surplus. finishJob preserves that surplus and stores it normally.
         return remainingAmount <= 0L;
     }
@@ -258,7 +258,7 @@ public class ECOCraftingCPULogic {
         return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
     }
 
-    static int calculateOperationLimit(int coProcessors, int configuredLimit) {
+    private int calculateOperationLimit(int coProcessors, int configuredLimit) {
         long baseLimit = (long) Math.max(0, coProcessors) + 1L;
         long safeConfiguredLimit = Math.max(0, configuredLimit);
         return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
@@ -556,7 +556,7 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    static int calculateBatchRequestSize(long taskRemaining) {
+    private int calculateBatchRequestSize(long taskRemaining) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
     }
 

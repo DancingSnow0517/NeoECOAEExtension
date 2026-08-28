@@ -205,7 +205,7 @@ public final class ECOCraftingFastPathCache {
         return age < 0L || age >= NEGATIVE_CACHE_TTL_TICKS;
     }
 
-    static boolean isStatsLogDue(long previousTick, long tick) {
+    private boolean isStatsLogDue(long previousTick, long tick) {
         if (previousTick == Long.MIN_VALUE) {
             return true;
         }

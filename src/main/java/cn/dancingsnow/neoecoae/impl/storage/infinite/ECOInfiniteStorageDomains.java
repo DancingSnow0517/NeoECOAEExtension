@@ -77,10 +77,6 @@ public final class ECOInfiniteStorageDomains {
                     dataFile);
             data.markUnreadable();
         }
-        if (data.isHealthy()) {
-            LegacyDomainImporter.importInto(data, registries, worldRoot, domainId, dataFile);
-        }
-
         return new SavedDataInfiniteStorageEngine(data, registries, dataFile);
     }
 }

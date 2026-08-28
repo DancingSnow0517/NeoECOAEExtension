@@ -7,7 +7,6 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -189,10 +188,6 @@ public final class ECOInfiniteStorageData extends SavedData {
             amounts.put(key, amount);
         }
         setDirty();
-    }
-
-    public Collection<RawEntry> getRawEntries() {
-        return rawEntries;
     }
 
     public void addRawEntry(RawEntry entry) {

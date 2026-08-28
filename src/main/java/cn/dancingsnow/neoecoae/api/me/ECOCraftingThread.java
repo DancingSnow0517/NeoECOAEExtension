@@ -488,23 +488,23 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return powered.completed();
     }
 
-    static int calculateProgressPerTick(int overclockTimes) {
+    private int calculateProgressPerTick(int overclockTimes) {
         return Math.clamp(10 + Math.max(0, overclockTimes) * 10, 10, MAX_PROGRESS);
     }
 
-    static int calculateRequestedProgress(int ticksPassed, int bonusValue, int remainingProgress) {
+    private int calculateRequestedProgress(int ticksPassed, int bonusValue, int remainingProgress) {
         long requested = (long) Math.max(0, ticksPassed) * Math.max(0, bonusValue);
         return (int) Math.min(Math.max(0, remainingProgress), Math.min(Integer.MAX_VALUE, requested));
     }
 
-    static double calculatePowerPerProgress(double acceleratorTax, int occupiedThreadSlots) {
+    private double calculatePowerPerProgress(double acceleratorTax, int occupiedThreadSlots) {
         if (!Double.isFinite(acceleratorTax) || acceleratorTax <= 0.0D) {
             return 0.0D;
         }
         return acceleratorTax * Math.max(1, occupiedThreadSlots);
     }
 
-    static PowerProgress accumulatePoweredProgress(
+    private PowerProgress accumulatePoweredProgress(
         double extractedPower,
         double powerPerProgress,
         int requestedProgress,
@@ -1264,14 +1264,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    static void writeProgressRemainder(CompoundTag tag, double remainder) {
+    private void writeProgressRemainder(CompoundTag tag, double remainder) {
         double safeRemainder = sanitizeProgressRemainder(remainder);
         if (safeRemainder > 0.0D) {
             tag.putDouble("progressRemainder", safeRemainder);
         }
     }
 
-    static double readProgressRemainder(CompoundTag tag) {
+    private double readProgressRemainder(CompoundTag tag) {
         return sanitizeProgressRemainder(tag.getDouble("progressRemainder"));
     }
 
