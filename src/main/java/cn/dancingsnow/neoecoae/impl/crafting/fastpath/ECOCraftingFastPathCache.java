@@ -36,9 +36,7 @@ public final class ECOCraftingFastPathCache {
     private long coolantRejectCount;
     private long noThreadRejectCount;
     private long expectedMismatchCount;
-    private long containerMismatchCount;
     private long nonItemKeyCount;
-    private long postCraftingEventCount;
     private long keyBuildFailedCount;
     private long exceptionCount;
     private long lastStatsLogTick = Long.MIN_VALUE;
@@ -81,11 +79,6 @@ public final class ECOCraftingFastPathCache {
         return result;
     }
 
-    @Nullable
-    public ECOFastPathResult peek(ECOFastPathKey key) {
-        return entries.get(key);
-    }
-
     public void putPositive(
         ECOFastPathKey key,
         List<GenericStack> outputs,
@@ -93,12 +86,12 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> inputs,
         long tick
     ) {
-        if (!ECOBatchCraftingHelper.areValidItemStacks(outputs, Integer.MAX_VALUE, true)
-            || !ECOBatchCraftingHelper.areValidItemStacks(remaining, Integer.MAX_VALUE, false)
-            || !ECOBatchCraftingHelper.areValidItemStacks(inputs, Integer.MAX_VALUE, false)
-            || !ECOFastPathStacks.isSafeForFastPath(outputs, false)
-            || !ECOFastPathStacks.isSafeForFastPath(remaining, false)
-            || !ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
+        if (!ECOFastPathStacks.areValidItemStacks(
+                outputs, Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            || !ECOFastPathStacks.areValidItemStacks(
+                remaining, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            || !ECOFastPathStacks.areValidItemStacks(
+                inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)) {
             putNegative(key, tick);
             return;
         }
@@ -175,7 +168,7 @@ public final class ECOCraftingFastPathCache {
         long positiveLookups = hitCount + missCount + negativeHitCount;
         double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
             owner,
             entries.size(),
             limit,
@@ -188,9 +181,7 @@ public final class ECOCraftingFastPathCache {
             disabledCount,
             fallbackSlowPathCount,
             expectedMismatchCount,
-            containerMismatchCount,
             nonItemKeyCount,
-            postCraftingEventCount,
             keyBuildFailedCount,
             exceptionCount,
             fastPathAcceptedCount,

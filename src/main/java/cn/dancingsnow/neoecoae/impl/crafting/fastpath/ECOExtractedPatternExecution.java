@@ -58,9 +58,12 @@ public final class ECOExtractedPatternExecution {
             && AE2PatternIntrospection.isAvailable()
             && AE2PatternIntrospection.isKnownSafePatternType(details)
             && outputs.size() == 1
-            && ECOFastPathStacks.isSafeForFastPath(outputs, false)
-            && ECOFastPathStacks.isSafeForFastPath(containers, false)
-            && ECOFastPathStacks.isSafeForFastPath(inputs, true);
+            && ECOFastPathStacks.areValidItemStacks(
+                outputs, Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            && ECOFastPathStacks.areValidItemStacks(
+                containers, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            && ECOFastPathStacks.areValidItemStacks(
+                inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT);
         return new ECOExtractedPatternExecution(
             details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible
         );
@@ -101,6 +104,13 @@ public final class ECOExtractedPatternExecution {
 
     public boolean fastPathEligible() {
         return fastPathEligible;
+    }
+
+    public boolean canUseFastPath() {
+        return key != null
+            && fastPathEligible
+            && NEConfig.ecoAe2FastPathEnabled
+            && !NEConfig.postCraftingEvent;
     }
 
     @Nullable

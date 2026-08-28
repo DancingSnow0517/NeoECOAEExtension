@@ -6,6 +6,7 @@ import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -15,10 +16,11 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
+import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -65,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -109,6 +112,16 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private boolean patternDetailsUpdateQueued;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
+    private final String[] patternSearchKeywords = new String[NEConfig.getMaxCraftingPatternBusSlotCount()];
+    private final BitSet emptyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
+    private int patternCapacitySlotCount;
+    private int patternCapacityGeneration;
+    private boolean patternCapacityIndexInitialized;
+    @DescSynced
+    private int patternContentRevision;
+    private transient boolean craftingProviderRefreshQueued;
+    /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
+    private transient ECOPreparedPattern activePreparedPattern;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -168,19 +181,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Nullable
     public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
-        if (execution.key() == null) {
-            return null;
-        }
-        return findBatchFastPathOffer(execution.key(), execution, null, requestedBatchSize);
-    }
-
-    @Nullable
-    private BatchFastPathOffer findBatchFastPathOffer(
-        ECOFastPathKey key,
-        @Nullable ECOExtractedPatternExecution execution,
-        @Nullable ECOBatchCraftingRequest request,
-        int requestedBatchSize
-    ) {
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
@@ -201,14 +201,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             if (availableSlots <= 0) {
                 continue;
             }
-            ECOFastPathResult result = execution == null
-                ? worker.getFastPathCache().peek(key)
-                : worker.getVerifiedFastPathResult(execution);
+            ECOFastPathResult result = worker.getVerifiedFastPathResult(execution);
             if (result == null || result.isNegative()) {
-                continue;
-            }
-            if (request != null && !result.matchesBatchRequest(request)) {
-                worker.getFastPathCache().recordExpectedMismatch();
                 continue;
             }
             int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, availableSlots, globalAvailableSlots);
@@ -321,16 +315,106 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
+        return insertPatternWithResult(itemStack) == ECOPatternInsertionResult.INSERTED;
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPatternWithResult(ItemStack itemStack) {
         // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
         // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
-        if (!isExecutablePattern(itemStack)) {
-            return false;
+        ECOPreparedPattern prepared = preparePattern(itemStack);
+        if (prepared == null) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        if (containsPatternInCluster(itemStack)) {
-            return false;
+        return insertPreparedPattern(prepared);
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPatternKnownUnique(ItemStack itemStack) {
+        // PatternStorage has already checked the complete logical network for duplicates.
+        // Avoid repeating containsPatternInCluster for every bus when the first target is full.
+        ECOPreparedPattern prepared = preparePattern(itemStack);
+        if (prepared == null) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        ItemStack result = effectiveInventory.addItems(itemStack.copy());
-        return result.isEmpty();
+        return insertPreparedPatternKnownUnique(prepared);
+    }
+
+    /** Decodes and validates an incoming pattern once for reuse across destination buses. */
+    @Nullable
+    public ECOPreparedPattern preparePattern(ItemStack itemStack) {
+        if (itemStack.isEmpty()) {
+            return null;
+        }
+        IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, level);
+        return details instanceof IMolecularAssemblerSupportedPattern
+            ? new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack))
+            : null;
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPreparedPattern(ECOPreparedPattern prepared) {
+        return insertPreparedPatternInternal(prepared, false);
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertPreparedPatternKnownUnique(ECOPreparedPattern prepared) {
+        return insertPreparedPatternInternal(prepared, true);
+    }
+
+    /** Inserts a previously decoded pattern while preserving normal logical-domain duplicate checks. */
+    private ECOPatternInsertionResult insertPreparedPatternInternal(ECOPreparedPattern prepared, boolean knownUnique) {
+        if (!isValidPreparedPattern(prepared)) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        ItemStack itemStack = prepared.stack();
+        if (!knownUnique && containsPatternInCluster(itemStack)) {
+            return ECOPatternInsertionResult.ALREADY_PRESENT;
+        }
+        return insertPreparedStack(prepared);
+    }
+
+    private ECOPatternInsertionResult insertPreparedStack(ECOPreparedPattern prepared) {
+        ItemStack result;
+        activePreparedPattern = prepared;
+        try {
+            result = addPatternItems(prepared.stack());
+        } finally {
+            activePreparedPattern = null;
+        }
+        return result.isEmpty()
+            ? ECOPatternInsertionResult.INSERTED
+            : ECOPatternInsertionResult.NO_SPACE;
+    }
+
+    private boolean isValidPreparedPattern(@Nullable ECOPreparedPattern prepared) {
+        return prepared != null
+            && prepared.details() instanceof IMolecularAssemblerSupportedPattern
+            && !prepared.stack().isEmpty()
+            && prepared.matches(prepared.stack());
+    }
+
+    /** Places the stack through known empty slots, preserving normal remainder semantics. */
+    private ItemStack addPatternItems(ItemStack stack) {
+        ensurePatternCapacityIndex();
+        ItemStack remaining = stack.copy();
+        while (!remaining.isEmpty()) {
+            int slot = emptyPatternSlots.nextSetBit(0);
+            if (slot < 0 || slot >= patternCapacitySlotCount) {
+                break;
+            }
+            ItemStack next = effectiveInventory.insertItem(slot, remaining, false);
+            if (next.getCount() >= remaining.getCount()) {
+                break;
+            }
+            remaining = next;
+        }
+        return remaining;
+    }
+
+    @Override
+    public boolean checksLogicalDomainForDuplicates() {
+        return true;
     }
 
     private boolean containsPatternInCluster(ItemStack pattern) {
@@ -358,12 +442,63 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
     }
 
+    private void ensurePatternCapacityIndex() {
+        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
+        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
+            rebuildPatternCapacityIndex(slotCount);
+        }
+    }
+
+    private void rebuildPatternCapacityIndex() {
+        rebuildPatternCapacityIndex(Math.min(getPatternSlotCount(), inventory.size()));
+    }
+
+    private void rebuildPatternCapacityIndex(int slotCount) {
+        emptyPatternSlots.clear();
+        for (int slot = 0; slot < slotCount; slot++) {
+            if (inventory.getStackInSlot(slot).isEmpty()) {
+                emptyPatternSlots.set(slot);
+            }
+        }
+        patternCapacitySlotCount = slotCount;
+        patternCapacityIndexInitialized = true;
+        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
+            ? 1
+            : patternCapacityGeneration + 1;
+    }
+
+    private void updatePatternCapacitySlot(int slot) {
+        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
+        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
+            rebuildPatternCapacityIndex(slotCount);
+            return;
+        }
+        if (slot < 0 || slot >= slotCount) {
+            return;
+        }
+        boolean shouldBeEmpty = inventory.getStackInSlot(slot).isEmpty();
+        boolean wasEmpty = emptyPatternSlots.get(slot);
+        if (shouldBeEmpty == wasEmpty) {
+            return;
+        }
+        if (shouldBeEmpty) {
+            emptyPatternSlots.set(slot);
+        } else {
+            emptyPatternSlots.clear(slot);
+        }
+        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
+            ? 1
+            : patternCapacityGeneration + 1;
+    }
+
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
             return slot >= 0
                 && slot < getPatternSlotCount()
-                && isExecutablePattern(stack);
+                && (activePreparedPattern != null
+                    ? activePreparedPattern.matches(stack)
+                    : isExecutablePattern(stack));
         }
     }
 
@@ -384,19 +519,54 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         this.saveChanges();
+        incrementPatternContentRevision();
+        if (slot < 0 || slot >= inventory.size()) {
+            patternCapacityIndexInitialized = false;
+            rebuildPatternCapacityIndex();
+        } else {
+            updatePatternCapacitySlot(slot);
+        }
         if (slot >= 0 && slot < decodedPatternDetails.length) {
             dirtyPatternSlots.set(slot);
         } else {
             rebuildAllPatternDetails = true;
         }
         queuePatternDetailsUpdate();
+        notifyPatternInterfaceHosts();
     }
 
     @Override
     public void onReady() {
         super.onReady();
         rebuildAllPatternDetails = true;
+        rebuildPatternCapacityIndex();
         updatePatternDetails();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        IGrid previousGrid = getMainNode().getGrid();
+        super.onChunkUnloaded();
+        notifyPatternInterfaceTopologyChanged(previousGrid);
+    }
+
+    @Override
+    public void setRemoved() {
+        IGrid previousGrid = getMainNode().getGrid();
+        super.setRemoved();
+        notifyPatternInterfaceTopologyChanged(previousGrid);
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
+        super.onMainNodeStateChanged(reason);
+        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
+            queueCraftingProviderRefresh();
+            notifyPatternInterfaceTopologyChanged();
+        }
     }
 
     private void updatePatternDetails() {
@@ -423,6 +593,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         patternDetails.clear();
         for (int slot = 0; slot < slotCount; slot++) {
             IPatternDetails details = decodedPatternDetails[slot];
+            patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
             // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
@@ -430,6 +601,95 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             }
         }
         ICraftingProvider.requestUpdate(this.getMainNode());
+        notifyPatternInterfaceHosts();
+    }
+
+    private static String buildPatternSearchKeywords(ItemStack stack, @Nullable IPatternDetails details) {
+        if (stack.isEmpty()) {
+            return "";
+        }
+        StringBuilder keywords = new StringBuilder(stack.getHoverName().getString());
+        if (details != null) {
+            for (var output : details.getOutputs()) {
+                if (output != null) {
+                    keywords.append('\n').append(output.what().getDisplayName().getString());
+                }
+            }
+            for (var input : details.getInputs()) {
+                if (input == null) {
+                    continue;
+                }
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible != null) {
+                        keywords.append('\n').append(possible.what().getDisplayName().getString());
+                    }
+                }
+            }
+        }
+        return keywords.toString().toLowerCase(Locale.ROOT);
+    }
+
+    public int getPatternContentRevision() {
+        return patternContentRevision;
+    }
+
+    /** Precomputed after each pattern-detail refresh so opening the network browser never has to decode this slot. */
+    public String getPatternSearchKeywords(int slot) {
+        return slot >= 0 && slot < patternSearchKeywords.length ? patternSearchKeywords[slot] : "";
+    }
+
+    private void incrementPatternContentRevision() {
+        patternContentRevision = patternContentRevision == Integer.MAX_VALUE
+            ? 1
+            : patternContentRevision + 1;
+    }
+
+    private void notifyPatternInterfaceHosts() {
+        if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
+            return;
+        }
+        for (var machineInterface : getMainNode().getGrid()
+                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
+            machineInterface.onPatternBusInventoryChanged(this);
+        }
+    }
+
+    private void notifyPatternInterfaceTopologyChanged() {
+        notifyPatternInterfaceTopologyChanged(getMainNode().getGrid());
+    }
+
+    private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
+        if (level == null || level.isClientSide || grid == null) {
+            return;
+        }
+        for (var machineInterface : grid
+                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
+            machineInterface.onPatternBusTopologyChanged(this);
+        }
+    }
+
+    /** Re-mount the provider after AE2 has completed a power or pathing transition. */
+    private void queueCraftingProviderRefresh() {
+        if (!(level instanceof ServerLevel serverLevel)
+            || craftingProviderRefreshQueued
+            || isServerStopping()) {
+            return;
+        }
+
+        craftingProviderRefreshQueued = true;
+        var server = serverLevel.getServer();
+        int targetTick = server.getTickCount() + 1;
+
+        server.tell(new TickTask(targetTick, () -> {
+            craftingProviderRefreshQueued = false;
+
+            if (!isServerStopping()
+                && !isRemoved()
+                && level == serverLevel
+                && getMainNode().isOnline()) {
+                ICraftingProvider.requestUpdate(getMainNode());
+            }
+        }));
     }
 
     private void queuePatternDetailsUpdate() {

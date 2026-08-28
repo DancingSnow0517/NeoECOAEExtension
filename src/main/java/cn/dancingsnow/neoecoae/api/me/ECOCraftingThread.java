@@ -204,8 +204,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             inputTotal,
             outputTotal,
             remainingTotal,
-            request.craftingJobId(),
-            request.batchSize()
+            request.craftingJobId()
         );
         return acceptBatch(work, controller);
     }
@@ -226,7 +225,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             work.inputTotal(),
             work.remainingTotal(),
             work.craftingJobId(),
-            work.occupiedThreadSlots()
+            work.batchSize()
         );
         worker.getFastPathCache().recordFastPathAccepted();
         return true;
@@ -240,7 +239,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         ECOFastPathKey key = execution.key();
-        if (!canUseFastPath(execution, key)) {
+        if (!execution.canUseFastPath()) {
             cache.recordDisabled();
             return calcPatternSlow(execution, controller, craftingJobId, false, tick);
         }
@@ -270,13 +269,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         return calcPatternSlow(execution, controller, craftingJobId, true, tick);
-    }
-
-    private boolean canUseFastPath(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
-        return key != null
-            && execution.fastPathEligible()
-            && NEConfig.ecoAe2FastPathEnabled
-            && !NEConfig.postCraftingEvent;
     }
 
     @Nullable

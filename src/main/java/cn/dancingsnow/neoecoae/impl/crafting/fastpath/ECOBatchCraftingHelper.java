@@ -1,17 +1,13 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.config.Actionable;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
-import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
     /**
@@ -46,7 +42,7 @@ public final class ECOBatchCraftingHelper {
             long amount = multiplyExact(stack.amount(), multiplier);
             counter.add(stack.what(), amount);
         }
-        return copyCounter(counter);
+        return ECOFastPathStacks.copyCounter(counter);
     }
 
     public static int maxCraftsFromInventory(ListCraftingInventory inventory, List<GenericStack> perCraft,
@@ -98,45 +94,6 @@ public final class ECOBatchCraftingHelper {
         return low;
     }
 
-    public static boolean areValidItemStacks(
-        List<GenericStack> stacks,
-        long maxAmount,
-        boolean requireNonEmpty
-    ) {
-        if (!areValidPersistedItemStacks(stacks, maxAmount, requireNonEmpty)) {
-            return false;
-        }
-        for (GenericStack stack : stacks) {
-            AEItemKey itemKey = (AEItemKey) stack.what();
-            ItemStack itemStack = itemKey.toStack(1);
-            if (itemStack.isEmpty() || !itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static boolean areValidPersistedItemStacks(
-        List<GenericStack> stacks,
-        long maxAmount,
-        boolean requireNonEmpty
-    ) {
-        if (stacks == null
-            || stacks.size() > MAX_BATCH_STACK_ENTRIES
-            || requireNonEmpty && stacks.isEmpty()) {
-            return false;
-        }
-        for (GenericStack stack : stacks) {
-            if (stack == null
-                || stack.amount() <= 0
-                || stack.amount() > maxAmount
-                || !(stack.what() instanceof AEItemKey)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public static void extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
         List<GenericStack> extractedStacks = new ArrayList<>(stacks.size());
         try {
@@ -161,16 +118,6 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }
-    }
-
-    private static List<GenericStack> copyCounter(KeyCounter counter) {
-        List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-            }
-        }
-        return List.copyOf(stacks);
     }
 
     private static long multiplyExact(long amount, int multiplier) {

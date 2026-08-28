@@ -123,7 +123,7 @@ public final class ECOFastPathKey {
 
         private String sortId() {
             if (sortId == null) {
-                sortId = key.getType().getId() + ":" + key.getId() + ":" + key.hashCode();
+                sortId = ECOFastPathStacks.keySortId(key);
             }
             return sortId;
         }

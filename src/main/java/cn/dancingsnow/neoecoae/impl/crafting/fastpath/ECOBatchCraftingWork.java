@@ -10,23 +10,28 @@ public record ECOBatchCraftingWork(
     List<GenericStack> inputTotal,
     List<GenericStack> outputTotal,
     List<GenericStack> remainingTotal,
-    @Nullable UUID craftingJobId,
-    int occupiedThreadSlots
+    @Nullable UUID craftingJobId
 ) {
     public ECOBatchCraftingWork {
         ECOBatchCraftingHelper.validateBatchSize(batchSize);
-        if (occupiedThreadSlots != batchSize) {
-            throw new IllegalArgumentException("Batch work must occupy one thread slot per craft");
-        }
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);
         remainingTotal = List.copyOf(remainingTotal);
-        if (!ECOBatchCraftingHelper.areValidItemStacks(
-                inputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)
-            || !ECOBatchCraftingHelper.areValidItemStacks(
-                outputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, true)
-            || !ECOBatchCraftingHelper.areValidItemStacks(
-                remainingTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)) {
+        if (!ECOFastPathStacks.areValidItemStacks(
+                inputTotal,
+                ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
+                false,
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            || !ECOFastPathStacks.areValidItemStacks(
+                outputTotal,
+                ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
+                true,
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+            || !ECOFastPathStacks.areValidItemStacks(
+                remainingTotal,
+                ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
+                false,
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH)) {
             throw new IllegalArgumentException("Fast-path batch work contains invalid item stacks");
         }
     }

@@ -18,6 +18,12 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOFastPathStacks {
     private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
 
+    enum ItemStackValidation {
+        PERSISTED,
+        FAST_PATH,
+        FAST_PATH_INPUT
+    }
+
     private ECOFastPathStacks() {
     }
 
@@ -84,27 +90,44 @@ public final class ECOFastPathStacks {
         return Optional.of(List.copyOf(result));
     }
 
-    public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
+    static boolean areValidItemStacks(
+        List<GenericStack> stacks,
+        long maxAmount,
+        boolean requireNonEmpty,
+        ItemStackValidation validation
+    ) {
+        if (stacks == null
+            || stacks.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
+            || requireNonEmpty && stacks.isEmpty()) {
+            return false;
+        }
         for (GenericStack stack : stacks) {
-            if (!isSafeForFastPath(stack, input)) {
+            if (!isValidItemStack(stack, maxAmount, validation)) {
                 return false;
             }
         }
         return true;
     }
 
-    private static boolean isSafeForFastPath(GenericStack stack, boolean input) {
-        if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
+    private static boolean isValidItemStack(
+        @Nullable GenericStack stack,
+        long maxAmount,
+        ItemStackValidation validation
+    ) {
+        if (stack == null || stack.amount() <= 0 || stack.amount() > maxAmount) {
             return false;
         }
         if (!(stack.what() instanceof AEItemKey itemKey)) {
             return false;
         }
+        if (validation == ItemStackValidation.PERSISTED) {
+            return true;
+        }
         ItemStack itemStack = itemKey.toStack(1);
-        if (!itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
+        if (itemStack.isEmpty() || !itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
             return false;
         }
-        if (input) {
+        if (validation == ItemStackValidation.FAST_PATH_INPUT) {
             return !itemStack.isDamageableItem()
                 && !itemStack.getItem().hasCraftingRemainingItem(itemStack);
         }
@@ -170,8 +193,11 @@ public final class ECOFastPathStacks {
                 }
                 stacks.add(stack);
             }
-            if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(
-                    stacks, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, requireNonEmpty)) {
+            if (!areValidItemStacks(
+                    stacks,
+                    ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
+                    requireNonEmpty,
+                    ItemStackValidation.PERSISTED)) {
                 return Optional.empty();
             }
             return Optional.of(List.copyOf(stacks));
@@ -192,7 +218,7 @@ public final class ECOFastPathStacks {
         return List.copyOf(stacks);
     }
 
-    private static String keySortId(@Nullable AEKey key) {
+    static String keySortId(@Nullable AEKey key) {
         if (key == null) {
             return "";
         }

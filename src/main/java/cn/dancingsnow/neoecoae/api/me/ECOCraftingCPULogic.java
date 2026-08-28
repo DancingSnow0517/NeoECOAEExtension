@@ -576,10 +576,7 @@ public class ECOCraftingCPULogic {
     }
 
     private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
-        return execution.key() != null
-                && execution.fastPathEligible()
-                && NEConfig.ecoAe2FastPathEnabled
-                && !NEConfig.postCraftingEvent;
+        return execution.canUseFastPath();
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {
