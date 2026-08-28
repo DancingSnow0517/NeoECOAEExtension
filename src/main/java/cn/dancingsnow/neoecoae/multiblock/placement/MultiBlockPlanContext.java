@@ -4,12 +4,10 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 
 public class MultiBlockPlanContext extends MultiBlockContext {
     @Getter
@@ -26,10 +24,6 @@ public class MultiBlockPlanContext extends MultiBlockContext {
             blockState,
             blockState.getBlock().asItem().getDefaultInstance().copy()
         ));
-    }
-
-    @Override
-    public void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
     }
 
     @Override

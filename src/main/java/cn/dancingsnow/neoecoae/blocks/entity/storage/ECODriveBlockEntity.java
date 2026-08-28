@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
+public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECODriveBlockEntity>
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider {
     private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
 
@@ -70,7 +70,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         BlockPos pos,
         BlockState blockState
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator::new);
         getMainNode().addService(IStorageProvider.class, this);
     }
 

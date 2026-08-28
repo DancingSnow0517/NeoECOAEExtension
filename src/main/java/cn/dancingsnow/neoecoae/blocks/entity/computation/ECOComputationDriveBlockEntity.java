@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECOComputationDriveBlockEntity
-    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
+    extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster, ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -64,7 +64,7 @@ public class ECOComputationDriveBlockEntity
     private final IItemHandler itemHandler = new CellHostItemHandler(this);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
     }
 
     public void setCellStack(@Nullable ItemStack cellStack) {

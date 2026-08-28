@@ -29,7 +29,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
+public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
@@ -43,7 +43,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     private int nextFreeThreadIndex = 0;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
         getMainNode().addService(IGridTickable.class, this);
     }
 
@@ -233,7 +233,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         boolean controllerUpdateAttempted = controller != null;
         try {
             if (controller != null) {
-                controller.onWorkerThreadCountChanged(slots);
+                controller.recalculateRunningThreadCountFromWorkers();
             }
             setChanged();
             wakeTickingDevice();
@@ -242,7 +242,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             runningThreads = previousRunningThreads;
             if (controllerUpdateAttempted) {
                 try {
-                    controller.onWorkerThreadCountChanged(-slots);
+                    controller.recalculateRunningThreadCountFromWorkers();
                 } catch (RuntimeException | Error rollbackFailure) {
                     // Preserve a rollback failure without hiding the original runtime failure or Error.
                     e.addSuppressed(rollbackFailure);
@@ -271,7 +271,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             runningThreads = 0;
         }
         if (cluster != null && cluster.getController() != null) {
-            cluster.getController().onWorkerThreadCountChanged(-slots);
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
         }
         setChanged();
     }
@@ -328,6 +328,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         runningThreads = (int) Math.min(Integer.MAX_VALUE, busyThreads);
         nextFreeThreadIndex = 0;
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
+        }
     }
 
     public boolean isWorking() {

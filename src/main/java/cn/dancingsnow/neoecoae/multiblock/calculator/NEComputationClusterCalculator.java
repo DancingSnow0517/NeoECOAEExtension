@@ -1,8 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
-import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -13,7 +10,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -39,31 +35,32 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     @Override
+    protected Holder<Block> casing() {
+        return NEBlocks.COMPUTATION_CASING;
+    }
+
+    @Override
     public NEComputationCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NEComputationCluster(min, max);
     }
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        ECOComputationSystemBlockEntity controller = null;
-        BlockPos controllerPos = null;
-        for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
-            if (level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be) {
-                controller = be;
-                controllerPos = pos;
-                break;
-            }
-        }
-        if (controller == null) return false;
+        Optional<ControllerContext<ECOComputationSystemBlockEntity>> contextResult = findUniqueController(
+            level, min, max, ECOComputationSystemBlockEntity.class
+        );
+        if (contextResult.isEmpty()) return false;
+        ControllerContext<ECOComputationSystemBlockEntity> context = contextResult.orElseThrow();
+        ECOComputationSystemBlockEntity controller = context.controller();
+        BlockPos controllerPos = context.position();
         IECOTier tier = controller.getTier();
-        BlockState controllerState = controller.getBlockState();
-        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
-        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
-        Direction front = back.getOpposite();
-        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
-        Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.LEFT);
-        Direction right = left.getOpposite();
+        BlockState controllerState = context.state();
+        Direction front = context.front();
+        Direction back = context.back();
+        Direction top = context.top();
+        Direction down = context.down();
+        Direction left = context.left();
+        Direction right = context.right();
         if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right, false)) {
             controller.setMirrored(false);
             syncNetworkSwitchState(level, controllerPos, controllerState, false);
@@ -261,14 +258,6 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.COMPUTATION_CASING);
     }
 
-    private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {
-        return validateCasing(level, controllerPos.relative(direction), top, down);
-    }
-
-    private boolean validateCasing(ServerLevel level, BlockPos centerPos, Direction top, Direction down) {
-        return validateCasing(level, centerPos, top, down, NEBlocks.COMPUTATION_CASING);
-    }
-
     private BiPredicate<BlockState, BlockPos> matchingParallelCore(
         Level level,
         IECOTier tier,
@@ -299,11 +288,4 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 
-    private BiPredicate<BlockState, BlockPos> matchingStateFacing(
-        Holder<Block> block,
-        Direction facing
-    ) {
-        return (s, p) -> s.is(block)
-            && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
-    }
 }

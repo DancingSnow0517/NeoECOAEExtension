@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
+    private static final int CURRENT_NBT_VERSION = 2;
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
@@ -1007,7 +1008,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putBoolean("reboot", reboot);
         tag.putInt("progress", progress);
         writeProgressRemainder(tag, progressRemainder);
-        tag.putInt("neoecoae_version", 2);
+        tag.putInt("neoecoae_version", CURRENT_NBT_VERSION);
         tag.putInt("occupiedThreadSlots", occupiedThreadSlots);
         tag.putBoolean("outputsReady", outputsReady);
         tag.putString("recoveryState", recoveryState.name());
@@ -1087,6 +1088,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+        int persistedVersion = nbt.getInt("neoecoae_version");
         this.isBusy = nbt.getBoolean("isBusy");
         this.reboot = nbt.getBoolean("reboot");
         int persistedProgress = nbt.getInt("progress");
@@ -1129,7 +1131,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                     invalidPersistedState = true;
                 }
             }
-        } else {
+        } else if (persistedVersion < CURRENT_NBT_VERSION) {
+            // Compatibility with the singular output format used through 1.21.1-1.3.4.
             try {
                 ItemStack output = ItemStack.parseOptional(provider, nbt.getCompound("outputItem"));
                 if (!output.isEmpty()) {
@@ -1171,6 +1174,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 invalidPersistedState = true;
             }
         }
+        // This mixed state is not produced by either format; reject externally corrupted NBT.
         if (batchGenericWork && (!outputs.isEmpty() || !inputItems.isEmpty() || !remainingItems.isEmpty())) {
             invalidPersistedState = true;
             outputItems.clear();

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -24,11 +25,11 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -61,7 +62,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -84,8 +84,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider {
+public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 12;
@@ -128,8 +128,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         new InfiniteComponentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
     @DescSynced
     private boolean buildInProgress;
-    private transient MultiBlockBuildSession buildSession;
-    private transient UUID buildPlayerId;
+    private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
     private transient StorageUiSnapshot storageUiSnapshot = StorageUiSnapshot.EMPTY;
     private transient long storageUiSnapshotGameTime = Long.MIN_VALUE;
     @Getter
@@ -137,6 +136,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long performanceAverageNanos = 0L;
     private long performanceWindowStartTick = Long.MIN_VALUE;
     private long performanceWindowNanos = 0L;
+    // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
     private boolean mirrored;
 
@@ -146,7 +146,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, NEStorageClusterCalculator::new);
         this.tier = tier;
         getMainNode().addService(IStorageProvider.class, this);
     }
@@ -210,39 +210,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (storageInterface != null) {
                 storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
             }
-            if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
-                return;
-            }
-
-            ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
-            if (buildPlayer == null) {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                setChanged();
-                markForUpdate();
-                return;
-            }
-
-            switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-                case WAITING, ADVANCED -> {
-                }
-                case COMPLETED -> {
-                    buildSession = null;
-                    buildPlayerId = null;
-                    buildInProgress = false;
-                    rebuildMultiblock();
-                    setChanged();
-                    markForUpdate();
-                }
-                case BLOCKED -> {
-                    buildSession = null;
-                    buildPlayerId = null;
-                    buildInProgress = false;
-                    setChanged();
-                    markForUpdate();
-                }
-            }
+            buildController.tick(level);
         } finally {
             recordPerformanceSample(System.nanoTime() - startNanos);
         }
@@ -427,8 +395,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long storedEnergy = 0L;
         long maxEnergy = 0L;
         for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
-            storedEnergy = saturatedAdd(storedEnergy, (long) energyCell.getAECurrentPower());
-            maxEnergy = saturatedAdd(maxEnergy, (long) energyCell.getAEMaxPower());
+            storedEnergy = NEMath.saturatingAdd(storedEnergy, (long) energyCell.getAECurrentPower());
+            maxEnergy = NEMath.saturatingAdd(maxEnergy, (long) energyCell.getAEMaxPower());
         }
 
         long maxLoadUsedBytes = 0L;
@@ -528,12 +496,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return contentBytes.add(BigInteger.valueOf(stats.storedTypes()).multiply(BigInteger.valueOf(bytesPerType)));
     }
 
-    private static long saturatedAdd(long left, long right) {
-        long safeRight = Math.max(0L, right);
-        long result = left + safeRight;
-        return result < 0L ? Long.MAX_VALUE : result;
-    }
-
     private record StorageUiSnapshot(
         long storedEnergy,
         long maxEnergy,
@@ -573,10 +535,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
         private StorageTypeTotals add(StorageTypeTotals other) {
             return new StorageTypeTotals(
-                saturatedAdd(usedTypes, other.usedTypes),
-                saturatedAdd(totalTypes, other.totalTypes),
-                saturatedAdd(usedBytes, other.usedBytes),
-                saturatedAdd(totalBytes, other.totalBytes),
+                NEMath.saturatingAdd(usedTypes, other.usedTypes),
+                NEMath.saturatingAdd(totalTypes, other.totalTypes),
+                NEMath.saturatingAdd(usedBytes, other.usedBytes),
+                NEMath.saturatingAdd(totalBytes, other.totalBytes),
                 displayUsedBytes.add(other.displayUsedBytes)
             );
         }
@@ -594,13 +556,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             holder.player,
             () -> selectedBuildLength,
             () -> mirrorBuild,
-            mirror -> setMirrorBuild(holder.player, mirror),
-            () -> decreaseBuildLength(holder.player),
-            () -> increaseBuildLength(holder.player),
-            () -> autoBuild(holder.player),
+            mirror -> buildController.setMirrorBuild(holder.player, mirror),
+            () -> buildController.decreaseBuildLength(holder.player),
+            () -> buildController.increaseBuildLength(holder.player),
+            () -> buildController.autoBuild(holder.player),
             () -> formed,
             () -> buildInProgress,
-            this::createLocalPreviewPlan,
+            buildController::createLocalPreviewPlan,
             () -> storagePriority,
             priority -> setStoragePriority(holder.player, priority),
             delta -> changeStoragePriority(holder.player, delta)
@@ -772,12 +734,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
-        long conventionalInfiniteAmount = saturatedMultiply(Integer.MAX_VALUE, amountPerUnit);
+        long conventionalInfiniteAmount = NEMath.saturatingMultiply(Integer.MAX_VALUE, amountPerUnit);
         return visibleAmount >= conventionalInfiniteAmount;
-    }
-
-    private static long saturatedMultiply(long left, long right) {
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private void updateInfiniteStorageMode() {
@@ -1061,8 +1019,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long total = 0L;
         for (RestoreTarget target : targets) {
             IECOStorageCell cell = target.simulatedCell();
-            used = saturatedAdd(used, cell.getUsedBytes());
-            total = saturatedAdd(total, cell.getTotalBytes());
+            used = NEMath.saturatingAdd(used, cell.getUsedBytes());
+            total = NEMath.saturatingAdd(total, cell.getTotalBytes());
         }
         if (total <= 0L) {
             return false;
@@ -1150,7 +1108,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             long alreadyRestored = 0L;
             for (RestoreTarget target : targets) {
                 UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
-                alreadyRestored = saturatedAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
+                alreadyRestored = NEMath.saturatingAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
             }
             long outstanding = Math.max(0L, domainAmount - Math.min(domainAmount, alreadyRestored));
             expected.put(key, BigInteger.valueOf(baseline.get(key)).add(BigInteger.valueOf(outstanding)));
@@ -1384,107 +1342,64 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
-    private void increaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void decreaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void autoBuild(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-        if (formed) {
-            return;
-        }
-        if (buildInProgress) {
-            return;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
-        if (!plan.getConflictPositions().isEmpty()) {
-            return;
-        }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            return;
-        }
-        if (plan.getMissingBlocks().isEmpty()) {
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
-                return;
-            }
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
-        buildPlayerId = serverPlayer.getUUID();
-        buildInProgress = true;
-        setChanged();
-        markForUpdate();
-        serverPlayer.closeContainer();
-    }
-
-    private @Nullable MultiBlockDefinition getBuildDefinition() {
+    @Override
+    public @Nullable MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getStorageSystemDefinition(tier);
     }
 
-    private int getMinBuildLength() {
+    @Override
+    public int getMinBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMin();
     }
 
-    private int getMaxBuildLength() {
+    @Override
+    public int getMaxBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMax();
     }
 
-    private void setMirrorBuild(Player player, boolean mirrorBuild) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        this.mirrorBuild = mirrorBuild;
-        setChanged();
-        markForUpdate();
-    }
-
-    private boolean canPlayerInteract(Player player) {
+    @Override
+    public boolean canPlayerInteract(Player player) {
         return level != null && ECOStorageSystemBlock.isPlayerCloseEnough(level, worldPosition, player);
     }
 
-    private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
-        if (level == null || formed) {
-            return null;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return null;
-        }
-        int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
+    @Override
+    public Level getBuildLevel() { return level; }
+
+    @Override
+    public BlockPos getBuildPosition() { return worldPosition; }
+
+    @Override
+    public BlockState getBuildState() { return getBlockState(); }
+
+    @Override
+    public int getSelectedBuildLength() { return selectedBuildLength; }
+
+    @Override
+    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+
+    @Override
+    public boolean isMirrorBuild() { return mirrorBuild; }
+
+    @Override
+    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
+
+    @Override
+    public boolean isBuildInProgress() { return buildInProgress; }
+
+    @Override
+    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
+
+    @Override
+    public boolean isFormed() { return formed; }
+
+    @Override
+    public void rebuildAfterBuild() { rebuildMultiblock(); }
+
+    @Override
+    public void buildStateChanged() {
+        setChanged();
+        markForUpdate();
     }
 }

@@ -11,16 +11,17 @@ import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -39,7 +40,6 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -50,9 +50,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
-public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
+public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputationCluster, ECOComputationSystemBlockEntity>
+    implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -70,8 +70,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private int cpuSelectionMode = CpuSelectionMode.ANY.ordinal();
     @DescSynced
     private boolean buildInProgress;
-    private transient MultiBlockBuildSession buildSession;
-    private transient UUID buildPlayerId;
+    private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
+    // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
     private boolean mirrored;
 
@@ -81,7 +81,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, NEComputationClusterCalculator::new);
         this.tier = tier;
     }
 
@@ -107,41 +107,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
-            return;
-        }
-
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
-        if (buildPlayer == null) {
-            buildSession = null;
-            buildPlayerId = null;
-            buildInProgress = false;
-            setChanged();
-            markForUpdate();
-            return;
-        }
-
-        switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING -> {
-            }
-            case ADVANCED -> {
-            }
-            case COMPLETED -> {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                rebuildMultiblock();
-                setChanged();
-                markForUpdate();
-            }
-            case BLOCKED -> {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                setChanged();
-                markForUpdate();
-            }
-        }
+        buildController.tick(level);
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
@@ -367,124 +333,74 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             holder.player,
             () -> selectedBuildLength,
             () -> mirrorBuild,
-            mirror -> setMirrorBuild(holder.player, mirror),
-            () -> decreaseBuildLength(holder.player),
-            () -> increaseBuildLength(holder.player),
-            () -> autoBuild(holder.player),
+            mirror -> buildController.setMirrorBuild(holder.player, mirror),
+            () -> buildController.decreaseBuildLength(holder.player),
+            () -> buildController.increaseBuildLength(holder.player),
+            () -> buildController.autoBuild(holder.player),
             () -> formed,
             () -> buildInProgress,
-            this::createLocalPreviewPlan
+            buildController::createLocalPreviewPlan
         ));
     }
 
-    private void increaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void decreaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void autoBuild(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-        if (formed) {
-            return;
-        }
-        if (buildInProgress) {
-            return;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
-            serverLevel,
-            worldPosition,
-            getBlockState(),
-            definition,
-            selectedBuildLength,
-            mirrorBuild
-        );
-        if (!plan.getConflictPositions().isEmpty()) {
-            return;
-        }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            return;
-        }
-        if (plan.getMissingBlocks().isEmpty()) {
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
-                return;
-            }
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
-        buildPlayerId = serverPlayer.getUUID();
-        buildInProgress = true;
-        setChanged();
-        markForUpdate();
-        serverPlayer.closeContainer();
-    }
-
-    private @Nullable MultiBlockDefinition getBuildDefinition() {
+    @Override
+    public @Nullable MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getComputationSystemDefinition(tier);
     }
 
-    private int getMinBuildLength() {
+    @Override
+    public int getMinBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMin();
     }
 
-    private int getMaxBuildLength() {
+    @Override
+    public int getMaxBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMax();
     }
 
-    private void setMirrorBuild(Player player, boolean mirrorBuild) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        this.mirrorBuild = mirrorBuild;
-        setChanged();
-        markForUpdate();
-    }
-
-    private boolean canPlayerInteract(Player player) {
+    @Override
+    public boolean canPlayerInteract(Player player) {
         return level != null && ECOComputationSystem.isPlayerCloseEnough(level, worldPosition, player);
     }
 
-    private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
-        if (level == null || formed) {
-            return null;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return null;
-        }
-        int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
+    @Override
+    public Level getBuildLevel() { return level; }
+
+    @Override
+    public BlockPos getBuildPosition() { return worldPosition; }
+
+    @Override
+    public BlockState getBuildState() { return getBlockState(); }
+
+    @Override
+    public int getSelectedBuildLength() { return selectedBuildLength; }
+
+    @Override
+    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+
+    @Override
+    public boolean isMirrorBuild() { return mirrorBuild; }
+
+    @Override
+    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
+
+    @Override
+    public boolean isBuildInProgress() { return buildInProgress; }
+
+    @Override
+    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
+
+    @Override
+    public boolean isFormed() { return formed; }
+
+    @Override
+    public void rebuildAfterBuild() { rebuildMultiblock(); }
+
+    @Override
+    public void buildStateChanged() {
+        setChanged();
+        markForUpdate();
     }
 }

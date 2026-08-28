@@ -23,8 +23,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.function.Consumer;
-
 public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends BlockEntityBuilder<T, P> {
     private BlockEntry<? extends NEBlock<T>> blockEntry;
     @Nullable
@@ -47,31 +45,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> forBlock(BlockEntry<? extends NEBlock<T>> blockSupplier) {
         this.blockEntry = blockSupplier;
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(BlockEntityTicker<T> ticker) {
-        clientTicker = ticker;
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> serverTicker(BlockEntityTicker<T> ticker) {
-        serverTicker = ticker;
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(Consumer<T> ticker) {
-        clientTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> serverTicker(Consumer<T> ticker) {
-        serverTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(NEBlockEntityTicker<T> ticker) {
-        clientTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 

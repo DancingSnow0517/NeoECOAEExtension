@@ -18,6 +18,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> extends AEBaseEntityBlock<T> {
+    // Independent from NEBlock.FORMED: network switches are not in the NEBlock inheritance tree.
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     protected NENetworkSwitchBlock(Properties properties) {

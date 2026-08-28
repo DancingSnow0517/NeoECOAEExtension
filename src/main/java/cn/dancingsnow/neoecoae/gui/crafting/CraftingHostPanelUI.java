@@ -5,6 +5,7 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
@@ -268,11 +269,11 @@ public final class CraftingHostPanelUI {
     }
 
     private static Label performanceLabel(LongSupplier performanceAverageNanos) {
-        Label label = boundLabel(() -> Component.literal(formatPerformanceCornerValue(performanceAverageNanos.getAsLong())), PANEL_VALUE);
+        Label label = boundLabel(() -> Component.literal(HostPanelElements.formatPerformanceCornerValue(performanceAverageNanos.getAsLong())), PANEL_VALUE);
         label.addClass("eco-host-performance");
         label.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
         label.layout(layout -> layout.width(PERFORMANCE_WIDTH).height(10));
-        BindableValue<Component> detail = syncedComponent(() -> Component.literal(formatPerformanceValue(performanceAverageNanos.getAsLong())));
+        BindableValue<Component> detail = syncedComponent(() -> Component.literal(HostPanelElements.formatPerformanceValue(performanceAverageNanos.getAsLong())));
         detail.setDisplay(false);
         label.addChild(detail);
         label.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
@@ -442,22 +443,6 @@ public final class CraftingHostPanelUI {
         int level = Math.clamp(effectiveOverclockTimes, 0, 9);
         int ticks = (int) Math.ceil(10.0D / (level + 1));
         return String.format(Locale.ROOT, "%.1fx", ticks / 10.0D);
-    }
-
-    private static String formatPerformanceCornerValue(long averageNanos) {
-        long safeNanos = Math.max(0L, averageNanos);
-        long micros = Math.round(safeNanos / 1_000.0D);
-        if (micros < 1_000L) {
-            return micros + " us";
-        }
-        return PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D) + " ms";
-    }
-
-    private static String formatPerformanceValue(long averageNanos) {
-        long safeNanos = Math.max(0L, averageNanos);
-        long micros = Math.round(safeNanos / 1_000.0D);
-        String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
-        return micros + " us/" + millis + " ms";
     }
 
     private static List<Component> craftingTooltip(ComputationTaskEntry entry) {

@@ -5,6 +5,8 @@ import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
 import java.util.ArrayList;
@@ -41,7 +43,23 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     }
 
     public boolean shouldCasingHide(NEBlockEntity<T, ?> blockEntity) {
-        return true;
+        if (!(blockEntity instanceof ECOMachineCasingBlockEntity)) {
+            return false;
+        }
+        if (hideAllCasingsWhenFormed()) {
+            return true;
+        }
+        BlockPos origin = getCasingHideOrigin();
+        return origin != null
+            && blockEntity.getBlockPos().distSqr(origin) <= 3;
+    }
+
+    protected boolean hideAllCasingsWhenFormed() {
+        return false;
+    }
+
+    protected @Nullable BlockPos getCasingHideOrigin() {
+        return null;
     }
 
     public void addBlockEntity(NEBlockEntity<T, ?> blockEntity) {

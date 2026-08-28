@@ -64,7 +64,7 @@ public final class HostText {
     }
 
     public static UsedTotal byteProgress(long used, long max) {
-        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
+        return typeProgress(used, max);
     }
 
     public static String expandedStorageBytes(long value) {

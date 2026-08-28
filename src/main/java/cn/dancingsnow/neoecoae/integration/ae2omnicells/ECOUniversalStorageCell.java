@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -96,15 +97,8 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
         long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
         long freeBytes = Math.max(0L, getTotalBytes() - getUsedBytes());
-        long capacityBound = saturatingMultiply(freeBytes, amountPerByte);
+        long capacityBound = NEMath.saturatingMultiply(freeBytes, amountPerByte);
         return delegate.insert(what, Math.min(amount, capacityBound), mode, source);
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left == 0L || right == 0L) {
-            return 0L;
-        }
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     @Override

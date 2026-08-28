@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEnt
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,13 +33,8 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     @Override
-    public boolean shouldCasingHide(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
-        if (blockEntity instanceof ECOMachineCasingBlockEntity) {
-            Vec3 casingPos = blockEntity.getBlockPos().getCenter();
-            Vec3 controllerPos = controller.getBlockPos().getCenter();
-            return casingPos.distanceToSqr(controllerPos) <= 3;
-        }
-        return false;
+    protected BlockPos getCasingHideOrigin() {
+        return controller == null ? null : controller.getBlockPos();
     }
 
     @Override

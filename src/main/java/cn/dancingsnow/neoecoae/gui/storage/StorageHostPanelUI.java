@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.HostPanelElements;
+import cn.dancingsnow.neoecoae.util.NEMath;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
@@ -616,22 +618,6 @@ public final class StorageHostPanelUI {
         return HostText.percent(totals.usedBytes(), totals.totalBytes());
     }
 
-    private static String formatPerformanceCornerValue(long averageNanos) {
-        long safeNanos = Math.max(0L, averageNanos);
-        long micros = Math.round(safeNanos / 1_000.0D);
-        if (micros < 1_000L) {
-            return micros + " us";
-        }
-        return PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D) + " ms";
-    }
-
-    private static String formatPerformanceValue(long averageNanos) {
-        long safeNanos = Math.max(0L, averageNanos);
-        long micros = Math.round(safeNanos / 1_000.0D);
-        String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
-        return micros + " us/" + millis + " ms";
-    }
-
     private static boolean isInfiniteLoad(Config config) {
         return config.maxLoadUsedBytes().getAsLong() == Long.MAX_VALUE
             && config.maxLoadTotalBytes().getAsLong() == Long.MAX_VALUE;
@@ -645,16 +631,10 @@ public final class StorageHostPanelUI {
         long used = 0L;
         long total = 0L;
         for (StorageTypeLine line : config.storageTypes()) {
-            used = saturatedAdd(used, line.usedBytes().getAsLong());
-            total = saturatedAdd(total, line.totalBytes().getAsLong());
+            used = NEMath.saturatingAdd(used, line.usedBytes().getAsLong());
+            total = NEMath.saturatingAdd(total, line.totalBytes().getAsLong());
         }
         return new StorageTotals(used, total);
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        long safeRight = Math.max(0L, right);
-        long result = left + safeRight;
-        return result < 0L ? Long.MAX_VALUE : result;
     }
 
     private static boolean shouldShowStorageType(StorageTypeLine line) {
@@ -681,7 +661,7 @@ public final class StorageHostPanelUI {
     private static Component systemLoadTypesTooltip(Config config) {
         long total = 0L;
         for (StorageTypeLine line : config.storageTypes()) {
-            total = saturatedAdd(total, line.usedTypes().getAsLong());
+            total = NEMath.saturatingAdd(total, line.usedTypes().getAsLong());
         }
         return Component.translatable("gui.neoecoae.common.types").withColor(HostText.MUTED)
             .append(Component.literal(": " + HostText.fullTypeProgress(total, 0L).usedText()).withColor(HostText.MUTED));
@@ -813,7 +793,7 @@ public final class StorageHostPanelUI {
             addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
                 event.hoverTooltips = tooltipOf(
                     Component.translatable("gui.neoecoae.crafting.performance"),
-                    Component.literal(formatPerformanceValue(syncedAverageNanos))
+                    Component.literal(HostPanelElements.formatPerformanceValue(syncedAverageNanos))
                 ));
         }
 
@@ -831,7 +811,7 @@ public final class StorageHostPanelUI {
         @Override
         public void drawContents(GUIContext guiContext) {
             Font font = Minecraft.getInstance().font;
-            String text = formatPerformanceCornerValue(syncedAverageNanos);
+            String text = HostPanelElements.formatPerformanceCornerValue(syncedAverageNanos);
             float scale = COMPACT_FONT_SIZE / 9.0F;
             int x = (int)getPositionX();
             int y = (int)getPositionY();

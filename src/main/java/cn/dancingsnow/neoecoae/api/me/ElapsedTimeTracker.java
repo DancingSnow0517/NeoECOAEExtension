@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import cn.dancingsnow.neoecoae.util.NEMath;
 
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
@@ -78,17 +79,12 @@ public class ElapsedTimeTracker {
 
     void decrementItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        completedWorkByType.merge(keyType, itemDiff, this::saturatedSum);
-    }
-
-    private long saturatedSum(long a, long b) {
-        var result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
+        completedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        startedWorkByType.merge(keyType, itemDiff, this::saturatedSum);
+        startedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
     public long getElapsedTime() {

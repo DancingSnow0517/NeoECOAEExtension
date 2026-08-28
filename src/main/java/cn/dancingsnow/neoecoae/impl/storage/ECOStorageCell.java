@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -318,7 +319,7 @@ public class ECOStorageCell implements IECOStorageCell {
             if (currentAmount <= 0) {
                 storedItems++;
             }
-            storedItemCount = saturatedAdd(storedItemCount, amount);
+            storedItemCount = NEMath.saturatingAdd(storedItemCount, amount);
             this.saveChanges();
         }
 
@@ -396,8 +397,4 @@ public class ECOStorageCell implements IECOStorageCell {
         saveChanges();
     }
 
-    private static long saturatedAdd(long a, long b) {
-        long result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
-    }
 }

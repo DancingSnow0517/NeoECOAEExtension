@@ -12,5 +12,6 @@ final class NEMegaChemicalCellType {
         .register();
 
     static void register() {
+        // Intentional class-initialization barrier: registration order must remain explicit.
     }
 }

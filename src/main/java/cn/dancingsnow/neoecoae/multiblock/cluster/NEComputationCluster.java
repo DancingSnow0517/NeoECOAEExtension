@@ -62,6 +62,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     @Override
+    protected boolean hideAllCasingsWhenFormed() {
+        return true;
+    }
+
+    @Override
     public void addBlockEntity(NEBlockEntity<NEComputationCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOComputationDriveBlockEntity driveBlockEntity) {

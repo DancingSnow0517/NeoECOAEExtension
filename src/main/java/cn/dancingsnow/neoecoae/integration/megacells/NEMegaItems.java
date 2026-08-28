@@ -34,8 +34,8 @@ public final class NEMegaItems {
             "MEGA Cells housing for %s storage matrices");
     }
 
-    public static final ItemEntry<Item> MEGA_ITEM_CELL_HOUSING = housing("mega_item");
-    public static final ItemEntry<Item> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid");
+    public static final ItemEntry<Item> MEGA_ITEM_CELL_HOUSING = housing("mega_item", "Mega Item");
+    public static final ItemEntry<Item> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid", "Mega Fluid");
 
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
         itemCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
@@ -49,10 +49,10 @@ public final class NEMegaItems {
             .model(ItemModelUtil.compatCellModel("mega_item_cell_housing", "256m"))
             .register();
 
-    private static ItemEntry<Item> housing(String family) {
+    static ItemEntry<Item> housing(String family, String displayFamily) {
         return REGISTRATE.<Item>item(family + "_cell_housing",
                 p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
-            .lang("ECO MEGA Storage Matrix Housing (" + displayFamily(family) + ")")
+            .lang("ECO MEGA Storage Matrix Housing (" + displayFamily + ")")
             .model(ItemModelUtil.compatHousingModel(family + "_cell_housing"))
             .register();
     }
@@ -86,20 +86,8 @@ public final class NEMegaItems {
             .register();
     }
 
-    static ItemEntry<Item> optionalHousing(String family, String displayFamily) {
-        return REGISTRATE.<Item>item(family + "_cell_housing",
-                p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
-            .lang("ECO MEGA Storage Matrix Housing (" + displayFamily + ")")
-            .model(ItemModelUtil.compatHousingModel(family + "_cell_housing"))
-            .register();
-    }
-
     private static String cellName(String family, long capacity) {
         return "ECO - LE9 Storage Matrix (" + family + ", " + (capacity >> 30) + " GiB)";
-    }
-
-    private static String displayFamily(String family) {
-        return family.equals("mega_item") ? "Mega Item" : "Mega Fluid";
     }
 
     @FunctionalInterface
@@ -111,5 +99,6 @@ public final class NEMegaItems {
     }
 
     public static void register() {
+        // Intentional class-initialization barrier: registration order must remain explicit.
     }
 }

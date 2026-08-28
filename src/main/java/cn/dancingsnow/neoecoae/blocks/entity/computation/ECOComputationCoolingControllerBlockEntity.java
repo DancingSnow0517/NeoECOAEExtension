@@ -8,9 +8,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class ECOComputationCoolingControllerBlockEntity extends AbstractComputationBlockEntity<ECOComputationCoolingControllerBlockEntity> {
+public class ECOComputationCoolingControllerBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster, ECOComputationCoolingControllerBlockEntity> {
     @Getter
     private final IECOTier tier;
+    // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     private boolean mirrored;
 
     public ECOComputationCoolingControllerBlockEntity(
@@ -19,7 +20,7 @@ public class ECOComputationCoolingControllerBlockEntity extends AbstractComputat
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
         this.tier = tier;
     }
 

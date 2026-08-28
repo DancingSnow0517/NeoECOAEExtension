@@ -8,7 +8,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,12 +55,7 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
     }
 
     @Override
-    public boolean shouldCasingHide(NEBlockEntity<NEStorageCluster, ?> blockEntity) {
-        if (blockEntity instanceof ECOMachineCasingBlockEntity) {
-            Vec3 casingPos = blockEntity.getBlockPos().getCenter();
-            Vec3 controllerPos = controller.getBlockPos().getCenter();
-            return casingPos.distanceToSqr(controllerPos) <= 3;
-        }
-        return false;
+    protected BlockPos getCasingHideOrigin() {
+        return controller == null ? null : controller.getBlockPos();
     }
 }

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 public final class MultiBlockPlacementService {
+    private static final int PLACEMENT_DELAY_TICKS = 1;
     public enum PlacementTickResult {
         WAITING,
         ADVANCED,
@@ -91,7 +92,7 @@ public final class MultiBlockPlacementService {
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay());
+        return new MultiBlockBuildSession(plan.getMissingBlocks(), PLACEMENT_DELAY_TICKS);
     }
 
     public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
@@ -119,7 +120,7 @@ public final class MultiBlockPlacementService {
             playPlacementSound(level, worldBlock);
         }
 
-        session.advance(nextPlacementDelay());
+        session.advance(PLACEMENT_DELAY_TICKS);
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
     }
 
@@ -254,10 +255,6 @@ public final class MultiBlockPlacementService {
             return false;
         }
         return true;
-    }
-
-    private static int nextPlacementDelay() {
-        return 1;
     }
 
     private static void playPlacementSound(ServerLevel level, WorldPlannedBlock worldBlock) {

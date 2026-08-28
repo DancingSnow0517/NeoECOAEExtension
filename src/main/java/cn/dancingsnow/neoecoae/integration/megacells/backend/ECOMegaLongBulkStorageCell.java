@@ -8,6 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import gripe._90.megacells.definition.MEGAItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
@@ -80,7 +81,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         long total = 0L;
         for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
             long factor = unitFactor(entry.getKey(), entry.getKey());
-            total = saturatedAdd(total, entry.getValue() / factor);
+            total = NEMath.saturatingAdd(total, entry.getValue() / factor);
         }
         return total;
     }
@@ -107,9 +108,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     public long getUsedBytes() {
-        long typeBytes = saturatedMultiply(getStoredItemTypes(), getBytesPerType());
+        long typeBytes = NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType());
         long amountBytes = getStoredItemCount() / Math.max(1, getKeyType().getAmountPerByte());
-        return saturatedAdd(typeBytes, amountBytes);
+        return NEMath.saturatingAdd(typeBytes, amountBytes);
     }
 
     @Override
@@ -151,7 +152,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
 
         if (mode == Actionable.MODULATE) {
-            storedUnits.put(slot, current + saturatedMultiply(accepted, factor));
+            storedUnits.put(slot, current + NEMath.saturatingMultiply(accepted, factor));
             saveChanges();
         }
         return accepted;
@@ -170,14 +171,14 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
         long factor = unitFactor(slot, item);
         long available = storedUnits.getOrDefault(slot, 0L);
-        long requestedUnits = saturatedMultiply(amount, factor);
+        long requestedUnits = NEMath.saturatingMultiply(amount, factor);
         long extracted = Math.min(requestedUnits, available) / factor;
         if (extracted <= 0L) {
             return 0L;
         }
 
         if (mode == Actionable.MODULATE) {
-            long remaining = available - saturatedMultiply(extracted, factor);
+            long remaining = available - NEMath.saturatingMultiply(extracted, factor);
             if (remaining == 0L) {
                 storedUnits.remove(slot);
             } else {
@@ -279,7 +280,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             AEItemKey key = readKey(entry);
             long units = entry.getLong(UNITS_TAG);
             if (key != null && units > 0L) {
-                storedUnits.merge(key, units, ECOMegaLongBulkStorageCell::saturatedAdd);
+                storedUnits.merge(key, units, NEMath::saturatingAdd);
             }
         }
     }
@@ -336,17 +337,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             return value;
         }
         return value / divisor;
-    }
-
-    private static long saturatedMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0L;
-        }
-        return left > MAX_UNITS / right ? MAX_UNITS : left * right;
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        return left > MAX_UNITS - right ? MAX_UNITS : left + right;
     }
 
     @Override

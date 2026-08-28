@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins.aae;
+package cn.dancingsnow.neoecoae.mixins.extendedae;
 
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
@@ -11,8 +11,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(TileExIOPort.class)
+// This class-level guard is the only protection when ExtendedAE is absent.
 @Pseudo
+@Mixin(TileExIOPort.class)
 public class TileExIOPortMixin {
     @WrapOperation(method = "tickingRequest", at = @At(value = "INVOKE", target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
     private StorageCell wrapGetCellInventory(ItemStack inventory, ISaveProvider ch, Operation<StorageCell> original) {

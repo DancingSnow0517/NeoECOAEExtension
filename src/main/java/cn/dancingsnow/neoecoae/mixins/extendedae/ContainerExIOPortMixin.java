@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins.aae;
+package cn.dancingsnow.neoecoae.mixins.extendedae;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.menu.SlotSemantic;
@@ -13,8 +13,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(ContainerExIOPort.class)
+// This class-level guard is the only protection when ExtendedAE is absent.
 @Pseudo
+@Mixin(ContainerExIOPort.class)
 public class ContainerExIOPortMixin {
     @WrapOperation(method = "setupConfig", at = @At(value = "INVOKE", target = "Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;", ordinal = 0))
     private Slot wrapSlot(ContainerExIOPort instance, Slot slot, SlotSemantic slotSemantic, Operation<Slot> original, @Local(name = "cells") InternalInventory cells, @Local(name = "i") int i) {

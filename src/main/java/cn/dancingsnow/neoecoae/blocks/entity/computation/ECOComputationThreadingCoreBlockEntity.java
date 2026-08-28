@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.List;
 
-public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
+public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster, ECOComputationThreadingCoreBlockEntity> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOComputationThreadingCoreBlockEntity.class);
     @Getter
     private final IECOTier tier;
@@ -40,7 +40,7 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
         this.tier = tier;
         cpus = new ECOCraftingCPU[tier.getCPUThreads()];
         deferredInit = new CompoundTag[tier.getCPUThreads()];

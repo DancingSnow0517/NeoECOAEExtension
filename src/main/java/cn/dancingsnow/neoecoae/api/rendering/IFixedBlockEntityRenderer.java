@@ -19,9 +19,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
-
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
+    ThreadLocal<RandomSource> MODEL_RANDOM = ThreadLocal.withInitial(RandomSource::create);
+
     void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
 
     default void tessellateModelWithAO(
@@ -109,7 +109,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
                 value,
-                getRandom()
+                MODEL_RANDOM.get()
             );
             renderQuadsWithoutAO(
                 poseStack,
@@ -122,7 +122,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         List<BakedQuad> quads = bakedModel.getQuads(
             null,
             null,
-            getRandom()
+            MODEL_RANDOM.get()
         );
         renderQuadsWithoutAO(
             poseStack,

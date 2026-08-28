@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
@@ -20,11 +21,13 @@ import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -61,8 +64,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable {
+public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluster, ECOCraftingSystemBlockEntity>
+    implements ISyncPersistRPCBlockEntity, IGridTickable, MultiBlockBuildController.Host {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
@@ -124,8 +127,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean mirrorBuild;
     @DescSynced
     private boolean buildInProgress;
-    private transient MultiBlockBuildSession buildSession;
-    private transient UUID buildPlayerId;
+    private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
+    // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
     private boolean mirrored;
 
@@ -135,7 +138,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, NECraftingClusterCalculator::new);
         this.tier = tier;
         getMainNode().addService(IGridTickable.class, this);
     }
@@ -256,20 +259,20 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int baseCrafts = NEConfig.CRAFTING_WORKER_BASE_CRAFTS;
             long calculatedPerWorker;
             if (overclocked) {
-                calculatedPerWorker = saturatingMultiply(
+                calculatedPerWorker = NEMath.saturatingMultiply(
                     baseCrafts,
                     getTier().getOverclockedCrafterQueueMultiply()
                 );
                 threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedPerWorker));
             } else {
                 calculatedPerWorker = Math.max(0L, baseCrafts);
-                threadCountPerWorker = baseCrafts;
+                threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, calculatedPerWorker);
             }
-            exactAvailableThreadCount = saturatingMultiply(calculatedPerWorker, getWorkerCount());
+            exactAvailableThreadCount = NEMath.saturatingMultiply(calculatedPerWorker, getWorkerCount());
             exactThreadCount = cluster.getParallelCores()
                 .stream()
                 .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
-                .reduce(0L, ECOCraftingSystemBlockEntity::saturatingAdd);
+                .reduce(0L, NEMath::saturatingAdd);
             threadCount = (int) Math.min(Integer.MAX_VALUE, exactThreadCount);
             recalculateRunningThreadCountFromWorkers();
         } else {
@@ -296,30 +299,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return workerCount;
     }
 
-    public void onWorkerThreadCountChanged(int delta) {
-        int before = runningThreadCount;
-        long updated = (long) runningThreadCount + delta;
-        if (updated < 0L) {
-            LOGGER.warn(
-                "ECO controller runningThreadCount underflow: controller={} delta={} before correction previous={}",
-                getBlockPos(),
-                delta,
-                before
-            );
-            updated = 0L;
-        } else if (updated > Integer.MAX_VALUE) {
-            LOGGER.warn(
-                "ECO controller runningThreadCount overflow: controller={} delta={} previous={}",
-                getBlockPos(),
-                delta,
-                before
-            );
-            updated = Integer.MAX_VALUE;
-        }
-        runningThreadCount = (int) updated;
-        setChanged();
-    }
-
     public void recalculateRunningThreadCountFromWorkers() {
         if (cluster == null) {
             runningThreadCount = 0;
@@ -331,6 +310,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             .mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads)
             .sum();
         runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
+        setChanged();
     }
 
     private void updateOverlockTimes() {
@@ -340,7 +320,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static long getCoreThreadCountLong(IECOTier coreTier, boolean overclocked) {
         long threads = Math.max(0L, coreTier.getCrafterParallel());
         if (overclocked) {
-            threads = saturatingAdd(threads, Math.max(0L, coreTier.getOverclockedCrafterParallel()));
+            threads = NEMath.saturatingAdd(threads, Math.max(0L, coreTier.getOverclockedCrafterParallel()));
         }
         return threads;
     }
@@ -352,23 +332,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         double overflowRatio = (double) overflow / (double) threadCount;
         return (int) Math.clamp(Math.round(overflowRatio / 0.05D), 0L, 9L);
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (left <= 0L) {
-            return Math.max(0L, right);
-        }
-        if (right <= 0L) {
-            return left;
-        }
-        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0L;
-        }
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -561,45 +524,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try {
-            tickBuild(level, pos, state);
+            buildController.tick(level);
         } finally {
             recordPerformanceSample(System.nanoTime() - startNanos);
-        }
-    }
-
-    private void tickBuild(Level level, BlockPos pos, BlockState state) {
-        if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
-            return;
-        }
-
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
-        if (buildPlayer == null) {
-            buildSession = null;
-            buildPlayerId = null;
-            buildInProgress = false;
-            setChanged();
-            markForUpdate();
-            return;
-        }
-
-        switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING, ADVANCED -> {
-            }
-            case COMPLETED -> {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                rebuildMultiblock();
-                setChanged();
-                markForUpdate();
-            }
-            case BLOCKED -> {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                setChanged();
-                markForUpdate();
-            }
         }
     }
 
@@ -700,118 +627,75 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             holder.player,
             () -> selectedBuildLength,
             () -> mirrorBuild,
-            mirror -> setMirrorBuild(holder.player, mirror),
-            () -> decreaseBuildLength(holder.player),
-            () -> increaseBuildLength(holder.player),
-            () -> autoBuild(holder.player),
+            mirror -> buildController.setMirrorBuild(holder.player, mirror),
+            () -> buildController.decreaseBuildLength(holder.player),
+            () -> buildController.increaseBuildLength(holder.player),
+            () -> buildController.autoBuild(holder.player),
             () -> formed,
             () -> buildInProgress,
-            this::createLocalPreviewPlan
+            buildController::createLocalPreviewPlan
         ));
     }
 
-    private void increaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void decreaseBuildLength(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        setChanged();
-        markForUpdate();
-    }
-
-    private void autoBuild(Player player) {
-        if (!canPlayerInteract(player)) return;
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-        if (formed) {
-            return;
-        }
-        if (buildInProgress) {
-            return;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
-        if (!plan.getConflictPositions().isEmpty()) {
-            return;
-        }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            return;
-        }
-        if (plan.getMissingBlocks().isEmpty()) {
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
-                return;
-            }
-            rebuildMultiblock();
-            serverPlayer.closeContainer();
-            return;
-        }
-        buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
-        buildPlayerId = serverPlayer.getUUID();
-        buildInProgress = true;
-        setChanged();
-        markForUpdate();
-        serverPlayer.closeContainer();
-    }
-
-    private @Nullable MultiBlockDefinition getBuildDefinition() {
+    @Override
+    public @Nullable MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getCraftingSystemDefinition(tier);
     }
 
-    private int getMinBuildLength() {
+    @Override
+    public int getMinBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMin();
     }
 
-    private int getMaxBuildLength() {
+    @Override
+    public int getMaxBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMax();
     }
 
-    private void setMirrorBuild(Player player, boolean mirrorBuild) {
-        if (!canPlayerInteract(player)) return;
-        if (buildInProgress) {
-            return;
-        }
-        this.mirrorBuild = mirrorBuild;
-        setChanged();
-        markForUpdate();
-    }
-
-    private boolean canPlayerInteract(Player player) {
+    @Override
+    public boolean canPlayerInteract(Player player) {
         return level != null && ECOCraftingSystem.isPlayerCloseEnough(level, worldPosition, player);
     }
 
-    private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
-        if (level == null || formed) {
-            return null;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            return null;
-        }
-        int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
+    @Override
+    public Level getBuildLevel() { return level; }
+
+    @Override
+    public BlockPos getBuildPosition() { return worldPosition; }
+
+    @Override
+    public BlockState getBuildState() { return getBlockState(); }
+
+    @Override
+    public int getSelectedBuildLength() { return selectedBuildLength; }
+
+    @Override
+    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+
+    @Override
+    public boolean isMirrorBuild() { return mirrorBuild; }
+
+    @Override
+    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
+
+    @Override
+    public boolean isBuildInProgress() { return buildInProgress; }
+
+    @Override
+    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
+
+    @Override
+    public boolean isFormed() { return formed; }
+
+    @Override
+    public void rebuildAfterBuild() { rebuildMultiblock(); }
+
+    @Override
+    public void buildStateChanged() {
+        setChanged();
+        markForUpdate();
     }
 
     private record TaskAggregateKey(UUID craftingJobId, ItemStack output) {

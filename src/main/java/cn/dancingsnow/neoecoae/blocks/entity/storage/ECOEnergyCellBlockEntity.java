@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
-public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
+public class ECOEnergyCellBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECOEnergyCellBlockEntity>
     implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -50,7 +50,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator::new);
         getMainNode()
             .addService(IAEPowerStorage.class, this)
             .addService(IGridTickable.class, this);

@@ -96,21 +96,6 @@ public class MultiBlockDefinition {
             return this;
         }
 
-        public Builder setBlockEntityRepeatable(BlockPos origin, Direction expandDirection, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
-            builder.add(context -> {
-                BlockPos.MutableBlockPos mutable = origin.mutable();
-                for (int i = 0; i < context.getRepeats(); i++) {
-                    mutable.set(
-                        origin.getX() + expandDirection.getStepX() * i,
-                        origin.getY() + expandDirection.getStepY() * i,
-                        origin.getZ() + expandDirection.getStepZ() * i
-                    );
-                    context.setBlockEntity(mutable.immutable(), sup);
-                }
-            });
-            return this;
-        }
-
         public Builder setBlockWithRepeatShifted(BlockPos origin, Direction expandDirection, int shift, BlockState blockState) {
             builder.add(context -> {
                 int i = context.getRepeats() + shift;

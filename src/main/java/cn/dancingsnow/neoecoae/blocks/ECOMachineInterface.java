@@ -54,30 +54,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        if (state.getValue(FORMED)) {
-            return RenderShape.INVISIBLE;
-        }
-        return RenderShape.MODEL;
-    }
-
-    @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
-        return state.getValue(FORMED);
-    }
-
-    @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED) ? 1 : 0.2f;
-    }
-
-    @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return state.getValue(FORMED) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
-    }
-
-    @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED);
+    protected boolean hideWhenFormed() {
+        return true;
     }
 }

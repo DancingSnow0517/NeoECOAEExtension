@@ -12,7 +12,7 @@ import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.M
 
 final class NEMegaChemicalItems {
     static final ItemEntry<Item> MEGA_CHEMICAL_CELL_HOUSING =
-        NEMegaItems.optionalHousing("mega_chemical", "Mega Chemical");
+        NEMegaItems.housing("mega_chemical", "Mega Chemical");
     static final ItemEntry<ECOMegaChemicalStorageCellItem> CELL_4G = cell("4g", ECOTier.L9, MEGA_4G_CAPACITY, Rarity.EPIC);
 
     private static ItemEntry<ECOMegaChemicalStorageCellItem> cell(String size, ECOTier tier, long capacity, Rarity rarity) {
@@ -25,5 +25,6 @@ final class NEMegaChemicalItems {
     }
 
     static void register() {
+        // Intentional class-initialization barrier: registration order must remain explicit.
     }
 }

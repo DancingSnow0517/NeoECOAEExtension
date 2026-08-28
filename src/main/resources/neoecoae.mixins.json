@@ -16,8 +16,8 @@
     "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin",
     "ae2.AECraftingPatternAccessor",
-    "aae.ContainerExIOPortMixin",
-    "aae.TileExIOPortMixin"
+    "extendedae.ContainerExIOPortMixin",
+    "extendedae.TileExIOPortMixin"
   ],
   "client": [
     "ModelBakeryMixin",
