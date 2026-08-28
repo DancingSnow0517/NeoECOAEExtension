@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -19,7 +18,6 @@ final class CraftingPatternPreviewState {
     private final IItemHandlerModifiable handler;
     private final boolean[] highlightedSlots =
             new boolean[ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS];
-    private final Scroller.Vertical scroller = new Scroller.Vertical();
     private final List<Integer> visibleSlots = new ArrayList<>();
     private int[] appliedView = new int[0];
     private String search = "";
@@ -28,15 +26,11 @@ final class CraftingPatternPreviewState {
     private int lastRevision = Integer.MIN_VALUE;
     private int requestedIndexRevision = Integer.MIN_VALUE;
     private boolean filterDirty = true;
+    private int scrollRow;
 
     CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, IItemHandlerModifiable handler) {
         this.craftingInterface = craftingInterface;
         this.handler = handler;
-        scroller.setOnValueChanged(value -> setScrollRow(Math.round(value)));
-    }
-
-    Scroller.Vertical scroller() {
-        return scroller;
     }
 
     PatternItemSlot createSlot(int visualSlot) {
@@ -102,9 +96,7 @@ final class CraftingPatternPreviewState {
         rebuildFilter(searchIndex);
         lastRevision = revision;
         filterDirty = false;
-        int rowCount = getRowCount();
-        scroller.setRange(0, getMaxScrollRow());
-        scroller.setScrollBarSize(Math.min(100F, CraftingInterfaceUI.PREVIEW_ROWS * 100F / Math.max(1, rowCount)));
+        scrollRow = Math.clamp(scrollRow, 0, getMaxScrollRow());
         updateSlots();
     }
 
@@ -161,7 +153,7 @@ final class CraftingPatternPreviewState {
         }
     }
 
-    private int getRowCount() {
+    int getRowCount() {
         return (visibleSlots.size() + CraftingInterfaceUI.PREVIEW_COLUMNS - 1) / CraftingInterfaceUI.PREVIEW_COLUMNS;
     }
 
@@ -169,15 +161,14 @@ final class CraftingPatternPreviewState {
         return Math.max(0, getRowCount() - CraftingInterfaceUI.PREVIEW_ROWS);
     }
 
-    private int getScrollRow() {
-        Float value = scroller.getValue();
-        return value == null ? 0 : Math.round(value);
+    int getScrollRow() {
+        return scrollRow;
     }
 
-    private void setScrollRow(int value) {
+    void setScrollRow(int value) {
         int next = Math.clamp(value, 0, getMaxScrollRow());
-        if (next != getScrollRow()) {
-            scroller.setValue((float) next, false);
+        if (next != scrollRow) {
+            scrollRow = next;
             updateSlots();
         }
     }

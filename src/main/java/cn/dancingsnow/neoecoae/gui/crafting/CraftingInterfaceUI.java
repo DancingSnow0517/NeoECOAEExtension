@@ -15,9 +15,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
@@ -47,6 +47,7 @@ public final class CraftingInterfaceUI {
     private static final int PREVIEW_SCROLLBAR_WIDTH = 12;
     private static final int PREVIEW_SCROLLBAR_GAP = 2;
     private static final int PREVIEW_SCROLLBAR_TRACK_WIDTH = 6;
+    private static final int PREVIEW_SCROLLBAR_THUMB_HEIGHT = 15;
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
     private static final IGuiTexture SUBSTITUTION_ENABLED = NETextures.aeIcon(224, 208, 8, 8);
     private static final IGuiTexture SUBSTITUTION_DISABLED = NETextures.aeIcon(232, 208, 8, 8);
@@ -276,34 +277,64 @@ public final class CraftingInterfaceUI {
     }
 
     private static UIElement patternPreviewScrollbar(CraftingPatternPreviewState previewState) {
-        Scroller.Vertical scroller = previewState.scroller();
-        scroller.layout(layout -> layout
+        UIElement scrollbar = new UIElement() {
+            @Override
+            public void drawContents(GUIContext guiContext) {
+                int totalRows = previewState.getRowCount();
+                if (totalRows <= PREVIEW_ROWS) {
+                    return;
+                }
+                int height = PREVIEW_HEIGHT;
+                int maxScroll = Math.max(1, previewState.getMaxScrollRow());
+                int thumbY = Math.round((height - PREVIEW_SCROLLBAR_THUMB_HEIGHT)
+                        * (previewState.getScrollRow() / (float) maxScroll));
+                int x = Math.round(getPositionX());
+                int y = Math.round(getPositionY());
+                guiContext.drawTexture(NETextures.AE_SCROLLBAR_TRACK,
+                        x + (PREVIEW_SCROLLBAR_WIDTH - PREVIEW_SCROLLBAR_TRACK_WIDTH) / 2F, y,
+                        PREVIEW_SCROLLBAR_TRACK_WIDTH, height);
+                guiContext.drawTexture(NETextures.AE_SCROLLBAR_THUMB, x, y + thumbY,
+                        PREVIEW_SCROLLBAR_WIDTH, PREVIEW_SCROLLBAR_THUMB_HEIGHT);
+            }
+        }.layout(layout -> layout
                 .width(PREVIEW_SCROLLBAR_WIDTH)
                 .height(PREVIEW_HEIGHT)
                 .marginLeft(PREVIEW_SCROLLBAR_GAP));
-        scroller.headButton(button -> button.setDisplay(false));
-        scroller.tailButton(button -> button.setDisplay(false));
-        scroller.scrollContainer(container -> {
-            container.layout(layout -> {
-                layout.marginLeft((PREVIEW_SCROLLBAR_WIDTH - PREVIEW_SCROLLBAR_TRACK_WIDTH) / 2F);
-                layout.width(PREVIEW_SCROLLBAR_TRACK_WIDTH);
-            });
-            container.style(style -> style.backgroundTexture(NETextures.AE_SCROLLBAR_TRACK));
+        scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            int maxScroll = previewState.getMaxScrollRow();
+            if (event.button == 0 && maxScroll > 0) {
+                float localY = getLocalY(scrollbar, event.x, event.y);
+                float progress = Math.clamp((localY - PREVIEW_SCROLLBAR_THUMB_HEIGHT / 2F)
+                        / (PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT), 0F, 1F);
+                previewState.setScrollRow(Math.round(progress * maxScroll));
+                scrollbar.getModularUI().getDragHandler().startDrag(
+                        (float) previewState.getScrollRow(), null, scrollbar);
+                event.stopImmediatePropagation();
+            }
         });
-        scroller.scrollBar(button -> button
-                .noText()
-                .buttonStyle(style -> style
-                        .baseTexture(NETextures.AE_SCROLLBAR_THUMB)
-                        .hoverTexture(NETextures.AE_SCROLLBAR_THUMB)
-                        .pressedTexture(NETextures.AE_SCROLLBAR_THUMB))
-                .layout(layout -> layout.width(PREVIEW_SCROLLBAR_WIDTH)));
-        scroller.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+        scrollbar.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
+            if (event.dragHandler == null || !(event.dragHandler.draggingObject instanceof Float initialRow)) {
+                return;
+            }
+            float deltaY = getLocalY(scrollbar, event.x, event.y)
+                    - getLocalY(scrollbar, event.dragStartX, event.dragStartY);
+            float remainingSpace = PREVIEW_HEIGHT - PREVIEW_SCROLLBAR_THUMB_HEIGHT;
+            float row = initialRow + deltaY / remainingSpace * previewState.getMaxScrollRow();
+            previewState.setScrollRow(Math.round(row));
+            event.stopImmediatePropagation();
+        });
+        scrollbar.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0) {
                 previewState.scroll(event.deltaY < 0 ? 1 : -1);
                 event.stopImmediatePropagation();
             }
         });
-        return scroller;
+        return scrollbar;
+    }
+
+    /** UIElement#getLocalMouse uses the root UI coordinate space, not this element's layout offset. */
+    private static float getLocalY(UIElement element, float x, float y) {
+        return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
     private static Button iconButton(IGuiTexture icon, String tooltip, Runnable action) {
