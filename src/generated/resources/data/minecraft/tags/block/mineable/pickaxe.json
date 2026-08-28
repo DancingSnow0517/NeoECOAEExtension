@@ -1,5 +1,9 @@
 {
   "values": [
+    "neoecoae:crafting_network_switch",
+    "neoecoae:crafting_high_energy_network_switch",
+    "neoecoae:computation_network_switch",
+    "neoecoae:computation_high_energy_network_switch",
     "neoecoae:aluminum_ore",
     "neoecoae:raw_aluminum_block",
     "neoecoae:aluminum_block",
