@@ -547,6 +547,7 @@ public class ECOCraftingCPULogic {
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             return -1;
         } catch (Error e) {
+            // Error is included so extracted inputs are returned before the failure escapes.
             selectedOffer.worker().getFastPathCache().recordException();
             if (!ownershipTransferred) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
@@ -873,6 +874,7 @@ public class ECOCraftingCPULogic {
             batchedFullStatusChange = false;
             throw e;
         } catch (Error e) {
+            // Error is included so status-batching bookkeeping is reset before the failure escapes.
             batchingStatusChanges = false;
             batchedStatusChanges.clear();
             batchedAnyStatusChange = false;

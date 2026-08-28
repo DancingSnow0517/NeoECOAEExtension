@@ -12,7 +12,7 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
-import com.mojang.serialization.DataResult;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -58,14 +58,14 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         Direction front = back.getOpposite();
         Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
         Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
-        Direction right = left.getOpposite();
+        Direction interfaceSide = strategy.getSide(controllerState, RelativeSide.RIGHT);
+        Direction expandSide = interfaceSide.getOpposite();
 
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right)) {
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, interfaceSide, expandSide)) {
             controller.setMirrored(false);
             return true;
         }
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left)) {
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, expandSide, interfaceSide)) {
             controller.setMirrored(true);
             return true;
         }
@@ -117,20 +117,20 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos ventStart = firstStorageColumn.relative(back);
-        DataResult<BlockPos> ventEndResult = validateBlockLine(
+        Optional<BlockPos> ventEndResult = validateBlockLine(
             level,
             expandSide,
             ventStart,
             (it, pos) -> it.is(NEBlocks.STORAGE_VENT)
                 && it.getValue(ECOStorageVentBlock.FACING) == back
         );
-        if (ventEndResult.isError()) {
+        if (ventEndResult.isEmpty()) {
             return false;
         }
-        BlockPos ventEnd = ventEndResult.getOrThrow();
+        BlockPos ventEnd = ventEndResult.orElseThrow();
 
         BlockPos upperEnergyCellStart = firstStorageColumn.relative(back).relative(top);
-        DataResult<BlockPos> upperEnergyCellResult = validateBlockLine(
+        Optional<BlockPos> upperEnergyCellResult = validateBlockLine(
             level,
             expandSide,
             upperEnergyCellStart,
@@ -138,10 +138,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
-        if (upperEnergyCellResult.isError()) {
+        if (upperEnergyCellResult.isEmpty()) {
             return false;
         }
-        BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow();
+        BlockPos upperEnergyCellEnd = upperEnergyCellResult.orElseThrow();
         if (upperEnergyCellEnd.equals(upperEnergyCellStart)
             && !validateBlock(
                 level,
@@ -153,7 +153,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos lowerEnergyCellStart = firstStorageColumn.relative(back).relative(down);
-        DataResult<BlockPos> lowerEnergyCellResult = validateBlockLine(
+        Optional<BlockPos> lowerEnergyCellResult = validateBlockLine(
             level,
             expandSide,
             lowerEnergyCellStart,
@@ -161,10 +161,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
-        if (lowerEnergyCellResult.isError()) {
+        if (lowerEnergyCellResult.isEmpty()) {
             return false;
         }
-        BlockPos lowerEnergyCellEnd = lowerEnergyCellResult.getOrThrow();
+        BlockPos lowerEnergyCellEnd = lowerEnergyCellResult.orElseThrow();
 
         BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(expandSide).move(top);
         List<BlockPos> tailCasingPoses = List.of(

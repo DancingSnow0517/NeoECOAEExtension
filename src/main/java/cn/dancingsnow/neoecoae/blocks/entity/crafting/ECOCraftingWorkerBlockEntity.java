@@ -238,11 +238,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             setChanged();
             wakeTickingDevice();
         } catch (RuntimeException | Error e) {
+            // Error is included so worker and controller thread counts are rolled back before it escapes.
             runningThreads = previousRunningThreads;
             if (controllerUpdateAttempted) {
                 try {
                     controller.onWorkerThreadCountChanged(-slots);
                 } catch (RuntimeException | Error rollbackFailure) {
+                    // Preserve a rollback failure without hiding the original runtime failure or Error.
                     e.addSuppressed(rollbackFailure);
                 }
             }

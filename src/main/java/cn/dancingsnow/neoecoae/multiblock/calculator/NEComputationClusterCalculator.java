@@ -14,7 +14,7 @@ import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
-import com.mojang.serialization.DataResult;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -106,7 +106,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             NEBlocks.COMPUTATION_CASING
         )) return false;
         BlockPos connectorStart = controllerPos.relative(expandSide).relative(expandSide);
-        DataResult<BlockPos> connectorEndResult = validateBlockLine(
+        Optional<BlockPos> connectorEndResult = validateBlockLine(
             level,
             expandSide,
             connectorStart,
@@ -115,70 +115,70 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
                 front
             )
         );
-        if (connectorEndResult.isError()) {
+        if (connectorEndResult.isEmpty()) {
             return false;
         }
-        BlockPos connectorEnd = connectorEndResult.getOrThrow();
+        BlockPos connectorEnd = connectorEndResult.orElseThrow();
 
         BlockPos threadingCoreStart = connectorStart.relative(back);
-        DataResult<BlockPos> threadingCoreEndResult = validateBlockLine(
+        Optional<BlockPos> threadingCoreEndResult = validateBlockLine(
             level,
             expandSide,
             threadingCoreStart,
             matchingThreadingCore(level, tier, back)
         );
-        if (threadingCoreEndResult.isError()) {
+        if (threadingCoreEndResult.isEmpty()) {
             return false;
         }
-        BlockPos threadingCoreEnd = threadingCoreEndResult.getOrThrow();
+        BlockPos threadingCoreEnd = threadingCoreEndResult.orElseThrow();
 
         BlockPos upperParallelCoreStart = threadingCoreStart.relative(top);
-        DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
+        Optional<BlockPos> upperParallelCoreEndResult = validateBlockLine(
             level,
             expandSide,
             upperParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
-        if (upperParallelCoreEndResult.isError()) {
+        if (upperParallelCoreEndResult.isEmpty()) {
             return false;
         }
-        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow();
+        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.orElseThrow();
 
         BlockPos lowerParallelCoreStart = threadingCoreStart.relative(down);
-        DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
+        Optional<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
             level,
             expandSide,
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
-        if (lowerParallelCoreEndResult.isError()) {
+        if (lowerParallelCoreEndResult.isEmpty()) {
             return false;
         }
-        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow();
+        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.orElseThrow();
 
         BlockPos upperDriveStart = connectorStart.relative(top);
-        DataResult<BlockPos> upperDriveEndResult = validateBlockLine(
+        Optional<BlockPos> upperDriveEndResult = validateBlockLine(
             level,
             expandSide,
             upperDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
-        if (upperDriveEndResult.isError()) {
+        if (upperDriveEndResult.isEmpty()) {
             return false;
         }
-        BlockPos upperDriveEnd = upperDriveEndResult.getOrThrow();
+        BlockPos upperDriveEnd = upperDriveEndResult.orElseThrow();
 
         BlockPos lowerDriveStart = connectorStart.relative(down);
-        DataResult<BlockPos> lowerDriveEndResult = validateBlockLine(
+        Optional<BlockPos> lowerDriveEndResult = validateBlockLine(
             level,
             expandSide,
             lowerDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
-        if (lowerDriveEndResult.isError()) {
+        if (lowerDriveEndResult.isEmpty()) {
             return false;
         }
-        BlockPos lowerDriveEnd = lowerDriveEndResult.getOrThrow();
+        BlockPos lowerDriveEnd = lowerDriveEndResult.orElseThrow();
 
         List<BlockPos> tails = List.of(
             connectorEnd,

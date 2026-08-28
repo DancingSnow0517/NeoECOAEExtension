@@ -14,9 +14,7 @@ public record ECOBatchCraftingWork(
     int occupiedThreadSlots
 ) {
     public ECOBatchCraftingWork {
-        if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
-            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
-        }
+        ECOBatchCraftingHelper.validateBatchSize(batchSize);
         if (occupiedThreadSlots != batchSize) {
             throw new IllegalArgumentException("Batch work must occupy one thread slot per craft");
         }

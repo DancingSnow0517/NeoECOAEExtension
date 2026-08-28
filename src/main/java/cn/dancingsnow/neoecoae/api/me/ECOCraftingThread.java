@@ -394,6 +394,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             reboot = true;
             isBusy = true;
         } catch (RuntimeException | Error e) {
+            // Error is included so partially installed work is cleared before the failure escapes.
             clearWork();
             throw e;
         }
@@ -426,6 +427,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             reboot = true;
             isBusy = true;
         } catch (RuntimeException | Error e) {
+            // Error is included so partially installed batch work is cleared before the failure escapes.
             clearWork();
             throw e;
         }
@@ -953,7 +955,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                 NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), craftedOutput, craftingInv
             ));
-        } catch (RuntimeException | Error e) {
+        } catch (RuntimeException e) {
             LOGGER.warn("ECO crafting post-crafting event failed: worker={}", worker.getBlockPos(), e);
         }
     }
@@ -1096,9 +1098,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             || persistedOccupiedThreadSlots > ECOBatchCraftingHelper.MAX_BATCH_SIZE;
         this.progress = Math.clamp(persistedProgress, 0, MAX_PROGRESS);
         this.progressRemainder = readProgressRemainder(nbt);
-        this.occupiedThreadSlots = Math.clamp(
-            persistedOccupiedThreadSlots, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE
-        );
+        this.occupiedThreadSlots = ECOBatchCraftingHelper.clampPersistedBatchSize(persistedOccupiedThreadSlots);
         this.outputsReady = nbt.getBoolean("outputsReady");
         this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
         this.recoveryState = this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;

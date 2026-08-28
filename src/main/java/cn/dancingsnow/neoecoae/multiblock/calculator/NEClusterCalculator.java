@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.mojang.serialization.DataResult;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -215,7 +215,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return sameX || sameY || sameZ;
     }
 
-    protected static DataResult<BlockPos> validateBlockLine(
+    protected static Optional<BlockPos> validateBlockLine(
         Level level,
         Direction expandDirection,
         BlockPos start,
@@ -226,7 +226,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             start,
             it -> blockPredicate.test(it, start)
         )) {
-            return DataResult.error(NEClusterCalculator::fail);
+            return Optional.empty();
         }
         BlockPos end = expandTowards(
             level,
@@ -234,10 +234,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             start,
             blockPredicate
         );
-        return DataResult.success(end);
-    }
-
-    private static String fail() {
-        return "";
+        return Optional.of(end);
     }
 }

@@ -85,6 +85,7 @@ import guideme.GuidesCommon;
 import guideme.PageAnchor;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -119,6 +120,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+@Slf4j
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
@@ -1045,7 +1047,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     // Clear cached strategy for this direction so it refreshes when re-enabled
                     try {
                         exportStrategies.remove(getOrientation().getSide(internalSide));
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException failure) {
+                        log.warn("Failed to clear the workstation export strategy for {}", internalSide, failure);
                     }
 
                     saveChanges();

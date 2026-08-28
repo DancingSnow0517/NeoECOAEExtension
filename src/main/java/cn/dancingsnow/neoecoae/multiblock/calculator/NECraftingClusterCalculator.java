@@ -12,7 +12,7 @@ import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
-import com.mojang.serialization.DataResult;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -99,76 +99,76 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             return false;
         }
         BlockPos workerStart = controllerPos.relative(expandSide).relative(expandSide);
-        DataResult<BlockPos> workerEndResult = validateBlockLine(
+        Optional<BlockPos> workerEndResult = validateBlockLine(
             level,
             expandSide,
             workerStart,
             matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
         );
-        if (workerEndResult.isError()) {
+        if (workerEndResult.isEmpty()) {
             return false;
         }
-        BlockPos workerEnd = workerEndResult.getOrThrow();
+        BlockPos workerEnd = workerEndResult.orElseThrow();
 
         BlockPos upperParallelCoreStart = workerStart.relative(top);
-        DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
+        Optional<BlockPos> upperParallelCoreEndResult = validateBlockLine(
             level,
             expandSide,
             upperParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
-        if (upperParallelCoreEndResult.isError()) {
+        if (upperParallelCoreEndResult.isEmpty()) {
             return false;
         }
-        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow();
+        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.orElseThrow();
 
         BlockPos lowerParallelCoreStart = workerStart.relative(down);
-        DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
+        Optional<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
             level,
             expandSide,
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
-        if (lowerParallelCoreEndResult.isError()) {
+        if (lowerParallelCoreEndResult.isEmpty()) {
             return false;
         }
-        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow();
+        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.orElseThrow();
 
         BlockPos ventStart = workerStart.relative(back);
-        DataResult<BlockPos> ventEndResult = validateBlockLine(
+        Optional<BlockPos> ventEndResult = validateBlockLine(
             level,
             expandSide,
             ventStart,
             matchingStateFacing(NEBlocks.CRAFTING_VENT, back)
         );
-        if (ventEndResult.isError()) {
+        if (ventEndResult.isEmpty()) {
             return false;
         }
-        BlockPos ventEnd = ventEndResult.getOrThrow();
+        BlockPos ventEnd = ventEndResult.orElseThrow();
 
         BlockPos upperPatternBusStart = ventStart.relative(top);
-        DataResult<BlockPos> upperPatternBusEndResult = validateBlockLine(
+        Optional<BlockPos> upperPatternBusEndResult = validateBlockLine(
             level,
             expandSide,
             upperPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
-        if (upperPatternBusEndResult.isError()) {
+        if (upperPatternBusEndResult.isEmpty()) {
             return false;
         }
-        BlockPos upperPatternBusEnd = upperPatternBusEndResult.getOrThrow();
+        BlockPos upperPatternBusEnd = upperPatternBusEndResult.orElseThrow();
 
         BlockPos lowerPatternBusStart = ventStart.relative(down);
-        DataResult<BlockPos> lowerPatternBusEndResult = validateBlockLine(
+        Optional<BlockPos> lowerPatternBusEndResult = validateBlockLine(
             level,
             expandSide,
             lowerPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
-        if (lowerPatternBusEndResult.isError()) {
+        if (lowerPatternBusEndResult.isEmpty()) {
             return false;
         }
-        BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.getOrThrow();
+        BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.orElseThrow();
 
         List<BlockPos> endCasing = Stream.of(
             workerEnd,

@@ -19,9 +19,7 @@ public record ECOBatchCraftingRequest(
     public ECOBatchCraftingRequest {
         Objects.requireNonNull(details, "details");
         Objects.requireNonNull(key, "key");
-        if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
-            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
-        }
+        ECOBatchCraftingHelper.validateBatchSize(batchSize);
         inputsPerCraft = List.copyOf(inputsPerCraft);
         outputsPerCraft = List.copyOf(outputsPerCraft);
         remainingPerCraft = List.copyOf(remainingPerCraft);

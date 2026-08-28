@@ -14,11 +14,27 @@ import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
-    public static final int MAX_BATCH_SIZE = Integer.MAX_VALUE;
+    /**
+     * Absolute safety limit for a batch. The current worker maximum is 32 base crafts times the
+     * L9 overclock multiplier of 16 (512); 4096 leaves headroom while rejecting corrupted NBT.
+     */
+    public static final int MAX_BATCH_SIZE = 4096;
+    /** Maximum number of distinct item entries in one batch. */
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
-    public static final long MAX_BATCH_STACK_AMOUNT = (long) Integer.MAX_VALUE * MAX_BATCH_SIZE;
+    /** Per-entry amount limit, intentionally independent from {@link #MAX_BATCH_SIZE}. */
+    public static final long MAX_BATCH_STACK_AMOUNT = 1L << 42;
 
     private ECOBatchCraftingHelper() {
+    }
+
+    public static int clampPersistedBatchSize(int batchSize) {
+        return Math.clamp(batchSize, 1, MAX_BATCH_SIZE);
+    }
+
+    public static void validateBatchSize(int batchSize) {
+        if (batchSize <= 0 || batchSize > MAX_BATCH_SIZE) {
+            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
+        }
     }
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
