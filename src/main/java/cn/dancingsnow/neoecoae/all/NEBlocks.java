@@ -1024,14 +1024,14 @@ public class NEBlocks {
         })
         .register();
 
-    public static final BlockEntry<ECOCraftingWorker> ADVANCED_CRAFTING_WORKER = REGISTRATE
-        .block("advanced_crafting_worker", ECOCraftingWorker::new)
+    public static final BlockEntry<ECOCraftingWorker> FX_MONITOR_CORE = REGISTRATE
+        .block("fx_monitor_core", ECOCraftingWorker::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
         .build()
-        .lang("ECO - Advanced FX Worker")
+        .lang("ECO - FX Monitor Core")
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker"));
             ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/advanced_crafting_worker_formed"));

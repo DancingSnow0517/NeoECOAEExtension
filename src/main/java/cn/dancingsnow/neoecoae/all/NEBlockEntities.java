@@ -272,13 +272,13 @@ public class NEBlockEntities {
         .validBlock(NEBlocks.CRAFTING_WORKER)
         .register();
 
-    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> ADVANCED_CRAFTING_WORKER = REGISTRATE
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> FX_MONITOR_CORE = REGISTRATE
         .blockEntityBlockLinked(
-            "advanced_crafting_worker",
+            "fx_monitor_core",
             ECOCraftingWorkerBlockEntity::new
         )
-        .forBlock(NEBlocks.ADVANCED_CRAFTING_WORKER)
-        .validBlock(NEBlocks.ADVANCED_CRAFTING_WORKER)
+        .forBlock(NEBlocks.FX_MONITOR_CORE)
+        .validBlock(NEBlocks.FX_MONITOR_CORE)
         .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
         .register();
 

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crafting_worker"
+    },
+    "B": {
+      "item": "ae2:storage_monitor"
+    }
+  },
+  "pattern": [
+    "AB"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:fx_monitor_core"
+  }
+}

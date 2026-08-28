@@ -58,7 +58,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(64 * getCapacityMultiplier());
+        getMainNode().setIdlePowerUsage(64);
         refreshDisplayedJob();
     }
 
@@ -248,16 +248,16 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     public int getCapacityMultiplier() {
-        return getBlockState().is(NEBlocks.ADVANCED_CRAFTING_WORKER.get()) ? 4 : 1;
+        return 1;
     }
 
-    public boolean isAdvanced() {
-        return getCapacityMultiplier() > 1;
+    public boolean isMonitor() {
+        return getBlockState().is(NEBlocks.FX_MONITOR_CORE.get());
     }
 
     private void refreshDisplayedJob() {
         GenericStack nextDisplay = null;
-        if (isAdvanced()) {
+        if (isMonitor()) {
             for (ECOCraftingThread thread : craftingThreads) {
                 ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
                 if (!snapshot.busy() || snapshot.outputItem().isEmpty()) {

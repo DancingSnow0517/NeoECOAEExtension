@@ -240,16 +240,12 @@ public class EcoMachineRecipes {
             .energy(640000)
             .save(provider);
 
-        // Advanced FX worker
-        IntegratedWorkingStationRecipe.builder()
-            .require(NEBlocks.CRAFTING_WORKER, 16)
-            .require(AEBlocks.MOLECULAR_ASSEMBLER, 32)
-            .require(AEParts.STORAGE_MONITOR)
-            .require(AEBlocks.CRAFTING_STORAGE_256K, 4)
-            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
-            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
-            .itemOutput(NEBlocks.ADVANCED_CRAFTING_WORKER)
-            .energy(1024000)
+        // FX monitor core
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.FX_MONITOR_CORE)
+            .pattern("AB")
+            .define('A', NEBlocks.CRAFTING_WORKER)
+            .define('B', AEParts.STORAGE_MONITOR)
+            .unlockedBy("has_crafting_worker", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_WORKER))
             .save(provider);
 
         // crafting parallel core

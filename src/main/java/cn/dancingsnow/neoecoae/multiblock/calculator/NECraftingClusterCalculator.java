@@ -101,7 +101,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             expandSide,
             workerStart,
             matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
-                .or(matchingStateFacing(NEBlocks.ADVANCED_CRAFTING_WORKER, front))
+                .or(matchingStateFacing(NEBlocks.FX_MONITOR_CORE, front))
         );
         if (workerEndResult.isEmpty()) {
             return false;

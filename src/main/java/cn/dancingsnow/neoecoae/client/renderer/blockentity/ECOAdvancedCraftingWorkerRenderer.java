@@ -22,7 +22,7 @@ public class ECOAdvancedCraftingWorkerRenderer implements BlockEntityRenderer<EC
         int packedOverlay
     ) {
         var displayedJob = blockEntity.getDisplayedJob();
-        if (!blockEntity.isAdvanced()
+        if (!blockEntity.isMonitor()
             || !blockEntity.getBlockState().getValue(NEBlock.FORMED)
             || displayedJob == null) {
             return;
