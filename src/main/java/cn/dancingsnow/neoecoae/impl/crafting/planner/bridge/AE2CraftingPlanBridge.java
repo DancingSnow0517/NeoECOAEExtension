@@ -14,9 +14,13 @@ public final class AE2CraftingPlanBridge {
     }
 
     public CraftingPlan unsupported(AEKey goal, long amount) {
-        KeyCounter missing = new KeyCounter();
-        missing.add(goal, amount);
         return new CraftingPlan(new GenericStack(goal, amount), 0, true, false,
-            new KeyCounter(), new KeyCounter(), missing, Map.of());
+            new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+    }
+
+    /** Partial structural plans are explanatory only and can never be submitted to an AE2 CPU. */
+    public CraftingPlan partial(AEKey goal, long amount, boolean multiplePaths, SolveState state) {
+        return new CraftingPlan(new GenericStack(goal, amount), Math.max(0, state.bytes()), true, multiplePaths,
+            state.usedItems(), state.emittedItems(), state.missingItems(), state.patternTimes());
     }
 }

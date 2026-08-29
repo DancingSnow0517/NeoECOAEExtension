@@ -8,6 +8,8 @@ public record PlannerDiagnostic(Code code, String message) {
         MISSING,
         UNSUPPORTED_INPUT,
         CYCLE_UNSUPPORTED,
+        CYCLE_DISABLED,
+        CYCLE_NOT_IMPLEMENTED,
         AMOUNT_OVERFLOW,
         CANCELLED,
         INTERNAL_ERROR

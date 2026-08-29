@@ -10,10 +10,12 @@ public record ECOPlanningResult(
     @Nullable CraftingPlan plan,
     ECOPlanTrace trace,
     List<CycleDiagnostic> cycles,
+    List<ComponentPlanningResult> components,
     long calculationNanos
 ) {
     public ECOPlanningResult {
         cycles = List.copyOf(cycles);
+        components = List.copyOf(components);
         calculationNanos = Math.max(0L, calculationNanos);
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
@@ -21,6 +23,12 @@ public record ECOPlanningResult(
     }
 
     public boolean shouldUseNativeFallback() {
-        return status == PlanningStatus.PARTIAL_UNSUPPORTED || status == PlanningStatus.INTERNAL_ERROR;
+        return status == PlanningStatus.PARTIAL_UNSUPPORTED || status == PlanningStatus.UNSUPPORTED
+            || status == PlanningStatus.INTERNAL_ERROR;
+    }
+
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, long calculationNanos) {
+        this(status, plan, trace, cycles, List.of(), calculationNanos);
     }
 }

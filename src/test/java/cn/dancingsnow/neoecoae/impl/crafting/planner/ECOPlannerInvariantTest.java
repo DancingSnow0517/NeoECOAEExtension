@@ -7,8 +7,11 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.CycleDetector;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.ReachabilityScanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,9 +53,12 @@ class ECOPlannerInvariantTest {
             KeyCounter stock = new KeyCounter();
             stockAmounts.forEach(stock::add);
             long requested = 1 + random.nextInt(500);
-            var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-            var route = new CycleDetector().detect(network, reachable, ECOCancellation.NONE);
-            var solved = new AcyclicCraftingSolver().solve(network, route.route(), stock, requested, ECOCancellation.NONE);
+            var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+            var condensation = CondensationGraph.build(graph,
+                new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+            var route = new AcyclicRoutePlan(condensation.topologicalOrder().stream()
+                .map(AcyclicComponent.class::cast).map(AcyclicComponent::key).toList());
+            var solved = new AcyclicCraftingSolver().solve(network, route, stock, requested, ECOCancellation.NONE);
             assertEquals(PlanningStatus.SUCCESS, solved.status());
             validateConservation(goal, requested, stock, solved.state().usedItems(), solved.state().emittedItems(),
                 solved.state().patternTimes());

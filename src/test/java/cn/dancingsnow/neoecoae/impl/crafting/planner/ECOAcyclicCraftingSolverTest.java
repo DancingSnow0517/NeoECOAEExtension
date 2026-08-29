@@ -9,8 +9,11 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.CycleDetector;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.ReachabilityScanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -106,9 +109,12 @@ class ECOAcyclicCraftingSolverTest {
     }
 
     private static AcyclicCraftingSolver.Outcome solve(CompiledNetwork network, KeyCounter stock, long amount) throws Exception {
-        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-        var route = new CycleDetector().detect(network, reachable, ECOCancellation.NONE);
-        return new AcyclicCraftingSolver().solve(network, route.route(), stock, amount, ECOCancellation.NONE);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var route = new AcyclicRoutePlan(condensation.topologicalOrder().stream()
+            .map(AcyclicComponent.class::cast).map(AcyclicComponent::key).toList());
+        return new AcyclicCraftingSolver().solve(network, route, stock, amount, ECOCancellation.NONE);
     }
     private static CompiledNetwork network(AEKey goal, Map<AEKey, List<CompiledPattern>> patterns) {
         return PlannerFixtures.network(goal, new LinkedHashMap<>(patterns));

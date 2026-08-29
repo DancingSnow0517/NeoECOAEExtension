@@ -31,5 +31,8 @@ public final class SolveState {
     public KeyCounter emittedItems() { return emitted; }
     public KeyCounter missingItems() { return missing; }
     public Map<IPatternDetails, Long> patternTimes() { return Map.copyOf(patternTimes); }
+    public Map<AEKey, Long> demands() { return Map.copyOf(demand); }
+    public long demandFor(AEKey key) { return demand.getOrDefault(key, 0L); }
+    public boolean hasPlannedCrafting() { return !patternTimes.isEmpty(); }
     public long bytes() { return bytes; }
 }
