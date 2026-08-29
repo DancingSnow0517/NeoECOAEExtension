@@ -22,12 +22,17 @@ public final class AcyclicCraftingSolver {
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, route, inventory, amount, Map.of(), cancellation);
+    }
+
+    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
+            Map<AEKey, Integer> initialChoices, ECOCancellation cancellation) throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
             return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, new SolveState(inventory), trace);
         }
-        Map<AEKey, Integer> choices = new HashMap<>();
+        Map<AEKey, Integer> choices = new HashMap<>(initialChoices);
         int retryBudget = Math.max(1, network.reachablePatternCount() + 1);
         SolveState state = null;
         try {

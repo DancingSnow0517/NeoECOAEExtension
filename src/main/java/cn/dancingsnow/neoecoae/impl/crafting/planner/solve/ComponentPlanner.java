@@ -37,27 +37,51 @@ public final class ComponentPlanner {
 
     private final AcyclicCraftingSolver acyclicSolver;
     private final CycleSolver cycleSolver;
+    private final ActiveRouteSelector activeRouteSelector;
 
     public ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver) {
         this.acyclicSolver = acyclicSolver;
         this.cycleSolver = cycleSolver;
+        this.activeRouteSelector = new ActiveRouteSelector();
     }
 
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
             long amount, boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
-        List<AEKey> dagOrder = condensation.topologicalOrder().stream()
+        ActiveRouteSelector.Selection activeSelection = activeRouteSelector.select(condensation.source(), cancellation);
+        CondensationGraph activeCondensation = activeSelection.condensation();
+        List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
             .filter(AcyclicComponent.class::isInstance)
             .map(AcyclicComponent.class::cast)
             .map(AcyclicComponent::key)
             .toList();
-        var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount, cancellation);
+        var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount,
+            activeSelection.choices(), cancellation);
         ECOPlanTrace trace = acyclic.trace();
+        for (var deferred : activeSelection.deferredCyclicCandidates()) {
+            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, deferred.producedKey(), deferred.details(),
+                0, 0, 0, 0, 0, PlanTraceNode.Selection.REJECTED, "CYCLIC_CANDIDATE"));
+        }
+        if (!activeSelection.deferredCyclicCandidates().isEmpty()) {
+            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_DEFERRED_CYCLE,
+                "Cyclic candidate deferred while trying an alternate producer"));
+        }
         List<ComponentPlanningResult> componentResults = new ArrayList<>();
         List<CycleDiagnostic> cycleDiagnostics = new ArrayList<>();
         boolean unresolvedCycle = false;
 
-        for (var component : condensation.topologicalOrder()) {
+        if (!activeSelection.acyclic()) {
+            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_DEFERRED_CYCLE,
+                "All currently available producer candidates for this route contain a cycle"));
+            for (var cycle : activeSelection.cyclicComponents()) {
+                for (var edge : cycle.internalEdges()) {
+                    trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, edge.producer(), edge.pattern().details(),
+                        0, 0, 0, 0, 0, PlanTraceNode.Selection.REJECTED, "CYCLIC_CANDIDATE"));
+                }
+            }
+        }
+
+        for (var component : activeCondensation.topologicalOrder()) {
             cancellation.checkpoint();
             trace.addComponent(new ComponentTrace(component.componentId(), component.cyclic()
                 ? ComponentTrace.Type.CYCLIC : ComponentTrace.Type.ACYCLIC, component.members()));

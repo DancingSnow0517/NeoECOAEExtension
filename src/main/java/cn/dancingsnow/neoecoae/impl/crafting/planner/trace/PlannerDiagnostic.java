@@ -5,6 +5,7 @@ public record PlannerDiagnostic(Code code, String message) {
         FAST_DAG,
         NATIVE_FALLBACK,
         CANDIDATE_REJECTED,
+        CANDIDATE_DEFERRED_CYCLE,
         MISSING,
         UNSUPPORTED_INPUT,
         CYCLE_UNSUPPORTED,
