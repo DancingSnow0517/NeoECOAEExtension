@@ -23,10 +23,10 @@ public class PatternItemSlotClient extends PatternItemSlot {
     protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
         super.drawItemStack(guiContext, itemStack);
         if (isHighlighted()) {
-            guiContext.graphics.fill(0, 0, 18, 1, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(0, 17, 18, 18, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(0, 0, 1, 18, SEARCH_HIGHLIGHT_COLOR);
-            guiContext.graphics.fill(17, 0, 18, 18, SEARCH_HIGHLIGHT_COLOR);
+            guiContext.graphics.fill(-1, -1, 17, 0, SEARCH_HIGHLIGHT_COLOR);
+            guiContext.graphics.fill(-1, 16, 17, 17, SEARCH_HIGHLIGHT_COLOR);
+            guiContext.graphics.fill(-1, -1, 0, 17, SEARCH_HIGHLIGHT_COLOR);
+            guiContext.graphics.fill(16, -1, 17, 17, SEARCH_HIGHLIGHT_COLOR);
         }
     }
 }
