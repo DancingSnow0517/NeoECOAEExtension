@@ -221,6 +221,28 @@ sourceSets.test {
     runtimeClasspath += sourceSets.main.runtimeClasspath
 }
 
+// The repository also contains forward-looking tests for unrelated, not-yet-landed APIs. Keep the
+// crafting planner suite independently runnable while those fixtures are being developed.
+sourceSets {
+    plannerTest {
+        java.srcDir 'src/test/java'
+        java.include 'cn/dancingsnow/neoecoae/impl/crafting/planner/**'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath + configurations.testCompileClasspath
+        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath + configurations.testRuntimeClasspath
+    }
+}
+
+configurations.plannerTestImplementation.extendsFrom configurations.testImplementation
+configurations.plannerTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
+
+tasks.register('plannerTest', Test) {
+    group = 'verification'
+    description = 'Runs the isolated ECO crafting planner unit and benchmark suite.'
+    testClassesDirs = sourceSets.plannerTest.output.classesDirs
+    classpath = sourceSets.plannerTest.runtimeClasspath
+    useJUnitPlatform()
+}
+
 configurations {
     runtimeClasspath.extendsFrom localRuntime
 }

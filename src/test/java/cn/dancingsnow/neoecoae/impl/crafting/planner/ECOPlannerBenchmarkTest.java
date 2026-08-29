@@ -6,9 +6,12 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.CycleDetector;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.ReachabilityScanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.UnsupportedCycleSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,19 +29,25 @@ class ECOPlannerBenchmarkTest {
             long compileStart = System.nanoTime();
             var fixture = chain(size);
             long compileNanos = System.nanoTime() - compileStart;
-            long routeStart = System.nanoTime();
-            var reachable = new ReachabilityScanner().scan(fixture.network, ECOCancellation.NONE);
-            var route = new CycleDetector().detect(fixture.network, reachable, ECOCancellation.NONE);
-            long routeNanos = System.nanoTime() - routeStart;
+            long graphStart = System.nanoTime();
+            var graph = new CraftingGraphBuilder().build(fixture.network, ECOCancellation.NONE);
+            long graphNanos = System.nanoTime() - graphStart;
+            long tarjanStart = System.nanoTime();
+            var sccs = new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE);
+            long tarjanNanos = System.nanoTime() - tarjanStart;
+            long condensationStart = System.nanoTime();
+            var condensation = CondensationGraph.build(graph, sccs, ECOCancellation.NONE);
+            long condensationNanos = System.nanoTime() - condensationStart;
             for (long amount : amounts) {
                 KeyCounter stock = new KeyCounter(); stock.add(fixture.leaf, amount);
                 long solveStart = System.nanoTime();
-                var solved = new AcyclicCraftingSolver().solve(fixture.network, route.route(), stock, amount,
-                    ECOCancellation.NONE);
+                var solved = new ComponentPlanner(new AcyclicCraftingSolver(), new UnsupportedCycleSolver())
+                    .plan(fixture.network, condensation, stock, amount, false, ECOCancellation.NONE);
                 long solveNanos = System.nanoTime() - solveStart;
                 assertEquals(PlanningStatus.SUCCESS, solved.status());
-                System.out.printf("ECO_BENCH nodes=%d amount=%d compileMs=%.3f cycleMs=%.3f solveMs=%.3f retries=0 patterns=%d edges=%d fallback=0%n",
-                    size, amount, compileNanos / 1_000_000.0, routeNanos / 1_000_000.0,
+                System.out.printf("ECO_BENCH nodes=%d amount=%d fixtureMs=%.3f graphMs=%.3f tarjanMs=%.3f condensationMs=%.3f solveMs=%.3f patterns=%d edges=%d%n",
+                    size, amount, compileNanos / 1_000_000.0, graphNanos / 1_000_000.0,
+                    tarjanNanos / 1_000_000.0, condensationNanos / 1_000_000.0,
                     solveNanos / 1_000_000.0, fixture.network.reachablePatternCount(), fixture.network.edgeCount());
             }
         }

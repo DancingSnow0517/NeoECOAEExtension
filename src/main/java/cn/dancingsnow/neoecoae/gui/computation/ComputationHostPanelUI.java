@@ -222,8 +222,8 @@ public final class ComputationHostPanelUI {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
                 Boolean.TRUE.equals(syncedEnabled.getValue())
-                    ? "gui.neoecoae.crafting.fast_planner.on"
-                    : "gui.neoecoae.crafting.fast_planner.off")));
+                    ? "gui.neoecoae.crafting.cycle_planning.on"
+                    : "gui.neoecoae.crafting.cycle_planning.off")));
         return button;
     }
 

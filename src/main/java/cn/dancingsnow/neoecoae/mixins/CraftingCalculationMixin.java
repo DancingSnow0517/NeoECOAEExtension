@@ -57,7 +57,8 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
 
         KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
-            grid.getCraftingService(), output.what(), inventory);
+            grid.getCraftingService(), output.what(), inventory,
+            settings.neoecoae$isCyclePlanningEnabled());
     }
 
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)
@@ -72,8 +73,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case SUCCESS -> cir.setReturnValue(result.plan());
             case MISSING_ITEMS -> cir.setReturnValue(simulate ? result.plan() : null);
             case CYCLE_UNSUPPORTED, AMOUNT_OVERFLOW -> cir.setReturnValue(result.plan());
+            case PARTIAL, CYCLE_UNRESOLVED -> cir.setReturnValue(result.plan());
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
-            case PARTIAL_UNSUPPORTED, INTERNAL_ERROR -> {
+            case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
                 // Keep the structured diagnostic, but preserve AE2 semantics through its native planner.
             }
         }

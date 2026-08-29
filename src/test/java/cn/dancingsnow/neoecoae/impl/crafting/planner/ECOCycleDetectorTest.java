@@ -2,68 +2,165 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.CycleDetector;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.route.ReachabilityScanner;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.UnsupportedCycleSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
+/** SCC, condensation, component-planning and cycle-toggle regression coverage. */
 class ECOCycleDetectorTest {
-    @Test void reachableTwoNodeCycleIsStructured() throws Exception {
-        var a = PlannerTestKey.of("a"); var b = PlannerTestKey.of("b");
-        var ab = PlannerFixtures.pattern("b_to_a", a, 1, b, 1L);
-        var ba = PlannerFixtures.pattern("a_to_b", b, 1, a, 1L);
-        var map = new LinkedHashMap<appeng.api.stacks.AEKey, List<cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern>>();
-        map.put(a, List.of(PlannerFixtures.compiled(0, ab, a, true, "")));
-        map.put(b, List.of(PlannerFixtures.compiled(1, ba, b, true, "")));
-        var network = PlannerFixtures.network(a, map);
-        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-        var result = new CycleDetector().detect(network, reachable, ECOCancellation.NONE);
-        assertTrue(result.cyclic());
-        assertEquals(2, result.cycles().getFirst().keys().size());
-        assertEquals(0L, result.cycles().getFirst().netOutputs().get(a));
-        assertEquals(0L, result.cycles().getFirst().netOutputs().get(b));
+    @Test void pureDagContainsNoCycleComponent() throws Exception {
+        AEKey a = key("dag_a"), b = key("dag_b"), c = key("dag_c"), d = key("dag_d");
+        var result = analyze(network(d, Map.of(a, List.of(), b, one(edge(0, b, a)),
+            c, one(edge(1, c, b)), d, one(edge(2, d, c)))));
+        assertEquals(4, result.components().size());
+        assertTrue(result.cycles().isEmpty());
+        assertTrue(result.topologicalOrder().stream().allMatch(AcyclicComponent.class::isInstance));
     }
 
-    @Test void cycleNetOutputsUseCompiledAmounts() throws Exception {
-        var a = PlannerTestKey.of("net_a"); var b = PlannerTestKey.of("net_b");
-        var ab = PlannerFixtures.pattern("a_to_b", b, 3, a, 2L);
-        var ba = PlannerFixtures.pattern("b_to_a", a, 1, b, 1L);
-        var map = new LinkedHashMap<appeng.api.stacks.AEKey, List<cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern>>();
-        map.put(a, List.of(PlannerFixtures.compiled(0, ba, a, true, "")));
-        map.put(b, List.of(PlannerFixtures.compiled(1, ab, b, true, "")));
-        var network = PlannerFixtures.network(a, map);
-        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-        var cycle = new CycleDetector().detect(network, reachable, ECOCancellation.NONE).cycles().getFirst();
-        assertEquals(-1L, cycle.netOutputs().get(a));
-        assertEquals(2L, cycle.netOutputs().get(b));
+    @Test void twoNodeCycleProducesTheWholeScc() throws Exception {
+        AEKey a = key("two_a"), b = key("two_b");
+        var result = analyze(network(a, Map.of(a, one(edge(0, a, b)), b, one(edge(1, b, a)))));
+        assertEquals(1, result.cycles().size());
+        assertEquals(Set.of(a, b), Set.copyOf(result.cycles().getFirst().members()));
+        assertEquals(2, result.cycles().getFirst().internalEdges().size());
     }
 
-    @Test void selfLoopIsStructured() throws Exception {
-        var a = PlannerTestKey.of("self");
-        var p = PlannerFixtures.pattern("self_loop", a, 2, a, 1L);
-        var network = PlannerFixtures.network(a, java.util.Map.of(a, List.of(PlannerFixtures.compiled(0, p, a, true, ""))));
-        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-        var result = new CycleDetector().detect(network, reachable, ECOCancellation.NONE);
-        assertTrue(result.cyclic());
-        assertEquals(List.of(a), result.cycles().getFirst().keys());
+    @Test void threeNodeCycleProducesExactlyOneScc() throws Exception {
+        AEKey a = key("three_a"), b = key("three_b"), c = key("three_c");
+        var result = analyze(network(a, Map.of(a, one(edge(0, a, b)), b, one(edge(1, b, c)),
+            c, one(edge(2, c, a)))));
+        assertEquals(1, result.cycles().size());
+        assertEquals(Set.of(a, b, c), Set.copyOf(result.cycles().getFirst().members()));
     }
 
-    @Test void unrelatedCycleDoesNotPoisonGoal() throws Exception {
-        var g = PlannerTestKey.of("g"); var a = PlannerTestKey.of("a2");
-        var x = PlannerTestKey.of("x"); var y = PlannerTestKey.of("y");
-        var ga = PlannerFixtures.pattern("a_to_g", g, 1, a, 1L);
-        var xy = PlannerFixtures.pattern("y_to_x", x, 1, y, 1L);
-        var yx = PlannerFixtures.pattern("x_to_y", y, 1, x, 1L);
-        var map = new LinkedHashMap<appeng.api.stacks.AEKey, List<cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern>>();
-        map.put(g, List.of(PlannerFixtures.compiled(0, ga, g, true, ""))); map.put(a, List.of());
-        map.put(x, List.of(PlannerFixtures.compiled(1, xy, x, true, "")));
-        map.put(y, List.of(PlannerFixtures.compiled(2, yx, y, true, "")));
-        var network = PlannerFixtures.network(g, map);
-        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
-        assertFalse(reachable.contains(x));
-        assertFalse(new CycleDetector().detect(network, reachable, ECOCancellation.NONE).cyclic());
+    @Test void selfLoopIsACyclicSingletonComponent() throws Exception {
+        AEKey a = key("self");
+        CycleComponent cycle = assertInstanceOf(CycleComponent.class,
+            analyze(network(a, Map.of(a, one(edge(0, a, a))))).componentFor(a));
+        assertEquals(List.of(a), cycle.members());
+        assertEquals(1, cycle.internalEdges().size());
     }
+
+    @Test void condensationKeepsDagBoundariesAroundCycle() throws Exception {
+        AEKey raw = key("bound_raw"), a = key("bound_a"), b = key("bound_b"), goal = key("bound_goal");
+        var aPattern = PlannerFixtures.pattern("a_from_b_raw", a, 1, b, 1L, raw, 1L);
+        var result = analyze(network(goal, Map.of(raw, List.of(),
+            a, one(PlannerFixtures.compiled(0, aPattern, a, true, "")), b, one(edge(1, b, a)),
+            goal, one(edge(2, goal, a)))));
+        assertEquals(3, result.components().size());
+        assertEquals(Set.of(a, b), Set.copyOf(result.cycles().getFirst().members()));
+        assertEquals(2, result.dependencies().size());
+        assertEquals(goal, ((AcyclicComponent) result.topologicalOrder().getFirst()).key());
+        assertEquals(raw, ((AcyclicComponent) result.topologicalOrder().getLast()).key());
+    }
+
+    @Test void twoReachableCyclesRemainIndependentComponents() throws Exception {
+        AEKey goal = key("multi_goal"), a = key("multi_a"), b = key("multi_b");
+        AEKey c = key("multi_c"), d = key("multi_d");
+        var goalPattern = PlannerFixtures.pattern("goal_from_a_c", goal, 1, a, 1L, c, 1L);
+        var result = analyze(network(goal, Map.of(
+            goal, one(PlannerFixtures.compiled(0, goalPattern, goal, true, "")),
+            a, one(edge(1, a, b)), b, one(edge(2, b, a)),
+            c, one(edge(3, c, d)), d, one(edge(4, d, c)))));
+        assertEquals(2, result.cycles().size());
+    }
+
+    @Test void unrelatedNetworkCycleIsNotInGoalReachableGraph() throws Exception {
+        AEKey goal = key("reach_goal"), a = key("reach_a"), x = key("reach_x"), y = key("reach_y");
+        var result = analyze(network(goal, Map.of(goal, one(edge(0, goal, a)), a, List.of(),
+            x, one(edge(1, x, y)), y, one(edge(2, y, x)))));
+        assertFalse(result.source().nodes().containsKey(x));
+        assertTrue(result.cycles().isEmpty());
+    }
+
+    @Test void disabledCycleIsStructuredAndNeverMissing() throws Exception {
+        Fixture fixture = simpleCycle();
+        KeyCounter stock = new KeyCounter(); stock.add(fixture.goal(), 1);
+        var result = plan(fixture.network(), stock, false);
+        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
+        assertEquals(0, result.state().missingItems().get(fixture.goal()));
+        assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
+    }
+
+    @Test void enabledCycleCallsUnsupportedStubWithoutCrashing() throws Exception {
+        var result = plan(simpleCycle().network(), new KeyCounter(), true);
+        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
+        assertEquals(CyclePlanningStatus.NOT_IMPLEMENTED, result.trace().cycles().getFirst().status());
+        assertTrue(result.state().missingItems().isEmpty());
+    }
+
+    @Test void independentDagBranchStillPlansBesideCycle() throws Exception {
+        AEKey raw = key("partial_raw"), x = key("partial_x"), a = key("partial_a");
+        AEKey b = key("partial_b"), goal = key("partial_goal");
+        var px = PlannerFixtures.pattern("raw_x", x, 1, raw, 1L);
+        var pa = PlannerFixtures.pattern("b_a", a, 1, b, 1L);
+        var pb = PlannerFixtures.pattern("a_b", b, 1, a, 1L);
+        var pg = PlannerFixtures.pattern("x_a_goal", goal, 1, x, 1L, a, 1L);
+        CompiledNetwork network = network(goal, Map.of(raw, List.of(),
+            x, one(PlannerFixtures.compiled(0, px, x, true, "")),
+            a, one(PlannerFixtures.compiled(1, pa, a, true, "")),
+            b, one(PlannerFixtures.compiled(2, pb, b, true, "")),
+            goal, one(PlannerFixtures.compiled(3, pg, goal, true, ""))));
+        KeyCounter stock = new KeyCounter(); stock.add(raw, 1);
+        var result = plan(network, stock, false);
+        assertEquals(PlanningStatus.PARTIAL, result.status());
+        assertEquals(1, result.state().usedItems().get(raw));
+        assertEquals(1, result.state().patternTimes().get(px));
+        assertEquals(0, result.state().missingItems().get(a));
+    }
+
+    @Test void structuralAnalysisPropagatesCancellation() {
+        AEKey a = key("cancel_a"), b = key("cancel_b");
+        CompiledNetwork network = network(a, Map.of(a, one(edge(0, a, b)), b, List.of()));
+        assertThrows(InterruptedException.class, () -> new CraftingGraphBuilder().build(network,
+            () -> { throw new InterruptedException("cancelled"); }));
+    }
+
+    private static ComponentPlanner.Outcome plan(CompiledNetwork network, KeyCounter stock, boolean enabled)
+            throws Exception {
+        var condensation = analyze(network);
+        return new ComponentPlanner(new AcyclicCraftingSolver(), new UnsupportedCycleSolver())
+            .plan(network, condensation, stock, 1, enabled, ECOCancellation.NONE);
+    }
+
+    private static CondensationGraph analyze(CompiledNetwork network) throws Exception {
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        return CondensationGraph.build(graph, new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE),
+            ECOCancellation.NONE);
+    }
+
+    private static Fixture simpleCycle() {
+        AEKey a = key("toggle_a"), b = key("toggle_b");
+        return new Fixture(a, network(a, Map.of(a, one(edge(0, a, b)), b, one(edge(1, b, a)))));
+    }
+    private static CompiledPattern edge(int id, AEKey output, AEKey input) {
+        var pattern = PlannerFixtures.pattern("p_" + id, output, 1, input, 1L);
+        return PlannerFixtures.compiled(id, pattern, output, true, "");
+    }
+    private static List<CompiledPattern> one(CompiledPattern pattern) { return List.of(pattern); }
+    private static PlannerTestKey key(String name) { return PlannerTestKey.of(name); }
+    private static CompiledNetwork network(AEKey goal, Map<AEKey, List<CompiledPattern>> patterns) {
+        return PlannerFixtures.network(goal, new LinkedHashMap<>(patterns));
+    }
+    private record Fixture(AEKey goal, CompiledNetwork network) {}
 }

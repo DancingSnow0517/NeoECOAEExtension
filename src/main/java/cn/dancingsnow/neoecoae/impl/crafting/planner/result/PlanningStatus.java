@@ -3,6 +3,9 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 public enum PlanningStatus {
     SUCCESS,
     MISSING_ITEMS,
+    PARTIAL,
+    CYCLE_UNRESOLVED,
+    UNSUPPORTED,
     PARTIAL_UNSUPPORTED,
     CYCLE_UNSUPPORTED,
     CANCELLED,
