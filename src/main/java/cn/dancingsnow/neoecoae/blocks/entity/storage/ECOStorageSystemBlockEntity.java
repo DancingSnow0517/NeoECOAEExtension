@@ -663,14 +663,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
-        IStorageProvider.requestUpdate(getMainNode());
+        refreshDriveStorageProviders();
         setChanged();
         markForUpdate();
     }
 
-    private boolean isStorageInterfaceTransferMode() {
+    public boolean isStorageInterfaceTransferMode() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
-        return isFormedInfiniteMode() && storageInterface != null && storageInterface.isStorageTransferMode();
+        return formed && storageInterface != null && storageInterface.isStorageTransferMode();
     }
 
     @Nullable
@@ -679,26 +679,82 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
-        if (!isFormedInfiniteMode() || !storageInterface.isStorageTransferMode()) {
-            if (storageInterface.isStorageTransferMode()) storageInterface.setStorageInterfaceMode(cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE);
-            return 0L;
-        }
+        if (!formed || !storageInterface.isStorageTransferMode()) return 0L;
         if (!storageInterface.isTargetOnline()) return 0L;
         var grid = storageInterface.getMainNode().getGrid();
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (grid == null || engine == null) return 0L;
+        if (grid == null) return 0L;
         MEStorage network = grid.getStorageService().getInventory();
-        MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+        MEStorage hostStorage = getStorageInterfaceHostStorage();
+        if (hostStorage == null) return 0L;
         IActionSource source = IActionSource.ofMachine(storageInterface);
         long moved = storageInterface.isStorageInputMode()
-            ? transferLimited(network, domain, source, true)
-            : transferLimited(domain, network, source, false);
+            ? transferLimited(network, hostStorage, source, true)
+            : transferLimited(hostStorage, network, source, false);
         if (moved > 0L) {
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             setChanged();
             markForUpdate();
         }
         return moved;
+    }
+
+    @Nullable
+    private MEStorage getStorageInterfaceHostStorage() {
+        if (isFormedInfiniteMode()) {
+            ECOInfiniteStorageEngine engine = getInfiniteEngine();
+            return engine == null ? null : new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+        }
+        if (cluster == null) return null;
+
+        List<MEStorage> cells = new ArrayList<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell cell = drive.getCellInventory();
+            if (cell != null
+                && tier.compareTo(cell.getTier()) >= 0
+                && !isInfiniteMemberCell(drive.getCellStack())) {
+                cells.add(cell);
+            }
+        }
+        return cells.isEmpty() ? null : new CombinedStorage(cells, getBlockState().getBlock().getName());
+    }
+
+    private record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
+        implements MEStorage {
+        private CombinedStorage {
+            inventories = List.copyOf(inventories);
+        }
+
+        @Override
+        public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
+            long inserted = 0L;
+            for (MEStorage inventory : inventories) {
+                if (inserted >= amount) break;
+                inserted += inventory.insert(key, amount - inserted, mode, source);
+            }
+            return inserted;
+        }
+
+        @Override
+        public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
+            long extracted = 0L;
+            for (MEStorage inventory : inventories) {
+                if (extracted >= amount) break;
+                extracted += inventory.extract(key, amount - extracted, mode, source);
+            }
+            return extracted;
+        }
+
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
+            for (MEStorage inventory : inventories) {
+                inventory.getAvailableStacks(out);
+            }
+        }
+
+        @Override
+        public net.minecraft.network.chat.Component getDescription() {
+            return description;
+        }
     }
 
     private static long transferLimited(

@@ -214,7 +214,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
         ECOStorageInterfaceMode next = mode == null ? ECOStorageInterfaceMode.STORAGE : mode;
-        if (next != ECOStorageInterfaceMode.STORAGE && !isInfiniteTransferAvailable()) next = ECOStorageInterfaceMode.STORAGE;
         if (storageInterfaceMode == next) return;
         storageInterfaceMode = next;
         transferredLastTick = 0L;
