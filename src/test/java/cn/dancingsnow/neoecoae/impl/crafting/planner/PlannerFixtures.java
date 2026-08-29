@@ -17,11 +17,15 @@ import net.minecraft.world.level.Level;
 final class PlannerFixtures {
     private PlannerFixtures() {}
     static Pattern pattern(String name, AEKey output, long outputAmount, Object... inputPairs) {
+        return multiOutput(name, List.of(new GenericStack(output, outputAmount)), inputPairs);
+    }
+    /** Multi-output pattern fixture: byproducts and shared producers both need more than one output stack. */
+    static Pattern multiOutput(String name, List<GenericStack> outputs, Object... inputPairs) {
         List<IPatternDetails.IInput> inputs = new ArrayList<>();
         for (int i = 0; i < inputPairs.length; i += 2) {
             inputs.add(new Input((AEKey) inputPairs[i], ((Number) inputPairs[i + 1]).longValue(), false));
         }
-        return new Pattern(name, inputs.toArray(IPatternDetails.IInput[]::new), List.of(new GenericStack(output, outputAmount)));
+        return new Pattern(name, inputs.toArray(IPatternDetails.IInput[]::new), List.copyOf(outputs));
     }
     static CompiledPattern compiled(int id, Pattern pattern, AEKey output, boolean fast, String reason) {
         List<CompiledInput> inputs = new ArrayList<>();

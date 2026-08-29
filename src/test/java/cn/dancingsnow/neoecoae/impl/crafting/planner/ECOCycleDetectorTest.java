@@ -136,6 +136,57 @@ class ECOCycleDetectorTest {
             () -> { throw new InterruptedException("cancelled"); }));
     }
 
+    @Test void theoreticalCycleCandidateDoesNotPoisonFirstAcyclicCandidate() throws Exception {
+        AEKey iron = key("false_iron"), x = key("false_x"), y = key("false_y");
+        var p1 = PlannerFixtures.pattern("iron_x", x, 1, iron, 1L);
+        var p2 = PlannerFixtures.pattern("y_x", x, 1, y, 1L);
+        var p3 = PlannerFixtures.pattern("x_y", y, 1, x, 1L);
+        CompiledNetwork network = network(x, Map.of(iron, List.of(),
+            x, List.of(PlannerFixtures.compiled(0, p1, x, true, ""), PlannerFixtures.compiled(1, p2, x, true, "")),
+            y, one(PlannerFixtures.compiled(2, p3, y, true, ""))));
+        KeyCounter stock = new KeyCounter(); stock.add(iron, 1);
+        var result = plan(network, stock, false);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, result.state().patternTimes().get(p1));
+        assertTrue(result.trace().cycles().isEmpty());
+    }
+
+    @Test void cyclicFirstCandidateIsDeferredAndLaterProducerSucceeds() throws Exception {
+        AEKey iron = key("defer_iron"), x = key("defer_x"), y = key("defer_y");
+        var cyclic = PlannerFixtures.pattern("y_x", x, 1, y, 1L);
+        var valid = PlannerFixtures.pattern("iron_x", x, 1, iron, 1L);
+        var back = PlannerFixtures.pattern("x_y", y, 1, x, 1L);
+        CompiledNetwork network = network(x, Map.of(iron, List.of(),
+            x, List.of(PlannerFixtures.compiled(0, cyclic, x, true, ""),
+                PlannerFixtures.compiled(1, valid, x, true, "")),
+            y, one(PlannerFixtures.compiled(2, back, y, true, ""))));
+        KeyCounter stock = new KeyCounter(); stock.add(iron, 1);
+        var result = plan(network, stock, false);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, result.state().patternTimes().get(valid));
+        assertEquals(0, result.state().patternTimes().getOrDefault(cyclic, 0L));
+        assertTrue(result.trace().diagnostics().stream()
+            .anyMatch(d -> d.code() == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic.Code.CANDIDATE_DEFERRED_CYCLE));
+    }
+
+    @Test void cycleComponentIsCreatedOnlyWhenNoAlternateProducerExists() throws Exception {
+        AEKey x = key("only_x"), y = key("only_y");
+        CompiledNetwork network = network(x, Map.of(x, one(edge(0, x, y)), y, one(edge(1, y, x))));
+        var result = plan(network, new KeyCounter(), false);
+        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
+        assertEquals(Set.of(x, y), Set.copyOf(result.trace().cycles().getFirst().members()));
+        assertEquals(0, result.state().missingItems().get(x));
+        assertEquals(0, result.state().missingItems().get(y));
+    }
+
+    @Test void activeTarjanExcludesAcyclicTailFromComplexScc() throws Exception {
+        AEKey a = key("complex_a"), b = key("complex_b"), c = key("complex_c"), d = key("complex_d");
+        var result = analyze(network(a, Map.of(a, one(edge(0, a, b)), b, one(edge(1, b, c)),
+            c, one(edge(2, c, d)), d, one(edge(3, d, b)))));
+        assertEquals(Set.of(b, c, d), Set.copyOf(result.cycles().getFirst().members()));
+        assertFalse(result.cycles().getFirst().members().contains(a));
+    }
+
     private static ComponentPlanner.Outcome plan(CompiledNetwork network, KeyCounter stock, boolean enabled)
             throws Exception {
         var condensation = analyze(network);

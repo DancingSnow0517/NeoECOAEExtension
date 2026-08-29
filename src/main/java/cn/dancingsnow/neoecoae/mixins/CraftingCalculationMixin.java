@@ -33,6 +33,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     private ECOCraftingPlannerService.Session neoecoae$plannerSession;
     @Unique
     private ECOPlanningResult neoecoae$lastPlanningResult;
+    /** Prevents a native fallback path from re-entering the ECO hook if AE2 invokes the attempt again. */
+    @Unique
+    private boolean neoecoae$nativeFallbackBypass;
 
     @Shadow
     abstract void handlePausing() throws InterruptedException;
@@ -67,6 +70,10 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (neoecoae$plannerSession == null) {
             return;
         }
+        if (neoecoae$nativeFallbackBypass) {
+            neoecoae$nativeFallbackBypass = false;
+            return;
+        }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {
@@ -77,6 +84,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
             case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
                 // Keep the structured diagnostic, but preserve AE2 semantics through its native planner.
+                neoecoae$nativeFallbackBypass = true;
             }
         }
     }

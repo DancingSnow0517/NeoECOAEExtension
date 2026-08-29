@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -276,21 +277,46 @@ public class ECOCraftingCPULogic {
         var job = this.job;
         if (job == null)
             return 0;
+        if (!cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler.metadataAvailable(
+                job.requiresOrderedCycleExecution, job.executionSchedule, job.cycleWitnessMissing)) {
+            LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
+            return 0;
+        }
+        job.advanceCompletedPhases();
+        var activePhase = job.activePhase();
+        boolean componentScheduled = job.requiresOrderedCycleExecution;
+        if (componentScheduled && activePhase == null) return 0;
 
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
         try {
-            var it = job.tasks.entrySet().iterator();
+            java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it;
+            boolean orderedWitness = activePhase != null
+                && activePhase.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE
+                && job.cycleWitnessIndex < activePhase.cycleWitness().size();
+            if (orderedWitness) {
+                var expected = activePhase.cycleWitness().get(job.cycleWitnessIndex);
+                var progress = job.tasks.get(expected);
+                if (progress == null || progress.value <= 0) {
+                    LOGGER.error("Current cycle witness step has no remaining task; refusing to skip ordered step");
+                    return 0;
+                }
+                it = job.tasks.entrySet().iterator();
+            } else {
+                it = job.tasks.entrySet().iterator();
+            }
             taskLoop: while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
-                    it.remove();
+                    if (!componentScheduled) it.remove();
                     continue;
                 }
 
                 var details = task.getKey();
+                if (activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                        .canDispatch(activePhase, job.cycleWitnessIndex, details)) continue;
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
@@ -319,13 +345,12 @@ public class ECOCraftingCPULogic {
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-                    long batchResult = tryPushVerifiedVirtualBatch(
-                            job,
-                            execution,
-                            craftingContainer,
-                            candidateProviders,
-                            task.getValue().value);
-                    if (batchResult == 0L) {
+                    long batchResult = 0L;
+                    if (!orderedWitness) {
+                        batchResult = tryPushVerifiedVirtualBatch(
+                            job, execution, craftingContainer, candidateProviders, task.getValue().value);
+                    }
+                    if (!orderedWitness && batchResult == 0L) {
                         batchResult = tryPushVerifiedFastPathBatch(
                             job,
                             execution,
@@ -345,7 +370,7 @@ public class ECOCraftingCPULogic {
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            it.remove();
+                            if (!componentScheduled) it.remove();
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -395,11 +420,14 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         recordPushedPattern(job, execution, 1);
+                        if (orderedWitness) job.cycleWitnessIndex =
+                            cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                                .witnessAfterDispatch(job.cycleWitnessIndex, true);
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            it.remove();
+                            if (!componentScheduled) it.remove();
                             continue taskLoop;
                         }
 
