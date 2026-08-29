@@ -784,7 +784,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         List<UIElement> upgradeSlots = new ArrayList<>(4);
         for (int i = 0; i < 4; i++) {
             upgradeSlots.add(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
-                .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE)))
+                .slotStyle(style -> style
+                    .slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE))
+                    .showSlotOverlayOnlyEmpty(true))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     List<Component> tooltips = new ArrayList<>();
                     tooltips.add(GuiText.CompatibleUpgrades.text());

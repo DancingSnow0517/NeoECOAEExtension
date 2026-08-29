@@ -10,6 +10,8 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.math.Size;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.util.Mth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +97,29 @@ public class NETextures {
     public static final IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/slot.png"))
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
+
+    public static final IGuiTexture AE2_SLOT_HIGHLIGHT =
+        (graphics, mouseX, mouseY, x, y, width, height, partialTicks) -> {
+            int left = Mth.floor(x);
+            int top = Mth.floor(y);
+            int right = Mth.floor(x + width);
+            int bottom = Mth.floor(y + height);
+
+            graphics.hLine(left, right, top - 1, 0xFFDAFFFF);
+            graphics.hLine(left - 1, right, bottom, 0xFFDAFFFF);
+            graphics.vLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
+            graphics.vLine(right, top - 2, bottom, 0xFFDAFFFF);
+            graphics.fillGradient(
+                RenderType.guiOverlay(),
+                left,
+                top,
+                right,
+                bottom,
+                0x669CD3FF,
+                0x669CD3FF,
+                0
+            );
+        };
 
     public static final IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
         .setSpriteSize(Size.of(6, 18));

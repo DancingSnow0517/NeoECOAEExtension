@@ -33,17 +33,17 @@ button.__disabled__ .__button_text__ {
 // slot
 item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 pattern-item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 fluid-slot {
   background: built-in(ui-eco:ITEM_SLOT);
-  hover-overlay: #A0daffff
+  hover-overlay: built-in(ui-eco:AE2_SLOT_HIGHLIGHT);
 }
 
 // progress bar

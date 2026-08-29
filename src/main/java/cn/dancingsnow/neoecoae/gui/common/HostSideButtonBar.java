@@ -103,7 +103,7 @@ public final class HostSideButtonBar {
             int segmentIndex = index;
             int segmentTop = segmentTop(segmentIndex);
             int segmentHeight = segmentHeight(segmentIndex, elementCount);
-            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side);
+            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side, contentType);
             UIElement segment = new UIElement().layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(0);
@@ -125,6 +125,7 @@ public final class HostSideButtonBar {
     }
 
     private static void applySlotStyle(UIElement slot, int top) {
+        slot.style(style -> style.backgroundTexture(AETextures.slotWithFrame()));
         slot.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(SLOT_LEFT);
@@ -209,7 +210,7 @@ public final class HostSideButtonBar {
         return index == buttonCount - 1 ? BOTTOM_HEIGHT : MIDDLE_HEIGHT;
     }
 
-    private static IGuiTexture texture(int index, int buttonCount, Side side) {
+    private static IGuiTexture texture(int index, int buttonCount, Side side, ContentType contentType) {
         String fileName;
         if (index == 0) {
             fileName = "button_slot_up.png";
@@ -218,9 +219,9 @@ public final class HostSideButtonBar {
         } else {
             fileName = "button_slot_middle.png";
         }
-        SpriteTexture texture = SpriteTexture.of(NeoECOAE.id("textures/gui/" + fileName));
-        // Negative SpriteTexture scaling does not render reliably in the LDLib
-        // GUI renderer. Keep the shared segment texture drawable on both sides.
-        return texture;
+        if (side == Side.RIGHT && contentType == ContentType.SLOT) {
+            fileName = "mirrored_" + fileName;
+        }
+        return SpriteTexture.of(NeoECOAE.id("textures/gui/" + fileName));
     }
 }
