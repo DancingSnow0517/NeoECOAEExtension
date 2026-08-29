@@ -87,8 +87,22 @@ public class ExecutingCraftingJob {
 
     boolean phaseComplete(ECOExecutionSchedule.ComponentExecutionPhase phase) {
         return ECOPhaseScheduler.isComplete(phase, cycleWitnessIndex,
-            pattern -> tasks.containsKey(pattern) ? tasks.get(pattern).value : 0L,
+            this::remainingTasksFor,
             key -> waitingFor.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) > 0);
+    }
+
+    long remainingTasksFor(IPatternDetails pattern) {
+        for (var task : tasks.entrySet()) {
+            if (ECOPhaseScheduler.samePattern(pattern, task.getKey())) return task.getValue().value;
+        }
+        return 0L;
+    }
+
+    @Nullable Map.Entry<IPatternDetails, TaskProgress> taskFor(IPatternDetails pattern) {
+        for (var task : tasks.entrySet()) {
+            if (ECOPhaseScheduler.samePattern(pattern, task.getKey())) return task;
+        }
+        return null;
     }
 
     void advanceCompletedPhases() {

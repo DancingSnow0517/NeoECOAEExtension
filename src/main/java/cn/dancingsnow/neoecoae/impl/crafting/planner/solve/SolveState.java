@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
+import java.util.List;
 
 public final class SolveState {
     final KeyCounter stored = new KeyCounter();
@@ -37,39 +38,79 @@ public final class SolveState {
     public boolean hasPlannedCrafting() { return !patternTimes.isEmpty(); }
     public long bytes() { return bytes; }
 
-    /** Atomically merges a verified cycle answer into this state. */
-    public boolean applyCycleSolution(CycleSolveResult result, KeyCounter inventory) {
-        if (result == null || result.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
-                || !result.seedShortfall().isEmpty()) return false;
+    /** Exposes a disabled cycle as a normal AE2 missing entry without inventing missing internal SCC members. */
+    void markCycleMissing(Map<AEKey, Long> requiredOutputs) {
+        for (var entry : requiredOutputs.entrySet()) {
+            long amount = entry.getValue();
+            if (amount > 0) missing.set(entry.getKey(), Math.max(missing.get(entry.getKey()), amount));
+        }
+    }
+
+    /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
+    boolean applyCycleTransaction(CycleSolveResult cycle, KeyCounter inventory,
+            KeyCounter directExternalReservations, List<SolveState> externalStates) {
+        if (cycle == null || cycle.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
+                || !cycle.seedShortfall().isEmpty()) return false;
+        SolveState candidate = copy();
         try {
-            // Validate first, then mutate, so a rejected answer cannot partially commit.
-            for (var e : result.deliverableOutputs().entrySet())
-                if (e.getValue() < 0 || e.getValue() < 0L) return false;
-            for (var e : result.requiredSeed().entrySet()) {
-                long already = used.get(e.getKey());
-                long available = Math.max(0L, inventory.get(e.getKey()) - already);
-                if (e.getValue() < 0 || e.getValue() > available) return false;
+            for (var entry : cycle.requiredSeed().entrySet()) {
+                if (entry.getValue() < 0) return false;
+                addCounter(candidate.used, entry.getKey(), entry.getValue());
             }
-            for (var e : result.positiveExternalDemand().entrySet()) {
-                long already = used.get(e.getKey());
-                long available = Math.max(0L, inventory.get(e.getKey()) - already);
-                if (e.getValue() > available) return false;
+            for (var entry : directExternalReservations) addCounter(candidate.used, entry.getKey(), entry.getLongValue());
+            for (SolveState external : externalStates) candidate.mergeExternal(external);
+            for (var entry : cycle.patternTimes().entrySet()) {
+                if (entry.getValue() < 0) return false;
+                candidate.patternTimes.merge(entry.getKey(), entry.getValue(), Math::addExact);
             }
-            for (var e : result.patternTimes().entrySet()) if (e.getValue() < 0) return false;
-            Map<IPatternDetails, Long> merged = new LinkedHashMap<>(patternTimes);
-            for (var e : result.patternTimes().entrySet()) merged.merge(e.getKey(), e.getValue(), Math::addExact);
-            for (var e : result.requiredSeed().entrySet()) if (e.getValue() > 0)
-                used.add(e.getKey(), e.getValue());
-            for (var e : result.positiveExternalDemand().entrySet()) if (e.getValue() > 0)
-                used.add(e.getKey(), e.getValue());
-            for (var e : result.patternTimes().entrySet()) {
-                // applied below from the prevalidated merged map
-            }
-            patternTimes.clear();
-            patternTimes.putAll(merged);
+            for (var entry : candidate.used) if (entry.getLongValue() > inventory.get(entry.getKey())) return false;
+            replaceWith(candidate);
             return true;
-        } catch (ArithmeticException ex) {
+        } catch (ArithmeticException | IllegalArgumentException ignored) {
             return false;
         }
+    }
+
+    private SolveState copy() {
+        SolveState copy = new SolveState(new KeyCounter());
+        copyCounter(stored, copy.stored); copyCounter(crafted, copy.crafted); copyCounter(used, copy.used);
+        copyCounter(emitted, copy.emitted); copyCounter(missing, copy.missing);
+        copy.demand.putAll(demand); copy.patternTimes.putAll(patternTimes); copy.selected.putAll(selected);
+        parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
+        copy.unsupported.addAll(unsupported); copy.bytes = bytes;
+        return copy;
+    }
+
+    private void mergeExternal(SolveState external) {
+        if (!external.missing.isEmpty() || !external.unsupported.isEmpty()) throw new IllegalArgumentException();
+        for (var entry : external.used) addCounter(used, entry.getKey(), entry.getLongValue());
+        for (var entry : external.emitted) addCounter(emitted, entry.getKey(), entry.getLongValue());
+        external.demand.forEach((key, value) -> demand.merge(key, value, Math::addExact));
+        external.patternTimes.forEach((key, value) -> patternTimes.merge(key, value, Math::addExact));
+        selected.putAll(external.selected);
+        external.parents.forEach((key, value) -> parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
+        bytes = Math.addExact(bytes, external.bytes);
+    }
+
+    private void replaceWith(SolveState source) {
+        replaceCounter(stored, source.stored); replaceCounter(crafted, source.crafted);
+        replaceCounter(used, source.used); replaceCounter(emitted, source.emitted); replaceCounter(missing, source.missing);
+        demand.clear(); demand.putAll(source.demand); patternTimes.clear(); patternTimes.putAll(source.patternTimes);
+        selected.clear(); selected.putAll(source.selected); parents.clear();
+        source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
+        unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;
+    }
+
+    private static void addCounter(KeyCounter counter, AEKey key, long amount) {
+        counter.set(key, Math.addExact(counter.get(key), amount));
+    }
+    private static void copyCounter(KeyCounter source, KeyCounter target) {
+        for (var entry : source) target.set(entry.getKey(), entry.getLongValue());
+    }
+    private static void replaceCounter(KeyCounter target, KeyCounter source) {
+        var keys = new java.util.ArrayList<AEKey>();
+        for (var entry : target) keys.add(entry.getKey());
+        for (AEKey key : keys) target.set(key, 0);
+        copyCounter(source, target);
     }
 }

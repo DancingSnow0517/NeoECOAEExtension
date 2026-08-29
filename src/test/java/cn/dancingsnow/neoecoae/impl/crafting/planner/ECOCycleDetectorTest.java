@@ -93,13 +93,14 @@ class ECOCycleDetectorTest {
         assertTrue(result.cycles().isEmpty());
     }
 
-    @Test void disabledCycleIsStructuredAndNeverMissing() throws Exception {
+    @Test void disabledCycleIsShownInCycleListAndMissingPool() throws Exception {
         Fixture fixture = simpleCycle();
         KeyCounter stock = new KeyCounter(); stock.add(fixture.goal(), 1);
         var result = plan(fixture.network(), stock, false);
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
-        assertEquals(0, result.state().missingItems().get(fixture.goal()));
+        assertEquals(1, result.state().missingItems().get(fixture.goal()));
         assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
+        assertTrue(result.trace().cycles().getFirst().members().contains(fixture.goal()));
     }
 
     @Test void enabledCycleCallsUnsupportedStubWithoutCrashing() throws Exception {
@@ -126,7 +127,8 @@ class ECOCycleDetectorTest {
         assertEquals(PlanningStatus.PARTIAL, result.status());
         assertEquals(1, result.state().usedItems().get(raw));
         assertEquals(1, result.state().patternTimes().get(px));
-        assertEquals(0, result.state().missingItems().get(a));
+        assertEquals(1, result.state().missingItems().get(a));
+        assertTrue(result.trace().cycles().stream().anyMatch(c -> c.members().contains(a)));
     }
 
     @Test void structuralAnalysisPropagatesCancellation() {
@@ -175,7 +177,7 @@ class ECOCycleDetectorTest {
         var result = plan(network, new KeyCounter(), false);
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
         assertEquals(Set.of(x, y), Set.copyOf(result.trace().cycles().getFirst().members()));
-        assertEquals(0, result.state().missingItems().get(x));
+        assertEquals(1, result.state().missingItems().get(x));
         assertEquals(0, result.state().missingItems().get(y));
     }
 

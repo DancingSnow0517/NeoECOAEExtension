@@ -16,10 +16,19 @@ public final class ECOPhaseScheduler {
 
     public static boolean canDispatch(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
             IPatternDetails pattern) {
-        if (!phase.patternSet().contains(pattern)) return false;
+        if (phase.patternSet().stream().noneMatch(member -> samePattern(member, pattern))) return false;
         if (phase.type() == ECOExecutionSchedule.Type.DAG) return true;
         return witnessIndex >= 0 && witnessIndex < phase.cycleWitness().size()
-            && phase.cycleWitness().get(witnessIndex) == pattern;
+            && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
+    }
+
+    /** Pattern detail instances may be reconstructed by AE2; the encoded pattern item is the stable identity. */
+    public static boolean samePattern(IPatternDetails left, IPatternDetails right) {
+        if (left == right) return true;
+        if (left == null || right == null) return false;
+        var leftDefinition = left.getDefinition();
+        var rightDefinition = right.getDefinition();
+        return leftDefinition != null && leftDefinition.equals(rightDefinition);
     }
 
     public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,

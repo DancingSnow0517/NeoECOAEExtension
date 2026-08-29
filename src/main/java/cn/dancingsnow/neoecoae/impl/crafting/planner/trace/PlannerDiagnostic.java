@@ -19,6 +19,11 @@ public record PlannerDiagnostic(Code code, String message) {
         CYCLE_BUDGET_EXHAUSTED,
         /** The cycle is beyond the stage-one structural limits. */
         CYCLE_TOO_COMPLEX,
+        CYCLE_EXTERNAL_DEMAND_SOLVED,
+        CYCLE_EXTERNAL_DEMAND_MISSING,
+        CYCLE_EXTERNAL_ROUTE_FORBIDDEN,
+        CYCLE_EXTERNAL_DEMAND_UNSUPPORTED,
+        CYCLE_EXTERNAL_DEMAND_OVERFLOW,
         AMOUNT_OVERFLOW,
         CANCELLED,
         INTERNAL_ERROR

@@ -24,6 +24,7 @@
     "extendedae.TileExIOPortMixin"
   ],
   "client": [
+    "client.CraftingCPUScreenMixin",
     "client.MenuScreensAccessor",
     "ModelBakeryMixin",
     "PatternEncodingTermScreenMixin"

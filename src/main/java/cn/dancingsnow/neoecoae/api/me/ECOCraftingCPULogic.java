@@ -119,6 +119,12 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
+        // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
+        // disables the cancel button because it derives that button from the visible status entries.
+        var initialStatusItems = new KeyCounter();
+        getAllItems(initialStatusItems);
+        for (var entry : initialStatusItems) postChange(entry.getKey());
 
         // 合成监视器暂不支持
         // cpu.updateOutput(plan.finalOutput());
@@ -297,8 +303,8 @@ public class ECOCraftingCPULogic {
                 && job.cycleWitnessIndex < activePhase.cycleWitness().size();
             if (orderedWitness) {
                 var expected = activePhase.cycleWitness().get(job.cycleWitnessIndex);
-                var progress = job.tasks.get(expected);
-                if (progress == null || progress.value <= 0) {
+                var expectedTask = job.taskFor(expected);
+                if (expectedTask == null || expectedTask.getValue().value <= 0) {
                     LOGGER.error("Current cycle witness step has no remaining task; refusing to skip ordered step");
                     return 0;
                 }

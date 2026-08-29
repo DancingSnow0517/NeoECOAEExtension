@@ -14,6 +14,8 @@ public record ComponentPlanningResult(
     Map<AEKey, Long> requiredOutputs,
     Set<IPatternDetails> patterns,
     @Nullable CyclePlanningStatus cycleStatus,
+    @Nullable CycleExternalDemandStatus externalDemandStatus,
+    Map<AEKey, Long> externalMissingItems,
     @Nullable String diagnostic,
     @Nullable CycleSolveResult cycleResult
 ) {
@@ -30,11 +32,12 @@ public record ComponentPlanningResult(
 
     public ComponentPlanningResult(int componentId, Type type, Status status, Map<AEKey, Long> requiredOutputs,
             @Nullable CyclePlanningStatus cycleStatus, @Nullable String diagnostic) {
-        this(componentId, type, status, requiredOutputs, Set.of(), cycleStatus, diagnostic, null);
+        this(componentId, type, status, requiredOutputs, Set.of(), cycleStatus, null, Map.of(), diagnostic, null);
     }
 
     public ComponentPlanningResult {
         requiredOutputs = Map.copyOf(requiredOutputs);
         patterns = Set.copyOf(patterns);
+        externalMissingItems = Map.copyOf(externalMissingItems);
     }
 }

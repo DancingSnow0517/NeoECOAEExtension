@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExternalDemandStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ComponentTrace;
@@ -40,11 +41,13 @@ public final class ComponentPlanner {
     private final AcyclicCraftingSolver acyclicSolver;
     private final CycleSolver cycleSolver;
     private final ActiveRouteSelector activeRouteSelector;
+    private final ExternalDemandPlanner externalDemandPlanner;
 
     public ComponentPlanner(AcyclicCraftingSolver acyclicSolver, CycleSolver cycleSolver) {
         this.acyclicSolver = acyclicSolver;
         this.cycleSolver = cycleSolver;
         this.activeRouteSelector = new ActiveRouteSelector();
+        this.externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
     }
 
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
@@ -93,7 +96,8 @@ public final class ComponentPlanner {
                     ComponentPlanningResult.Type.ACYCLIC,
                     demand > 0 ? ComponentPlanningResult.Status.PLANNED : ComponentPlanningResult.Status.NOT_REQUIRED,
                     demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
-                    acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()), null, null, null));
+                    acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
+                    null, null, Map.of(), null, null));
                 continue;
             }
 
@@ -103,41 +107,64 @@ public final class ComponentPlanner {
                 long demand = acyclic.state().demandFor(member);
                 if (demand > 0) requiredOutputs.put(member, demand);
             }
-            CyclePlanningStatus cycleStatus;
+            CyclePlanningStatus cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
             String diagnostic = null;
             CycleSolveResult cycleResult = null;
+            CycleExternalDemandStatus externalDemandStatus = null;
+            Map<AEKey, Long> externalMissingItems = Map.of();
             if (requiredOutputs.isEmpty()) {
                 cycleStatus = CyclePlanningStatus.NOT_REQUIRED;
             } else if (!cyclePlanningEnabled) {
                 cycleStatus = CyclePlanningStatus.DISABLED;
                 diagnostic = "Cycle planning is disabled";
                 unresolvedCycle = true;
+                // The structural cycle remains in CycleDiagnostic for the right-hand list. Mirror only the
+                // currently required cycle outputs into AE2's missing pool so a disabled cycle cannot look like
+                // a valid empty plan or be submitted without enabling cycle planning on the bound host.
+                acyclic.state().markCycleMissing(requiredOutputs);
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
             } else {
                 // The cycle solver is a plug-in: it receives a snapshot and never touches the DAG workspace.
                 Map<AEKey, Long> stock = relevantStock(cycle, inventory, acyclic.state());
-                cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, requiredOutputs, stock,
-                    cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
-                cycleStatus = CyclePlanningStatus.of(cycleResult.status());
-                diagnostic = cycleResult.summary();
-                unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
-                trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
-                if (cycleStatus == CyclePlanningStatus.SOLVED) {
-                    // Commit only after the complete solver answer has been validated. External demand is
-                    // reserved from the remaining stock here; a future route-aware pass may replace this
-                    // reservation with crafted intermediates without changing the transaction boundary.
-                    if (cycleResult.positiveExternalDemand().entrySet().stream().anyMatch(e ->
-                            e.getValue() > remaining(inventory, acyclic.state(), e.getKey()))) {
-                        cycleStatus = CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
-                        diagnostic = "External demand is unavailable: " + cycleResult.positiveExternalDemand();
+                Map<AEKey, Long> solveTargets;
+                try {
+                    solveTargets = additionalOutputTargets(requiredOutputs, stock, network.goal());
+                } catch (ArithmeticException overflow) {
+                    solveTargets = Map.of();
+                    cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
+                    diagnostic = "Cycle output target overflow while separating stored stock from new output";
+                    unresolvedCycle = true;
+                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
+                        diagnostic));
+                }
+                if (!solveTargets.isEmpty()) {
+                    cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, solveTargets, stock,
+                        cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
+                    cycleStatus = CyclePlanningStatus.of(cycleResult.status());
+                    diagnostic = cycleResult.summary();
+                    unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
+                    trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                }
+                if (cycleResult != null && cycleStatus == CyclePlanningStatus.SOLVED) {
+                    var external = externalDemandPlanner.solve(network, cycle, cycleResult, inventory,
+                        acyclic.state(), cancellation);
+                    externalDemandStatus = external.status();
+                    externalMissingItems = external.missingLeaves();
+                    trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
+                        external.diagnostic()));
+                    if (!external.solved()) {
+                        cycleStatus = external.status() == CycleExternalDemandStatus.UNSUPPORTED
+                            ? CyclePlanningStatus.UNSUPPORTED : CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
+                        diagnostic = external.diagnostic();
                         unresolvedCycle = true;
-                    } else if (!acyclic.state().applyCycleSolution(cycleResult, inventory)) {
+                    } else if (!acyclic.state().applyCycleTransaction(cycleResult, inventory,
+                            external.directReservations(), external.states())) {
                         cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
-                        diagnostic = "Cycle solution validation failed";
+                        diagnostic = "Cycle/external-DAG transaction validation failed";
                         unresolvedCycle = true;
                     } else {
                         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SOLVED,
-                            "Cycle merged with " + cycleResult.totalFirings() + " firing(s)"));
+                            "Cycle and external DAG merged with " + cycleResult.totalFirings() + " cycle firing(s)"));
                     }
                 }
             }
@@ -156,7 +183,8 @@ public final class ComponentPlanner {
             componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                 ComponentPlanningResult.Type.CYCLIC,
                 componentStatus(requiredOutputs, cycleStatus),
-                requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()), cycleStatus, diagnostic, cycleResult));
+                requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
+                cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult));
             cycleDiagnostics.add(diagnostic(cycle, inventory));
         }
 
@@ -187,6 +215,20 @@ public final class ComponentPlanner {
         return Math.max(0L, inventory.get(key) - state.usedItems().get(key));
     }
 
+    /**
+     * Cycle stock may enable the witness, but AE2 crafting amounts mean newly requested output. Without this
+     * translation, stored copies of the final output satisfy the solver target and produce an empty CPU job.
+     */
+    private static Map<AEKey, Long> additionalOutputTargets(Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, Long> relevantStock, AEKey finalGoal) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        requiredOutputs.forEach((key, amount) ->
+            result.put(key, key.equals(finalGoal)
+                ? Math.addExact(amount, Math.max(0L, relevantStock.getOrDefault(key, 0L)))
+                : amount));
+        return Map.copyOf(result);
+    }
+
     private static ComponentPlanningResult.Status componentStatus(Map<AEKey, Long> requiredOutputs,
             CyclePlanningStatus status) {
         if (requiredOutputs.isEmpty()) return ComponentPlanningResult.Status.NOT_REQUIRED;
@@ -206,6 +248,16 @@ public final class ComponentPlanner {
             case UNSUPPORTED -> PlannerDiagnostic.Code.CYCLE_UNSUPPORTED;
             case CANCELLED -> PlannerDiagnostic.Code.CANCELLED;
             default -> PlannerDiagnostic.Code.CYCLE_NOT_IMPLEMENTED;
+        };
+    }
+
+    private static PlannerDiagnostic.Code externalDiagnosticCode(CycleExternalDemandStatus status) {
+        return switch (status) {
+            case SOLVED -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_SOLVED;
+            case MISSING -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_MISSING;
+            case FORBIDDEN_ROUTE -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_ROUTE_FORBIDDEN;
+            case UNSUPPORTED -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_UNSUPPORTED;
+            case OVERFLOW -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_OVERFLOW;
         };
     }
 

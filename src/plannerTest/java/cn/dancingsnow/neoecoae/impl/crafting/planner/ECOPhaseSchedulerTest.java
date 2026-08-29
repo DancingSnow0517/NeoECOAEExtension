@@ -40,9 +40,9 @@ class ECOPhaseSchedulerTest {
     }
     @Test void scheduleUsesExplicitSupplierToConsumerIds() {
         var c1 = new ComponentPlanningResult(1, ComponentPlanningResult.Type.ACYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
         var c2 = new ComponentPlanningResult(2, ComponentPlanningResult.Type.CYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p2), null, null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p2), null, null, java.util.Map.of(), null, null);
         var schedule = ECOExecutionSchedule.from(List.of(c2, c1), List.of(1, 2));
         assertEquals(List.of(1, 2), schedule.phases().stream().map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
     }
