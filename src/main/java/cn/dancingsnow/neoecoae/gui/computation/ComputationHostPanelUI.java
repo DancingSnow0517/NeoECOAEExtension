@@ -242,8 +242,8 @@ public final class ComputationHostPanelUI {
             setMode(mode);
             layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
-                .left(0)
-                .top(1)
+                .left(-1)
+                .top(0)
                 .width(16)
                 .height(16));
         }
