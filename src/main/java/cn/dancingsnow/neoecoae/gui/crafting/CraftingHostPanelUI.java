@@ -156,7 +156,7 @@ public final class CraftingHostPanelUI {
                 .append(Component.translatable(config.formed.getAsBoolean()
                     ? "gui.neoecoae.common.yes"
                     : "gui.neoecoae.common.no")
-                    .withColor(config.formed.getAsBoolean() ? HostText.USED : PANEL_WARNING))));
+                    .withColor(config.formed.getAsBoolean() ? PANEL_SUCCESS : PANEL_WARNING))));
 
         header.addChild(titleBlock);
         return header;

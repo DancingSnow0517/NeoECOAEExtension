@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
@@ -25,7 +26,9 @@ public final class CraftingPlanningModeButton {
         Runnable toggle,
         int size
     ) {
-        Button button = HostSideButtonBar.createButton().noText();
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPreIcon(planningModeIcon(ignoringSubstitutions.getAsBoolean()));
         button.buttonStyle(style -> style
             .baseTexture(Sprites.RECT_RD)
             .hoverTexture(Sprites.RECT_RD_LIGHT)
@@ -33,9 +36,7 @@ public final class CraftingPlanningModeButton {
         button.addClass("eco-host-planning-mode-button");
         button.layout(layout -> layout.width(size).height(size));
 
-        UIElement icon = new UIElement().layout(layout -> layout.width(12).height(12));
-        updateIcon(icon, ignoringSubstitutions.getAsBoolean());
-        button.addChild(icon);
+        UIElement icon = button.getChildren().getFirst();
         button.setOnServerClick(event -> toggle.run());
 
         BindableValue<Boolean> syncedMode = new BindableValue<>(ignoringSubstitutions.getAsBoolean());
@@ -62,8 +63,12 @@ public final class CraftingPlanningModeButton {
     }
 
     private static void updateIcon(UIElement icon, boolean ignoringSubstitutions) {
-        icon.style(style -> style.backgroundTexture(AETextures.icon(ignoringSubstitutions
+        icon.style(style -> style.backgroundTexture(planningModeIcon(ignoringSubstitutions)));
+    }
+
+    private static IGuiTexture planningModeIcon(boolean ignoringSubstitutions) {
+        return AETextures.icon(ignoringSubstitutions
             ? Icon.SUBSTITUTION_DISABLED
-            : Icon.SUBSTITUTION_ENABLED)));
+            : Icon.SUBSTITUTION_ENABLED);
     }
 }
