@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostStatsText;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
@@ -723,19 +724,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return NEMath.saturatingMultiply(Math.max(0L, threadCountPerWorker), networkMultiplier);
     }
 
-    private int getPooledOverflowThreads() {
-        return Math.max(0, getPooledParallelism() - getPooledCraftingCapability());
-    }
-
     private Component getStatsTooltip() {
-        MutableComponent tooltip = Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.intro.0")
-            .append("\n")
-            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.intro.1"))
-            .append("\n\n")
-            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.host_details"));
+        MutableComponent tooltip = CraftingHostStatsText.detailTitle().copy();
         long totalCapacity = 0L;
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            int host = 1;
             for (NECraftingCluster member : cluster.getNetworkCluster().getMembers()) {
                 ECOCraftingSystemBlockEntity controller = member.getController();
                 if (controller == null) {
@@ -745,30 +737,20 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                     Math.max(0L, controller.threadCountPerWorker),
                     Math.max(1L, member.getNetworkMultiplier())
                 );
+                int threads = controller.getLocalThreadCount();
                 totalCapacity = NEMath.saturatingAdd(totalCapacity,
-                    NEMath.saturatingMultiply(member.getWorkers().size(), capacity));
-                tooltip.append("\n").append(Component.translatable(
-                    "gui.neoecoae.crafting.ui.stats.tooltip.host",
-                    host++, member.getWorkers().size(), Math.min(Integer.MAX_VALUE, capacity)
-                ));
+                    NEMath.saturatingMultiply(threads, capacity));
+                tooltip.append("\n").append(CraftingHostStatsText.hostLine(
+                    controller.hasHighEnergyNetworkSwitch(), threads, capacity));
             }
         } else {
-            int cores = getWorkerCount();
+            int threads = getLocalThreadCount();
             long capacity = getLocalSingleCoreProcessingCapacity();
-            totalCapacity = NEMath.saturatingMultiply(cores, capacity);
-            tooltip.append("\n").append(Component.translatable(
-                "gui.neoecoae.crafting.ui.stats.tooltip.host", 1, cores,
-                Math.min(Integer.MAX_VALUE, capacity)));
+            totalCapacity = NEMath.saturatingMultiply(threads, capacity);
+            tooltip.append("\n").append(CraftingHostStatsText.hostLine(
+                hasHighEnergyNetworkSwitch(), threads, capacity));
         }
-        int displayedCapacity = (int) Math.min(Integer.MAX_VALUE, totalCapacity);
-        tooltip.append("\n\n")
-            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.fx_cores",
-                getPooledActiveWorkerCount(), getPooledWorkerCount()))
-            .append("\n")
-            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.tasks",
-                Math.min(displayedCapacity, Math.max(0, getRunningThreadCount())), displayedCapacity))
-            .append("\n")
-            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.total", displayedCapacity));
+        tooltip.append("\n").append(CraftingHostStatsText.totalLine(totalCapacity));
         return tooltip;
     }
 
@@ -857,8 +839,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getPooledActiveWorkerCount,
             this::getPooledWorkerCount,
             this::getSingleCoreProcessingCapacity,
-            this::getPooledParallelism,
-            this::getPooledOverflowThreads,
             this::getEffectiveOverclockTimes,
             this::getStatsTooltip,
             this::getPerformanceAverageNanos,

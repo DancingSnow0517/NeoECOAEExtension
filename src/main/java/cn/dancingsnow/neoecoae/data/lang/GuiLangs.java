@@ -94,13 +94,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.fx_cores", "FX Cores");
         provider.add("gui.neoecoae.crafting.ui.single_core_capacity", "Single-Core Capacity");
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Recipe Time");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.intro.0", "FX cores store and execute independent crafting tasks.");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.intro.1", "Each standard FX core stores up to 32 tasks.");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.host_details", "Per-Host Batch Details");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.fx_cores", "Active FX cores: %d / %d");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.tasks", "Task usage: %d / %d");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.total", "Maximum crafting efficiency: %d");
-        provider.add("gui.neoecoae.crafting.ui.stats.tooltip.host", "Host %d: %d FX cores, single-core batch %d");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Per-Host Batch Details");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%s · Task Slots %d · Batch %d");
+        provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
+        provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
