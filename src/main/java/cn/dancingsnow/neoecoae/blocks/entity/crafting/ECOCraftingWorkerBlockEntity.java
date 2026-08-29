@@ -110,6 +110,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 getFastPathCache().recordNoThreadReject();
                 return false;
             }
+            // Craft slots may be virtually unlimited, but thread objects never are.
+            int threadObjectCapacity = controller.getThreadObjectCapacityForWorker(this);
 
             int threadCount = craftingThreads.size();
             if (threadCount > 0) {
@@ -128,13 +130,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 }
             }
 
-            if (craftingThreads.size() >= workerThreadCapacity) {
+            if (craftingThreads.size() >= threadObjectCapacity) {
                 return false;
             }
 
             ECOCraftingThread thread = new ECOCraftingThread(this);
             craftingThreads.add(thread);
-            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
+            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, threadObjectCapacity);
             setChanged();
             markForUpdate();
             boolean accepted = thread.pushPattern(execution, controller, craftingJobId);
@@ -161,7 +163,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        int workerThreadCapacity = controller.getThreadCountForWorker(this);
+        int workerThreadCapacity = controller.getThreadObjectCapacityForWorker(this);
         if (verified.batchSize() > getAvailableThreadSlots()
             || verified.batchSize() > getControllerAvailableThreadSlots(controller)) {
             cache.recordNoThreadReject();
@@ -245,7 +247,10 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
-        return Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        return (int) Math.max(0L, Math.min(
+            Integer.MAX_VALUE,
+            (long) controller.getDispatchThreadCapacity() - controller.getRunningThreadCount()
+        ));
     }
 
     public int getCapacityMultiplier() {

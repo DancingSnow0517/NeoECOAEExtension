@@ -354,8 +354,12 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
-                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
+                        // A fully virtualized host is billed a flat group-wide draw per tick, so it neither
+                        // gates on nor pays this per-pattern charge.
+                        boolean flatRateProvider = paysFlatRateCraftingPower(provider);
+                        if (!flatRateProvider
+                                && energyService.extractAEPower(patternPower, Actionable.SIMULATE,
+                                    PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             break;
                         }
 
@@ -375,7 +379,9 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
-                        chargeAcceptedPatternEnergy(energyService, patternPower);
+                        if (!flatRateProvider) {
+                            chargeAcceptedPatternEnergy(energyService, patternPower);
+                        }
                         pushedPatterns++;
                         if (this.job != job) {
                             break taskLoop;
@@ -407,6 +413,18 @@ public class ECOCraftingCPULogic {
         }
 
         return pushedPatterns;
+    }
+
+    /**
+     * Whether this provider's crafting energy is already covered by the flat per-tick draw of a fully
+     * virtualized exchange group. Only ECO hosts can be: any other provider keeps paying per pattern.
+     */
+    private static boolean paysFlatRateCraftingPower(ICraftingProvider provider) {
+        if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
+            return false;
+        }
+        ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+        return controller != null && controller.isFullVirtualCraftingMode();
     }
 
     private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
@@ -513,8 +531,14 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
+        // A fully virtualized host pays one flat group-wide draw per tick instead of a per-craft charge, so the
+        // batch must be neither sized by nor billed for pattern power here.
+        boolean flatRatePower = controller.isFullVirtualCraftingMode();
+
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
-        batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
+        if (!flatRatePower) {
+            batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
+        }
         batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
         if (batchSize <= 1) {
             return 0;
@@ -532,7 +556,7 @@ public class ECOCraftingCPULogic {
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
-            double requiredPower = patternPower * batchSize;
+            double requiredPower = flatRatePower ? 0.0D : patternPower * batchSize;
             if (!Double.isFinite(requiredPower)) {
                 return 0;
             }
@@ -547,21 +571,23 @@ public class ECOCraftingCPULogic {
             }
             // The worker owns every input from this point onward. Never reinject them into the CPU.
             ownershipTransferred = true;
-            try {
-                double chargedPower = energyService.extractAEPower(
-                    requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
-                );
-                if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
-                    selectedOffer.worker().getFastPathCache().recordException();
-                    LOGGER.error(
-                        "ECO batch was accepted, but only {} of {} crafting energy was charged",
-                        chargedPower,
-                        requiredPower
+            if (!flatRatePower) {
+                try {
+                    double chargedPower = energyService.extractAEPower(
+                        requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
                     );
+                    if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
+                        selectedOffer.worker().getFastPathCache().recordException();
+                        LOGGER.error(
+                            "ECO batch was accepted, but only {} of {} crafting energy was charged",
+                            chargedPower,
+                            requiredPower
+                        );
+                    }
+                } catch (RuntimeException e) {
+                    selectedOffer.worker().getFastPathCache().recordException();
+                    LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
                 }
-            } catch (RuntimeException e) {
-                selectedOffer.worker().getFastPathCache().recordException();
-                LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
             }
             try {
                 if (this.job == job) {

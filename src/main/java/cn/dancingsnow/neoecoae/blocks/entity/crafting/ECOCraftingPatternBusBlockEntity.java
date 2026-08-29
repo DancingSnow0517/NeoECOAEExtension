@@ -293,7 +293,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
 
         long runningThreads = controller.getRunningThreadCount();
-        long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
+        long controllerRemaining = Math.max(0, controller.getDispatchThreadCapacity() - runningThreads);
         long workerRemaining = Math.max(
             0,
             (long) controller.getTotalWorkerThreadCapacity() - runningThreads

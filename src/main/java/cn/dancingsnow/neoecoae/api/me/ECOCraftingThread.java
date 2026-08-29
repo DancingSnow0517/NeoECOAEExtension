@@ -139,7 +139,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (!controller.tryConsumeTickBasedCoolant(occupiedThreadSlots, attemptedProgress, overlockTimes)) {
             return TickRateModulation.SLOWER;
         }
-        progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
+        progress += userPower(controller, ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
 
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
@@ -483,13 +483,24 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return inputs;
     }
 
-    private int userPower(int ticksPassed, int bonusValue, double acceleratorTax, int remainingProgress) {
+    private int userPower(
+        ECOCraftingSystemBlockEntity controller,
+        int ticksPassed,
+        int bonusValue,
+        double acceleratorTax,
+        int remainingProgress
+    ) {
         var grid = this.worker.getMainNode().getGrid();
         if (grid == null) {
             return 0;
         }
 
         int requestedProgress = calculateRequestedProgress(ticksPassed, bonusValue, remainingProgress);
+        if (controller.isFullVirtualCraftingMode()) {
+            // The group already pays a flat draw once per tick, so scaling this thread's cost by its occupied
+            // slots would bill the same work twice - and would make a large batch unaffordable by construction.
+            return controller.tryConsumeVirtualCraftingPower() ? requestedProgress : 0;
+        }
         double powerPerProgress = calculatePowerPerProgress(acceleratorTax, occupiedThreadSlots);
         if (requestedProgress <= 0 || powerPerProgress <= 0.0D) {
             return 0;

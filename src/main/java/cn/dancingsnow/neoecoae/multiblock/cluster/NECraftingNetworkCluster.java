@@ -10,6 +10,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.DoublePredicate;
 import java.util.function.ToLongFunction;
 
 /**
@@ -19,7 +20,18 @@ import java.util.function.ToLongFunction;
  * as a single aggregated host.
  */
 public class NECraftingNetworkCluster {
+    /**
+     * Flat crafting draw of a fully virtualized exchange group, in AE per tick. It replaces every scaling
+     * crafting charge - per craft, per batch and per occupied thread slot - so the cost of unlimited crafting
+     * is exactly this number for the whole group, no matter how many hosts, workers or crafts are in flight.
+     */
+    public static final long VIRTUAL_CRAFTING_POWER_PER_TICK = 10_000_000L;
+
     private final List<NECraftingCluster> members = new ArrayList<>();
+
+    /** Group-wide once-per-tick bookkeeping for {@link #VIRTUAL_CRAFTING_POWER_PER_TICK}. */
+    private long virtualPowerTick = Long.MIN_VALUE;
+    private boolean virtualPowerPaid = false;
 
     /**
      * Fast-path knowledge shared by every member of this exchange group: once one worker has really run
@@ -326,5 +338,22 @@ public class NECraftingNetworkCluster {
         }
         long total = NEMath.saturatingMultiply(localTotal, Math.max(1L, getCombinedSwitchMultiplier()));
         return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    /**
+     * Charges {@link #VIRTUAL_CRAFTING_POWER_PER_TICK} at most once per game tick for the whole group, and
+     * reports whether this tick is paid for. Every host and every thread of the group asks the same object, so
+     * the group is billed once no matter how many of them are working; the answer is memoized per tick so a
+     * second caller neither pays again nor gets a different answer.
+     *
+     * @param extractor pays the given amount from the shared ME grid, returning whether it was paid in full
+     */
+    public boolean tryConsumeVirtualCraftingPower(long currentTick, DoublePredicate extractor) {
+        if (virtualPowerTick == currentTick) {
+            return virtualPowerPaid;
+        }
+        virtualPowerTick = currentTick;
+        virtualPowerPaid = extractor.test(VIRTUAL_CRAFTING_POWER_PER_TICK);
+        return virtualPowerPaid;
     }
 }

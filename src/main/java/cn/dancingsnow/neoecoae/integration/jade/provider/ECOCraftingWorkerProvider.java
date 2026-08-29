@@ -56,11 +56,11 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 compoundTag.putInt("running", running);
                 compoundTag.putInt("max", max);
                 compoundTag.putInt("baseCapacity", controller.getLocalThreadCountForWorker(worker));
+                compoundTag.putBoolean("infinite", controller.isFullVirtualCraftingMode());
                 NECraftingNetworkCluster network = worker.getCluster().getNetworkCluster();
                 if (network != null) {
                     compoundTag.putInt("normalSwitchHosts", network.getNormalSwitchHostCount());
                     compoundTag.putInt("highEnergySwitchHosts", network.getHighEnergySwitchHostCount());
-                    compoundTag.putBoolean("infinite", network.isEndgameEligible());
                 }
             }
         }
