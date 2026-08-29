@@ -1054,6 +1054,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private static final class VerifiedPatternItemSlot extends PatternItemSlot {
         private VerifiedPatternItemSlot(Slot slot) {
             super(slot);
+            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
         }
 
         @Override
