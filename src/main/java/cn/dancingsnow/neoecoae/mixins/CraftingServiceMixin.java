@@ -12,13 +12,18 @@ import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingLink;
+import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
+import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
@@ -26,6 +31,7 @@ import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
@@ -44,7 +50,10 @@ import java.util.List;
 import java.util.Set;
 
 @Mixin(CraftingService.class)
-public abstract class CraftingServiceMixin {
+public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings {
+    @Unique
+    private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
+        "neoecoaeIgnorePatternSubstitutions";
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getPooledParallelism)
@@ -65,12 +74,23 @@ public abstract class CraftingServiceMixin {
     @Shadow
     @Final
     private Set<AEKey> currentlyCrafting;
+    @Shadow
+    @Final
+    private NetworkCraftingProviders craftingProviders;
 
     @Shadow
     public abstract void addLink(CraftingLink link);
 
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
+    @Unique
+    private boolean neoecoae$ignorePatternSubstitutions;
+    @Unique
+    private boolean neoecoae$planningModeInitialized;
+    @Unique
+    private long neoecoae$substitutionPatternCountVersion = Long.MIN_VALUE;
+    @Unique
+    private int neoecoae$substitutionPatternCount;
 
     @Inject(
         method = "onServerEndTick",
@@ -137,11 +157,94 @@ public abstract class CraftingServiceMixin {
         at = {@At("TAIL")}
     )
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
+        if (!neoecoae$planningModeInitialized
+            && savedData != null
+            && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY, Tag.TAG_BYTE)) {
+            neoecoae$ignorePatternSubstitutions = savedData.getBoolean(
+                NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
+            neoecoae$planningModeInitialized = true;
+        }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
             && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
             this.updateList = true;
         }
+
+        Object owner = gridNode.getOwner();
+        if (owner instanceof ECOCraftingSystemBlockEntity craftingHost) {
+            neoecoae$initializeOrSyncPlanningMode(
+                craftingHost.isLocallyIgnoringPatternSubstitutions(),
+                craftingHost::applyNetworkIgnoringPatternSubstitutions);
+        } else if (owner instanceof ECOComputationSystemBlockEntity computationHost) {
+            neoecoae$initializeOrSyncPlanningMode(
+                computationHost.isLocallyIgnoringPatternSubstitutions(),
+                computationHost::applyNetworkIgnoringPatternSubstitutions);
+        }
+    }
+
+    public void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
+        savedData.putBoolean(
+            NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
+            neoecoae$ignorePatternSubstitutions);
+    }
+
+    @Unique
+    private void neoecoae$initializeOrSyncPlanningMode(boolean persistedValue, java.util.function.Consumer<Boolean> apply) {
+        if (!neoecoae$planningModeInitialized) {
+            neoecoae$ignorePatternSubstitutions = persistedValue;
+            neoecoae$planningModeInitialized = true;
+        } else {
+            apply.accept(neoecoae$ignorePatternSubstitutions);
+        }
+    }
+
+    @Override
+    public boolean neoecoae$isIgnoringPatternSubstitutions() {
+        return neoecoae$ignorePatternSubstitutions;
+    }
+
+    @Override
+    public void neoecoae$setIgnoringPatternSubstitutions(boolean ignoringPatternSubstitutions) {
+        neoecoae$planningModeInitialized = true;
+        neoecoae$ignorePatternSubstitutions = ignoringPatternSubstitutions;
+        for (ECOCraftingSystemBlockEntity host : grid.getMachines(ECOCraftingSystemBlockEntity.class)) {
+            host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
+        }
+        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
+        }
+    }
+
+    @Override
+    public int neoecoae$getSubstitutionPatternCount() {
+        long version = craftingProviders.getLastModifiedOnTick();
+        if (version == neoecoae$substitutionPatternCountVersion) {
+            return neoecoae$substitutionPatternCount;
+        }
+
+        Set<IPatternDetails> patterns = new HashSet<>();
+        for (AEKey craftable : craftingProviders.getCraftableKeys()) {
+            patterns.addAll(craftingProviders.getCraftingFor(craftable));
+        }
+        neoecoae$substitutionPatternCount = (int) Math.min(Integer.MAX_VALUE, patterns.stream()
+            .filter(CraftingServiceMixin::neoecoae$hasSubstitutions)
+            .count());
+        neoecoae$substitutionPatternCountVersion = version;
+        return neoecoae$substitutionPatternCount;
+    }
+
+    @Unique
+    private static boolean neoecoae$hasSubstitutions(IPatternDetails pattern) {
+        if (pattern instanceof AECraftingPattern craftingPattern
+            && (craftingPattern.canSubstitute() || craftingPattern.canSubstituteFluids())) {
+            return true;
+        }
+        for (IPatternDetails.IInput input : pattern.getInputs()) {
+            if (input.getPossibleInputs().length > 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Inject(

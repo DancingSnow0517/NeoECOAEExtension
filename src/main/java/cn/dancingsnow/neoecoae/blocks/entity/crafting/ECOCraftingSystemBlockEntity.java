@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -88,6 +89,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Persisted
     private boolean activeCooling = false;
+
+    @Persisted
+    private boolean ignorePatternSubstitutions = false;
 
     @Getter
     @Persisted
@@ -715,13 +719,39 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private int getSingleCoreProcessingCapacity() {
-        long capacity = getLocalSingleCoreProcessingCapacity();
+        long capacity = getSingleCoreProcessingCapacityLong();
         return (int) Math.min(Integer.MAX_VALUE, capacity);
     }
 
-    private long getLocalSingleCoreProcessingCapacity() {
-        int networkMultiplier = cluster == null ? 1 : Math.max(1, cluster.getNetworkMultiplier());
+    private long getSingleCoreProcessingCapacityLong() {
+        if (isFullVirtualCraftingMode()) {
+            return Long.MAX_VALUE;
+        }
+        long networkMultiplier = cluster != null && cluster.getNetworkCluster() != null
+            ? Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
+            : 1L;
         return NEMath.saturatingMultiply(Math.max(0L, threadCountPerWorker), networkMultiplier);
+    }
+
+    private boolean isFullVirtualCraftingMode() {
+        return cluster != null
+            && cluster.getNetworkCluster() != null
+            && cluster.getNetworkCluster().isEndgameEligible();
+    }
+
+    private int getCraftingNetworkMemberCount() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getMembers().size()
+            : 1;
+    }
+
+    private Component getCraftingDisplayTitle() {
+        return getItemFromBlockEntity().getDescription().copy()
+            .append(" (")
+            .append(Integer.toString(getCraftingNetworkMemberCount()))
+            .append("/")
+            .append(Integer.toString(NEFrequencyAllocator.HOST_LIMIT))
+            .append(")");
     }
 
     private Component getStatsTooltip() {
@@ -733,10 +763,12 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 if (controller == null) {
                     continue;
                 }
-                long capacity = NEMath.saturatingMultiply(
-                    Math.max(0L, controller.threadCountPerWorker),
-                    Math.max(1L, member.getNetworkMultiplier())
-                );
+                long capacity = isFullVirtualCraftingMode()
+                    ? Long.MAX_VALUE
+                    : NEMath.saturatingMultiply(
+                        Math.max(0L, controller.threadCountPerWorker),
+                        Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
+                    );
                 int threads = controller.getLocalThreadCount();
                 totalCapacity = NEMath.saturatingAdd(totalCapacity,
                     NEMath.saturatingMultiply(threads, capacity));
@@ -745,7 +777,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             }
         } else {
             int threads = getLocalThreadCount();
-            long capacity = getLocalSingleCoreProcessingCapacity();
+            long capacity = getSingleCoreProcessingCapacityLong();
             totalCapacity = NEMath.saturatingMultiply(threads, capacity);
             tooltip.append("\n").append(CraftingHostStatsText.hostLine(
                 hasHighEnergyNetworkSwitch(), threads, capacity));
@@ -785,6 +817,17 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public boolean isLocallyActiveCooling() {
         return activeCooling;
+    }
+
+    public boolean isLocallyIgnoringPatternSubstitutions() {
+        return ignorePatternSubstitutions;
+    }
+
+    public void applyNetworkIgnoringPatternSubstitutions(boolean value) {
+        if (ignorePatternSubstitutions == value) return;
+        ignorePatternSubstitutions = value;
+        setChanged();
+        markForUpdate();
     }
 
     public void applyNetworkOverclocked(boolean value) {
@@ -828,7 +871,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
-            () -> getItemFromBlockEntity().getDescription(),
+            this::getCraftingDisplayTitle,
             () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
@@ -849,11 +892,37 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getDisplayedCoolantFluid,
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries,
+            this::isIgnoringPatternSubstitutions,
+            this::getSubstitutionPatternCount,
+            () -> toggleIgnoringPatternSubstitutions(player),
             this::getNetworkFrequency,
             delta -> {
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
             }
         );
+    }
+
+    private boolean isIgnoringPatternSubstitutions() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null
+            ? settings.neoecoae$isIgnoringPatternSubstitutions()
+            : ignorePatternSubstitutions;
+    }
+
+    private int getSubstitutionPatternCount() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings == null ? 0 : settings.neoecoae$getSubstitutionPatternCount();
+    }
+
+    private void toggleIgnoringPatternSubstitutions(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setIgnoringPatternSubstitutions(
+                !settings.neoecoae$isIgnoringPatternSubstitutions());
+        } else {
+            applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
+        }
     }
 
     private void setOverclocked(Player player, boolean overclocked) {

@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
@@ -73,6 +74,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
+    @Persisted
+    private boolean ignorePatternSubstitutions;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -164,6 +167,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
             ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
+            ComputationHostPanelUI.createPlanningModeButton(panelConfig),
             ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
@@ -186,11 +190,48 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             () -> cycleCpuSelectionMode(player),
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries,
+            this::isIgnoringPatternSubstitutions,
+            this::getSubstitutionPatternCount,
+            () -> toggleIgnoringPatternSubstitutions(player),
             this::getNetworkFrequency,
             delta -> {
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
             }
         );
+    }
+
+    public boolean isLocallyIgnoringPatternSubstitutions() {
+        return ignorePatternSubstitutions;
+    }
+
+    public void applyNetworkIgnoringPatternSubstitutions(boolean value) {
+        if (ignorePatternSubstitutions == value) return;
+        ignorePatternSubstitutions = value;
+        setChanged();
+        markForUpdate();
+    }
+
+    private boolean isIgnoringPatternSubstitutions() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null
+            ? settings.neoecoae$isIgnoringPatternSubstitutions()
+            : ignorePatternSubstitutions;
+    }
+
+    private int getSubstitutionPatternCount() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings == null ? 0 : settings.neoecoae$getSubstitutionPatternCount();
+    }
+
+    private void toggleIgnoringPatternSubstitutions(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setIgnoringPatternSubstitutions(
+                !settings.neoecoae$isIgnoringPatternSubstitutions());
+        } else {
+            applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
+        }
     }
 
     public CpuSelectionMode getCpuSelectionMode() {

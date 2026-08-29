@@ -4,6 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.CraftingPlanningModeButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
@@ -30,6 +31,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.IntConsumer;
 import java.util.function.LongSupplier;
@@ -68,6 +70,9 @@ public final class ComputationHostPanelUI {
         Runnable cycleCpuSelectionMode,
         Supplier<HolderLookup.Provider> registries,
         Supplier<List<ComputationTaskEntry>> tasks,
+        BooleanSupplier ignoringPatternSubstitutions,
+        IntSupplier substitutionPatternCount,
+        Runnable toggleIgnoringPatternSubstitutions,
         IntSupplier networkFrequency,
         IntConsumer adjustNetworkFrequency
     ) {
@@ -154,6 +159,14 @@ public final class ComputationHostPanelUI {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
         return button;
+    }
+
+    public static Button createPlanningModeButton(Config config) {
+        return CraftingPlanningModeButton.create(
+            config.ignoringPatternSubstitutions,
+            config.substitutionPatternCount,
+            config.toggleIgnoringPatternSubstitutions,
+            CPU_MODE_BUTTON_SIZE);
     }
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {

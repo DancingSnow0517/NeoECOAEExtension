@@ -92,8 +92,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.overclock_short", "OC");
         provider.add("gui.neoecoae.crafting.ui.cooling_short", "Cool");
         provider.add("gui.neoecoae.crafting.ui.fx_cores", "FX Cores");
-        provider.add("gui.neoecoae.crafting.ui.single_core_capacity", "Single-Core Capacity");
-        provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Recipe Time");
+        provider.add("gui.neoecoae.crafting.ui.single_core_capacity", "Processing Capacity");
+        provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Runtime");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Per-Host Batch Details");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
         provider.add("gui.neoecoae.host.crafting.host_line", "%s · Task Slots %d · Batch %d");
@@ -108,6 +108,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
+        provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.on",
+            "Disable Ignore Pattern Substitutions");
+        provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.off",
+            "Enable Ignore Pattern Substitutions");
+        provider.add("gui.neoecoae.crafting.planning.substitution_pattern_count",
+            "Currently %d substitution-enabled patterns");
         provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
         provider.add("gui.neoecoae.host.network_frequency.cycle.unassigned", "Cycle Network Frequency (Unassigned)");
         provider.add("gui.neoecoae.host.network.mode.local", "LOCAL x1");

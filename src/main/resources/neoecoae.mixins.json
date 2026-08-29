@@ -6,10 +6,12 @@
   "mixins": [
     "AppEngInternalInventoryMixin",
     "CPUSelectionListMixin",
+    "CraftingCalculationMixin",
     "CraftingCpuListEntryMixin",
     "CraftingCPUMenuMixin",
     "CraftingServiceMixin",
     "CraftingStatusMenuMixin",
+    "CraftingTreeNodeMixin",
     "IOPortBlockEntityMixin",
     "IOPortMenuMixin",
     "LightningBoltMixin",

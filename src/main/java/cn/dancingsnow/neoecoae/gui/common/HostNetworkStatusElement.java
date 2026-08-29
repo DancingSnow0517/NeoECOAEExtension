@@ -80,7 +80,7 @@ public final class HostNetworkStatusElement {
     }
 
     private static final class InlineStatusElement extends UIElement {
-        private final Supplier<Component> trailingText;
+        private Component trailingText;
         private int multiplier;
         private boolean connected;
 
@@ -90,7 +90,7 @@ public final class HostNetworkStatusElement {
             Supplier<Component> trailingText) {
             this.multiplier = multiplier.getAsInt();
             this.connected = connected.getAsBoolean();
-            this.trailingText = trailingText;
+            this.trailingText = trailingText == null ? null : trailingText.get();
 
             BindableValue<Integer> syncedMultiplier = new BindableValue<>(this.multiplier);
             syncedMultiplier.bind(DataBindingBuilder.intValS2C(multiplier::getAsInt).build());
@@ -103,6 +103,15 @@ public final class HostNetworkStatusElement {
             syncedConnected.registerValueListener(value -> this.connected = Boolean.TRUE.equals(value));
             syncedConnected.setDisplay(false);
             addChild(syncedConnected);
+
+            if (trailingText != null) {
+                BindableValue<Component> syncedTrailingText = new BindableValue<>(this.trailingText);
+                syncedTrailingText.bind(DataBindingBuilder.componentS2C(trailingText).build());
+                syncedTrailingText.registerValueListener(value ->
+                    this.trailingText = value == null ? Component.empty() : value);
+                syncedTrailingText.setDisplay(false);
+                addChild(syncedTrailingText);
+            }
         }
 
         @Override
@@ -121,7 +130,7 @@ public final class HostNetworkStatusElement {
             x = drawComponent(context, font, connectionText(connected), x, baseY, DISCONNECTED_COLOR);
             if (trailingText != null) {
                 x = drawSeparator(context, font, x, baseY);
-                drawComponent(context, font, trailingText.get(), x, baseY, SEPARATOR_COLOR);
+                drawComponent(context, font, trailingText, x, baseY, SEPARATOR_COLOR);
             }
             context.graphics.pose().popPose();
         }
