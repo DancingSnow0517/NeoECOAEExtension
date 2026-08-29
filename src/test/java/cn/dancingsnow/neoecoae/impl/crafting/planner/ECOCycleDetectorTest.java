@@ -23,6 +23,22 @@ class ECOCycleDetectorTest {
         var result = new CycleDetector().detect(network, reachable, ECOCancellation.NONE);
         assertTrue(result.cyclic());
         assertEquals(2, result.cycles().getFirst().keys().size());
+        assertEquals(0L, result.cycles().getFirst().netOutputs().get(a));
+        assertEquals(0L, result.cycles().getFirst().netOutputs().get(b));
+    }
+
+    @Test void cycleNetOutputsUseCompiledAmounts() throws Exception {
+        var a = PlannerTestKey.of("net_a"); var b = PlannerTestKey.of("net_b");
+        var ab = PlannerFixtures.pattern("a_to_b", b, 3, a, 2L);
+        var ba = PlannerFixtures.pattern("b_to_a", a, 1, b, 1L);
+        var map = new LinkedHashMap<appeng.api.stacks.AEKey, List<cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern>>();
+        map.put(a, List.of(PlannerFixtures.compiled(0, ba, a, true, "")));
+        map.put(b, List.of(PlannerFixtures.compiled(1, ab, b, true, "")));
+        var network = PlannerFixtures.network(a, map);
+        var reachable = new ReachabilityScanner().scan(network, ECOCancellation.NONE);
+        var cycle = new CycleDetector().detect(network, reachable, ECOCancellation.NONE).cycles().getFirst();
+        assertEquals(-1L, cycle.netOutputs().get(a));
+        assertEquals(2L, cycle.netOutputs().get(b));
     }
 
     @Test void selfLoopIsStructured() throws Exception {

@@ -45,8 +45,11 @@ public final class ECOCraftingPlannerService {
                 var reachable = reachability.scan(compiled, cancellation);
                 var cycleResult = cycleDetector.detect(compiled, reachable, cancellation);
                 if (cycleResult.cyclic()) {
+                    var cycles = cycleResult.cycles().stream()
+                        .map(cycle -> cycle.withAvailableAmounts(inventory))
+                        .toList();
                     ECOPlanTrace trace = new ECOPlanTrace();
-                    for (var cycle : cycleResult.cycles()) {
+                    for (var cycle : cycles) {
                         trace.addCycle(cycle);
                         trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0, 0,
                             PlanTraceNode.Selection.UNSUPPORTED, "UNSUPPORTED_CYCLE"));
@@ -54,7 +57,7 @@ public final class ECOCraftingPlannerService {
                     trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_UNSUPPORTED,
                         "检测到循环配方，当前版本暂不支持循环规划。"));
                     var result = new ECOPlanningResult(PlanningStatus.CYCLE_UNSUPPORTED,
-                        bridge.unsupported(goal, amount), trace, cycleResult.cycles(), elapsedSince(startedNanos));
+                        bridge.unsupported(goal, amount), trace, cycles, elapsedSince(startedNanos));
                     attach(result);
                     return result;
                 }
