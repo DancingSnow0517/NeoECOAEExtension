@@ -65,6 +65,12 @@
       "bottom": 28,
       "width": 50,
       "height": 20
+    },
+    "graph": {
+      "left": 65,
+      "bottom": 28,
+      "width": 76,
+      "height": 20
     }
   }
 }

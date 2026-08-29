@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,4 +14,6 @@ public interface ECOCraftConfirmMenuMode {
     @Nullable PlanningStatus neoecoae$getPlanningStatus();
 
     List<ECOCycleItemList.Entry> neoecoae$getCycleItems();
+
+    CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();
 }

@@ -228,6 +228,7 @@ sourceSets {
         java.srcDir 'src/test/java'
         java.srcDir 'src/plannerTest/java'
         java.include 'cn/dancingsnow/neoecoae/impl/crafting/planner/**'
+        java.include 'cn/dancingsnow/neoecoae/client/craftinggraph/**'
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath + configurations.testCompileClasspath
         runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath + configurations.testRuntimeClasspath
     }

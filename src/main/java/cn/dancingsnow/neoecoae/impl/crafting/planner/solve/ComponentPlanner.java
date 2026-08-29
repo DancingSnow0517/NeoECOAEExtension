@@ -141,7 +141,9 @@ public final class ComponentPlanner {
                     }
                 }
             }
-            trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
+            List<cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphEdge> externalEdges = cycle
+                .outgoingDependencies().stream().flatMap(dependency -> dependency.relationships().stream()).toList();
+            trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(), externalEdges,
                 requiredOutputs, cycleStatus, cycleResult));
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0,
                 cycleResult == null ? 0 : cycleResult.totalFirings(),
