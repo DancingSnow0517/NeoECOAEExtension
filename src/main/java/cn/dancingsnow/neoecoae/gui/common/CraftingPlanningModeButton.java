@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import appeng.client.gui.Icon;
-import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -17,6 +16,9 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
 public final class CraftingPlanningModeButton {
+    private static final IGuiTexture SUBSTITUTIONS_INCLUDED = NETextures.aeIcon(64, 80, 16, 16);
+    private static final IGuiTexture SUBSTITUTIONS_IGNORED = NETextures.aeIcon(80, 80, 16, 16);
+
     private CraftingPlanningModeButton() {
     }
 
@@ -67,8 +69,6 @@ public final class CraftingPlanningModeButton {
     }
 
     private static IGuiTexture planningModeIcon(boolean ignoringSubstitutions) {
-        return AETextures.icon(ignoringSubstitutions
-            ? Icon.SUBSTITUTION_DISABLED
-            : Icon.SUBSTITUTION_ENABLED);
+        return ignoringSubstitutions ? SUBSTITUTIONS_IGNORED : SUBSTITUTIONS_INCLUDED;
     }
 }
