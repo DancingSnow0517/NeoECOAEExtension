@@ -15,6 +15,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -117,6 +118,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -236,6 +238,23 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .build();
 
         this.setPowerSides(getGridConnectableSides(getOrientation()));
+    }
+
+    /**
+     * Keep the workstation discoverable by integrations such as JDTE from every
+     * side. The node service is registered independently of whether the node is
+     * currently connected to an ME network.
+     */
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        return EnumSet.allOf(Direction.class);
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        this.setPowerSides(getGridConnectableSides(getOrientation()));
+        this.onGridConnectableSidesChanged();
     }
 
     public void setWorking(boolean working) {
