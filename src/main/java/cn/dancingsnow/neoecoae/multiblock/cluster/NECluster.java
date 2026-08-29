@@ -62,6 +62,14 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return null;
     }
 
+    public boolean isNetworkMode() {
+        return false;
+    }
+
+    public int getNetworkMultiplier() {
+        return 1;
+    }
+
     public boolean shouldCasingRenderInClassic(NEBlockEntity<T, ?> blockEntity) {
         return false;
     }

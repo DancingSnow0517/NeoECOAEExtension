@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -41,6 +42,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     @Override
     public NECraftingCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NECraftingCluster(min, max);
+    }
+
+    @Override
+    protected void onClusterAttached(NECraftingCluster cluster) {
+        NELogicalNetworkManager.attach(cluster);
     }
 
     @Override

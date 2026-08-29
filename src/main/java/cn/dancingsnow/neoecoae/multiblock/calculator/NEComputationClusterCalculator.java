@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -42,6 +43,11 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     @Override
     public NEComputationCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NEComputationCluster(min, max);
+    }
+
+    @Override
+    protected void onClusterAttached(NEComputationCluster cluster) {
+        NELogicalNetworkManager.attach(cluster);
     }
 
     @Override

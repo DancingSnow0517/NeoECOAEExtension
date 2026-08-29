@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -52,6 +53,12 @@ public final class HostElements {
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(HostElements::lineTextStyle);
         return label;
+    }
+
+    public static Component networkFrequencyTooltip(int frequency) {
+        return frequency == NEFrequencyAllocator.UNASSIGNED
+            ? Component.translatable("gui.neoecoae.host.network_frequency.cycle.unassigned")
+            : Component.translatable("gui.neoecoae.host.network_frequency.cycle", frequency);
     }
 
     public static <T extends UIElement> T tooltips(T element, Component... lines) {

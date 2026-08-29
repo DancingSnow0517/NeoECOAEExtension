@@ -47,7 +47,7 @@ import java.util.Set;
 public abstract class CraftingServiceMixin {
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
-            NEComputationCluster::getCPUAccelerators)
+            NEComputationCluster::getPooledParallelism)
         .reversed()
         .thenComparingLong(NEComputationCluster::getAvailableStorage);
 
@@ -237,6 +237,11 @@ public abstract class CraftingServiceMixin {
         int excluded = 0;
 
         for (var cluster : this.neoecoae$computationClusters) {
+            // A network group is a single pooled unit: only its representative member is considered
+            // as a candidate, since submitJob() on any member routes to the same shared network cluster.
+            if (!cluster.isNetworkRepresentative()) {
+                continue;
+            }
             if (!cluster.isActive()) {
                 offline++;
                 continue;
@@ -288,7 +293,9 @@ public abstract class CraftingServiceMixin {
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
             }
-            if (ecoCpus.size() < cluster.getMaxThreads()) {
+            // Every member of a network group reports the same pooled numbers via its own fake CPU, so
+            // only the representative advertises one to avoid inflating the reported free capacity.
+            if (cluster.isNetworkRepresentative() && cluster.getActiveCPUCount() < cluster.getMaxThreads()) {
                 cpus.add(cluster.getFakeCPU());
             }
         }
@@ -322,7 +329,9 @@ public abstract class CraftingServiceMixin {
             }
             // getCpus() also advertises the placeholder CPU of a cluster with a free thread, so hasCpu
             // has to recognise it or that entry can never be selected as a crafting target.
-            if (cluster.getActiveCPUs().size() < cluster.getMaxThreads() && cluster.getFakeCPU() == cpu) {
+            if (cluster.isNetworkRepresentative()
+                && cluster.getActiveCPUCount() < cluster.getMaxThreads()
+                && cluster.getFakeCPU() == cpu) {
                 cir.setReturnValue(true);
                 return;
             }

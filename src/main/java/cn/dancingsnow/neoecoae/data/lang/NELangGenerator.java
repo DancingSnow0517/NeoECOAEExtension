@@ -15,6 +15,9 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");
         provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
+        provider.add("jade.neoecoae.worker_network_x2", "Connected to %d Network Exchange x2 host(s)");
+        provider.add("jade.neoecoae.worker_network_x8", "Connected to %d Network Exchange x8 host(s)");
+        provider.add("jade.neoecoae.worker_capacity_formula", "Capacity formula: %s");
         provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
         provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
         provider.add("jade.neoecoae.coolant", "Coolant: %d");

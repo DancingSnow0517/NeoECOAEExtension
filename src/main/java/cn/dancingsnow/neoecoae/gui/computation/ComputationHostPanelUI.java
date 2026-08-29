@@ -31,6 +31,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.function.IntSupplier;
+import java.util.function.IntConsumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -66,7 +67,9 @@ public final class ComputationHostPanelUI {
         Supplier<CpuSelectionMode> cpuSelectionMode,
         Runnable cycleCpuSelectionMode,
         Supplier<HolderLookup.Provider> registries,
-        Supplier<List<ComputationTaskEntry>> tasks
+        Supplier<List<ComputationTaskEntry>> tasks,
+        IntSupplier networkFrequency,
+        IntConsumer adjustNetworkFrequency
     ) {
     }
 
@@ -126,6 +129,30 @@ public final class ComputationHostPanelUI {
                 ButtonToolTips.CpuSelectionMode.text(),
                 cpuSelectionModeTooltip(mode)), null, null, null);
         });
+        return button;
+    }
+
+    public static Button createNetworkFrequencyButton(Config config) {
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPreIcon(AETextures.icon(Icon.SCHEDULING_ROUND_ROBIN))
+            .setOnServerClick(event -> {
+                if (event.button == 0) config.adjustNetworkFrequency.accept(1);
+                else if (event.button == 1) config.adjustNetworkFrequency.accept(-1);
+            });
+        button.buttonStyle(style -> style
+            .baseTexture(Sprites.RECT_RD)
+            .hoverTexture(Sprites.RECT_RD_LIGHT)
+            .pressedTexture(Sprites.RECT_RD_DARK));
+        button.addClass("eco-host-network-frequency-button");
+        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
+
+        BindableValue<Component> syncedTooltip = new BindableValue<>(HostElements.networkFrequencyTooltip(config.networkFrequency.getAsInt()));
+        syncedTooltip.bind(DataBindingBuilder.componentS2C(() -> HostElements.networkFrequencyTooltip(config.networkFrequency.getAsInt())).build());
+        syncedTooltip.setDisplay(false);
+        button.addChild(syncedTooltip);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
         return button;
     }
 

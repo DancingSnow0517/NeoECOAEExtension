@@ -103,6 +103,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
+        provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
+        provider.add("gui.neoecoae.host.network_frequency.cycle.unassigned", "Cycle Network Frequency (Unassigned)");
+        provider.add("gui.neoecoae.host.network.mode.local", "LOCAL x1");
+        provider.add("gui.neoecoae.host.network.mode.normal", "NETWORK SWITCH x2");
+        provider.add("gui.neoecoae.host.network.mode.high_energy", "HIGH-ENERGY x8");
+        provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
+        provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");

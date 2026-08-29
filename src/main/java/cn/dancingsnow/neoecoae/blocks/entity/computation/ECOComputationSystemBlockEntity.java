@@ -15,12 +15,14 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -68,6 +70,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private int cpuSelectionMode = CpuSelectionMode.ANY.ordinal();
+    @Persisted
+    @DescSynced
+    private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -116,19 +121,25 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
         UIElement root = new UIElement().layout(layout -> layout
             .width(340)
-            .height(232)
+            .height(242)
             .flexDirection(FlexDirection.COLUMN))
             .addClasses("panel_bg", "eco-computation-host");
 
         UIElement header = new UIElement().layout(layout -> layout
             .widthPercent(100)
-            .height(18)
+            .height(28)
             .flexDirection(FlexDirection.ROW)
             .alignItems(AlignItems.CENTER));
-        header.addChild(new TextElement()
+        UIElement titleBlock = new UIElement().layout(layout -> layout.flex(1).height(24)
+            .flexDirection(FlexDirection.COLUMN).gapAll(2));
+        titleBlock.addChild(new TextElement()
             .setText(getItemFromBlockEntity().getDescription())
             .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-            .layout(layout -> layout.flex(1)));
+            .layout(layout -> layout.widthPercent(100).height(10)));
+        titleBlock.addChild(HostNetworkStatusElement.create(
+            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+            () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
+        header.addChild(titleBlock);
         root.addChild(header);
 
         UIElement panels = new UIElement().layout(layout -> layout
@@ -152,7 +163,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         root.addChild(HostSideButtonBar.left(
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            ComputationHostPanelUI.createCpuSelectionButton(panelConfig)
+            ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
+            ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -173,7 +185,11 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             this::getCpuSelectionMode,
             () -> cycleCpuSelectionMode(player),
             this::getRegistryAccessForUi,
-            this::getActiveTaskEntries
+            this::getActiveTaskEntries,
+            this::getNetworkFrequency,
+            delta -> {
+                if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
+            }
         );
     }
 
@@ -197,6 +213,65 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             cluster.cycleSelectionMode();
         } else {
             setCpuSelectionMode(nextCpuSelectionMode(getCpuSelectionMode()));
+        }
+    }
+
+    public boolean hasNormalNetworkSwitch() {
+        BlockState state = getBlockState();
+        return state.hasProperty(ECOComputationSystem.NETWORK_SWITCH) && state.getValue(ECOComputationSystem.NETWORK_SWITCH);
+    }
+
+    public boolean hasHighEnergyNetworkSwitch() {
+        BlockState state = getBlockState();
+        return state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH) && state.getValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH);
+    }
+
+    public boolean hasNetworkSwitch() {
+        return hasNormalNetworkSwitch() || hasHighEnergyNetworkSwitch();
+    }
+
+    public boolean hasNetworkFrequency() {
+        return networkFrequency >= 1 && networkFrequency <= NEFrequencyAllocator.FREQUENCY_COUNT;
+    }
+
+    public int getNetworkFrequency() {
+        return hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+    }
+
+    /** Manager-only: assigns a frequency to a newly-eligible host that has none yet. */
+    public void assignNetworkFrequency(int frequency) {
+        if (hasNetworkFrequency()) {
+            return;
+        }
+        this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+    }
+
+    public void cycleNetworkFrequency(Player player) {
+        if (!canPlayerInteract(player)) return;
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        int current = hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        setNetworkFrequency(NEFrequencyAllocator.normalize(current + delta));
+    }
+
+    /** Player-facing: manually reassigns this host's frequency, splitting/rejoining groups. */
+    public void setNetworkFrequency(int frequency) {
+        this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+        if (cluster != null) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        if (cluster != null) {
+            NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }
     }
 
@@ -291,7 +366,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     private int getUsedThread() {
-        return cluster == null ? 0 : cluster.getActiveCPUs().size();
+        return cluster == null ? 0 : cluster.getActiveCPUCount();
     }
 
     private int getTotalThread() {
@@ -299,7 +374,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     private int getParallelCount() {
-        return cluster == null ? 0 : cluster.getCPUAccelerators();
+        return cluster == null ? 0 : cluster.getPooledParallelism();
     }
 
     private long getAvailableBytes() {
@@ -307,25 +382,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     private long getTotalBytes() {
-        if (cluster == null) {
-            return 0;
-        }
-        long total = 0;
-        for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
-            total += getDriveBytes(drive);
-        }
-        for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
-            total += getDriveBytes(drive);
-        }
-        return total;
-    }
-
-    private static long getDriveBytes(ECOComputationDriveBlockEntity drive) {
-        ItemStack cellStack = drive.getCellStack();
-        if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-            return cellItem.getTier().getCPUTotalBytes();
-        }
-        return 0;
+        return cluster == null ? 0 : cluster.getPooledTotalStorage();
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

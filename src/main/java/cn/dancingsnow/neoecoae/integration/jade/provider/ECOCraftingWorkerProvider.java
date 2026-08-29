@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -20,7 +22,26 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
         if (data.contains("running") && data.contains("max")) {
             int max = data.getInt("max");
             int running = data.getInt("running");
+            int normalHosts = data.getInt("normalSwitchHosts");
+            int highEnergyHosts = data.getInt("highEnergySwitchHosts");
+            if (normalHosts > 0) {
+                iTooltip.add(Component.translatable("jade.neoecoae.worker_network_x2", normalHosts)
+                    .withStyle(ChatFormatting.GREEN));
+            }
+            if (highEnergyHosts > 0) {
+                iTooltip.add(Component.translatable("jade.neoecoae.worker_network_x8", highEnergyHosts)
+                    .withStyle(ChatFormatting.GREEN));
+            }
             iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running, max));
+            if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
+                int base = data.getInt("baseCapacity");
+                String terms = normalHosts > 0 && highEnergyHosts > 0
+                    ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
+                    : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";
+                String formula = base + " x (" + terms + ") = " + max;
+                iTooltip.add(Component.translatable("jade.neoecoae.worker_capacity_formula", formula)
+                    .withStyle(ChatFormatting.GRAY));
+            }
         }
     }
 
@@ -28,10 +49,17 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECOCraftingWorkerBlockEntity worker) {
             if (worker.getCluster() != null && worker.getCluster().getController() != null) {
-                int max = worker.getCluster().getController().getThreadCountForWorker(worker);
+                var controller = worker.getCluster().getController();
+                int max = controller.getThreadCountForWorker(worker);
                 int running = worker.getRunningThreads();
                 compoundTag.putInt("running", running);
                 compoundTag.putInt("max", max);
+                compoundTag.putInt("baseCapacity", controller.getLocalThreadCountForWorker(worker));
+                NECraftingNetworkCluster network = worker.getCluster().getNetworkCluster();
+                if (network != null) {
+                    compoundTag.putInt("normalSwitchHosts", network.getNormalSwitchHostCount());
+                    compoundTag.putInt("highEnergySwitchHosts", network.getHighEnergySwitchHostCount());
+                }
             }
         }
     }

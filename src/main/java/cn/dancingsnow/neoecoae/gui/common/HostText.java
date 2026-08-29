@@ -67,8 +67,12 @@ public final class HostText {
         return typeProgress(used, max);
     }
 
+    public static String expandedNumber(long value) {
+        return NUMBER_FORMAT.get().format(Math.max(0L, value));
+    }
+
     public static String expandedStorageBytes(long value) {
-        return expandedStorageBytes(BigInteger.valueOf(Math.max(0L, value)));
+        return expandedNumber(value);
     }
 
     public static String expandedStorageBytes(BigInteger value) {

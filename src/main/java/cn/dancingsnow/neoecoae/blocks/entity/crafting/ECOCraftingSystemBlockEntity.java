@@ -23,6 +23,8 @@ import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -38,6 +40,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
+import lombok.AccessLevel;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -101,10 +104,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private int workerCount = 0;
 
-    @Getter
+    @Getter(AccessLevel.NONE)
     private int runningThreadCount = 0;
 
-    @Getter
+    @Getter(AccessLevel.NONE)
     private int threadCount = 0;
     private long exactThreadCount = 0L;
 
@@ -125,6 +128,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
+    @Persisted
+    @DescSynced
+    private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -323,6 +329,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
+        long localCapacity = NEMath.saturatingMultiply(
+            Math.max(0L, threadCountPerWorker),
+            Math.max(1L, worker.getCapacityMultiplier())
+        );
+        long networkMultiplier = cluster != null && cluster.getNetworkCluster() != null
+            ? Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
+            : 1L;
+        long capacity = NEMath.saturatingMultiply(localCapacity, networkMultiplier);
+        return (int) Math.min(Integer.MAX_VALUE, capacity);
+    }
+
+    public int getLocalThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
         long capacity = NEMath.saturatingMultiply(
             Math.max(0L, threadCountPerWorker),
             Math.max(1L, worker.getCapacityMultiplier())
@@ -356,6 +374,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().tryConsumeCoolant(amount, requiredOverclock);
+        }
+        return tryConsumeLocalCoolant(amount, requiredOverclock);
+    }
+
+    public boolean tryConsumeLocalCoolant(int amount, int requiredOverclock) {
         if (amount <= 0) {
             return true;
         }
@@ -389,6 +414,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
+        }
+        return getLocalCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
+    }
+
+    public int getLocalCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
         if (!activeCooling || requestedCrafts <= 0) {
             return Math.max(0, requestedCrafts);
         }
@@ -429,8 +461,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 
-    private int getAvailableThreads() {
+    public int getLocalAvailableThreads() {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, exactAvailableThreadCount));
+    }
+
+    private int getAvailableThreads() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? Math.max(0, getThreadCount() - getRunningThreadCount())
+            : getLocalAvailableThreads();
     }
 
     /**
@@ -565,6 +603,98 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return outputSpace * recipe.inputAmount() / outputAmount;
     }
 
+    public boolean hasNormalNetworkSwitch() {
+        BlockState state = getBlockState();
+        return state.hasProperty(ECOCraftingSystem.NETWORK_SWITCH) && state.getValue(ECOCraftingSystem.NETWORK_SWITCH);
+    }
+
+    public boolean hasHighEnergyNetworkSwitch() {
+        BlockState state = getBlockState();
+        return state.hasProperty(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH) && state.getValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH);
+    }
+
+    public boolean hasNetworkSwitch() {
+        return hasNormalNetworkSwitch() || hasHighEnergyNetworkSwitch();
+    }
+
+    public boolean hasNetworkFrequency() {
+        return networkFrequency >= 1 && networkFrequency <= NEFrequencyAllocator.FREQUENCY_COUNT;
+    }
+
+    public int getLocalThreadCount() { return threadCount; }
+    public int getLocalRunningThreadCount() { return runningThreadCount; }
+    public int getThreadCount() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getThreadCount() : threadCount;
+    }
+    public int getRunningThreadCount() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getRunningThreadCount() : runningThreadCount;
+    }
+
+    public int getNetworkFrequency() {
+        return hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+    }
+
+    /** Manager-only: assigns a frequency to a newly-eligible host that has none yet. */
+    public void assignNetworkFrequency(int frequency) {
+        if (hasNetworkFrequency()) {
+            return;
+        }
+        this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+    }
+
+    public void cycleNetworkFrequency(Player player) {
+        if (!canPlayerInteract(player)) return;
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        int current = hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
+        setNetworkFrequency(NEFrequencyAllocator.normalize(current + delta));
+    }
+
+    /** Player-facing: manually reassigns this host's frequency, splitting/rejoining groups. */
+    public void setNetworkFrequency(int frequency) {
+        this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+        if (cluster != null) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        if (cluster != null) {
+            NELogicalNetworkManager.refreshAfterGridChange(cluster);
+        }
+    }
+
+    public int getPooledParallelism() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getTotalParallelism()
+            : threadCount;
+    }
+
+    public int getPooledCraftingCapability() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getTotalCraftingCapability()
+            : getTotalWorkerThreadCapacity();
+    }
+
+    public int getDisplayedCoolantAmount() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getCoolantAmount() : coolant;
+    }
+
+    public int getDisplayedCoolantCapacity() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getCoolantCapacity() : MAX_COOLANT;
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try {
@@ -592,24 +722,30 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             () -> getItemFromBlockEntity().getDescription(),
+            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+            () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
             () -> overclocked,
             () -> setOverclocked(player, !overclocked),
             () -> activeCooling,
             () -> setActiveCooling(player, !activeCooling),
-            () -> Math.min(getAvailableThreads(), Math.max(0, runningThreadCount)),
+            () -> Math.min(getAvailableThreads(), Math.max(0, getRunningThreadCount())),
             this::getAvailableThreads,
-            () -> Math.max(0, Math.min(threadCount, getAvailableThreads())),
+            this::getPooledParallelism,
             this::getOverflowThreads,
             this::getEffectiveOverclockTimes,
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
-            () -> coolant,
-            () -> MAX_COOLANT,
+            this::getDisplayedCoolantAmount,
+            this::getDisplayedCoolantCapacity,
             this::getDisplayedCoolingMaxOverclock,
             this::getCurrentCoolantFluid,
             this::getRegistryAccessForUi,
-            this::getActiveTaskEntries
+            this::getActiveTaskEntries,
+            this::getNetworkFrequency,
+            delta -> {
+                if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
+            }
         );
     }
 

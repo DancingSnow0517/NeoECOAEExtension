@@ -8,8 +8,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,9 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private ECOFluidInputHatchBlockEntity inputHatch = null;
     @Getter
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
+    @Getter
+    @Nullable
+    private NECraftingNetworkCluster networkCluster;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -35,6 +40,35 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Override
     protected BlockPos getCasingHideOrigin() {
         return controller == null ? null : controller.getBlockPos();
+    }
+
+    @Override
+    public boolean isNetworkMode() {
+        return controller != null && controller.hasNetworkSwitch();
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        if (controller == null) {
+            return 1;
+        }
+        if (controller.hasHighEnergyNetworkSwitch()) {
+            return 8;
+        }
+        if (controller.hasNormalNetworkSwitch()) {
+            return 2;
+        }
+        return 1;
+    }
+
+    public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
+        this.networkCluster = networkCluster;
+    }
+
+    @Override
+    public void destroy() {
+        NELogicalNetworkManager.detachBeforeDestroy(this);
+        super.destroy();
     }
 
     @Override

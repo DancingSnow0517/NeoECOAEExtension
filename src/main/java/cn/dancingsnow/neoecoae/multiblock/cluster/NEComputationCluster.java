@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelC
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,12 +48,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     @Nullable
     private IActionSource actionSource;
-    @Getter
     private int maxThreads = 0;
-    @Getter
     private long availableStorage = 0;
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
+    @Getter
+    @Nullable
+    private NEComputationNetworkCluster networkCluster;
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
@@ -64,6 +66,89 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Override
     protected boolean hideAllCasingsWhenFormed() {
         return true;
+    }
+
+    @Override
+    public boolean isNetworkMode() {
+        return controller != null && controller.hasNetworkSwitch();
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        if (controller == null) {
+            return 1;
+        }
+        if (controller.hasHighEnergyNetworkSwitch()) {
+            return 8;
+        }
+        if (controller.hasNormalNetworkSwitch()) {
+            return 2;
+        }
+        return 1;
+    }
+
+    public void setNetworkCluster(@Nullable NEComputationNetworkCluster networkCluster) {
+        this.networkCluster = networkCluster;
+    }
+
+    /**
+     * Whether this member should contribute the group's shared placeholder CPU. Every member in a
+     * group reports the same pooled numbers, so only the first member avoids advertising duplicate
+     * free capacity in the crafting terminal.
+     */
+    public boolean isNetworkRepresentative() {
+        return networkCluster == null || networkCluster.isLeader(this);
+    }
+
+    @Override
+    public void destroy() {
+        NELogicalNetworkManager.detachBeforeDestroy(this);
+        super.destroy();
+    }
+
+    /**
+     * Own real byte capacity from installed computation cells, ignoring network pooling.
+     */
+    public long getTotalStorage() {
+        return collectStorage(upperDrives) + collectStorage(lowerDrives);
+    }
+
+    /**
+     * Own real bytes currently reserved by active jobs, ignoring network pooling.
+     */
+    public long getOwnUsedStorage() {
+        return Math.max(0, getTotalStorage() - this.availableStorage);
+    }
+
+    public int getOwnMaxThreads() {
+        return this.maxThreads;
+    }
+
+    public int getMaxThreads() {
+        return networkCluster != null ? networkCluster.getTotalThreads() : this.maxThreads;
+    }
+
+    public long getAvailableStorage() {
+        return networkCluster != null ? networkCluster.getPooledAvailableStorage() : this.availableStorage;
+    }
+
+    public int getPooledParallelism() {
+        return networkCluster != null ? networkCluster.getTotalParallelism() : getCPUAccelerators();
+    }
+
+    public long getPooledTotalStorage() {
+        return networkCluster != null ? networkCluster.getTotalStorageCapacity() : getTotalStorage();
+    }
+
+    public int getActiveCPUCount() {
+        if (networkCluster == null) {
+            return getActiveCPUs().size();
+        }
+        int total = 0;
+        for (NEComputationCluster member : networkCluster.getMembers()) {
+            total += member.getActiveCPUs().size();
+        }
+        return total;
     }
 
     @Override
@@ -178,36 +263,55 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         IActionSource src,
         ICraftingRequester requestingMachine
     ) {
+        if (this.networkCluster != null) {
+            return this.networkCluster.submitJob(grid, job, src, requestingMachine);
+        }
         if (!this.isActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
         if (this.availableStorage < job.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
-        ECOCraftingCPU cpu = null;
-        ICraftingSubmitResult result = null;
-        boolean submitted = false;
+        ICraftingSubmitResult result = trySpawnLocalJob(grid, job, src, requestingMachine);
+        return result == null ? CraftingSubmitResult.NO_CPU_FOUND : result;
+    }
+
+    /**
+     * Tries to spawn and submit the job on one of this member's own physical threading cores.
+     * Returns null only when no core ever produced a CPU at all (nothing to report); an unsuccessful
+     * {@link ICraftingSubmitResult} from a spawned-but-rejected CPU is still returned so the caller
+     * can surface the specific rejection reason.
+     */
+    @Nullable
+    ICraftingSubmitResult trySpawnLocalJob(
+        IGrid grid,
+        ICraftingPlan job,
+        IActionSource src,
+        ICraftingRequester requestingMachine
+    ) {
+        ICraftingSubmitResult lastResult = null;
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
-            cpu = threadingCore.spawn(job);
+            ECOCraftingCPU cpu = threadingCore.spawn(job);
             if (cpu == null) continue;
-            result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
+            ICraftingSubmitResult result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
             if (result.successful()) {
-                submitted = true;
-                break;
+                this.registerActiveJob(job, cpu);
+                return result;
             }
             threadingCore.deactivate(cpu);
+            lastResult = result;
         }
-        if (!submitted) {
-            return result == null ? CraftingSubmitResult.NO_CPU_FOUND : result;
-        }
+        return lastResult;
+    }
+
+    void registerActiveJob(ICraftingPlan job, ECOCraftingCPU cpu) {
         this.activeCpus.put(job, cpu);
         this.recalculateRemainingStorage();
         this.updateGridForChangedCpu();
-        return result;
     }
 
     public void recalculateRemainingStorage() {
-        long totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
+        long totalStorage = getTotalStorage();
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = totalStorage - usedStorage;

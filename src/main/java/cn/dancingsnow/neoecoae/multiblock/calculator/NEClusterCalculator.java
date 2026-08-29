@@ -45,6 +45,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
+        this.onClusterAttached(c);
+    }
+
+    protected void onClusterAttached(C cluster) {
     }
 
     @Override

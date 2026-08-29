@@ -254,6 +254,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Override
     public void onReady() {
         super.onReady();
+        // The node is created by the parent during onReady; apply the explicit
+        // side set again so power and grid exposure stay in sync after loading.
         this.setPowerSides(getGridConnectableSides(getOrientation()));
         this.onGridConnectableSidesChanged();
     }
