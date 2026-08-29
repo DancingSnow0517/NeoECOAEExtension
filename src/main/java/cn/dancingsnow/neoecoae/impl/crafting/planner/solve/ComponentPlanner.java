@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
@@ -102,6 +103,7 @@ public final class ComponentPlanner {
             }
             CyclePlanningStatus cycleStatus;
             String diagnostic = null;
+            CycleSolveResult cycleResult = null;
             if (requiredOutputs.isEmpty()) {
                 cycleStatus = CyclePlanningStatus.NOT_REQUIRED;
             } else if (!cyclePlanningEnabled) {
@@ -110,26 +112,34 @@ public final class ComponentPlanner {
                 unresolvedCycle = true;
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
             } else {
-                Map<AEKey, Long> stock = relevantStock(cycle, inventory);
-                var result = cycleSolver.solve(new CycleSolveRequest(cycle, requiredOutputs, stock,
+                // The cycle solver is a plug-in: it receives a snapshot and never touches the DAG workspace.
+                Map<AEKey, Long> stock = relevantStock(cycle, inventory, acyclic.state());
+                cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, requiredOutputs, stock,
                     cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
-                cycleStatus = result.status();
-                diagnostic = result.diagnostic();
+                cycleStatus = CyclePlanningStatus.of(cycleResult.status());
+                diagnostic = cycleResult.summary();
                 unresolvedCycle = true;
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_NOT_IMPLEMENTED,
-                    diagnostic == null ? cycleStatus.name() : diagnostic));
+                trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                if (cycleStatus == CyclePlanningStatus.SOLVED) {
+                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SOLVED,
+                        "Cycle needs " + cycleResult.totalFirings() + " firing(s); stage one reports the solution"
+                            + " but does not emit it into the AE2 plan yet"));
+                }
             }
             trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
-                requiredOutputs, cycleStatus));
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0, 0,
-                cycleStatus == CyclePlanningStatus.NOT_REQUIRED ? PlanTraceNode.Selection.NOT_APPLICABLE
-                    : PlanTraceNode.Selection.UNSUPPORTED,
+                requiredOutputs, cycleStatus, cycleResult));
+            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0,
+                cycleResult == null ? 0 : cycleResult.totalFirings(),
+                switch (cycleStatus) {
+                    case NOT_REQUIRED -> PlanTraceNode.Selection.NOT_APPLICABLE;
+                    case SOLVED -> PlanTraceNode.Selection.SELECTED;
+                    default -> PlanTraceNode.Selection.UNSUPPORTED;
+                },
                 cycleStatus.name()));
             componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                 ComponentPlanningResult.Type.CYCLIC,
-                requiredOutputs.isEmpty() ? ComponentPlanningResult.Status.NOT_REQUIRED
-                    : ComponentPlanningResult.Status.UNRESOLVED,
-                requiredOutputs, cycleStatus, diagnostic));
+                componentStatus(requiredOutputs, cycleStatus),
+                requiredOutputs, cycleStatus, diagnostic, cycleResult));
             cycleDiagnostics.add(diagnostic(cycle, inventory));
         }
 
@@ -142,16 +152,43 @@ public final class ComponentPlanner {
             List.copyOf(componentResults));
     }
 
-    private static Map<AEKey, Long> relevantStock(CycleComponent cycle, KeyCounter inventory) {
+    private static Map<AEKey, Long> relevantStock(CycleComponent cycle, KeyCounter inventory, SolveState state) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
-        for (AEKey member : cycle.members()) result.put(member, Math.max(0L, inventory.get(member)));
+        for (AEKey member : cycle.members()) result.put(member, remaining(inventory, state, member));
         for (var dependency : cycle.outgoingDependencies()) {
             for (var relationship : dependency.relationships()) {
                 AEKey key = relationship.requiredInput();
-                result.putIfAbsent(key, Math.max(0L, inventory.get(key)));
+                result.putIfAbsent(key, remaining(inventory, state, key));
             }
         }
         return Map.copyOf(result);
+    }
+
+    /** Stock the DAG pass has not already spent. The cycle solver must never double-spend an item. */
+    private static long remaining(KeyCounter inventory, SolveState state, AEKey key) {
+        return Math.max(0L, inventory.get(key) - state.usedItems().get(key));
+    }
+
+    private static ComponentPlanningResult.Status componentStatus(Map<AEKey, Long> requiredOutputs,
+            CyclePlanningStatus status) {
+        if (requiredOutputs.isEmpty()) return ComponentPlanningResult.Status.NOT_REQUIRED;
+        return switch (status) {
+            case SOLVED -> ComponentPlanningResult.Status.SOLVED_NOT_EMITTED;
+            case UNSUPPORTED -> ComponentPlanningResult.Status.UNSUPPORTED;
+            default -> ComponentPlanningResult.Status.UNRESOLVED;
+        };
+    }
+
+    private static PlannerDiagnostic.Code diagnosticCode(CyclePlanningStatus status) {
+        return switch (status) {
+            case SOLVED -> PlannerDiagnostic.Code.CYCLE_SOLVED;
+            case INSUFFICIENT_EXTERNAL_INPUT -> PlannerDiagnostic.Code.CYCLE_SEED_REQUIRED;
+            case UNKNOWN_BUDGET -> PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED;
+            case TOO_COMPLEX -> PlannerDiagnostic.Code.CYCLE_TOO_COMPLEX;
+            case UNSUPPORTED -> PlannerDiagnostic.Code.CYCLE_UNSUPPORTED;
+            case CANCELLED -> PlannerDiagnostic.Code.CANCELLED;
+            default -> PlannerDiagnostic.Code.CYCLE_NOT_IMPLEMENTED;
+        };
     }
 
     private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory) {

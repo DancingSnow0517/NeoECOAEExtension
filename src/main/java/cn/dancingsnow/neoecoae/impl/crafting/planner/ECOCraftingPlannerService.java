@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridg
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CraftingNetworkCompiler;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.UnsupportedCycleSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
@@ -24,7 +24,7 @@ public final class ECOCraftingPlannerService {
     private final CraftingGraphBuilder graphBuilder = new CraftingGraphBuilder();
     private final TarjanSccAnalyzer sccAnalyzer = new TarjanSccAnalyzer();
     private final ComponentPlanner componentPlanner = new ComponentPlanner(
-        new AcyclicCraftingSolver(), new UnsupportedCycleSolver());
+        new AcyclicCraftingSolver(), new BoundedCycleSolver());
     private final AE2CraftingPlanBridge bridge = new AE2CraftingPlanBridge();
 
     /** Per-calculation session: structural compilation is reused by all AE2 CRAFT_LESS probes. */
