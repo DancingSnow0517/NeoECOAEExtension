@@ -19,9 +19,11 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -108,7 +110,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private int activePages = NEConfig.getCraftingPatternBusPages();
     @DescSynced
     private int currentPage;
-    private int nextWorkerIndex = 0;
     private boolean patternDetailsUpdateQueued;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
@@ -138,45 +139,38 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
-        if (execution.molecularPattern() == null) {
+        if (execution.molecularPattern() == null || cluster == null) {
             return false;
         }
-        if (cluster != null) {
-            List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
-            if (workers.isEmpty()) {
-                return false;
-            }
-            int start = Math.floorMod(nextWorkerIndex, workers.size());
-            for (int offset = 0; offset < workers.size(); offset++) {
-                int index = (start + offset) % workers.size();
-                ECOCraftingWorkerBlockEntity worker = workers.get(index);
-                if (worker.pushPattern(execution, craftingJobId)) {
-                    nextWorkerIndex = (index + 1) % Math.max(1, workers.size());
-                    return true;
-                }
+        // Deterministic, concentrating order over every worker this host can reach - the whole Network Switch
+        // group when one is formed. No rotation and no randomness, so the same network state always picks the
+        // same worker.
+        for (RankedWorker ranked : rankDispatchCandidates()) {
+            if (ranked.worker().pushPattern(execution, craftingJobId)) {
+                return true;
             }
         }
         return false;
     }
 
-    public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
-        if (offer == null
-            || cluster == null
-            || !cluster.getWorkers().contains(offer.worker())
-            || offer.maxBatchSize() < request.batchSize()
-            || offer.worker().getAvailableThreadSlots() < request.batchSize()
-            || getAvailableThreadSlots() < request.batchSize()
-            || !offer.result().matchesBatchRequest(request)) {
+    public boolean pushBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {
+        if (offer == null || cluster == null) {
             return false;
         }
-        int nextIndex = nextWorkerIndexAfter(offer.worker());
-        // Reuse the result already verified while selecting the offer. Crafting runs on the
-        // server thread, so looking the same key up again in the Worker cannot make it safer.
-        if (offer.worker().pushBatch(request, offer.result())) {
-            nextWorkerIndex = nextIndex;
-            return true;
+        // The credential must be the one minted for this offer. That single reference check replaces the value
+        // comparison of three per-craft stack lists, and it also pins the batch size the offer was sized for.
+        if (verified.recipe() != offer.recipe()) {
+            return false;
         }
-        return false;
+        int batchSize = verified.batchSize();
+        ECOCraftingWorkerBlockEntity worker = offer.worker();
+        if (offer.maxBatchSize() < batchSize
+            || !cluster.isDispatchCandidate(worker)
+            || worker.getAvailableThreadSlots() < batchSize
+            || getAvailableThreadSlots() < batchSize) {
+            return false;
+        }
+        return worker.pushBatch(verified);
     }
 
     @Nullable
@@ -184,53 +178,80 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
-        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
-        if (workers.isEmpty()) {
-            return null;
-        }
         int globalAvailableSlots = getAvailableThreadSlots();
         if (globalAvailableSlots <= 0) {
             return null;
         }
-        int start = Math.floorMod(nextWorkerIndex, workers.size());
-        BatchFastPathOffer bestOffer = null;
-        for (int offset = 0; offset < workers.size(); offset++) {
-            int index = (start + offset) % workers.size();
-            ECOCraftingWorkerBlockEntity worker = workers.get(index);
-            int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots <= 0) {
-                continue;
-            }
-            ECOFastPathResult result = worker.getVerifiedFastPathResult(execution);
-            if (result == null || result.isNegative()) {
-                continue;
-            }
-            int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, availableSlots, globalAvailableSlots);
-            if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
-                bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
-                if (maxBatchSize >= requestedBatchSize) {
-                    break;
-                }
-            }
+        // Recipe-level verification is shared knowledge, so it is resolved once for the whole search instead of
+        // once per candidate worker.
+        ECOFastPathLookup lookup = cluster.getFastPathCache().lookup(
+            execution,
+            appeng.hooks.ticking.TickHandler.instance().getCurrentTick(),
+            AE2PatternIntrospection.reloadGeneration()
+        );
+        if (!lookup.isVerified()) {
+            return null;
         }
-        return bestOffer;
+        List<RankedWorker> ranked = rankDispatchCandidates();
+        if (ranked.isEmpty()) {
+            return null;
+        }
+        // calculateBatchOfferSize is monotone in the worker's free slots, so the highest-ranked candidate also
+        // has the largest offer. Taking it keeps a batch concentrated on one worker instead of splitting it.
+        RankedWorker best = ranked.getFirst();
+        int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, best.availableSlots(), globalAvailableSlots);
+        if (maxBatchSize <= 0) {
+            return null;
+        }
+        return new BatchFastPathOffer(best.worker(), lookup.recipe(), maxBatchSize);
     }
 
-    private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {
-        if (cluster == null) {
-            return nextWorkerIndex;
+    /**
+     * Live snapshot of every reachable worker with free capacity, ordered by free thread slots descending and
+     * then by block position ascending.
+     *
+     * <p>The topology is re-collected here and the capacity is re-measured here: candidate membership may be
+     * reused within one dispatch, but "is this worker available right now" must never be cached, and no
+     * reference to a removed or rebuilt worker is ever retained.
+     */
+    private List<RankedWorker> rankDispatchCandidates() {
+        List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
+        List<RankedWorker> ranked = new ArrayList<>(candidates.size());
+        for (ECOCraftingWorkerBlockEntity worker : candidates) {
+            int availableSlots = worker.getAvailableThreadSlots();
+            if (availableSlots > 0) {
+                ranked.add(new RankedWorker(worker, availableSlots));
+            }
         }
-        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
-        int index = workers.indexOf(acceptedWorker);
-        return index < 0 ? nextWorkerIndex : (index + 1) % Math.max(1, workers.size());
+        ranked.sort(DISPATCH_ORDER);
+        return ranked;
+    }
+
+    private record RankedWorker(ECOCraftingWorkerBlockEntity worker, int availableSlots) {}
+
+    private static final java.util.Comparator<RankedWorker> DISPATCH_ORDER = (left, right) -> {
+        int bySlots = Integer.compare(right.availableSlots(), left.availableSlots());
+        return bySlots != 0 ? bySlots : comparePositions(left.worker().getBlockPos(), right.worker().getBlockPos());
+    };
+
+    /** Stable, predictable tie-break: no randomness, no rotation, no dependence on structure scan order. */
+    static int comparePositions(BlockPos left, BlockPos right) {
+        int byX = Integer.compare(left.getX(), right.getX());
+        if (byX != 0) {
+            return byX;
+        }
+        int byY = Integer.compare(left.getY(), right.getY());
+        return byY != 0 ? byY : Integer.compare(left.getZ(), right.getZ());
     }
 
     public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
         if (cluster == null) {
             return false;
         }
+        // Dispatch may have crossed a Network Switch, so recovery must cover the same reachable set. Recovery is
+        // idempotent per thread, so overlapping attempts from several buses are harmless.
         boolean recoveredAll = true;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+        for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
             if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
                 recoveredAll = false;
             }
@@ -238,7 +259,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return recoveredAll;
     }
 
-    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
+    public record BatchFastPathOffer(
+        ECOCraftingWorkerBlockEntity worker,
+        ECOVerifiedFastPathRecipe recipe,
+        int maxBatchSize
+    ) {}
 
     /**
      * The batch size this host is willing to accept. It is bounded purely by live capability - the selected
@@ -252,18 +277,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean isBusy() {
-        if (getAvailableThreadSlots() <= 0) {
+        if (cluster == null || getAvailableThreadSlots() <= 0) {
             return true;
         }
-        if (cluster == null) {
-            return true;
-        }
-        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-            if (worker.getAvailableThreadSlots() > 0 || !worker.isBusy()) {
-                return false;
-            }
-        }
-        return true;
+        // Busy reporting spans the same reachable worker set the dispatch does, so a host whose own workers are
+        // saturated still advertises capacity while a Network Switch peer is idle.
+        return !cluster.hasAvailableDispatchCandidate();
     }
 
     public int getAvailableThreadSlots() {

@@ -83,6 +83,10 @@ public final class ECOFastPathKey {
         return hash;
     }
 
+    boolean isForReloadGeneration(long candidate) {
+        return reloadGeneration == candidate;
+    }
+
     private record SlotSignature(List<EntrySignature> entries) {
         private SlotSignature {
             entries = List.copyOf(entries);

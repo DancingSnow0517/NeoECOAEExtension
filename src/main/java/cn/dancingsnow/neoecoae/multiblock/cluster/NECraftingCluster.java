@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -32,6 +33,8 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
     @Nullable
     private NECraftingNetworkCluster networkCluster;
+
+    private final ECOCraftingFastPathCache localFastPathCache = new ECOCraftingFastPathCache();
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -63,6 +66,69 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
         this.networkCluster = networkCluster;
+    }
+
+    /**
+     * Fast-path knowledge for this host. While the host is grouped by a Network Switch, the group's shared
+     * cache supersedes the local one, so a recipe verified on any member is immediately usable by every other
+     * member. The cache lives and dies with the cluster, which is what makes multiblock rebuild, block removal
+     * and chunk/world unload implicit invalidation points.
+     */
+    public ECOCraftingFastPathCache getFastPathCache() {
+        NECraftingNetworkCluster network = this.networkCluster;
+        return network != null ? network.getFastPathCache() : localFastPathCache;
+    }
+
+    /**
+     * Workers this host may dispatch to: the whole Network Switch group when one is formed, otherwise its own
+     * workers. Rebuilt per dispatch so no stale block-entity reference is ever retained.
+     */
+    public List<ECOCraftingWorkerBlockEntity> collectDispatchCandidateWorkers() {
+        NECraftingNetworkCluster network = this.networkCluster;
+        if (network != null) {
+            return network.collectCandidateWorkers();
+        }
+        List<ECOCraftingWorkerBlockEntity> candidates = new ArrayList<>(workers.size());
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            if (worker.isRemoved() || worker.getCluster() != this) {
+                continue;
+            }
+            candidates.add(worker);
+        }
+        return candidates;
+    }
+
+    /** Allocation-free reachability check used by busy reporting. */
+    public boolean hasAvailableDispatchCandidate() {
+        NECraftingNetworkCluster network = this.networkCluster;
+        if (network != null) {
+            return network.hasAvailableCandidateWorker();
+        }
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            if (worker.isRemoved() || worker.getCluster() != this) {
+                continue;
+            }
+            if (worker.getAvailableThreadSlots() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True when {@code worker} is still reachable for dispatch from this host. */
+    public boolean isDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
+        if (worker.isRemoved()) {
+            return false;
+        }
+        NECraftingCluster owner = worker.getCluster();
+        if (owner == null || owner.isDestroyed() || !owner.getWorkers().contains(worker)) {
+            return false;
+        }
+        if (owner == this) {
+            return true;
+        }
+        NECraftingNetworkCluster network = this.networkCluster;
+        return network != null && network == owner.getNetworkCluster();
     }
 
     @Override

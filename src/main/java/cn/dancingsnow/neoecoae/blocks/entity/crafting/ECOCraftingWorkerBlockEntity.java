@@ -8,10 +8,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
@@ -39,7 +38,14 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
-    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+
+    /**
+     * Only used while this worker has no cluster - a detached worker can never craft, but statistics calls
+     * still need a sink. The real cache lives on the crafting cluster (or, when a Network Switch group is
+     * formed, on that group) so verified recipes are shared instead of re-verified per worker.
+     */
+    @Nullable
+    private ECOCraftingFastPathCache detachedFastPathCache;
 
     @Getter
     private int runningThreads = 0;
@@ -101,7 +107,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             int workerThreadCapacity = controller.getThreadCountForWorker(this);
             if (getRunningThreads() >= workerThreadCapacity) {
-                fastPathCache.recordNoThreadReject();
+                getFastPathCache().recordNoThreadReject();
                 return false;
             }
 
@@ -141,19 +147,24 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
     }
 
-    public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
+    public boolean pushBatch(ECOVerifiedFastPathExecution verified) {
+        ECOCraftingFastPathCache cache = getFastPathCache();
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
-            fastPathCache.recordDisabled();
+            cache.recordDisabled();
             return false;
         }
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
+        if (!verified.recipe().isIssuedBy(cache)) {
+            cache.recordExpectedMismatch();
+            return false;
+        }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         int workerThreadCapacity = controller.getThreadCountForWorker(this);
-        if (request.batchSize() > getAvailableThreadSlots()
-            || request.batchSize() > getControllerAvailableThreadSlots(controller)) {
-            fastPathCache.recordNoThreadReject();
+        if (verified.batchSize() > getAvailableThreadSlots()
+            || verified.batchSize() > getControllerAvailableThreadSlots(controller)) {
+            cache.recordNoThreadReject();
             return false;
         }
 
@@ -166,7 +177,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushBatch(request, controller, verifiedResult)) {
+                if (thread.pushBatch(verified, controller)) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     refreshDisplayedJob();
                     return true;
@@ -183,37 +194,27 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
         setChanged();
         markForUpdate();
-        boolean accepted = thread.pushBatch(request, controller, verifiedResult);
+        boolean accepted = thread.pushBatch(verified, controller);
         if (accepted) {
             refreshDisplayedJob();
         }
         return accepted;
     }
 
-    public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
-        var key = execution.key();
-        if (key == null) {
-            fastPathCache.recordKeyBuildFailed();
-            return null;
-        }
-        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
-        ECOFastPathResult result = fastPathCache.get(key, tick);
-        if (result == null) {
-            return null;
-        }
-        if (result.isNegative()) {
-            fastPathCache.recordFallbackSlowPath();
-            return null;
-        }
-        if (!result.matchesExecution(execution)) {
-            fastPathCache.recordExpectedMismatch();
-            return null;
-        }
-        return result;
-    }
-
+    /**
+     * Fast-path knowledge for this worker: the crafting cluster's cache, or the Network Switch group's shared
+     * cache while a group is formed. A worker never owns verified recipes on its own, so a recipe verified by
+     * any worker of the group is immediately usable by all of them.
+     */
     public ECOCraftingFastPathCache getFastPathCache() {
-        return fastPathCache;
+        cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster owner = cluster;
+        if (owner != null) {
+            return owner.getFastPathCache();
+        }
+        if (detachedFastPathCache == null) {
+            detachedFastPathCache = new ECOCraftingFastPathCache(ECOCraftingFastPathCache.MIN_CACHE_SIZE);
+        }
+        return detachedFastPathCache;
     }
 
     public boolean isBusy() {
@@ -374,7 +375,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         super.loadTag(data, registries);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
-        fastPathCache.clear();
+        // The fast-path cache is no longer per worker, so a worker load must not wipe knowledge its whole
+        // cluster shares. Staleness is already impossible: every key carries the reload generation and the
+        // dimension, and losing the cluster drops the cache with it.
         if (threads.size() > MAX_PERSISTED_THREAD_RECORDS) {
             LOGGER.error(
                 "ECO worker persisted too many crafting threads; excess records will be ignored: worker={} count={}",

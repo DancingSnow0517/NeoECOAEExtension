@@ -41,11 +41,11 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -291,9 +291,15 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
+                // Topology is collected once per task: which providers advertise this pattern at all cannot
+                // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
+                // deliberately NOT part of this list and is re-measured on every attempt below.
+                List<ICraftingProvider> candidateProviders = collectCandidateProviders(craftingService, details);
+                if (candidateProviders.isEmpty()) {
+                    continue;
+                }
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
-                    if (providers.isEmpty()) {
+                    if (!hasAvailableProvider(candidateProviders)) {
                         continue taskLoop;
                     }
 
@@ -306,16 +312,18 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
+                    // The single normalization point for this dispatch: fast-path key, slot signatures, expected
+                    // outputs/remainders/inputs and the arithmetic batch ceiling are built exactly once here and
+                    // reused by the offer search, the verification and the batch push.
                     ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
                     int batchResult = tryPushVerifiedFastPathBatch(
                             job,
-                            details,
                             execution,
                             craftingContainer,
-                             providers,
+                             candidateProviders,
                              energyService,
                              patternPower,
                              task.getValue().value);
@@ -341,7 +349,7 @@ public class ECOCraftingCPULogic {
                     }
 
                     boolean pushed = false;
-                    for (ICraftingProvider provider : providers) {
+                    for (ICraftingProvider provider : candidateProviders) {
                         if (provider.isBusy()) {
                             continue;
                         }
@@ -419,23 +427,38 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
+    /**
+     * Topological candidates for one pattern: every provider that advertises it. Collected once per task so the
+     * inner dispatch loop stops rebuilding the same {@link ArrayList} and rescanning a fixed topology, and
+     * copied because the grid may add or remove providers while a dispatch runs.
+     *
+     * <p>Availability is intentionally excluded. A provider's busy state and free capacity change with every
+     * dispatch, so they are re-read from the provider on each attempt.
+     */
+    private List<ICraftingProvider> collectCandidateProviders(CraftingService craftingService,
             IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            if (!provider.isBusy()) {
-                providers.add(provider);
-            }
+            providers.add(provider);
         }
         return providers;
     }
 
+    /** Live availability check over the reusable candidate set; allocates nothing. */
+    private boolean hasAvailableProvider(List<ICraftingProvider> candidateProviders) {
+        for (int i = 0; i < candidateProviders.size(); i++) {
+            if (!candidateProviders.get(i).isBusy()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private int tryPushVerifiedFastPathBatch(
             ExecutingCraftingJob job,
-            IPatternDetails details,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
-            List<ICraftingProvider> providers,
+            List<ICraftingProvider> candidateProviders,
             IEnergyService energyService,
             double patternPower,
             long taskRemaining) {
@@ -451,15 +474,22 @@ public class ECOCraftingCPULogic {
         }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
-        Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
-        for (ICraftingProvider provider : providers) {
-            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
+        // One offer search per dispatch scope. A Network Switch group answers as a single scope now, because
+        // one of its buses already searches every worker of the group.
+        List<Object> visitedScopes = new ArrayList<>(4);
+        for (ICraftingProvider provider : candidateProviders) {
+            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus) || provider.isBusy()) {
                 continue;
             }
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller == null || !visitedControllers.add(controller)) {
+            if (controller == null) {
                 continue;
             }
+            Object scope = controller.getDispatchScope();
+            if (containsIdentity(visitedScopes, scope)) {
+                continue;
+            }
+            visitedScopes.add(scope);
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
             if (offer != null && offer.maxBatchSize() > 1
                     && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
@@ -471,6 +501,10 @@ public class ECOCraftingCPULogic {
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
+            return 0;
+        }
+        // The credential must have been minted for this very execution context, never for an earlier one.
+        if (!selectedOffer.recipe().isVerifiedFor(execution)) {
             return 0;
         }
 
@@ -504,15 +538,10 @@ public class ECOCraftingCPULogic {
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
             extraInputsExtracted = true;
-            var request = new ECOBatchCraftingRequest(
-                    details,
-                    execution.key(),
-                    batchSize,
-                    execution.inputItems(),
-                    execution.expectedOutputs(),
-                    execution.expectedContainerItems(),
-                    job.link.getCraftingID());
-            if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
+            // Bind the already-verified recipe credential to this batch size. No stack list is re-copied and no
+            // stack list is compared again from here on.
+            var verified = selectedOffer.recipe().withBatch(batchSize, job.link.getCraftingID());
+            if (verified == null || !selectedPatternBus.pushBatch(verified, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
@@ -571,10 +600,17 @@ public class ECOCraftingCPULogic {
      */
     private int calculateBatchRequestSize(ECOExtractedPatternExecution execution, long taskRemaining) {
         long requested = Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
-        int arithmeticLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
-            execution.inputItems(), execution.expectedOutputs(), execution.expectedContainerItems()
-        );
-        return (int) Math.min(requested, arithmeticLimit);
+        // The arithmetic ceiling was computed once when the execution context was built.
+        return (int) Math.min(requested, execution.arithmeticBatchLimit());
+    }
+
+    private static boolean containsIdentity(List<Object> visited, Object candidate) {
+        for (int i = 0; i < visited.size(); i++) {
+            if (visited.get(i) == candidate) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -808,8 +844,11 @@ public class ECOCraftingCPULogic {
             return;
         }
         var storage = grid.getStorageService().getInventory();
-        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
-            patternBus.recoverJobToNetwork(craftingJobId, storage);
+        // A batch may have been accepted by a worker in another Network Switch member. Recover by job id from
+        // every worker still on this AE grid, rather than following today's switch topology through Pattern
+        // Buses: the group may have split or been rebuilt since ownership was transferred.
+        for (ECOCraftingWorkerBlockEntity worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
+            worker.recoverJobToNetwork(craftingJobId, storage);
         }
     }
 

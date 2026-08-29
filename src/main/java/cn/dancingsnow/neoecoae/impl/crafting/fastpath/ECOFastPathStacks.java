@@ -28,11 +28,9 @@ public final class ECOFastPathStacks {
     }
 
     public static List<GenericStack> copyCounter(KeyCounter counter) {
-        KeyCounter copy = new KeyCounter();
-        if (counter != null) {
-            copy.addAll(counter);
-        }
-        return copySorted(copy);
+        // copySorted only reads the counter and builds fresh GenericStacks, so no intermediate KeyCounter copy
+        // is needed to keep the returned list independent of the caller's counter.
+        return counter == null ? List.of() : copySorted(counter);
     }
 
     public static List<GenericStack> copyCounters(KeyCounter[] counters) {
@@ -207,16 +205,30 @@ public final class ECOFastPathStacks {
     }
 
     private static List<GenericStack> copySorted(KeyCounter counter) {
-        List<GenericStack> stacks = new ArrayList<>();
+        // Decorate-sort-undecorate: keySortId concatenates strings, so computing it once per entry instead of
+        // once per comparison removes O(n log n) throwaway strings from every dispatch.
+        List<SortableStack> sortable = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : counter) {
             if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+                sortable.add(new SortableStack(
+                    keySortId(entry.getKey()),
+                    new GenericStack(entry.getKey(), entry.getLongValue())
+                ));
             }
         }
-        stacks.sort(Comparator.comparing((GenericStack stack) -> keySortId(stack.what()))
-            .thenComparingLong(GenericStack::amount));
+        sortable.sort(SORTABLE_ORDER);
+        List<GenericStack> stacks = new ArrayList<>(sortable.size());
+        for (SortableStack entry : sortable) {
+            stacks.add(entry.stack());
+        }
         return List.copyOf(stacks);
     }
+
+    private record SortableStack(String sortId, GenericStack stack) {}
+
+    private static final Comparator<SortableStack> SORTABLE_ORDER =
+        Comparator.comparing(SortableStack::sortId)
+            .thenComparingLong(entry -> entry.stack().amount());
 
     static String keySortId(@Nullable AEKey key) {
         if (key == null) {

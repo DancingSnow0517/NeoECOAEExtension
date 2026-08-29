@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -19,7 +21,16 @@ import java.util.function.ToLongFunction;
 public class NECraftingNetworkCluster {
     private final List<NECraftingCluster> members = new ArrayList<>();
 
+    /**
+     * Fast-path knowledge shared by every member of this exchange group: once one worker has really run
+     * {@code assemble()} and passed verification, every other worker in the group can execute the same recipe
+     * without a cold start. Only recipe-level results live here - worker eligibility and worker capacity are
+     * still decided per worker, per dispatch.
+     */
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+
     public void configure(List<NECraftingCluster> newMembers) {
+        boolean membershipChanged = !isSameMembership(newMembers);
         this.members.clear();
         this.members.addAll(newMembers);
         this.members.sort(Comparator.comparing(
@@ -28,7 +39,58 @@ public class NECraftingNetworkCluster {
                 .thenComparingInt(pos -> pos.getY())
                 .thenComparingInt(pos -> pos.getZ())
         ));
+        if (membershipChanged) {
+            // Regrouping may bring in hosts from a different structure generation. Dropping the shared
+            // knowledge costs one cold start per recipe and can never execute a stale verification.
+            fastPathCache.clear();
+        }
         synchronizeUiState();
+    }
+
+    private boolean isSameMembership(List<NECraftingCluster> newMembers) {
+        if (members.size() != newMembers.size()) {
+            return false;
+        }
+        for (NECraftingCluster candidate : newMembers) {
+            boolean found = false;
+            for (NECraftingCluster member : members) {
+                if (member == candidate) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
+    }
+
+    /**
+     * Every worker that is topologically able to execute a pattern for this exchange group right now.
+     *
+     * <p>The list is rebuilt per dispatch on purpose: it must never retain a reference to a worker whose
+     * multiblock was rebuilt or whose block entity was removed, so stale entries are filtered out here rather
+     * than cached and revalidated later.
+     */
+    public List<ECOCraftingWorkerBlockEntity> collectCandidateWorkers() {
+        List<ECOCraftingWorkerBlockEntity> candidates = new ArrayList<>();
+        for (NECraftingCluster member : members) {
+            if (member.isDestroyed() || member.getController() == null) {
+                continue;
+            }
+            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
+                if (worker.isRemoved() || worker.getCluster() != member) {
+                    continue;
+                }
+                candidates.add(worker);
+            }
+        }
+        return candidates;
     }
 
     /**
@@ -46,6 +108,24 @@ public class NECraftingNetworkCluster {
 
     private ECOCraftingSystemBlockEntity getLeaderController() {
         return members.isEmpty() ? null : members.getFirst().getController();
+    }
+
+    /** Allocation-free counterpart of {@link #collectCandidateWorkers()} for busy checks. */
+    public boolean hasAvailableCandidateWorker() {
+        for (NECraftingCluster member : members) {
+            if (member.isDestroyed() || member.getController() == null) {
+                continue;
+            }
+            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
+                if (worker.isRemoved() || worker.getCluster() != member) {
+                    continue;
+                }
+                if (worker.getAvailableThreadSlots() > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public boolean isOverclocked() {
@@ -77,19 +157,26 @@ public class NECraftingNetworkCluster {
     }
 
     public int getNormalSwitchHostCount() {
-        return (int) members.stream()
-            .map(NECraftingCluster::getController)
-            .filter(java.util.Objects::nonNull)
-            .filter(ECOCraftingSystemBlockEntity::hasNormalNetworkSwitch)
-            .count();
+        // Plain loop: this feeds getCombinedSwitchMultiplier, which is consulted once per worker per dispatch.
+        int count = 0;
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.hasNormalNetworkSwitch()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public int getHighEnergySwitchHostCount() {
-        return (int) members.stream()
-            .map(NECraftingCluster::getController)
-            .filter(java.util.Objects::nonNull)
-            .filter(ECOCraftingSystemBlockEntity::hasHighEnergyNetworkSwitch)
-            .count();
+        int count = 0;
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.hasHighEnergyNetworkSwitch()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

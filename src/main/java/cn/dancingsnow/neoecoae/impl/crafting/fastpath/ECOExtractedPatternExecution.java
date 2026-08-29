@@ -11,6 +11,21 @@ import java.util.Optional;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Immutable execution context for exactly one logical pattern dispatch.
+ *
+ * <p>Everything derived from the extracted crafting container is normalized once here: the fast-path key
+ * (including its per-slot {@code EntrySignature} sorting), the expected outputs, the expected container
+ * items (remainders), the aggregated concrete inputs, the fast-path eligibility decision and the arithmetic
+ * batch ceiling implied by the per-craft amounts. Every later stage of the same dispatch - offer search,
+ * verification, batch push - reuses this one object instead of rebuilding the same data.
+ *
+ * <p>The three expected-stack lists are unmodifiable and were validated once in {@link #create}; callers
+ * must never re-copy or re-validate them. {@link #craftingContainer()} is the single {@code KeyCounter[]}
+ * the CPU still owns for this dispatch (it is what {@code fillCraftingGrid} reads and what a rollback
+ * reinjects), so it is intentionally shared by reference and must stay on the server thread for the
+ * duration of the dispatch.
+ */
 public final class ECOExtractedPatternExecution {
     private final IPatternDetails details;
     private final KeyCounter[] craftingContainer;
@@ -22,6 +37,7 @@ public final class ECOExtractedPatternExecution {
     private final ECOFastPathKey key;
 
     private final boolean fastPathEligible;
+    private final int arithmeticBatchLimit;
 
     private ECOExtractedPatternExecution(
         IPatternDetails details,
@@ -34,11 +50,16 @@ public final class ECOExtractedPatternExecution {
     ) {
         this.details = details;
         this.craftingContainer = craftingContainer;
+        // copyCounter/copyCounters already return unmodifiable lists, so List.copyOf is a no-op for them and
+        // only guards the List.of() literals used by the slow-path factory.
         this.expectedOutputs = List.copyOf(expectedOutputs);
         this.expectedContainerItems = List.copyOf(expectedContainerItems);
         this.inputItems = List.copyOf(inputItems);
         this.key = key;
         this.fastPathEligible = fastPathEligible;
+        this.arithmeticBatchLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+            this.inputItems, this.expectedOutputs, this.expectedContainerItems
+        );
     }
 
     public static ECOExtractedPatternExecution create(
@@ -81,6 +102,22 @@ public final class ECOExtractedPatternExecution {
         );
     }
 
+    /**
+     * Package-private test seam: builds a context from already-normalized lists and an already-built key,
+     * bypassing AE2 pattern introspection and item-registry-dependent validation. Production code must always
+     * go through {@link #create} or {@link #slow}.
+     */
+    static ECOExtractedPatternExecution ofNormalizedComponents(
+        @Nullable ECOFastPathKey key,
+        List<GenericStack> expectedOutputs,
+        List<GenericStack> expectedContainerItems,
+        List<GenericStack> inputItems
+    ) {
+        return new ECOExtractedPatternExecution(
+            null, new KeyCounter[0], expectedOutputs, expectedContainerItems, inputItems, key, key != null
+        );
+    }
+
     public KeyCounter[] craftingContainer() {
         return craftingContainer;
     }
@@ -104,6 +141,14 @@ public final class ECOExtractedPatternExecution {
 
     public boolean fastPathEligible() {
         return fastPathEligible;
+    }
+
+    /**
+     * Largest batch multiplier the per-craft amounts of this dispatch can still represent. Computed once with
+     * the rest of the context, because it depends only on the already-normalized per-craft lists.
+     */
+    public int arithmeticBatchLimit() {
+        return arithmeticBatchLimit;
     }
 
     public boolean canUseFastPath() {

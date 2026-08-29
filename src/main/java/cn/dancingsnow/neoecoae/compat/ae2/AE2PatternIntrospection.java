@@ -30,6 +30,15 @@ public final class AE2PatternIntrospection {
         return available;
     }
 
+    /**
+     * Monotonic counter bumped by every recipe/datapack/server reload. It is part of every
+     * {@link ECOFastPathKey} and is also snapshotted into a verified fast-path credential so a reload that
+     * lands between verification and execution invalidates the credential instead of being executed.
+     */
+    public static long reloadGeneration() {
+        return reloadGeneration;
+    }
+
     public static boolean isKnownSafePatternType(IPatternDetails details) {
         return details instanceof AECraftingPattern;
     }

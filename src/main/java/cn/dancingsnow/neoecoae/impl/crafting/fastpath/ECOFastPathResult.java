@@ -53,18 +53,16 @@ public final class ECOFastPathResult {
         return inputEntries;
     }
 
+    /**
+     * Full value comparison against a dispatch's expected data. Called exactly once per dispatch, from
+     * {@link ECOCraftingFastPathCache#lookup}; downstream stages carry the resulting
+     * {@link ECOVerifiedFastPathRecipe} instead of repeating it.
+     */
     public boolean matchesExecution(ECOExtractedPatternExecution execution) {
         return !negative
             && outputEntries.equals(execution.expectedOutputs())
             && remainingEntries.equals(execution.expectedContainerItems())
             && inputEntries.equals(execution.inputItems());
-    }
-
-    public boolean matchesBatchRequest(ECOBatchCraftingRequest request) {
-        return !negative
-            && outputEntries.equals(request.outputsPerCraft())
-            && remainingEntries.equals(request.remainingPerCraft())
-            && inputEntries.equals(request.inputsPerCraft());
     }
 
     public long getCreatedTick() {

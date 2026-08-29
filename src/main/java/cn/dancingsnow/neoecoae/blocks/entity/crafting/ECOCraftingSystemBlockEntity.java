@@ -491,6 +491,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             : getLocalAvailableThreads();
     }
 
+    /**
+     * Identity of the set of workers a dispatch through this host can reach: the Network Switch group when one
+     * is formed, otherwise this host alone. Used to search each reachable worker set exactly once per dispatch,
+     * since any bus of a group now offers every worker of that group.
+     */
+    public Object getDispatchScope() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster();
+        }
+        return this;
+    }
+
     private long getMaxEnergyUsage() {
         if (overclocked && !activeCooling) {
             return (long) getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;

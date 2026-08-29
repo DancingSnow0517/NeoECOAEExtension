@@ -13,6 +13,21 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Recipe-level fast-path knowledge.
+ *
+ * <p>Scope: one cache instance is owned by a {@code NECraftingCluster}, and a {@code NECraftingNetworkCluster}
+ * owns one shared instance that supersedes its members' local caches while they are grouped by a Network
+ * Switch. An entry therefore states "assembling this pattern with these concrete inputs in this dimension
+ * produced exactly these outputs/remainders/inputs", which is worker-independent: every ECO FX worker runs the
+ * same {@code IMolecularAssemblerSupportedPattern.assemble()} against the same level. Worker capacity and
+ * worker eligibility are deliberately <em>not</em> stored here; they are re-evaluated per dispatch.
+ *
+ * <p>Invalidation: the {@link ECOFastPathKey} carries the reload generation and the dimension, so recipe,
+ * datapack and server reloads can never match an older entry; {@link #clearAllCaches()} additionally frees
+ * their memory. Losing a cluster (rebuild, block removal, chunk/world unload) drops the cache with it, and a
+ * network group whose membership changes clears its shared cache.
+ */
 public final class ECOCraftingFastPathCache {
     public static final int MIN_CACHE_SIZE = 16;
     public static final int MAX_CACHE_SIZE = 16_384;
@@ -40,6 +55,7 @@ public final class ECOCraftingFastPathCache {
     private long keyBuildFailedCount;
     private long exceptionCount;
     private long lastStatsLogTick = Long.MIN_VALUE;
+    private long credentialEpoch;
 
     public ECOCraftingFastPathCache() {
         this(NEConfig.ecoFastPathCacheSize);
@@ -104,8 +120,50 @@ public final class ECOCraftingFastPathCache {
         verifyRejectCount++;
     }
 
+    /**
+     * The single place in the whole dispatch chain that performs the full value comparison between a cached
+     * result and the current execution context. A match mints an {@link ECOVerifiedFastPathRecipe}, which every
+     * later stage passes around instead of comparing the three {@code List<GenericStack>} again.
+     */
+    public ECOFastPathLookup lookup(ECOExtractedPatternExecution execution, long tick, long reloadGeneration) {
+        ECOFastPathKey key = execution.key();
+        if (key == null) {
+            keyBuildFailedCount++;
+            return ECOFastPathLookup.miss();
+        }
+        // Do not mint a current credential from an execution context constructed before the latest reload,
+        // even if an obsolete entry somehow survived memory clearing.
+        if (!key.isForReloadGeneration(reloadGeneration)) {
+            expectedMismatchCount++;
+            return ECOFastPathLookup.mismatch();
+        }
+        ECOFastPathResult result = get(key, tick);
+        if (result == null) {
+            return ECOFastPathLookup.miss();
+        }
+        if (result.isNegative()) {
+            return ECOFastPathLookup.negative();
+        }
+        if (!result.matchesExecution(execution)) {
+            expectedMismatchCount++;
+            return ECOFastPathLookup.mismatch();
+        }
+        return ECOFastPathLookup.verified(
+            ECOVerifiedFastPathRecipe.trusted(this, execution, key, result, reloadGeneration)
+        );
+    }
+
     public void clear() {
         entries.clear();
+        credentialEpoch++;
+    }
+
+    long currentCredentialEpoch() {
+        return credentialEpoch;
+    }
+
+    boolean isCredentialEpochCurrent(long candidate) {
+        return credentialEpoch == candidate;
     }
 
     public static void clearAllCaches() {
