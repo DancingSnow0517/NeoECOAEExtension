@@ -73,6 +73,8 @@ public final class ComputationHostPanelUI {
         BooleanSupplier ignoringPatternSubstitutions,
         IntSupplier substitutionPatternCount,
         Runnable toggleIgnoringPatternSubstitutions,
+        BooleanSupplier fastPlannerEnabled,
+        Runnable toggleFastPlanner,
         IntSupplier networkFrequency,
         IntConsumer adjustNetworkFrequency
     ) {
@@ -167,6 +169,33 @@ public final class ComputationHostPanelUI {
             config.substitutionPatternCount,
             config.toggleIgnoringPatternSubstitutions,
             CPU_MODE_BUTTON_SIZE);
+    }
+
+    public static Button createFastPlannerButton(Config config) {
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPreIcon(AETextures.icon(config.fastPlannerEnabled.getAsBoolean() ? Icon.COG : Icon.COG_DISABLED));
+        button.buttonStyle(style -> style
+            .baseTexture(Sprites.RECT_RD)
+            .hoverTexture(Sprites.RECT_RD_LIGHT)
+            .pressedTexture(Sprites.RECT_RD_DARK));
+        button.addClass("eco-host-fast-planner-button");
+        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
+        button.setOnServerClick(event -> config.toggleFastPlanner.run());
+
+        UIElement icon = button.getChildren().getFirst();
+        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.fastPlannerEnabled.getAsBoolean());
+        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.fastPlannerEnabled::getAsBoolean).build());
+        syncedEnabled.registerValueListener(value -> icon.style(style -> style.backgroundTexture(
+            AETextures.icon(Boolean.TRUE.equals(value) ? Icon.COG : Icon.COG_DISABLED))));
+        syncedEnabled.setDisplay(false);
+        button.addChild(syncedEnabled);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
+                Boolean.TRUE.equals(syncedEnabled.getValue())
+                    ? "gui.neoecoae.crafting.fast_planner.on"
+                    : "gui.neoecoae.crafting.fast_planner.off")));
+        return button;
     }
 
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {

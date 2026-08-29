@@ -76,6 +76,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
     @Persisted
     private boolean ignorePatternSubstitutions;
+    @Persisted
+    @DescSynced
+    private boolean fastCraftingPlannerEnabled;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -168,6 +171,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
             ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
             ComputationHostPanelUI.createPlanningModeButton(panelConfig),
+            ComputationHostPanelUI.createFastPlannerButton(panelConfig),
             ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
@@ -193,6 +197,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             this::isIgnoringPatternSubstitutions,
             this::getSubstitutionPatternCount,
             () -> toggleIgnoringPatternSubstitutions(player),
+            this::isFastCraftingPlannerEnabled,
+            () -> toggleFastCraftingPlanner(player),
             this::getNetworkFrequency,
             delta -> {
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
@@ -231,6 +237,34 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 !settings.neoecoae$isIgnoringPatternSubstitutions());
         } else {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
+        }
+    }
+
+    public boolean isLocallyFastCraftingPlannerEnabled() {
+        return fastCraftingPlannerEnabled;
+    }
+
+    public void applyNetworkFastCraftingPlannerEnabled(boolean enabled) {
+        if (fastCraftingPlannerEnabled == enabled) return;
+        fastCraftingPlannerEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
+    private boolean isFastCraftingPlannerEnabled() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null
+            ? settings.neoecoae$isFastPlannerEnabled()
+            : fastCraftingPlannerEnabled;
+    }
+
+    private void toggleFastCraftingPlanner(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setFastPlannerEnabled(!settings.neoecoae$isFastPlannerEnabled());
+        } else {
+            applyNetworkFastCraftingPlannerEnabled(!fastCraftingPlannerEnabled);
         }
     }
 

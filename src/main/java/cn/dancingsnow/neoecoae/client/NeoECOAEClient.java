@@ -51,9 +51,9 @@ public class NeoECOAEClient {
             new ECODriveRenderer()
         );
         event.enqueueWork(() -> {
-            MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmScreen> constructor =
-                (menu, inventory, title) -> new ECOCraftConfirmScreen(
-                    menu, inventory, title, StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json"));
+            MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmRouterScreen> constructor =
+                (menu, inventory, title) -> new ECOCraftConfirmRouterScreen(
+                    menu, inventory, title, StyleManager.loadStyleDoc("/screens/craft_confirm.json"));
             MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
         });
     }

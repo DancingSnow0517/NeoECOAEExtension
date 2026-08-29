@@ -50,6 +50,11 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         this.neoecoae$ignorePatternSubstitutions = settings != null
             && settings.neoecoae$isIgnoringPatternSubstitutions();
 
+        if (settings == null || !settings.neoecoae$shouldUseFastPlanner()) {
+            this.neoecoae$plannerSession = null;
+            return;
+        }
+
         KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
             grid.getCraftingService(), output.what(), inventory);
@@ -58,6 +63,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)
     private void runEcoDagAttempt(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) throws InterruptedException {
+        if (neoecoae$plannerSession == null) {
+            return;
+        }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {

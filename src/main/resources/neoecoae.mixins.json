@@ -6,9 +6,9 @@
   "mixins": [
     "AppEngInternalInventoryMixin",
     "CPUSelectionListMixin",
+    "CraftConfirmMenuMixin",
     "CraftingCalculationMixin",
     "CraftingPlanMixin",
-    "CraftingPlanSummaryMixin",
     "CraftingCpuListEntryMixin",
     "CraftingCPUMenuMixin",
     "CraftingServiceMixin",

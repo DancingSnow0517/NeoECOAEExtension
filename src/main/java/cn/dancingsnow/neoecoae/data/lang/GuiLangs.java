@@ -163,5 +163,6 @@ public class GuiLangs {
 
         // computation interface
         provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
+        provider.add("gui.neoecoae.crafting_report.net_output", "Net output: %s");
     }
 }

@@ -55,6 +55,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
         "neoecoaeIgnorePatternSubstitutions";
     @Unique
+    private static final String NEOECOAE_FAST_PLANNER_ENABLED_KEY =
+        "neoecoaeFastPlannerEnabled";
+    @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getPooledParallelism)
         .reversed()
@@ -87,6 +90,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private boolean neoecoae$ignorePatternSubstitutions;
     @Unique
     private boolean neoecoae$planningModeInitialized;
+    @Unique
+    private boolean neoecoae$fastPlannerEnabled;
+    @Unique
+    private boolean neoecoae$fastPlannerInitialized;
     @Unique
     private long neoecoae$substitutionPatternCountVersion = Long.MIN_VALUE;
     @Unique
@@ -164,6 +171,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
             neoecoae$planningModeInitialized = true;
         }
+        if (!neoecoae$fastPlannerInitialized
+            && savedData != null
+            && savedData.contains(NEOECOAE_FAST_PLANNER_ENABLED_KEY, Tag.TAG_BYTE)) {
+            neoecoae$fastPlannerEnabled = savedData.getBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY);
+            neoecoae$fastPlannerInitialized = true;
+        }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
             && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
@@ -179,6 +192,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$initializeOrSyncPlanningMode(
                 computationHost.isLocallyIgnoringPatternSubstitutions(),
                 computationHost::applyNetworkIgnoringPatternSubstitutions);
+            neoecoae$initializeOrSyncFastPlanner(
+                computationHost.isLocallyFastCraftingPlannerEnabled(),
+                computationHost::applyNetworkFastCraftingPlannerEnabled);
         }
     }
 
@@ -186,6 +202,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         savedData.putBoolean(
             NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
             neoecoae$ignorePatternSubstitutions);
+        savedData.putBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY, neoecoae$fastPlannerEnabled);
     }
 
     @Unique
@@ -195,6 +212,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$planningModeInitialized = true;
         } else {
             apply.accept(neoecoae$ignorePatternSubstitutions);
+        }
+    }
+
+    @Unique
+    private void neoecoae$initializeOrSyncFastPlanner(boolean persistedValue, java.util.function.Consumer<Boolean> apply) {
+        if (!neoecoae$fastPlannerInitialized) {
+            neoecoae$fastPlannerEnabled = persistedValue;
+            neoecoae$fastPlannerInitialized = true;
+        } else {
+            apply.accept(neoecoae$fastPlannerEnabled);
         }
     }
 
@@ -231,6 +258,30 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             .count());
         neoecoae$substitutionPatternCountVersion = version;
         return neoecoae$substitutionPatternCount;
+    }
+
+    @Override
+    public boolean neoecoae$isFastPlannerEnabled() {
+        return neoecoae$fastPlannerEnabled;
+    }
+
+    @Override
+    public void neoecoae$setFastPlannerEnabled(boolean enabled) {
+        neoecoae$fastPlannerInitialized = true;
+        neoecoae$fastPlannerEnabled = enabled;
+        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            host.applyNetworkFastCraftingPlannerEnabled(enabled);
+        }
+    }
+
+    @Override
+    public boolean neoecoae$hasComputationHost() {
+        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            if (host.isFormed() && host.getMainNode().isOnline()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Unique

@@ -462,5 +462,8 @@
   "gui.neoecoae.crafting_report.calculating": "计算中…",
   "gui.neoecoae.crafting_report.bytes": " - 字节：%s B",
   "gui.neoecoae.crafting_report.bytes_only": "字节：%s B",
+  "gui.neoecoae.crafting_report.net_output": "净产出：%s",
+  "gui.neoecoae.crafting.fast_planner.on": "ECO 快速规划：已启用",
+  "gui.neoecoae.crafting.fast_planner.off": "ECO 快速规划：已禁用",
   "gui.neoecoae.crafting_report.cycle_unsupported": "检测到循环配方，当前版本暂不支持循环规划。"
 }

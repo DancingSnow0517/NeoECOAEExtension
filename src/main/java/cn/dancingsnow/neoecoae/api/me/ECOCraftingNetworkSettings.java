@@ -13,6 +13,16 @@ public interface ECOCraftingNetworkSettings {
 
     int neoecoae$getSubstitutionPatternCount();
 
+    boolean neoecoae$isFastPlannerEnabled();
+
+    void neoecoae$setFastPlannerEnabled(boolean enabled);
+
+    boolean neoecoae$hasComputationHost();
+
+    default boolean neoecoae$shouldUseFastPlanner() {
+        return neoecoae$isFastPlannerEnabled() && neoecoae$hasComputationHost();
+    }
+
     static @Nullable ECOCraftingNetworkSettings of(@Nullable IGrid grid) {
         if (grid != null && grid.getCraftingService() instanceof ECOCraftingNetworkSettings settings) {
             return settings;
