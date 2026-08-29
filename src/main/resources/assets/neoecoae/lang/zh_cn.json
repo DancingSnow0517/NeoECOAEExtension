@@ -458,5 +458,9 @@
   "gui.neoecoae.host.crafting.pattern_transfer.no_target": "未找到可用的样板总线",
   "gui.neoecoae.host.crafting.pattern_transfer.result_primary": "转移 %d · 已存在 %d",
   "gui.neoecoae.host.crafting.pattern_transfer.result_secondary": "空间不足 %d · 不兼容 %d",
-  "gui.neoecoae.computation_interface.hint": "标记物品用于忽略其组件差异"
+  "gui.neoecoae.computation_interface.hint": "标记物品用于忽略其组件差异",
+  "gui.neoecoae.crafting_report.calculating": "计算中…",
+  "gui.neoecoae.crafting_report.bytes": " - 字节：%s B",
+  "gui.neoecoae.crafting_report.bytes_only": "字节：%s B",
+  "gui.neoecoae.crafting_report.cycle_unsupported": "检测到循环配方，当前版本暂不支持循环规划。"
 }

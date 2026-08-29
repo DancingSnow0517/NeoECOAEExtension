@@ -1,0 +1,56 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json"],
+  "background": {
+    "texture": "neoecoae:textures/guis/eco_craftingreport_cycle.png",
+    "textureWidth": 384,
+    "textureHeight": 384,
+    "srcRect": [0, 0, 330, 260]
+  },
+  "text": {
+    "dialog_title": {
+      "position": { "left": 8, "top": 7 }
+    },
+    "plan_summary": {
+      "position": { "left": 92, "top": 11 },
+      "align": "CENTER"
+    },
+    "cycle_status": {
+      "position": { "left": 238, "top": 200 }
+    },
+    "cpu_status": {
+      "position": { "left": 109, "top": 218 },
+      "align": "CENTER"
+    }
+  },
+  "widgets": {
+    "scrollbar": {
+      "left": 218,
+      "top": 27,
+      "height": 160
+    },
+    "cycleScrollbar": {
+      "left": 312,
+      "top": 27,
+      "height": 160
+    },
+    "selectCpu": {
+      "left": 19,
+      "bottom": 67,
+      "width": 198,
+      "height": 20
+    },
+    "start": {
+      "left": 180,
+      "bottom": 28,
+      "width": 50,
+      "height": 20
+    },
+    "cancel": {
+      "left": 6,
+      "bottom": 28,
+      "width": 50,
+      "height": 20
+    }
+  }
+}

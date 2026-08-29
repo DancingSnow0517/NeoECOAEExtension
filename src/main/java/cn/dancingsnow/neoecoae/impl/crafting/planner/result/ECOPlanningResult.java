@@ -9,10 +9,12 @@ public record ECOPlanningResult(
     PlanningStatus status,
     @Nullable CraftingPlan plan,
     ECOPlanTrace trace,
-    List<CycleDiagnostic> cycles
+    List<CycleDiagnostic> cycles,
+    long calculationNanos
 ) {
     public ECOPlanningResult {
         cycles = List.copyOf(cycles);
+        calculationNanos = Math.max(0L, calculationNanos);
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
         }

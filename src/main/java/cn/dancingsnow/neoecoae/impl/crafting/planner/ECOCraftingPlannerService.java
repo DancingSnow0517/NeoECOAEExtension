@@ -39,6 +39,7 @@ public final class ECOCraftingPlannerService {
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
                 throws InterruptedException {
+            long startedNanos = System.nanoTime();
             try {
                 if (compiled == null) compiled = compiler.compile(craftingService, goal, cancellation);
                 var reachable = reachability.scan(compiled, cancellation);
@@ -53,7 +54,7 @@ public final class ECOCraftingPlannerService {
                     trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_UNSUPPORTED,
                         "检测到循环配方，当前版本暂不支持循环规划。"));
                     var result = new ECOPlanningResult(PlanningStatus.CYCLE_UNSUPPORTED,
-                        bridge.unsupported(goal, amount), trace, cycleResult.cycles());
+                        bridge.unsupported(goal, amount), trace, cycleResult.cycles(), elapsedSince(startedNanos));
                     attach(result);
                     return result;
                 }
@@ -65,7 +66,8 @@ public final class ECOCraftingPlannerService {
                     case CYCLE_UNSUPPORTED, CANCELLED, AMOUNT_OVERFLOW -> bridge.unsupported(goal, amount);
                     default -> null;
                 };
-                var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), List.of());
+                var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), List.of(),
+                    elapsedSince(startedNanos));
                 attach(result);
                 return result;
             } catch (InterruptedException e) {
@@ -74,7 +76,8 @@ public final class ECOCraftingPlannerService {
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     e.getClass().getSimpleName() + ": " + e.getMessage()));
-                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of());
+                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(),
+                    elapsedSince(startedNanos));
             }
         }
 
@@ -82,6 +85,11 @@ public final class ECOCraftingPlannerService {
             if ((Object) result.plan() instanceof ECOCraftingPlanDiagnostics diagnostics) {
                 diagnostics.neoecoae$setPlanningResult(result);
             }
+        }
+
+        private long elapsedSince(long startedNanos) {
+            long now = System.nanoTime();
+            return now >= startedNanos ? now - startedNanos : 0L;
         }
     }
 

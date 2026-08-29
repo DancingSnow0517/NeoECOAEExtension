@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.mixins.client.MenuScreensAccessor;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -16,6 +17,9 @@ import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
+import appeng.client.gui.style.StyleManager;
+import appeng.menu.me.crafting.CraftConfirmMenu;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -46,6 +50,12 @@ public class NeoECOAEClient {
             NEBlockEntities.ECO_DRIVE.get(),
             new ECODriveRenderer()
         );
+        event.enqueueWork(() -> {
+            MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmScreen> constructor =
+                (menu, inventory, title) -> new ECOCraftConfirmScreen(
+                    menu, inventory, title, StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json"));
+            MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
+        });
     }
 
     @SubscribeEvent

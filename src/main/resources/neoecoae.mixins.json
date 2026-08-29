@@ -8,6 +8,7 @@
     "CPUSelectionListMixin",
     "CraftingCalculationMixin",
     "CraftingPlanMixin",
+    "CraftingPlanSummaryMixin",
     "CraftingCpuListEntryMixin",
     "CraftingCPUMenuMixin",
     "CraftingServiceMixin",
@@ -23,6 +24,7 @@
     "extendedae.TileExIOPortMixin"
   ],
   "client": [
+    "client.MenuScreensAccessor",
     "ModelBakeryMixin",
     "PatternEncodingTermScreenMixin"
   ],
