@@ -105,7 +105,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public int getCoProcessors() {
-        return cluster.getCPUAccelerators();
+        return cluster.getPooledParallelism();
     }
 
     @Override

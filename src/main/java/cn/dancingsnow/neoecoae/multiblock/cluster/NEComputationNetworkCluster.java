@@ -95,14 +95,21 @@ public class NEComputationNetworkCluster {
     }
 
     public long getPooledAvailableStorage() {
-        if (isEndgameEligible()) {
-            return Long.MAX_VALUE;
-        }
+        long capacity = getTotalStorageCapacity();
+        long usedBytes = getReservedStorage();
+        return capacity - Math.min(capacity, usedBytes);
+    }
+
+    long getReservedStorage() {
         long usedBytes = 0;
         for (NEComputationCluster member : members) {
             usedBytes = NEMath.saturatingAdd(usedBytes, member.getOwnUsedStorage());
         }
-        return Math.max(0, getTotalStorageCapacity() - usedBytes);
+        return usedBytes;
+    }
+
+    boolean reservationsFit() {
+        return getReservedStorage() <= getTotalStorageCapacity();
     }
 
     public ICraftingSubmitResult submitJob(

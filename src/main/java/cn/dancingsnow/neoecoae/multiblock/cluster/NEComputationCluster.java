@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -114,10 +115,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     /**
-     * Own real bytes currently reserved by active jobs, ignoring network pooling.
+     * Bytes reserved by this member's active jobs. This may exceed the member's physical storage while
+     * it belongs to a computation network, because the network admits jobs against the shared byte pool.
      */
     public long getOwnUsedStorage() {
-        return Math.max(0, getTotalStorage() - this.availableStorage);
+        return getActiveJobBytes();
     }
 
     public int getOwnMaxThreads() {
@@ -295,8 +297,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             if (cpu == null) continue;
             ICraftingSubmitResult result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
             if (result.successful()) {
-                this.registerActiveJob(job, cpu);
-                return result;
+                if (this.registerActiveJob(job, cpu)) {
+                    return result;
+                }
+                return CraftingSubmitResult.CPU_TOO_SMALL;
             }
             threadingCore.deactivate(cpu);
             lastResult = result;
@@ -304,18 +308,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return lastResult;
     }
 
-    void registerActiveJob(ICraftingPlan job, ECOCraftingCPU cpu) {
+    boolean registerActiveJob(ICraftingPlan job, ECOCraftingCPU cpu) {
         this.activeCpus.put(job, cpu);
         this.recalculateRemainingStorage();
         this.updateGridForChangedCpu();
+        return this.activeCpus.get(job) == cpu && cpu.getLogic().hasJob();
     }
 
     public void recalculateRemainingStorage() {
         long totalStorage = getTotalStorage();
         long usedStorage = getActiveJobBytes();
 
-        this.availableStorage = totalStorage - usedStorage;
-        if (this.availableStorage >= 0 || this.activeCpus.isEmpty()) {
+        this.availableStorage = Math.max(0, totalStorage - Math.min(totalStorage, usedStorage));
+        boolean reservationsFit = networkCluster != null
+            ? networkCluster.reservationsFit()
+            : usedStorage <= totalStorage;
+        if (reservationsFit || this.activeCpus.isEmpty()) {
             return;
         }
 
@@ -330,7 +338,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {
-            usedStorage += plan.bytes();
+            usedStorage = NEMath.saturatingAdd(
+                usedStorage,
+                Math.max(0L, plan.bytes())
+            );
         }
         return usedStorage;
     }
