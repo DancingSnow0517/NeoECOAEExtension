@@ -2,8 +2,15 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
+import io.netty.buffer.Unpooled;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.InflaterInputStream;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,6 +23,8 @@ public record CraftingGraphSnapshot(
     List<CycleGroup> cycleGroups,
     Summary summary
 ) implements PacketWritable {
+    private static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
+    private static final int MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
     public static final CraftingGraphSnapshot EMPTY = new CraftingGraphSnapshot(-1, List.of(), List.of(), List.of(),
         List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
 
@@ -27,12 +36,28 @@ public record CraftingGraphSnapshot(
     }
 
     public CraftingGraphSnapshot(RegistryFriendlyByteBuf data) {
-        this(data.readVarInt(), readList(data, MaterialNode::read), readList(data, PatternNode::read),
-            readList(data, Edge::read), readList(data, CycleGroup::read), Summary.read(data));
+        this(readCompressed(data));
+    }
+
+    private CraftingGraphSnapshot(Decoded decoded) {
+        this(decoded.rootNodeId, decoded.nodes, decoded.patterns, decoded.edges, decoded.cycleGroups, decoded.summary);
     }
 
     @Override
     public void writeToPacket(RegistryFriendlyByteBuf data) {
+        var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(), data.registryAccess());
+        try {
+            writeRaw(raw);
+            byte[] uncompressed = new byte[raw.readableBytes()];
+            raw.getBytes(0, uncompressed);
+            data.writeVarInt(uncompressed.length);
+            data.writeByteArray(compress(uncompressed));
+        } finally {
+            raw.release();
+        }
+    }
+
+    private void writeRaw(RegistryFriendlyByteBuf data) {
         data.writeVarInt(rootNodeId);
         writeList(data, nodes, MaterialNode::write);
         writeList(data, patterns, PatternNode::write);
@@ -40,6 +65,65 @@ public record CraftingGraphSnapshot(
         writeList(data, cycleGroups, CycleGroup::write);
         summary.write(data);
     }
+
+    private static Decoded readCompressed(RegistryFriendlyByteBuf data) {
+        int expectedSize = data.readVarInt();
+        if (expectedSize < 0 || expectedSize > MAX_UNCOMPRESSED_BYTES) {
+            throw new IllegalArgumentException("Invalid uncompressed graph size: " + expectedSize);
+        }
+        byte[] compressed = data.readByteArray(MAX_COMPRESSED_BYTES);
+        byte[] uncompressed = decompress(compressed, expectedSize);
+        var raw = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed), data.registryAccess());
+        try {
+            Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
+                readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
+                Summary.read(raw));
+            if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
+            return result;
+        } finally {
+            raw.release();
+        }
+    }
+
+    private static byte[] compress(byte[] input) {
+        try {
+            var output = new ByteArrayOutputStream(Math.max(64, input.length / 4));
+            var deflater = new Deflater(Deflater.BEST_SPEED);
+            try (var stream = new DeflaterOutputStream(output, deflater)) {
+                stream.write(input);
+            } finally {
+                deflater.end();
+            }
+            return output.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to compress crafting graph snapshot", e);
+        }
+    }
+
+    private static byte[] decompress(byte[] input, int expectedSize) {
+        try (var stream = new InflaterInputStream(new ByteArrayInputStream(input));
+                var output = new ByteArrayOutputStream(expectedSize)) {
+            byte[] chunk = new byte[8192];
+            int total = 0;
+            for (int read; (read = stream.read(chunk)) >= 0;) {
+                total += read;
+                if (total > expectedSize || total > MAX_UNCOMPRESSED_BYTES) {
+                    throw new IllegalArgumentException("Crafting graph expands beyond declared size");
+                }
+                output.write(chunk, 0, read);
+            }
+            if (total != expectedSize) {
+                throw new IllegalArgumentException("Crafting graph size mismatch: expected " + expectedSize
+                    + ", got " + total);
+            }
+            return output.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to decompress crafting graph snapshot", e);
+        }
+    }
+
+    private record Decoded(int rootNodeId, List<MaterialNode> nodes, List<PatternNode> patterns, List<Edge> edges,
+            List<CycleGroup> cycleGroups, Summary summary) {}
 
     public enum MaterialStatus { SATISFIED, CRAFTING, MISSING, UNSUPPORTED, CYCLE }
     public enum CandidateStatus { SELECTED, REJECTED, UNSUPPORTED }
@@ -74,7 +158,8 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record PatternNode(int patternId, String identity, List<Relationship> inputs, List<Relationship> outputs,
+    public record PatternNode(int patternNodeId, String displayIdentity, List<Relationship> inputs,
+            List<Relationship> outputs,
             long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
         public PatternNode {
             inputs = List.copyOf(inputs);
@@ -88,8 +173,8 @@ public record CraftingGraphSnapshot(
         }
 
         private void write(RegistryFriendlyByteBuf data) {
-            data.writeVarInt(patternId);
-            data.writeUtf(identity);
+            data.writeVarInt(patternNodeId);
+            data.writeUtf(displayIdentity);
             writeList(data, inputs, Relationship::write);
             writeList(data, outputs, Relationship::write);
             data.writeVarLong(firingCount);
@@ -126,20 +211,20 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record PatternAmount(String identity, long amount) {
+    public record PatternAmount(int patternNodeId, long amount) {
         private static PatternAmount read(RegistryFriendlyByteBuf data) {
-            return new PatternAmount(data.readUtf(), data.readVarLong());
+            return new PatternAmount(data.readVarInt(), data.readVarLong());
         }
 
         private void write(RegistryFriendlyByteBuf data) {
-            data.writeUtf(identity);
+            data.writeVarInt(patternNodeId);
             data.writeVarLong(amount);
         }
     }
 
     public record CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
             List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
-            List<PatternAmount> patternTimes, List<String> executionWitness) {
+            List<PatternAmount> patternTimes, List<Integer> executionWitness) {
         public CycleGroup {
             memberNodeIds = List.copyOf(memberNodeIds);
             internalEdges = List.copyOf(internalEdges);
@@ -153,7 +238,7 @@ public record CraftingGraphSnapshot(
         private static CycleGroup read(RegistryFriendlyByteBuf data) {
             return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
-                readList(data, PatternAmount::read), readStringList(data));
+                readList(data, PatternAmount::read), readIntList(data));
         }
 
         private void write(RegistryFriendlyByteBuf data) {
@@ -165,7 +250,7 @@ public record CraftingGraphSnapshot(
             writeList(data, externalInputs, KeyAmount::write);
             writeList(data, requiredSeed, KeyAmount::write);
             writeList(data, patternTimes, PatternAmount::write);
-            writeStringList(data, executionWitness);
+            writeIntList(data, executionWitness);
         }
     }
 
@@ -212,18 +297,6 @@ public record CraftingGraphSnapshot(
     private static void writeIntList(RegistryFriendlyByteBuf data, List<Integer> values) {
         data.writeVarInt(values.size());
         for (int value : values) data.writeVarInt(value);
-    }
-
-    private static List<String> readStringList(RegistryFriendlyByteBuf data) {
-        int size = data.readVarInt();
-        List<String> result = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) result.add(data.readUtf());
-        return result;
-    }
-
-    private static void writeStringList(RegistryFriendlyByteBuf data, List<String> values) {
-        data.writeVarInt(values.size());
-        for (String value : values) data.writeUtf(value);
     }
 
     private static @Nullable String readNullableString(RegistryFriendlyByteBuf data) {

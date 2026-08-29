@@ -47,8 +47,9 @@ public final class LayeredGraphLayout {
             }
             x += layerWidth + LAYER_GAP;
         }
+        long layoutNanos = System.nanoTime() - started;
         return new GraphLayoutSnapshot(boxes, graph.links(), new GraphLayoutSnapshot.Bounds(0, 0, maxRight, maxBottom),
-            started, version);
+            layoutNanos, version);
     }
 
     private static Map<Integer, Integer> assignLayers(ClientCraftingGraph graph) {

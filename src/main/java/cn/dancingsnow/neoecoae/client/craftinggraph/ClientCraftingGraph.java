@@ -77,7 +77,7 @@ public final class ClientCraftingGraph {
             boolean internalCyclePattern = pattern.componentId() >= 0 && snapshot.cycleGroups().stream()
                 .anyMatch(cycle -> cycle.componentId() == pattern.componentId());
             if (internalCyclePattern) continue;
-            int id = CraftingGraphSnapshotFactory.patternVisualId(pattern.patternId());
+            int id = pattern.patternNodeId();
             nodes.put(id, patternNode(id, pattern));
         }
 
@@ -104,7 +104,7 @@ public final class ClientCraftingGraph {
         }
         for (var pattern : snapshot.patterns()) {
             if (pattern.componentId() != componentId) continue;
-            int id = CraftingGraphSnapshotFactory.patternVisualId(pattern.patternId());
+            int id = pattern.patternNodeId();
             nodes.put(id, patternNode(id, pattern));
         }
         List<Link> links = new ArrayList<>();
@@ -176,7 +176,7 @@ public final class ClientCraftingGraph {
     }
 
     private static Node patternNode(int id, CraftingGraphSnapshot.PatternNode pattern) {
-        return new Node(id, Kind.PATTERN, pattern.identity(), null, null, pattern, null);
+        return new Node(id, Kind.PATTERN, pattern.displayIdentity(), null, null, pattern, null);
     }
 
     private static Map<Integer, Set<Integer>> freeze(Map<Integer, Set<Integer>> values) {

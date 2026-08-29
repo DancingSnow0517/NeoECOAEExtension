@@ -37,6 +37,7 @@ public final class GraphLayoutSnapshot {
     private final Map<Integer, int[]> edgesByNode;
     private final Bounds bounds;
     private final long layoutNanos;
+    private final long spatialIndexNanos;
     private final long version;
 
     GraphLayoutSnapshot(Map<Integer, Box> boxes, List<ClientCraftingGraph.Link> links, Bounds bounds,
@@ -45,6 +46,7 @@ public final class GraphLayoutSnapshot {
         this.bounds = bounds;
         this.version = version;
         this.links = List.copyOf(links);
+        long spatialStarted = System.nanoTime();
         Map<Long, List<Integer>> mutable = new HashMap<>();
         for (Box box : boxes.values()) {
             int minX = floorCell(box.x());
@@ -68,13 +70,15 @@ public final class GraphLayoutSnapshot {
         Map<Integer, int[]> frozenEdges = new HashMap<>();
         mutableEdges.forEach((key, ids) -> frozenEdges.put(key, ids.stream().mapToInt(Integer::intValue).toArray()));
         this.edgesByNode = Map.copyOf(frozenEdges);
-        this.layoutNanos = System.nanoTime() - layoutNanos;
+        this.layoutNanos = layoutNanos;
+        this.spatialIndexNanos = System.nanoTime() - spatialStarted;
     }
 
     public Map<Integer, Box> boxes() { return boxes; }
     public Box box(int id) { return boxes.get(id); }
     public Bounds bounds() { return bounds; }
     public long layoutNanos() { return layoutNanos; }
+    public long spatialIndexNanos() { return spatialIndexNanos; }
     public long version() { return version; }
 
     public List<Box> query(float left, float top, float right, float bottom, float margin) {
@@ -98,6 +102,8 @@ public final class GraphLayoutSnapshot {
     }
 
     public List<ClientCraftingGraph.Link> queryLinks(float left, float top, float right, float bottom, float margin) {
+        // Deliberate v1 approximation: an edge is considered only when at least one endpoint node is near the
+        // viewport. A long edge whose two endpoints are both off-screen is culled even if its line crosses the view.
         Set<Integer> candidates = new LinkedHashSet<>();
         for (Box box : query(left, top, right, bottom, margin)) {
             int[] ids = edgesByNode.get(box.nodeId());
@@ -106,6 +112,21 @@ public final class GraphLayoutSnapshot {
         List<ClientCraftingGraph.Link> visible = new ArrayList<>(candidates.size());
         for (int id : candidates) visible.add(links.get(id));
         return visible;
+    }
+
+    int candidateNodeCount(float left, float top, float right, float bottom, float margin) {
+        left -= margin;
+        top -= margin;
+        right += margin;
+        bottom += margin;
+        Set<Integer> candidates = new LinkedHashSet<>();
+        for (int x = floorCell(left); x <= floorCell(right); x++) {
+            for (int y = floorCell(top); y <= floorCell(bottom); y++) {
+                int[] ids = grid.get(cellKey(x, y));
+                if (ids != null) for (int id : ids) candidates.add(id);
+            }
+        }
+        return candidates.size();
     }
 
     private static int floorCell(float value) { return (int) Math.floor(value / CELL_SIZE); }

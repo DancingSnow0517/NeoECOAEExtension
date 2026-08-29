@@ -98,10 +98,11 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private void drawStats(GuiGraphics graphics) {
         String stats = String.format(Locale.ROOT,
-            "nodes %d/%d  edges %d/%d  zoom %.0f%%  layout %.2f ms  render %.2f ms  v%d",
+            "nodes %d/%d  edges %d/%d  zoom %.0f%%  layout %.2f ms  index %.2f ms  render %.2f ms  v%d",
             profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
             profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
-            layout.layoutNanos() / 1_000_000.0, profiler.renderNanos() / 1_000_000.0, layout.version());
+            layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,
+            profiler.renderNanos() / 1_000_000.0, layout.version());
         graphics.drawString(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);
     }
 

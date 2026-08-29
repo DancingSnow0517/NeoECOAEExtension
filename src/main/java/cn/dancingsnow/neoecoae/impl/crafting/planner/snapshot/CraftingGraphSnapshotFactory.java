@@ -71,8 +71,8 @@ public final class CraftingGraphSnapshotFactory {
         Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null || node.key() == null) continue;
-            int patternId = patterns.size();
-            patternIds.put(node.pattern(), patternId);
+            int patternNodeId = patternNodeId(patterns.size());
+            patternIds.put(node.pattern(), patternNodeId);
             int outputId = nodeIds.get(node.key());
             List<Relationship> inputs = selectedInputs(node.key(), trace.edges(), nodeIds);
             if (inputs.isEmpty()) inputs = inputs(node.pattern(), nodeIds);
@@ -87,23 +87,46 @@ public final class CraftingGraphSnapshotFactory {
                 default -> CandidateStatus.UNSUPPORTED;
             };
             int componentId = componentFor(node.key(), trace.components());
-            PatternNode pattern = new PatternNode(patternId, identity(node.pattern()), inputs, outputs,
+            PatternNode pattern = new PatternNode(patternNodeId, displayIdentity(node.pattern()), inputs, outputs,
                 node.firingCount(), status, node.reason(), componentId);
             patterns.add(pattern);
-            int visualPatternId = patternVisualId(patternId);
             boolean selected = status == CandidateStatus.SELECTED;
             for (Relationship output : outputs) {
                 EdgeKind kind = output.materialNodeId() == outputId ? EdgeKind.PATTERN_OUTPUT : EdgeKind.BYPRODUCT;
-                edges.add(new Edge(output.materialNodeId(), visualPatternId, output.amount(), kind, selected));
+                edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), kind, selected));
             }
             for (Relationship input : inputs) {
-                edges.add(new Edge(visualPatternId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
                     selected));
             }
         }
 
         List<CraftingGraphSnapshot.CycleGroup> cycles = new ArrayList<>();
         for (var cycle : trace.cycles()) {
+            for (var internalEdge : cycle.internalEdges()) {
+                var details = internalEdge.pattern().details();
+                if (patternIds.containsKey(details)) continue;
+                int patternNodeId = patternNodeId(patterns.size());
+                patternIds.put(details, patternNodeId);
+                List<Relationship> inputs = internalEdge.pattern().inputs().stream()
+                    .map(input -> new Relationship(nodeIds.get(input.key()), input.amountPerPattern())).toList();
+                List<Relationship> outputs = internalEdge.pattern().outputs().stream()
+                    .filter(output -> nodeIds.containsKey(output.what()))
+                    .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
+                long firingCount = cycle.solveResult() == null ? 0
+                    : cycle.solveResult().patternTimes().getOrDefault(details, 0L);
+                patterns.add(new PatternNode(patternNodeId, displayIdentity(details), inputs, outputs, firingCount,
+                    firingCount > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
+                    firingCount > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
+                for (Relationship output : outputs) {
+                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), EdgeKind.PATTERN_OUTPUT,
+                        firingCount > 0));
+                }
+                for (Relationship input : inputs) {
+                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                        firingCount > 0));
+                }
+            }
             List<Integer> memberIds = cycle.members().stream().map(nodeIds::get).filter(java.util.Objects::nonNull)
                 .toList();
             List<Edge> internal = new ArrayList<>();
@@ -133,9 +156,11 @@ public final class CraftingGraphSnapshotFactory {
                 solve == null || solve.externalDemand().isEmpty() ? structuralExternalInputs : keyAmounts(solve.externalDemand()),
                 solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
                 solve == null ? List.of() : solve.patternTimes().entrySet().stream()
-                    .map(entry -> new PatternAmount(identity(entry.getKey()), entry.getValue())).toList(),
+                    .filter(entry -> patternIds.containsKey(entry.getKey()))
+                    .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue())).toList(),
                 solve == null ? List.of() : solve.executionWitness().stream()
-                    .map(firing -> identity(firing.pattern().details())).toList()));
+                    .map(firing -> patternIds.get(firing.pattern().details()))
+                    .filter(java.util.Objects::nonNull).toList()));
         }
 
         int rootNodeId = rootKey == null ? (nodes.isEmpty() ? -1 : 0) : nodeIds.get(rootKey);
@@ -145,8 +170,8 @@ public final class CraftingGraphSnapshotFactory {
     }
 
     /** Pattern visual IDs never collide with material IDs and survive packet serialization. */
-    public static int patternVisualId(int patternId) {
-        return -patternId - 2;
+    public static int patternNodeId(int snapshotPatternIndex) {
+        return -snapshotPatternIndex - 2;
     }
 
     private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge> edges,
@@ -194,7 +219,7 @@ public final class CraftingGraphSnapshotFactory {
         return -1;
     }
 
-    private static String identity(IPatternDetails pattern) {
+    private static String displayIdentity(IPatternDetails pattern) {
         StringBuilder value = new StringBuilder(pattern.getClass().getSimpleName());
         try {
             if (!pattern.getOutputs().isEmpty()) value.append(':').append(pattern.getOutputs().getFirst().what());
