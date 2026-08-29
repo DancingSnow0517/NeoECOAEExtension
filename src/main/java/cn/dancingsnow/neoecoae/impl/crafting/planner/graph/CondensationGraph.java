@@ -105,6 +105,10 @@ public final class CondensationGraph {
     public PlanningComponent componentFor(AEKey key) { return components.get(componentByKey.get(key)); }
     public List<ComponentDependency> dependencies() { return dependencies; }
     public List<PlanningComponent> topologicalOrder() { return topologicalOrder; }
+    /** Execution order follows supplier -> consumer, opposite of producer->required-input edges. */
+    public List<PlanningComponent> executionOrder() {
+        return topologicalOrder.reversed();
+    }
     public List<CycleComponent> cycles() {
         return topologicalOrder.stream().filter(CycleComponent.class::isInstance).map(CycleComponent.class::cast).toList();
     }

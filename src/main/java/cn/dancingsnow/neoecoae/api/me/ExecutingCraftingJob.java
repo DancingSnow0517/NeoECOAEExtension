@@ -20,6 +20,7 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +41,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import java.util.ArrayList;
 
 public class ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -52,10 +56,16 @@ public class ExecutingCraftingJob {
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
+    private static final String NBT_CYCLE_WITNESS_INDEX = "cycleWitnessIndex";
+    private static final String NBT_REQUIRES_ORDERED_CYCLE = "requiresOrderedCycleExecution";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    final List<IPatternDetails> cycleWitness = new ArrayList<>();
+    int cycleWitnessIndex;
+    boolean requiresOrderedCycleExecution;
+    boolean cycleWitnessMissing;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -89,6 +99,10 @@ public class ExecutingCraftingJob {
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
+        if (plan instanceof ECOCraftingPlanDiagnostics d && d.neoecoae$getPlanningResult() instanceof ECOPlanningResult r) {
+            cycleWitness.addAll(r.cycleWitness());
+        }
+        requiresOrderedCycleExecution = !cycleWitness.isEmpty();
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
@@ -129,6 +143,9 @@ public class ExecutingCraftingJob {
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
+        this.cycleWitnessIndex = Math.max(0, data.getInt(NBT_CYCLE_WITNESS_INDEX));
+        this.requiresOrderedCycleExecution = data.getBoolean(NBT_REQUIRES_ORDERED_CYCLE);
+        this.cycleWitnessMissing = requiresOrderedCycleExecution && cycleWitness.isEmpty();
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {
             ((CraftingService) grid.getCraftingService()).addLink(link);
@@ -162,6 +179,8 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
+        data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, requiresOrderedCycleExecution);
         return data;
     }
 

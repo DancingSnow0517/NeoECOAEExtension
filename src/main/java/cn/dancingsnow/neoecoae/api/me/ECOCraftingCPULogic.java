@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -276,21 +277,41 @@ public class ECOCraftingCPULogic {
         var job = this.job;
         if (job == null)
             return 0;
+        if (job.requiresOrderedCycleExecution && job.cycleWitnessMissing) {
+            LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
+            return 0;
+        }
 
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
         try {
-            var it = job.tasks.entrySet().iterator();
+            java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it;
+            boolean orderedWitness = !job.cycleWitness.isEmpty() && job.cycleWitnessIndex < job.cycleWitness.size();
+            if (orderedWitness) {
+                var expected = job.cycleWitness.get(job.cycleWitnessIndex);
+                var progress = job.tasks.get(expected);
+                if (progress == null || progress.value <= 0) {
+                    // The witness step is already satisfied (for example after a reload); advance safely.
+                    job.cycleWitnessIndex++;
+                    return 0;
+                }
+                it = job.tasks.entrySet().iterator();
+            } else {
+                it = job.tasks.entrySet().iterator();
+            }
             taskLoop: while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
-                    it.remove();
+                    if (!orderedWitness) it.remove();
                     continue;
                 }
 
                 var details = task.getKey();
+                if (orderedWitness && job.cycleWitness.contains(details) && details != job.cycleWitness.get(job.cycleWitnessIndex)) {
+                    continue;
+                }
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
@@ -319,7 +340,7 @@ public class ECOCraftingCPULogic {
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-                    int batchResult = tryPushVerifiedFastPathBatch(
+                    int batchResult = orderedWitness ? 0 : tryPushVerifiedFastPathBatch(
                             job,
                             execution,
                             craftingContainer,
@@ -337,7 +358,7 @@ public class ECOCraftingCPULogic {
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            it.remove();
+                            if (!orderedWitness) it.remove();
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -381,11 +402,12 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         recordPushedPattern(job, execution, 1);
+                        if (!job.cycleWitness.isEmpty()) job.cycleWitnessIndex++;
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            it.remove();
+                            if (!orderedWitness) it.remove();
                             continue taskLoop;
                         }
 

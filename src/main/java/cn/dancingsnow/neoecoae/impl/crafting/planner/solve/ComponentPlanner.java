@@ -118,12 +118,25 @@ public final class ComponentPlanner {
                     cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
                 cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                 diagnostic = cycleResult.summary();
-                unresolvedCycle = true;
+                unresolvedCycle = cycleStatus != CyclePlanningStatus.SOLVED;
                 trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
                 if (cycleStatus == CyclePlanningStatus.SOLVED) {
-                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SOLVED,
-                        "Cycle needs " + cycleResult.totalFirings() + " firing(s); stage one reports the solution"
-                            + " but does not emit it into the AE2 plan yet"));
+                    // Commit only after the complete solver answer has been validated. External demand is
+                    // reserved from the remaining stock here; a future route-aware pass may replace this
+                    // reservation with crafted intermediates without changing the transaction boundary.
+                    if (cycleResult.positiveExternalDemand().entrySet().stream().anyMatch(e ->
+                            e.getValue() > remaining(inventory, acyclic.state(), e.getKey()))) {
+                        cycleStatus = CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
+                        diagnostic = "External demand is unavailable: " + cycleResult.positiveExternalDemand();
+                        unresolvedCycle = true;
+                    } else if (!acyclic.state().applyCycleSolution(cycleResult, inventory)) {
+                        cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
+                        diagnostic = "Cycle solution validation failed";
+                        unresolvedCycle = true;
+                    } else {
+                        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SOLVED,
+                            "Cycle merged with " + cycleResult.totalFirings() + " firing(s)"));
+                    }
                 }
             }
             trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
