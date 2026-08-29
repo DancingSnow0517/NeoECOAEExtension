@@ -45,6 +45,7 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -475,11 +476,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     /**
-     * Returns the combined queue capacity of all workers in this cluster.
-     * This includes the available capacity of all workers in the cluster.
+     * Returns the combined queue capacity of all workers reachable by this host, <em>before</em> subtracting
+     * the threads that are currently running. Callers that need the remaining room subtract
+     * {@link #getRunningThreadCount()} themselves, so this must never do it for them.
      */
     public int getTotalWorkerThreadCapacity() {
-        return getAvailableThreads();
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getTotalCraftingCapability()
+            : getLocalAvailableThreads();
     }
 
     private long getMaxEnergyUsage() {
@@ -683,9 +687,89 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getPooledCraftingCapability() {
-        return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getTotalCraftingCapability()
-            : getTotalWorkerThreadCapacity();
+        return getTotalWorkerThreadCapacity();
+    }
+
+    private int getPooledWorkerCount() {
+        if (cluster == null || cluster.getNetworkCluster() == null) {
+            return getWorkerCount();
+        }
+        long total = cluster.getNetworkCluster().getMembers().stream()
+            .mapToLong(member -> member.getWorkers().size())
+            .sum();
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    private int getPooledActiveWorkerCount() {
+        if (cluster == null || cluster.getNetworkCluster() == null) {
+            return cluster == null ? 0 : (int) cluster.getWorkers().stream()
+                .filter(worker -> worker.getRunningThreads() > 0)
+                .count();
+        }
+        long total = cluster.getNetworkCluster().getMembers().stream()
+            .flatMap(member -> member.getWorkers().stream())
+            .filter(worker -> worker.getRunningThreads() > 0)
+            .count();
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    private int getSingleCoreProcessingCapacity() {
+        long capacity = getLocalSingleCoreProcessingCapacity();
+        return (int) Math.min(Integer.MAX_VALUE, capacity);
+    }
+
+    private long getLocalSingleCoreProcessingCapacity() {
+        int networkMultiplier = cluster == null ? 1 : Math.max(1, cluster.getNetworkMultiplier());
+        return NEMath.saturatingMultiply(Math.max(0L, threadCountPerWorker), networkMultiplier);
+    }
+
+    private int getPooledOverflowThreads() {
+        return Math.max(0, getPooledParallelism() - getPooledCraftingCapability());
+    }
+
+    private Component getStatsTooltip() {
+        MutableComponent tooltip = Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.intro.0")
+            .append("\n")
+            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.intro.1"))
+            .append("\n\n")
+            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.host_details"));
+        long totalCapacity = 0L;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            int host = 1;
+            for (NECraftingCluster member : cluster.getNetworkCluster().getMembers()) {
+                ECOCraftingSystemBlockEntity controller = member.getController();
+                if (controller == null) {
+                    continue;
+                }
+                long capacity = NEMath.saturatingMultiply(
+                    Math.max(0L, controller.threadCountPerWorker),
+                    Math.max(1L, member.getNetworkMultiplier())
+                );
+                totalCapacity = NEMath.saturatingAdd(totalCapacity,
+                    NEMath.saturatingMultiply(member.getWorkers().size(), capacity));
+                tooltip.append("\n").append(Component.translatable(
+                    "gui.neoecoae.crafting.ui.stats.tooltip.host",
+                    host++, member.getWorkers().size(), Math.min(Integer.MAX_VALUE, capacity)
+                ));
+            }
+        } else {
+            int cores = getWorkerCount();
+            long capacity = getLocalSingleCoreProcessingCapacity();
+            totalCapacity = NEMath.saturatingMultiply(cores, capacity);
+            tooltip.append("\n").append(Component.translatable(
+                "gui.neoecoae.crafting.ui.stats.tooltip.host", 1, cores,
+                Math.min(Integer.MAX_VALUE, capacity)));
+        }
+        int displayedCapacity = (int) Math.min(Integer.MAX_VALUE, totalCapacity);
+        tooltip.append("\n\n")
+            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.fx_cores",
+                getPooledActiveWorkerCount(), getPooledWorkerCount()))
+            .append("\n")
+            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.tasks",
+                Math.min(displayedCapacity, Math.max(0, getRunningThreadCount())), displayedCapacity))
+            .append("\n")
+            .append(Component.translatable("gui.neoecoae.crafting.ui.stats.tooltip.total", displayedCapacity));
+        return tooltip;
     }
 
     public int getDisplayedCoolantAmount() {
@@ -770,11 +854,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> setOverclocked(player, !isOverclocked()),
             this::isActiveCooling,
             () -> setActiveCooling(player, !isActiveCooling()),
-            () -> Math.min(getPooledCraftingCapability(), Math.max(0, getRunningThreadCount())),
-            this::getPooledCraftingCapability,
+            this::getPooledActiveWorkerCount,
+            this::getPooledWorkerCount,
+            this::getSingleCoreProcessingCapacity,
             this::getPooledParallelism,
-            this::getOverflowThreads,
+            this::getPooledOverflowThreads,
             this::getEffectiveOverclockTimes,
+            this::getStatsTooltip,
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
             this::getDisplayedCoolantAmount,
