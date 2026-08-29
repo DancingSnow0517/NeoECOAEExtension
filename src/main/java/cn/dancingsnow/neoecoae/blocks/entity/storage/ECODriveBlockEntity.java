@@ -189,6 +189,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
+                && !storageCluster.getController().isStorageInterfaceTransferMode()
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
