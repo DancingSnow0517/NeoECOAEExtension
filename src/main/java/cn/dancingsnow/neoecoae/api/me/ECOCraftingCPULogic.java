@@ -277,23 +277,29 @@ public class ECOCraftingCPULogic {
         var job = this.job;
         if (job == null)
             return 0;
-        if (job.requiresOrderedCycleExecution && job.cycleWitnessMissing) {
+        if (!cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler.metadataAvailable(
+                job.requiresOrderedCycleExecution, job.executionSchedule, job.cycleWitnessMissing)) {
             LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
             return 0;
         }
+        job.advanceCompletedPhases();
+        var activePhase = job.activePhase();
+        boolean componentScheduled = job.requiresOrderedCycleExecution;
+        if (componentScheduled && activePhase == null) return 0;
 
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
         try {
             java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it;
-            boolean orderedWitness = !job.cycleWitness.isEmpty() && job.cycleWitnessIndex < job.cycleWitness.size();
+            boolean orderedWitness = activePhase != null
+                && activePhase.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE
+                && job.cycleWitnessIndex < activePhase.cycleWitness().size();
             if (orderedWitness) {
-                var expected = job.cycleWitness.get(job.cycleWitnessIndex);
+                var expected = activePhase.cycleWitness().get(job.cycleWitnessIndex);
                 var progress = job.tasks.get(expected);
                 if (progress == null || progress.value <= 0) {
-                    // The witness step is already satisfied (for example after a reload); advance safely.
-                    job.cycleWitnessIndex++;
+                    LOGGER.error("Current cycle witness step has no remaining task; refusing to skip ordered step");
                     return 0;
                 }
                 it = job.tasks.entrySet().iterator();
@@ -304,14 +310,13 @@ public class ECOCraftingCPULogic {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
-                    if (!orderedWitness) it.remove();
+                    if (!componentScheduled) it.remove();
                     continue;
                 }
 
                 var details = task.getKey();
-                if (orderedWitness && job.cycleWitness.contains(details) && details != job.cycleWitness.get(job.cycleWitnessIndex)) {
-                    continue;
-                }
+                if (activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                        .canDispatch(activePhase, job.cycleWitnessIndex, details)) continue;
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
@@ -358,7 +363,7 @@ public class ECOCraftingCPULogic {
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            if (!orderedWitness) it.remove();
+                            if (!componentScheduled) it.remove();
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -402,12 +407,14 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         recordPushedPattern(job, execution, 1);
-                        if (!job.cycleWitness.isEmpty()) job.cycleWitnessIndex++;
+                        if (orderedWitness) job.cycleWitnessIndex =
+                            cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                                .witnessAfterDispatch(job.cycleWitnessIndex, true);
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            if (!orderedWitness) it.remove();
+                            if (!componentScheduled) it.remove();
                             continue taskLoop;
                         }
 

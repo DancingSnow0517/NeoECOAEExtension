@@ -12,11 +12,13 @@ public record ECOPlanningResult(
     ECOPlanTrace trace,
     List<CycleDiagnostic> cycles,
     List<ComponentPlanningResult> components,
+    List<Integer> executionComponentOrder,
     long calculationNanos
 ) {
     public ECOPlanningResult {
         cycles = List.copyOf(cycles);
         components = List.copyOf(components);
+        executionComponentOrder = List.copyOf(executionComponentOrder);
         calculationNanos = Math.max(0L, calculationNanos);
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
@@ -30,13 +32,17 @@ public record ECOPlanningResult(
 
     /** Ordered cycle witness consumed by the ECO CPU; empty means vanilla scheduling is preserved. */
     public List<IPatternDetails> cycleWitness() {
-        return components.stream().filter(c -> c.cycleResult() != null)
-            .flatMap(c -> c.cycleResult().executionWitness().stream().map(w -> w.pattern().details()))
+        return executionSchedule().phases().stream().filter(p -> p.type() == ECOExecutionSchedule.Type.CYCLE)
+            .flatMap(p -> p.cycleWitness().stream())
             .toList();
+    }
+
+    public ECOExecutionSchedule executionSchedule() {
+        return ECOExecutionSchedule.from(components, executionComponentOrder);
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, long calculationNanos) {
-        this(status, plan, trace, cycles, List.of(), calculationNanos);
+        this(status, plan, trace, cycles, List.of(), List.of(), calculationNanos);
     }
 }

@@ -43,6 +43,8 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import java.util.ArrayList;
 
 public class ExecutingCraftingJob {
@@ -58,14 +60,17 @@ public class ExecutingCraftingJob {
     private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
     private static final String NBT_CYCLE_WITNESS_INDEX = "cycleWitnessIndex";
     private static final String NBT_REQUIRES_ORDERED_CYCLE = "requiresOrderedCycleExecution";
+    private static final String NBT_CURRENT_COMPONENT = "currentComponentIndex";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
     final List<IPatternDetails> cycleWitness = new ArrayList<>();
     int cycleWitnessIndex;
+    int currentComponentIndex;
     boolean requiresOrderedCycleExecution;
     boolean cycleWitnessMissing;
+    ECOExecutionSchedule executionSchedule;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -73,6 +78,25 @@ public class ExecutingCraftingJob {
     @Nullable
     Integer playerId;
     boolean suspended;
+
+    @Nullable ECOExecutionSchedule.ComponentExecutionPhase activePhase() {
+        if (!requiresOrderedCycleExecution || executionSchedule == null
+                || currentComponentIndex >= executionSchedule.phases().size()) return null;
+        return executionSchedule.phases().get(currentComponentIndex);
+    }
+
+    boolean phaseComplete(ECOExecutionSchedule.ComponentExecutionPhase phase) {
+        return ECOPhaseScheduler.isComplete(phase, cycleWitnessIndex,
+            pattern -> tasks.containsKey(pattern) ? tasks.get(pattern).value : 0L,
+            key -> waitingFor.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) > 0);
+    }
+
+    void advanceCompletedPhases() {
+        while (activePhase() != null && phaseComplete(activePhase())) {
+            currentComponentIndex++;
+            cycleWitnessIndex = 0;
+        }
+    }
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -101,6 +125,7 @@ public class ExecutingCraftingJob {
         }
         if (plan instanceof ECOCraftingPlanDiagnostics d && d.neoecoae$getPlanningResult() instanceof ECOPlanningResult r) {
             cycleWitness.addAll(r.cycleWitness());
+            executionSchedule = r.executionSchedule();
         }
         requiresOrderedCycleExecution = !cycleWitness.isEmpty();
         this.link = link;
@@ -144,6 +169,7 @@ public class ExecutingCraftingJob {
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
         this.cycleWitnessIndex = Math.max(0, data.getInt(NBT_CYCLE_WITNESS_INDEX));
+        this.currentComponentIndex = Math.max(0, data.getInt(NBT_CURRENT_COMPONENT));
         this.requiresOrderedCycleExecution = data.getBoolean(NBT_REQUIRES_ORDERED_CYCLE);
         this.cycleWitnessMissing = requiresOrderedCycleExecution && cycleWitness.isEmpty();
         IGrid grid = logic.cpu.getGrid();
@@ -180,6 +206,7 @@ public class ExecutingCraftingJob {
 
         data.putBoolean(NBT_SUSPENDED, suspended);
         data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
+        data.putInt(NBT_CURRENT_COMPONENT, currentComponentIndex);
         data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, requiresOrderedCycleExecution);
         return data;
     }

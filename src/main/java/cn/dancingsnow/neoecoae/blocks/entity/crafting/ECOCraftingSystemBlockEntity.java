@@ -75,6 +75,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
+    static final int MAX_OVERCLOCK_TIMES = 9;
     private static final int COOLANT_PER_CRAFT = 5;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
@@ -368,13 +369,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return 1;
     }
 
-    private int calculateOverclockTimes(long threadCount, long availableThreads) {
+    static int calculateOverclockTimes(long threadCount, long availableThreads) {
         long overflow = threadCount - availableThreads;
         if (threadCount <= 0 || overflow <= 0) {
             return 0;
         }
         double overflowRatio = (double) overflow / (double) threadCount;
-        return (int) Math.clamp(Math.round(overflowRatio / 0.05D), 0L, 9L);
+        return (int) Math.clamp(Math.round(overflowRatio / 0.05D), 0L, MAX_OVERCLOCK_TIMES);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {

@@ -65,7 +65,7 @@ public final class ECOCraftingPlannerService {
                     default -> null;
                 };
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
-                    solved.components(),
+                    solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos));
                 attach(result);
                 return result;
@@ -75,7 +75,7 @@ public final class ECOCraftingPlannerService {
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     e.getClass().getSimpleName() + ": " + e.getMessage()));
-                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(),
+                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(), List.of(),
                     elapsedSince(startedNanos));
             }
         }

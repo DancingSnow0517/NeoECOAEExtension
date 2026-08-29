@@ -33,7 +33,8 @@ public final class ComponentPlanner {
         SolveState state,
         ECOPlanTrace trace,
         List<CycleDiagnostic> cycles,
-        List<ComponentPlanningResult> components
+        List<ComponentPlanningResult> components,
+        List<Integer> executionComponentOrder
     ) {}
 
     private final AcyclicCraftingSolver acyclicSolver;
@@ -91,7 +92,8 @@ public final class ComponentPlanner {
                 componentResults.add(new ComponentPlanningResult(component.componentId(),
                     ComponentPlanningResult.Type.ACYCLIC,
                     demand > 0 ? ComponentPlanningResult.Status.PLANNED : ComponentPlanningResult.Status.NOT_REQUIRED,
-                    demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(), null, null));
+                    demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
+                    acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()), null, null, null));
                 continue;
             }
 
@@ -118,7 +120,7 @@ public final class ComponentPlanner {
                     cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
                 cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                 diagnostic = cycleResult.summary();
-                unresolvedCycle = cycleStatus != CyclePlanningStatus.SOLVED;
+                unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
                 trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
                 if (cycleStatus == CyclePlanningStatus.SOLVED) {
                     // Commit only after the complete solver answer has been validated. External demand is
@@ -152,7 +154,7 @@ public final class ComponentPlanner {
             componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                 ComponentPlanningResult.Type.CYCLIC,
                 componentStatus(requiredOutputs, cycleStatus),
-                requiredOutputs, cycleStatus, diagnostic, cycleResult));
+                requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()), cycleStatus, diagnostic, cycleResult));
             cycleDiagnostics.add(diagnostic(cycle, inventory));
         }
 
@@ -162,7 +164,8 @@ public final class ComponentPlanner {
                 ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
         }
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
-            List.copyOf(componentResults));
+            List.copyOf(componentResults), activeCondensation.executionOrder().stream()
+                .map(c -> c.componentId()).toList());
     }
 
     private static Map<AEKey, Long> relevantStock(CycleComponent cycle, KeyCounter inventory, SolveState state) {

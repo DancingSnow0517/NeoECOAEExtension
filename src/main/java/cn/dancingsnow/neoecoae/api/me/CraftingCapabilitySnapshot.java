@@ -12,6 +12,10 @@ public record CraftingCapabilitySnapshot(int physicalFxCount, int activeFxCount,
     public record CoolantState(boolean activeCooling,long amount,long capacity,int maxSupportedOverclock) {}
     public record VirtualHost(boolean f9, boolean highEnergySwitch, int actualFxCount, int requiredFxCount) {}
     public record Input(int physicalFxCount,int activeFxCount,int normalSwitchHosts,int highEnergySwitchHosts,long standaloneOverclockedBatchPerFx,long ftParallelCapacity,int runningBatchCount,boolean overclocked,boolean activeCooling,int overclockPowerMultiplier,boolean virtualTopologyEligible,CoolantState coolantState) {}
+    public static boolean isVirtualTopologyEligible(java.util.List<VirtualHost> hosts) {
+        if (hosts == null || hosts.size() != 8) return false;
+        return hosts.stream().allMatch(h -> h != null && h.f9() && h.highEnergySwitch() && h.actualFxCount() == h.requiredFxCount());
+    }
     public static CraftingCapabilitySnapshot calculate(Input i) {
         long mult=Math.max(0L, i.normalSwitchHosts()*2L+i.highEnergySwitchHosts()*8L); boolean virt=i.virtualTopologyEligible();
         long per=virt?0:(i.overclocked()?Math.max(BASE_BATCH_PER_FX,i.standaloneOverclockedBatchPerFx()):BASE_BATCH_PER_FX);
