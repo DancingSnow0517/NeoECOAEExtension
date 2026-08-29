@@ -13,7 +13,7 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.Arrays;
 import java.util.List;
 
-/** A reusable vertical button rail attached to the side of a host UI. */
+/** A reusable vertical control rail attached to the side of a host UI. */
 public final class HostSideButtonBar {
     public enum Side {
         LEFT,
@@ -25,12 +25,15 @@ public final class HostSideButtonBar {
     private static final int BUTTON_HEIGHT = 16;
     private static final int ICON_SIZE = 14;
     private static final int BUTTON_LEFT = 4;
+    private static final int SLOT_SIZE = 18;
+    private static final int SLOT_LEFT = 2;
     private static final int FIRST_BUTTON_TOP = 3;
     private static final int OTHER_BUTTON_TOP = 2;
     private static final int LEFT_BAR_TOP = 0;
     private static final int RIGHT_BAR_TOP = 1;
     private static final int LEFT_BAR_OFFSET = -21;
     private static final int RIGHT_BAR_OFFSET = -32;
+    private static final int RIGHT_SLOT_BAR_OFFSET = -21;
     private static final int TOP_HEIGHT = 30;
     private static final int MIDDLE_HEIGHT = 24;
     private static final int BOTTOM_HEIGHT = 27;
@@ -56,6 +59,11 @@ public final class HostSideButtonBar {
         return create(Side.RIGHT, buttons);
     }
 
+    /** Creates a mirrored right-side rail while preserving standard 18x18 slot rendering. */
+    public static UIElement rightSlots(List<? extends UIElement> slots) {
+        return create(Side.RIGHT, slots, ContentType.SLOT);
+    }
+
     public static UIElement create(Side side, UIElement... buttons) {
         return create(side, Arrays.asList(buttons));
     }
@@ -66,28 +74,36 @@ public final class HostSideButtonBar {
     }
 
     public static UIElement create(Side side, List<? extends UIElement> buttons) {
-        if (buttons.isEmpty()) {
-            throw new IllegalArgumentException("HostSideButtonBar requires at least one button");
+        return create(side, buttons, ContentType.BUTTON);
+    }
+
+    private static UIElement create(Side side, List<? extends UIElement> elements, ContentType contentType) {
+        if (elements.isEmpty()) {
+            throw new IllegalArgumentException("HostSideButtonBar requires at least one element");
         }
+        int barTop = contentType == ContentType.SLOT
+            ? LEFT_BAR_TOP
+            : side == Side.LEFT ? LEFT_BAR_TOP : RIGHT_BAR_TOP;
+        int rightOffset = contentType == ContentType.SLOT ? RIGHT_SLOT_BAR_OFFSET : RIGHT_BAR_OFFSET;
 
         UIElement bar = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.top(side == Side.LEFT ? LEFT_BAR_TOP : RIGHT_BAR_TOP);
+            layout.top(barTop);
             layout.width(WIDTH);
-            layout.height(heightFor(buttons.size()));
+            layout.height(heightFor(elements.size()));
             if (side == Side.LEFT) {
                 layout.left(LEFT_BAR_OFFSET);
             } else {
-                layout.right(RIGHT_BAR_OFFSET);
+                layout.right(rightOffset);
             }
         });
 
-        int buttonCount = buttons.size();
-        for (int index = 0; index < buttonCount; index++) {
+        int elementCount = elements.size();
+        for (int index = 0; index < elementCount; index++) {
             int segmentIndex = index;
             int segmentTop = segmentTop(segmentIndex);
-            int segmentHeight = segmentHeight(segmentIndex, buttonCount);
-            IGuiTexture segmentTexture = texture(segmentIndex, buttonCount, side);
+            int segmentHeight = segmentHeight(segmentIndex, elementCount);
+            IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side);
             UIElement segment = new UIElement().layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(0);
@@ -95,11 +111,27 @@ public final class HostSideButtonBar {
                 layout.width(WIDTH);
                 layout.height(segmentHeight);
             }).style(style -> style.backgroundTexture(segmentTexture));
-            applyButtonStyle(buttons.get(segmentIndex), segmentIndex == 0 ? FIRST_BUTTON_TOP : OTHER_BUTTON_TOP);
-            segment.addChild(buttons.get(segmentIndex));
+            UIElement element = elements.get(segmentIndex);
+            int elementTop = segmentIndex == 0 ? FIRST_BUTTON_TOP : OTHER_BUTTON_TOP;
+            if (contentType == ContentType.SLOT) {
+                applySlotStyle(element, elementTop);
+            } else {
+                applyButtonStyle(element, elementTop);
+            }
+            segment.addChild(element);
             bar.addChild(segment);
         }
         return bar;
+    }
+
+    private static void applySlotStyle(UIElement slot, int top) {
+        slot.layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(SLOT_LEFT);
+            layout.top(top);
+            layout.width(SLOT_SIZE);
+            layout.height(SLOT_SIZE);
+        });
     }
 
     private static void applyButtonStyle(UIElement element, int top) {
@@ -152,6 +184,11 @@ public final class HostSideButtonBar {
         }
     }
 
+    private enum ContentType {
+        BUTTON,
+        SLOT
+    }
+
     private static int segmentTop(int index) {
         return index == 0 ? 0 : FIRST_SEGMENT_STEP + (index - 1) * MIDDLE_SEGMENT_STEP;
     }
@@ -182,9 +219,8 @@ public final class HostSideButtonBar {
             fileName = "button_slot_middle.png";
         }
         SpriteTexture texture = SpriteTexture.of(NeoECOAE.id("textures/gui/" + fileName));
-        if (side == Side.RIGHT) {
-            texture.scale(-1, 1);
-        }
+        // Negative SpriteTexture scaling does not render reliably in the LDLib
+        // GUI renderer. Keep the shared segment texture drawable on both sides.
         return texture;
     }
 }

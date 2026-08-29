@@ -46,6 +46,8 @@ import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -62,6 +64,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -82,8 +85,6 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import guideme.GuidesCommon;
-import guideme.PageAnchor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -780,17 +781,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // add main input area and upgrades panel side-by-side
         root.addChild(inputArea);
 
-        // Upgrades panel on the right (凸出式)
-        UIElement upgradesPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.right(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        // add four upgrade slots vertically
+        List<UIElement> upgradeSlots = new ArrayList<>(4);
         for (int i = 0; i < 4; i++) {
-            upgradesPanel.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
+            upgradeSlots.add(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
                 .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE)))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     List<Component> tooltips = new ArrayList<>();
@@ -799,75 +792,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     event.hoverTooltips = new HoverTooltips(tooltips, null, null, null);
                 }));
         }
+        root.addChild(HostSideButtonBar.rightSlots(upgradeSlots));
 
-        root.addChild(upgradesPanel);
-
-        UIElement settingsPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-
-        settingsPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.HELP))
-            .setOnServerClick(e -> {
-                GuidesCommon.openGuide(holder.player, AppEng.makeId("guide"), PageAnchor.parse("neoecoae:neoecoae_intro/integrated_working_station.md"));
-            })
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(ButtonToolTips.OpenGuide.text().withColor(-1), ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(style -> style.height(20).width(18)));
-
-        settingsPanel.addChild(new Toggle()
-            .noText()
-            .toggleStyle(style -> style.markTexture(AUTO_EXPORT_ON).unmarkTexture(AUTO_EXPORT_OFF))
-            .toggleButton(button -> button.setOnServerClick(e -> {
-                shouldAutoExport = !shouldAutoExport;
-                configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
-            }).layout(layout -> layout.height(20).width(18)))
-            .setOnToggleChanged(on -> {
-                if (level != null && level.isClientSide) {
-                    shouldAutoExport = on;
-                }
-            })
-            .bind(DataBindingBuilder.boolS2C(() -> shouldAutoExport).build())
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(
-                        ButtonToolTips.AutoExport.text().withColor(-1),
-                        (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
-                    ),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> layout.width(18).height(22).paddingAll(0)));
-
-        // Open floating output side config
-        settingsPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(NETextures.OUTPUTS)
-            .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(style -> style.height(20).width(18)));
-
-        root.addChild(settingsPanel);
+        root.addChild(HostSideButtonBar.left(
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/integrated_working_station.md"),
+            createAutoExportButton(),
+            createOutputSidesButton(allowOutputWindow)
+        ));
 
         root.addChild(new TextElement()
             .setText("container.inventory", true)
@@ -878,6 +809,49 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // Add absolute-positioned floating window last so it renders on top
         root.addChild(allowOutputWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private Button createAutoExportButton() {
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPostIcon(shouldAutoExport ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF)
+            .setOnServerClick(e -> {
+                shouldAutoExport = !shouldAutoExport;
+                configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
+            });
+        UIElement icon = button.getChildren().getLast();
+        BindableValue<Boolean> syncedState = new BindableValue<>(shouldAutoExport);
+        syncedState.bind(DataBindingBuilder.boolS2C(() -> shouldAutoExport).build());
+        syncedState.registerValueListener(on -> {
+            shouldAutoExport = Boolean.TRUE.equals(on);
+            icon.style(style -> style.backgroundTexture(shouldAutoExport ? AUTO_EXPORT_ON : AUTO_EXPORT_OFF));
+        });
+        syncedState.setDisplay(false);
+        button.addChild(syncedState);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+            List.of(
+                ButtonToolTips.AutoExport.text().withColor(-1),
+                (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
+            ),
+            null,
+            null,
+            null
+        ));
+        return button;
+    }
+
+    private static Button createOutputSidesButton(UIElement allowOutputWindow) {
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPostIcon(NETextures.OUTPUTS)
+            .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)));
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
+                null,
+                null,
+                null
+            ));
+        return button;
     }
 
     private static final class AE2InscriberProgressBar extends UIElement implements IBindable<Float> {
