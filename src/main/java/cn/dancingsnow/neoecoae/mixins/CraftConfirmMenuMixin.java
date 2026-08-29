@@ -12,6 +12,8 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import java.util.LinkedHashMap;
 import java.util.List;
 import net.minecraft.world.entity.player.Inventory;
@@ -43,6 +45,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @GuiSync(102)
     public ECOCycleItemList neoecoae$cycleItems = ECOCycleItemList.EMPTY;
 
+    @Unique
+    @GuiSync(103)
+    public CraftingGraphSnapshot neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
+
     @Shadow
     private ICraftingPlan result;
 
@@ -62,6 +68,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$calculationNanos = 0;
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
+        neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
     }
 
     @Inject(
@@ -79,6 +86,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$calculationNanos = 0;
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
+        neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         if (result instanceof ECOCraftingPlanDiagnostics diagnostics
                 && diagnostics.neoecoae$getPlanningResult() != null) {
             var planningResult = diagnostics.neoecoae$getPlanningResult();
@@ -94,6 +102,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
+            neoecoae$craftingGraph = CraftingGraphSnapshotFactory.create(planningResult);
         }
     }
 
@@ -117,5 +126,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Override
     public List<ECOCycleItemList.Entry> neoecoae$getCycleItems() {
         return neoecoae$cycleItems.items();
+    }
+
+    @Override
+    public CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot() {
+        return neoecoae$craftingGraph;
     }
 }

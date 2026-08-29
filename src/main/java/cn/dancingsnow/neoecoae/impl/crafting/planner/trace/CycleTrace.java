@@ -13,18 +13,20 @@ public record CycleTrace(
     int componentId,
     List<AEKey> members,
     List<CraftingGraphEdge> internalEdges,
+    List<CraftingGraphEdge> externalEdges,
     Map<AEKey, Long> requiredOutputs,
     CyclePlanningStatus status,
     @Nullable CycleSolveResult solveResult
 ) {
     public CycleTrace(int componentId, List<AEKey> members, List<CraftingGraphEdge> internalEdges,
             Map<AEKey, Long> requiredOutputs, CyclePlanningStatus status) {
-        this(componentId, members, internalEdges, requiredOutputs, status, null);
+        this(componentId, members, internalEdges, List.of(), requiredOutputs, status, null);
     }
 
     public CycleTrace {
         members = List.copyOf(members);
         internalEdges = List.copyOf(internalEdges);
+        externalEdges = List.copyOf(externalEdges);
         requiredOutputs = Map.copyOf(requiredOutputs);
     }
 }

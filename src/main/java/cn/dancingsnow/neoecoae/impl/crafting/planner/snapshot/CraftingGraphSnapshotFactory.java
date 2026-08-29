@@ -1,0 +1,238 @@
+package cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot;
+
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.CandidateStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Edge;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.EdgeKind;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.KeyAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.MaterialNode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.MaterialStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.PatternAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.PatternNode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/** Converts planner-owned explanation data into the stable UI contract. */
+public final class CraftingGraphSnapshotFactory {
+    private CraftingGraphSnapshotFactory() {}
+
+    public static CraftingGraphSnapshot create(ECOPlanningResult result) {
+        var trace = result.trace();
+        LinkedHashMap<AEKey, MutableMaterial> materials = new LinkedHashMap<>();
+        AEKey rootKey = null;
+        for (PlanTraceNode node : trace.nodes()) {
+            if (node.key() == null || node.kind() == PlanTraceNode.Kind.PATTERN) continue;
+            MutableMaterial current = materials.computeIfAbsent(node.key(), MutableMaterial::new);
+            current.merge(node);
+            if (node.kind() == PlanTraceNode.Kind.GOAL) rootKey = node.key();
+        }
+        for (var edge : trace.edges()) {
+            materials.computeIfAbsent(edge.from(), MutableMaterial::new);
+            materials.computeIfAbsent(edge.to(), MutableMaterial::new);
+        }
+        for (PlanTraceNode node : trace.nodes()) {
+            if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null) continue;
+            try {
+                for (GenericStack output : node.pattern().getOutputs()) {
+                    if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
+                }
+                for (IPatternDetails.IInput input : node.pattern().getInputs()) {
+                    if (input == null || input.getPossibleInputs() == null) continue;
+                    for (GenericStack possible : input.getPossibleInputs()) {
+                        if (possible != null && possible.what() != null) materials.computeIfAbsent(possible.what(), MutableMaterial::new);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
+        for (var cycle : trace.cycles()) {
+            for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
+        }
+
+        Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
+        List<MaterialNode> nodes = new ArrayList<>(materials.size());
+        for (MutableMaterial material : materials.values()) {
+            int id = nodes.size();
+            nodeIds.put(material.key, id);
+            nodes.add(material.freeze(id));
+        }
+
+        List<PatternNode> patterns = new ArrayList<>();
+        List<Edge> edges = new ArrayList<>();
+        Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
+        for (PlanTraceNode node : trace.nodes()) {
+            if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null || node.key() == null) continue;
+            int patternId = patterns.size();
+            patternIds.put(node.pattern(), patternId);
+            int outputId = nodeIds.get(node.key());
+            List<Relationship> inputs = selectedInputs(node.key(), trace.edges(), nodeIds);
+            if (inputs.isEmpty()) inputs = inputs(node.pattern(), nodeIds);
+            List<Relationship> outputs = outputs(node.pattern(), nodeIds);
+            if (outputs.stream().noneMatch(output -> output.materialNodeId() == outputId)) {
+                outputs = new ArrayList<>(outputs);
+                outputs.add(new Relationship(outputId, 0));
+            }
+            CandidateStatus status = switch (node.selection()) {
+                case SELECTED -> CandidateStatus.SELECTED;
+                case REJECTED -> CandidateStatus.REJECTED;
+                default -> CandidateStatus.UNSUPPORTED;
+            };
+            int componentId = componentFor(node.key(), trace.components());
+            PatternNode pattern = new PatternNode(patternId, identity(node.pattern()), inputs, outputs,
+                node.firingCount(), status, node.reason(), componentId);
+            patterns.add(pattern);
+            int visualPatternId = patternVisualId(patternId);
+            boolean selected = status == CandidateStatus.SELECTED;
+            for (Relationship output : outputs) {
+                EdgeKind kind = output.materialNodeId() == outputId ? EdgeKind.PATTERN_OUTPUT : EdgeKind.BYPRODUCT;
+                edges.add(new Edge(output.materialNodeId(), visualPatternId, output.amount(), kind, selected));
+            }
+            for (Relationship input : inputs) {
+                edges.add(new Edge(visualPatternId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                    selected));
+            }
+        }
+
+        List<CraftingGraphSnapshot.CycleGroup> cycles = new ArrayList<>();
+        for (var cycle : trace.cycles()) {
+            List<Integer> memberIds = cycle.members().stream().map(nodeIds::get).filter(java.util.Objects::nonNull)
+                .toList();
+            List<Edge> internal = new ArrayList<>();
+            for (var internalEdge : cycle.internalEdges()) {
+                Integer from = nodeIds.get(internalEdge.producer());
+                Integer to = nodeIds.get(internalEdge.requiredInput());
+                if (from != null && to != null) {
+                    internal.add(new Edge(from, to, internalEdge.input().amountPerPattern(), EdgeKind.CYCLE_INTERNAL,
+                        true));
+                }
+            }
+            for (var externalEdge : cycle.externalEdges()) {
+                Integer from = nodeIds.get(externalEdge.producer());
+                Integer to = nodeIds.get(externalEdge.requiredInput());
+                if (from != null && to != null) {
+                    edges.add(new Edge(from, to, externalEdge.input().amountPerPattern(), EdgeKind.PATTERN_INPUT, true));
+                }
+            }
+            var solve = cycle.solveResult();
+            List<KeyAmount> structuralExternalInputs = cycle.externalEdges().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                    edge -> edge.requiredInput(), LinkedHashMap::new,
+                    java.util.stream.Collectors.summingLong(edge -> edge.input().amountPerPattern())))
+                .entrySet().stream().map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+            cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
+                cycle.status().name(), keyAmounts(cycle.requiredOutputs()),
+                solve == null || solve.externalDemand().isEmpty() ? structuralExternalInputs : keyAmounts(solve.externalDemand()),
+                solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
+                solve == null ? List.of() : solve.patternTimes().entrySet().stream()
+                    .map(entry -> new PatternAmount(identity(entry.getKey()), entry.getValue())).toList(),
+                solve == null ? List.of() : solve.executionWitness().stream()
+                    .map(firing -> identity(firing.pattern().details())).toList()));
+        }
+
+        int rootNodeId = rootKey == null ? (nodes.isEmpty() ? -1 : 0) : nodeIds.get(rootKey);
+        var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
+            edges.size(), cycles.size(), result.calculationNanos());
+        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, summary);
+    }
+
+    /** Pattern visual IDs never collide with material IDs and survive packet serialization. */
+    public static int patternVisualId(int patternId) {
+        return -patternId - 2;
+    }
+
+    private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge> edges,
+            Map<AEKey, Integer> nodeIds) {
+        List<Relationship> result = new ArrayList<>();
+        for (var edge : edges) {
+            if (edge.from().equals(output) && nodeIds.containsKey(edge.to())) {
+                result.add(new Relationship(nodeIds.get(edge.to()), edge.amount()));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<Relationship> outputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
+        List<Relationship> result = new ArrayList<>();
+        try {
+            for (GenericStack output : pattern.getOutputs()) {
+                Integer id = nodeIds.get(output.what());
+                if (id != null) result.add(new Relationship(id, output.amount()));
+            }
+        } catch (RuntimeException ignored) {
+            // Malformed candidates remain explainable without leaking the exception into the menu sync.
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<Relationship> inputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
+        List<Relationship> result = new ArrayList<>();
+        try {
+            for (IPatternDetails.IInput input : pattern.getInputs()) {
+                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
+                GenericStack possible = input.getPossibleInputs()[0];
+                Integer id = nodeIds.get(possible.what());
+                if (id != null) result.add(new Relationship(id,
+                    Math.multiplyExact(possible.amount(), input.getMultiplier())));
+            }
+        } catch (RuntimeException ignored) {
+            // A malformed/rejected candidate is still represented, but without unsafe relationship data.
+        }
+        return List.copyOf(result);
+    }
+
+    private static int componentFor(AEKey key, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ComponentTrace> components) {
+        for (var component : components) if (component.members().contains(key)) return component.componentId();
+        return -1;
+    }
+
+    private static String identity(IPatternDetails pattern) {
+        StringBuilder value = new StringBuilder(pattern.getClass().getSimpleName());
+        try {
+            if (!pattern.getOutputs().isEmpty()) value.append(':').append(pattern.getOutputs().getFirst().what());
+        } catch (RuntimeException ignored) {
+        }
+        return value.toString();
+    }
+
+    private static List<KeyAmount> keyAmounts(Map<AEKey, Long> values) {
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+    }
+
+    private static final class MutableMaterial {
+        private final AEKey key;
+        private long requested;
+        private long fromInventory;
+        private long toCraft;
+        private long missing;
+        private boolean unsupported;
+        private boolean cycle;
+
+        private MutableMaterial(AEKey key) { this.key = key; }
+
+        private void merge(PlanTraceNode node) {
+            requested = Math.max(requested, node.requested());
+            fromInventory = Math.max(fromInventory, node.fromInventory());
+            toCraft = Math.max(toCraft, node.toCraft());
+            missing = Math.max(missing, node.missing());
+            unsupported |= node.selection() == PlanTraceNode.Selection.UNSUPPORTED;
+        }
+
+        private MaterialNode freeze(int id) {
+            MaterialStatus status = cycle ? MaterialStatus.CYCLE
+                : unsupported ? MaterialStatus.UNSUPPORTED
+                : missing > 0 ? MaterialStatus.MISSING
+                : toCraft > 0 ? MaterialStatus.CRAFTING : MaterialStatus.SATISFIED;
+            return new MaterialNode(id, key, requested, fromInventory, toCraft, missing, status);
+        }
+    }
+}

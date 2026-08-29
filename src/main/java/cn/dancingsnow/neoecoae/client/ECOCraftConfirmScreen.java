@@ -9,6 +9,7 @@ import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
+import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -46,6 +47,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
+        widgets.addButton("graph", Component.translatable("gui.neoecoae.crafting_graph.open"), this::openGraph);
     }
 
     @Override protected void updateBeforeRender() {
@@ -152,4 +154,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
     private void start() { menu.startJob(); }
+
+    private void openGraph() {
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0) {
+            minecraft.setScreen(new ECOCraftingGraphScreen(this, mode.neoecoae$getCraftingGraphSnapshot()));
+        }
+    }
 }
