@@ -64,19 +64,42 @@ public final class ECOInfiniteStorageDomains {
                 .computeIfAbsent(
                         new SavedData.Factory<>(ECOInfiniteStorageData::createNew, ECOInfiniteStorageData::load, null),
                         dataName);
+        data.bindDomainId(domainId);
 
         // Only meaningful right after the instance was built; a cached instance may well have written the file since.
-        if (data.claimFirstLookup() && fileExisted && !data.wasLoadedFromDisk()) {
-            // DimensionDataStorage logs read failures and hands back an empty instance, which is indistinguishable
-            // from an empty domain. Left alone that would let the storage host convert every member cell back and
-            // throw the contents away, so lock the domain instead.
-            LOGGER.error(
-                    "ECO infinite storage domain {} could not be read from {}; it stays locked until the file is"
-                            + " repaired or removed",
-                    domainId,
-                    dataFile);
-            data.markUnreadable();
+        if (data.claimFirstLookup()) {
+            if (isSilentlySubstitutedEmpty(fileExisted, data.wasLoadedFromDisk())) {
+                // DimensionDataStorage logs read failures and hands back an empty instance, which is indistinguishable
+                // from an empty domain. Left alone that would let the storage host convert every member cell back and
+                // throw the contents away, so lock the domain instead.
+                LOGGER.error(
+                        "ECO infinite storage domain {} could not be read from {}; it stays locked until the file is"
+                                + " repaired or removed",
+                        domainId,
+                        dataFile);
+                data.markUnreadable();
+            } else if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
+                LOGGER.warn(
+                        "ECO infinite storage domain {} is {} (rawEntries={}, canRead={}, canWrite={},"
+                                + " canExitOrRestore={})",
+                        domainId,
+                        data.status(),
+                        data.rawEntryCount(),
+                        data.canRead(),
+                        data.canWrite(),
+                        data.canExitOrRestore());
+            }
         }
         return new SavedDataInfiniteStorageEngine(data, registries, dataFile);
+    }
+
+    /**
+     * {@code true} when a domain file exists on disk but the {@code SavedData} instance we got back was not built
+     * from it. {@code DimensionDataStorage} silently swallows load failures and hands back a fresh empty instance in
+     * that case, which is otherwise indistinguishable from a domain that is genuinely empty. Extracted as a pure
+     * function so this decision is unit-testable without a real {@code ServerLevel}.
+     */
+    static boolean isSilentlySubstitutedEmpty(boolean fileExisted, boolean wasLoadedFromDisk) {
+        return fileExisted && !wasLoadedFromDisk;
     }
 }

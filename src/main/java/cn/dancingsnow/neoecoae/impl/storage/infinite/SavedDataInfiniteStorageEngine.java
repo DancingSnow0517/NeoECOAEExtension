@@ -43,23 +43,13 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     /**
      * The amount that may be inserted, used by both {@link Actionable} modes. An infinite domain has no byte budget,
-     * so the only limits are the arguments themselves and the health of the underlying world data.
+     * so the only limits are the arguments themselves and whether the underlying world data currently accepts writes.
      */
     private long acceptableInsertAmount(AEKey key, long amount) {
-        if (key == null || amount <= 0L || !data.isHealthy()) {
+        if (key == null || amount <= 0L || !data.canWrite()) {
             return 0L;
         }
         return amount;
-    }
-
-    /**
-     * The amount that may be extracted, used by both {@link Actionable} modes.
-     */
-    private long extractableAmount(AEKey key, long amount) {
-        if (key == null || amount <= 0L || !data.isHealthy()) {
-            return 0L;
-        }
-        return HugeAmount.of(amount).min(data.getAmount(key)).toLongSaturated();
     }
 
     @Override
@@ -91,11 +81,39 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public synchronized long extract(AEKey key, long amount, Actionable mode) {
-        long available = extractableAmount(key, amount);
-        if (available > 0L && mode == Actionable.MODULATE) {
-            applyDelta(key, HugeAmount.of(available), false);
+        if (key == null || amount <= 0L || !data.canRead()) {
+            return 0L;
         }
-        return available;
+        HugeAmount available = HugeAmount.of(amount).min(data.getAmount(key));
+        if (available.isZero()) {
+            return 0L;
+        }
+        if (mode == Actionable.SIMULATE) {
+            // A pure read of the trusted in-memory data: it must keep working even while degraded, so players and
+            // the network can always see what could be withdrawn.
+            return available.toLongSaturated();
+        }
+        if (data.canWrite()) {
+            applyDelta(key, available, false);
+            return available.toLongSaturated();
+        }
+        if (data.status() != ECOInfiniteStorageData.DomainStatus.RECOVERY_READ_ONLY) {
+            // UNAVAILABLE: data.canRead() above already excludes this, so this is unreachable in practice; kept as
+            // an explicit floor rather than falling through to the rescue path below.
+            return 0L;
+        }
+        // Recovery rescue extraction: the domain cannot currently be written to, but a player pulling out items they
+        // already own only ever shrinks what is stored, so it is safe to allow it if — and only if — we can prove
+        // the withdrawal reached disk before reporting success. Apply the change, then commit synchronously; keep
+        // it only if that commit actually succeeds, otherwise roll back and refuse. This never runs on the normal
+        // insert/extract hot path, only while already degraded.
+        applyDelta(key, available, false);
+        commit();
+        if (data.canWrite()) {
+            return available.toLongSaturated();
+        }
+        applyDelta(key, available, true);
+        return 0L;
     }
 
     @Override
@@ -116,6 +134,16 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public synchronized boolean isHealthy() {
         return data.isHealthy();
+    }
+
+    @Override
+    public synchronized ECOInfiniteStorageData.DomainStatus status() {
+        return data.status();
+    }
+
+    @Override
+    public synchronized boolean canExitOrRestore() {
+        return data.canExitOrRestore();
     }
 
     @Override

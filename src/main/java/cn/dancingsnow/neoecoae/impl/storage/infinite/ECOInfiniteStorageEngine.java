@@ -30,8 +30,29 @@ public interface ECOInfiniteStorageEngine {
 
     boolean isEmpty();
 
+    /**
+     * {@code true} when this domain currently accepts new writes. Reads are never gated by this: an implementation
+     * whose data is only temporarily unwritable must keep serving {@link #getAmount} and {@link #getAvailableStacks}.
+     */
     default boolean isHealthy() {
         return true;
+    }
+
+    /**
+     * Fine-grained state; see {@link ECOInfiniteStorageData.DomainStatus}. Defaults to {@code HEALTHY} so existing
+     * implementors are unaffected.
+     */
+    default ECOInfiniteStorageData.DomainStatus status() {
+        return ECOInfiniteStorageData.DomainStatus.HEALTHY;
+    }
+
+    /**
+     * Stricter than {@link #isHealthy()}: whether the domain may be migrated out of, or infinite mode left, right
+     * now. In addition to being writable this also requires no unresolved raw entries, since those are invisible to
+     * {@link #getAvailableStacks} and would otherwise be silently left behind.
+     */
+    default boolean canExitOrRestore() {
+        return isHealthy();
     }
 
     Collection<TypeStats> getTypeStats();

@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
@@ -308,7 +309,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             this::canExtractInfiniteComponents,
             infiniteComponentItemHandler,
             () -> level.registryAccess(),
-            this::getHugeStackUiEntries
+            this::getHugeStackUiEntries,
+            this::getInfiniteDomainStatus
         );
     }
 
@@ -320,6 +322,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return engine.getHugeStacks().stream()
             .map(stack -> new StorageHostHugeStackList.Entry(stack.key(), stack.amount().toString()))
             .toList();
+    }
+
+    private ECOInfiniteStorageData.DomainStatus getInfiniteDomainStatus() {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null) {
+            return ECOInfiniteStorageData.DomainStatus.HEALTHY;
+        }
+        return engine.status();
     }
 
     @Override
@@ -937,8 +947,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (engine == null) {
             return RestorePlan.blocked("missing infinite storage engine");
         }
-        if (!engine.isHealthy()) {
-            return RestorePlan.blocked("infinite storage domain is degraded and requires recovery");
+        if (!engine.canExitOrRestore()) {
+            return RestorePlan.blocked(
+                "infinite storage domain is " + engine.status() + " and cannot be restored to normal storage");
         }
         if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of());
@@ -1158,7 +1169,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private void exitInfiniteModeIfSafe() {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !engine.isHealthy() || !engine.isEmpty()) {
+        if (engine == null || !engine.canExitOrRestore() || !engine.isEmpty()) {
             return;
         }
         UUID domainId = infiniteDomainId;

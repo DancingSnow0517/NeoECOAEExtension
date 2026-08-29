@@ -40,10 +40,28 @@ public final class ECOInfiniteStorageData extends SavedData {
     private static final String TAG_LEGACY_IMPORTED = "legacyImported";
 
     /**
-     * A stored entry whose key tag could not be resolved into an {@link AEKey}, usually because the mod that
-     * contributed it was removed. It is kept verbatim and written back unchanged so re-adding the mod restores it.
+     * A stored entry that could not be fully parsed on load, usually because the mod that contributed it was
+     * removed, or because its amount tag was corrupted. The whole original entry tag is kept verbatim and written
+     * back unchanged, so re-adding the mod (or otherwise fixing the underlying cause) resolves it again on the next
+     * load without any separate repair step.
      */
-    public record RawEntry(CompoundTag keyTag, HugeAmount amount) {}
+    public record RawEntry(CompoundTag entryTag) {}
+
+    /**
+     * Fine-grained replacement for a single {@code isHealthy()} flag. Worse states are strictly more restrictive:
+     * {@code UNAVAILABLE} is the only state that may refuse reads outright; a domain that merely cannot currently be
+     * written to, or that carries unresolved entries, keeps serving its trusted in-memory data.
+     */
+    public enum DomainStatus {
+        /** Nothing unusual: normal reads, writes, and migration are all allowed. */
+        HEALTHY,
+        /** Trusted main dataset, but some entries are only kept as verbatim {@link RawEntry raw entries}. */
+        DEGRADED,
+        /** Trusted in-memory data, but the last save attempt failed; writes are refused until it succeeds again. */
+        RECOVERY_READ_ONLY,
+        /** No trustworthy data view could be constructed at all; the domain stays locked until repaired. */
+        UNAVAILABLE
+    }
 
     private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
     private final List<RawEntry> rawEntries = new ArrayList<>();
@@ -52,6 +70,9 @@ public final class ECOInfiniteStorageData extends SavedData {
     private boolean firstLookupPending = true;
     private boolean legacyImported;
     private boolean unreadable;
+    private boolean writeUnsafe;
+    private String lastFailureReason;
+    private UUID domainId;
 
     private ECOInfiniteStorageData(boolean loadedFromDisk) {
         this.loadedFromDisk = loadedFromDisk;
@@ -77,17 +98,25 @@ public final class ECOInfiniteStorageData extends SavedData {
         int unresolved = 0;
         for (int i = 0; i < entries.size(); i++) {
             CompoundTag entry = entries.getCompound(i);
-            CompoundTag keyTag = entry.getCompound(TAG_KEY);
-            HugeAmount amount = HugeAmount.read(entry.getCompound(TAG_AMOUNT));
-            if (amount.isZero()) {
-                continue;
-            }
-            AEKey key = AEKey.fromTagGeneric(registries, keyTag);
-            if (key == null) {
-                data.rawEntries.add(new RawEntry(keyTag.copy(), amount));
+            try {
+                CompoundTag keyTag = entry.getCompound(TAG_KEY);
+                HugeAmount amount = HugeAmount.read(entry.getCompound(TAG_AMOUNT));
+                if (amount.isZero()) {
+                    continue;
+                }
+                AEKey key = AEKey.fromTagGeneric(registries, keyTag);
+                if (key == null) {
+                    data.rawEntries.add(new RawEntry(entry.copy()));
+                    unresolved++;
+                } else {
+                    data.amounts.merge(key, amount, HugeAmount::add);
+                }
+            } catch (Exception e) {
+                // A single corrupted entry (e.g. an unparseable huge-amount value) must not take the rest of the
+                // domain down with it. Keep it verbatim; it re-parses on the next load if whatever broke it is fixed.
+                LOGGER.warn("ECO infinite storage entry {} could not be parsed and is kept unchanged", i, e);
+                data.rawEntries.add(new RawEntry(entry.copy()));
                 unresolved++;
-            } else {
-                data.amounts.merge(key, amount, HugeAmount::add);
             }
         }
         if (unresolved > 0) {
@@ -117,10 +146,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             entries.add(entryTag);
         }
         for (RawEntry raw : rawEntries) {
-            CompoundTag entryTag = new CompoundTag();
-            entryTag.put(TAG_KEY, raw.keyTag().copy());
-            entryTag.put(TAG_AMOUNT, raw.amount().write());
-            entries.add(entryTag);
+            entries.add(raw.entryTag().copy());
         }
         tag.put(TAG_ENTRIES, entries);
 
@@ -136,8 +162,13 @@ public final class ECOInfiniteStorageData extends SavedData {
     public void save(File file, HolderLookup.Provider registries) {
         try {
             writeIfDirty(file, registries);
-        } catch (IOException e) {
+            markWriteRecovered();
+        } catch (Exception e) {
+            // Not just IOException: a broken key-type codec or other serialization bug must not escape this call
+            // and blow up whatever AE2/network operation ultimately triggered it (Errors like OutOfMemoryError still
+            // propagate, since those are not merely "this save failed").
             LOGGER.error("Could not save ECO infinite storage data {}", file, e);
+            markWriteFailed(e.getMessage());
         }
     }
 
@@ -199,6 +230,14 @@ public final class ECOInfiniteStorageData extends SavedData {
         return amounts.isEmpty() && rawEntries.isEmpty();
     }
 
+    public boolean hasRawEntries() {
+        return !rawEntries.isEmpty();
+    }
+
+    public int rawEntryCount() {
+        return rawEntries.size();
+    }
+
     public boolean hasMigrationReceipt(UUID transactionId) {
         return migrationReceipts.contains(transactionId);
     }
@@ -226,15 +265,92 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     /**
-     * {@code false} once this domain is known to be unusable. The storage host refuses to migrate into it, to restore
-     * from it, or to leave infinite mode while this is the case, so an unreadable file never turns into item loss.
+     * The domain's current fine-grained state; see {@link DomainStatus}.
+     */
+    public DomainStatus status() {
+        if (unreadable) {
+            return DomainStatus.UNAVAILABLE;
+        }
+        if (writeUnsafe) {
+            return DomainStatus.RECOVERY_READ_ONLY;
+        }
+        if (!rawEntries.isEmpty()) {
+            return DomainStatus.DEGRADED;
+        }
+        return DomainStatus.HEALTHY;
+    }
+
+    /**
+     * {@code true} unless the domain is {@link DomainStatus#UNAVAILABLE}: reads and UI browsing stay available in
+     * every other state, since they only need the trusted in-memory data, never the disk file itself.
+     */
+    public boolean canRead() {
+        return !unreadable;
+    }
+
+    /**
+     * {@code true} only in {@link DomainStatus#HEALTHY} or {@link DomainStatus#DEGRADED}: whether new writes may be
+     * accepted, i.e. whether the last save attempt is known to have succeeded (or none has been needed yet).
+     */
+    public boolean canWrite() {
+        return !unreadable && !writeUnsafe;
+    }
+
+    /**
+     * Stricter than {@link #canWrite()}: migrating out of the domain or leaving infinite mode additionally requires
+     * every entry to be a fully resolved {@link AEKey}, since raw entries are never visible to {@code getAvailableStacks}
+     * and would otherwise be silently left behind.
+     */
+    public boolean canExitOrRestore() {
+        return canWrite() && rawEntries.isEmpty();
+    }
+
+    /**
+     * {@code false} once this domain is known to be unusable. Kept as an alias of {@link #canWrite()} for existing
+     * call sites: it already only ever gated writes, never reads.
      */
     public boolean isHealthy() {
-        return !unreadable;
+        return canWrite();
     }
 
     public void markUnreadable() {
         unreadable = true;
+    }
+
+    /**
+     * Associates this instance with the domain UUID it belongs to, purely so subsequent status-transition log lines
+     * can identify which domain they refer to. Idempotent; safe to call every time the owning engine is looked up.
+     */
+    public void bindDomainId(UUID domainId) {
+        this.domainId = domainId;
+    }
+
+    /**
+     * Records that the most recent save attempt failed, moving the domain into {@link DomainStatus#RECOVERY_READ_ONLY}
+     * until a save succeeds again. In-memory data and reads are unaffected; only new writes are refused.
+     */
+    public void markWriteFailed(String reason) {
+        lastFailureReason = reason;
+        if (!writeUnsafe) {
+            writeUnsafe = true;
+            LOGGER.error(
+                "ECO infinite storage domain {} can no longer be written safely: {}; it stays read-only until a save"
+                    + " succeeds again",
+                domainId,
+                reason
+            );
+        }
+    }
+
+    /**
+     * Records that a save succeeded, clearing {@link DomainStatus#RECOVERY_READ_ONLY} if it was set.
+     */
+    public void markWriteRecovered() {
+        if (writeUnsafe) {
+            writeUnsafe = false;
+            lastFailureReason = null;
+            LOGGER.info("ECO infinite storage domain {} can be written to again", domainId);
+        }
     }
 
     /**

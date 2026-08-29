@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.util.NEMath;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -127,7 +128,8 @@ public final class StorageHostPanelUI {
         BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable infiniteComponentInventory,
         Supplier<HolderLookup.Provider> registries,
-        Supplier<List<StorageHostHugeStackList.Entry>> hugeStacks
+        Supplier<List<StorageHostHugeStackList.Entry>> hugeStacks,
+        Supplier<ECOInfiniteStorageData.DomainStatus> infiniteDomainStatus
     ) {
     }
 
@@ -267,7 +269,7 @@ public final class StorageHostPanelUI {
                     () -> Component.translatable("gui.neoecoae.storage.status")
                         .append(": ")
                         .append(storageStatus(config)),
-                    () -> isInfiniteDisplay(config) ? INFINITE_STATUS_COLOR : storageStatusColor(config)
+                    () -> isInfiniteDisplay(config) ? infiniteStatusColor(config) : storageStatusColor(config)
                 ),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 2,
@@ -567,7 +569,12 @@ public final class StorageHostPanelUI {
 
     private static Component storageStatus(Config config) {
         if (isInfiniteDisplay(config)) {
-            return Component.translatable("gui.neoecoae.storage.infinite_value");
+            return switch (config.infiniteDomainStatus().get()) {
+                case DEGRADED -> Component.translatable("gui.neoecoae.storage.status.degraded");
+                case RECOVERY_READ_ONLY -> Component.translatable("gui.neoecoae.storage.status.recovery");
+                case UNAVAILABLE -> Component.translatable("gui.neoecoae.storage.status.unavailable");
+                case HEALTHY -> Component.translatable("gui.neoecoae.storage.infinite_value");
+            };
         }
         StorageTypeLine line = highestPressureLine(config);
         if (line == null) {
@@ -586,6 +593,14 @@ public final class StorageHostPanelUI {
             return Component.translatable("gui.neoecoae.storage.status.warning", line.type().desc());
         }
         return Component.translatable("gui.neoecoae.storage.status.stable");
+    }
+
+    private static int infiniteStatusColor(Config config) {
+        return switch (config.infiniteDomainStatus().get()) {
+            case RECOVERY_READ_ONLY, UNAVAILABLE -> HostText.ERROR;
+            case DEGRADED -> HostText.WARNING;
+            case HEALTHY -> INFINITE_STATUS_COLOR;
+        };
     }
 
     private static int storageStatusColor(Config config) {
