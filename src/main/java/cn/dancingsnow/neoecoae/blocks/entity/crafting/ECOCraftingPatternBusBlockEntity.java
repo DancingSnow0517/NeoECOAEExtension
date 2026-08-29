@@ -57,6 +57,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -417,6 +418,23 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             && prepared.details() instanceof IMolecularAssemblerSupportedPattern
             && !prepared.stack().isEmpty()
             && prepared.matches(prepared.stack());
+    }
+
+    /**
+     * Purely a function of the recipe encoded in the pattern - never cached and never written back onto the
+     * pattern's ItemStack, so it can't go stale and can't affect pattern identity (dedup, AEItemKey, ...).
+     */
+    private static boolean isDurabilityPattern(IPatternDetails details) {
+        for (var input : details.getInputs()) {
+            if (input == null) continue;
+            for (var possible : input.getPossibleInputs()) {
+                if (possible != null && possible.what() instanceof AEItemKey itemKey
+                    && itemKey.toStack(1).isDamageableItem()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Places the stack through known empty slots, preserving normal remainder semantics. */
@@ -780,7 +798,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
+                UIElement slot = new VerifiedPatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
                     .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
                 rowInv.addChild(slot);
             }
@@ -995,6 +1013,35 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             int page = Math.clamp(currentPage, 0, getPageCount() - 1);
             int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
             return actualSlot < getPatternSlotCount() ? actualSlot : -1;
+        }
+    }
+
+    /**
+     * Appends the pattern's verification classification to its tooltip. Computed fresh from the slot's own
+     * ItemStack on every hover - not cached, not written onto the pattern - so it can never go stale and never
+     * affects pattern identity.
+     */
+    private static final class VerifiedPatternItemSlot extends PatternItemSlot {
+        private VerifiedPatternItemSlot(Slot slot) {
+            super(slot);
+        }
+
+        @Override
+        public List<Component> getFullTooltipTexts() {
+            List<Component> tooltip = new ArrayList<>(super.getFullTooltipTexts());
+            ItemStack stack = getValue();
+            Level clientLevel = Minecraft.getInstance().level;
+            if (!stack.isEmpty() && clientLevel != null) {
+                IPatternDetails details = PatternDetailsHelper.decodePattern(stack, clientLevel);
+                if (details instanceof IMolecularAssemblerSupportedPattern) {
+                    tooltip.add(Component.translatable(
+                        isDurabilityPattern(details)
+                            ? "tooltip.neoecoae.pattern.verified_durability"
+                            : "tooltip.neoecoae.pattern.verified_normal"
+                    ).withStyle(style -> style.withColor(0xFFAA00)));
+                }
+            }
+            return tooltip;
         }
     }
 }

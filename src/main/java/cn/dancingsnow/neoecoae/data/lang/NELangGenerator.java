@@ -70,6 +70,8 @@ public class NELangGenerator {
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
+        provider.add("tooltip.neoecoae.pattern.verified_normal", "Verified: normal pattern");
+        provider.add("tooltip.neoecoae.pattern.verified_durability", "Verified: durability pattern");
 
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage subsystem");
         addLangs(provider, "tooltip.neoecoae.storage_dirve",
