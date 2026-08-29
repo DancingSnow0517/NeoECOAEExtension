@@ -94,9 +94,16 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.fx_cores", "FX Cores");
         provider.add("gui.neoecoae.crafting.ui.single_core_capacity", "Processing Capacity");
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Runtime");
-        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Per-Host Batch Details");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Authoritative Crafting Capability");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
-        provider.add("gui.neoecoae.host.crafting.host_line", "%s · Task Slots %d · Batch %d");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%s · FT Parallel Capacity %d · Batch %d");
+        provider.add("gui.neoecoae.crafting.capability.fx", "FX Cores: %d active / %d physical");
+        provider.add("gui.neoecoae.crafting.capability.network_composition", "Network: x2 %d / x8 %d");
+        provider.add("gui.neoecoae.crafting.capability.network_multiplier", "Network Multiplier M: %d");
+        provider.add("gui.neoecoae.crafting.capability.batch_per_fx", "Batch per FX: %s");
+        provider.add("gui.neoecoae.crafting.capability.total", "Total Batch Capacity: %s");
+        provider.add("gui.neoecoae.crafting.capability.ft_parallel", "FT Parallel Capacity: %s");
+        provider.add("gui.neoecoae.crafting.capability.overclock", "Overclock: %d theoretical / %d effective");
         provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
         provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");

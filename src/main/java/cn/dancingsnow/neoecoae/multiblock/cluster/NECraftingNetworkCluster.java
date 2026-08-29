@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
@@ -11,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.DoublePredicate;
-import java.util.function.ToLongFunction;
 
 /**
  * Logical pooling of 2-8 network-switch-equipped crafting hosts sharing a frequency and ME grid.
@@ -196,27 +196,66 @@ public class NECraftingNetworkCluster {
      * A logical network cluster is only created for groups of at least two hosts.
      */
     public int getCombinedSwitchMultiplier() {
-        long normalCapacity = NEMath.saturatingMultiply(getNormalSwitchHostCount(), 2L);
-        long highEnergyCapacity = NEMath.saturatingMultiply(getHighEnergySwitchHostCount(), 8L);
-        return (int) Math.min(Integer.MAX_VALUE, NEMath.saturatingAdd(normalCapacity, highEnergyCapacity));
+        return getCapabilitySnapshot().networkMultiplier();
+    }
+
+    /** The sole derived capability state for every host and worker in this logical network. */
+    public CraftingCapabilitySnapshot getCapabilitySnapshot() {
+        int physicalFxCount = 0;
+        int activeFxCount = 0;
+        int runningBatchCount = 0;
+        long ftParallelCapacity = 0L;
+        int coolantAmount = 0;
+        int coolantCapacity = 0;
+        int coolantMaxOverclock = -1;
+        ECOCraftingSystemBlockEntity leader = getLeaderController();
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller == null) {
+                continue;
+            }
+            physicalFxCount = saturatingIntAdd(physicalFxCount, member.getWorkers().size());
+            ftParallelCapacity = NEMath.saturatingAdd(ftParallelCapacity, controller.getLocalFtParallelCapacity());
+            coolantAmount = saturatingIntAdd(coolantAmount, controller.getCoolant());
+            coolantCapacity = saturatingIntAdd(coolantCapacity, ECOCraftingSystemBlockEntity.MAX_COOLANT);
+            coolantMaxOverclock = Math.max(coolantMaxOverclock, controller.getLocalCoolingMaxOverclock());
+            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
+                if (worker.isWorking()) {
+                    activeFxCount = saturatingIntAdd(activeFxCount, 1);
+                }
+                runningBatchCount = saturatingIntAdd(runningBatchCount, worker.getRunningBatchCount());
+            }
+        }
+        boolean overclocked = leader != null && leader.isLocallyOverclocked();
+        boolean activeCooling = leader != null && leader.isLocallyActiveCooling();
+        int powerMultiplier = leader == null ? 1 : leader.getTier().getOverclockedCrafterPowerMultiply();
+        return CraftingCapabilitySnapshot.calculate(new CraftingCapabilitySnapshot.Input(
+            physicalFxCount,
+            activeFxCount,
+            getNormalSwitchHostCount(),
+            getHighEnergySwitchHostCount(),
+            CraftingCapabilitySnapshot.F9_OVERCLOCKED_BATCH_PER_FX,
+            ftParallelCapacity,
+            runningBatchCount,
+            overclocked,
+            activeCooling,
+            powerMultiplier,
+            isEndgameEligible(),
+            new CraftingCapabilitySnapshot.CoolantState(
+                activeCooling, coolantAmount, coolantCapacity, coolantMaxOverclock)
+        ));
+    }
+
+    private static int saturatingIntAdd(int left, int right) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) Math.max(0, left) + Math.max(0, right));
     }
 
     public int getThreadCount() {
-        // FT parallel cores use the same per-host switch multiplier formula as FX workers.
-        long total = sumMultiplied(member -> {
-            var controller = member.getController();
-            return controller == null ? 0 : controller.getLocalThreadCount();
-        });
-        return (int) Math.min(Integer.MAX_VALUE, total);
+        return (int) Math.min(Integer.MAX_VALUE, getCapabilitySnapshot().ftParallelCapacity());
     }
 
     public int getRunningThreadCount() {
-        long total = 0;
-        for (NECraftingCluster member : members) {
-            var controller = member.getController();
-            if (controller != null) total = NEMath.saturatingAdd(total, controller.getLocalRunningThreadCount());
-        }
-        return (int) Math.min(Integer.MAX_VALUE, total);
+        return getCapabilitySnapshot().runningBatchCount();
     }
 
     public int getCoolantAmount() {
@@ -279,65 +318,46 @@ public class NECraftingNetworkCluster {
         return !members.isEmpty() && members.getFirst() == member;
     }
 
-    private long sumMultiplied(ToLongFunction<NECraftingCluster> getter) {
-        long total = 0;
-        for (NECraftingCluster member : members) {
-            long multiplier = members.size() > 1 ? member.getNetworkMultiplier() : 1;
-            total = NEMath.saturatingAdd(total, NEMath.saturatingMultiply(getter.applyAsLong(member), multiplier));
-        }
-        return total;
-    }
-
     /**
      * Exactly 8 members, all at max tier, max structural build length, and high-energy switches -
      * the unconditional endgame override. No cooling-controller precondition.
      */
     public boolean isEndgameEligible() {
-        if (members.size() != 8) {
-            return false;
-        }
+        List<CraftingCapabilitySnapshot.VirtualHost> topology = new ArrayList<>(members.size());
         for (NECraftingCluster member : members) {
             ECOCraftingSystemBlockEntity controller = member.getController();
             if (controller == null) {
                 return false;
             }
-            if (controller.getTier().getTier() != ECOTier.L9.getTier()) {
-                return false;
-            }
-            if (controller.getSelectedBuildLength() != controller.getMaxBuildLength()) {
-                return false;
-            }
-            if (!controller.hasHighEnergyNetworkSwitch()) {
-                return false;
-            }
+            topology.add(new CraftingCapabilitySnapshot.VirtualHost(
+                controller.getTier().getTier() == ECOTier.L9.getTier(),
+                controller.hasHighEnergyNetworkSwitch(),
+                member.getWorkers().size(),
+                controller.getMaxBuildLength()
+            ));
         }
-        return true;
+        return CraftingCapabilitySnapshot.isVirtualTopologyEligible(topology);
     }
 
     public int getTotalParallelism() {
-        if (isEndgameEligible()) {
-            return Integer.MAX_VALUE;
-        }
-        long total = sumMultiplied(member -> {
+        return (int) Math.min(Integer.MAX_VALUE, getCapabilitySnapshot().ftParallelCapacity());
+    }
+
+    public boolean hasCoolant(int amount, int requiredOverclock) {
+        int available = 0;
+        for (NECraftingCluster member : members) {
             ECOCraftingSystemBlockEntity controller = member.getController();
-            return controller == null ? 0 : controller.getLocalThreadCount();
-        });
-        return (int) Math.min(Integer.MAX_VALUE, total);
+            if (controller == null) continue;
+            available = saturatingIntAdd(available,
+                controller.getLocalAvailableCoolant(amount - available, requiredOverclock));
+            if (available >= amount) return true;
+        }
+        return available >= amount;
     }
 
     public int getTotalCraftingCapability() {
-        if (isEndgameEligible()) {
-            return Integer.MAX_VALUE;
-        }
-        long localTotal = 0L;
-        for (NECraftingCluster member : members) {
-            ECOCraftingSystemBlockEntity controller = member.getController();
-            if (controller != null) {
-                localTotal = NEMath.saturatingAdd(localTotal, controller.getLocalAvailableThreads());
-            }
-        }
-        long total = NEMath.saturatingMultiply(localTotal, Math.max(1L, getCombinedSwitchMultiplier()));
-        return (int) Math.min(Integer.MAX_VALUE, total);
+        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+        return capacity.unlimited() ? Integer.MAX_VALUE : (int) Math.min(Integer.MAX_VALUE, capacity.finiteValue());
     }
 
     /**

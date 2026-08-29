@@ -105,6 +105,7 @@ public final class CraftingHostPanelUI {
         IntSupplier workerCores,
         IntSupplier singleCoreCapacity,
         IntSupplier effectiveOverclockTimes,
+        IntSupplier executionTicks,
         Supplier<Component> statsTooltip,
         LongSupplier performanceAverageNanos,
         LongSupplier energyUsage,
@@ -294,7 +295,7 @@ public final class CraftingHostPanelUI {
             .addClass("eco-host-stats-progress")
             .layout(layout -> layout.widthPercent(100).height(9)));
         Label recipeTime = boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.recipe_time_ratio")
-            .append(": ").append(Component.literal(formatRecipeTimeTicks(config.effectiveOverclockTimes.getAsInt()) + " tick")
+            .append(": ").append(Component.literal(Math.max(1, config.executionTicks.getAsInt()) + " tick")
                 .withColor(PANEL_TIME_VALUE)), PANEL_TIME_VALUE);
         recipeTime.textStyle(CraftingHostPanelUI::inlineStatsTextStyle);
         recipeTime.layout(layout -> layout.widthPercent(100).height(9));
@@ -501,7 +502,7 @@ public final class CraftingHostPanelUI {
             .textShadow(false);
     }
 
-    static int formatRecipeTimeTicks(int effectiveOverclockTimes) {
+    public static int formatRecipeTimeTicks(int effectiveOverclockTimes) {
         int level = Math.clamp(effectiveOverclockTimes, 0, 9);
         return (int) Math.ceil(10.0D / (level + 1));
     }

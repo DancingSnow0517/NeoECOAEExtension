@@ -319,14 +319,22 @@ public class ECOCraftingCPULogic {
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-                    int batchResult = tryPushVerifiedFastPathBatch(
+                    long batchResult = tryPushVerifiedVirtualBatch(
                             job,
                             execution,
                             craftingContainer,
-                             candidateProviders,
-                             energyService,
-                             patternPower,
-                             task.getValue().value);
+                            candidateProviders,
+                            task.getValue().value);
+                    if (batchResult == 0L) {
+                        batchResult = tryPushVerifiedFastPathBatch(
+                            job,
+                            execution,
+                            craftingContainer,
+                            candidateProviders,
+                            energyService,
+                            patternPower,
+                            task.getValue().value);
+                    }
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
@@ -618,6 +626,93 @@ public class ECOCraftingCPULogic {
     }
 
     /**
+     * Virtual dispatch is intentionally separate from the finite int fast path. One free physical FX lane owns
+     * the complete remaining long task and materializes long-valued GenericStack totals without creating one
+     * thread object per craft.
+     */
+    private long tryPushVerifiedVirtualBatch(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            List<ICraftingProvider> candidateProviders,
+            long taskRemaining) {
+        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 0L) {
+            return 0L;
+        }
+        ECOCraftingPatternBusBlockEntity selectedBus = null;
+        ECOCraftingPatternBusBlockEntity.VirtualFastPathOffer selectedOffer = null;
+        List<Object> visitedScopes = new ArrayList<>(4);
+        for (ICraftingProvider provider : candidateProviders) {
+            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus) || provider.isBusy()) {
+                continue;
+            }
+            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+            if (controller == null || !controller.getCapabilitySnapshot().virtualMode()) {
+                continue;
+            }
+            Object scope = controller.getDispatchScope();
+            if (containsIdentity(visitedScopes, scope)) {
+                continue;
+            }
+            visitedScopes.add(scope);
+            var offer = patternBus.findVirtualFastPathOffer(execution);
+            if (offer != null) {
+                selectedBus = patternBus;
+                selectedOffer = offer;
+                break;
+            }
+        }
+        if (selectedBus == null || selectedOffer == null || !selectedOffer.recipe().isVerifiedFor(execution)) {
+            return 0L;
+        }
+
+        long extraRequested = taskRemaining - 1L;
+        long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, execution.inputItems(), extraRequested);
+        long craftCount = Math.min(taskRemaining, availableExtra + 1L);
+        if (craftCount <= 0L) {
+            return 0L;
+        }
+        List<GenericStack> extraInputs;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), craftCount - 1L);
+        } catch (RuntimeException e) {
+            return 0L;
+        }
+        boolean extracted = false;
+        boolean ownershipTransferred = false;
+        try {
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            extracted = true;
+            var verified = selectedOffer.recipe().withVirtualBatch(craftCount, job.link.getCraftingID());
+            if (verified == null || !selectedBus.pushVirtualBatch(verified, selectedOffer)) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
+                return -1L;
+            }
+            ownershipTransferred = true;
+            if (this.job == job) {
+                recordPushedPattern(job, execution, craftCount);
+            }
+            return craftCount;
+        } catch (RuntimeException e) {
+            selectedOffer.worker().getFastPathCache().recordException();
+            if (ownershipTransferred) {
+                LOGGER.error("Virtual ECO batch failed after ownership transfer; accounting it as accepted", e);
+                return craftCount;
+            }
+            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extracted);
+            logBatchRejection(craftCount, taskRemaining, e);
+            return -1L;
+        } catch (Error e) {
+            selectedOffer.worker().getFastPathCache().recordException();
+            if (!ownershipTransferred) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extracted);
+            }
+            throw e;
+        }
+    }
+
+    /**
      * How many crafts this CPU would like to hand over in one batch. There is deliberately no fixed batch
      * ceiling: the request is the whole remaining task, bounded only by what the multiplied stack amounts
      * can still represent. The accepted size is decided by the F-series host in
@@ -643,7 +738,7 @@ public class ECOCraftingCPULogic {
      * A batch that fails before ownership transfer aborts the whole task for this tick, so it must never be
      * silent: an unnoticed rejection here looks exactly like "the host stopped dispatching".
      */
-    private void logBatchRejection(int batchSize, long taskRemaining, RuntimeException e) {
+    private void logBatchRejection(long batchSize, long taskRemaining, RuntimeException e) {
         long tick = TickHandler.instance().getCurrentTick();
         if (tick - lastBatchRejectionLogTick < BATCH_REJECTION_LOG_INTERVAL_TICKS
             && lastBatchRejectionLogTick != Long.MIN_VALUE) {
@@ -688,18 +783,20 @@ public class ECOCraftingCPULogic {
     }
 
     private void recordPushedPattern(
-            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, int craftCount) {
-        int multiplier = Math.max(1, craftCount);
+            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
+        long multiplier = Math.max(1L, craftCount);
         for (var expectedOutput : execution.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
+            job.waitingFor.insert(expectedOutput.what(), Math.multiplyExact(expectedOutput.amount(), multiplier),
+                Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
 
         for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(
-                    expectedContainerItem.what(), expectedContainerItem.amount() * multiplier, Actionable.MODULATE);
+                    expectedContainerItem.what(), Math.multiplyExact(expectedContainerItem.amount(), multiplier),
+                    Actionable.MODULATE);
             job.timeTracker.addMaxItems(
-                    expectedContainerItem.amount() * multiplier,
+                    Math.multiplyExact(expectedContainerItem.amount(), multiplier),
                     expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());

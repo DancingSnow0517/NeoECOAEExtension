@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
@@ -105,12 +106,10 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            int workerThreadCapacity = controller.getThreadCountForWorker(this);
-            if (getRunningThreads() >= workerThreadCapacity) {
+            if (isWorking()) {
                 getFastPathCache().recordNoThreadReject();
                 return false;
             }
-            // Craft slots may be virtually unlimited, but thread objects never are.
             int threadObjectCapacity = controller.getThreadObjectCapacityForWorker(this);
 
             int threadCount = craftingThreads.size();
@@ -203,6 +202,42 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         return accepted;
     }
 
+    public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
+        ECOCraftingFastPathCache cache = getFastPathCache();
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+            cache.recordDisabled();
+            return false;
+        }
+        if (cluster == null || cluster.getController() == null || isWorking()) {
+            return false;
+        }
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (!controller.isFullVirtualCraftingMode() || !verified.recipe().isIssuedBy(cache)) {
+            cache.recordExpectedMismatch();
+            return false;
+        }
+        for (int index = 0; index < craftingThreads.size(); index++) {
+            ECOCraftingThread thread = craftingThreads.get(index);
+            if (thread.isFree() && thread.pushVirtualBatch(verified, controller)) {
+                nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                refreshDisplayedJob();
+                return true;
+            }
+        }
+        if (craftingThreads.size() >= controller.getThreadObjectCapacityForWorker(this)) {
+            return false;
+        }
+        ECOCraftingThread thread = new ECOCraftingThread(this);
+        craftingThreads.add(thread);
+        boolean accepted = thread.pushVirtualBatch(verified, controller);
+        if (accepted) {
+            refreshDisplayedJob();
+            setChanged();
+            markForUpdate();
+        }
+        return accepted;
+    }
+
     /**
      * Fast-path knowledge for this worker: the crafting cluster's cache, or the Network Switch group's shared
      * cache while a group is formed. A worker never owns verified recipes on its own, so a recipe verified by
@@ -224,9 +259,17 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     public int getAvailableThreadSlots() {
+        return getAvailableBatchCapacity();
+    }
+
+    /** Remaining craft count accepted by this physical FX lane's next batch. */
+    public int getAvailableBatchCapacity() {
         if (cluster != null && cluster.getController() != null) {
+            if (isWorking()) {
+                return 0;
+            }
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            return Math.max(0, controller.getThreadCountForWorker(this) - getRunningThreads());
+            return Math.max(0, controller.getThreadCountForWorker(this));
         }
         return 0;
     }
@@ -247,10 +290,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
-        return (int) Math.max(0L, Math.min(
-            Integer.MAX_VALUE,
-            (long) controller.getDispatchThreadCapacity() - controller.getRunningThreadCount()
-        ));
+        return controller.getDispatchThreadCapacity();
     }
 
     public int getCapacityMultiplier() {
@@ -296,10 +336,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         GenericStack.writeBuffer(displayedJob, data);
     }
 
-    public void onThreadWork(int occupiedThreadSlots) {
-        int slots = Math.max(1, occupiedThreadSlots);
+    public void onBatchStarted() {
         int previousRunningThreads = runningThreads;
-        runningThreads = Math.addExact(runningThreads, slots);
+        runningThreads = Math.addExact(runningThreads, 1);
         ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
         boolean controllerUpdateAttempted = controller != null;
         try {
@@ -330,14 +369,12 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
     }
 
-    public void onThreadStop(int occupiedThreadSlots) {
-        int slots = Math.max(1, occupiedThreadSlots);
-        runningThreads -= slots;
+    public void onBatchStopped() {
+        runningThreads -= 1;
         if (runningThreads < 0) {
             LOGGER.warn(
-                "ECO worker runningThreads underflow: worker={} slots={} before correction",
-                getBlockPos(),
-                slots
+                "ECO worker running batch count underflow: worker={} before correction",
+                getBlockPos()
             );
             runningThreads = 0;
         }
@@ -396,7 +433,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             thread.deserializeNBT(registries, threads.getCompound(i));
             craftingThreads.add(thread);
             if (!thread.isFree()) {
-                busyThreads += thread.getOccupiedThreadSlots();
+                busyThreads++;
             }
         }
         runningThreads = (int) Math.min(Integer.MAX_VALUE, busyThreads);
@@ -408,6 +445,11 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     public boolean isWorking() {
         return runningThreads > 0;
+    }
+
+    /** Number of currently executing batches, distinct from the craft count carried by those batches. */
+    public int getRunningBatchCount() {
+        return Math.max(0, runningThreads);
     }
 
     @Override

@@ -178,6 +178,16 @@ public final class ECOFastPathStacks {
         ListTag tag,
         boolean requireNonEmpty
     ) {
+        return readValidatedBatchItemStacks(
+            registries, tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
+    }
+
+    public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
+        HolderLookup.Provider registries,
+        ListTag tag,
+        boolean requireNonEmpty,
+        long maxAmount
+    ) {
         if (tag.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
             || requireNonEmpty && tag.isEmpty()) {
             return Optional.empty();
@@ -193,7 +203,7 @@ public final class ECOFastPathStacks {
             }
             if (!areValidItemStacks(
                     stacks,
-                    ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
+                    maxAmount,
                     requireNonEmpty,
                     ItemStackValidation.PERSISTED)) {
                 return Optional.empty();

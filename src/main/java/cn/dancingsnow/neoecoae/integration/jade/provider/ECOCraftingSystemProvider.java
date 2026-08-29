@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
+import appeng.core.localization.Tooltips;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -39,17 +41,44 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock.none"));
             }
         }
+        if (data.contains("physicalFxCount")) {
+            boolean virtual = data.getBoolean("virtualMode");
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.fx",
+                data.getInt("activeFxCount"), data.getInt("physicalFxCount")));
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.network_composition",
+                data.getInt("normalSwitchHosts"), data.getInt("highEnergySwitchHosts")));
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.network_multiplier",
+                data.getInt("networkMultiplier")));
+            Component batch = virtual ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                : Tooltips.ofNumber(data.getLong("batchPerFx"));
+            Component total = virtual ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                : Tooltips.ofNumber(data.getLong("totalBatchCapacity"));
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.batch_per_fx", batch));
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.total", total));
+            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.ft_parallel",
+                Tooltips.ofNumber(data.getLong("ftParallelCapacity"))));
+        }
     }
 
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECOCraftingSystemBlockEntity system) {
+            CraftingCapabilitySnapshot state = system.getCapabilitySnapshot();
             compoundTag.putBoolean("overclocked", system.isOverclocked());
-            compoundTag.putBoolean("activeCooling", system.isActiveCooling());
-            compoundTag.putInt("coolant", system.getCoolant());
-            compoundTag.putInt("theoreticalOverclock", system.getOverlockTimes());
-            compoundTag.putInt("effectiveOverclock", system.getEffectiveOverclockTimes());
-            compoundTag.putInt("coolingMaxOverclock", system.getDisplayedCoolingMaxOverclock());
+            compoundTag.putBoolean("activeCooling", state.coolantState().activeCooling());
+            compoundTag.putInt("coolant", (int) Math.min(Integer.MAX_VALUE, state.coolantState().amount()));
+            compoundTag.putInt("theoreticalOverclock", state.theoreticalOverclock());
+            compoundTag.putInt("effectiveOverclock", state.effectiveOverclock());
+            compoundTag.putInt("coolingMaxOverclock", state.coolantState().maxSupportedOverclock());
+            compoundTag.putInt("physicalFxCount", state.physicalFxCount());
+            compoundTag.putInt("activeFxCount", state.activeFxCount());
+            compoundTag.putInt("normalSwitchHosts", state.normalSwitchHosts());
+            compoundTag.putInt("highEnergySwitchHosts", state.highEnergySwitchHosts());
+            compoundTag.putInt("networkMultiplier", state.networkMultiplier());
+            compoundTag.putLong("batchPerFx", state.batchPerFx().finiteValue());
+            compoundTag.putLong("totalBatchCapacity", state.totalBatchCapacity().finiteValue());
+            compoundTag.putLong("ftParallelCapacity", state.ftParallelCapacity());
+            compoundTag.putBoolean("virtualMode", state.virtualMode());
         }
     }
 

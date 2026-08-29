@@ -95,6 +95,11 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
+        return multiply(stacks, (long) multiplier);
+    }
+
+    /** Long-count multiplication used only by the explicit virtual-batch path. */
+    public static List<GenericStack> multiply(List<GenericStack> stacks, long multiplier) {
         if (multiplier <= 0 || stacks.isEmpty()) {
             return List.of();
         }
@@ -120,6 +125,21 @@ public final class ECOBatchCraftingHelper {
             max = Math.min(max, (int) Math.min(Integer.MAX_VALUE, available / stack.amount()));
             if (max <= 0) {
                 return 0;
+            }
+        }
+        return max;
+    }
+
+    public static long maxCraftsFromInventory(ListCraftingInventory inventory, List<GenericStack> perCraft,
+            long requested) {
+        long max = Math.max(0L, requested);
+        for (GenericStack stack : perCraft) {
+            if (stack.amount() <= 0L) {
+                return 0L;
+            }
+            max = Math.min(max, inventory.list.get(stack.what()) / stack.amount());
+            if (max <= 0L) {
+                return 0L;
             }
         }
         return max;
@@ -181,7 +201,7 @@ public final class ECOBatchCraftingHelper {
         }
     }
 
-    private static long multiplyExact(long amount, int multiplier) {
+    private static long multiplyExact(long amount, long multiplier) {
         try {
             return Math.multiplyExact(amount, (long) multiplier);
         } catch (ArithmeticException e) {

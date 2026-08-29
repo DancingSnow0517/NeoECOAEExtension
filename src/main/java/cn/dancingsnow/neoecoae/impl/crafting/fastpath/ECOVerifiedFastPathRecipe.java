@@ -115,4 +115,9 @@ public final class ECOVerifiedFastPathRecipe {
         }
         return ECOVerifiedFastPathExecution.trusted(this, batchSize, craftingJobId);
     }
+
+    /** Virtual mode has no int/arithmetic batch ceiling; totals are validated as 64-bit values when materialized. */
+    public ECOVerifiedVirtualExecution withVirtualBatch(long craftCount, @Nullable UUID craftingJobId) {
+        return craftCount <= 0L ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId);
+    }
 }

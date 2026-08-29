@@ -9,7 +9,6 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.config.Actionable;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.stacks.AEItemKey;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -17,6 +16,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -53,7 +53,6 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -71,11 +70,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluster, ECOCraftingSystemBlockEntity>
@@ -83,7 +80,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
-    private static final int COOLANT_PER_CRAFT = 5;
+    private static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
     /** Highest overclock level the progress model can represent: 10 + 9 * 10 == MAX_PROGRESS. */
     static final int MAX_OVERCLOCK_TIMES = 9;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
@@ -125,19 +122,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private int threadCount = 0;
     private long exactThreadCount = 0L;
 
-    @Getter
-    private int threadCountPerWorker = 0;
-    private long exactAvailableThreadCount = 0L;
-    /**
-     * Worker queue capacity measured with the <em>un-overclocked</em> per-worker craft count. The overclock
-     * level is a ratio between parallel-core threads and worker capacity, so the denominator must not grow with
-     * the overclock toggle itself - otherwise enabling overclocking inflates the denominator faster than the
-     * numerator and pushes the level back down to zero.
-     */
-    private long exactBaseAvailableThreadCount = 0L;
-
-    @Getter
-    private int overlockTimes = 0;
     @Getter
     @DescSynced
     private long performanceAverageNanos = 0L;
@@ -278,37 +262,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private void updateInfo() {
         updateCount();
         updateThreadCount();
-        updateOverlockTimes();
     }
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
-            int baseCrafts = NEConfig.CRAFTING_WORKER_BASE_CRAFTS;
-            long calculatedPerWorker;
-            if (overclocked) {
-                calculatedPerWorker = NEMath.saturatingMultiply(
-                    baseCrafts,
-                    getTier().getOverclockedCrafterQueueMultiply()
-                );
-                threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedPerWorker));
-            } else {
-                calculatedPerWorker = Math.max(0L, baseCrafts);
-                threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, calculatedPerWorker);
-            }
-            exactAvailableThreadCount = cluster.getWorkers()
-                .stream()
-                .mapToLong(worker -> NEMath.saturatingMultiply(
-                    calculatedPerWorker,
-                    worker.getCapacityMultiplier()
-                ))
-                .reduce(0L, NEMath::saturatingAdd);
-            exactBaseAvailableThreadCount = cluster.getWorkers()
-                .stream()
-                .mapToLong(worker -> NEMath.saturatingMultiply(
-                    Math.max(0L, baseCrafts),
-                    worker.getCapacityMultiplier()
-                ))
-                .reduce(0L, NEMath::saturatingAdd);
             exactThreadCount = cluster.getParallelCores()
                 .stream()
                 .mapToLong(core -> NEMath.saturatingMultiply(
@@ -321,9 +278,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         } else {
             threadCount = 0;
             exactThreadCount = 0L;
-            threadCountPerWorker = 0;
-            exactAvailableThreadCount = 0L;
-            exactBaseAvailableThreadCount = 0L;
             runningThreadCount = 0;
         }
     }
@@ -351,7 +305,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
         long recalculated = cluster.getWorkers()
             .stream()
-            .mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads)
+            .mapToLong(ECOCraftingWorkerBlockEntity::getRunningBatchCount)
             .sum();
         runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
         setChanged();
@@ -366,10 +320,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * count of zero and must keep rejecting every dispatch.
      */
     public int getThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
-        if (isFullVirtualCraftingMode()) {
+        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().batchPerFx();
+        if (capacity.unlimited()) {
             return Integer.MAX_VALUE;
         }
-        return getSwitchMultipliedThreadCountForWorker(worker);
+        return (int) Math.min(Integer.MAX_VALUE, capacity.finiteValue());
     }
 
     /**
@@ -378,19 +333,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * the endgame network.
      */
     public int getThreadObjectCapacityForWorker(ECOCraftingWorkerBlockEntity worker) {
-        return getSwitchMultipliedThreadCountForWorker(worker);
-    }
-
-    private int getSwitchMultipliedThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
-        long localCapacity = NEMath.saturatingMultiply(
-            Math.max(0L, threadCountPerWorker),
-            Math.max(1L, worker.getCapacityMultiplier())
-        );
-        long networkMultiplier = cluster != null && cluster.getNetworkCluster() != null
-            ? Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
-            : 1L;
-        long capacity = NEMath.saturatingMultiply(localCapacity, networkMultiplier);
-        return (int) Math.min(Integer.MAX_VALUE, capacity);
+        return 1;
     }
 
     /**
@@ -399,21 +342,16 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * the FT parallel-core total silently caps a network that advertises unlimited capacity.
      */
     public int getDispatchThreadCapacity() {
-        return isFullVirtualCraftingMode() ? Integer.MAX_VALUE : getThreadCount();
+        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+        return capacity.unlimited() ? Integer.MAX_VALUE : (int) Math.min(Integer.MAX_VALUE, capacity.finiteValue());
     }
 
     public int getLocalThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
-        long capacity = NEMath.saturatingMultiply(
-            Math.max(0L, threadCountPerWorker),
-            Math.max(1L, worker.getCapacityMultiplier())
-        );
+        long capacity = isLocallyOverclocked()
+            ? NEMath.saturatingMultiply(NEConfig.CRAFTING_WORKER_BASE_CRAFTS,
+                getTier().getOverclockedCrafterQueueMultiply())
+            : NEConfig.CRAFTING_WORKER_BASE_CRAFTS;
         return (int) Math.min(Integer.MAX_VALUE, capacity);
-    }
-
-    private void updateOverlockTimes() {
-        overlockTimes = isFullVirtualCraftingMode()
-            ? MAX_OVERCLOCK_TIMES
-            : calculateOverclockTimes(exactThreadCount, exactBaseAvailableThreadCount);
     }
 
     private static long getCoreThreadCountLong(IECOTier coreTier, boolean overclocked) {
@@ -473,7 +411,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public boolean usesTickBasedCoolant() {
-        return false;
+        return isFullVirtualCraftingMode();
     }
 
     public boolean tryConsumeTickBasedCoolant(
@@ -481,7 +419,37 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         int attemptedProgress,
         int effectiveOverclock
     ) {
-        return true;
+        return !usesTickBasedCoolant() || tryConsumeVirtualLaneCoolant();
+    }
+
+    public int getLocalAvailableCoolant(int requested, int requiredOverclock) {
+        if (requested <= 0 || !ensureCoolantAvailable(requested, requiredOverclock)) {
+            return 0;
+        }
+        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
+            return 0;
+        }
+        return Math.min(requested, coolant);
+    }
+
+    /** Flat virtual coolant cost per active physical lane; craft count never participates. */
+    public boolean tryConsumeVirtualLaneCoolant() {
+        return !isActiveCooling() || tryConsumeCoolant(VIRTUAL_COOLANT_PER_LANE_TICK, MAX_OVERCLOCK_TIMES);
+    }
+
+    /** Checks the flat lane coolant before paying the once-per-network-tick virtual power charge. */
+    public boolean tryStartVirtualLaneTick() {
+        boolean hasCoolant = true;
+        if (isActiveCooling()) {
+            hasCoolant = cluster != null && cluster.getNetworkCluster() != null
+                ? cluster.getNetworkCluster().hasCoolant(VIRTUAL_COOLANT_PER_LANE_TICK, MAX_OVERCLOCK_TIMES)
+                : getLocalAvailableCoolant(VIRTUAL_COOLANT_PER_LANE_TICK, MAX_OVERCLOCK_TIMES)
+                    >= VIRTUAL_COOLANT_PER_LANE_TICK;
+        }
+        if (!hasCoolant) {
+            return false;
+        }
+        return tryConsumeVirtualCraftingPower() && tryConsumeVirtualLaneCoolant();
     }
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -510,17 +478,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getEffectiveOverclockTimes() {
-        if (!isOverclocked()) {
-            return 0;
-        }
-        if (!isActiveCooling()) {
-            return overlockTimes;
-        }
-        int coolingMaxOverclock = getDisplayedCoolingMaxOverclock();
-        if (coolingMaxOverclock < 0) {
-            return 0;
-        }
-        return Math.min(overlockTimes, coolingMaxOverclock);
+        return getCapabilitySnapshot().effectiveOverclock();
     }
 
     public int getDisplayedCoolingMaxOverclock() {
@@ -532,30 +490,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return getCurrentCoolingMaxOverclock();
     }
 
-    private int getOverflowThreads() {
-        long overflow = Math.max(0L, exactThreadCount - exactAvailableThreadCount);
-        return (int) Math.min(Integer.MAX_VALUE, overflow);
-    }
-
-    public int getLocalAvailableThreads() {
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, exactAvailableThreadCount));
-    }
-
-    private int getAvailableThreads() {
-        return cluster != null && cluster.getNetworkCluster() != null
-            ? Math.max(0, getThreadCount() - getRunningThreadCount())
-            : getLocalAvailableThreads();
-    }
-
     /**
      * Returns the combined queue capacity of all workers reachable by this host, <em>before</em> subtracting
      * the threads that are currently running. Callers that need the remaining room subtract
      * {@link #getRunningThreadCount()} themselves, so this must never do it for them.
      */
     public int getTotalWorkerThreadCapacity() {
-        return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getTotalCraftingCapability()
-            : getLocalAvailableThreads();
+        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+        return capacity.unlimited() ? Integer.MAX_VALUE : (int) Math.min(Integer.MAX_VALUE, capacity.finiteValue());
     }
 
     /**
@@ -571,14 +513,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private long getMaxEnergyUsage() {
-        if (isFullVirtualCraftingMode()) {
-            // Flat group-wide draw: the panel must advertise the same number the dispatch path actually pays.
-            return NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK;
-        }
-        if (overclocked && !activeCooling) {
-            return (long) getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
-        }
-        return getAvailableThreads() * 100L;
+        return getCapabilitySnapshot().energyUsage();
     }
 
     /**
@@ -660,8 +595,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private int getTargetCoolantBuffer() {
-        long requiredPerTick = (long) getAvailableThreads() * COOLANT_PER_CRAFT;
-        if (requiredPerTick <= 0) {
+        if (getCapabilitySnapshot().physicalFxCount() <= 0) {
             return 0;
         }
         return MAX_COOLANT;
@@ -799,9 +733,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getPooledParallelism() {
-        return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getTotalParallelism()
-            : threadCount;
+        return (int) Math.min(Integer.MAX_VALUE, getCapabilitySnapshot().ftParallelCapacity());
     }
 
     public int getPooledCraftingCapability() {
@@ -809,49 +741,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private int getPooledWorkerCount() {
-        if (cluster == null || cluster.getNetworkCluster() == null) {
-            return getWorkerCount();
-        }
-        long total = cluster.getNetworkCluster().getMembers().stream()
-            .mapToLong(member -> member.getWorkers().size())
-            .sum();
-        return (int) Math.min(Integer.MAX_VALUE, total);
+        return getCapabilitySnapshot().physicalFxCount();
     }
 
     private int getPooledActiveWorkerCount() {
-        if (isFullVirtualCraftingMode()) {
-            return countConcurrentCraftedItemKinds();
-        }
-        if (cluster == null || cluster.getNetworkCluster() == null) {
-            return cluster == null ? 0 : (int) cluster.getWorkers().stream()
-                .filter(worker -> worker.getRunningThreads() > 0)
-                .count();
-        }
-        long total = cluster.getNetworkCluster().getMembers().stream()
-            .flatMap(member -> member.getWorkers().stream())
-            .filter(worker -> worker.getRunningThreads() > 0)
-            .count();
-        return (int) Math.min(Integer.MAX_VALUE, total);
-    }
-
-    /**
-     * Parallel breadth of a fully virtualized network: how many distinct items are being crafted right now.
-     *
-     * <p>Counting busy worker blocks is meaningless once a single worker can absorb a whole task - it would
-     * report 1 while the network genuinely crafts several items at once. Crafting five different items reads as
-     * five, which is the number the player can actually influence.
-     */
-    private int countConcurrentCraftedItemKinds() {
-        Set<AEItemKey> kinds = new HashSet<>();
-        for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
-            for (ECOCraftingThread.Snapshot snapshot : worker.getThreadSnapshots()) {
-                AEItemKey key = AEItemKey.of(snapshot.outputItem());
-                if (key != null) {
-                    kinds.add(key);
-                }
-            }
-        }
-        return kinds.size();
+        return getCapabilitySnapshot().activeFxCount();
     }
 
     private int getSingleCoreProcessingCapacity() {
@@ -860,13 +754,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private long getSingleCoreProcessingCapacityLong() {
-        if (isFullVirtualCraftingMode()) {
-            return Long.MAX_VALUE;
-        }
-        long networkMultiplier = cluster != null && cluster.getNetworkCluster() != null
-            ? Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
-            : 1L;
-        return NEMath.saturatingMultiply(Math.max(0L, threadCountPerWorker), networkMultiplier);
+        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().batchPerFx();
+        return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
     }
 
     /**
@@ -874,14 +763,58 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * statistics tooltip and the Jade overlay all read it, so the display can never promise a capacity the
      * dispatch path does not actually grant.
      *
-     * <p>The hardware precondition is deliberate: a host with no FT parallel core has a per-worker craft count
-     * of zero and must keep rejecting every dispatch, endgame topology or not.
+     * <p>FT parallel capacity is deliberately absent from this predicate: virtual eligibility is physical FX
+     * topology, while FT remains an ordinary-mode timing input.
      */
     public boolean isFullVirtualCraftingMode() {
-        return threadCountPerWorker > 0
-            && cluster != null
-            && cluster.getNetworkCluster() != null
-            && cluster.getNetworkCluster().isEndgameEligible();
+        return getCapabilitySnapshot().virtualMode();
+    }
+
+    /** Authoritative server-side capability state consumed by dispatch, GUI, tooltips and Jade. */
+    public CraftingCapabilitySnapshot getCapabilitySnapshot() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getCapabilitySnapshot();
+        }
+        int physicalFx = cluster == null ? 0 : cluster.getWorkers().size();
+        int activeFx = 0;
+        int runningBatches = 0;
+        if (cluster != null) {
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                if (worker.isWorking()) {
+                    activeFx++;
+                }
+                runningBatches = (int) Math.min(Integer.MAX_VALUE,
+                    (long) runningBatches + worker.getRunningBatchCount());
+            }
+        }
+        long standaloneOverclockedBatch = NEMath.saturatingMultiply(
+            NEConfig.CRAFTING_WORKER_BASE_CRAFTS,
+            getTier().getOverclockedCrafterQueueMultiply()
+        );
+        return CraftingCapabilitySnapshot.calculate(new CraftingCapabilitySnapshot.Input(
+            physicalFx,
+            activeFx,
+            0,
+            0,
+            standaloneOverclockedBatch,
+            exactThreadCount,
+            runningBatches,
+            overclocked,
+            activeCooling,
+            getTier().getOverclockedCrafterPowerMultiply(),
+            false,
+            new CraftingCapabilitySnapshot.CoolantState(
+                activeCooling, coolant, MAX_COOLANT, getCurrentCoolingMaxOverclock())
+        ));
+    }
+
+    public long getLocalFtParallelCapacity() {
+        return Math.max(0L, exactThreadCount);
+    }
+
+    /** Compatibility name for UI integrations; the authoritative value lives in the snapshot. */
+    public int getOverlockTimes() {
+        return getCapabilitySnapshot().theoreticalOverclock();
     }
 
     private int getCraftingNetworkMemberCount() {
@@ -900,35 +833,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private Component getStatsTooltip() {
-        MutableComponent tooltip = CraftingHostStatsText.detailTitle().copy();
-        long totalCapacity = 0L;
-        if (cluster != null && cluster.getNetworkCluster() != null) {
-            for (NECraftingCluster member : cluster.getNetworkCluster().getMembers()) {
-                ECOCraftingSystemBlockEntity controller = member.getController();
-                if (controller == null) {
-                    continue;
-                }
-                long capacity = isFullVirtualCraftingMode()
-                    ? Long.MAX_VALUE
-                    : NEMath.saturatingMultiply(
-                        Math.max(0L, controller.threadCountPerWorker),
-                        Math.max(1L, cluster.getNetworkCluster().getCombinedSwitchMultiplier())
-                    );
-                int threads = controller.getLocalThreadCount();
-                totalCapacity = NEMath.saturatingAdd(totalCapacity,
-                    NEMath.saturatingMultiply(threads, capacity));
-                tooltip.append("\n").append(CraftingHostStatsText.hostLine(
-                    controller.hasHighEnergyNetworkSwitch(), threads, capacity));
-            }
-        } else {
-            int threads = getLocalThreadCount();
-            long capacity = getSingleCoreProcessingCapacityLong();
-            totalCapacity = NEMath.saturatingMultiply(threads, capacity);
-            tooltip.append("\n").append(CraftingHostStatsText.hostLine(
-                hasHighEnergyNetworkSwitch(), threads, capacity));
-        }
-        tooltip.append("\n").append(CraftingHostStatsText.totalLine(totalCapacity));
-        return tooltip;
+        return CraftingHostStatsText.capability(getCapabilitySnapshot());
     }
 
     public int getDisplayedCoolantAmount() {
@@ -1017,7 +922,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
-            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+            () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
             this::isOverclocked,
@@ -1028,6 +933,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getPooledWorkerCount,
             this::getSingleCoreProcessingCapacity,
             this::getEffectiveOverclockTimes,
+            () -> getCapabilitySnapshot().virtualMode()
+                ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getEffectiveOverclockTimes()),
             this::getStatsTooltip,
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
@@ -1247,13 +1154,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
 
         private void add(ECOCraftingThread.Snapshot snapshot) {
-            int slots = Math.max(1, snapshot.occupiedThreadSlots());
+            long crafts = Math.max(1L, snapshot.craftCount());
             int maxProgress = Math.max(1, snapshot.maxProgress());
             int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount += Math.max(1L, snapshot.outputAmount());
-            craftCount += slots;
-            totalProgress += (long) maxProgress * slots;
-            remainingProgress += (long) Math.max(0, maxProgress - progress) * slots;
+            outputAmount = NEMath.saturatingAdd(outputAmount, Math.max(1L, snapshot.outputAmount()));
+            craftCount = NEMath.saturatingAdd(craftCount, crafts);
+            totalProgress = NEMath.saturatingAdd(totalProgress,
+                NEMath.saturatingMultiply(maxProgress, crafts));
+            remainingProgress = NEMath.saturatingAdd(remainingProgress,
+                NEMath.saturatingMultiply(Math.max(0, maxProgress - progress), crafts));
             waitingOutput &= snapshot.outputsReady();
         }
 

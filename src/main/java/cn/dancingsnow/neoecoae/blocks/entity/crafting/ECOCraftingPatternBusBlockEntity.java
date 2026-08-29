@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -174,6 +175,34 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return worker.pushBatch(verified);
     }
 
+    public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {
+        if (offer == null || cluster == null || verified.recipe() != offer.recipe()) {
+            return false;
+        }
+        ECOCraftingWorkerBlockEntity worker = offer.worker();
+        return cluster.isDispatchCandidate(worker)
+            && worker.getAvailableBatchCapacity() > 0
+            && worker.pushVirtualBatch(verified);
+    }
+
+    @Nullable
+    public VirtualFastPathOffer findVirtualFastPathOffer(ECOExtractedPatternExecution execution) {
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        if (cluster == null || controller == null || !controller.getCapabilitySnapshot().virtualMode()) {
+            return null;
+        }
+        ECOFastPathLookup lookup = cluster.getFastPathCache().lookup(
+            execution,
+            appeng.hooks.ticking.TickHandler.instance().getCurrentTick(),
+            AE2PatternIntrospection.reloadGeneration()
+        );
+        if (!lookup.isVerified()) {
+            return null;
+        }
+        List<RankedWorker> ranked = rankDispatchCandidates();
+        return ranked.isEmpty() ? null : new VirtualFastPathOffer(ranked.getFirst().worker(), lookup.recipe());
+    }
+
     @Nullable
     public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
         if (cluster == null || requestedBatchSize <= 0) {
@@ -266,6 +295,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         int maxBatchSize
     ) {}
 
+    public record VirtualFastPathOffer(
+        ECOCraftingWorkerBlockEntity worker,
+        ECOVerifiedFastPathRecipe recipe
+    ) {}
+
     /**
      * The batch size this host is willing to accept. It is bounded purely by live capability - the selected
      * worker's free thread slots and the host's own remaining parallelism - so an F9 host wired into a
@@ -287,19 +321,15 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public int getAvailableThreadSlots() {
-        ECOCraftingSystemBlockEntity controller = getCraftingController();
-        if (cluster == null || controller == null) {
+        if (cluster == null || getCraftingController() == null) {
             return 0;
         }
-
-        long runningThreads = controller.getRunningThreadCount();
-        long controllerRemaining = Math.max(0, controller.getDispatchThreadCapacity() - runningThreads);
-        long workerRemaining = Math.max(
-            0,
-            (long) controller.getTotalWorkerThreadCapacity() - runningThreads
-        );
-
-        return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
+        long available = 0L;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
+            available = cn.dancingsnow.neoecoae.util.NEMath.saturatingAdd(
+                available, worker.getAvailableBatchCapacity());
+        }
+        return (int) Math.min(Integer.MAX_VALUE, available);
     }
 
     @Nullable

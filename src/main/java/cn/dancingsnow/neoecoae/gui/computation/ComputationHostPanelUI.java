@@ -222,8 +222,8 @@ public final class ComputationHostPanelUI {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
                 Boolean.TRUE.equals(syncedEnabled.getValue())
-                    ? "gui.neoecoae.crafting.cycle_planning.on"
-                    : "gui.neoecoae.crafting.cycle_planning.off")));
+                    ? "gui.neoecoae.crafting.fast_planner.on"
+                    : "gui.neoecoae.crafting.fast_planner.off")));
         return button;
     }
 
@@ -242,8 +242,8 @@ public final class ComputationHostPanelUI {
             setMode(mode);
             layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
-                .left(-1)
-                .top(0)
+                .left(-2)
+                .top(-1)
                 .width(16)
                 .height(16));
         }

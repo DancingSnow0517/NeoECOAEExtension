@@ -25,7 +25,7 @@ public interface ECOCraftingNetworkSettings {
     boolean neoecoae$hasComputationHost();
 
     default boolean neoecoae$shouldUseFastPlanner() {
-        return neoecoae$hasComputationHost();
+        return neoecoae$isFastPlannerEnabled() && neoecoae$hasComputationHost();
     }
 
     static @Nullable ECOCraftingNetworkSettings of(@Nullable IGrid grid) {
