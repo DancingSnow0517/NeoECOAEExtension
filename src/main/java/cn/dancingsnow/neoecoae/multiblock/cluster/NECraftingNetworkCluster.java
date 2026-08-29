@@ -3,8 +3,10 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.util.NEMath;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.ToLongFunction;
 
@@ -20,6 +22,54 @@ public class NECraftingNetworkCluster {
     public void configure(List<NECraftingCluster> newMembers) {
         this.members.clear();
         this.members.addAll(newMembers);
+        this.members.sort(Comparator.comparing(
+            member -> member.getController().getBlockPos(),
+            Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                .thenComparingInt(pos -> pos.getY())
+                .thenComparingInt(pos -> pos.getZ())
+        ));
+        synchronizeUiState();
+    }
+
+    /**
+     * The first member is the stable authority for persisted UI settings when a logical network is
+     * (re)formed. Afterwards every UI mutation is broadcast to all members.
+     */
+    private void synchronizeUiState() {
+        ECOCraftingSystemBlockEntity leader = getLeaderController();
+        if (leader == null) {
+            return;
+        }
+        setOverclocked(leader.isLocallyOverclocked());
+        setActiveCooling(leader.isLocallyActiveCooling());
+    }
+
+    private ECOCraftingSystemBlockEntity getLeaderController() {
+        return members.isEmpty() ? null : members.getFirst().getController();
+    }
+
+    public boolean isOverclocked() {
+        ECOCraftingSystemBlockEntity leader = getLeaderController();
+        return leader != null && leader.isLocallyOverclocked();
+    }
+
+    public void setOverclocked(boolean overclocked) {
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null) controller.applyNetworkOverclocked(overclocked);
+        }
+    }
+
+    public boolean isActiveCooling() {
+        ECOCraftingSystemBlockEntity leader = getLeaderController();
+        return leader != null && leader.isLocallyActiveCooling();
+    }
+
+    public void setActiveCooling(boolean activeCooling) {
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null) controller.applyNetworkActiveCooling(activeCooling);
+        }
     }
 
     public List<NECraftingCluster> getMembers() {
@@ -82,6 +132,25 @@ public class NECraftingNetworkCluster {
     public int getCoolantCapacity() {
         long total = (long) ECOCraftingSystemBlockEntity.MAX_COOLANT * members.size();
         return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    public int getCoolantMaxOverclock() {
+        int maximum = -1;
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null) maximum = Math.max(maximum, controller.getLocalCoolingMaxOverclock());
+        }
+        return maximum;
+    }
+
+    public FluidStack getCoolantFluid() {
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            if (controller != null && controller.getCoolant() > 0 && !controller.getCurrentCoolantFluid().isEmpty()) {
+                return controller.getCurrentCoolantFluid();
+            }
+        }
+        return FluidStack.EMPTY;
     }
 
     public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -161,10 +230,14 @@ public class NECraftingNetworkCluster {
         if (isEndgameEligible()) {
             return Integer.MAX_VALUE;
         }
-        long total = sumMultiplied(member -> {
+        long localTotal = 0L;
+        for (NECraftingCluster member : members) {
             ECOCraftingSystemBlockEntity controller = member.getController();
-            return controller == null ? 0 : controller.getLocalAvailableThreads();
-        });
+            if (controller != null) {
+                localTotal = NEMath.saturatingAdd(localTotal, controller.getLocalAvailableThreads());
+            }
+        }
+        long total = NEMath.saturatingMultiply(localTotal, Math.max(1L, getCombinedSwitchMultiplier()));
         return (int) Math.min(Integer.MAX_VALUE, total);
     }
 }

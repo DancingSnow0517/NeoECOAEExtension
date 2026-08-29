@@ -22,6 +22,7 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
         if (data.contains("running") && data.contains("max")) {
             int max = data.getInt("max");
             int running = data.getInt("running");
+            boolean infinite = data.getBoolean("infinite");
             int normalHosts = data.getInt("normalSwitchHosts");
             int highEnergyHosts = data.getInt("highEnergySwitchHosts");
             if (normalHosts > 0) {
@@ -32,13 +33,13 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 iTooltip.add(Component.translatable("jade.neoecoae.worker_network_x8", highEnergyHosts)
                     .withStyle(ChatFormatting.GREEN));
             }
-            iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running, max));
+            iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running, infinite ? "∞" : max));
             if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
                 int base = data.getInt("baseCapacity");
                 String terms = normalHosts > 0 && highEnergyHosts > 0
                     ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
                     : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";
-                String formula = base + " x (" + terms + ") = " + max;
+                String formula = base + " x (" + terms + ") = " + (infinite ? "∞" : max);
                 iTooltip.add(Component.translatable("jade.neoecoae.worker_capacity_formula", formula)
                     .withStyle(ChatFormatting.GRAY));
             }
@@ -59,6 +60,7 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 if (network != null) {
                     compoundTag.putInt("normalSwitchHosts", network.getNormalSwitchHostCount());
                     compoundTag.putInt("highEnergySwitchHosts", network.getHighEnergySwitchHostCount());
+                    compoundTag.putBoolean("infinite", network.isEndgameEligible());
                 }
             }
         }

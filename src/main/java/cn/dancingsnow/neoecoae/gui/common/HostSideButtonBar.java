@@ -10,6 +10,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -39,6 +40,8 @@ public final class HostSideButtonBar {
     private static final int BOTTOM_HEIGHT = 27;
     private static final int FIRST_SEGMENT_STEP = 23;
     private static final int MIDDLE_SEGMENT_STEP = 22;
+    private static final int FIRST_SLOT_SEGMENT_STEP = 19;
+    private static final int MIDDLE_SLOT_SEGMENT_STEP = 18;
 
     private HostSideButtonBar() {
     }
@@ -90,7 +93,7 @@ public final class HostSideButtonBar {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.top(barTop);
             layout.width(WIDTH);
-            layout.height(heightFor(elements.size()));
+            layout.height(heightFor(elements.size(), contentType));
             if (side == Side.LEFT) {
                 layout.left(LEFT_BAR_OFFSET);
             } else {
@@ -99,9 +102,12 @@ public final class HostSideButtonBar {
         });
 
         int elementCount = elements.size();
+        List<UIElement> slotLayer = contentType == ContentType.SLOT
+            ? new ArrayList<>(elementCount)
+            : List.of();
         for (int index = 0; index < elementCount; index++) {
             int segmentIndex = index;
-            int segmentTop = segmentTop(segmentIndex);
+            int segmentTop = segmentTop(segmentIndex, contentType);
             int segmentHeight = segmentHeight(segmentIndex, elementCount);
             IGuiTexture segmentTexture = texture(segmentIndex, elementCount, side, contentType);
             UIElement segment = new UIElement().layout(layout -> {
@@ -114,13 +120,18 @@ public final class HostSideButtonBar {
             UIElement element = elements.get(segmentIndex);
             int elementTop = segmentIndex == 0 ? FIRST_BUTTON_TOP : OTHER_BUTTON_TOP;
             if (contentType == ContentType.SLOT) {
-                applySlotStyle(element, elementTop);
+                // Segment textures overlap vertically. Keep every slot in a separate
+                // top layer so the next segment cannot cover the previous slot's
+                // lower border.
+                applySlotStyle(element, segmentTop + elementTop);
+                slotLayer.add(element);
             } else {
                 applyButtonStyle(element, elementTop);
+                segment.addChild(element);
             }
-            segment.addChild(element);
             bar.addChild(segment);
         }
+        slotLayer.forEach(bar::addChild);
         return bar;
     }
 
@@ -190,17 +201,25 @@ public final class HostSideButtonBar {
         SLOT
     }
 
-    private static int segmentTop(int index) {
-        return index == 0 ? 0 : FIRST_SEGMENT_STEP + (index - 1) * MIDDLE_SEGMENT_STEP;
+    private static int segmentTop(int index, ContentType contentType) {
+        int firstStep = contentType == ContentType.SLOT ? FIRST_SLOT_SEGMENT_STEP : FIRST_SEGMENT_STEP;
+        int middleStep = contentType == ContentType.SLOT ? MIDDLE_SLOT_SEGMENT_STEP : MIDDLE_SEGMENT_STEP;
+        return index == 0 ? 0 : firstStep + (index - 1) * middleStep;
     }
 
     public static int heightFor(int buttonCount) {
-        if (buttonCount <= 0) {
+        return heightFor(buttonCount, ContentType.BUTTON);
+    }
+
+    private static int heightFor(int elementCount, ContentType contentType) {
+        if (elementCount <= 0) {
             throw new IllegalArgumentException("HostSideButtonBar requires at least one button");
         }
-        return buttonCount == 1
+        int firstStep = contentType == ContentType.SLOT ? FIRST_SLOT_SEGMENT_STEP : FIRST_SEGMENT_STEP;
+        int middleStep = contentType == ContentType.SLOT ? MIDDLE_SLOT_SEGMENT_STEP : MIDDLE_SEGMENT_STEP;
+        return elementCount == 1
             ? TOP_HEIGHT
-            : FIRST_SEGMENT_STEP + (buttonCount - 2) * MIDDLE_SEGMENT_STEP + BOTTOM_HEIGHT;
+            : firstStep + (elementCount - 2) * middleStep + BOTTOM_HEIGHT;
     }
 
     private static int segmentHeight(int index, int buttonCount) {

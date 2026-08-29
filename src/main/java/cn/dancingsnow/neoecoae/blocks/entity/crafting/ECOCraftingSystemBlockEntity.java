@@ -81,11 +81,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Getter
     private final IECOTier tier;
 
-    @Getter
     @Persisted
     private boolean overclocked = false;
 
-    @Getter
     @Persisted
     private boolean activeCooling = false;
 
@@ -439,13 +437,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getEffectiveOverclockTimes() {
-        if (!overclocked) {
+        if (!isOverclocked()) {
             return 0;
         }
-        if (!activeCooling) {
+        if (!isActiveCooling()) {
             return overlockTimes;
         }
-        int coolingMaxOverclock = getCurrentCoolingMaxOverclock();
+        int coolingMaxOverclock = getDisplayedCoolingMaxOverclock();
         if (coolingMaxOverclock < 0) {
             return 0;
         }
@@ -453,6 +451,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getDisplayedCoolingMaxOverclock() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getCoolantMaxOverclock() : getCurrentCoolingMaxOverclock();
+    }
+
+    public int getLocalCoolingMaxOverclock() {
         return getCurrentCoolingMaxOverclock();
     }
 
@@ -695,6 +698,44 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             ? cluster.getNetworkCluster().getCoolantCapacity() : MAX_COOLANT;
     }
 
+    public FluidStack getDisplayedCoolantFluid() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getCoolantFluid() : currentCoolantFluid;
+    }
+
+    public boolean isOverclocked() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().isOverclocked() : overclocked;
+    }
+
+    public boolean isActiveCooling() {
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().isActiveCooling() : activeCooling;
+    }
+
+    public boolean isLocallyOverclocked() {
+        return overclocked;
+    }
+
+    public boolean isLocallyActiveCooling() {
+        return activeCooling;
+    }
+
+    public void applyNetworkOverclocked(boolean value) {
+        if (overclocked == value) return;
+        overclocked = value;
+        updateInfo();
+        setChanged();
+        markForUpdate();
+    }
+
+    public void applyNetworkActiveCooling(boolean value) {
+        if (activeCooling == value) return;
+        activeCooling = value;
+        setChanged();
+        markForUpdate();
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try {
@@ -725,12 +766,12 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
-            () -> overclocked,
-            () -> setOverclocked(player, !overclocked),
-            () -> activeCooling,
-            () -> setActiveCooling(player, !activeCooling),
-            () -> Math.min(getAvailableThreads(), Math.max(0, getRunningThreadCount())),
-            this::getAvailableThreads,
+            this::isOverclocked,
+            () -> setOverclocked(player, !isOverclocked()),
+            this::isActiveCooling,
+            () -> setActiveCooling(player, !isActiveCooling()),
+            () -> Math.min(getPooledCraftingCapability(), Math.max(0, getRunningThreadCount())),
+            this::getPooledCraftingCapability,
             this::getPooledParallelism,
             this::getOverflowThreads,
             this::getEffectiveOverclockTimes,
@@ -739,7 +780,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getDisplayedCoolantAmount,
             this::getDisplayedCoolantCapacity,
             this::getDisplayedCoolingMaxOverclock,
-            this::getCurrentCoolantFluid,
+            this::getDisplayedCoolantFluid,
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries,
             this::getNetworkFrequency,
@@ -751,21 +792,20 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     private void setOverclocked(Player player, boolean overclocked) {
         if (!canPlayerInteract(player)) return;
-        if (this.overclocked == overclocked) {
-            return;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().setOverclocked(overclocked);
+        } else {
+            applyNetworkOverclocked(overclocked);
         }
-        this.overclocked = overclocked;
-        updateInfo();
-        setChanged();
     }
 
     private void setActiveCooling(Player player, boolean activeCooling) {
         if (!canPlayerInteract(player)) return;
-        if (this.activeCooling == activeCooling) {
-            return;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().setActiveCooling(activeCooling);
+        } else {
+            applyNetworkActiveCooling(activeCooling);
         }
-        this.activeCooling = activeCooling;
-        setChanged();
     }
 
     private HolderLookup.Provider getRegistryAccessForUi() {

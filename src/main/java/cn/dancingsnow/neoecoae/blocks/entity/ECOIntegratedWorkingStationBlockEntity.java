@@ -688,6 +688,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
+            .paddingBottom(7)
             .gapAll(2)
             .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");

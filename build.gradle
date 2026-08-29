@@ -113,6 +113,8 @@ dependencies {
     implementation("curse.maven:omni-cells-1359517:8050965")
 
     implementation("curse.maven:ae2-lightning-tech-1527395:8422767") { transitive = false }
+    // JDT Time Accelerators is optional and requires the separate
+    // Just Dire Things mod, so it is not included in the default dev runtime.
     runtimeOnly("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1")
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
@@ -143,8 +145,7 @@ dependencies {
 
     implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 
-    api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-    interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
+    // KubeJS integration is excluded from the base development source set.
 }
 
 neoForge {
@@ -204,10 +205,15 @@ neoForge {
 
 sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    // KubeJS is an optional integration and is not present in the dev runtime.
+    // Keep its sources out of the base mod classpath so NeoForge can launch
+    // without KubeJS installed.
+    exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
 }
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    exclude 'kubejs.plugins.txt'
 }
 
 sourceSets.test {

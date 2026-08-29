@@ -8,8 +8,10 @@ import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.math.Size;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
@@ -98,28 +100,62 @@ public class NETextures {
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
 
-    public static final IGuiTexture AE2_SLOT_HIGHLIGHT =
-        (graphics, mouseX, mouseY, x, y, width, height, partialTicks) -> {
-            int left = Mth.floor(x);
-            int top = Mth.floor(y);
-            int right = Mth.floor(x + width);
-            int bottom = Mth.floor(y + height);
+    public static final IGuiTexture AE2_SLOT_HIGHLIGHT = new IGuiTexture() {
+        @Override
+        public void draw(
+            GuiGraphics graphics,
+            float mouseX,
+            float mouseY,
+            float x,
+            float y,
+            float width,
+            float height,
+            float partialTicks
+        ) {
+            drawAE2SlotHighlight(graphics, x, y, width, height);
+        }
 
-            graphics.hLine(left, right, top - 1, 0xFFDAFFFF);
-            graphics.hLine(left - 1, right, bottom, 0xFFDAFFFF);
-            graphics.vLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
-            graphics.vLine(right, top - 2, bottom, 0xFFDAFFFF);
-            graphics.fillGradient(
-                RenderType.guiOverlay(),
-                left,
-                top,
-                right,
-                bottom,
-                0x669CD3FF,
-                0x669CD3FF,
-                0
-            );
-        };
+        @Override
+        public void draw(GUIContext context, float x, float y, float width, float height) {
+            // LDLib renders each slot independently. Drawing an outline outside the
+            // current 16x16 content area immediately would let adjacent slots cover it.
+            context.postRendering(postContext ->
+                drawAE2SlotHighlight(postContext.graphics, x, y, width, height));
+        }
+
+        @Override
+        public IGuiTexture copy() {
+            return this;
+        }
+    };
+
+    private static void drawAE2SlotHighlight(
+        GuiGraphics graphics,
+        float x,
+        float y,
+        float width,
+        float height
+    ) {
+        int left = Mth.floor(x);
+        int top = Mth.floor(y);
+        int right = Mth.floor(x + width);
+        int bottom = Mth.floor(y + height);
+
+        graphics.hLine(left, right, top - 1, 0xFFDAFFFF);
+        graphics.hLine(left - 1, right, bottom, 0xFFDAFFFF);
+        graphics.vLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
+        graphics.vLine(right, top - 2, bottom, 0xFFDAFFFF);
+        graphics.fillGradient(
+            RenderType.guiOverlay(),
+            left,
+            top,
+            right,
+            bottom,
+            0x669CD3FF,
+            0x669CD3FF,
+            0
+        );
+    }
 
     public static final IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
         .setSpriteSize(Size.of(6, 18));
