@@ -27,13 +27,13 @@
       "texture": "neoecoae:textures/guis/eco_craftingreport_cycle.png",
       "textureWidth": 384,
       "textureHeight": 384,
-      "srcRect": [0, 264, 67, 22]
+      "srcRect": [0, 265, 67, 22]
     },
     "cycleItemHovered": {
       "texture": "neoecoae:textures/guis/eco_craftingreport_cycle.png",
       "textureWidth": 384,
       "textureHeight": 384,
-      "srcRect": [0, 286, 67, 22]
+      "srcRect": [0, 287, 67, 22]
     }
   },
   "widgets": {
