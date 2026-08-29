@@ -79,6 +79,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private boolean fastCraftingPlannerEnabled;
+    @Persisted
+    @DescSynced
+    private boolean cyclePlanningEnabled;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -171,6 +174,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
             ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
             ComputationHostPanelUI.createPlanningModeButton(panelConfig),
+            ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
             ComputationHostPanelUI.createFastPlannerButton(panelConfig),
             ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
@@ -191,12 +195,14 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             this::getTotalThread,
             this::getParallelCount,
             this::getCpuSelectionMode,
-            () -> cycleCpuSelectionMode(player),
+            delta -> adjustCpuSelectionMode(player, delta),
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries,
             this::isIgnoringPatternSubstitutions,
             this::getSubstitutionPatternCount,
             () -> toggleIgnoringPatternSubstitutions(player),
+            this::isCyclePlanningEnabled,
+            () -> toggleCyclePlanning(player),
             this::isFastCraftingPlannerEnabled,
             () -> toggleFastCraftingPlanner(player),
             this::getNetworkFrequency,
@@ -268,6 +274,18 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         }
     }
 
+    private boolean isCyclePlanningEnabled() {
+        return cyclePlanningEnabled;
+    }
+
+    /** Reserves a persisted host setting for the upcoming cyclic crafting planner. */
+    private void toggleCyclePlanning(Player player) {
+        if (!canPlayerInteract(player)) return;
+        cyclePlanningEnabled = !cyclePlanningEnabled;
+        setChanged();
+        markForUpdate();
+    }
+
     public CpuSelectionMode getCpuSelectionMode() {
         CpuSelectionMode[] values = CpuSelectionMode.values();
         if (cpuSelectionMode < 0 || cpuSelectionMode >= values.length) {
@@ -282,12 +300,14 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         markForUpdate();
     }
 
-    private void cycleCpuSelectionMode(Player player) {
+    private void adjustCpuSelectionMode(Player player, int delta) {
         if (!canPlayerInteract(player)) return;
+        CpuSelectionMode[] modes = CpuSelectionMode.values();
+        CpuSelectionMode mode = modes[Math.floorMod(getCpuSelectionMode().ordinal() + delta, modes.length)];
         if (cluster != null) {
-            cluster.cycleSelectionMode();
+            cluster.setSelectionMode(mode);
         } else {
-            setCpuSelectionMode(nextCpuSelectionMode(getCpuSelectionMode()));
+            setCpuSelectionMode(mode);
         }
     }
 
@@ -348,14 +368,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         if (cluster != null) {
             NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }
-    }
-
-    private static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
-        return switch (mode) {
-            case ANY -> CpuSelectionMode.PLAYER_ONLY;
-            case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
-            case MACHINE_ONLY -> CpuSelectionMode.ANY;
-        };
     }
 
     private HolderLookup.Provider getRegistryAccessForUi() {

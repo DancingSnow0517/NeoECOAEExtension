@@ -15,7 +15,8 @@
       "position": { "left": 28, "top": 11 }
     },
     "cycle_status": {
-      "position": { "left": 238, "top": 200 }
+      "position": { "left": 237, "top": 8 },
+      "align": "CENTER"
     },
     "cpu_status": {
       "position": { "left": 109, "top": 218 },

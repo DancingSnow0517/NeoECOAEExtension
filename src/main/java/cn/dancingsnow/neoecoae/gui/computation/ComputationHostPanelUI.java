@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
+import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.CraftingPlanningModeButton;
@@ -11,8 +12,10 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
@@ -26,9 +29,11 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -67,12 +72,14 @@ public final class ComputationHostPanelUI {
         IntSupplier totalThreads,
         IntSupplier parallelCount,
         Supplier<CpuSelectionMode> cpuSelectionMode,
-        Runnable cycleCpuSelectionMode,
+        IntConsumer adjustCpuSelectionMode,
         Supplier<HolderLookup.Provider> registries,
         Supplier<List<ComputationTaskEntry>> tasks,
         BooleanSupplier ignoringPatternSubstitutions,
         IntSupplier substitutionPatternCount,
         Runnable toggleIgnoringPatternSubstitutions,
+        BooleanSupplier cyclePlanningEnabled,
+        Runnable toggleCyclePlanning,
         BooleanSupplier fastPlannerEnabled,
         Runnable toggleFastPlanner,
         IntSupplier networkFrequency,
@@ -113,21 +120,19 @@ public final class ComputationHostPanelUI {
 
     public static Button createCpuSelectionButton(Config config) {
         Button button = HostSideButtonBar.createButton().noText();
-        button.buttonStyle(style -> style
-            .baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT)
-            .pressedTexture(Sprites.RECT_RD_DARK));
         button.addClass("eco-host-cpu-mode-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
-        UIElement icon = cpuSelectionIcon(config.cpuSelectionMode.get());
+        CpuSelectionIcon icon = new CpuSelectionIcon(config.cpuSelectionMode.get());
         button.addChild(icon);
-        button.setOnServerClick(event -> config.cycleCpuSelectionMode.run());
+        button.setOnServerClick(event -> {
+            if (event.button == 0) config.adjustCpuSelectionMode.accept(1);
+            else if (event.button == 1) config.adjustCpuSelectionMode.accept(-1);
+        });
 
         BindableValue<Integer> syncedMode = new BindableValue<>(config.cpuSelectionMode.get().ordinal());
         syncedMode.bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode.get().ordinal()).build());
-        syncedMode.registerValueListener(value -> icon.style(style ->
-            style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
+        syncedMode.registerValueListener(value -> icon.setMode(cpuSelectionModeFromOrdinal(value)));
         syncedMode.setDisplay(false);
         button.addChild(syncedMode);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -171,6 +176,30 @@ public final class ComputationHostPanelUI {
             CPU_MODE_BUTTON_SIZE);
     }
 
+    public static Button createCyclePlanningButton(Config config) {
+        Button button = HostSideButtonBar.createButton()
+            .noText()
+            .addPreIcon(NETextures.aeIcon(16, 240, 16, 16));
+        button.buttonStyle(style -> style
+            .baseTexture(Sprites.RECT_RD)
+            .hoverTexture(Sprites.RECT_RD_LIGHT)
+            .pressedTexture(Sprites.RECT_RD_DARK));
+        button.addClass("eco-host-cycle-planning-button");
+        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
+        button.setOnServerClick(event -> config.toggleCyclePlanning.run());
+
+        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.cyclePlanningEnabled.getAsBoolean());
+        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.cyclePlanningEnabled::getAsBoolean).build());
+        syncedEnabled.setDisplay(false);
+        button.addChild(syncedEnabled);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
+                Boolean.TRUE.equals(syncedEnabled.getValue())
+                    ? "gui.neoecoae.crafting.cycle_planning.on"
+                    : "gui.neoecoae.crafting.cycle_planning.off")));
+        return button;
+    }
+
     public static Button createFastPlannerButton(Config config) {
         Button button = HostSideButtonBar.createButton()
             .noText()
@@ -198,18 +227,35 @@ public final class ComputationHostPanelUI {
         return button;
     }
 
-    private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {
-        return new UIElement()
-            .layout(layout -> layout.width(12).height(12))
-            .style(style -> style.backgroundTexture(cpuSelectionModeIcon(mode)));
-    }
-
     private static IGuiTexture cpuSelectionModeIcon(CpuSelectionMode mode) {
         return switch (mode) {
             case ANY -> AETextures.icon(Icon.CRAFT_HAMMER);
-            case PLAYER_ONLY -> AETextures.icon(Icon.S_TERMINAL);
-            case MACHINE_ONLY -> AETextures.icon(Icon.S_MACHINE);
+            case PLAYER_ONLY -> new ItemStackTexture(new ItemStack(AEParts.TERMINAL));
+            case MACHINE_ONLY -> new ItemStackTexture(new ItemStack(AEParts.EXPORT_BUS));
         };
+    }
+
+    private static final class CpuSelectionIcon extends UIElement {
+        private IGuiTexture texture;
+
+        private CpuSelectionIcon(CpuSelectionMode mode) {
+            setMode(mode);
+            layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(0)
+                .top(1)
+                .width(16)
+                .height(16));
+        }
+
+        private void setMode(CpuSelectionMode mode) {
+            texture = cpuSelectionModeIcon(mode);
+        }
+
+        @Override
+        public void drawBackgroundAdditional(GUIContext guiContext) {
+            guiContext.drawTexture(texture, getPositionX(), getPositionY(), 16, 16);
+        }
     }
 
     private static Component cpuSelectionModeTooltip(CpuSelectionMode mode) {

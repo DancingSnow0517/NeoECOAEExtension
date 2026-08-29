@@ -83,7 +83,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                         .withColor(AE2_TEXT_DARK);
                 }
                 if (mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNSUPPORTED) {
-                    cycleStatus = Component.translatable("gui.neoecoae.crafting_report.cycle_unsupported");
+                    cycleStatus = Component.translatable("gui.neoecoae.crafting_report.cycle_unsupported")
+                        .withColor(AE2_TEXT_DARK);
                 }
             } else {
                 planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", usedBytes)
