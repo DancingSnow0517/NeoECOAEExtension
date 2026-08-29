@@ -10,27 +10,88 @@ import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
 
 public final class ECOBatchCraftingHelper {
-    /**
-     * Absolute safety limit for a batch. The current worker maximum is 32 base crafts times the
-     * L9 overclock multiplier of 16 (512); 4096 leaves headroom while rejecting corrupted NBT.
-     */
-    public static final int MAX_BATCH_SIZE = 4096;
     /** Maximum number of distinct item entries in one batch. */
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
-    /** Per-entry amount limit, intentionally independent from {@link #MAX_BATCH_SIZE}. */
+    /**
+     * Per-entry amount limit for a multiplied batch total, and therefore the only hard ceiling a batch
+     * has. How many crafts a batch may carry is decided by the live capability of the F-series host that
+     * accepts it, so no fixed batch-size constant exists.
+     */
     public static final long MAX_BATCH_STACK_AMOUNT = 1L << 42;
 
     private ECOBatchCraftingHelper() {
     }
 
+    /**
+     * Sanitizes a persisted batch size. Only the lower bound is structural; the plausible upper bound
+     * depends on the batch's own totals and is applied by the caller that owns them.
+     */
     public static int clampPersistedBatchSize(int batchSize) {
-        return Math.clamp(batchSize, 1, MAX_BATCH_SIZE);
+        return Math.max(1, batchSize);
     }
 
     public static void validateBatchSize(int batchSize) {
-        if (batchSize <= 0 || batchSize > MAX_BATCH_SIZE) {
-            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("batchSize must be positive");
         }
+    }
+
+    /**
+     * Largest batch multiplier that keeps a single per-craft entry within {@link #MAX_BATCH_STACK_AMOUNT}
+     * once it is multiplied out.
+     */
+    public static int maxBatchSizeForAmount(long perCraftAmount) {
+        if (perCraftAmount <= 0L) {
+            return 0;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, MAX_BATCH_STACK_AMOUNT / perCraftAmount);
+    }
+
+    /**
+     * Largest batch multiplier that keeps every per-craft entry of a recipe within
+     * {@link #MAX_BATCH_STACK_AMOUNT}. This replaces a fixed batch cap: the bound follows from the recipe
+     * itself, so a host may batch as many crafts as its own thread capacity allows.
+     */
+    public static int maxBatchSizeForPerCraftStacks(
+        List<GenericStack> inputsPerCraft,
+        List<GenericStack> outputsPerCraft,
+        List<GenericStack> remainingPerCraft
+    ) {
+        int max = Integer.MAX_VALUE;
+        max = Math.min(max, maxBatchSizeForStacks(inputsPerCraft));
+        max = Math.min(max, maxBatchSizeForStacks(outputsPerCraft));
+        max = Math.min(max, maxBatchSizeForStacks(remainingPerCraft));
+        return max;
+    }
+
+    /**
+     * Upper bound implied by an already-multiplied batch total: every craft contributes at least one unit
+     * to each entry, so the batch size can never exceed the smallest total amount. Used to reject a
+     * corrupted persisted thread-slot count without inventing a magic limit.
+     */
+    public static int maxBatchSizeFromTotals(List<GenericStack> totals) {
+        int max = Integer.MAX_VALUE;
+        for (GenericStack stack : totals) {
+            if (stack == null) {
+                continue;
+            }
+            max = (int) Math.min(max, Math.max(0L, stack.amount()));
+        }
+        return max;
+    }
+
+    private static int maxBatchSizeForStacks(List<GenericStack> perCraft) {
+        int max = Integer.MAX_VALUE;
+        for (GenericStack stack : perCraft) {
+            if (stack == null) {
+                continue;
+            }
+            max = Math.min(max, maxBatchSizeForAmount(stack.amount()));
+            if (max <= 0) {
+                return 0;
+            }
+        }
+        return max;
     }
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {

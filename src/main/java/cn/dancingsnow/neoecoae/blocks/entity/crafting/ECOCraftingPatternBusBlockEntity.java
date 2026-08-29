@@ -240,6 +240,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
 
+    /**
+     * The batch size this host is willing to accept. It is bounded purely by live capability - the selected
+     * worker's free thread slots and the host's own remaining parallelism - so an F9 host wired into a
+     * high-energy logical network may accept far larger batches than a lone F4 host. There is deliberately
+     * no fixed ceiling.
+     */
     static int calculateBatchOfferSize(int requestedBatchSize, int workerAvailableSlots, int hostAvailableSlots) {
         return Math.max(0, Math.min(requestedBatchSize, Math.min(workerAvailableSlots, hostAvailableSlots)));
     }

@@ -84,6 +84,8 @@ public class ECOCraftingCPULogic {
     private boolean batchedFullStatusChange = false;
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
+    private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
+    private long lastBatchRejectionLogTick = Long.MIN_VALUE;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -443,7 +445,10 @@ public class ECOCraftingCPULogic {
 
         // Ask providers for the full remaining task. The selected F-series host and worker cap the
         // offer to their live thread capacity; inventory, energy and coolant apply further bounds.
-        int requested = calculateBatchRequestSize(taskRemaining);
+        int requested = calculateBatchRequestSize(execution, taskRemaining);
+        if (requested <= 1) {
+            return 0;
+        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -545,6 +550,7 @@ public class ECOCraftingCPULogic {
                 return batchSize;
             }
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            logBatchRejection(batchSize, taskRemaining, e);
             return -1;
         } catch (Error e) {
             // Error is included so extracted inputs are returned before the failure escapes.
@@ -556,8 +562,38 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    private int calculateBatchRequestSize(long taskRemaining) {
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
+    /**
+     * How many crafts this CPU would like to hand over in one batch. There is deliberately no fixed batch
+     * ceiling: the request is the whole remaining task, bounded only by what the multiplied stack amounts
+     * can still represent. The accepted size is decided by the F-series host in
+     * {@link ECOCraftingPatternBusBlockEntity#findBatchFastPathOffer}, which reports its live thread
+     * capability.
+     */
+    private int calculateBatchRequestSize(ECOExtractedPatternExecution execution, long taskRemaining) {
+        long requested = Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
+        int arithmeticLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+            execution.inputItems(), execution.expectedOutputs(), execution.expectedContainerItems()
+        );
+        return (int) Math.min(requested, arithmeticLimit);
+    }
+
+    /**
+     * A batch that fails before ownership transfer aborts the whole task for this tick, so it must never be
+     * silent: an unnoticed rejection here looks exactly like "the host stopped dispatching".
+     */
+    private void logBatchRejection(int batchSize, long taskRemaining, RuntimeException e) {
+        long tick = TickHandler.instance().getCurrentTick();
+        if (tick - lastBatchRejectionLogTick < BATCH_REJECTION_LOG_INTERVAL_TICKS
+            && lastBatchRejectionLogTick != Long.MIN_VALUE) {
+            return;
+        }
+        lastBatchRejectionLogTick = tick;
+        LOGGER.error(
+            "ECO batch of {} crafts was rejected before ownership transfer (task remaining {}); inputs were returned to the CPU",
+            batchSize,
+            taskRemaining,
+            e
+        );
     }
 
     private void rollbackBatchInputs(

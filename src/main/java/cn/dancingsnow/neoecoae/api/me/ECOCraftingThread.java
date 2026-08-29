@@ -1102,8 +1102,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ? nbt.getInt("occupiedThreadSlots")
             : 1;
         boolean invalidPersistedState = persistedProgress < 0
-            || persistedOccupiedThreadSlots <= 0
-            || persistedOccupiedThreadSlots > ECOBatchCraftingHelper.MAX_BATCH_SIZE;
+            || persistedOccupiedThreadSlots <= 0;
         this.progress = Math.clamp(persistedProgress, 0, MAX_PROGRESS);
         this.progressRemainder = readProgressRemainder(nbt);
         this.occupiedThreadSlots = ECOBatchCraftingHelper.clampPersistedBatchSize(persistedOccupiedThreadSlots);
@@ -1208,6 +1207,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             invalidPersistedState |= batchOutputs.isEmpty()
                 || batchInputs.isEmpty()
                 || batchRemaining.isEmpty();
+        }
+        // A thread can never occupy more slots than its own totals account for: batch work multiplies every
+        // entry by the batch size, and non-batch work always occupies exactly one slot. Deriving the bound
+        // from the persisted content rejects corrupted NBT without capping how large a legitimate batch may
+        // grow on a high-capability host.
+        int occupiedSlotsUpperBound;
+        if (batchGenericWork) {
+            List<GenericStack> slotWitness = batchOutputItems.isEmpty() ? batchInputItems : batchOutputItems;
+            occupiedSlotsUpperBound = ECOBatchCraftingHelper.maxBatchSizeFromTotals(slotWitness);
+        } else {
+            occupiedSlotsUpperBound = 1;
+        }
+        if (this.occupiedThreadSlots > occupiedSlotsUpperBound) {
+            invalidPersistedState = true;
+            this.occupiedThreadSlots = Math.max(1, occupiedSlotsUpperBound);
         }
         try {
             craftingEventOutput = ItemStack.parseOptional(provider, nbt.getCompound("craftingEventOutput"));
