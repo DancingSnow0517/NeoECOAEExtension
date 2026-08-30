@@ -34,6 +34,8 @@ import appeng.core.definitions.AEItems;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
+import appeng.items.contents.NetworkToolMenuHost;
+import appeng.items.tools.NetworkToolItem;
 import appeng.parts.automation.StackWorldBehaviors;
 import appeng.util.SettingsFrom;
 import appeng.util.inv.AppEngInternalInventory;
@@ -72,6 +74,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
@@ -99,6 +102,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -111,6 +116,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -780,6 +786,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .layout(style -> style.heightPercent(100)));
         inputArea.addChild(outputFluid);
 
+        var networkTool = NetworkToolItem.findNetworkToolInv(holder.player);
+        Integer networkToolSlot = null;
+        if (networkTool != null) {
+            networkToolSlot = networkTool.getPlayerInventorySlot();
+            inputArea.addChild(createNetworkToolbox(networkTool));
+        }
+
 
         // add main input area and upgrades panel side-by-side
         root.addChild(inputArea);
@@ -809,11 +822,117 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .setText("container.inventory", true)
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
+        root.addChild(createPlayerInventory(holder.player.getInventory(), networkToolSlot)
+            .layout(layout -> layout.marginTop(2)));
 
         // Add absolute-positioned floating window last so it renders on top
         root.addChild(allowOutputWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private static UIElement createNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
+        var itemHandler = new NetworkToolItemHandler(networkTool);
+        UIElement toolbox = new UIElement().style(style -> style.backgroundTexture(NETextures.AE2_TOOLBOX));
+        toolbox.layout(layout -> layout
+            .width(59)
+            .height(66)
+            .paddingLeft(4)
+            .paddingTop(6)
+            .marginLeft(6)
+            .alignSelf(AlignItems.CENTER));
+
+        for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
+            UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
+            for (int columnIndex = 0; columnIndex < 3; columnIndex++) {
+                int slot = rowIndex * 3 + columnIndex;
+                row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot)));
+            }
+            toolbox.addChild(row);
+        }
+        return toolbox;
+    }
+
+    private static InventorySlots createPlayerInventory(Inventory inventory, @Nullable Integer lockedSlot) {
+        return new InventorySlots() {
+            @Override
+            protected void onModularUIChanged(UIEvent event) {
+                var mui = getModularUI();
+                if (mui == null || event.customData == mui || mui.getMenu() == null || mui.player == null) {
+                    return;
+                }
+
+                for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+                    for (int columnIndex = 0; columnIndex < rows[rowIndex].slots.length; columnIndex++) {
+                        int inventorySlot = rowIndex * 9 + columnIndex + 9;
+                        rows[rowIndex].slots[columnIndex].bind(playerSlot(inventory, inventorySlot, lockedSlot));
+                    }
+                }
+                for (int slotIndex = 0; slotIndex < hotbar.slots.length; slotIndex++) {
+                    hotbar.slots[slotIndex].bind(playerSlot(inventory, slotIndex, lockedSlot));
+                }
+            }
+        };
+    }
+
+    private static Slot playerSlot(Inventory inventory, int slotIndex, @Nullable Integer lockedSlot) {
+        if (lockedSlot == null || lockedSlot != slotIndex) {
+            return new Slot(inventory, slotIndex, 0, 0);
+        }
+        return new Slot(inventory, slotIndex, 0, 0) {
+            @Override
+            public boolean mayPlace(@NotNull ItemStack stack) {
+                return false;
+            }
+
+            @Override
+            public boolean mayPickup(@NotNull Player player) {
+                return false;
+            }
+        };
+    }
+
+    private record NetworkToolItemHandler(NetworkToolMenuHost<?> networkTool) implements IItemHandlerModifiable {
+        private InternalInventory inventory() {
+            return networkTool.isValid() ? networkTool.getInventory() : InternalInventory.empty();
+        }
+
+        @Override
+        public int getSlots() {
+            return 9;
+        }
+
+        @Override
+        public @NotNull ItemStack getStackInSlot(int slot) {
+            return inventory().getStackInSlot(slot);
+        }
+
+        @Override
+        public void setStackInSlot(int slot, @NotNull ItemStack stack) {
+            var inventory = inventory();
+            if (inventory.size() == 9 && (stack.isEmpty() || inventory.isItemValid(slot, stack))) {
+                inventory.setItemDirect(slot, stack);
+            }
+        }
+
+        @Override
+        public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
+            return inventory().insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return inventory().extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory().getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
+            return inventory().isItemValid(slot, stack);
+        }
     }
 
     private Button createAutoExportButton() {
