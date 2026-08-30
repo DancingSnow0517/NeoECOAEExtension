@@ -18,6 +18,7 @@ public final class GraphRenderer {
 
     public record Frame(@Nullable ClientCraftingGraph.Node hovered, List<Component> tooltip) {}
     public record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges) {}
+    private final CompactTreeRenderer compactTreeRenderer = new CompactTreeRenderer();
 
     static VisiblePlan collectVisible(GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom,
             int screenWidth, int screenHeight) {
@@ -32,6 +33,10 @@ public final class GraphRenderer {
     public Frame render(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight, int mouseX, int mouseY,
             @Nullable Integer selectedId, GraphProfiler profiler) {
+        if (graph.isCompactTree()) {
+            return compactTreeRenderer.render(graphics, graph, layout, cameraX, cameraY, zoom, screenWidth,
+                screenHeight, mouseX, mouseY, selectedId, profiler);
+        }
         long started = System.nanoTime();
         VisiblePlan visible = collectVisible(layout, cameraX, cameraY, zoom, screenWidth, screenHeight);
         List<GraphLayoutSnapshot.Box> boxes = visible.nodes();
@@ -66,6 +71,15 @@ public final class GraphRenderer {
         boolean highlighted = selected != null && (link.fromId() == selected || link.toId() == selected)
             && (neighborhood.contains(link.fromId()) || neighborhood.contains(link.toId()));
         int color = highlighted ? 0xfff6c453 : link.selected() ? 0xff8293a4 : 0xff66505a;
+        List<GraphLayoutSnapshot.Point> route = layout.edgePoints(link);
+        if (route.size() >= 2) {
+            drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
+            var end = route.getLast();
+            int endX = screen(cameraX, end.x(), zoom);
+            int endY = screen(cameraY, end.y(), zoom);
+            graphics.fill(endX - 4, endY - 2, endX, endY + 3, color);
+            return;
+        }
         int x1 = screen(cameraX, from.x() + from.width(), zoom);
         int y1 = screen(cameraY, from.centerY(), zoom);
         int x2 = screen(cameraX, to.x(), zoom);
@@ -75,6 +89,29 @@ public final class GraphRenderer {
         graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
         graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
         graphics.fill(x2 - 4, y2 - 2, x2, y2 + 3, color);
+    }
+
+    private static void drawRoutedLink(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+            float cameraX, float cameraY, float zoom) {
+        for (int i = 1; i < route.size(); i++) {
+            var from = route.get(i - 1);
+            var to = route.get(i);
+            int x1 = screen(cameraX, from.x(), zoom);
+            int y1 = screen(cameraY, from.y(), zoom);
+            int x2 = screen(cameraX, to.x(), zoom);
+            int y2 = screen(cameraY, to.y(), zoom);
+            if (x1 == x2) {
+                graphics.vLine(x1, Math.min(y1, y2), Math.max(y1, y2), color);
+            } else if (y1 == y2) {
+                graphics.hLine(Math.min(x1, x2), Math.max(x1, x2), y1, color);
+            } else {
+                // Rounding can introduce a one-pixel diagonal between otherwise orthogonal points.
+                int middle = (x1 + x2) / 2;
+                graphics.hLine(Math.min(x1, middle), Math.max(x1, middle), y1, color);
+                graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
+                graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
+            }
+        }
     }
 
     private static void drawNode(GuiGraphics graphics, ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box,
@@ -147,6 +184,8 @@ public final class GraphRenderer {
                         pixelWidth - 14, MUTED);
                 }
             }
+            case FOLDER -> { }
+            case REFERENCE -> { }
         }
     }
 

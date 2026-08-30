@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -22,10 +23,13 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private final Screen previous;
     private final CraftingGraphSnapshot snapshot;
-    private final GraphLayoutCache layoutCache = new GraphLayoutCache();
+    private GraphLayoutCache layoutCache;
     private final GraphRenderer renderer = new GraphRenderer();
     private final GraphProfiler profiler = new GraphProfiler();
     private final Set<Integer> collapsed = new HashSet<>();
+    private final Set<String> expandedTreePaths = new HashSet<>();
+    private final Set<String> fullyExpandedTreePaths = new HashSet<>();
+    private final Set<String> collapsedTreePaths = new HashSet<>();
     private ClientCraftingGraph baseGraph;
     private ClientCraftingGraph graph;
     private GraphLayoutSnapshot layout;
@@ -35,11 +39,13 @@ public final class ECOCraftingGraphScreen extends Screen {
     private float cameraX;
     private float cameraY = TOOLBAR_HEIGHT;
     private float zoom = 1;
-    private int depth = 99;
+    private int depth = CompactTreeProjection.DEFAULT_DEPTH;
+    private GraphLayout.Mode layoutMode;
     private boolean advanced;
     private boolean panning;
     private long lastClickMillis;
     private int lastClickNode = Integer.MAX_VALUE;
+    private boolean lastClickWasFolder;
 
     public ECOCraftingGraphScreen(Screen previous, CraftingGraphSnapshot snapshot) {
         super(Component.translatable("gui.neoecoae.crafting_graph.title"));
@@ -47,6 +53,8 @@ public final class ECOCraftingGraphScreen extends Screen {
         this.snapshot = snapshot;
         this.baseGraph = ClientCraftingGraph.main(snapshot, false);
         this.graph = baseGraph;
+        this.layoutMode = GraphLayout.Mode.fromSystemProperty();
+        this.layoutCache = new GraphLayoutCache(layoutMode);
     }
 
     @Override
@@ -55,8 +63,13 @@ public final class ECOCraftingGraphScreen extends Screen {
         int x = 5;
         x = addButton(x, 48, "Fit All", this::fitAll);
         x = addButton(x, 46, "Root", this::goRoot);
-        x = addButton(x, 64, "Collapse", this::toggleCollapse);
+        x = addButton(x, 58, "Expand", this::expandSelected);
+        x = addButton(x, 58, "Collapse", this::collapseSelected);
+        x = addButton(x, 50, "All", this::expandAllSelected);
         x = addButton(x, 58, depthLabel(), this::cycleDepth);
+        x = addButton(x, 42, "D4", this::expandToFour);
+        x = addButton(x, 54, "Fold4", this::foldToFour);
+        x = addButton(x, 76, viewLabel(), this::cycleLayoutMode);
         x = addButton(x, 70, advanced ? "Debug: ON" : "Debug: OFF", this::toggleAdvanced);
         search = new EditBox(font, x + 4, 6, Math.min(180, Math.max(80, width - x - 250)), 18,
             Component.translatable("gui.neoecoae.crafting_graph.search"));
@@ -84,7 +97,8 @@ public final class ECOCraftingGraphScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         drawBreadcrumb(graphics);
         drawStats(graphics);
-        drawCycleDetails(graphics);
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) drawCycleDetails(graphics);
+        else if (graph.isCompactTree()) drawDetailsPanel(graphics);
         if (!frame.tooltip().isEmpty() && mouseY > TOOLBAR_HEIGHT) {
             graphics.renderComponentTooltip(font, frame.tooltip(), mouseX, mouseY);
         }
@@ -141,6 +155,11 @@ public final class ECOCraftingGraphScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseY <= TOOLBAR_HEIGHT) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        if (graph.isCompactTree() && !Screen.hasControlDown()) {
+            cameraX -= (float) scrollX * 28;
+            cameraY -= (float) scrollY * 28;
+            return true;
+        }
         float oldZoom = zoom;
         zoom = clamp((float) (zoom * Math.pow(1.12, scrollY)), MIN_ZOOM, MAX_ZOOM);
         float worldX = ((float) mouseX - cameraX) / oldZoom;
@@ -160,10 +179,23 @@ public final class ECOCraftingGraphScreen extends Screen {
         }
         if (mouseY <= TOOLBAR_HEIGHT) return false;
         ClientCraftingGraph.Node hit = hit(mouseX, mouseY);
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hit != null && graph.isCompactTree()) {
+            selectedId = hit.id();
+            collapseSelected();
+            return true;
+        }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && hit != null) {
             selectedId = hit.id();
             long now = Util.getMillis();
-            if (lastClickNode == hit.id() && now - lastClickMillis < 350) activate(hit);
+            boolean doubleClick = lastClickNode == hit.id() && now - lastClickMillis < 350;
+            // A one-level expansion replaces a folder with its source node at the same path/id. Keep the
+            // previous folder gesture only while the second click is on that same projected occurrence.
+            boolean sameFolderOccurrence = lastClickWasFolder && lastClickNode == hit.id();
+            if (graph.isCompactTree() && (hit.kind() == ClientCraftingGraph.Kind.FOLDER || sameFolderOccurrence)) {
+                if (doubleClick && sameFolderOccurrence) expandAllSelected();
+                else expandSelected();
+            } else if (doubleClick) activate(hit);
+            lastClickWasFolder = hit.kind() == ClientCraftingGraph.Kind.FOLDER;
             lastClickNode = hit.id();
             lastClickMillis = now;
             return true;
@@ -219,6 +251,8 @@ public final class ECOCraftingGraphScreen extends Screen {
             selectedId = baseGraph.rootId();
             collapsed.clear();
             rebuildGraph(true);
+        } else if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
+            expandAllSelected();
         } else if (node.kind() == ClientCraftingGraph.Kind.MATERIAL) {
             selectedId = node.id();
             rebuildGraph(true);
@@ -231,17 +265,86 @@ public final class ECOCraftingGraphScreen extends Screen {
         }
         selectedId = baseGraph.rootId();
         collapsed.clear();
+        expandedTreePaths.clear();
+        fullyExpandedTreePaths.clear();
+        collapsedTreePaths.clear();
         rebuildGraph(true);
     }
 
-    private void toggleCollapse() {
+    private void expandSelected() {
         if (selectedId == null) return;
-        if (!collapsed.add(selectedId)) collapsed.remove(selectedId);
+        if (graph.isCompactTree()) {
+            CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
+            if (treeNode == null) return;
+            collapsedTreePaths.remove(treeNode.path());
+            fullyExpandedTreePaths.remove(treeNode.path());
+            expandedTreePaths.add(treeNode.path());
+            rebuildGraph(false);
+        } else {
+            collapsed.remove(selectedId);
+            rebuildGraph(false);
+        }
+    }
+
+    private void collapseSelected() {
+        if (selectedId == null) return;
+        if (graph.isCompactTree()) {
+            CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
+            if (treeNode == null) return;
+            collapsedTreePaths.add(treeNode.path());
+            expandedTreePaths.remove(treeNode.path());
+            fullyExpandedTreePaths.remove(treeNode.path());
+            rebuildGraph(false);
+        } else {
+            if (!collapsed.add(selectedId)) collapsed.remove(selectedId);
+            rebuildGraph(false);
+        }
+    }
+
+    private void expandAllSelected() {
+        if (selectedId == null || !graph.isCompactTree()) return;
+        CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
+        if (treeNode == null) return;
+        collapsedTreePaths.remove(treeNode.path());
+        expandedTreePaths.remove(treeNode.path());
+        fullyExpandedTreePaths.add(treeNode.path());
         rebuildGraph(false);
+    }
+
+    private void toggleCollapse() { collapseSelected(); }
+
+    private void expandToFour() {
+        depth = CompactTreeProjection.DEFAULT_DEPTH;
+        expandedTreePaths.clear();
+        fullyExpandedTreePaths.clear();
+        collapsedTreePaths.clear();
+        collapsed.clear();
+        rebuildGraph(true);
+        refreshControls();
+    }
+
+    private void foldToFour() {
+        depth = CompactTreeProjection.DEFAULT_DEPTH;
+        expandedTreePaths.clear();
+        fullyExpandedTreePaths.clear();
+        collapsedTreePaths.clear();
+        collapsed.clear();
+        rebuildGraph(true);
+        refreshControls();
     }
 
     private void cycleDepth() {
         depth = depth == 99 ? 2 : depth == 2 ? 4 : depth == 4 ? 8 : 99;
+        refreshControls();
+    }
+
+    private void cycleLayoutMode() {
+        layoutMode = switch (layoutMode) {
+            case COMPACT_TREE -> GraphLayout.Mode.LEGACY;
+            case LEGACY -> GraphLayout.Mode.COMPACT_TREE;
+        };
+        layoutCache = new GraphLayoutCache(layoutMode);
+        rebuildGraph(true);
         refreshControls();
     }
 
@@ -260,8 +363,13 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void rebuildGraph(boolean fit) {
-        int focus = selectedId != null && baseGraph.nodes().containsKey(selectedId) ? selectedId : baseGraph.rootId();
-        graph = baseGraph.limited(focus, depth, collapsed);
+        if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
+            graph = CompactTreeProjection.project(baseGraph, depth, expandedTreePaths, fullyExpandedTreePaths,
+                collapsedTreePaths);
+        } else {
+            int focus = selectedId != null && baseGraph.nodes().containsKey(selectedId) ? selectedId : baseGraph.rootId();
+            graph = baseGraph.limited(focus, depth, collapsed);
+        }
         layoutCache.invalidate();
         layout = layoutCache.get(graph);
         if (fit) fitAll();
@@ -270,7 +378,8 @@ public final class ECOCraftingGraphScreen extends Screen {
     private void fitAll() {
         if (layout == null || layout.boxes().isEmpty()) return;
         var bounds = layout.bounds();
-        float availableWidth = Math.max(1, width - 40);
+        float detailsReserve = graph.isCompactTree() ? 236 : 0;
+        float availableWidth = Math.max(1, width - 40 - detailsReserve);
         float availableHeight = Math.max(1, height - TOOLBAR_HEIGHT - 42);
         zoom = clamp(Math.min(availableWidth / bounds.width(), availableHeight / bounds.height()), MIN_ZOOM, 1.5f);
         cameraX = 20 - bounds.left() * zoom + (availableWidth - bounds.width() * zoom) / 2;
@@ -281,13 +390,32 @@ public final class ECOCraftingGraphScreen extends Screen {
     private void findNext() {
         String query = search.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return;
-        graph.nodes().values().stream()
+        var match = graph.nodes().values().stream()
             .filter(node -> node.label().toLowerCase(Locale.ROOT).contains(query)
                 || node.key() != null && node.key().toString().toLowerCase(Locale.ROOT).contains(query))
-            .findFirst().ifPresent(node -> {
-                selectedId = node.id();
-                center(node.id());
-            });
+            .findFirst();
+        if (match.isPresent()) {
+            selectedId = match.get().id();
+            center(selectedId);
+            return;
+        }
+        if (layoutMode == GraphLayout.Mode.COMPACT_TREE) {
+            var sourceMatch = baseGraph.nodes().values().stream()
+                .filter(node -> node.label().toLowerCase(Locale.ROOT).contains(query)
+                    || node.key() != null && node.key().toString().toLowerCase(Locale.ROOT).contains(query))
+                .findFirst();
+            if (sourceMatch.isPresent()) {
+                List<String> paths = CompactTreeProjection.pathTo(baseGraph, sourceMatch.get().id());
+                if (!paths.isEmpty()) {
+                    expandedTreePaths.addAll(paths);
+                    collapsedTreePaths.removeAll(paths);
+                    rebuildGraph(false);
+                    graph.compactTreeNodes().values().stream()
+                        .filter(node -> node.sourceId() == sourceMatch.get().id()).findFirst()
+                        .ifPresent(node -> { selectedId = node.id(); center(node.id()); });
+                }
+            }
+        }
     }
 
     private void center(int id) {
@@ -305,6 +433,56 @@ public final class ECOCraftingGraphScreen extends Screen {
             .orElse(null);
     }
 
+    private void drawDetailsPanel(GuiGraphics graphics) {
+        if (selectedId == null) return;
+        var node = graph.nodes().get(selectedId);
+        if (node == null) return;
+        int panelWidth = 220;
+        int left = width - panelWidth - 8;
+        int top = 38;
+        int lines = 7;
+        graphics.fill(left, top, width - 8, top + 12 + lines * 12, 0xdd171b20);
+        graphics.drawString(font, node.kind() == ClientCraftingGraph.Kind.FOLDER ? "Folder" : node.label(), left + 7,
+            top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? 0xff9fb3c2 : 0xffe2b766, false);
+        int y = top + 20;
+        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
+            var folder = graph.compactTreeNode(node.id());
+            if (folder != null) {
+                y = detailLine(graphics, left, y, "hidden nodes", folder.hiddenNodeCount());
+                y = detailLine(graphics, left, y, "hidden layers", folder.hiddenDepth());
+                y = detailLine(graphics, left, y, "depth", folder.depth());
+                y = detailTextLine(graphics, left, y, "missing", folder.containsMissing() ? "yes" : "no");
+                y = detailTextLine(graphics, left, y, "unsupported", folder.containsUnsupported() ? "yes" : "no");
+                y = detailTextLine(graphics, left, y, "cycle", folder.containsCycle() ? "yes" : "no");
+                detailTextLine(graphics, left, y, "action", "expand");
+            }
+        } else if (node.material() != null) {
+            var material = node.material();
+            y = detailLine(graphics, left, y, "requested", material.requested());
+            y = detailLine(graphics, left, y, "inventory", material.fromInventory());
+            y = detailLine(graphics, left, y, "to craft", material.toCraft());
+            y = detailLine(graphics, left, y, "missing", material.missing());
+            y = detailTextLine(graphics, left, y, "status", material.status().name());
+            detailLine(graphics, left, y, "source patterns", baseGraph.source().patterns().size());
+        } else if (node.cycle() != null) {
+            var cycle = node.cycle();
+            y = detailLine(graphics, left, y, "cycle", cycle.componentId());
+            y = detailLine(graphics, left, y, "members", cycle.memberNodeIds().size());
+            detailTextLine(graphics, left, y, "status", cycle.status());
+        }
+    }
+
+    private int detailLine(GuiGraphics graphics, int left, int y, String name, long value) {
+        graphics.drawString(font, name + ": " + value, left + 7, y, 0xffaeb8c2, false);
+        return y + 12;
+    }
+
+    private int detailTextLine(GuiGraphics graphics, int left, int y, String name, String value) {
+        graphics.drawString(font, name + ": " + value, left + 7, y, 0xffaeb8c2, false);
+        return y + 12;
+    }
+
     private String depthLabel() { return depth == 99 ? "Depth: All" : "Depth: " + depth; }
+    private String viewLabel() { return "View: " + (layoutMode == GraphLayout.Mode.COMPACT_TREE ? "Tree" : layoutMode.name()); }
     private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
 }

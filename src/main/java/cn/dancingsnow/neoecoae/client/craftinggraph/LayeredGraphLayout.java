@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Stable goal-left layered layout. SCCs have already been condensed by {@link ClientCraftingGraph}. */
-public final class LayeredGraphLayout {
+public final class LayeredGraphLayout implements GraphLayoutEngine {
     private static final float LAYER_GAP = 92;
     private static final float ROW_GAP = 28;
 
@@ -33,12 +33,12 @@ public final class LayeredGraphLayout {
         float x = 0;
         for (var entry : layers.entrySet()) {
             float layerWidth = (float) entry.getValue().stream().map(graph.nodes()::get)
-                .mapToDouble(LayeredGraphLayout::width).max().orElse(GraphLayoutSnapshot.MATERIAL_WIDTH);
+                .mapToDouble(GraphLayoutSnapshot::widthFor).max().orElse(GraphLayoutSnapshot.MATERIAL_WIDTH);
             float y = 0;
             for (int id : entry.getValue()) {
                 var node = graph.nodes().get(id);
-                float width = width(node);
-                float height = height(node);
+                float width = GraphLayoutSnapshot.widthFor(node);
+                float height = GraphLayoutSnapshot.heightFor(node);
                 var box = new GraphLayoutSnapshot.Box(id, x, y, width, height);
                 boxes.put(id, box);
                 y += height + ROW_GAP;
@@ -91,19 +91,4 @@ public final class LayeredGraphLayout {
         return count == 0 ? id : total / count;
     }
 
-    private static float width(ClientCraftingGraph.Node node) {
-        return switch (node.kind()) {
-            case MATERIAL -> GraphLayoutSnapshot.MATERIAL_WIDTH;
-            case PATTERN -> GraphLayoutSnapshot.PATTERN_WIDTH;
-            case CYCLE_GROUP -> GraphLayoutSnapshot.CYCLE_WIDTH;
-        };
-    }
-
-    private static float height(ClientCraftingGraph.Node node) {
-        return switch (node.kind()) {
-            case MATERIAL -> GraphLayoutSnapshot.MATERIAL_HEIGHT;
-            case PATTERN -> GraphLayoutSnapshot.PATTERN_HEIGHT;
-            case CYCLE_GROUP -> GraphLayoutSnapshot.CYCLE_HEIGHT;
-        };
-    }
 }

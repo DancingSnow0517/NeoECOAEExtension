@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Client-only presentation model. It never references planner or solver classes. */
 public final class ClientCraftingGraph {
-    public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP }
+    public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP, FOLDER, REFERENCE }
     public enum View { MAIN, CYCLE_FOCUS }
 
     public record Node(int id, Kind kind, String label, @Nullable AEKey key,
@@ -31,17 +31,27 @@ public final class ClientCraftingGraph {
     private final int focusedCycleId;
     private final Map<Integer, Node> nodes;
     private final List<Link> links;
+    private final Map<Integer, CompactTreeNode> compactTreeNodes;
+    private final boolean compactTree;
     private final Map<Integer, Set<Integer>> upstream;
     private final Map<Integer, Set<Integer>> downstream;
 
     private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
             Map<Integer, Node> nodes, List<Link> links) {
+        this(source, view, rootId, focusedCycleId, nodes, links, Map.of(), false);
+    }
+
+    private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
+            Map<Integer, Node> nodes, List<Link> links, Map<Integer, CompactTreeNode> compactTreeNodes,
+            boolean compactTree) {
         this.source = source;
         this.view = view;
         this.rootId = rootId;
         this.focusedCycleId = focusedCycleId;
         this.nodes = Map.copyOf(nodes);
         this.links = List.copyOf(links);
+        this.compactTreeNodes = Map.copyOf(compactTreeNodes);
+        this.compactTree = compactTree;
         Map<Integer, Set<Integer>> up = new HashMap<>();
         Map<Integer, Set<Integer>> down = new HashMap<>();
         for (Link link : links) {
@@ -55,6 +65,12 @@ public final class ClientCraftingGraph {
     /** Package-visible benchmark fixture factory; production callers use {@link #main} and {@link #cycle}. */
     static ClientCraftingGraph synthetic(int rootId, Map<Integer, Node> nodes, List<Link> links) {
         return new ClientCraftingGraph(CraftingGraphSnapshot.EMPTY, View.MAIN, rootId, -1, nodes, links);
+    }
+
+    static ClientCraftingGraph compact(ClientCraftingGraph source, Map<Integer, Node> nodes, List<Link> links,
+            Map<Integer, CompactTreeNode> compactTreeNodes, int rootId) {
+        return new ClientCraftingGraph(source.source, source.view, rootId, source.focusedCycleId, nodes, links,
+            compactTreeNodes, true);
     }
 
     public static ClientCraftingGraph main(CraftingGraphSnapshot snapshot, boolean advanced) {
@@ -154,6 +170,9 @@ public final class ClientCraftingGraph {
     public int focusedCycleId() { return focusedCycleId; }
     public Map<Integer, Node> nodes() { return nodes; }
     public List<Link> links() { return links; }
+    public boolean isCompactTree() { return compactTree; }
+    public Map<Integer, CompactTreeNode> compactTreeNodes() { return compactTreeNodes; }
+    public CompactTreeNode compactTreeNode(int id) { return compactTreeNodes.get(id); }
     public Set<Integer> upstream(int id) { return upstream.getOrDefault(id, Set.of()); }
     public Set<Integer> downstream(int id) { return downstream.getOrDefault(id, Set.of()); }
 

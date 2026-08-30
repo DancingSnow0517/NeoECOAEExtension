@@ -15,6 +15,14 @@ public final class GraphLayoutSnapshot {
     public static final int PATTERN_HEIGHT = 32;
     public static final int CYCLE_WIDTH = 150;
     public static final int CYCLE_HEIGHT = 72;
+    public static final int COMPACT_MATERIAL_WIDTH = 112;
+    public static final int COMPACT_MATERIAL_HEIGHT = 34;
+    public static final int COMPACT_CYCLE_WIDTH = 132;
+    public static final int COMPACT_CYCLE_HEIGHT = 34;
+    public static final int COMPACT_FOLDER_WIDTH = 156;
+    public static final int COMPACT_FOLDER_HEIGHT = 50;
+    public static final int COMPACT_REFERENCE_WIDTH = 104;
+    public static final int COMPACT_REFERENCE_HEIGHT = 30;
     private static final int CELL_SIZE = 256;
 
     public record Box(int nodeId, float x, float y, float width, float height) {
@@ -26,6 +34,9 @@ public final class GraphLayoutSnapshot {
         public boolean contains(float px, float py) { return px >= x && px <= x + width && py >= y && py <= y + height; }
     }
 
+    /** World-space edge path, including attachment points and any bend points. */
+    public record Point(float x, float y) {}
+
     public record Bounds(float left, float top, float right, float bottom) {
         public float width() { return Math.max(1, right - left); }
         public float height() { return Math.max(1, bottom - top); }
@@ -34,6 +45,7 @@ public final class GraphLayoutSnapshot {
     private final Map<Integer, Box> boxes;
     private final Map<Long, int[]> grid;
     private final List<ClientCraftingGraph.Link> links;
+    private final Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes;
     private final Map<Integer, int[]> edgesByNode;
     private final Bounds bounds;
     private final long layoutNanos;
@@ -42,10 +54,18 @@ public final class GraphLayoutSnapshot {
 
     GraphLayoutSnapshot(Map<Integer, Box> boxes, List<ClientCraftingGraph.Link> links, Bounds bounds,
             long layoutNanos, long version) {
+        this(boxes, links, Map.of(), bounds, layoutNanos, version);
+    }
+
+    GraphLayoutSnapshot(Map<Integer, Box> boxes, List<ClientCraftingGraph.Link> links,
+            Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes, Bounds bounds, long layoutNanos, long version) {
         this.boxes = Map.copyOf(boxes);
         this.bounds = bounds;
         this.version = version;
         this.links = List.copyOf(links);
+        Map<ClientCraftingGraph.Link, List<Point>> frozenRoutes = new HashMap<>();
+        edgeRoutes.forEach((link, points) -> frozenRoutes.put(link, List.copyOf(points)));
+        this.edgeRoutes = Map.copyOf(frozenRoutes);
         long spatialStarted = System.nanoTime();
         Map<Long, List<Integer>> mutable = new HashMap<>();
         for (Box box : boxes.values()) {
@@ -76,7 +96,13 @@ public final class GraphLayoutSnapshot {
 
     public Map<Integer, Box> boxes() { return boxes; }
     public Box box(int id) { return boxes.get(id); }
+    public List<ClientCraftingGraph.Link> links() { return links; }
     public Bounds bounds() { return bounds; }
+    public Map<ClientCraftingGraph.Link, List<Point>> edgeRoutes() { return edgeRoutes; }
+    public List<Point> edgePoints(ClientCraftingGraph.Link link) { return edgeRoutes.getOrDefault(link, List.of()); }
+    public int bendPointCount() {
+        return edgeRoutes.values().stream().mapToInt(points -> Math.max(0, points.size() - 2)).sum();
+    }
     public long layoutNanos() { return layoutNanos; }
     public long spatialIndexNanos() { return spatialIndexNanos; }
     public long version() { return version; }
@@ -127,6 +153,26 @@ public final class GraphLayoutSnapshot {
             }
         }
         return candidates.size();
+    }
+
+    static float widthFor(ClientCraftingGraph.Node node) {
+        return switch (node.kind()) {
+            case MATERIAL -> MATERIAL_WIDTH;
+            case PATTERN -> PATTERN_WIDTH;
+            case CYCLE_GROUP -> CYCLE_WIDTH;
+            case FOLDER -> COMPACT_FOLDER_WIDTH;
+            case REFERENCE -> COMPACT_REFERENCE_WIDTH;
+        };
+    }
+
+    static float heightFor(ClientCraftingGraph.Node node) {
+        return switch (node.kind()) {
+            case MATERIAL -> MATERIAL_HEIGHT;
+            case PATTERN -> PATTERN_HEIGHT;
+            case CYCLE_GROUP -> CYCLE_HEIGHT;
+            case FOLDER -> COMPACT_FOLDER_HEIGHT;
+            case REFERENCE -> COMPACT_REFERENCE_HEIGHT;
+        };
     }
 
     private static int floorCell(float value) { return (int) Math.floor(value / CELL_SIZE); }
