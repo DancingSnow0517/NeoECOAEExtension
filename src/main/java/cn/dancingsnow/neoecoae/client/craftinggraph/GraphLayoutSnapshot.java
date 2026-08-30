@@ -15,14 +15,14 @@ public final class GraphLayoutSnapshot {
     public static final int PATTERN_HEIGHT = 32;
     public static final int CYCLE_WIDTH = 150;
     public static final int CYCLE_HEIGHT = 72;
-    public static final int COMPACT_MATERIAL_WIDTH = 112;
-    public static final int COMPACT_MATERIAL_HEIGHT = 34;
+    public static final int COMPACT_MATERIAL_WIDTH = 20;
+    public static final int COMPACT_MATERIAL_HEIGHT = 30;
     public static final int COMPACT_CYCLE_WIDTH = 132;
     public static final int COMPACT_CYCLE_HEIGHT = 34;
     public static final int COMPACT_FOLDER_WIDTH = 156;
     public static final int COMPACT_FOLDER_HEIGHT = 50;
-    public static final int COMPACT_REFERENCE_WIDTH = 104;
-    public static final int COMPACT_REFERENCE_HEIGHT = 30;
+    public static final int COMPACT_REFERENCE_WIDTH = COMPACT_MATERIAL_WIDTH;
+    public static final int COMPACT_REFERENCE_HEIGHT = COMPACT_MATERIAL_HEIGHT;
     private static final int CELL_SIZE = 256;
 
     public record Box(int nodeId, float x, float y, float width, float height) {

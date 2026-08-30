@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.client.AEKeyRendering;
+import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -179,16 +180,18 @@ public final class CompactTreeRenderer {
             int right, int bottom, int border, float zoom) {
         Font font = Minecraft.getInstance().font;
         if (bottom - y < 14) return;
-        if (node.kind() == ClientCraftingGraph.Kind.MATERIAL) {
+        if (node.kind() == ClientCraftingGraph.Kind.MATERIAL
+                || node.kind() == ClientCraftingGraph.Kind.REFERENCE && node.material() != null) {
             var material = node.material();
-            if (material != null && material.key() != null && right - x >= 28) {
-                AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 8, material.key());
+            if (material != null && material.key() != null && right - x >= 16 && bottom - y >= 20) {
+                int iconX = x + (right - x - 16) / 2;
+                int iconY = y + (Math.min(20, bottom - y) - 16) / 2;
+                AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
-            String amount = material == null || material.requested() <= 0 ? "" : " ×" + material.requested();
-            String label = fit(font, node.label(), Math.max(20, right - x - 45 - font.width(amount)));
-            graphics.drawString(font, label + amount, x + 25, y + 5, TEXT, false);
-            if (material != null) graphics.drawString(font, statusSymbol(material.status()), right - 13, y + 9,
-                border, false);
+            if (material != null && material.key() != null && material.requested() > 0 && bottom - y >= 24) {
+                drawAmount(graphics, font, material.key().formatAmount(material.requested(), AmountFormat.SLOT),
+                    x, y + 20, right, bottom);
+            }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
             String label = cycle == null ? node.label() : "↻ Cycle #" + cycle.componentId();
@@ -200,6 +203,22 @@ public final class CompactTreeRenderer {
             graphics.drawString(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
                 MUTED, false);
         }
+    }
+
+    private static void drawAmount(GuiGraphics graphics, Font font, String amount, int left, int top,
+            int right, int bottom) {
+        int availableWidth = Math.max(1, right - left - 2);
+        int availableHeight = Math.max(1, bottom - top);
+        float scale = Math.min(0.5f, Math.min((float) availableWidth / Math.max(1, font.width(amount)),
+            (float) availableHeight / font.lineHeight));
+        float centerX = (left + right) / 2.0f;
+        float textY = top + (availableHeight - font.lineHeight * scale) / 2.0f;
+        var pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(centerX, textY, 0);
+        pose.scale(scale, scale, 1.0f);
+        graphics.drawString(font, amount, -font.width(amount) / 2, 0, TEXT, false);
+        pose.popPose();
     }
 
     private static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {

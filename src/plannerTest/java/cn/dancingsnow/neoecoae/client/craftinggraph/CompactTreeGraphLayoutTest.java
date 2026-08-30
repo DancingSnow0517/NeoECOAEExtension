@@ -124,6 +124,8 @@ class CompactTreeGraphLayoutTest {
 
         assertEquals(GraphLayoutSnapshot.COMPACT_MATERIAL_WIDTH, root.width());
         assertEquals(GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT, root.height());
+        assertEquals(20, root.width());
+        assertEquals(30, root.height());
         for (var link : children) assertTrue(layout.box(link.toId()).y() > root.y());
         assertTrue(layout.bounds().height() > GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT);
         assertTrue(layout.edgePoints(children.getFirst()).size() >= 2);
