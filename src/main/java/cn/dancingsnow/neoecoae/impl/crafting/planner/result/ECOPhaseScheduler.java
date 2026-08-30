@@ -28,6 +28,11 @@ public final class ECOPhaseScheduler {
         // A cycle phase without a per-firing witness carries a compact single-transition plan: there is only
         // one pattern to fire, so no ordering is being suppressed and the pattern set is the whole gate.
         if (phase.cycleWitness().isEmpty()) return true;
+        // A physical pattern can also satisfy an acyclic multi-output demand. AE2 aggregates both uses into
+        // one task counter, while the witness contains only the firings needed to prove the cycle. Once that
+        // proof has been replayed, keeping the witness gate closed would leave the aggregate remainder unable
+        // to run and the phase unable to complete.
+        if (witnessIndex >= phase.cycleWitness().size()) return true;
         return witnessIndex >= 0 && witnessIndex < phase.cycleWitness().size()
             && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
     }

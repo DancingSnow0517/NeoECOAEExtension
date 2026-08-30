@@ -24,7 +24,7 @@ import net.minecraft.network.chat.Component;
  */
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
     private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
-    private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
+    private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y) {
         super(screen, x, y, 7);
     }

@@ -8,7 +8,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
  * missing-items verdict.
  *
  * <p>Canonical stage-one defaults, mirrored by {@code planner.maxScc*} in the design document's Appendix B:
- * {@code maxKeys = 8}, {@code maxPatterns = 16}, {@code maxStates = 100000}, {@code maxFirings = 256},
+ * {@code maxKeys = 8}, {@code maxPatterns = 16}, {@code maxStates = 100000}, {@code maxFirings = 100000},
  * {@code maxSeedLadderSteps = 12}.
  *
  * @param maxKeys      relevant-key cap for one SCC; above it the component is {@code TOO_COMPLEX}
@@ -28,7 +28,11 @@ public record CycleSolveLimits(
     int maxSeedLadderSteps
 ) {
     /** Stage-one defaults: only small, inventory-aware SCCs are attempted. */
-    public static final CycleSolveLimits DEFAULT = new CycleSolveLimits(8, 16, 100_000, 256, 12);
+    /**
+     * The firing budget is sized for the large batch counts used by high-tier storage recipes. The bounded
+     * solver still remains finite, while callers that need a tighter latency bound can provide explicit limits.
+     */
+    public static final CycleSolveLimits DEFAULT = new CycleSolveLimits(8, 16, 100_000, 100_000, 12);
 
     public CycleSolveLimits {
         if (maxKeys < 1 || maxPatterns < 1 || maxStates < 1 || maxFirings < 1 || maxSeedLadderSteps < 0) {

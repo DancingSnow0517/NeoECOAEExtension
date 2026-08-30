@@ -25,6 +25,10 @@ class ECOPhaseSchedulerTest {
         assertFalse(ECOPhaseScheduler.canDispatch(cycle(), 0, p2));
         assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 1, p2));
     }
+    @Test void cycleAllowsAggregateRemainderAfterWitnessIsReplayed() {
+        assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 2, p1));
+        assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 2, p2));
+    }
     @Test void dagWaitsForRemainingTasks() { assertFalse(ECOPhaseScheduler.isComplete(dag(), 0, p -> p == p1 ? 1 : 0, k -> false)); }
     @Test void dagWaitsForInFlightOutput() { assertFalse(ECOPhaseScheduler.isComplete(dag(), 0, p -> 0, k -> k.equals(a))); }
     @Test void dagCompletesAfterTasksAndOutputs() { assertTrue(ECOPhaseScheduler.isComplete(dag(), 0, p -> 0, k -> false)); }
@@ -45,6 +49,15 @@ class ECOPhaseSchedulerTest {
             ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p2), null, null, java.util.Map.of(), null, null);
         var schedule = ECOExecutionSchedule.from(List.of(c2, c1), List.of(1, 2));
         assertEquals(List.of(1, 2), schedule.phases().stream().map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
+    }
+    @Test void physicalPatternOwnedByCycleIsNotAlsoGatedByDagPhase() {
+        var dagView = new ComponentPlanningResult(1, ComponentPlanningResult.Type.ACYCLIC,
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
+        var cycleOwner = new ComponentPlanningResult(2, ComponentPlanningResult.Type.CYCLIC,
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
+        var schedule = ECOExecutionSchedule.from(List.of(dagView, cycleOwner), List.of(1, 2));
+        assertTrue(schedule.phases().getFirst().patternSet().isEmpty());
+        assertEquals(Set.of(p1), schedule.phases().getLast().patternSet());
     }
     @Test void missingOrderedMetadataIsFailSafeWhilePureDagRemainsNative() {
         assertFalse(ECOPhaseScheduler.metadataAvailable(true, null, true));

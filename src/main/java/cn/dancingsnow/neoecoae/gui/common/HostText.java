@@ -31,7 +31,10 @@ public final class HostText {
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
     private static final int TOOLTIP_BYTE_DIGITS = 4;
-    private static final String[] EXPANDED_BYTE_UNITS = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
+    // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
+    private static final String[] EXPANDED_BYTE_UNITS = {
+        "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
+    };
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
