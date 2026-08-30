@@ -19,9 +19,19 @@ public final class ECOFastPathStacks {
     private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
 
     enum ItemStackValidation {
-        PERSISTED,
-        FAST_PATH,
-        FAST_PATH_INPUT
+        PERSISTED(true),
+        FAST_PATH(false),
+        FAST_PATH_INPUT(true);
+
+        private final boolean componentPatchAllowed;
+
+        ItemStackValidation(boolean componentPatchAllowed) {
+            this.componentPatchAllowed = componentPatchAllowed;
+        }
+
+        boolean isComponentPatchAllowed() {
+            return componentPatchAllowed;
+        }
     }
 
     private ECOFastPathStacks() {
@@ -122,10 +132,15 @@ public final class ECOFastPathStacks {
             return true;
         }
         ItemStack itemStack = itemKey.toStack(1);
-        if (itemStack.isEmpty() || !itemStack.isComponentsPatchEmpty() || itemKey.isDamaged()) {
+        if (itemStack.isEmpty()
+            || itemKey.isDamaged()
+            || !validation.isComponentPatchAllowed() && !itemStack.isComponentsPatchEmpty()) {
             return false;
         }
         if (validation == ItemStackValidation.FAST_PATH_INPUT) {
+            // The concrete AEItemKey (including its full component patch) is part of both the slot-sensitive
+            // cache key and the value verification snapshot. Immutable component-filtered ingredients are
+            // therefore safe to reuse. Stateful inputs remain excluded below.
             return !itemStack.isDamageableItem()
                 && !itemStack.getItem().hasCraftingRemainingItem(itemStack);
         }

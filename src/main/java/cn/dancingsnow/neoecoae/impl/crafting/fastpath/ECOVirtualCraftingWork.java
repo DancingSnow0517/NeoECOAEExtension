@@ -21,7 +21,7 @@ public record ECOVirtualCraftingWork(
         outputTotal = List.copyOf(outputTotal);
         remainingTotal = List.copyOf(remainingTotal);
         if (!ECOFastPathStacks.areValidItemStacks(inputTotal, Long.MAX_VALUE, false,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)
             || !ECOFastPathStacks.areValidItemStacks(outputTotal, Long.MAX_VALUE, true,
                 ECOFastPathStacks.ItemStackValidation.FAST_PATH)
             || !ECOFastPathStacks.areValidItemStacks(remainingTotal, Long.MAX_VALUE, false,

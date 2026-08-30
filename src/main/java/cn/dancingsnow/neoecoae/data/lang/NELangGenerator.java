@@ -73,6 +73,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.pattern.verified_normal", "Verified: normal pattern");
         provider.add("tooltip.neoecoae.pattern.verified_durability", "Verified: durability pattern");
         provider.add("tooltip.neoecoae.pattern.verified_self_growing", "Verified: self-growing pattern");
+        provider.add("tooltip.neoecoae.pattern.verified_special_nbt", "Verified: special NBT pattern");
 
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage subsystem");
         addLangs(provider, "tooltip.neoecoae.storage_dirve",

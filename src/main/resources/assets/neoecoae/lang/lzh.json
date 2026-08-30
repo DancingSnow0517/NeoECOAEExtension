@@ -354,6 +354,7 @@
   "tooltip.neoecoae.pattern.verified_normal": "已驗：常式",
   "tooltip.neoecoae.pattern.verified_durability": "已驗：耐久式",
   "tooltip.neoecoae.pattern.verified_self_growing": "已驗：自增式",
+  "tooltip.neoecoae.pattern.verified_special_nbt": "已驗：特NBT式",
   "tooltip.neoecoae.max_parallel_count": "極並之數 +%d",
   "tooltip.neoecoae.max_thread_count": "極緒之數 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",

@@ -21,7 +21,7 @@ public record ECOBatchCraftingWork(
                 inputTotal,
                 ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
                 false,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)
             || !ECOFastPathStacks.areValidItemStacks(
                 outputTotal,
                 ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,

@@ -1082,6 +1082,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                             ? "tooltip.neoecoae.pattern.verified_self_growing"
                             : isDurabilityPattern(details)
                             ? "tooltip.neoecoae.pattern.verified_durability"
+                            : AE2PatternIntrospection.isSpecialNbtPattern(details)
+                            ? "tooltip.neoecoae.pattern.verified_special_nbt"
                             : "tooltip.neoecoae.pattern.verified_normal"
                     ).withStyle(style -> style.withColor(0xFFAA00)));
                 }
