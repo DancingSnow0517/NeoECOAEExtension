@@ -93,14 +93,6 @@ public final class CompactTreeRenderer {
         int endX = screen(cameraX, end.x(), zoom);
         int endY = screen(cameraY, end.y(), zoom);
         graphics.fill(endX - 3, endY - 2, endX + 1, endY + 3, color);
-        if (link.kind() == CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT && route.size() >= 2 && zoom >= 0.5f) {
-            var marker = route.get(route.size() / 2);
-            Font font = Minecraft.getInstance().font;
-            String label = zoom >= 0.72f && link.amount() > 0 ? "◆ ×" + link.amount() : "◆";
-            int x = screen(cameraX, marker.x(), zoom);
-            int y = screen(cameraY, marker.y(), zoom) - font.lineHeight / 2;
-            graphics.drawCenteredString(font, fit(font, label, 58), x, y, color);
-        }
     }
 
     private static void drawRoute(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,

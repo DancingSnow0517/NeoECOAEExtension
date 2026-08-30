@@ -442,44 +442,60 @@ public final class ECOCraftingGraphScreen extends Screen {
         int top = 38;
         int lines = 7;
         graphics.fill(left, top, width - 8, top + 12 + lines * 12, 0xdd171b20);
-        graphics.drawString(font, node.kind() == ClientCraftingGraph.Kind.FOLDER ? "Folder" : node.label(), left + 7,
+        graphics.drawString(font, node.kind() == ClientCraftingGraph.Kind.FOLDER
+                ? Component.translatable("gui.neoecoae.crafting_graph.details.folder")
+                : Component.literal(node.label()), left + 7,
             top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? 0xff9fb3c2 : 0xffe2b766, false);
         int y = top + 20;
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             var folder = graph.compactTreeNode(node.id());
             if (folder != null) {
-                y = detailLine(graphics, left, y, "hidden nodes", folder.hiddenNodeCount());
-                y = detailLine(graphics, left, y, "hidden layers", folder.hiddenDepth());
+                y = detailLine(graphics, left, y, "hidden_nodes", folder.hiddenNodeCount());
+                y = detailLine(graphics, left, y, "hidden_layers", folder.hiddenDepth());
                 y = detailLine(graphics, left, y, "depth", folder.depth());
-                y = detailTextLine(graphics, left, y, "missing", folder.containsMissing() ? "yes" : "no");
-                y = detailTextLine(graphics, left, y, "unsupported", folder.containsUnsupported() ? "yes" : "no");
-                y = detailTextLine(graphics, left, y, "cycle", folder.containsCycle() ? "yes" : "no");
-                detailTextLine(graphics, left, y, "action", "expand");
+                y = detailTextLine(graphics, left, y, "missing", yesNo(folder.containsMissing()));
+                y = detailTextLine(graphics, left, y, "unsupported", yesNo(folder.containsUnsupported()));
+                y = detailTextLine(graphics, left, y, "cycle", yesNo(folder.containsCycle()));
+                detailTextLine(graphics, left, y, "action",
+                    Component.translatable("gui.neoecoae.crafting_graph.action.expand"));
             }
         } else if (node.material() != null) {
             var material = node.material();
             y = detailLine(graphics, left, y, "requested", material.requested());
             y = detailLine(graphics, left, y, "inventory", material.fromInventory());
-            y = detailLine(graphics, left, y, "to craft", material.toCraft());
+            y = detailLine(graphics, left, y, "to_craft", material.toCraft());
             y = detailLine(graphics, left, y, "missing", material.missing());
-            y = detailTextLine(graphics, left, y, "status", material.status().name());
-            detailLine(graphics, left, y, "source patterns", baseGraph.source().patterns().size());
+            y = detailTextLine(graphics, left, y, "status", statusText(material.status().name()));
+            detailLine(graphics, left, y, "source_patterns", baseGraph.source().patterns().size());
         } else if (node.cycle() != null) {
             var cycle = node.cycle();
             y = detailLine(graphics, left, y, "cycle", cycle.componentId());
             y = detailLine(graphics, left, y, "members", cycle.memberNodeIds().size());
-            detailTextLine(graphics, left, y, "status", cycle.status());
+            detailTextLine(graphics, left, y, "status", statusText(cycle.status()));
         }
     }
 
-    private int detailLine(GuiGraphics graphics, int left, int y, String name, long value) {
-        graphics.drawString(font, name + ": " + value, left + 7, y, 0xffaeb8c2, false);
+    private int detailLine(GuiGraphics graphics, int left, int y, String keySuffix, long value) {
+        graphics.drawString(font,
+            Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
+            left + 7, y, 0xffaeb8c2, false);
         return y + 12;
     }
 
-    private int detailTextLine(GuiGraphics graphics, int left, int y, String name, String value) {
-        graphics.drawString(font, name + ": " + value, left + 7, y, 0xffaeb8c2, false);
+    private int detailTextLine(GuiGraphics graphics, int left, int y, String keySuffix, Component value) {
+        graphics.drawString(font,
+            Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
+            left + 7, y, 0xffaeb8c2, false);
         return y + 12;
+    }
+
+    private static Component yesNo(boolean value) {
+        return Component.translatable("gui.neoecoae.common." + (value ? "yes" : "no"));
+    }
+
+    private static Component statusText(String status) {
+        return Component.translatable("gui.neoecoae.crafting_graph.status."
+            + status.toLowerCase(Locale.ROOT));
     }
 
     private String depthLabel() { return depth == 99 ? "Depth: All" : "Depth: " + depth; }
