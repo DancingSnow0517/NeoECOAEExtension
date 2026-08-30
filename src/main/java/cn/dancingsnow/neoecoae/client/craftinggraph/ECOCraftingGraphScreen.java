@@ -90,6 +90,11 @@ public final class ECOCraftingGraphScreen extends Screen {
         }
     }
 
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // This screen paints its background before the graph. Screen.render() must not blur the graph afterward.
+    }
+
     private void drawBreadcrumb(GuiGraphics graphics) {
         String breadcrumb = graph.view() == ClientCraftingGraph.View.MAIN ? "ECO Plan"
             : "ECO Plan  >  Cycle #" + graph.focusedCycleId();
