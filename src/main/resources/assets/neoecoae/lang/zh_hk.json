@@ -353,6 +353,7 @@
   "tooltip.neoecoae.max_lenth": "結構最大長度: %d",
   "tooltip.neoecoae.pattern.verified_normal": "已驗證：普通類樣板",
   "tooltip.neoecoae.pattern.verified_durability": "已驗證：耐久類樣板",
+  "tooltip.neoecoae.pattern.verified_self_growing": "已驗證：自增型樣板",
   "tooltip.neoecoae.max_parallel_count": "最大並行數量 +%d",
   "tooltip.neoecoae.max_thread_count": "最大線程數量 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",

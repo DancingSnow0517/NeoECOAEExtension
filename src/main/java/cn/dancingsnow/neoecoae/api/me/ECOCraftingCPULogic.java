@@ -873,7 +873,14 @@ public class ECOCraftingCPULogic {
 
         if (what.matches(job.finalOutput)) {
             ExecutingCraftingJob currentJob = job;
-            long acceptedOwnership = currentJob.bufferedFinalOutput.accept(amount, type);
+            long reserveTarget = cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                .compactCycleFeedbackReserve(currentJob.activePhase(), currentJob::remainingTasksFor, what);
+            long alreadyReserved = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
+            long toReserve = Math.min(amount, Math.max(0L, reserveTarget - alreadyReserved));
+            inventory.insert(what, toReserve, type);
+            long reserved = toReserve;
+            long acceptedOwnership = Math.addExact(reserved,
+                currentJob.bufferedFinalOutput.accept(amount - reserved, type));
             if (type == Actionable.MODULATE && acceptedOwnership > 0L) {
                 // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
                 // retry or make this CPU accept the same physical output again.

@@ -1068,7 +1068,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 IPatternDetails details = PatternDetailsHelper.decodePattern(stack, clientLevel);
                 if (details instanceof IMolecularAssemblerSupportedPattern) {
                     tooltip.add(Component.translatable(
-                        isDurabilityPattern(details)
+                        NetGrowthPatternValidationRegistry.isSelfGrowingPattern(details)
+                            ? "tooltip.neoecoae.pattern.verified_self_growing"
+                            : isDurabilityPattern(details)
                             ? "tooltip.neoecoae.pattern.verified_durability"
                             : "tooltip.neoecoae.pattern.verified_normal"
                     ).withStyle(style -> style.withColor(0xFFAA00)));

@@ -57,4 +57,17 @@ class ECOPhaseSchedulerTest {
             new ECOExecutionSchedule(List.of(dag(), compactCycle))));
         assertFalse(ECOPhaseScheduler.requiresComponentScheduling(new ECOExecutionSchedule(List.of(dag()))));
     }
+    @Test void compactSelfGrowingCycleRetainsFeedbackForAllRemainingCrafts() {
+        var growing = PlannerFixtures.pattern("growing", a, 2, a, 1L, b, 7L);
+        var compactCycle = new ECOExecutionSchedule.ComponentExecutionPhase(2,
+            ECOExecutionSchedule.Type.CYCLE, Set.of(growing), List.of());
+        assertEquals(8L, ECOPhaseScheduler.compactCycleFeedbackReserve(compactCycle, p -> 8L, a));
+        assertEquals(0L, ECOPhaseScheduler.compactCycleFeedbackReserve(compactCycle, p -> 0L, a));
+        assertEquals(0L, ECOPhaseScheduler.compactCycleFeedbackReserve(compactCycle, p -> 8L, b));
+
+        var consumesTwo = PlannerFixtures.pattern("growing_by_four", a, 6, a, 2L);
+        var scaledCycle = new ECOExecutionSchedule.ComponentExecutionPhase(3,
+            ECOExecutionSchedule.Type.CYCLE, Set.of(consumesTwo), List.of());
+        assertEquals(16L, ECOPhaseScheduler.compactCycleFeedbackReserve(scaledCycle, p -> 8L, a));
+    }
 }

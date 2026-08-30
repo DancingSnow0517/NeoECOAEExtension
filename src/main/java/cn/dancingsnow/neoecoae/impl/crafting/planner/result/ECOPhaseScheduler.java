@@ -31,6 +31,56 @@ public final class ECOPhaseScheduler {
             && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
     }
 
+    /**
+     * Returns the target amount of {@code key} that a compact self-growing cycle should retain. Keeping
+     * enough feedback for every remaining firing lets the verified batch path consume all feedback currently
+     * on hand, producing natural growth waves such as 1 -> 2 -> 4 -> 8. The caller still caps retention to
+     * physical output that actually arrived.
+     */
+    public static long compactCycleFeedbackReserve(ECOExecutionSchedule.ComponentExecutionPhase phase,
+            ToLongFunction<IPatternDetails> remainingTasks, AEKey key) {
+        if (phase == null || key == null || phase.type() != ECOExecutionSchedule.Type.CYCLE
+                || !phase.cycleWitness().isEmpty() || phase.patternSet().size() != 1) return 0L;
+        IPatternDetails pattern = phase.patternSet().iterator().next();
+        long remaining = remainingTasks.applyAsLong(pattern);
+        if (remaining <= 0L) return 0L;
+        try {
+            long consumed = 0L;
+            for (var input : pattern.getInputs()) {
+                if (input == null || input.getMultiplier() <= 0L) return 0L;
+                var possible = input.getPossibleInputs();
+                if (possible == null || possible.length != 1 || possible[0] == null
+                        || possible[0].what() == null || possible[0].amount() <= 0L) return 0L;
+                if (key.equals(possible[0].what())) {
+                    consumed = Math.addExact(consumed,
+                        Math.multiplyExact(possible[0].amount(), input.getMultiplier()));
+                }
+            }
+            if (consumed <= 0L) return 0L;
+            long produced = 0L;
+            for (var output : pattern.getOutputs()) {
+                if (output != null && key.equals(output.what()) && output.amount() > 0L) {
+                    produced = Math.addExact(produced, output.amount());
+                }
+            }
+            for (var input : pattern.getInputs()) {
+                var possible = input.getPossibleInputs();
+                if (key.equals(input.getRemainingKey(possible[0].what()))) {
+                    produced = Math.addExact(produced, input.getMultiplier());
+                }
+            }
+            if (produced <= consumed) return 0L;
+            try {
+                return Math.multiplyExact(consumed, remaining);
+            } catch (ArithmeticException overflow) {
+                // Retaining all physically arriving feedback is the conservative behavior for an enormous job.
+                return Long.MAX_VALUE;
+            }
+        } catch (RuntimeException rejected) {
+            return 0L;
+        }
+    }
+
     /** Pattern detail instances may be reconstructed by AE2; the encoded pattern item is the stable identity. */
     public static boolean samePattern(IPatternDetails left, IPatternDetails right) {
         if (left == right) return true;
