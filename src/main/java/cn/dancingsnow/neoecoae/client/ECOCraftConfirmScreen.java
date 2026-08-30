@@ -1,10 +1,8 @@
 package cn.dancingsnow.neoecoae.client;
 
 import appeng.client.gui.AEBaseScreen;
-import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
-import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
@@ -49,7 +47,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
-        widgets.add("graph", new CraftingGraphButton(this::openGraph));
+        widgets.addButton("graph", Component.translatable("gui.neoecoae.crafting_graph.open"), this::openGraph);
     }
 
     @Override protected void updateBeforeRender() {
@@ -165,15 +163,4 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
     }
 
-    private static final class CraftingGraphButton extends IconButton {
-        private CraftingGraphButton(Runnable onPress) {
-            super(ignored -> onPress.run());
-            setMessage(Component.translatable("gui.neoecoae.crafting_graph.open"));
-        }
-
-        @Override
-        protected Icon getIcon() {
-            return Icon.CRAFT_HAMMER;
-        }
-    }
 }
