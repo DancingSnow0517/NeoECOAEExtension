@@ -14,6 +14,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 /** Renders cycle members in the narrow list beside the crafting report. */
@@ -28,6 +29,9 @@ final class ECOCycleItemListRenderer {
     private final int x;
     private final int y;
     private StackWithBounds hoveredStack;
+    private List<Component> hoveredTooltip;
+    private int hoveredMouseX;
+    private int hoveredMouseY;
 
     ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y) {
         this.screen = screen;
@@ -42,6 +46,7 @@ final class ECOCycleItemListRenderer {
         int localMouseX = mouseX - screen.getGuiLeft();
         int localMouseY = mouseY - screen.getGuiTop();
         hoveredStack = null;
+        hoveredTooltip = null;
 
         int end = Math.min(items.size(), scrollOffset + VISIBLE_ROWS);
         for (int index = scrollOffset; index < end; index++) {
@@ -82,8 +87,16 @@ final class ECOCycleItemListRenderer {
                 tooltip.add(net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.net_output",
                     formatNetOutput(item, entry.netOutput(), AmountFormat.FULL)));
-                screen.drawTooltipWithHeader(graphics, localMouseX, localMouseY, tooltip);
+                hoveredTooltip = tooltip;
+                hoveredMouseX = localMouseX;
+                hoveredMouseY = localMouseY;
             }
+        }
+    }
+
+    void renderTooltip(GuiGraphics graphics) {
+        if (hoveredTooltip != null) {
+            screen.drawTooltipWithHeader(graphics, hoveredMouseX, hoveredMouseY, hoveredTooltip);
         }
     }
 

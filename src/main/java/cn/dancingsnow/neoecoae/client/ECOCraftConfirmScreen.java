@@ -131,12 +131,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     @Override public void drawFG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
-        CraftingPlanSummary plan = menu.getPlan();
-        if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             cycleItems.render(graphics, mouseX, mouseY, mode.neoecoae$getCycleItems(),
                 cycleScrollbar.getCurrentScroll());
         }
+
+        CraftingPlanSummary plan = menu.getPlan();
+        if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
+
+        cycleItems.renderTooltip(graphics);
     }
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
