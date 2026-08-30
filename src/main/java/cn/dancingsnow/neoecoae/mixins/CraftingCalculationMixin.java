@@ -8,6 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCalculationSettings;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultCache;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
@@ -76,6 +77,10 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
         neoecoae$lastPlanningResult = result;
+        ECOPlanningResultCache.put(result.trace().nodes().stream()
+            .filter(node -> node.kind() == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode.Kind.GOAL)
+            .findFirst().map(node -> node.key() == null ? "<unknown>" : node.key().toString()).orElse("<unknown>"),
+            amount, result);
         switch (result.status()) {
             case SUCCESS -> cir.setReturnValue(result.plan());
             case MISSING_ITEMS -> cir.setReturnValue(simulate ? result.plan() : null);

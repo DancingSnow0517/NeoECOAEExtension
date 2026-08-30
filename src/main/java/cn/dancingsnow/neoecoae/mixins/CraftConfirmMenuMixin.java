@@ -9,6 +9,7 @@ import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultCache;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
@@ -57,6 +58,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Shadow
     private ICraftingPlan result;
 
+    @Shadow
+    private AEKey whatToCraft;
+
+    @Shadow
+    private int amount;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void captureFastPlannerMode(int id, Inventory inventory, ISubMenuHost host, CallbackInfo ci) {
         if (inventory.player.level().isClientSide() || !(host instanceof IActionHost actionHost)) {
@@ -93,9 +100,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
-        if (result instanceof ECOCraftingPlanDiagnostics diagnostics
-                && diagnostics.neoecoae$getPlanningResult() != null) {
-            var planningResult = diagnostics.neoecoae$getPlanningResult();
+        var planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
+            ? diagnostics.neoecoae$getPlanningResult()
+            : whatToCraft == null ? null : ECOPlanningResultCache.get(whatToCraft.toString(), amount);
+        if (planningResult != null) {
             neoecoae$calculationNanos = planningResult.calculationNanos();
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
