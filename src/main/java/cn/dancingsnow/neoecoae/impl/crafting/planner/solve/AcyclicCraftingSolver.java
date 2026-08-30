@@ -160,17 +160,21 @@ public final class AcyclicCraftingSolver {
     }
 
     private static void addTrace(CompiledNetwork network, SolveState state, long goalAmount, ECOPlanTrace trace) {
+        PlannerAmount goal = PlannerAmount.of(goalAmount);
         trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.GOAL, network.goal(), null, goalAmount, 0, goalAmount,
-            traceLong(state.missing.get(network.goal())), 0, PlanTraceNode.Selection.NOT_APPLICABLE, null));
+            traceLong(state.missing.get(network.goal())), 0, PlanTraceNode.Selection.NOT_APPLICABLE, null)
+            .withExact(goal.toBigInteger(), PlannerAmount.ZERO.toBigInteger(), goal.toBigInteger(),
+                state.missing.get(network.goal()).toBigInteger(), PlannerAmount.ZERO.toBigInteger()));
         for (var demand : state.demand.entrySet()) {
-            long used = traceLong(state.used.get(demand.getKey()));
-            long missing = traceLong(state.missing.get(demand.getKey()));
-            long requested = traceLong(demand.getValue());
-            long toCraft = traceLong(demand.getValue().subtract(state.used.get(demand.getKey()))
-                .subtract(state.missing.get(demand.getKey())).max(PlannerAmount.ZERO));
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.MATERIAL, demand.getKey(), null, requested, used,
-                toCraft, missing, 0,
-                PlanTraceNode.Selection.NOT_APPLICABLE, null));
+            PlannerAmount used = state.used.get(demand.getKey());
+            PlannerAmount missing = state.missing.get(demand.getKey());
+            PlannerAmount requested = demand.getValue();
+            PlannerAmount toCraft = demand.getValue().subtract(used).subtract(missing).max(PlannerAmount.ZERO);
+            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.MATERIAL, demand.getKey(), null, traceLong(requested),
+                traceLong(used), traceLong(toCraft), traceLong(missing), 0,
+                PlanTraceNode.Selection.NOT_APPLICABLE, null)
+                .withExact(requested.toBigInteger(), used.toBigInteger(), toCraft.toBigInteger(),
+                    missing.toBigInteger(), java.math.BigInteger.ZERO));
         }
         for (var selected : state.selected.entrySet()) {
             CompiledPattern pattern = selected.getValue();
@@ -178,9 +182,9 @@ public final class AcyclicCraftingSolver {
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, selected.getKey(), pattern.details(), 0, 0, 0,
                 0, times, PlanTraceNode.Selection.SELECTED, null));
             for (CompiledInput input : pattern.inputs()) {
-                trace.addEdge(new PlanTraceEdge(selected.getKey(), input.key(),
-                    traceLong(input.amountPerPattern().multiply(state.patternTimes
-                        .getOrDefault(pattern.details(), PlannerAmount.ZERO)))));
+                PlannerAmount exact = input.amountPerPattern().multiply(state.patternTimes
+                    .getOrDefault(pattern.details(), PlannerAmount.ZERO));
+                trace.addEdge(new PlanTraceEdge(selected.getKey(), input.key(), traceLong(exact), exact.toBigInteger()));
             }
         }
         for (var entry : network.producers().entrySet()) {

@@ -6,6 +6,7 @@ import io.netty.buffer.Unpooled;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.Deflater;
@@ -130,10 +131,21 @@ public record CraftingGraphSnapshot(
     public enum EdgeKind { PATTERN_OUTPUT, PATTERN_INPUT, BYPRODUCT, CYCLE_INTERNAL }
 
     public record MaterialNode(int nodeId, AEKey key, long requested, long fromInventory, long toCraft, long missing,
-            MaterialStatus status) {
+            MaterialStatus status, String exactRequested, String exactFromInventory, String exactToCraft,
+            String exactMissing) {
+        public MaterialNode(int nodeId, AEKey key, long requested, long fromInventory, long toCraft, long missing,
+                MaterialStatus status) {
+            this(nodeId, key, requested, fromInventory, toCraft, missing, status, Long.toString(requested),
+                Long.toString(fromInventory), Long.toString(toCraft), Long.toString(missing));
+        }
+        public BigInteger requestedBigInteger() { return new BigInteger(exactRequested); }
+        public BigInteger fromInventoryBigInteger() { return new BigInteger(exactFromInventory); }
+        public BigInteger toCraftBigInteger() { return new BigInteger(exactToCraft); }
+        public BigInteger missingBigInteger() { return new BigInteger(exactMissing); }
         private static MaterialNode read(RegistryFriendlyByteBuf data) {
             return new MaterialNode(data.readVarInt(), AEKey.readKey(data), data.readVarLong(), data.readVarLong(),
-                data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class));
+                data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
+                data.readUtf(), data.readUtf(), data.readUtf());
         }
 
         private void write(RegistryFriendlyByteBuf data) {
@@ -144,6 +156,10 @@ public record CraftingGraphSnapshot(
             data.writeVarLong(toCraft);
             data.writeVarLong(missing);
             data.writeEnum(status);
+            data.writeUtf(exactRequested);
+            data.writeUtf(exactFromInventory);
+            data.writeUtf(exactToCraft);
+            data.writeUtf(exactMissing);
         }
     }
 

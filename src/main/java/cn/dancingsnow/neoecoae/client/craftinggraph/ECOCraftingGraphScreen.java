@@ -563,10 +563,10 @@ public final class ECOCraftingGraphScreen extends Screen {
             }
         } else if (node.material() != null) {
             var material = node.material();
-            y = detailLine(graphics, left, y, "requested", material.requested());
-            y = detailLine(graphics, left, y, "inventory", material.fromInventory());
-            y = detailLine(graphics, left, y, "to_craft", material.toCraft());
-            y = detailLine(graphics, left, y, "missing", material.missing());
+            y = detailTextLine(graphics, left, y, "requested", Component.literal(material.exactRequested()));
+            y = detailTextLine(graphics, left, y, "inventory", Component.literal(material.exactFromInventory()));
+            y = detailTextLine(graphics, left, y, "to_craft", Component.literal(material.exactToCraft()));
+            y = detailTextLine(graphics, left, y, "missing", Component.literal(material.exactMissing()));
             y = detailTextLine(graphics, left, y, "status", statusText(material.status().name()));
             detailLine(graphics, left, y, "source_patterns", baseGraph.source().patterns().size());
         } else if (node.cycle() != null) {

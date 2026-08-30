@@ -152,10 +152,11 @@ public final class ECOCraftingPlannerService {
                     diagnostic.code(), diagnostic.message());
             }
             result.trace().nodes().stream()
-                .filter(node -> node.missing() > 0)
+                .filter(node -> node.exactMissing().signum() > 0)
                 .forEach(node -> LOGGER.warn(
                     "[ECO-PLANNER] missing key={} amount={} requested={} fromInventory={} toCraft={}",
-                    node.key(), node.missing(), node.requested(), node.fromInventory(), node.toCraft()));
+                    node.key(), node.exactMissing(), node.exactRequested(), node.exactFromInventory(),
+                    node.exactToCraft()));
             for (var component : result.components()) {
                 if (component.status() == ComponentPlanningResult.Status.PLANNED
                         || component.status() == ComponentPlanningResult.Status.NOT_REQUIRED) {

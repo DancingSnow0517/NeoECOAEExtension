@@ -184,11 +184,11 @@ public final class GraphRenderer {
                     drawFitted(graphics, font, statusSymbol(material.status()) + " " + material.status().name(),
                         x + 29, y + 18, pixelWidth - 35, border);
                     drawFitted(graphics, font,
-                        "需求 " + material.requested() + "  库存 " + material.fromInventory(),
+                        "需求 " + material.exactRequested() + "  库存 " + material.exactFromInventory(),
                         x + 7, y + 38, pixelWidth - 14, MUTED);
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
-                            "合成 " + material.toCraft() + "  缺少 " + material.missing(),
+                            "合成 " + material.exactToCraft() + "  缺少 " + material.exactMissing(),
                             x + 7, y + 53, pixelWidth - 14, material.missing() > 0 ? 0xffff7777 : MUTED);
                     }
                 } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {

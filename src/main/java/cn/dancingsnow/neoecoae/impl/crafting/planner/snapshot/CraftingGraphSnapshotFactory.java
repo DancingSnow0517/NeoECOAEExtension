@@ -277,16 +277,24 @@ public final class CraftingGraphSnapshotFactory {
         private long fromInventory;
         private long toCraft;
         private long missing;
+        private PlannerAmount exactRequested = PlannerAmount.ZERO;
+        private PlannerAmount exactFromInventory = PlannerAmount.ZERO;
+        private PlannerAmount exactToCraft = PlannerAmount.ZERO;
+        private PlannerAmount exactMissing = PlannerAmount.ZERO;
         private boolean unsupported;
         private boolean cycle;
 
         private MutableMaterial(AEKey key) { this.key = key; }
 
         private void merge(PlanTraceNode node) {
-            requested = Math.max(requested, node.requested());
-            fromInventory = Math.max(fromInventory, node.fromInventory());
-            toCraft = Math.max(toCraft, node.toCraft());
-            missing = Math.max(missing, node.missing());
+            exactRequested = exactRequested.max(PlannerAmount.of(node.exactRequested()));
+            exactFromInventory = exactFromInventory.max(PlannerAmount.of(node.exactFromInventory()));
+            exactToCraft = exactToCraft.max(PlannerAmount.of(node.exactToCraft()));
+            exactMissing = exactMissing.max(PlannerAmount.of(node.exactMissing()));
+            requested = exactRequested.fitsLong() ? exactRequested.longValueExact() : Long.MAX_VALUE;
+            fromInventory = exactFromInventory.fitsLong() ? exactFromInventory.longValueExact() : Long.MAX_VALUE;
+            toCraft = exactToCraft.fitsLong() ? exactToCraft.longValueExact() : Long.MAX_VALUE;
+            missing = exactMissing.fitsLong() ? exactMissing.longValueExact() : Long.MAX_VALUE;
             unsupported |= node.selection() == PlanTraceNode.Selection.UNSUPPORTED;
         }
 
@@ -295,7 +303,8 @@ public final class CraftingGraphSnapshotFactory {
                 : unsupported ? MaterialStatus.UNSUPPORTED
                 : missing > 0 ? MaterialStatus.MISSING
                 : toCraft > 0 ? MaterialStatus.CRAFTING : MaterialStatus.SATISFIED;
-            return new MaterialNode(id, key, requested, fromInventory, toCraft, missing, status);
+            return new MaterialNode(id, key, requested, fromInventory, toCraft, missing, status,
+                exactRequested.toString(), exactFromInventory.toString(), exactToCraft.toString(), exactMissing.toString());
         }
     }
 }

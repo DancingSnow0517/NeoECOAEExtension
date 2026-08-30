@@ -243,9 +243,9 @@ public final class CompactTreeRenderer {
         }
         if (node.material() != null) {
             var material = node.material();
-            return List.of(Component.literal(node.label()), Component.literal("requested: " + material.requested()),
-                Component.literal("inventory: " + material.fromInventory()),
-                Component.literal("to craft: " + material.toCraft()), Component.literal("missing: " + material.missing()),
+            return List.of(Component.literal(node.label()), Component.literal("requested: " + material.exactRequested()),
+                Component.literal("inventory: " + material.exactFromInventory()),
+                Component.literal("to craft: " + material.exactToCraft()), Component.literal("missing: " + material.exactMissing()),
                 Component.literal("status: " + material.status()));
         }
         return List.of(Component.literal(node.label()));
