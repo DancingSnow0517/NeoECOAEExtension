@@ -840,18 +840,23 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         var itemHandler = new NetworkToolItemHandler(networkTool);
         UIElement toolbox = new UIElement().style(style -> style.backgroundTexture(NETextures.AE2_TOOLBOX));
         toolbox.layout(layout -> layout
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(163)
+            .top(-5)
             .width(59)
             .height(66)
-            .paddingLeft(4)
-            .paddingTop(6)
-            .marginLeft(6)
-            .alignSelf(AlignItems.CENTER));
+            .paddingLeft(2)
+            .paddingTop(5));
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int columnIndex = 0; columnIndex < 3; columnIndex++) {
                 int slot = rowIndex * 3 + columnIndex;
-                row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot)));
+                row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot))
+                    .slotStyle(style -> style
+                        .slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE))
+                        .showSlotOverlayOnlyEmpty(true))
+                    .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
             }
             toolbox.addChild(row);
         }
