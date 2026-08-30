@@ -57,6 +57,9 @@ public final class ComponentPlanner {
 
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
             long amount, boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
+        if (!cyclePlanningEnabled) {
+            return planWithoutCyclePlanning(network, condensation, inventory, amount, cancellation);
+        }
         ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
             cancellation);
         return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled, cancellation);
@@ -64,14 +67,21 @@ public final class ComponentPlanner {
 
     public ActiveRouteSelector.Selection selectRoutes(CondensationGraph condensation,
             boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
-        // Cycle planning controls whether an unavoidable cycle may be solved; it must never disable choosing
-        // an available acyclic producer instead.
+        if (!cyclePlanningEnabled) {
+            // The disabled path must retain the pre-cycle-planner behavior. In particular, do not rebuild an
+            // active graph or run route search just to report the existing SCC condensation.
+            return new ActiveRouteSelector.Selection(condensation.cycles().isEmpty(), Map.of(), condensation,
+                condensation.cycles(), List.of());
+        }
         return activeRouteSelector.select(condensation.source(), true, cancellation);
     }
 
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
             KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
+        if (!cyclePlanningEnabled) {
+            return planWithoutCyclePlanning(network, activeSelection.condensation(), inventory, amount, cancellation);
+        }
         cancellation.checkpoint();
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
@@ -226,6 +236,79 @@ public final class ComponentPlanner {
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
             List.copyOf(componentResults), activeCondensation.executionOrder().stream()
                 .map(c -> c.componentId()).toList());
+    }
+
+    /**
+     * Preserves the planner contract from before cycle route selection was introduced. The original universe
+     * condensation is used as-is; only its acyclic components enter numeric planning. No cycle solver or
+     * cycle-specific external-demand pass is reachable from this method.
+     */
+    private Outcome planWithoutCyclePlanning(CompiledNetwork network, CondensationGraph condensation,
+            KeyCounter inventory, long amount, ECOCancellation cancellation) throws InterruptedException {
+        cancellation.checkpoint();
+        List<AEKey> dagOrder = condensation.topologicalOrder().stream()
+            .filter(AcyclicComponent.class::isInstance)
+            .map(AcyclicComponent.class::cast)
+            .map(AcyclicComponent::key)
+            .toList();
+        var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount, cancellation);
+        ECOPlanTrace trace = acyclic.trace();
+        List<ComponentPlanningResult> componentResults = new ArrayList<>();
+        List<CycleDiagnostic> cycleDiagnostics = new ArrayList<>();
+        boolean unresolvedCycle = false;
+
+        for (var component : condensation.topologicalOrder()) {
+            cancellation.checkpoint();
+            trace.addComponent(new ComponentTrace(component.componentId(), component.cyclic()
+                ? ComponentTrace.Type.CYCLIC : ComponentTrace.Type.ACYCLIC, component.members()));
+            if (component instanceof AcyclicComponent acyclicComponent) {
+                long demand = acyclic.state().demandFor(acyclicComponent.key());
+                componentResults.add(new ComponentPlanningResult(component.componentId(),
+                    ComponentPlanningResult.Type.ACYCLIC,
+                    demand > 0 ? ComponentPlanningResult.Status.PLANNED : ComponentPlanningResult.Status.NOT_REQUIRED,
+                    demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
+                    acyclicComponent.patterns().stream().map(p -> p.details())
+                        .collect(java.util.stream.Collectors.toSet()),
+                    null, null, Map.of(), null, null));
+                continue;
+            }
+
+            CycleComponent cycle = (CycleComponent) component;
+            Map<AEKey, Long> requiredOutputs = new LinkedHashMap<>();
+            for (AEKey member : cycle.members()) {
+                long demand = acyclic.state().demandFor(member);
+                if (demand > 0) requiredOutputs.put(member, demand);
+            }
+            CyclePlanningStatus cycleStatus = requiredOutputs.isEmpty()
+                ? CyclePlanningStatus.NOT_REQUIRED : CyclePlanningStatus.DISABLED;
+            String diagnostic = requiredOutputs.isEmpty() ? null : "Cycle planning is disabled";
+            if (!requiredOutputs.isEmpty()) {
+                unresolvedCycle = true;
+                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
+            }
+            trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
+                requiredOutputs, cycleStatus));
+            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0, 0,
+                cycleStatus == CyclePlanningStatus.NOT_REQUIRED ? PlanTraceNode.Selection.NOT_APPLICABLE
+                    : PlanTraceNode.Selection.UNSUPPORTED,
+                cycleStatus.name()));
+            componentResults.add(new ComponentPlanningResult(cycle.componentId(),
+                ComponentPlanningResult.Type.CYCLIC,
+                requiredOutputs.isEmpty() ? ComponentPlanningResult.Status.NOT_REQUIRED
+                    : ComponentPlanningResult.Status.UNRESOLVED,
+                requiredOutputs, cycle.patterns().stream().map(p -> p.details())
+                    .collect(java.util.stream.Collectors.toSet()),
+                cycleStatus, null, Map.of(), diagnostic, null));
+            cycleDiagnostics.add(diagnostic(cycle, inventory, null));
+        }
+
+        PlanningStatus status = acyclic.status();
+        if (unresolvedCycle && (status == PlanningStatus.SUCCESS || status == PlanningStatus.MISSING_ITEMS)) {
+            status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
+                ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
+        }
+        return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
+            List.copyOf(componentResults), List.of());
     }
 
     private static Map<AEKey, Long> relevantStock(CycleComponent cycle, java.util.Set<AEKey> requiredOutputs,

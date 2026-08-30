@@ -18,6 +18,15 @@ public final class NetGrowthPatternValidationRegistry {
 
     /** Called by the smart pattern bus immediately before it publishes a decoded pattern. */
     public static boolean validateAndRegisterFromSmartPatternBus(IPatternDetails details) {
+        return validateAndRegister(details);
+    }
+
+    /** Called by the opt-in cycle planner when a pattern was published while cycle planning was disabled. */
+    public static boolean validateAndRegisterFromPlanner(IPatternDetails details) {
+        return validateAndRegister(details);
+    }
+
+    private static boolean validateAndRegister(IPatternDetails details) {
         if (details == null || !AE2PatternIntrospection.isKnownSafePatternType(details)) return false;
         if (!hasDeterministicStaticContract(details)) return false;
         VALIDATED.add(details);

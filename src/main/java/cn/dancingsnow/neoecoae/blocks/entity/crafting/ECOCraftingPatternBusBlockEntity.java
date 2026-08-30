@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
@@ -405,7 +406,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
         IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, level);
         if (!(details instanceof IMolecularAssemblerSupportedPattern)) return null;
-        NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+        if (shouldValidateNetGrowthPatterns()) {
+            NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+        }
         return new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack));
     }
 
@@ -671,12 +674,19 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
-                NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+                if (shouldValidateNetGrowthPatterns()) {
+                    NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+                }
                 patternDetails.add(details);
             }
         }
         ICraftingProvider.requestUpdate(this.getMainNode());
         notifyPatternInterfaceHosts();
+    }
+
+    private boolean shouldValidateNetGrowthPatterns() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getGrid());
+        return settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
     private static String buildPatternSearchKeywords(ItemStack stack, @Nullable IPatternDetails details) {

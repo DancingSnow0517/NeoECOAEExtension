@@ -18,6 +18,15 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternVali
 public final class CraftingNetworkCompiler {
     public CompiledNetwork compile(ICraftingService service, AEKey goal, ECOCancellation cancellation)
             throws InterruptedException {
+        return compile(service, goal, false, cancellation);
+    }
+
+    /**
+     * Compiles cycle capability evidence only for the opt-in cycle-planning path. The disabled path keeps the
+     * original one-pass pattern contract read and does not run the determinism probe.
+     */
+    public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
+            ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
         Set<AEKey> emittable = new HashSet<>();
         Set<AEKey> queued = new HashSet<>();
@@ -36,7 +45,7 @@ public final class CraftingNetworkCompiler {
             List<CompiledPattern> compiled = new ArrayList<>();
             for (IPatternDetails details : service.getCraftingFor(key)) {
                 cancellation.checkpoint();
-                CompiledPattern pattern = compilePattern(nextPatternId++, details, key);
+                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled);
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -50,12 +59,15 @@ public final class CraftingNetworkCompiler {
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
     }
 
-    private static CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey) {
+    private static CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
+            boolean cyclePlanningEnabled) {
         List<CompiledInput> inputs = new ArrayList<>();
         List<GenericStack> outputs;
         long outputPerPattern = 0;
         String unsupported = null;
-        boolean netGrowthValidated = NetGrowthPatternValidationRegistry.isValidated(details);
+        boolean netGrowthValidated = cyclePlanningEnabled
+            && (NetGrowthPatternValidationRegistry.isValidated(details)
+                || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details));
         try {
             outputs = List.copyOf(details.getOutputs());
             if (outputs.isEmpty()) {

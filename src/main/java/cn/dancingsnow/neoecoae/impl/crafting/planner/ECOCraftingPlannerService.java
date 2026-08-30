@@ -14,8 +14,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.SinglePatternGrowthC
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
@@ -50,17 +50,23 @@ public final class ECOCraftingPlannerService {
                 throws InterruptedException {
             long startedNanos = System.nanoTime();
             try {
-                if (compiled == null) compiled = compiler.compile(craftingService, goal, cancellation);
+                if (compiled == null) {
+                    compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled, cancellation);
+                }
                 if (condensation == null) {
                     var graph = graphBuilder.build(compiled, cancellation);
                     var sccs = sccAnalyzer.analyze(graph, cancellation);
                     condensation = CondensationGraph.build(graph, sccs, cancellation);
                 }
-                if (activeSelection == null) {
-                    activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+                ComponentPlanner.Outcome solved;
+                if (cyclePlanningEnabled) {
+                    if (activeSelection == null) {
+                        activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
+                    }
+                    solved = componentPlanner.plan(compiled, activeSelection, inventory, amount, true, cancellation);
+                } else {
+                    solved = componentPlanner.plan(compiled, condensation, inventory, amount, false, cancellation);
                 }
-                var solved = componentPlanner.plan(compiled, activeSelection, inventory, amount,
-                    cyclePlanningEnabled, cancellation);
                 boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
                 var plan = switch (solved.status()) {
                     case SUCCESS, MISSING_ITEMS -> bridge.success(goal, amount,

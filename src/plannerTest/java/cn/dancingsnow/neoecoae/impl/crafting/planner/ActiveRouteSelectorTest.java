@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
@@ -46,10 +45,12 @@ class ActiveRouteSelectorTest {
         var condensation = CondensationGraph.build(graph,
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
 
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), (request, cancellation) -> {
+            throw new AssertionError("cycle solver must not run when cycle planning is disabled");
+        })
             .plan(network, condensation, new KeyCounter(), 4, false, ECOCancellation.NONE);
 
         assertEquals(CyclePlanningStatus.DISABLED, outcome.components().getFirst().cycleStatus());
-        assertEquals(4, outcome.state().missingItems().get(goal));
+        assertEquals(0, outcome.state().missingItems().get(goal));
     }
 }
