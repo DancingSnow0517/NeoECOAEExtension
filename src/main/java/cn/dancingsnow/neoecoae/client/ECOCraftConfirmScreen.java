@@ -58,8 +58,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
-        graph = new CraftingGraphButton(this::openGraph);
-        widgets.add("graph", graph);
+        graph = addToLeftToolbar(new CraftingGraphButton(this::openGraph));
     }
 
     @Override protected void updateBeforeRender() {
