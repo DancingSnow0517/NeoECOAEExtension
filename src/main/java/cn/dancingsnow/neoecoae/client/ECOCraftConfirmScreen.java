@@ -1,8 +1,11 @@
 package cn.dancingsnow.neoecoae.client;
 
 import appeng.client.gui.AEBaseScreen;
+import appeng.api.client.AEKeyRendering;
+import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
@@ -54,7 +57,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
-        graph = widgets.addButton("graph", Component.translatable("gui.neoecoae.crafting_graph.open"), this::openGraph);
+        graph = new CraftingGraphButton(this::openGraph);
+        widgets.add("graph", graph);
     }
 
     @Override protected void updateBeforeRender() {
@@ -96,13 +100,19 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             } else {
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();
             }
+        } else if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getPlanningStatus() != null) {
+            planSummary = Component.literal("理论计划（不可执行：数量超过 AE2 long 范围）")
+                .withColor(0xFFAA3333);
+            cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
+                .withColor(AE2_TEXT_DARK);
         }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        int size = plan != null ? plan.getEntries().size() : 0;
+        int size = plan != null ? plan.getEntries().size() : bigIntegerMaterials().size();
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             ? mode.neoecoae$getCycleItems().size() : 0;
@@ -141,6 +151,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         CraftingPlanSummary plan = menu.getPlan();
         if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
+        else renderBigIntegerMaterials(graphics, scrollbar.getCurrentScroll());
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled());
@@ -214,6 +225,44 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .map(ECOCycleItemList.Entry::what).orElse(null);
         }
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
+    }
+
+    private List<CraftingGraphSnapshot.MaterialNode> bigIntegerMaterials() {
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
+        return mode.neoecoae$getCraftingGraphSnapshot().nodes().stream()
+            .filter(node -> node.requestedBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0)
+            .toList();
+    }
+
+    /** Renders the exact planner report when AE2 cannot construct its long-valued native plan. */
+    private void renderBigIntegerMaterials(GuiGraphics graphics, int scroll) {
+        List<CraftingGraphSnapshot.MaterialNode> materials = bigIntegerMaterials();
+        int left = 9;
+        int top = 27;
+        int rowHeight = 18;
+        int first = Math.max(0, scroll);
+        int visible = 7;
+        for (int index = first; index < Math.min(materials.size(), first + visible); index++) {
+            var material = materials.get(index);
+            int y = top + (index - first) * rowHeight;
+            AEKeyRendering.drawInGui(minecraft, graphics, left + 2, y + 1, material.key());
+            graphics.drawString(font, material.key().getDisplayName(), left + 22, y + 2, AE2_TEXT_DARK, false);
+            String amount = "req " + material.exactRequested() + "  miss " + material.exactMissing();
+            graphics.drawString(font, Component.literal(amount), left + 22, y + 10,
+                material.missingBigInteger().signum() > 0 ? 0xFFAA3333 : AE2_TEXT_DARK, false);
+        }
+    }
+
+    private static final class CraftingGraphButton extends IconButton {
+        private CraftingGraphButton(Runnable onPress) {
+            super(ignored -> onPress.run());
+            setMessage(Component.translatable("gui.neoecoae.crafting_graph.open"));
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return Icon.CRAFT_HAMMER;
+        }
     }
 
     public static @Nullable Integer resolveInitialCycle(List<ECOCycleItemList.Entry> items,

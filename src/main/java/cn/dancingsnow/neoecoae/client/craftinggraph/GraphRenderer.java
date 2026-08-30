@@ -189,7 +189,8 @@ public final class GraphRenderer {
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
                             "合成 " + material.exactToCraft() + "  缺少 " + material.exactMissing(),
-                            x + 7, y + 53, pixelWidth - 14, material.missing() > 0 ? 0xffff7777 : MUTED);
+                            x + 7, y + 53, pixelWidth - 14,
+                            material.missingBigInteger().signum() > 0 ? 0xffff7777 : MUTED);
                     }
                 } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 4, material.key());

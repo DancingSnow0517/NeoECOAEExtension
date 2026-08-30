@@ -182,8 +182,8 @@ public final class CompactTreeRenderer {
                 int iconY = y + (Math.min(20, bottom - y) - 16) / 2;
                 AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
-            if (material != null && material.key() != null && material.requested() > 0 && bottom - y >= 24) {
-                drawAmount(graphics, font, material.key().formatAmount(material.requested(), AmountFormat.SLOT),
+            if (material != null && material.key() != null && material.requestedBigInteger().signum() > 0 && bottom - y >= 24) {
+                drawAmount(graphics, font, material.exactRequested(),
                     x, y + 20, right, bottom);
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
