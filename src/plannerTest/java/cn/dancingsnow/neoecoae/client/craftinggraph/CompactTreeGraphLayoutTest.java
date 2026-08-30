@@ -174,6 +174,9 @@ class CompactTreeGraphLayoutTest {
         assertTrue(summary.containsMissing());
         assertTrue(summary.containsUnsupported());
         assertEquals(1, summary.hiddenNodeCount());
+        var folderBox = new CompactTreeLayout().layout(projected, 1).box(folder.id());
+        assertEquals(20, folderBox.width());
+        assertEquals(30, folderBox.height());
     }
 
     @Test
@@ -202,7 +205,7 @@ class CompactTreeGraphLayoutTest {
     }
 
     @Test
-    void deepExpandedTreeUsesExplicitStackAndKeepsEightyPercentFolderOverlapContract() {
+    void deepExpandedTreeUsesExplicitStack() {
         var source = chain(1_000);
         String rootPath = CompactTreeProjection.pathTo(source, source.rootId()).getFirst();
         var projected = CompactTreeProjection.project(source, 4, Set.of(), Set.of(rootPath));
@@ -210,7 +213,6 @@ class CompactTreeGraphLayoutTest {
 
         assertEquals(1_000, projected.nodes().size());
         assertEquals(1_000, layout.boxes().size());
-        assertEquals(0.8f, CompactTreeRenderer.STACK_OVERLAP_RATIO, 0.001f);
     }
 
     @Test

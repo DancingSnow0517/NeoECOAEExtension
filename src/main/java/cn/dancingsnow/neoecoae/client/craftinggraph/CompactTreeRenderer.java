@@ -4,10 +4,8 @@ import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -15,15 +13,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-/** Minecraft-style compact tree renderer. Pattern nodes are represented by edge annotations. */
+/** Minecraft-style compact tree renderer. */
 public final class CompactTreeRenderer {
     private static final int TEXT = 0xffe8edf2;
     private static final int MUTED = 0xffaab3bd;
-    private static final int GROUP_BORDER = 0x6f82909b;
-    private static final int GROUP_FILL = 0x221d252b;
-    private static final float CARD_HEIGHT = GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT;
-    public static final float STACK_OFFSET_RATIO = 0.2f;
-    public static final float STACK_OVERLAP_RATIO = 1 - STACK_OFFSET_RATIO;
 
     public GraphRenderer.Frame render(GuiGraphics graphics, ClientCraftingGraph graph,
             GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight,
@@ -32,7 +25,6 @@ public final class CompactTreeRenderer {
         GraphRenderer.VisiblePlan visible = GraphRenderer.collectVisible(layout, cameraX, cameraY, zoom,
             screenWidth, screenHeight);
         Set<Integer> neighborhood = selectedId == null ? Set.of() : graph.neighborhood(selectedId);
-        drawGroupFrames(graphics, graph, layout, cameraX, cameraY, zoom);
         for (var link : visible.edges()) {
             drawLink(graphics, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
         }
@@ -48,32 +40,6 @@ public final class CompactTreeRenderer {
         }
         profiler.update(visible.nodes().size(), visible.edges().size(), System.nanoTime() - started);
         return new GraphRenderer.Frame(hovered, tooltip(graph, hovered));
-    }
-
-    private static void drawGroupFrames(GuiGraphics graphics, ClientCraftingGraph graph,
-            GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom) {
-        Map<Integer, List<GraphLayoutSnapshot.Box>> childrenByParent = new HashMap<>();
-        for (var child : graph.compactTreeNodes().values()) {
-            var box = layout.box(child.id());
-            if (box != null) childrenByParent.computeIfAbsent(child.parentId(), ignored -> new ArrayList<>()).add(box);
-        }
-        for (List<GraphLayoutSnapshot.Box> children : childrenByParent.values()) {
-            if (children.size() < 2) continue;
-            float left = (float) children.stream().mapToDouble(GraphLayoutSnapshot.Box::x).min().orElse(0) - 8;
-            float top = (float) children.stream().mapToDouble(GraphLayoutSnapshot.Box::y).min().orElse(0) - 7;
-            float right = (float) children.stream().mapToDouble(box -> box.x() + box.width()).max().orElse(0) + 8;
-            float bottom = (float) children.stream().mapToDouble(box -> box.y() + box.height()).max().orElse(0) + 7;
-            int x = screen(cameraX, left, zoom);
-            int y = screen(cameraY, top, zoom);
-            int r = screen(cameraX, right, zoom);
-            int b = screen(cameraY, bottom, zoom);
-            if (r <= x || b <= y) continue;
-            graphics.fill(x, y, r, b, GROUP_FILL);
-            graphics.fill(x, y, r, Math.min(b, y + 1), GROUP_BORDER);
-            graphics.fill(x, Math.max(y, b - 1), r, b, GROUP_BORDER);
-            graphics.fill(x, y, Math.min(r, x + 1), b, GROUP_BORDER);
-            graphics.fill(Math.max(x, r - 1), y, r, b, GROUP_BORDER);
-        }
     }
 
     private static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
@@ -135,8 +101,8 @@ public final class CompactTreeRenderer {
         int bottom = screen(cameraY, box.y() + box.height(), zoom);
         if (right <= x || bottom <= y) return;
         int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : nodeBorder(graph, node);
-        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) drawFolder(graphics, graph, node, box, x, y, right,
-            bottom, border, zoom);
+        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) drawFolder(graphics, graph, node, x, y, right,
+            bottom, border);
         else {
             graphics.fill(x, y, right, bottom, 0xee171b20);
             graphics.fill(x, y, right, Math.min(bottom, y + 1), border);
@@ -148,24 +114,20 @@ public final class CompactTreeRenderer {
     }
 
     private static void drawFolder(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
-            GraphLayoutSnapshot.Box box, int x, int y, int right, int bottom, int border, float zoom) {
-        int cardHeight = Math.max(12, Math.min(bottom - y - 3, Math.round(CARD_HEIGHT * zoom)));
-        int offset = Math.max(1, Math.round(cardHeight * STACK_OFFSET_RATIO));
-        for (int i = 2; i >= 0; i--) {
-            int cardY = y + i * offset;
-            int shade = i == 0 ? 0xee20262d : 0xaa151b21;
-            graphics.fill(x + i * 2, cardY, right, Math.min(bottom, cardY + cardHeight), shade);
-            graphics.fill(x + i * 2, cardY, right, Math.min(bottom, cardY + 1), border);
-        }
+            int x, int y, int right, int bottom, int border) {
+        graphics.fill(x, y, right, bottom, 0xee20262d);
+        graphics.fill(x, y, right, Math.min(bottom, y + 1), border);
+        graphics.fill(x, Math.max(y, bottom - 1), right, bottom, border);
+        graphics.fill(x, y, Math.min(right, x + 1), bottom, border);
+        graphics.fill(Math.max(x, right - 1), y, right, bottom, border);
         CompactTreeNode metadata = graph.compactTreeNode(node.id());
         if (metadata == null || bottom - y < 14) return;
         Font font = Minecraft.getInstance().font;
         String symbol = metadata.containsCycle() ? "↻" : metadata.containsMissing() ? "!"
             : metadata.containsUnsupported() ? "?" : "▱";
-        String name = fit(font, "还有 " + metadata.hiddenNodeCount() + " 项", Math.max(20, right - x - 31));
-        graphics.drawString(font, symbol + " " + name, x + 6, y + 5, TEXT, false);
-        String summary = "+" + metadata.hiddenNodeCount() + " · " + metadata.hiddenDepth() + "L";
-        graphics.drawString(font, fit(font, summary, Math.max(16, right - x - 10)), x + 6, y + 20, border, false);
+        graphics.drawCenteredString(font, symbol, (x + right) / 2, y + 5, border);
+        if (bottom - y >= 24) drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(),
+            x, y + 20, right, bottom);
     }
 
     private static void drawCompactContent(GuiGraphics graphics, ClientCraftingGraph.Node node, int x, int y,
