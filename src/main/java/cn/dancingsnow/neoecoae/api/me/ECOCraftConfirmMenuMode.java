@@ -9,6 +9,8 @@ import org.jetbrains.annotations.Nullable;
 public interface ECOCraftConfirmMenuMode {
     boolean neoecoae$shouldShowFastPlannerReport();
 
+    boolean neoecoae$isCyclePlanningEnabled();
+
     long neoecoae$getCalculationNanos();
 
     @Nullable PlanningStatus neoecoae$getPlanningStatus();

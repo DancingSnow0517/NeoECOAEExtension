@@ -4,6 +4,7 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.Scrollbar;
+import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
@@ -12,7 +13,6 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -28,6 +28,8 @@ import org.lwjgl.glfw.GLFW;
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
     private static final int AE2_TEXT_DARK = 0x403E53;
+    private static final int CYCLE_STATUS_X = 237;
+    private static final int CYCLE_STATUS_Y = 7;
     private static final long GIGA_BYTE = 1_000_000_000L;
     private static final MathContext TIME_PRECISION = new MathContext(5, RoundingMode.HALF_UP);
 
@@ -57,8 +59,6 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override protected void updateBeforeRender() {
         super.updateBeforeRender();
-        var errorResult = menu.submitError.result();
-
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
         boolean startable = plan != null && !plan.isSimulation();
@@ -68,10 +68,6 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
             .withColor(AE2_TEXT_DARK);
-        Component cycleStatus = Component.empty();
-        if (errorResult != null && errorResult.errorCode() != null) {
-            cycleStatus = Component.literal(errorResult.errorCode().name());
-        }
         if (plan != null) {
             String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
@@ -89,12 +85,6 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                         .append(Component.translatable("gui.neoecoae.crafting_report.bytes", usedBytes))
                         .withColor(AE2_TEXT_DARK);
                 }
-                if (mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNSUPPORTED
-                        || mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
-                        || mode.neoecoae$getPlanningStatus() == PlanningStatus.PARTIAL) {
-                    cycleStatus = Component.translatable("gui.neoecoae.crafting_report.cycle_unsupported")
-                        .withColor(AE2_TEXT_DARK);
-                }
             } else {
                 planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", usedBytes)
                     .withColor(AE2_TEXT_DARK);
@@ -110,7 +100,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("plan_summary", planSummary);
-        setTextContent("cycle_status", cycleStatus);
+        setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
         int size = plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
@@ -152,7 +142,25 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         CraftingPlanSummary plan = menu.getPlan();
         if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
 
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled());
+        }
+
         cycleItems.renderTooltip(graphics);
+    }
+
+    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled) {
+        var texture = AppEng.makeId("textures/guis/states.png");
+        int sourceX = enabled ? 16 : 32;
+        // states.png is a 16px cell atlas; the requested icons are row 16, columns 2/3.
+        graphics.blit(texture, CYCLE_STATUS_X, CYCLE_STATUS_Y,
+            0, sourceX, 15 * 16, 16, 16, 256, 256);
+        Component label = Component.translatable(enabled
+                ? "gui.neoecoae.crafting_report.cycle_planning_enabled"
+                : "gui.neoecoae.crafting_report.cycle_planning_disabled")
+            .withColor(AE2_TEXT_DARK);
+        graphics.drawString(font, label, CYCLE_STATUS_X + 18, CYCLE_STATUS_Y + 4,
+            AE2_TEXT_DARK, false);
     }
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {

@@ -21,7 +21,6 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
         List<Integer> boundaryOutputs = allMaterials.stream().filter(id -> graph.isBoundaryOutput(id)
             && !graph.isExternalInput(id)).toList();
         List<Integer> materials = allMaterials.stream().filter(id -> !graph.isBoundaryMaterial(id)).toList();
-        if (materials.isEmpty()) materials = allMaterials;
         List<Integer> otherNodes = graph.nodes().values().stream()
             .filter(node -> node.kind() == ClientCraftingGraph.Kind.PATTERN)
             .map(ClientCraftingGraph.Node::id).sorted().toList();
@@ -54,15 +53,31 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
         placeBoundaryColumn(graph, boxes, boundaryOutputs, outputX, PADDING);
 
         Map<Integer, Double> patternAngles = stablePatternAngles(graph, otherNodes, materialAngles);
-        for (int i = 0; i < otherNodes.size(); i++) {
-            int id = otherNodes.get(i);
-            var node = graph.nodes().get(id);
-            double angle = patternAngles.getOrDefault(id, -Math.PI / 2 + 2 * Math.PI * i
-                / Math.max(1, otherNodes.size()));
-            // Keep a clear annulus between material cards and pattern cards, including diagonal cards at 45°.
-            float innerRadius = Math.max(40, radius * 0.34f);
-            boxes.put(id, centeredBox(node, center + innerRadius * Math.cos(angle),
-                center + innerRadius * Math.sin(angle)));
+        if (materials.isEmpty()) {
+            // A cycle made entirely of boundary materials has no useful material ring. Keep its recipes in a
+            // readable center column instead of putting them on top of the output column.
+            float rowGap = 28;
+            float totalHeight = (float) otherNodes.stream().mapToDouble(id -> diameter(graph.nodes().get(id)) + rowGap)
+                .sum() - (otherNodes.isEmpty() ? 0 : rowGap);
+            float top = center - totalHeight / 2;
+            for (int i = 0; i < otherNodes.size(); i++) {
+                int id = otherNodes.get(i);
+                var node = graph.nodes().get(id);
+                float height = GraphLayoutSnapshot.heightFor(node);
+                boxes.put(id, centeredBox(node, center, top + height / 2));
+                top += height + rowGap;
+            }
+        } else {
+            for (int i = 0; i < otherNodes.size(); i++) {
+                int id = otherNodes.get(i);
+                var node = graph.nodes().get(id);
+                double angle = patternAngles.getOrDefault(id, -Math.PI / 2 + 2 * Math.PI * i
+                    / Math.max(1, otherNodes.size()));
+                // Keep a clear annulus between material cards and pattern cards, including diagonal cards at 45°.
+                float innerRadius = Math.max(40, radius * 0.34f);
+                boxes.put(id, centeredBox(node, center + innerRadius * Math.cos(angle),
+                    center + innerRadius * Math.sin(angle)));
+            }
         }
 
         float minX = (float) boxes.values().stream().mapToDouble(GraphLayoutSnapshot.Box::x).min().orElse(0);

@@ -172,5 +172,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
         provider.add("gui.neoecoae.crafting_report.single_net_output", "Single net output: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output", "Total net output: %s");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycles present");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning disabled");
     }
 }

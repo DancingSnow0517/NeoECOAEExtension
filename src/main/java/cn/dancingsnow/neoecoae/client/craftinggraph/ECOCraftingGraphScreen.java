@@ -113,7 +113,55 @@ public final class ECOCraftingGraphScreen extends Screen {
         else if (graph.isCompactTree()) drawDetailsPanel(graphics);
         if (!frame.tooltip().isEmpty() && mouseY > TOOLBAR_HEIGHT) {
             graphics.renderComponentTooltip(font, frame.tooltip(), mouseX, mouseY);
+            var tooltipCycle = cycleForTooltipNode(hovered);
+            if (tooltipCycle != null) drawCycleTooltipRing(graphics, tooltipCycle, mouseX, mouseY);
         }
+    }
+
+    @Nullable
+    private CraftingGraphSnapshot.CycleGroup cycleForTooltipNode(@Nullable ClientCraftingGraph.Node node) {
+        if (node == null) return null;
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return node.cycle();
+        if (node.kind() != ClientCraftingGraph.Kind.MATERIAL || node.material() == null) return null;
+        int sourceId = node.material().nodeId();
+        return snapshot.cycleGroups().stream()
+            .filter(cycle -> cycle.memberNodeIds().contains(sourceId))
+            .findFirst().orElse(null);
+    }
+
+    /** Draws a compact cycle summary over the tooltip without changing vanilla tooltip layout. */
+    private void drawCycleTooltipRing(GuiGraphics graphics, CraftingGraphSnapshot.CycleGroup cycle,
+            int mouseX, int mouseY) {
+        int radius = 18;
+        int centerX = Math.min(width - radius - 4, mouseX + 112);
+        int centerY = Math.max(radius + TOOLBAR_HEIGHT + 2, mouseY - 24);
+        int backgroundLeft = centerX - radius - 5;
+        int backgroundTop = centerY - radius - 5;
+        int backgroundRight = centerX + radius + 6;
+        int backgroundBottom = centerY + radius + 6;
+        graphics.fill(backgroundLeft, backgroundTop, backgroundRight, backgroundBottom, 0xee171b20);
+
+        int activeColor = cycleStatusColor(cycle.status());
+        int segments = 12;
+        int activeSegments = Math.max(1, Math.min(segments, cycle.memberNodeIds().size()));
+        for (int i = 0; i < segments; i++) {
+            double angle = -Math.PI / 2 + i * (Math.PI * 2 / segments);
+            int x = centerX + (int) Math.round(Math.cos(angle) * radius);
+            int y = centerY + (int) Math.round(Math.sin(angle) * radius);
+            int color = i < activeSegments ? activeColor : 0xff56616c;
+            graphics.fill(x - 2, y - 2, x + 3, y + 3, color);
+        }
+        graphics.drawCenteredString(font, Integer.toString(cycle.memberNodeIds().size()), centerX,
+            centerY - font.lineHeight / 2, 0xffe8edf2);
+    }
+
+    private static int cycleStatusColor(String status) {
+        return switch (status.toUpperCase(Locale.ROOT)) {
+            case "SOLVED", "PLANNED", "READY" -> 0xff68b58a;
+            case "UNSUPPORTED", "DISABLED" -> 0xffa36c9a;
+            case "FAILED", "MISSING" -> 0xffcf5e5e;
+            default -> 0xffd59b45;
+        };
     }
 
     @Override

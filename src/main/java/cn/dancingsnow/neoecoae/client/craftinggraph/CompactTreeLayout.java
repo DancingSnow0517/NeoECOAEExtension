@@ -13,7 +13,8 @@ import java.util.Set;
 /** Compact top-down tree layout. It deliberately uses the projection's repeated occurrences, not DAG geometry. */
 public final class CompactTreeLayout implements GraphLayoutEngine {
     public static final float LEVEL_GAP = 16;
-    public static final float SIBLING_GAP = -1;
+    /** Minimum visible separation between sibling boxes in world pixels. */
+    public static final float SIBLING_GAP = 1;
 
     @Override
     public GraphLayoutSnapshot layout(ClientCraftingGraph graph, long version) {

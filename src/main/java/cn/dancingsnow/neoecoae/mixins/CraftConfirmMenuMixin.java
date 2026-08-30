@@ -34,6 +34,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private boolean neoecoae$showFastPlannerReport;
 
     @Unique
+    @GuiSync(104)
+    private boolean neoecoae$cyclePlanningEnabled;
+
+    @Unique
     @GuiSync(100)
     private long neoecoae$calculationNanos;
 
@@ -61,6 +65,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         var node = actionHost.getActionableNode();
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(node == null ? null : node.getGrid());
         neoecoae$showFastPlannerReport = settings != null && settings.neoecoae$shouldUseFastPlanner();
+        neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
     @Inject(method = "planJob", at = @At("HEAD"))
@@ -126,6 +131,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Override
     public boolean neoecoae$shouldShowFastPlannerReport() {
         return neoecoae$showFastPlannerReport;
+    }
+
+    @Override
+    public boolean neoecoae$isCyclePlanningEnabled() {
+        return neoecoae$cyclePlanningEnabled;
     }
 
     @Override
