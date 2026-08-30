@@ -24,7 +24,10 @@ public record PlannerDiagnostic(Code code, String message) {
         CYCLE_EXTERNAL_ROUTE_FORBIDDEN,
         CYCLE_EXTERNAL_DEMAND_UNSUPPORTED,
         CYCLE_EXTERNAL_DEMAND_OVERFLOW,
+        CYCLE_EXTERNAL_DEMAND_UNREPRESENTABLE,
         AMOUNT_OVERFLOW,
+        /** Planning completed; the resulting AE2 execution field needs more than a signed long. */
+        EXECUTION_AMOUNT_UNREPRESENTABLE,
         CANCELLED,
         INTERNAL_ERROR
     }

@@ -12,12 +12,14 @@ public enum SinglePatternGrowthStatus {
      * {@code requiredSeed} and {@code seedShortfall}; it is a report, not a plan.
      */
     INSUFFICIENT_SEED,
+    /** The exact algebra found a value that cannot be carried by an AE2 long-valued execution field. */
+    UNREPRESENTABLE,
     /**
      * This calculator does not apply. The caller must fall back to the bounded cycle solver without any
      * side effect, and must never turn this into a missing-items or unsupported verdict.
      */
     NOT_APPLICABLE,
-    /** Checked integer arithmetic left the representable range. Same fallback rule as NOT_APPLICABLE. */
+    /** Legacy status retained for source compatibility; new arithmetic uses {@link #UNREPRESENTABLE}. */
     OVERFLOW;
 
     /** True only when a plan may be adopted from this result. */

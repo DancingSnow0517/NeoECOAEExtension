@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
@@ -92,18 +93,34 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             var planningResult = diagnostics.neoecoae$getPlanningResult();
             neoecoae$calculationNanos = planningResult.calculationNanos();
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
+            CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
+            neoecoae$craftingGraph = snapshot;
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
-            for (var cycle : planningResult.cycles()) {
-                for (AEKey key : cycle.keys()) {
-                    cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(
-                        key,
-                        cycle.netOutputs().getOrDefault(key, 0L),
-                        cycle.totalNetOutputs().getOrDefault(key, 0L)));
+            for (var cycle : snapshot.cycleGroups()) {
+                LinkedHashSet<AEKey> keys = new LinkedHashSet<>();
+                cycle.singleNetOutputs().forEach(value -> keys.add(value.key()));
+                cycle.totalNetOutputs().forEach(value -> keys.add(value.key()));
+                cycle.availableAmounts().forEach(value -> keys.add(value.key()));
+                for (int memberId : cycle.memberNodeIds()) {
+                    snapshot.nodes().stream().filter(node -> node.nodeId() == memberId).findFirst().ifPresent(node ->
+                        keys.add(node.key()));
+                }
+                // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
+                // still needs a selectable row so every unresolved SCC remains openable from the report.
+                for (AEKey key : keys) {
+                    cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
+                        amountFor(cycle.singleNetOutputs(), key), amountFor(cycle.totalNetOutputs(), key),
+                        cycle.componentId()));
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
-            neoecoae$craftingGraph = CraftingGraphSnapshotFactory.create(planningResult);
         }
+    }
+
+    @Unique
+    private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
+        return values.stream().filter(value -> value.key().equals(key)).mapToLong(
+            CraftingGraphSnapshot.KeyAmount::amount).findFirst().orElse(0L);
     }
 
     @Override

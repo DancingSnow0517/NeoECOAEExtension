@@ -65,13 +65,18 @@ final class ExternalDemandPlanner {
             SolveState state = one.states().getFirst();
             states.add(state);
             selected.addAll(one.selectedPatterns());
-            for (var used : state.usedItems()) {
-                if (available.get(used.getKey()) < used.getLongValue()) {
+            for (var used : state.used) {
+                if (!used.getValue().fitsLong()) {
+                    return failure(CycleExternalDemandStatus.UNREPRESENTABLE, Map.of(),
+                        "External DAG used amount exceeds AE2 long range: key=" + used.getKey()
+                            + " amount=" + used.getValue() + " max=" + Long.MAX_VALUE);
+                }
+                if (available.get(used.getKey()) < used.getValue().longValueExact()) {
                     return failure(CycleExternalDemandStatus.MISSING,
-                        Map.of(used.getKey(), used.getLongValue() - available.get(used.getKey())),
+                        Map.of(used.getKey(), used.getValue().longValueExact() - available.get(used.getKey())),
                         "External demands compete for the same remaining inventory");
                 }
-                available.remove(used.getKey(), used.getLongValue());
+                available.remove(used.getKey(), used.getValue().longValueExact());
             }
         }
         return new Outcome(CycleExternalDemandStatus.SOLVED, direct, List.copyOf(states), Map.of(),
@@ -122,6 +127,14 @@ final class ExternalDemandPlanner {
         if (solved.status() == PlanningStatus.AMOUNT_OVERFLOW) {
             return failure(CycleExternalDemandStatus.OVERFLOW, Map.of(), "External DAG arithmetic overflow");
         }
+        if (solved.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE) {
+            return failure(CycleExternalDemandStatus.UNREPRESENTABLE, Map.of(),
+                solved.trace().diagnostics().stream()
+                    .filter(diagnostic -> diagnostic.code() == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic.Code
+                        .EXECUTION_AMOUNT_UNREPRESENTABLE)
+                    .map(cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic::message)
+                    .findFirst().orElse("External DAG plan exceeds AE2 long range"));
+        }
         return failure(CycleExternalDemandStatus.UNSUPPORTED, Map.of(),
             "External DAG contains an unsupported pattern or route");
     }
@@ -132,7 +145,8 @@ final class ExternalDemandPlanner {
     private static KeyCounter remainingInventory(KeyCounter inventory, SolveState base) {
         KeyCounter result = new KeyCounter();
         for (var entry : inventory) {
-            long remaining = Math.max(0L, entry.getLongValue() - base.usedItems().get(entry.getKey()));
+            long remaining = base.used.get(entry.getKey()).compareTo(PlannerAmount.of(entry.getLongValue())) >= 0
+                ? 0L : PlannerAmount.of(entry.getLongValue()).subtract(base.used.get(entry.getKey())).longValueExact();
             if (remaining > 0) result.add(entry.getKey(), remaining);
         }
         return result;

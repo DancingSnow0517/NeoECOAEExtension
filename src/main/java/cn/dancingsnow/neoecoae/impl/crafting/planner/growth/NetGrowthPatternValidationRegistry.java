@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.growth;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.IdentityHashMap;
@@ -38,27 +39,29 @@ public final class NetGrowthPatternValidationRegistry {
         if (details == null || !AE2PatternIntrospection.isKnownSafePatternType(details)
                 || !hasDeterministicStaticContract(details)) return false;
         try {
-            Map<appeng.api.stacks.AEKey, Long> consumed = new LinkedHashMap<>();
-            Map<appeng.api.stacks.AEKey, Long> produced = new LinkedHashMap<>();
-            Map<appeng.api.stacks.AEKey, Long> remainder = new LinkedHashMap<>();
+            Map<appeng.api.stacks.AEKey, PlannerAmount> consumed = new LinkedHashMap<>();
+            Map<appeng.api.stacks.AEKey, PlannerAmount> produced = new LinkedHashMap<>();
+            Map<appeng.api.stacks.AEKey, PlannerAmount> remainder = new LinkedHashMap<>();
             var outputs = details.getOutputs();
             for (var output : outputs) {
-                produced.merge(output.what(), output.amount(), Math::addExact);
+                produced.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
             }
             for (var input : details.getInputs()) {
                 var possible = input.getPossibleInputs();
                 var key = possible[0].what();
-                consumed.merge(key, Math.multiplyExact(possible[0].amount(), input.getMultiplier()), Math::addExact);
+                consumed.merge(key, PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier()),
+                    PlannerAmount::add);
                 var remaining = input.getRemainingKey(key);
-                if (remaining != null) remainder.merge(remaining, input.getMultiplier(), Math::addExact);
+                if (remaining != null) remainder.merge(remaining, PlannerAmount.of(input.getMultiplier()),
+                    PlannerAmount::add);
             }
             int feedbackKeys = 0;
             for (var entry : consumed.entrySet()) {
-                long returned = Math.addExact(produced.getOrDefault(entry.getKey(), 0L),
-                    remainder.getOrDefault(entry.getKey(), 0L));
-                if (returned > 0L) {
+                PlannerAmount returned = produced.getOrDefault(entry.getKey(), PlannerAmount.ZERO)
+                    .add(remainder.getOrDefault(entry.getKey(), PlannerAmount.ZERO));
+                if (returned.signum() > 0) {
                     feedbackKeys++;
-                    if (returned <= entry.getValue()) return false;
+                    if (returned.compareTo(entry.getValue()) <= 0) return false;
                 }
             }
             return feedbackKeys == 1;
@@ -80,7 +83,7 @@ public final class NetGrowthPatternValidationRegistry {
                 var possible = input.getPossibleInputs();
                 if (possible == null || possible.length != 1 || possible[0] == null
                         || possible[0].what() == null || possible[0].amount() <= 0) return false;
-                Math.multiplyExact(possible[0].amount(), input.getMultiplier());
+                PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier());
                 if (possible[0].what() instanceof AEItemKey item && item.toStack(1).isDamageableItem()) return false;
                 input.getRemainingKey(possible[0].what());
             }

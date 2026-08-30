@@ -126,6 +126,10 @@ class CompactTreeGraphLayoutTest {
         assertEquals(GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT, root.height());
         assertEquals(20, root.width());
         assertEquals(30, root.height());
+        assertEquals(-1, CompactTreeLayout.SIBLING_GAP);
+        var childBoxes = children.stream().map(link -> layout.box(link.toId()))
+            .sorted(java.util.Comparator.comparingDouble(GraphLayoutSnapshot.Box::x)).toList();
+        assertEquals(-1, childBoxes.get(1).x() - (childBoxes.get(0).x() + childBoxes.get(0).width()));
         for (var link : children) assertTrue(layout.box(link.toId()).y() > root.y());
         assertTrue(layout.bounds().height() > GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT);
         assertTrue(layout.edgePoints(children.getFirst()).size() >= 2);

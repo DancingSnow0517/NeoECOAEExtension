@@ -75,6 +75,20 @@ class ECOAcyclicCraftingSolverTest {
         assertEquals(1, solved.state().usedItems().get(b));
     }
 
+    @Test void overflowedRejectedCandidateDoesNotChangeProducerSelection() throws Exception {
+        var hugeLeaf = PlannerTestKey.of("retry_wide_leaf"); var usableLeaf = PlannerTestKey.of("retry_usable_leaf");
+        var goal = PlannerTestKey.of("retry_wide_goal");
+        var rejected = PlannerFixtures.pattern("retry_huge", goal, 1, hugeLeaf, Long.MAX_VALUE);
+        var usable = PlannerFixtures.pattern("retry_usable", goal, 1, usableLeaf, 1L);
+        var solved = solve(network(goal, Map.of(hugeLeaf, List.of(), usableLeaf, List.of(),
+            goal, List.of(cp(0, rejected, goal, true), cp(1, usable, goal, true)))),
+            stock(usableLeaf, 2), 2);
+
+        assertEquals(PlanningStatus.SUCCESS, solved.status());
+        assertEquals(2L, solved.state().plannerPatternTimes().get(usable).longValueExact());
+        assertTrue(!solved.state().plannerPatternTimes().containsKey(rejected));
+    }
+
     @Test void malformedFirstProducerIsSkippedForAValidSecondProducer() throws Exception {
         var a = PlannerTestKey.of("mal_a"); var g = PlannerTestKey.of("mal_g");
         var malformed = PlannerFixtures.pattern("malformed", g, 1, a, 1L);
@@ -101,11 +115,43 @@ class ECOAcyclicCraftingSolverTest {
         assertEquals(PlanningStatus.PARTIAL_UNSUPPORTED, solved.status());
     }
 
-    @Test void multiplicationOverflowIsAResultNotWrappedArithmetic() throws Exception {
+    @Test void multiplicationOverflowCompletesPlanningAndReportsExecutionBoundary() throws Exception {
         var a = PlannerTestKey.of("overflow_a"); var g = PlannerTestKey.of("overflow_g");
         var p = PlannerFixtures.pattern("huge", g, 1, a, Long.MAX_VALUE);
         var solved = solve(network(g, Map.of(a, List.of(), g, List.of(cp(0, p, g, true)))), new KeyCounter(), 2);
-        assertEquals(PlanningStatus.AMOUNT_OVERFLOW, solved.status());
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, solved.status());
+        assertEquals("18446744073709551614", solved.state().missingAmounts().get(a).toString());
+        assertTrue(solved.trace().diagnostics().stream().anyMatch(d ->
+            d.code() == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic.Code
+                .EXECUTION_AMOUNT_UNREPRESENTABLE
+                && d.message().contains("amount=18446744073709551614")));
+    }
+
+    @Test void overflowedDemandContinuesThroughSeveralRecipeLayersExactly() throws Exception {
+        var leaf = PlannerTestKey.of("wide_leaf"); var middle = PlannerTestKey.of("wide_middle");
+        var inner = PlannerTestKey.of("wide_inner"); var goal = PlannerTestKey.of("wide_goal");
+        var innerPattern = PlannerFixtures.pattern("wide_inner", inner, 1, middle, Long.MAX_VALUE);
+        var middlePattern = PlannerFixtures.pattern("wide_middle", middle, 1, leaf, 3L);
+        var goalPattern = PlannerFixtures.pattern("wide_goal", goal, 1, inner, 2L);
+        var network = network(goal, Map.of(leaf, List.of(), middle, List.of(cp(0, middlePattern, middle, true)),
+            inner, List.of(cp(1, innerPattern, inner, true)), goal, List.of(cp(2, goalPattern, goal, true))));
+
+        var solved = solve(network, new KeyCounter(), 2);
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, solved.status());
+        assertEquals("36893488147419103228", solved.state().plannerDemands().get(middle).toString());
+        assertEquals("110680464442257309684", solved.state().plannerDemands().get(leaf).toString());
+        assertTrue(solved.state().plannerPatternTimes().containsKey(innerPattern));
+    }
+
+    @Test void wideDemandStillUsesLongInventoryBeforeReportingTheExactDeficit() throws Exception {
+        var leaf = PlannerTestKey.of("wide_stock_leaf"); var goal = PlannerTestKey.of("wide_stock_goal");
+        var pattern = PlannerFixtures.pattern("wide_stock", goal, 1, leaf, Long.MAX_VALUE);
+        var solved = solve(network(goal, Map.of(leaf, List.of(), goal, List.of(cp(0, pattern, goal, true)))),
+            stock(leaf, 5), 2);
+
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, solved.status());
+        assertEquals(5L, solved.state().usedItems().get(leaf));
+        assertEquals("18446744073709551609", solved.state().missingAmounts().get(leaf).toString());
     }
 
     private static AcyclicCraftingSolver.Outcome solve(CompiledNetwork network, KeyCounter stock, long amount) throws Exception {

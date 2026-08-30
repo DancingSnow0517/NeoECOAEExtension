@@ -9,12 +9,15 @@ import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
+import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -32,8 +35,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final ECOCycleItemListRenderer cycleItems;
     private final Button start;
     private final Button selectCPU;
+    private final Button graph;
     private final Scrollbar scrollbar;
     private final Scrollbar cycleScrollbar;
+    private @Nullable Integer selectedCycleComponentId;
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
@@ -47,7 +52,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
-        widgets.addButton("graph", Component.translatable("gui.neoecoae.crafting_graph.open"), this::openGraph);
+        graph = widgets.addButton("graph", Component.translatable("gui.neoecoae.crafting_graph.open"), this::openGraph);
     }
 
     @Override protected void updateBeforeRender() {
@@ -112,6 +117,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             ? mode.neoecoae$getCycleItems().size() : 0;
         cycleScrollbar.setRange(0, cycleItems.getScrollableRows(cycleItemCount), 1);
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && selectedCycleComponentId != null
+                && mode.neoecoae$getCycleItems().stream()
+                    .noneMatch(entry -> entry.componentId() == selectedCycleComponentId)) {
+            selectedCycleComponentId = null;
+        }
+        graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
+                || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
     }
 
     private static String formatMillis(long nanos) {
@@ -133,7 +146,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     @Override public void drawFG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             cycleItems.render(graphics, mouseX, mouseY, mode.neoecoae$getCycleItems(),
-                cycleScrollbar.getCurrentScroll());
+                cycleScrollbar.getCurrentScroll(), selectedCycleComponentId);
         }
 
         CraftingPlanSummary plan = menu.getPlan();
@@ -148,6 +161,23 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
 
+    @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && (Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            ECOCycleItemList.Entry entry = cycleItems.entryAt(mouseX, mouseY, mode.neoecoae$getCycleItems(),
+                cycleScrollbar.getCurrentScroll());
+            if (entry != null) {
+                int componentId = entry.componentId();
+                if (componentId < 0 || selectedCycleComponentId != null && componentId == selectedCycleComponentId) {
+                    selectedCycleComponentId = null;
+                } else {
+                    selectedCycleComponentId = componentId;
+                }
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
     @Override public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             start();
@@ -160,10 +190,30 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private void start() { menu.startJob(); }
 
     private void openGraph() {
-        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0) {
-            minecraft.setScreen(new ECOCraftingGraphScreen(this, mode.neoecoae$getCraftingGraphSnapshot()));
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return;
+        CraftingGraphSnapshot snapshot = mode.neoecoae$getCraftingGraphSnapshot();
+        if (snapshot.rootNodeId() < 0 && snapshot.cycleGroups().isEmpty()) return;
+
+        Integer initialCycle = selectedCycleComponentId;
+        if (initialCycle == null && snapshot.cycleGroups().size() == 1) {
+            initialCycle = snapshot.cycleGroups().getFirst().componentId();
         }
+        @Nullable appeng.api.stacks.AEKey focusedMaterial = null;
+        var items = mode.neoecoae$getCycleItems();
+        if (initialCycle != null) {
+            Integer cycleToFocus = initialCycle;
+            focusedMaterial = items.stream().filter(entry -> entry.componentId() == cycleToFocus).findFirst()
+                .map(ECOCycleItemList.Entry::what).orElse(null);
+        }
+        minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
+    }
+
+    public static @Nullable Integer resolveInitialCycle(List<ECOCycleItemList.Entry> items,
+            @Nullable Integer selectedComponentId) {
+        if (selectedComponentId != null) return selectedComponentId;
+        var componentIds = items.stream().map(ECOCycleItemList.Entry::componentId).filter(id -> id >= 0).distinct().toList();
+        if (componentIds.size() == 1) return componentIds.getFirst();
+        return null;
     }
 
 }

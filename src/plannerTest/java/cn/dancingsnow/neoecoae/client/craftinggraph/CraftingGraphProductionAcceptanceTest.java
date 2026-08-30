@@ -11,6 +11,8 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.menu.guisync.DataSynchronization;
 import appeng.menu.guisync.GuiSync;
+import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.mojang.serialization.Lifecycle;
 import com.mojang.serialization.MapCodec;
@@ -33,6 +35,134 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class CraftingGraphProductionAcceptanceTest {
+    @Test void cycleGroupPacketRoundTripPreservesNetMetadata() {
+        var a = BenchmarkKey.of("roundtrip_a");
+        var cycle = new CraftingGraphSnapshot.CycleGroup(9, List.of(0), List.of(), "UNKNOWN_BUDGET", List.of(),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 4)),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 1)), List.of(), List.of(),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 2)),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 8)),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 3)));
+        var source = new CraftingGraphSnapshot(-1,
+            List.of(new CraftingGraphSnapshot.MaterialNode(0, a, 4, 3, 1, 0,
+                CraftingGraphSnapshot.MaterialStatus.CYCLE)), List.of(), List.of(), List.of(cycle),
+            new CraftingGraphSnapshot.Summary("PARTIAL", 1, 0, 0, 1, 0));
+        var encoded = buffer();
+        source.writeToPacket(encoded);
+        var decoded = new CraftingGraphSnapshot(new RegistryFriendlyByteBuf(
+            Unpooled.wrappedBuffer(encoded.copy().array()), RegistryAccess.EMPTY));
+        assertEquals(source, decoded);
+        assertEquals(cycle.singleNetOutputs(), decoded.cycleGroups().getFirst().singleNetOutputs());
+        assertEquals(cycle.totalNetOutputs(), decoded.cycleGroups().getFirst().totalNetOutputs());
+        assertEquals(cycle.availableAmounts(), decoded.cycleGroups().getFirst().availableAmounts());
+    }
+
+    @Test void cycleItemEntryRoundTripPreservesComponentId() {
+        var item = BenchmarkKey.of("list_component");
+        var source = new ECOCycleItemList(List.of(new ECOCycleItemList.Entry(item, 4, -2, 17)));
+        var encoded = buffer();
+        source.writeToPacket(encoded);
+        var decoded = new ECOCycleItemList(new RegistryFriendlyByteBuf(encoded.copy(), RegistryAccess.EMPTY));
+        assertEquals(source, decoded);
+        assertEquals(17, decoded.items().getFirst().componentId());
+    }
+
+    @Test void cycleListValuesMatchCycleSnapshotValues() {
+        var a = BenchmarkKey.of("consistent_a");
+        var cycle = new CraftingGraphSnapshot.CycleGroup(4, List.of(0), List.of(), "SOLVED", List.of(), List.of(),
+            List.of(), List.of(), List.of(), List.of(new CraftingGraphSnapshot.KeyAmount(a, 1)),
+            List.of(new CraftingGraphSnapshot.KeyAmount(a, 128)), List.of());
+        var entry = new ECOCycleItemList.Entry(a, 1, 128, cycle.componentId());
+        assertEquals(cycle.componentId(), entry.componentId());
+        assertEquals(cycle.singleNetOutputs().getFirst().amount(), entry.singleNetOutput());
+        assertEquals(cycle.totalNetOutputs().getFirst().amount(), entry.totalNetOutput());
+    }
+
+    @Test void graphButtonFocusDecisionUsesSelectedCycleOrSingleDistinctCycle() {
+        var a = BenchmarkKey.of("focus_a");
+        var b = BenchmarkKey.of("focus_b");
+        var sameCycle = List.of(new ECOCycleItemList.Entry(a, 1, 2, 7),
+            new ECOCycleItemList.Entry(b, -1, 3, 7));
+        assertEquals(7, ECOCraftConfirmScreen.resolveInitialCycle(sameCycle, null));
+        assertEquals(7, ECOCraftConfirmScreen.resolveInitialCycle(sameCycle, 7));
+        assertEquals(null, ECOCraftConfirmScreen.resolveInitialCycle(List.of(
+            new ECOCycleItemList.Entry(a, 1, 2, 7), new ECOCycleItemList.Entry(b, 1, 2, 8)), null));
+    }
+
+    @Test void twoNodeCycleUsesMaterialFlowDirectionAndKeepsPatternNodes() {
+        var a = BenchmarkKey.of("flow_a");
+        var b = BenchmarkKey.of("flow_b");
+        var patterns = List.of(
+            new CraftingGraphSnapshot.PatternNode(-2, "P1", List.of(new CraftingGraphSnapshot.Relationship(0, 1)),
+                List.of(new CraftingGraphSnapshot.Relationship(1, 1)), 4,
+                CraftingGraphSnapshot.CandidateStatus.SELECTED, null, 7),
+            new CraftingGraphSnapshot.PatternNode(-3, "P2", List.of(new CraftingGraphSnapshot.Relationship(1, 1)),
+                List.of(new CraftingGraphSnapshot.Relationship(0, 1)), 4,
+                CraftingGraphSnapshot.CandidateStatus.SELECTED, null, 7));
+        var cycle = new CraftingGraphSnapshot.CycleGroup(7, List.of(0, 1), List.of(), "SOLVED", List.of(), List.of(),
+            List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        var snapshot = new CraftingGraphSnapshot(0,
+            List.of(material(0, a), material(1, b)), patterns, List.of(), List.of(cycle),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 2, 2, 0, 1, 0));
+        var graph = ClientCraftingGraph.cycle(snapshot, 7, false, b);
+        assertEquals(ClientCraftingGraph.View.CYCLE_FOCUS, graph.view());
+        assertEquals(1, graph.focusedMaterialId());
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == 0 && link.toId() == -2));
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == -2 && link.toId() == 1));
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == 1 && link.toId() == -3));
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == -3 && link.toId() == 0));
+        var layout = new CircularCycleLayout().layout(graph, 1);
+        var boxes = layout.boxes().values().stream().toList();
+        for (int i = 0; i < boxes.size(); i++) for (int j = i + 1; j < boxes.size(); j++) {
+            var one = boxes.get(i);
+            var two = boxes.get(j);
+            assertFalse(one.intersects(two.x(), two.y(), two.x() + two.width(), two.y() + two.height()));
+        }
+    }
+
+    @Test void selfLoopLayoutHasDistinctMaterialAndPatternBoxes() {
+        var a = BenchmarkKey.of("self_loop");
+        var pattern = new CraftingGraphSnapshot.PatternNode(-2, "SelfLoop", List.of(
+            new CraftingGraphSnapshot.Relationship(0, 1)), List.of(
+            new CraftingGraphSnapshot.Relationship(0, 1)), 1,
+            CraftingGraphSnapshot.CandidateStatus.SELECTED, null, 3);
+        var cycle = new CraftingGraphSnapshot.CycleGroup(3, List.of(0), List.of(), "SOLVED", List.of(), List.of(),
+            List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        var snapshot = new CraftingGraphSnapshot(0, List.of(material(0, a)), List.of(pattern), List.of(),
+            List.of(cycle), new CraftingGraphSnapshot.Summary("SUCCESS", 1, 1, 0, 1, 0));
+        var layout = new CircularCycleLayout().layout(ClientCraftingGraph.cycle(snapshot, 3, false), 1);
+        assertFalse(layout.box(0).intersects(layout.box(-2).x(), layout.box(-2).y(),
+            layout.box(-2).x() + layout.box(-2).width(), layout.box(-2).y() + layout.box(-2).height()));
+        assertEquals(2, layout.boxes().size());
+        assertTrue(layout.links().stream().allMatch(link -> layout.edgePoints(link).size() >= 2));
+    }
+
+    @Test void externalInputAndByproductRemainBoundaryFlowNodes() {
+        var raw = BenchmarkKey.of("external_raw");
+        var a = BenchmarkKey.of("boundary_a");
+        var byproduct = BenchmarkKey.of("boundary_byproduct");
+        var pattern = new CraftingGraphSnapshot.PatternNode(-2, "ExternalPattern", List.of(
+            new CraftingGraphSnapshot.Relationship(2, 4)), List.of(
+            new CraftingGraphSnapshot.Relationship(0, 1), new CraftingGraphSnapshot.Relationship(3, 2)), 1,
+            CraftingGraphSnapshot.CandidateStatus.REJECTED, "DISABLED", 5);
+        var cycle = new CraftingGraphSnapshot.CycleGroup(5, List.of(0), List.of(), "DISABLED", List.of(),
+            List.of(new CraftingGraphSnapshot.KeyAmount(raw, 4)), List.of(), List.of(), List.of(), List.of(), List.of(),
+            List.of());
+        var snapshot = new CraftingGraphSnapshot(0,
+            List.of(material(0, a), boundaryMaterial(2, raw), boundaryMaterial(3, byproduct)), List.of(pattern), List.of(),
+            List.of(cycle), new CraftingGraphSnapshot.Summary("PARTIAL", 3, 1, 0, 1, 0));
+        var graph = ClientCraftingGraph.cycle(snapshot, 5, false);
+        assertTrue(graph.isExternalInput(2));
+        assertTrue(graph.isBoundaryOutput(3));
+        assertFalse(cycle.memberNodeIds().contains(2));
+        assertTrue(graph.isBoundaryMaterial(2));
+        assertTrue(graph.isBoundaryMaterial(3));
+        assertFalse(graph.nodes().get(2).material().status() == CraftingGraphSnapshot.MaterialStatus.CYCLE);
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == 2 && link.toId() == -2));
+        assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == -2 && link.toId() == 3
+            && link.kind() == CraftingGraphSnapshot.EdgeKind.BYPRODUCT));
+    }
+
     @Test void snapshotSerializationAndFirstFramePipelineAtProductionScales() {
         benchmark(1_000);
         benchmark(10_000);
@@ -217,6 +347,16 @@ class CraftingGraphProductionAcceptanceTest {
     private static ClientCraftingGraph.Node node(int id) {
         return new ClientCraftingGraph.Node(id, ClientCraftingGraph.Kind.MATERIAL, "node-" + id,
             null, null, null, null);
+    }
+
+    private static CraftingGraphSnapshot.MaterialNode material(int id, AEKey key) {
+        return new CraftingGraphSnapshot.MaterialNode(id, key, 1, 0, 1, 0,
+            CraftingGraphSnapshot.MaterialStatus.CYCLE);
+    }
+
+    private static CraftingGraphSnapshot.MaterialNode boundaryMaterial(int id, AEKey key) {
+        return new CraftingGraphSnapshot.MaterialNode(id, key, 0, 0, 0, 0,
+            CraftingGraphSnapshot.MaterialStatus.SATISFIED);
     }
 
     private static RegistryFriendlyByteBuf buffer() {

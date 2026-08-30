@@ -76,7 +76,9 @@ public record SinglePatternGrowthResult(
         NO_OUTSTANDING_DEMAND,
         /** A required output has no positive net production in this pattern. */
         REQUIRED_OUTPUT_NOT_PRODUCED,
-        /** Checked arithmetic overflowed. */
+        /** A computed execution quantity is exact but cannot be represented by AE2's long boundary. */
+        AMOUNT_UNREPRESENTABLE,
+        /** Legacy reason retained for source compatibility. */
         AMOUNT_OVERFLOW,
         /** An unexpected runtime failure was contained; the bounded solver answers instead. */
         INTERNAL_ERROR

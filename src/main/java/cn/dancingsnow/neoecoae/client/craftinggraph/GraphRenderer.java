@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.client.AEKeyRendering;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,7 +49,7 @@ public final class GraphRenderer {
         boxes.forEach(box -> visibleIds.add(box.nodeId()));
 
         for (var link : links) {
-            drawLink(graphics, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
+            drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
         }
         ClientCraftingGraph.Node hovered = null;
         float worldMouseX = (mouseX - cameraX) / zoom;
@@ -56,14 +59,15 @@ public final class GraphRenderer {
             if (node == null) continue;
             boolean selected = selectedId != null && selectedId == node.id();
             boolean adjacent = neighborhood.contains(node.id());
-            drawNode(graphics, node, box, selected, adjacent, cameraX, cameraY, zoom);
+            drawNode(graphics, graph, node, box, selected, adjacent, cameraX, cameraY, zoom);
             if (box.contains(worldMouseX, worldMouseY)) hovered = node;
         }
         profiler.update(boxes.size(), links.size(), System.nanoTime() - started);
-        return new Frame(hovered, tooltip(hovered));
+        return new Frame(hovered, tooltip(graph, hovered));
     }
 
-    private static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
+    private static void drawLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            ClientCraftingGraph.Link link,
             @Nullable Integer selected, Set<Integer> neighborhood, float cameraX, float cameraY, float zoom) {
         var from = layout.box(link.fromId());
         var to = layout.box(link.toId());
@@ -78,6 +82,9 @@ public final class GraphRenderer {
             int endX = screen(cameraX, end.x(), zoom);
             int endY = screen(cameraY, end.y(), zoom);
             graphics.fill(endX - 4, endY - 2, endX, endY + 3, color);
+            if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && zoom >= 0.72f) {
+                drawEdgeAmount(graphics, graph, link, route, cameraX, cameraY, zoom);
+            }
             return;
         }
         int x1 = screen(cameraX, from.x() + from.width(), zoom);
@@ -89,6 +96,36 @@ public final class GraphRenderer {
         graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
         graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
         graphics.fill(x2 - 4, y2 - 2, x2, y2 + 3, color);
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && zoom >= 0.72f) {
+            drawEdgeAmount(graphics, graph, link, List.of(new GraphLayoutSnapshot.Point(x1, y1),
+                new GraphLayoutSnapshot.Point(x2, y2)), cameraX, cameraY, zoom);
+        }
+    }
+
+    private static void drawEdgeAmount(GuiGraphics graphics, ClientCraftingGraph graph,
+            ClientCraftingGraph.Link link, List<GraphLayoutSnapshot.Point> route, float cameraX, float cameraY,
+            float zoom) {
+        String text = edgeAmount(graph, link);
+        if (text.isEmpty() || route.size() < 2) return;
+        var point = route.get(route.size() / 2);
+        int x = screen(cameraX, point.x(), zoom);
+        int y = screen(cameraY, point.y(), zoom);
+        var font = Minecraft.getInstance().font;
+        int width = font.width(text) + 6;
+        graphics.fill(x - width / 2, y - 8, x + (width + 1) / 2, y + 3, 0xcc171b20);
+        graphics.drawCenteredString(font, text, x, y - 7, MUTED);
+    }
+
+    private static String edgeAmount(ClientCraftingGraph graph, ClientCraftingGraph.Link link) {
+        if (link.amount() == 0) return "";
+        ClientCraftingGraph.Node material = graph.nodes().get(link.fromId());
+        if (material == null || material.kind() != ClientCraftingGraph.Kind.MATERIAL) {
+            material = graph.nodes().get(link.toId());
+        }
+        AEKey key = material == null || material.material() == null ? null : material.material().key();
+        if (key == null) return "×" + link.amount();
+        long magnitude = link.amount() == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(link.amount());
+        return "×" + key.formatAmount(magnitude, AmountFormat.SLOT);
     }
 
     private static void drawRoutedLink(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
@@ -114,7 +151,8 @@ public final class GraphRenderer {
         }
     }
 
-    private static void drawNode(GuiGraphics graphics, ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box,
+    private static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+            GraphLayoutSnapshot.Box box,
             boolean selected, boolean adjacent, float cameraX, float cameraY, float zoom) {
         int x = screen(cameraX, box.x(), zoom);
         int y = screen(cameraY, box.y(), zoom);
@@ -122,7 +160,7 @@ public final class GraphRenderer {
         int bottom = screen(cameraY, box.y() + box.height(), zoom);
         int pixelWidth = right - x;
         int pixelHeight = bottom - y;
-        int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : border(node);
+        int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : border(graph, node);
         graphics.fill(x, y, right, bottom, 0xee171b20);
         int borderWidth = selected ? 3 : 2;
         graphics.fill(x, y, right, Math.min(bottom, y + borderWidth), border);
@@ -135,6 +173,11 @@ public final class GraphRenderer {
         switch (node.kind()) {
             case MATERIAL -> {
                 var material = node.material();
+                if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+                    drawCycleMaterial(graphics, graph, node, box, border, x, y, right, bottom, pixelWidth,
+                        pixelHeight, zoom, font);
+                    break;
+                }
                 if (zoom >= 0.7f && pixelWidth >= 82 && pixelHeight >= 48) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 7, y + 8, material.key());
                     drawFitted(graphics, font, node.label(), x + 29, y + 7, pixelWidth - 35, TEXT);
@@ -162,8 +205,10 @@ public final class GraphRenderer {
             }
             case PATTERN -> {
                 var pattern = node.pattern();
-                graphics.drawCenteredString(font, pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED
-                    ? "⚒" : "×", (x + right) / 2, y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
+                String symbol = graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS ? "⚒"
+                    : pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? "⚒" : "×";
+                graphics.drawCenteredString(font, symbol, (x + right) / 2,
+                    y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
                     graphics.drawCenteredString(font, fit(font, "× " + pattern.firingCount(), pixelWidth - 6),
                         (x + right) / 2, y + 18, TEXT);
@@ -189,6 +234,38 @@ public final class GraphRenderer {
         }
     }
 
+    private static void drawCycleMaterial(GuiGraphics graphics, ClientCraftingGraph graph,
+            ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, int x, int y, int right,
+            int bottom, int pixelWidth, int pixelHeight, float zoom, Font font) {
+        var material = node.material();
+        if (zoom >= 0.55f && pixelWidth >= 82 && pixelHeight >= 54) {
+            AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 6, y + 5, material.key());
+            String prefix = graph.isExternalInput(node.id()) ? "↤ "
+                : graph.isBoundaryOutput(node.id()) ? "↦ " : "";
+            drawFitted(graphics, font, prefix + node.label(), x + 29, y + 6, pixelWidth - 35, TEXT);
+            var cycle = graph.source().cycleGroups().stream()
+                .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+            if (cycle != null && !graph.isBoundaryMaterial(node.id())) {
+                long single = amountFor(cycle.singleNetOutputs(), material.key());
+                long total = amountFor(cycle.totalNetOutputs(), material.key());
+                drawFitted(graphics, font, "单次 " + signed(material.key(), single), x + 6, y + 38,
+                    pixelWidth - 12, single == 0 ? MUTED : single > 0 ? 0xff75c48b : 0xffe07a7a);
+                drawFitted(graphics, font, "总计 " + signed(material.key(), total), x + 6, y + 52,
+                    pixelWidth - 12, total == 0 ? MUTED : total > 0 ? 0xff75c48b : 0xffe07a7a);
+            } else {
+                drawFitted(graphics, font,
+                    graph.isExternalInput(node.id()) ? "外部输入" : "循环副产物/边界输出", x + 6, y + 38,
+                    pixelWidth - 12, MUTED);
+            }
+        } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {
+            AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 4, material.key());
+            drawFitted(graphics, font, node.label(), x + 24, y + 4, pixelWidth - 28, TEXT);
+        } else {
+            graphics.drawCenteredString(font, graph.isBoundaryMaterial(node.id()) ? "·" : "↻",
+                (x + right) / 2, y + Math.max(2, (pixelHeight - font.lineHeight) / 2), border);
+        }
+    }
+
     private static int screen(float camera, float world, float zoom) {
         return Math.round(camera + world * zoom);
     }
@@ -205,15 +282,16 @@ public final class GraphRenderer {
         return font.plainSubstrByWidth(value, available) + ellipsis;
     }
 
-    private static List<Component> tooltip(@Nullable ClientCraftingGraph.Node node) {
+    private static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
         if (node == null) return List.of();
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
             var pattern = node.pattern();
-            var lines = new java.util.ArrayList<Component>();
+            var lines = new ArrayList<Component>();
             lines.add(Component.literal(pattern.displayIdentity()));
             lines.add(Component.literal("firing count: " + pattern.firingCount()));
-            lines.add(Component.literal("inputs: " + pattern.inputs().size() + ", outputs: " + pattern.outputs().size()));
-            lines.add(Component.literal(pattern.status().name()));
+            lines.add(Component.literal("status: " + pattern.status().name()));
+            lines.add(Component.literal("inputs: " + relationshipText(graph, pattern.inputs())));
+            lines.add(Component.literal("outputs: " + relationshipText(graph, pattern.outputs())));
             if (pattern.rejectionReason() != null) lines.add(Component.literal(pattern.rejectionReason()));
             return lines;
         }
@@ -225,13 +303,32 @@ public final class GraphRenderer {
                 Component.literal("external inputs: " + cycle.externalInputs().size()),
                 Component.literal("required seed: " + cycle.requiredSeed().size()));
         }
-        return node.key() == null ? List.of() : AEKeyRendering.getTooltip(node.key());
+        if (node.key() == null) return List.of();
+        var lines = new ArrayList<>(AEKeyRendering.getTooltip(node.key()));
+        lines.add(Component.literal("registry id: " + node.key().getId()));
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && node.material() != null) {
+            var cycle = graph.source().cycleGroups().stream()
+                .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+            if (cycle != null) {
+                lines.add(Component.literal("single net output: "
+                    + signed(node.key(), amountFor(cycle.singleNetOutputs(), node.key()))));
+                lines.add(Component.literal("total net output: "
+                    + signed(node.key(), amountFor(cycle.totalNetOutputs(), node.key()))));
+                lines.add(Component.literal("required seed: " + amountText(cycle.requiredSeed(), node.key())));
+                lines.add(Component.literal("required output: " + amountText(cycle.requiredOutputs(), node.key())));
+                lines.add(Component.literal("external input: " + amountText(cycle.externalInputs(), node.key())));
+            }
+        }
+        return lines;
     }
 
-    private static int border(ClientCraftingGraph.Node node) {
+    private static int border(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
             return node.pattern().status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? 0xff66a182 : 0xff9a5964;
+        }
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && graph.isBoundaryMaterial(node.id())) {
+            return 0xff71808a;
         }
         return switch (node.material().status()) {
             case SATISFIED -> 0xff68a878;
@@ -250,6 +347,37 @@ public final class GraphRenderer {
             case UNSUPPORTED -> "?";
             case CYCLE -> "↻";
         };
+    }
+
+    private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
+        return values.stream().filter(value -> value.key().equals(key)).mapToLong(
+            CraftingGraphSnapshot.KeyAmount::amount).findFirst().orElse(0L);
+    }
+
+    private static String amountText(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
+        return values.stream().filter(value -> value.key().equals(key)).findFirst()
+            .map(value -> formatMagnitude(key, value.amount())).orElse("-");
+    }
+
+    private static String relationshipText(ClientCraftingGraph graph,
+            List<CraftingGraphSnapshot.Relationship> relationships) {
+        if (relationships.isEmpty()) return "-";
+        return relationships.stream().map(relationship -> {
+            var node = graph.nodes().get(relationship.materialNodeId());
+            String label = node == null || node.key() == null ? "#" + relationship.materialNodeId()
+                : node.key().getDisplayName().getString();
+            return label + " ×" + relationship.amount();
+        }).reduce((left, right) -> left + ", " + right).orElse("-");
+    }
+
+    private static String signed(AEKey key, long amount) {
+        String value = formatMagnitude(key, amount);
+        return amount > 0 ? "+" + value : amount < 0 ? "-" + value : "0";
+    }
+
+    private static String formatMagnitude(AEKey key, long amount) {
+        long magnitude = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
+        return key.formatAmount(magnitude, AmountFormat.SLOT);
     }
 
 }

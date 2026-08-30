@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.CandidateStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Edge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.EdgeKind;
@@ -15,6 +16,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.PatternNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -107,7 +109,8 @@ public final class CraftingGraphSnapshotFactory {
         }
 
         List<CraftingGraphSnapshot.CycleGroup> cycles = new ArrayList<>();
-        for (var cycle : trace.cycles()) {
+        for (int cycleIndex = 0; cycleIndex < trace.cycles().size(); cycleIndex++) {
+            var cycle = trace.cycles().get(cycleIndex);
             for (var internalEdge : cycle.internalEdges()) {
                 var details = internalEdge.pattern().details();
                 if (patternIds.containsKey(details)) continue;
@@ -116,7 +119,8 @@ public final class CraftingGraphSnapshotFactory {
                 List<Relationship> inputs = internalEdge.pattern().inputs().stream()
                     .map(input -> {
                         Integer inputId = nodeIds.get(input.key());
-                        return inputId == null ? null : new Relationship(inputId, input.amountPerPattern());
+                        return inputId == null || !input.amountPerPattern().fitsLong() ? null
+                            : new Relationship(inputId, input.amountPerPattern().longValueExact());
                     })
                     .filter(java.util.Objects::nonNull).toList();
                 List<Relationship> outputs = internalEdge.pattern().outputs().stream()
@@ -143,33 +147,47 @@ public final class CraftingGraphSnapshotFactory {
                 Integer from = nodeIds.get(internalEdge.producer());
                 Integer to = nodeIds.get(internalEdge.requiredInput());
                 if (from != null && to != null) {
-                    internal.add(new Edge(from, to, internalEdge.input().amountPerPattern(), EdgeKind.CYCLE_INTERNAL,
-                        true));
+                    if (internalEdge.input().amountPerPattern().fitsLong()) {
+                        internal.add(new Edge(from, to, internalEdge.input().amountPerPattern().longValueExact(),
+                            EdgeKind.CYCLE_INTERNAL, true));
+                    }
                 }
             }
             for (var externalEdge : cycle.externalEdges()) {
                 Integer from = nodeIds.get(externalEdge.producer());
                 Integer to = nodeIds.get(externalEdge.requiredInput());
                 if (from != null && to != null) {
-                    edges.add(new Edge(from, to, externalEdge.input().amountPerPattern(), EdgeKind.PATTERN_INPUT, true));
+                    if (externalEdge.input().amountPerPattern().fitsLong()) {
+                        edges.add(new Edge(from, to, externalEdge.input().amountPerPattern().longValueExact(),
+                            EdgeKind.PATTERN_INPUT, true));
+                    }
                 }
             }
             var solve = cycle.solveResult();
-            List<KeyAmount> structuralExternalInputs = cycle.externalEdges().stream()
-                .collect(java.util.stream.Collectors.groupingBy(
-                    edge -> edge.requiredInput(), LinkedHashMap::new,
-                    java.util.stream.Collectors.summingLong(edge -> edge.input().amountPerPattern())))
-                .entrySet().stream().map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+            Map<AEKey, Long> externalInputValues = new LinkedHashMap<>();
+            Map<AEKey, PlannerAmount> exactExternalInputs = new LinkedHashMap<>();
+            for (var edge : cycle.externalEdges()) {
+                exactExternalInputs.merge(edge.requiredInput(), edge.input().amountPerPattern(), PlannerAmount::add);
+            }
+            exactExternalInputs.forEach((key, value) -> {
+                if (value.fitsLong()) externalInputValues.put(key, value.longValueExact());
+            });
+            if (solve != null) solve.externalDemand().forEach(externalInputValues::put);
+            List<KeyAmount> externalInputs = keyAmounts(externalInputValues);
+            CycleDiagnostic diagnostic = cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
             cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
                 cycle.status().name(), keyAmounts(cycle.requiredOutputs()),
-                solve == null || solve.externalDemand().isEmpty() ? structuralExternalInputs : keyAmounts(solve.externalDemand()),
+                externalInputs,
                 solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
                 solve == null ? List.of() : solve.patternTimes().entrySet().stream()
                     .filter(entry -> patternIds.containsKey(entry.getKey()))
                     .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue())).toList(),
                 solve == null ? List.of() : solve.executionWitness().stream()
                     .map(firing -> patternIds.get(firing.pattern().details()))
-                    .filter(java.util.Objects::nonNull).toList()));
+                    .filter(java.util.Objects::nonNull).toList(),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.netOutputs()),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.totalNetOutputs()),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.availableAmounts())));
         }
 
         Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
@@ -225,8 +243,8 @@ public final class CraftingGraphSnapshotFactory {
                 if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
                 GenericStack possible = input.getPossibleInputs()[0];
                 Integer id = nodeIds.get(possible.what());
-                if (id != null) result.add(new Relationship(id,
-                    Math.multiplyExact(possible.amount(), input.getMultiplier())));
+                PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.getMultiplier());
+                if (id != null && amount.fitsLong()) result.add(new Relationship(id, amount.longValueExact()));
             }
         } catch (RuntimeException ignored) {
             // A malformed/rejected candidate is still represented, but without unsafe relationship data.

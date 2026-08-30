@@ -25,10 +25,10 @@ import java.util.Map;
  *        └─ no  → BoundedCycleSolver
  * </pre>
  *
- * <p>Only {@link SinglePatternGrowthStatus#SUCCESS} is adopted. Anything else — not applicable, a proven
- * seed shortfall, an overflow — falls through to {@link BoundedCycleSolver} with no side effect, and the
- * reason is recorded as a {@link CycleSolveDiagnostic.Code#NET_GROWTH_NOT_APPLICABLE} annotation on the
- * bounded answer. A declined fast path never turns a cycle into a missing or unsupported verdict.
+ * <p>Only {@link SinglePatternGrowthStatus#SUCCESS} is adopted. Anything not applicable or a proven seed
+ * shortfall falls through to {@link BoundedCycleSolver}; an exact result that cannot cross AE2's long boundary
+ * is reported directly as {@link CycleSolveStatus#UNREPRESENTABLE}. A declined fast path never turns a cycle
+ * into a missing or unsupported verdict.
  */
 public final class SinglePatternGrowthCycleSolver implements CycleSolver {
     private final SinglePatternGrowthCalculator calculator;
@@ -62,6 +62,11 @@ public final class SinglePatternGrowthCycleSolver implements CycleSolver {
             throws InterruptedException {
         cancellation.checkpoint();
         SinglePatternGrowthResult growth = calculator.evaluate(request);
+        if (growth.status() == SinglePatternGrowthStatus.UNREPRESENTABLE) {
+            return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE,
+                List.of(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                    growth.diagnostic())), CycleSolveMetrics.NONE);
+        }
         if (growth.status().solved()) return adopt(growth);
         return fallback.solve(request, cancellation).withAdditionalDiagnostics(List.of(new CycleSolveDiagnostic(
             CycleSolveDiagnostic.Code.NET_GROWTH_NOT_APPLICABLE, growth.summary())));

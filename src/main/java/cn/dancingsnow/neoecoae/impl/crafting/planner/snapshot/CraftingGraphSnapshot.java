@@ -224,7 +224,16 @@ public record CraftingGraphSnapshot(
 
     public record CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
             List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
-            List<PatternAmount> patternTimes, List<Integer> executionWitness) {
+            List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
+            List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts) {
+        /** Compatibility constructor for snapshots written before cycle net-output metadata was added. */
+        public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
+                List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
+                List<PatternAmount> patternTimes, List<Integer> executionWitness) {
+            this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
+                patternTimes, executionWitness, List.of(), List.of(), List.of());
+        }
+
         public CycleGroup {
             memberNodeIds = List.copyOf(memberNodeIds);
             internalEdges = List.copyOf(internalEdges);
@@ -233,12 +242,16 @@ public record CraftingGraphSnapshot(
             requiredSeed = List.copyOf(requiredSeed);
             patternTimes = List.copyOf(patternTimes);
             executionWitness = List.copyOf(executionWitness);
+            singleNetOutputs = List.copyOf(singleNetOutputs);
+            totalNetOutputs = List.copyOf(totalNetOutputs);
+            availableAmounts = List.copyOf(availableAmounts);
         }
 
         private static CycleGroup read(RegistryFriendlyByteBuf data) {
             return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
-                readList(data, PatternAmount::read), readIntList(data));
+                readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
+                readList(data, KeyAmount::read), readList(data, KeyAmount::read));
         }
 
         private void write(RegistryFriendlyByteBuf data) {
@@ -251,6 +264,9 @@ public record CraftingGraphSnapshot(
             writeList(data, requiredSeed, KeyAmount::write);
             writeList(data, patternTimes, PatternAmount::write);
             writeIntList(data, executionWitness);
+            writeList(data, singleNetOutputs, KeyAmount::write);
+            writeList(data, totalNetOutputs, KeyAmount::write);
+            writeList(data, availableAmounts, KeyAmount::write);
         }
     }
 

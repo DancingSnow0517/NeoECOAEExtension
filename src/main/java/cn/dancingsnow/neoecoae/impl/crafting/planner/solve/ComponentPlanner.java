@@ -109,15 +109,21 @@ public final class ComponentPlanner {
             }
         }
 
+        // The acyclic pass has already completed the theoretical arithmetic. A value that cannot be put into an
+        // AE2 long-valued execution field is an explicit representability result, not a cycle or missing verdict.
+        boolean amountUnrepresentable = acyclic.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+
         for (var component : activeCondensation.topologicalOrder()) {
             cancellation.checkpoint();
             trace.addComponent(new ComponentTrace(component.componentId(), component.cyclic()
                 ? ComponentTrace.Type.CYCLIC : ComponentTrace.Type.ACYCLIC, component.members()));
             if (component instanceof AcyclicComponent acyclicComponent) {
-                long demand = acyclic.state().demandFor(acyclicComponent.key());
+                PlannerAmount exactDemand = acyclic.state().demandAmountFor(acyclicComponent.key());
+                long demand = exactDemand.fitsLong() ? exactDemand.longValueExact() : 0L;
                 componentResults.add(new ComponentPlanningResult(component.componentId(),
                     ComponentPlanningResult.Type.ACYCLIC,
-                    demand > 0 ? ComponentPlanningResult.Status.PLANNED : ComponentPlanningResult.Status.NOT_REQUIRED,
+                    exactDemand.signum() > 0 ? ComponentPlanningResult.Status.PLANNED
+                        : ComponentPlanningResult.Status.NOT_REQUIRED,
                     demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
                     acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
                     null, null, Map.of(), null, null));
@@ -125,24 +131,31 @@ public final class ComponentPlanner {
             }
 
             CycleComponent cycle = (CycleComponent) component;
+            Map<AEKey, PlannerAmount> exactRequiredOutputs = new LinkedHashMap<>();
             Map<AEKey, Long> requiredOutputs = new LinkedHashMap<>();
             for (AEKey member : cycle.members()) {
-                long demand = acyclic.state().demandFor(member);
-                if (demand > 0) requiredOutputs.put(member, demand);
+                PlannerAmount exactDemand = acyclic.state().demandAmountFor(member);
+                if (exactDemand.signum() > 0) {
+                    exactRequiredOutputs.put(member, exactDemand);
+                    if (exactDemand.fitsLong()) requiredOutputs.put(member, exactDemand.longValueExact());
+                }
             }
             var ownedDetails = cycle.patterns().stream().map(CompiledPattern::details)
                 .collect(java.util.stream.Collectors.toSet());
             for (var selected : acyclic.state().selected.entrySet()) {
                 if (!ownedDetails.contains(selected.getValue().details())) continue;
-                long demand = acyclic.state().demandFor(selected.getKey());
-                if (demand > 0) requiredOutputs.put(selected.getKey(), demand);
+                PlannerAmount exactDemand = acyclic.state().demandAmountFor(selected.getKey());
+                if (exactDemand.signum() > 0) {
+                    exactRequiredOutputs.put(selected.getKey(), exactDemand);
+                    if (exactDemand.fitsLong()) requiredOutputs.put(selected.getKey(), exactDemand.longValueExact());
+                }
             }
             CyclePlanningStatus cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
             String diagnostic = null;
             CycleSolveResult cycleResult = null;
             CycleExternalDemandStatus externalDemandStatus = null;
             Map<AEKey, Long> externalMissingItems = Map.of();
-            if (requiredOutputs.isEmpty()) {
+            if (exactRequiredOutputs.isEmpty()) {
                 cycleStatus = CyclePlanningStatus.NOT_REQUIRED;
             } else if (!cyclePlanningEnabled) {
                 cycleStatus = CyclePlanningStatus.DISABLED;
@@ -155,23 +168,17 @@ public final class ComponentPlanner {
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
             } else {
                 // The cycle solver is a plug-in: it receives a snapshot and never touches the DAG workspace.
-                Map<AEKey, Long> stock = relevantStock(cycle, requiredOutputs.keySet(), inventory, acyclic.state());
-                Map<AEKey, Long> solveTargets;
-                try {
-                    solveTargets = additionalOutputTargets(requiredOutputs, stock, network.goal());
-                } catch (ArithmeticException overflow) {
-                    solveTargets = Map.of();
-                    cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
-                    diagnostic = "Cycle output target overflow while separating stored stock from new output";
-                    unresolvedCycle = true;
-                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
-                        diagnostic));
-                }
+                Map<AEKey, Long> stock = relevantStock(cycle, exactRequiredOutputs.keySet(), inventory,
+                    acyclic.state());
+                Map<AEKey, PlannerAmount> solveTargets = additionalOutputTargets(exactRequiredOutputs, stock,
+                    network.goal());
                 if (!solveTargets.isEmpty()) {
-                    cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, solveTargets, stock,
-                        cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions()), cancellation);
+                    cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, representable(solveTargets),
+                        solveTargets, stock, cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions()),
+                        cancellation);
                     cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                     diagnostic = cycleResult.summary();
+                    if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
                     unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
                     trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
                 }
@@ -183,8 +190,14 @@ public final class ComponentPlanner {
                     trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
                         external.diagnostic()));
                     if (!external.solved()) {
-                        cycleStatus = external.status() == CycleExternalDemandStatus.UNSUPPORTED
-                            ? CyclePlanningStatus.UNSUPPORTED : CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
+                        if (external.status() == CycleExternalDemandStatus.UNSUPPORTED) {
+                            cycleStatus = CyclePlanningStatus.UNSUPPORTED;
+                        } else if (external.status() == CycleExternalDemandStatus.UNREPRESENTABLE) {
+                            cycleStatus = CyclePlanningStatus.UNREPRESENTABLE;
+                            amountUnrepresentable = true;
+                        } else {
+                            cycleStatus = CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
+                        }
                         diagnostic = external.diagnostic();
                         unresolvedCycle = true;
                     } else if (!acyclic.state().applyCycleTransaction(cycleResult, inventory,
@@ -194,7 +207,8 @@ public final class ComponentPlanner {
                         unresolvedCycle = true;
                     } else {
                         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SOLVED,
-                            "Cycle and external DAG merged with " + cycleResult.totalFirings() + " cycle firing(s)"));
+                            "Cycle and external DAG merged with " + cycleResult.plannerTotalFirings()
+                                + " cycle firing(s)"));
                     }
                 }
             }
@@ -203,7 +217,7 @@ public final class ComponentPlanner {
             trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(), externalEdges,
                 requiredOutputs, cycleStatus, cycleResult));
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0,
-                cycleResult == null ? 0 : cycleResult.totalFirings(),
+                cycleResult == null ? 0 : traceLong(cycleResult.plannerTotalFirings()),
                 switch (cycleStatus) {
                     case NOT_REQUIRED -> PlanTraceNode.Selection.NOT_APPLICABLE;
                     case SOLVED -> PlanTraceNode.Selection.SELECTED;
@@ -212,13 +226,16 @@ public final class ComponentPlanner {
                 cycleStatus.name()));
             componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                 ComponentPlanningResult.Type.CYCLIC,
-                componentStatus(requiredOutputs, cycleStatus),
+                componentStatus(exactRequiredOutputs, cycleStatus),
                 requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
                 cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult));
-            cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult));
+            cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult, trace));
         }
 
         PlanningStatus status = acyclic.status();
+        if (amountUnrepresentable || !acyclic.state().executionAmountIssues().isEmpty()) {
+            status = PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+        }
         if (unresolvedCycle && (status == PlanningStatus.SUCCESS || status == PlanningStatus.MISSING_ITEMS)) {
             status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
                 ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
@@ -244,25 +261,31 @@ public final class ComponentPlanner {
 
     /** Stock the DAG pass has not already spent. The cycle solver must never double-spend an item. */
     private static long remaining(KeyCounter inventory, SolveState state, AEKey key) {
-        return Math.max(0L, inventory.get(key) - state.usedItems().get(key));
+        PlannerAmount available = PlannerAmount.of(inventory.get(key));
+        PlannerAmount used = state.used.get(key);
+        return available.compareTo(used) > 0 ? available.subtract(used).longValueExact() : 0L;
     }
 
     /**
      * Cycle stock may enable the witness, but AE2 crafting amounts mean newly requested output. Without this
      * translation, stored copies of the final output satisfy the solver target and produce an empty CPU job.
      */
-    private static Map<AEKey, Long> additionalOutputTargets(Map<AEKey, Long> requiredOutputs,
+    private static Map<AEKey, PlannerAmount> additionalOutputTargets(Map<AEKey, PlannerAmount> requiredOutputs,
             Map<AEKey, Long> relevantStock, AEKey finalGoal) {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
-        requiredOutputs.forEach((key, amount) ->
-            result.put(key, key.equals(finalGoal)
-                ? Math.addExact(amount, Math.max(0L, relevantStock.getOrDefault(key, 0L)))
-                : amount));
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        requiredOutputs.forEach((key, amount) -> {
+            if (!key.equals(finalGoal)) {
+                result.put(key, amount);
+                return;
+            }
+            result.put(key, amount.add(Math.max(0L, relevantStock.getOrDefault(key, 0L))));
+        });
         return Map.copyOf(result);
     }
 
-    private static ComponentPlanningResult.Status componentStatus(Map<AEKey, Long> requiredOutputs,
+    private static ComponentPlanningResult.Status componentStatus(Map<AEKey, PlannerAmount> requiredOutputs,
             CyclePlanningStatus status) {
+        if (status == CyclePlanningStatus.UNREPRESENTABLE) return ComponentPlanningResult.Status.UNREPRESENTABLE;
         if (requiredOutputs.isEmpty()) return ComponentPlanningResult.Status.NOT_REQUIRED;
         return switch (status) {
             case SOLVED -> ComponentPlanningResult.Status.SOLVED_NOT_EMITTED;
@@ -278,9 +301,19 @@ public final class ComponentPlanner {
             case UNKNOWN_BUDGET -> PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED;
             case TOO_COMPLEX -> PlannerDiagnostic.Code.CYCLE_TOO_COMPLEX;
             case UNSUPPORTED -> PlannerDiagnostic.Code.CYCLE_UNSUPPORTED;
+            case UNREPRESENTABLE -> PlannerDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE;
             case CANCELLED -> PlannerDiagnostic.Code.CANCELLED;
             default -> PlannerDiagnostic.Code.CYCLE_NOT_IMPLEMENTED;
         };
+    }
+
+    private static void addAmountDiagnostic(ECOPlanTrace trace, AEKey key, IPatternDetails producer,
+            PlannerAmount amount, String stage) {
+        String pattern = producer == null ? "<counter>" : producer.toString();
+        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+            "Execution amount exceeds AE2 long range: key=" + key + " producer=" + pattern
+                + " pattern=" + pattern + " amount=" + amount + " max=" + Long.MAX_VALUE
+                + " stage=" + stage));
     }
 
     private static PlannerDiagnostic.Code externalDiagnosticCode(CycleExternalDemandStatus status) {
@@ -290,56 +323,68 @@ public final class ComponentPlanner {
             case FORBIDDEN_ROUTE -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_ROUTE_FORBIDDEN;
             case UNSUPPORTED -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_UNSUPPORTED;
             case OVERFLOW -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_OVERFLOW;
+            case UNREPRESENTABLE -> PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_UNREPRESENTABLE;
         };
     }
 
     private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory,
-            CycleSolveResult cycleResult) {
-        Map<AEKey, Long> net = new LinkedHashMap<>();
-        for (AEKey member : cycle.members()) net.put(member, 0L);
+            CycleSolveResult cycleResult, ECOPlanTrace trace) {
+        Map<AEKey, PlannerAmount> exactNet = new LinkedHashMap<>();
+        for (AEKey member : cycle.members()) exactNet.put(member, PlannerAmount.ZERO);
         Set<IPatternDetails> countedPatterns = new HashSet<>();
         for (var pattern : cycle.patterns()) {
             if (!countedPatterns.add(pattern.details())) continue;
-            for (var output : pattern.outputs()) if (net.containsKey(output.what())) {
-                net.put(output.what(), saturatedAdd(net.get(output.what()), output.amount()));
+            for (var output : pattern.outputs()) if (exactNet.containsKey(output.what())) {
+                exactNet.put(output.what(), exactNet.get(output.what()).add(output.amount()));
             }
-            for (CompiledInput input : pattern.inputs()) if (net.containsKey(input.key())) {
-                net.put(input.key(), saturatedAdd(net.get(input.key()), -input.amountPerPattern()));
+            for (CompiledInput input : pattern.inputs()) if (exactNet.containsKey(input.key())) {
+                exactNet.put(input.key(), exactNet.get(input.key()).subtract(input.amountPerPattern()));
             }
         }
-        Map<AEKey, Long> total = new LinkedHashMap<>();
-        for (AEKey member : cycle.members()) total.put(member, 0L);
+        Map<AEKey, PlannerAmount> exactTotal = new LinkedHashMap<>();
+        for (AEKey member : cycle.members()) exactTotal.put(member, PlannerAmount.ZERO);
         if (cycleResult == null || cycleResult.status() != CycleSolveStatus.SUCCESS) {
-            total.putAll(net);
+            exactTotal.putAll(exactNet);
         } else {
             countedPatterns.clear();
             for (var pattern : cycle.patterns()) {
                 if (!countedPatterns.add(pattern.details())) continue;
                 long times = cycleResult.patternTimes().getOrDefault(pattern.details(), 0L);
                 if (times == 0) continue;
-                for (var output : pattern.outputs()) if (total.containsKey(output.what())) {
-                    total.put(output.what(), saturatedAdd(total.get(output.what()),
-                        saturatedMultiply(output.amount(), times)));
+                for (var output : pattern.outputs()) if (exactTotal.containsKey(output.what())) {
+                    exactTotal.put(output.what(), exactTotal.get(output.what()).add(
+                        PlannerAmount.of(output.amount()).multiply(times)));
                 }
-                for (CompiledInput input : pattern.inputs()) if (total.containsKey(input.key())) {
-                    total.put(input.key(), saturatedAdd(total.get(input.key()),
-                        saturatedMultiply(-input.amountPerPattern(), times)));
+                for (CompiledInput input : pattern.inputs()) if (exactTotal.containsKey(input.key())) {
+                    exactTotal.put(input.key(), exactTotal.get(input.key()).subtract(
+                        input.amountPerPattern().multiply(times)));
                 }
             }
         }
+        addWideCycleDiagnostics(trace, exactNet, "cycle net output");
+        addWideCycleDiagnostics(trace, exactTotal, "cycle total net output");
         return new CycleDiagnostic(cycle.members(), cycle.patterns().stream().map(p -> p.details()).toList(),
-            net, total, Map.of()).withAvailableAmounts(inventory);
+            representable(exactNet), representable(exactTotal), Map.of()).withAvailableAmounts(inventory);
     }
 
-    private static long saturatedAdd(long left, long right) {
-        try { return Math.addExact(left, right); }
-        catch (ArithmeticException ignored) { return right >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE; }
+    private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> exact) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        for (var entry : exact.entrySet()) {
+            if (entry.getValue().fitsLong()) result.put(entry.getKey(), entry.getValue().longValueExact());
+        }
+        return result;
     }
 
-    private static long saturatedMultiply(long left, long right) {
-        try { return Math.multiplyExact(left, right); }
-        catch (ArithmeticException ignored) {
-            return (left < 0) == (right < 0) ? Long.MAX_VALUE : Long.MIN_VALUE;
+    private static long traceLong(PlannerAmount amount) {
+        return amount.fitsLong() ? amount.longValueExact() : 0L;
+    }
+
+    private static void addWideCycleDiagnostics(ECOPlanTrace trace, Map<AEKey, PlannerAmount> exact,
+            String stage) {
+        for (var entry : exact.entrySet()) {
+            if (!entry.getValue().fitsLong()) {
+                addAmountDiagnostic(trace, entry.getKey(), null, entry.getValue(), stage);
+            }
         }
     }
 }

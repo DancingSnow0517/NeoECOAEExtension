@@ -9,6 +9,9 @@ import java.util.Map;
 
 public final class AE2CraftingPlanBridge {
     public CraftingPlan success(AEKey goal, long amount, boolean simulation, boolean multiplePaths, SolveState state) {
+        if (!state.executionAmountIssues().isEmpty()) {
+            throw new IllegalArgumentException("Theoretical plan is not representable by AE2 long fields");
+        }
         return new CraftingPlan(new GenericStack(goal, amount), Math.max(0, state.bytes()), simulation, multiplePaths,
             state.usedItems(), state.emittedItems(), state.missingItems(), state.patternTimes());
     }

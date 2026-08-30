@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -63,8 +64,9 @@ public final class CraftingNetworkCompiler {
             boolean cyclePlanningEnabled) {
         List<CompiledInput> inputs = new ArrayList<>();
         List<GenericStack> outputs;
-        long outputPerPattern = 0;
+        PlannerAmount outputPerPattern = PlannerAmount.ZERO;
         String unsupported = null;
+        String contractEvidence = null;
         boolean netGrowthValidated = cyclePlanningEnabled
             && (NetGrowthPatternValidationRegistry.isValidated(details)
                 || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details));
@@ -79,10 +81,10 @@ public final class CraftingNetworkCompiler {
                     continue;
                 }
                 if (producedKey.equals(output.what())) {
-                    outputPerPattern = Math.addExact(outputPerPattern, output.amount());
+                    outputPerPattern = outputPerPattern.add(output.amount());
                 }
             }
-            if (outputPerPattern <= 0) {
+            if (outputPerPattern.signum() <= 0) {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
             }
 
@@ -94,22 +96,24 @@ public final class CraftingNetworkCompiler {
                     List<CompiledInput> compiledInputs = compileInputs(input);
                     inputs.addAll(compiledInputs);
                     for (CompiledInput compiledInput : compiledInputs) {
+                        if (!compiledInput.unsupportedReason().isEmpty() && contractEvidence == null) {
+                            contractEvidence = compiledInput.unsupportedReason();
+                        }
                         if (!compiledInput.fastSupported() && unsupported == null) {
                             unsupported = compiledInput.unsupportedReason();
                         }
                     }
                 }
             }
-        } catch (ArithmeticException e) {
-            outputs = safeOutputs(details);
-            unsupported = "AMOUNT_OVERFLOW";
         } catch (RuntimeException e) {
             outputs = safeOutputs(details);
             unsupported = "MALFORMED_PATTERN:" + e.getClass().getSimpleName();
         }
+        String recordedReason = unsupported != null ? unsupported
+            : contractEvidence == null ? "" : contractEvidence;
         return new CompiledPattern(
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
-            unsupported == null ? "" : unsupported, netGrowthValidated
+            recordedReason, netGrowthValidated
         );
     }
 
@@ -126,24 +130,18 @@ public final class CraftingNetworkCompiler {
         if (primary.amount() <= 0 || multiplier <= 0) {
             return List.of(new CompiledInput(input, primary.what(), 0, false, "INVALID_INPUT_AMOUNT"));
         }
-        if (possible.length != 1) {
-            List<CompiledInput> alternatives = new ArrayList<>(possible.length);
-            for (GenericStack alternative : possible) {
-                if (alternative == null || alternative.what() == null || alternative.amount() <= 0) {
-                    throw new IllegalArgumentException("invalid possible input");
-                }
-                alternatives.add(new CompiledInput(input, alternative.what(),
-                    Math.multiplyExact(alternative.amount(), multiplier), false, "UNSUPPORTED_SUBSTITUTION"));
-            }
-            return List.copyOf(alternatives);
-        }
-        long amount = Math.multiplyExact(primary.amount(), multiplier);
+        // A substitution set is still safe to plan when the planner commits to one concrete member. Use the
+        // pattern's primary input deterministically; AE2 may accept other members at execution time, but the
+        // aggregate plan never relies on that substitution. Keeping every alternative here would turn one input
+        // slot into simultaneous dependencies and excluding the pattern would hide valid acyclic producer routes.
+        PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(multiplier);
         AEKey remainder = input.getRemainingKey(primary.what());
         if (remainder != null) {
             return List.of(new CompiledInput(input, primary.what(), amount, false, "UNSUPPORTED_REMAINDER",
-                remainder, multiplier));
+                remainder, PlannerAmount.of(multiplier)));
         }
-        return List.of(new CompiledInput(input, primary.what(), amount, true, ""));
+        return List.of(new CompiledInput(input, primary.what(), amount, true,
+            possible.length == 1 ? "" : "UNSUPPORTED_SUBSTITUTION"));
     }
 
     private static List<GenericStack> safeOutputs(IPatternDetails details) {

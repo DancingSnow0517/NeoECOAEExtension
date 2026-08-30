@@ -13,7 +13,7 @@ import java.util.Set;
 /** Compact top-down tree layout. It deliberately uses the projection's repeated occurrences, not DAG geometry. */
 public final class CompactTreeLayout implements GraphLayoutEngine {
     public static final float LEVEL_GAP = 16;
-    public static final float SIBLING_GAP = 8;
+    public static final float SIBLING_GAP = -1;
 
     @Override
     public GraphLayoutSnapshot layout(ClientCraftingGraph graph, long version) {
@@ -35,7 +35,7 @@ public final class CompactTreeLayout implements GraphLayoutEngine {
             int root = roots.get(i);
             float width = widths.getOrDefault(root, nodeWidth(graph, root));
             rootPositions[i] = x;
-            x += width + SIBLING_GAP * 3;
+            x += width + SIBLING_GAP;
         }
         for (int i = roots.size() - 1; i >= 0; i--) {
             int root = roots.get(i);

@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -94,33 +95,46 @@ public final class PatternProfileValidator {
         if (pattern.outputs().isEmpty()) return NetGrowthRejection.INDETERMINATE_OUTPUT;
         if (pattern.inputs().isEmpty()) return NetGrowthRejection.NO_INPUTS;
 
-        try {
-            for (GenericStack output : pattern.outputs()) {
-                if (output == null || output.what() == null || output.amount() <= 0) {
-                    return NetGrowthRejection.INDETERMINATE_OUTPUT;
-                }
-                production.merge(output.what(), output.amount(), Math::addExact);
+        Map<AEKey, PlannerAmount> exactConsumption = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> exactProduction = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> exactRemainder = new LinkedHashMap<>();
+        for (GenericStack output : pattern.outputs()) {
+            if (output == null || output.what() == null || output.amount() <= 0) {
+                return NetGrowthRejection.INDETERMINATE_OUTPUT;
             }
-            for (CompiledInput input : pattern.inputs()) {
-                // NET_GROWTH_SAFE is independent of fast execution. The smart-bus verdict already excludes
-                // substitution and stateful inputs; this layer only materializes its recorded contract.
-                if (input == null || input.key() == null || input.amountPerPattern() <= 0) {
+            exactProduction.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
+        }
+        for (CompiledInput input : pattern.inputs()) {
+            // NET_GROWTH_SAFE is independent of fast execution. The smart-bus verdict already excludes
+            // substitution and stateful inputs; this layer only materializes its recorded contract.
+            if (input == null || input.key() == null || input.amountPerPattern().signum() <= 0) {
+                return NetGrowthRejection.INDETERMINATE_INPUT;
+            }
+            exactConsumption.merge(input.key(), input.amountPerPattern(), PlannerAmount::add);
+            if (input.remainderKey() != null) {
+                if (input.remainderAmountPerPattern().signum() <= 0) {
                     return NetGrowthRejection.INDETERMINATE_INPUT;
                 }
-                consumption.merge(input.key(), input.amountPerPattern(), Math::addExact);
-                if (input.remainderKey() != null) {
-                    if (input.remainderAmountPerPattern() <= 0) {
-                        return NetGrowthRejection.INDETERMINATE_INPUT;
-                    }
-                    remainder.merge(input.remainderKey(), input.remainderAmountPerPattern(), Math::addExact);
-                }
+                exactRemainder.merge(input.remainderKey(), input.remainderAmountPerPattern(), PlannerAmount::add);
             }
-            for (AEKey key : remainder.keySet()) {
-                Math.addExact(production.getOrDefault(key, 0L), remainder.get(key));
+        }
+        for (AEKey key : exactRemainder.keySet()) {
+            if (!exactProduction.getOrDefault(key, PlannerAmount.ZERO).add(exactRemainder.get(key)).fitsLong()) {
+                return NetGrowthRejection.UNREPRESENTABLE;
             }
-        } catch (ArithmeticException overflow) {
-            return NetGrowthRejection.AMOUNT_OVERFLOW;
+        }
+        if (!copyExact(exactConsumption, consumption) || !copyExact(exactProduction, production)
+                || !copyExact(exactRemainder, remainder)) {
+            return NetGrowthRejection.UNREPRESENTABLE;
         }
         return NetGrowthRejection.NONE;
+    }
+
+    private static boolean copyExact(Map<AEKey, PlannerAmount> source, Map<AEKey, Long> target) {
+        for (var entry : source.entrySet()) {
+            if (!entry.getValue().fitsLong()) return false;
+            target.put(entry.getKey(), entry.getValue().longValueExact());
+        }
+        return true;
     }
 }

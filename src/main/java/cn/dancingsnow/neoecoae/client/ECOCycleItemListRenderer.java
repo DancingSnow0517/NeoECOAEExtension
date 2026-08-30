@@ -42,6 +42,11 @@ final class ECOCycleItemListRenderer {
 
     void render(GuiGraphics graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
             int scrollOffset) {
+        render(graphics, mouseX, mouseY, items, scrollOffset, null);
+    }
+
+    void render(GuiGraphics graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
+            int scrollOffset, @Nullable Integer selectedComponentId) {
         int localMouseX = mouseX - screen.getGuiLeft();
         int localMouseY = mouseY - screen.getGuiTop();
         hoveredStack = null;
@@ -54,7 +59,8 @@ final class ECOCycleItemListRenderer {
             int cellY = y + (index - scrollOffset) * ROW_HEIGHT;
             boolean hovered = localMouseX >= x && localMouseX < x + CELL_WIDTH
                 && localMouseY >= cellY && localMouseY < cellY + ROW_HEIGHT - 1;
-            (hovered ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
+            boolean selected = selectedComponentId != null && selectedComponentId == entry.componentId();
+            (hovered || selected ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<net.minecraft.network.chat.Component> lines = List.of(
@@ -84,6 +90,9 @@ final class ECOCycleItemListRenderer {
                     new Rect2i(screen.getGuiLeft() + x, screen.getGuiTop() + cellY,
                         CELL_WIDTH, ROW_HEIGHT - 1));
                 var tooltip = AEKeyRendering.getTooltip(item);
+                if (entry.componentId() >= 0) {
+                    tooltip.add(net.minecraft.network.chat.Component.literal("Cycle #" + entry.componentId()));
+                }
                 tooltip.add(net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.single_net_output",
                     formatNetOutput(item, entry.singleNetOutput(), AmountFormat.FULL)));
@@ -111,6 +120,20 @@ final class ECOCycleItemListRenderer {
 
     int getScrollableRows(int size) {
         return Math.max(0, size - VISIBLE_ROWS);
+    }
+
+    @Nullable ECOCycleItemList.Entry entryAt(double mouseX, double mouseY,
+            List<ECOCycleItemList.Entry> items, int scrollOffset) {
+        int localMouseX = (int) mouseX - screen.getGuiLeft();
+        int localMouseY = (int) mouseY - screen.getGuiTop();
+        if (localMouseX < x || localMouseX >= x + CELL_WIDTH) return null;
+        if (localMouseY < y) return null;
+        int row = (localMouseY - y) / ROW_HEIGHT;
+        if (row < 0 || row >= VISIBLE_ROWS) return null;
+        int index = scrollOffset + row;
+        if (index < 0 || index >= items.size()) return null;
+        int cellY = y + row * ROW_HEIGHT;
+        return localMouseY < cellY + ROW_HEIGHT - 1 ? items.get(index) : null;
     }
 
     @Nullable StackWithBounds getHoveredStack() {

@@ -4,8 +4,11 @@ import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -38,8 +41,53 @@ public final class CompactTreeRenderer {
             drawNode(graphics, graph, node, box, selected, neighborhood.contains(node.id()), cameraX, cameraY, zoom);
             if (box.contains(worldMouseX, worldMouseY)) hovered = node;
         }
+        drawRowFrames(graphics, layout, cameraX, cameraY, zoom);
         profiler.update(visible.nodes().size(), visible.edges().size(), System.nanoTime() - started);
         return new GraphRenderer.Frame(hovered, tooltip(graph, hovered));
+    }
+
+    private static void drawRowFrames(GuiGraphics graphics, GraphLayoutSnapshot layout,
+            float cameraX, float cameraY, float zoom) {
+        Map<Float, List<GraphLayoutSnapshot.Box>> rows = new HashMap<>();
+        for (var box : layout.boxes().values()) {
+            rows.computeIfAbsent(box.y(), ignored -> new ArrayList<>()).add(box);
+        }
+        for (var row : rows.values()) {
+            row.sort(Comparator.comparingDouble(GraphLayoutSnapshot.Box::x));
+            float left = 0;
+            float top = 0;
+            float right = 0;
+            float bottom = 0;
+            boolean active = false;
+            for (var box : row) {
+                if (!active || box.x() > right + 0.001f) {
+                    if (active) drawRowFrame(graphics, left, top, right, bottom, cameraX, cameraY, zoom);
+                    left = box.x();
+                    top = box.y();
+                    right = box.x() + box.width();
+                    bottom = box.y() + box.height();
+                    active = true;
+                } else {
+                    right = Math.max(right, box.x() + box.width());
+                    bottom = Math.max(bottom, box.y() + box.height());
+                }
+            }
+            if (active) drawRowFrame(graphics, left, top, right, bottom, cameraX, cameraY, zoom);
+        }
+    }
+
+    private static void drawRowFrame(GuiGraphics graphics, float left, float top, float right, float bottom,
+            float cameraX, float cameraY, float zoom) {
+        int x = screen(cameraX, left, zoom);
+        int y = screen(cameraY, top, zoom);
+        int r = screen(cameraX, right, zoom);
+        int b = screen(cameraY, bottom, zoom);
+        if (r <= x || b <= y) return;
+        int color = 0xff8293a4;
+        graphics.fill(x, y, r, Math.min(b, y + 1), color);
+        graphics.fill(x, Math.max(y, b - 1), r, b, color);
+        graphics.fill(x, y, Math.min(r, x + 1), b, color);
+        graphics.fill(Math.max(x, r - 1), y, r, b, color);
     }
 
     private static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
@@ -100,26 +148,18 @@ public final class CompactTreeRenderer {
         int right = screen(cameraX, box.x() + box.width(), zoom);
         int bottom = screen(cameraY, box.y() + box.height(), zoom);
         if (right <= x || bottom <= y) return;
-        int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : nodeBorder(graph, node);
-        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) drawFolder(graphics, graph, node, x, y, right,
-            bottom, border);
-        else {
-            graphics.fill(x, y, right, bottom, 0xee171b20);
-            graphics.fill(x, y, right, Math.min(bottom, y + 1), border);
-            graphics.fill(x, Math.max(y, bottom - 1), right, bottom, border);
-            graphics.fill(x, y, Math.min(right, x + 1), bottom, border);
-            graphics.fill(Math.max(x, right - 1), y, right, bottom, border);
-            drawCompactContent(graphics, node, x, y, right, bottom, border, zoom);
+        int accent = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : nodeBorder(graph, node);
+        int background = selected ? 0xee2b271c : adjacent ? 0xee182527 : 0xee171b20;
+        graphics.fill(x, y, right, bottom, background);
+        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
+            drawFolder(graphics, graph, node, x, y, right, bottom, accent);
+        } else {
+            drawCompactContent(graphics, node, x, y, right, bottom, accent, zoom);
         }
     }
 
     private static void drawFolder(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
             int x, int y, int right, int bottom, int border) {
-        graphics.fill(x, y, right, bottom, 0xee20262d);
-        graphics.fill(x, y, right, Math.min(bottom, y + 1), border);
-        graphics.fill(x, Math.max(y, bottom - 1), right, bottom, border);
-        graphics.fill(x, y, Math.min(right, x + 1), bottom, border);
-        graphics.fill(Math.max(x, right - 1), y, right, bottom, border);
         CompactTreeNode metadata = graph.compactTreeNode(node.id());
         if (metadata == null || bottom - y < 14) return;
         Font font = Minecraft.getInstance().font;

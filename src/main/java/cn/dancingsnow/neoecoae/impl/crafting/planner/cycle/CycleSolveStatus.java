@@ -22,6 +22,8 @@ public enum CycleSolveStatus {
     TOO_COMPLEX,
     /** A pattern inside the SCC is not batch-safe (substitutions, remainders, malformed amounts). */
     UNSUPPORTED_PATTERN,
+    /** The exact cycle contract is known, but an AE2 long-valued execution field cannot carry it. */
+    UNREPRESENTABLE,
     /** Cancellation was observed and converted into a value instead of an exception. */
     CANCELLED,
     /** Reported by the deliberately inert stage-zero solver. */

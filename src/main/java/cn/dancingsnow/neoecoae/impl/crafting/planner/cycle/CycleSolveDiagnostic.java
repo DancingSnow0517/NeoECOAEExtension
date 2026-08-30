@@ -33,6 +33,7 @@ public record CycleSolveDiagnostic(Code code, String message) {
         UNSUPPORTED_PATTERN,
         NO_TRANSITIONS,
         AMOUNT_OVERFLOW,
+        EXECUTION_AMOUNT_UNREPRESENTABLE,
         CANCELLED,
         NOT_IMPLEMENTED,
         SEARCH_METRICS

@@ -26,6 +26,8 @@ public record ComponentPlanningResult(
         NOT_REQUIRED,
         UNRESOLVED,
         UNSUPPORTED,
+        /** The component's exact demand exists but cannot be carried by an AE2 long-valued field. */
+        UNREPRESENTABLE,
         /** The cycle solver produced a verified firing order that stage one deliberately does not emit yet. */
         SOLVED_NOT_EMITTED
     }

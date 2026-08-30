@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,9 +127,19 @@ public record CycleSolveResult(
             producedOutputs, deliverableOutputs, executionWitness, executionPlan, merged, metrics);
     }
 
-    /** Total firings in the plan; equals {@code executionWitness.size()} whenever a witness is present. */
+    /** Exact total firings in the plan; it may exceed the legacy long projection. */
+    public PlannerAmount plannerTotalFirings() {
+        PlannerAmount total = PlannerAmount.ZERO;
+        for (long count : patternTimes.values()) total = total.add(count);
+        return total;
+    }
+
+    /**
+     * Legacy long accessor. Callers that cannot prove representability must use
+     * {@link #plannerTotalFirings()} instead; this conversion intentionally never saturates or truncates.
+     */
     public long totalFirings() {
-        return patternTimes.values().stream().mapToLong(Long::longValue).sum();
+        return plannerTotalFirings().longValueExact();
     }
 
     public String summary() {

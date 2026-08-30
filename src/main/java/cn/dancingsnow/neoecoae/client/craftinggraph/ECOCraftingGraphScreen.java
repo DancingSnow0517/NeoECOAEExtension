@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.craftinggraph;
 
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.HashSet;
 import java.util.Locale;
@@ -23,6 +24,8 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private final Screen previous;
     private final CraftingGraphSnapshot snapshot;
+    private final @Nullable Integer initialCycleComponentId;
+    private final @Nullable AEKey initialFocusedMaterial;
     private GraphLayoutCache layoutCache;
     private final GraphRenderer renderer = new GraphRenderer();
     private final GraphProfiler profiler = new GraphProfiler();
@@ -48,11 +51,20 @@ public final class ECOCraftingGraphScreen extends Screen {
     private boolean lastClickWasFolder;
 
     public ECOCraftingGraphScreen(Screen previous, CraftingGraphSnapshot snapshot) {
+        this(previous, snapshot, null, null);
+    }
+
+    public ECOCraftingGraphScreen(Screen previous, CraftingGraphSnapshot snapshot,
+            @Nullable Integer initialCycleComponentId, @Nullable AEKey focusedMaterial) {
         super(Component.translatable("gui.neoecoae.crafting_graph.title"));
         this.previous = previous;
         this.snapshot = snapshot;
-        this.baseGraph = ClientCraftingGraph.main(snapshot, false);
+        this.initialCycleComponentId = initialCycleComponentId;
+        this.initialFocusedMaterial = focusedMaterial;
+        this.baseGraph = initialCycleComponentId == null ? ClientCraftingGraph.main(snapshot, false)
+            : ClientCraftingGraph.cycle(snapshot, initialCycleComponentId, false, focusedMaterial);
         this.graph = baseGraph;
+        this.selectedId = baseGraph.focusedMaterialId() != null ? baseGraph.focusedMaterialId() : baseGraph.rootId();
         this.layoutMode = GraphLayout.Mode.fromSystemProperty();
         this.layoutCache = new GraphLayoutCache(layoutMode);
     }
@@ -76,7 +88,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         search.setHint(Component.literal("Search AEKey / item"));
         search.setResponder(ignored -> {});
         addRenderableWidget(search);
-        rebuildGraph(false);
+        rebuildGraph(initialCycleComponentId != null);
     }
 
     private int addButton(int x, int width, String label, Runnable action) {
@@ -130,26 +142,61 @@ public final class ECOCraftingGraphScreen extends Screen {
         var cycle = snapshot.cycleGroups().stream()
             .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
         if (cycle == null) return;
-        int panelWidth = 210;
+        int panelWidth = 250;
         int left = width - panelWidth - 8;
         int top = 38;
-        int lines = 5 + (!cycle.requiredSeed().isEmpty() ? 1 : 0) + (!cycle.externalInputs().isEmpty() ? 1 : 0)
-            + (!cycle.patternTimes().isEmpty() ? 1 : 0) + (!cycle.executionWitness().isEmpty() ? 1 : 0);
+        int lines = 7;
         graphics.fill(left, top, width - 8, top + 10 + lines * 12, 0xdd171b20);
-        graphics.drawString(font, "Cycle #" + cycle.componentId() + " · " + cycle.status(), left + 7, top + 6,
-            0xffe2b766, false);
+        graphics.drawString(font, "Cycle #" + cycle.componentId(), left + 7, top + 6, 0xffe2b766, false);
         int y = top + 19;
+        y = textLine(graphics, left, y, "status", statusText(cycle.status()));
+        y = textLine(graphics, left, y, "seed", summarizeAmounts(cycle.requiredSeed()));
+        y = textLine(graphics, left, y, "external", summarizeAmounts(cycle.externalInputs()));
+        y = textLine(graphics, left, y, "execute", summarizePatterns(cycle));
+        y = line(graphics, left, y, "witness steps", cycle.executionWitness().size());
         y = line(graphics, left, y, "members", cycle.memberNodeIds().size());
-        y = line(graphics, left, y, "required outputs", cycle.requiredOutputs().size());
-        y = line(graphics, left, y, "external inputs", cycle.externalInputs().size());
-        if (!cycle.requiredSeed().isEmpty()) y = line(graphics, left, y, "required seed", cycle.requiredSeed().size());
-        if (!cycle.patternTimes().isEmpty()) y = line(graphics, left, y, "pattern times", cycle.patternTimes().size());
-        if (!cycle.executionWitness().isEmpty()) line(graphics, left, y, "execution witness", cycle.executionWitness().size());
+        line(graphics, left, y, "required outputs", cycle.requiredOutputs().size());
     }
 
     private int line(GuiGraphics graphics, int left, int y, String name, int value) {
         graphics.drawString(font, name + ": " + value, left + 7, y, 0xffaeb8c2, false);
         return y + 12;
+    }
+
+    private int textLine(GuiGraphics graphics, int left, int y, String name, Component value) {
+        graphics.drawString(font, name + ": ", left + 7, y, 0xffaeb8c2, false);
+        graphics.drawString(font, value, left + 7 + font.width(name + ": "), y, 0xffe2b766, false);
+        return y + 12;
+    }
+
+    private Component summarizeAmounts(List<CraftingGraphSnapshot.KeyAmount> values) {
+        if (values.isEmpty()) return Component.literal("-");
+        StringBuilder text = new StringBuilder();
+        int shown = Math.min(2, values.size());
+        for (int i = 0; i < shown; i++) {
+            if (i > 0) text.append(", ");
+            var value = values.get(i);
+            text.append(value.key().getDisplayName().getString()).append(" ×").append(value.amount());
+        }
+        if (values.size() > shown) text.append(" +").append(values.size() - shown).append(" more");
+        return Component.literal(text.toString());
+    }
+
+    private Component summarizePatterns(CraftingGraphSnapshot.CycleGroup cycle) {
+        if (cycle.patternTimes().isEmpty()) return Component.literal("-");
+        StringBuilder text = new StringBuilder();
+        int shown = Math.min(2, cycle.patternTimes().size());
+        for (int i = 0; i < shown; i++) {
+            if (i > 0) text.append(", ");
+            var value = cycle.patternTimes().get(i);
+            var pattern = snapshot.patterns().stream()
+                .filter(candidate -> candidate.patternNodeId() == value.patternNodeId()).findFirst().orElse(null);
+            text.append(pattern == null ? "Pattern #" + value.patternNodeId() : pattern.displayIdentity())
+                .append(" ×").append(value.amount());
+        }
+        if (cycle.patternTimes().size() > shown) text.append(" +").append(cycle.patternTimes().size() - shown)
+            .append(" more");
+        return Component.literal(text.toString());
     }
 
     @Override
@@ -350,8 +397,11 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private void toggleAdvanced() {
         advanced = !advanced;
+        AEKey focusedMaterial = graph.focusedMaterialId() == null ? null
+            : graph.nodes().get(graph.focusedMaterialId()) == null ? null
+                : graph.nodes().get(graph.focusedMaterialId()).key();
         baseGraph = graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
-            ? ClientCraftingGraph.cycle(snapshot, graph.focusedCycleId(), advanced)
+            ? ClientCraftingGraph.cycle(snapshot, graph.focusedCycleId(), advanced, focusedMaterial)
             : ClientCraftingGraph.main(snapshot, advanced);
         refreshControls();
     }
@@ -363,7 +413,11 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void rebuildGraph(boolean fit) {
-        if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
+        if (baseGraph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+            // A cycle focus is a complete SCC explanation. Depth/collapse controls belong to MAIN projection and
+            // must never silently remove a boundary or an internal pattern from this view.
+            graph = baseGraph;
+        } else if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
             graph = CompactTreeProjection.project(baseGraph, depth, expandedTreePaths, fullyExpandedTreePaths,
                 collapsedTreePaths);
         } else {
@@ -378,7 +432,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     private void fitAll() {
         if (layout == null || layout.boxes().isEmpty()) return;
         var bounds = layout.bounds();
-        float detailsReserve = graph.isCompactTree() ? 236 : 0;
+        float detailsReserve = graph.isCompactTree() || graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS ? 258 : 0;
         float availableWidth = Math.max(1, width - 40 - detailsReserve);
         float availableHeight = Math.max(1, height - TOOLBAR_HEIGHT - 42);
         zoom = clamp(Math.min(availableWidth / bounds.width(), availableHeight / bounds.height()), MIN_ZOOM, 1.5f);

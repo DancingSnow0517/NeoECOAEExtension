@@ -20,6 +20,8 @@ public enum CyclePlanningStatus {
     UNKNOWN_BUDGET,
     /** The component is beyond the stage-one structural limits. */
     TOO_COMPLEX,
+    /** Exact demand was calculated, but the cycle solver/AE2 boundary only accepts long amounts. */
+    UNREPRESENTABLE,
     /** Solving was cancelled. */
     CANCELLED;
 
@@ -30,6 +32,7 @@ public enum CyclePlanningStatus {
             case UNKNOWN_BUDGET -> UNKNOWN_BUDGET;
             case TOO_COMPLEX -> TOO_COMPLEX;
             case UNSUPPORTED_PATTERN -> UNSUPPORTED;
+            case UNREPRESENTABLE -> UNREPRESENTABLE;
             case CANCELLED -> CANCELLED;
             case NOT_IMPLEMENTED -> NOT_IMPLEMENTED;
         };

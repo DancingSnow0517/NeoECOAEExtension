@@ -5,5 +5,7 @@ public enum CycleExternalDemandStatus {
     MISSING,
     FORBIDDEN_ROUTE,
     UNSUPPORTED,
-    OVERFLOW
+    OVERFLOW,
+    /** The external DAG was solved exactly, but its AE2 execution fields need more than a long. */
+    UNREPRESENTABLE
 }

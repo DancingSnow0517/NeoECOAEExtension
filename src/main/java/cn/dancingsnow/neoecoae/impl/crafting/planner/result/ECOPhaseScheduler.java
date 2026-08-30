@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
 
@@ -39,45 +40,49 @@ public final class ECOPhaseScheduler {
      */
     public static long compactCycleFeedbackReserve(ECOExecutionSchedule.ComponentExecutionPhase phase,
             ToLongFunction<IPatternDetails> remainingTasks, AEKey key) {
+        PlannerAmount exact = compactCycleFeedbackReserveExact(phase, remainingTasks, key);
+        // This method feeds a runtime long-valued reservation API. Keep the exact result above, and only
+        // project at this final execution boundary where there is no BigInteger slot to pass through.
+        return exact.fitsLong() ? exact.longValueExact() : Long.MAX_VALUE;
+    }
+
+    /** Exact planner-side form of {@link #compactCycleFeedbackReserve}; no quantity is saturated here. */
+    public static PlannerAmount compactCycleFeedbackReserveExact(
+            ECOExecutionSchedule.ComponentExecutionPhase phase,
+            ToLongFunction<IPatternDetails> remainingTasks, AEKey key) {
         if (phase == null || key == null || phase.type() != ECOExecutionSchedule.Type.CYCLE
-                || !phase.cycleWitness().isEmpty() || phase.patternSet().size() != 1) return 0L;
+                || !phase.cycleWitness().isEmpty() || phase.patternSet().size() != 1) return PlannerAmount.ZERO;
         IPatternDetails pattern = phase.patternSet().iterator().next();
         long remaining = remainingTasks.applyAsLong(pattern);
-        if (remaining <= 0L) return 0L;
+        if (remaining <= 0L) return PlannerAmount.ZERO;
         try {
-            long consumed = 0L;
+            PlannerAmount consumed = PlannerAmount.ZERO;
             for (var input : pattern.getInputs()) {
-                if (input == null || input.getMultiplier() <= 0L) return 0L;
+                if (input == null || input.getMultiplier() <= 0L) return PlannerAmount.ZERO;
                 var possible = input.getPossibleInputs();
                 if (possible == null || possible.length != 1 || possible[0] == null
-                        || possible[0].what() == null || possible[0].amount() <= 0L) return 0L;
+                        || possible[0].what() == null || possible[0].amount() <= 0L) return PlannerAmount.ZERO;
                 if (key.equals(possible[0].what())) {
-                    consumed = Math.addExact(consumed,
-                        Math.multiplyExact(possible[0].amount(), input.getMultiplier()));
+                    consumed = consumed.add(PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier()));
                 }
             }
-            if (consumed <= 0L) return 0L;
-            long produced = 0L;
+            if (consumed.signum() <= 0) return PlannerAmount.ZERO;
+            PlannerAmount produced = PlannerAmount.ZERO;
             for (var output : pattern.getOutputs()) {
                 if (output != null && key.equals(output.what()) && output.amount() > 0L) {
-                    produced = Math.addExact(produced, output.amount());
+                    produced = produced.add(output.amount());
                 }
             }
             for (var input : pattern.getInputs()) {
                 var possible = input.getPossibleInputs();
                 if (key.equals(input.getRemainingKey(possible[0].what()))) {
-                    produced = Math.addExact(produced, input.getMultiplier());
+                    produced = produced.add(input.getMultiplier());
                 }
             }
-            if (produced <= consumed) return 0L;
-            try {
-                return Math.multiplyExact(consumed, remaining);
-            } catch (ArithmeticException overflow) {
-                // Retaining all physically arriving feedback is the conservative behavior for an enormous job.
-                return Long.MAX_VALUE;
-            }
+            if (produced.compareTo(consumed) <= 0) return PlannerAmount.ZERO;
+            return consumed.multiply(remaining);
         } catch (RuntimeException rejected) {
-            return 0L;
+            return PlannerAmount.ZERO;
         }
     }
 

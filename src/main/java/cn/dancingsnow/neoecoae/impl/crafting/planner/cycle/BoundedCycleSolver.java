@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.ComponentDependency;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,13 +48,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     public CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation)
             throws InterruptedException {
         cancellation.checkpoint();
-        try {
-            return run(request, cancellation);
-        } catch (ArithmeticException overflow) {
-            return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET,
-                CycleSolveDiagnostic.Code.AMOUNT_OVERFLOW,
-                "Cycle marking exceeded the representable range: " + overflow.getMessage());
-        }
+        return run(request, cancellation);
     }
 
     private CycleSolveResult run(CycleSolveRequest request, ECOCancellation cancellation)
@@ -94,7 +89,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             "Explored the complete reachable marking set (" + visited
                 + " states) without reaching the required outputs"));
 
-        long[] base = first.unblockDeficit;
+        PlannerAmount[] base = first.unblockDeficit;
         if (base == null || isZero(base)) {
             CycleSolveMetrics deadMetrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(),
                 visited, expanded, 0, 0, false, false);
@@ -109,8 +104,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (int step = 0; step < limits.maxSeedLadderSteps(); step++) {
             cancellation.checkpoint();
             if (remaining <= 1) break;
-            long[] extra = scale(base, step);
-            long[] start = saturatedSum(model.stock, extra);
+            PlannerAmount[] extra = scale(base, step);
+            PlannerAmount[] start = add(model.stock, extra);
             Search attempt = search(model, start, remaining, limits.maxFirings(), cancellation);
             visited += attempt.statesVisited;
             expanded += attempt.statesExpanded;
@@ -129,17 +124,27 @@ public final class BoundedCycleSolver implements CycleSolver {
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.SEED_ESTIMATE_LOWER_BOUND,
             "No verified seed within the ladder budget; the reported seed is the smallest amount that unblocks"
                 + " the deadlock, not a proven sufficient amount"));
-        Map<AEKey, Long> shortfall = positive(model, base);
-        Map<AEKey, Long> seed = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> exactShortfall = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> exactSeed = new LinkedHashMap<>();
         for (int i = 0; i < model.keyCount(); i++) {
-            if (base[i] > 0) seed.put(model.keys.get(i), Math.max(0, model.stock[i]) + base[i]);
+            if (base[i].signum() > 0) {
+                PlannerAmount exact = model.stock[i].max(PlannerAmount.ZERO).add(base[i]);
+                exactSeed.put(model.keys.get(i), exact);
+                exactShortfall.put(model.keys.get(i), base[i]);
+            }
         }
+        boolean unrepresentable = hasUnrepresentable(exactShortfall, exactSeed);
+        if (unrepresentable) addUnrepresentableDiagnostics(diagnostics, model, "cycle seed/shortfall",
+            exactShortfall, exactSeed);
+        Map<AEKey, Long> shortfall = representable(exactShortfall);
+        Map<AEKey, Long> seed = representable(exactSeed);
         CycleSolveMetrics ladderMetrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited,
             expanded, 0, limits.maxSeedLadderSteps(), false, false);
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.SEED_SHORTFALL,
             "Short of " + describe(model, base) + " to start the loop"));
         diagnostics.add(metrics(ladderMetrics));
-        return new CycleSolveResult(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(),
+        return new CycleSolveResult(unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
+                : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(),
             Map.copyOf(seed), shortfall, Map.of(), deliverable(model, model.stock), List.of(),
             List.copyOf(diagnostics), ladderMetrics);
     }
@@ -175,6 +180,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (CompiledPattern pattern : transitions) {
             String reason = unsupportedReason(pattern);
             if (reason != null) {
+                if (reason.startsWith("AMOUNT_UNREPRESENTABLE:")) {
+                    return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE,
+                        CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                        "Pattern " + pattern.id() + " " + reason);
+                }
                 return CycleSolveResult.failure(CycleSolveStatus.UNSUPPORTED_PATTERN,
                     CycleSolveDiagnostic.Code.UNSUPPORTED_PATTERN,
                     "Pattern " + pattern.id() + " is not batch-safe inside a cycle: " + reason);
@@ -187,7 +197,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             for (CompiledInput input : pattern.inputs()) index.putIfAbsent(input.key(), index.size());
             for (GenericStack output : pattern.outputs()) index.putIfAbsent(output.what(), index.size());
         }
-        for (AEKey required : request.requiredOutputs().keySet()) index.putIfAbsent(required, index.size());
+        for (AEKey required : request.plannerRequiredOutputs().keySet()) index.putIfAbsent(required, index.size());
         if (index.size() > limits.maxKeys()) {
             return CycleSolveResult.failure(CycleSolveStatus.TOO_COMPLEX,
                 CycleSolveDiagnostic.Code.KEY_LIMIT_EXCEEDED,
@@ -211,27 +221,47 @@ public final class BoundedCycleSolver implements CycleSolver {
         long[][] prod = new long[t][n];
         for (int p = 0; p < t; p++) {
             CompiledPattern pattern = transitions.get(p);
+            PlannerAmount[] exactCons = new PlannerAmount[n];
+            PlannerAmount[] exactProd = new PlannerAmount[n];
+            Arrays.fill(exactCons, PlannerAmount.ZERO);
+            Arrays.fill(exactProd, PlannerAmount.ZERO);
             for (CompiledInput input : pattern.inputs()) {
                 int slot = index.get(input.key());
-                cons[p][slot] = Math.addExact(cons[p][slot], input.amountPerPattern());
+                exactCons[slot] = exactCons[slot].add(input.amountPerPattern());
             }
             for (GenericStack output : pattern.outputs()) {
                 int slot = index.get(output.what());
-                prod[p][slot] = Math.addExact(prod[p][slot], output.amount());
+                exactProd[slot] = exactProd[slot].add(output.amount());
+            }
+            for (int i = 0; i < n; i++) {
+                if (!exactCons[i].fitsLong()) {
+                    return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE,
+                        CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                        "Pattern " + pattern.id() + " input total for " + keys.get(i)
+                            + " amount=" + exactCons[i] + " max=" + Long.MAX_VALUE);
+                }
+                if (!exactProd[i].fitsLong()) {
+                    return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE,
+                        CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                        "Pattern " + pattern.id() + " output total for " + keys.get(i)
+                            + " amount=" + exactProd[i] + " max=" + Long.MAX_VALUE);
+                }
+                cons[p][i] = exactCons[i].longValueExact();
+                prod[p][i] = exactProd[i].longValueExact();
             }
         }
 
-        long[] stock = new long[n];
-        long[] required = new long[n];
+        PlannerAmount[] stock = new PlannerAmount[n];
+        PlannerAmount[] required = new PlannerAmount[n];
         for (int i = 0; i < n; i++) {
-            stock[i] = request.stockOf(keys.get(i));
-            required[i] = request.requiredOutput(keys.get(i));
+            stock[i] = PlannerAmount.of(request.stockOf(keys.get(i)));
+            required[i] = request.requiredOutputAmount(keys.get(i));
         }
 
         boolean[] producesRequired = new boolean[t];
         for (int p = 0; p < t; p++) {
             for (int i = 0; i < n; i++) {
-                if (required[i] > 0 && prod[p][i] > cons[p][i]) {
+                if (required[i].signum() > 0 && prod[p][i] > cons[p][i]) {
                     producesRequired[p] = true;
                     break;
                 }
@@ -245,13 +275,17 @@ public final class BoundedCycleSolver implements CycleSolver {
             return pattern.unsupportedReason() == null || pattern.unsupportedReason().isEmpty()
                 ? "NOT_FAST_SUPPORTED" : pattern.unsupportedReason();
         }
-        if (pattern.outputPerPattern() <= 0) return "PRIMARY_OUTPUT_MISMATCH";
+        if (pattern.outputPerPattern().signum() <= 0) return "PRIMARY_OUTPUT_MISMATCH";
         for (CompiledInput input : pattern.inputs()) {
             if (!input.fastSupported()) {
                 return input.unsupportedReason() == null || input.unsupportedReason().isEmpty()
                     ? "UNSUPPORTED_INPUT" : input.unsupportedReason();
             }
-            if (input.amountPerPattern() <= 0) return "INVALID_INPUT_AMOUNT";
+            if (input.amountPerPattern().signum() <= 0) return "INVALID_INPUT_AMOUNT";
+            if (!input.amountPerPattern().fitsLong()) {
+                return "AMOUNT_UNREPRESENTABLE: input=" + input.key() + " amount="
+                    + input.amountPerPattern() + " max=" + Long.MAX_VALUE;
+            }
         }
         if (pattern.outputs().isEmpty()) return "NO_OUTPUTS";
         for (GenericStack output : pattern.outputs()) {
@@ -271,7 +305,7 @@ public final class BoundedCycleSolver implements CycleSolver {
      * a marking is therefore first reached at its minimum depth, exact-marking deduplication is enough to
      * keep the search finite without discarding any shorter solution.
      */
-    private Search search(Model model, long[] start, int stateBudget, int maxFirings, ECOCancellation cancellation)
+    private Search search(Model model, PlannerAmount[] start, int stateBudget, int maxFirings, ECOCancellation cancellation)
             throws InterruptedException {
         Search outcome = new Search();
         int n = model.keyCount();
@@ -280,7 +314,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         Set<Marking> seen = new HashSet<>();
         ArrayDeque<Integer> queue = new ArrayDeque<>();
 
-        long[] root = Arrays.copyOf(start, n);
+        PlannerAmount[] root = Arrays.copyOf(start, n);
         nodes.add(new Node(root, -1, -1, 0));
         seen.add(new Marking(root));
         if (satisfied(root, model.required)) {
@@ -305,14 +339,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                     outcome.considerUnblock(model, node.marking, t);
                     continue;
                 }
-                long[] next;
-                try {
-                    next = fire(node.marking, model.cons[t], model.prod[t]);
-                } catch (ArithmeticException overflow) {
-                    // One branch left the representable range. Drop only that branch and stay honest about it.
-                    outcome.amountOverflowTruncated = true;
-                    continue;
-                }
+                PlannerAmount[] next = fire(node.marking, model.cons[t], model.prod[t]);
                 Marking key = new Marking(next);
                 if (seen.contains(key)) continue;
                 if (seen.size() >= stateBudget) {
@@ -336,7 +363,6 @@ public final class BoundedCycleSolver implements CycleSolver {
         outcome.statesVisited = seen.size();
         if (outcome.stateBudgetExhausted) outcome.kind = Search.Kind.STATE_BUDGET;
         else if (outcome.firingDepthTruncated) outcome.kind = Search.Kind.DEPTH_TRUNCATED;
-        else if (outcome.amountOverflowTruncated) outcome.kind = Search.Kind.OVERFLOW_TRUNCATED;
         else outcome.kind = Search.Kind.EXHAUSTED;
         return outcome;
     }
@@ -352,25 +378,25 @@ public final class BoundedCycleSolver implements CycleSolver {
         return List.copyOf(reversed);
     }
 
-    private static boolean enabled(long[] marking, long[] cons, boolean[] suppliable) {
+    private static boolean enabled(PlannerAmount[] marking, long[] cons, boolean[] suppliable) {
         for (int i = 0; i < cons.length; i++) {
-            if (cons[i] > 0 && !suppliable[i] && marking[i] < cons[i]) return false;
+            if (cons[i] > 0 && !suppliable[i] && marking[i].compareTo(PlannerAmount.of(cons[i])) < 0) return false;
         }
         return true;
     }
 
-    private static long[] fire(long[] marking, long[] cons, long[] prod) {
-        long[] next = marking.clone();
+    private static PlannerAmount[] fire(PlannerAmount[] marking, long[] cons, long[] prod) {
+        PlannerAmount[] next = marking.clone();
         for (int i = 0; i < next.length; i++) {
-            if (cons[i] > 0) next[i] = Math.max(0L, next[i] - cons[i]);
-            if (prod[i] > 0) next[i] = Math.addExact(next[i], prod[i]);
+            if (cons[i] > 0) next[i] = next[i].subtract(cons[i]).max(PlannerAmount.ZERO);
+            if (prod[i] > 0) next[i] = next[i].add(prod[i]);
         }
         return next;
     }
 
-    private static boolean satisfied(long[] marking, long[] required) {
+    private static boolean satisfied(PlannerAmount[] marking, PlannerAmount[] required) {
         for (int i = 0; i < required.length; i++) {
-            if (required[i] > 0 && marking[i] < required[i]) return false;
+            if (required[i].signum() > 0 && marking[i].compareTo(required[i]) < 0) return false;
         }
         return true;
     }
@@ -390,18 +416,13 @@ public final class BoundedCycleSolver implements CycleSolver {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.FIRING_DEPTH_TRUNCATED,
                 "Reached the firing-depth budget; nothing is proven"));
         }
-        if (search.amountOverflowTruncated) {
-            diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.AMOUNT_OVERFLOW,
-                "At least one branch left the representable amount range and was dropped; nothing is proven"));
-        }
         CycleSolveMetrics metrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited,
-            expanded, 0, ladderSteps, search.stateBudgetExhausted, search.firingDepthTruncated,
-            search.amountOverflowTruncated);
+            expanded, 0, ladderSteps, search.stateBudgetExhausted, search.firingDepthTruncated, false);
         diagnostics.add(metrics(metrics));
         return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET, List.copyOf(diagnostics), metrics);
     }
 
-    private CycleSolveResult witnessResult(Model model, long[] start, List<Integer> witness,
+    private CycleSolveResult witnessResult(Model model, PlannerAmount[] start, List<Integer> witness,
             List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
         Simulation actual = simulate(model, start, witness);
         if (!actual.lazySeed.isEmpty()) {
@@ -415,14 +436,14 @@ public final class BoundedCycleSolver implements CycleSolver {
                 "Internal inconsistency: witness replay did not reach the required outputs");
         }
 
-        Simulation bare = simulate(model, new long[model.keyCount()], witness);
-        Map<AEKey, Long> requiredSeed = Map.copyOf(bare.lazySeed);
-        Map<AEKey, Long> externalDemand = Map.copyOf(bare.lazyImport);
+        Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
+        Map<AEKey, PlannerAmount> exactRequiredSeed = Map.copyOf(bare.lazySeed);
+        Map<AEKey, PlannerAmount> exactExternalDemand = Map.copyOf(bare.lazyImport);
 
-        Map<AEKey, Long> shortfall = new LinkedHashMap<>();
-        requiredSeed.forEach((key, amount) -> {
-            long missing = amount - Math.max(0L, model.stockOf(key));
-            if (missing > 0) shortfall.put(key, missing);
+        Map<AEKey, PlannerAmount> exactShortfall = new LinkedHashMap<>();
+        exactRequiredSeed.forEach((key, amount) -> {
+            PlannerAmount missing = amount.subtract(model.stockAmountOf(key).max(PlannerAmount.ZERO));
+            if (missing.signum() > 0) exactShortfall.put(key, missing);
         });
 
         Map<IPatternDetails, Long> patternTimes = new LinkedHashMap<>();
@@ -433,20 +454,32 @@ public final class BoundedCycleSolver implements CycleSolver {
             patternTimes.merge(pattern.details(), 1L, Long::sum);
         }
 
+        Map<AEKey, PlannerAmount> exactProduced = Map.copyOf(bare.produced);
+        Map<AEKey, PlannerAmount> exactDeliverable = exactDeliverable(model, actual.marking);
+        // Produced/deliverable totals are theoretical cycle bookkeeping. Only seed, external demand and
+        // shortfall become AE2-facing material counters at this boundary.
+        boolean unrepresentable = hasUnrepresentable(exactRequiredSeed, exactExternalDemand, exactShortfall);
+        if (unrepresentable) addUnrepresentableDiagnostics(diagnostics, model, "cycle witness boundary",
+            exactRequiredSeed, exactExternalDemand, exactShortfall);
+        Map<AEKey, Long> requiredSeed = representable(exactRequiredSeed);
+        Map<AEKey, Long> externalDemand = representable(exactExternalDemand);
+        Map<AEKey, Long> shortfall = representable(exactShortfall);
+
         List<CycleSolveDiagnostic> explanation = new ArrayList<>(diagnostics);
         explanation.add(new CycleSolveDiagnostic(
-            shortfall.isEmpty() ? CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK
+            exactShortfall.isEmpty() ? CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK
                 : CycleSolveDiagnostic.Code.SEED_SHORTFALL,
-            shortfall.isEmpty()
-                ? "Start-up seed " + describeRaw(model, requiredSeed) + " is covered by relevant stock"
-                : "Start-up seed " + describeRaw(model, requiredSeed) + " exceeds stock by "
-                    + describeRaw(model, shortfall)));
+            exactShortfall.isEmpty()
+                ? "Start-up seed " + describeRaw(model, exactRequiredSeed) + " is covered by relevant stock"
+                : "Start-up seed " + describeRaw(model, exactRequiredSeed) + " exceeds stock by "
+                    + describeRaw(model, exactShortfall)));
         explanation.add(metrics(metrics));
 
         return new CycleSolveResult(
-            shortfall.isEmpty() ? CycleSolveStatus.SUCCESS : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
+            unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
+                : exactShortfall.isEmpty() ? CycleSolveStatus.SUCCESS : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
             Map.copyOf(patternTimes), externalDemand, requiredSeed, Map.copyOf(shortfall),
-            Map.copyOf(bare.produced), deliverable(model, actual.marking), List.copyOf(firings),
+            representable(exactProduced), representable(exactDeliverable), List.copyOf(firings),
             List.copyOf(explanation), metrics);
     }
 
@@ -455,48 +488,78 @@ public final class BoundedCycleSolver implements CycleSolver {
      * SCC has to own are booked as seed; both are recorded rather than allowed to go negative, so the pair
      * (seed, import) is exactly what the order needs to run.
      */
-    private static Simulation simulate(Model model, long[] start, List<Integer> witness) {
+    private static Simulation simulate(Model model, PlannerAmount[] start, List<Integer> witness) {
         int n = model.keyCount();
-        long[] marking = Arrays.copyOf(start, n);
-        Map<AEKey, Long> lazySeed = new LinkedHashMap<>();
-        Map<AEKey, Long> lazyImport = new LinkedHashMap<>();
-        Map<AEKey, Long> produced = new LinkedHashMap<>();
+        PlannerAmount[] marking = Arrays.copyOf(start, n);
+        Map<AEKey, PlannerAmount> lazySeed = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> lazyImport = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
         for (int transition : witness) {
             long[] cons = model.cons[transition];
             long[] prod = model.prod[transition];
             for (int i = 0; i < n; i++) {
                 if (cons[i] <= 0) continue;
-                long deficit = cons[i] - marking[i];
-                if (deficit > 0) {
+                PlannerAmount required = PlannerAmount.of(cons[i]);
+                PlannerAmount deficit = required.subtract(marking[i]);
+                if (deficit.signum() > 0) {
                     AEKey key = model.keys.get(i);
-                    (model.suppliable[i] ? lazyImport : lazySeed).merge(key, deficit, Math::addExact);
-                    marking[i] = Math.addExact(marking[i], deficit);
+                    (model.suppliable[i] ? lazyImport : lazySeed).merge(key, deficit, PlannerAmount::add);
+                    marking[i] = marking[i].add(deficit);
                 }
-                marking[i] -= cons[i];
+                marking[i] = marking[i].subtract(required);
             }
             for (int i = 0; i < n; i++) {
                 if (prod[i] <= 0) continue;
-                marking[i] = Math.addExact(marking[i], prod[i]);
-                produced.merge(model.keys.get(i), prod[i], Math::addExact);
+                marking[i] = marking[i].add(prod[i]);
+                produced.merge(model.keys.get(i), PlannerAmount.of(prod[i]), PlannerAmount::add);
             }
         }
         return new Simulation(marking, lazySeed, lazyImport, produced);
     }
 
-    private static Map<AEKey, Long> deliverable(Model model, long[] marking) {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
+    private static Map<AEKey, Long> deliverable(Model model, PlannerAmount[] marking) {
+        return representable(exactDeliverable(model, marking));
+    }
+
+    private static Map<AEKey, PlannerAmount> exactDeliverable(Model model, PlannerAmount[] marking) {
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
         for (int i = 0; i < model.keyCount(); i++) {
-            if (model.required[i] > 0) result.put(model.keys.get(i), marking[i]);
+            if (model.required[i].signum() > 0) result.put(model.keys.get(i), marking[i]);
         }
         return Map.copyOf(result);
     }
 
-    private static Map<AEKey, Long> positive(Model model, long[] amounts) {
+    private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> amounts) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
-        for (int i = 0; i < model.keyCount(); i++) {
-            if (amounts[i] > 0) result.put(model.keys.get(i), amounts[i]);
-        }
+        amounts.forEach((key, amount) -> {
+            if (amount.fitsLong()) result.put(key, amount.longValueExact());
+        });
         return Map.copyOf(result);
+    }
+
+    @SafeVarargs
+    private static boolean hasUnrepresentable(Map<AEKey, PlannerAmount>... maps) {
+        for (Map<AEKey, PlannerAmount> map : maps) {
+            for (PlannerAmount amount : map.values()) if (!amount.fitsLong()) return true;
+        }
+        return false;
+    }
+
+    @SafeVarargs
+    private static void addUnrepresentableDiagnostics(List<CycleSolveDiagnostic> diagnostics, Model model,
+            String stage, Map<AEKey, PlannerAmount>... maps) {
+        for (Map<AEKey, PlannerAmount> map : maps) {
+            for (var entry : map.entrySet()) {
+                if (!entry.getValue().fitsLong()) {
+                    diagnostics.add(new CycleSolveDiagnostic(
+                        CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                        "Execution amount exceeds AE2 long range: key=" + entry.getKey()
+                            + " producer=cycle pattern=" + model.transitions.stream()
+                                .map(pattern -> Integer.toString(pattern.id())).collect(java.util.stream.Collectors.joining(","))
+                            + " amount=" + entry.getValue() + " max=" + Long.MAX_VALUE + " stage=" + stage));
+                }
+            }
+        }
     }
 
     private static CycleSolveDiagnostic metrics(CycleSolveMetrics metrics) {
@@ -506,18 +569,26 @@ public final class BoundedCycleSolver implements CycleSolver {
                 + " witness=" + metrics.witnessLength() + " ladder=" + metrics.seedLadderSteps());
     }
 
-    private static String describe(Model model, long[] amounts) {
-        return describeRaw(model, positive(model, amounts));
+    private static String describe(Model model, PlannerAmount[] amounts) {
+        StringBuilder builder = new StringBuilder("{");
+        boolean first = true;
+        for (int i = 0; i < model.keyCount(); i++) {
+            if (amounts[i].signum() <= 0) continue;
+            if (!first) builder.append(", ");
+            builder.append(amounts[i]).append(" x ").append(model.keys.get(i));
+            first = false;
+        }
+        return builder.append('}').toString();
     }
 
-    private static String describeRaw(Model model, Map<AEKey, Long> amounts) {
+    private static String describeRaw(Model model, Map<AEKey, PlannerAmount> amounts) {
         if (amounts.isEmpty()) return "{}";
         StringBuilder builder = new StringBuilder("{");
         boolean first = true;
         for (int i = 0; i < model.keyCount(); i++) {
             AEKey key = model.keys.get(i);
-            Long amount = amounts.get(key);
-            if (amount == null || amount <= 0) continue;
+            PlannerAmount amount = amounts.get(key);
+            if (amount == null || amount.signum() <= 0) continue;
             if (!first) builder.append(", ");
             builder.append(amount).append(" x ").append(key);
             first = false;
@@ -525,30 +596,35 @@ public final class BoundedCycleSolver implements CycleSolver {
         return builder.append('}').toString();
     }
 
-    private static long[] scale(long[] base, int step) {
-        long[] result = new long[base.length];
+    private static PlannerAmount[] scale(PlannerAmount[] base, int step) {
+        PlannerAmount[] result = new PlannerAmount[base.length];
         for (int i = 0; i < base.length; i++) {
-            long value = base[i];
-            for (int doubling = 0; doubling < step && value > 0; doubling++) {
-                value = value > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : value * 2;
+            PlannerAmount value = base[i];
+            for (int doubling = 0; doubling < step && value.signum() > 0; doubling++) {
+                value = value.multiply(2L);
             }
             result[i] = value;
         }
         return result;
     }
 
-    private static long[] saturatedSum(long[] left, long[] right) {
-        long[] result = new long[left.length];
+    private static PlannerAmount[] add(PlannerAmount[] left, PlannerAmount[] right) {
+        PlannerAmount[] result = new PlannerAmount[left.length];
         for (int i = 0; i < left.length; i++) {
-            long sum = left[i] > Long.MAX_VALUE - right[i] ? Long.MAX_VALUE : left[i] + right[i];
-            result[i] = sum;
+            result[i] = left[i].add(right[i]);
         }
         return result;
     }
 
-    private static boolean isZero(long[] values) {
-        for (long value : values) if (value > 0) return false;
+    private static boolean isZero(PlannerAmount[] values) {
+        for (PlannerAmount value : values) if (value.signum() > 0) return false;
         return true;
+    }
+
+    private static PlannerAmount[] zeroes(int length) {
+        PlannerAmount[] result = new PlannerAmount[length];
+        Arrays.fill(result, PlannerAmount.ZERO);
+        return result;
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -562,31 +638,31 @@ public final class BoundedCycleSolver implements CycleSolver {
         long[][] prod,
         boolean[] suppliable,
         boolean[] producesRequired,
-        long[] stock,
-        long[] required
+        PlannerAmount[] stock,
+        PlannerAmount[] required
     ) {
         int keyCount() { return keys.size(); }
         int transitionCount() { return transitions.size(); }
-        long stockOf(AEKey key) {
+        PlannerAmount stockAmountOf(AEKey key) {
             int slot = keys.indexOf(key);
-            return slot < 0 ? 0L : stock[slot];
+            return slot < 0 ? PlannerAmount.ZERO : stock[slot];
         }
     }
 
     private record Simulation(
-        long[] marking,
-        Map<AEKey, Long> lazySeed,
-        Map<AEKey, Long> lazyImport,
-        Map<AEKey, Long> produced
+        PlannerAmount[] marking,
+        Map<AEKey, PlannerAmount> lazySeed,
+        Map<AEKey, PlannerAmount> lazyImport,
+        Map<AEKey, PlannerAmount> produced
     ) {}
 
     private static final class Node {
-        private final long[] marking;
+        private final PlannerAmount[] marking;
         private final int parent;
         private final int transition;
         private final int depth;
 
-        private Node(long[] marking, int parent, int transition, int depth) {
+        private Node(PlannerAmount[] marking, int parent, int transition, int depth) {
             this.marking = marking;
             this.parent = parent;
             this.transition = transition;
@@ -596,10 +672,10 @@ public final class BoundedCycleSolver implements CycleSolver {
 
     /** Value wrapper so an exact marking can be deduplicated in a hash set. */
     private static final class Marking {
-        private final long[] cells;
+        private final PlannerAmount[] cells;
         private final int hash;
 
-        private Marking(long[] cells) {
+        private Marking(PlannerAmount[] cells) {
             this.cells = cells;
             this.hash = Arrays.hashCode(cells);
         }
@@ -612,7 +688,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     private static final class Search {
-        private enum Kind { REACHED, EXHAUSTED, STATE_BUDGET, DEPTH_TRUNCATED, OVERFLOW_TRUNCATED }
+        private enum Kind { REACHED, EXHAUSTED, STATE_BUDGET, DEPTH_TRUNCATED }
 
         private Kind kind = Kind.EXHAUSTED;
         private List<Integer> witness = List.of();
@@ -620,32 +696,36 @@ public final class BoundedCycleSolver implements CycleSolver {
         private long statesExpanded;
         private boolean stateBudgetExhausted;
         private boolean firingDepthTruncated;
-        private boolean amountOverflowTruncated;
-        private long[] unblockDeficit;
+        private PlannerAmount[] unblockDeficit;
         private int unblockRank = Integer.MAX_VALUE;
-        private long unblockTotal = Long.MAX_VALUE;
+        private PlannerAmount unblockTotal = null;
         private int unblockTransition = Integer.MAX_VALUE;
 
         /**
          * Records the cheapest way to unblock a disabled transition, preferring one that actually produces a
          * required output. That candidate becomes the base vector of the deterministic seed ladder.
          */
-        private void considerUnblock(Model model, long[] marking, int transition) {
+        private void considerUnblock(Model model, PlannerAmount[] marking, int transition) {
             int rank = model.producesRequired[transition] ? 0 : 1;
             if (rank > unblockRank) return;
             long[] cons = model.cons[transition];
-            long total = 0;
+            PlannerAmount total = PlannerAmount.ZERO;
             for (int i = 0; i < cons.length; i++) {
-                if (cons[i] > 0 && !model.suppliable[i] && marking[i] < cons[i]) total += cons[i] - marking[i];
+                PlannerAmount required = PlannerAmount.of(cons[i]);
+                if (cons[i] > 0 && !model.suppliable[i] && marking[i].compareTo(required) < 0) {
+                    total = total.add(required.subtract(marking[i]));
+                }
             }
-            if (total <= 0) return;
+            if (total.signum() <= 0) return;
             if (rank == unblockRank) {
-                if (total > unblockTotal) return;
-                if (total == unblockTotal && transition >= unblockTransition) return;
+                if (total.compareTo(unblockTotal) > 0) return;
+                if (total.equals(unblockTotal) && transition >= unblockTransition) return;
             }
-            long[] deficit = new long[cons.length];
+            PlannerAmount[] deficit = new PlannerAmount[cons.length];
             for (int i = 0; i < cons.length; i++) {
-                if (cons[i] > 0 && !model.suppliable[i] && marking[i] < cons[i]) deficit[i] = cons[i] - marking[i];
+                PlannerAmount required = PlannerAmount.of(cons[i]);
+                deficit[i] = cons[i] > 0 && !model.suppliable[i] && marking[i].compareTo(required) < 0
+                    ? required.subtract(marking[i]) : PlannerAmount.ZERO;
             }
             unblockRank = rank;
             unblockTotal = total;

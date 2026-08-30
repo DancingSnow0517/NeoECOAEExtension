@@ -10,6 +10,13 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CraftingNetworkCompiler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.List;
@@ -30,7 +37,7 @@ class CraftingNetworkCompilerTest {
         assertTrue(network.keys().contains(a));
     }
 
-    @Test void substitutionAndRemainderAreClassifiedForNativeFallback() throws Exception {
+    @Test void substitutionUsesItsPrimaryInputWhileRemainderStillRequiresNativeFallback() throws Exception {
         var a = PlannerTestKey.of("compiler_sub_a"); var b = PlannerTestKey.of("compiler_sub_b");
         var g1 = PlannerTestKey.of("compiler_sub_g"); var g2 = PlannerTestKey.of("compiler_rem_g");
         IPatternDetails substitution = pattern(g1, new IPatternDetails.IInput() {
@@ -45,8 +52,77 @@ class CraftingNetworkCompilerTest {
         var service = service(Map.of(g1, List.of(substitution), g2, List.of(remainder)));
         var subNetwork = new CraftingNetworkCompiler().compile(service, g1, ECOCancellation.NONE);
         var remNetwork = new CraftingNetworkCompiler().compile(service, g2, ECOCancellation.NONE);
-        assertEquals("UNSUPPORTED_SUBSTITUTION", subNetwork.producersOf(g1).getFirst().unsupportedReason());
+        var compiledSubstitution = subNetwork.producersOf(g1).getFirst();
+        assertTrue(compiledSubstitution.fastSupported());
+        assertEquals("UNSUPPORTED_SUBSTITUTION", compiledSubstitution.unsupportedReason());
+        assertEquals(List.of(a), compiledSubstitution.inputs().stream().map(input -> input.key()).toList());
+        assertTrue(subNetwork.keys().contains(a));
+        assertFalse(subNetwork.keys().contains(b));
         assertEquals("UNSUPPORTED_REMAINDER", remNetwork.producersOf(g2).getFirst().unsupportedReason());
+    }
+
+    @Test void substitutionProducerRemainsAnAcyclicAlternativeWhenCyclesAreDisabled() throws Exception {
+        var rawPrimary = PlannerTestKey.of("compiler_route_raw_primary");
+        var rawAlternative = PlannerTestKey.of("compiler_route_raw_alternative");
+        var mysterious = PlannerTestKey.of("compiler_route_mysterious");
+        var energy = PlannerTestKey.of("compiler_route_energy");
+        var cyclic = pattern(mysterious, new PlannerFixtures.Input(energy, 1, false));
+        var ordinary = pattern(mysterious, new IPatternDetails.IInput() {
+            @Override public GenericStack[] getPossibleInputs() {
+                return new GenericStack[] {
+                    new GenericStack(rawPrimary, 1), new GenericStack(rawAlternative, 1)
+                };
+            }
+            @Override public long getMultiplier() { return 1; }
+            @Override public boolean isValid(AEKey input, Level level) {
+                return input.equals(rawPrimary) || input.equals(rawAlternative);
+            }
+            @Override public AEKey getRemainingKey(AEKey template) { return null; }
+        });
+        var closesCycle = pattern(energy, new PlannerFixtures.Input(mysterious, 1, false));
+        var network = new CraftingNetworkCompiler().compile(service(Map.of(
+            mysterious, List.of(cyclic, ordinary), energy, List.of(closesCycle))), mysterious,
+            ECOCancellation.NONE);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new appeng.api.stacks.KeyCounter();
+        stock.add(rawPrimary, 1);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), (request, cancellation) -> {
+            throw new AssertionError("cycle solver must not run when an acyclic substitution route exists");
+        }).plan(network, condensation, stock, 1, false, ECOCancellation.NONE);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertTrue(outcome.trace().cycles().isEmpty());
+    }
+
+    @Test void inputMultiplierOverflowRemainsExactForAcyclicPlanning() throws Exception {
+        var a = PlannerTestKey.of("compiler_wide_a");
+        var g = PlannerTestKey.of("compiler_wide_g");
+        IPatternDetails wide = new IPatternDetails() {
+            @Override public AEItemKey getDefinition() { return null; }
+            @Override public IInput[] getInputs() { return new IInput[] {new IInput() {
+                @Override public GenericStack[] getPossibleInputs() {
+                    return new GenericStack[] {new GenericStack(a, Long.MAX_VALUE)};
+                }
+                @Override public long getMultiplier() { return 2L; }
+                @Override public boolean isValid(AEKey input, Level level) { return input.equals(a); }
+                @Override public AEKey getRemainingKey(AEKey template) { return null; }
+            }}; }
+            @Override public List<GenericStack> getOutputs() { return List.of(new GenericStack(g, 1)); }
+        };
+
+        var network = new CraftingNetworkCompiler().compile(service(Map.of(g, List.of(wide))), g,
+            ECOCancellation.NONE);
+        var compiled = network.producersOf(g).getFirst();
+        assertEquals("18446744073709551614", compiled.inputs().getFirst().amountPerPattern().toString());
+
+        var solved = new AcyclicCraftingSolver().solve(network, new AcyclicRoutePlan(List.of(g, a)),
+            new appeng.api.stacks.KeyCounter(), 1, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, solved.status());
+        assertEquals("18446744073709551614", solved.state().missingAmounts().get(a).toString());
     }
 
     private static IPatternDetails pattern(AEKey output, IPatternDetails.IInput input) {

@@ -25,5 +25,7 @@ public enum NetGrowthRejection {
     /** A pattern with no inputs cannot form a self-loop and is not a growth cycle. */
     NO_INPUTS,
     /** Aggregating the recorded per-pattern amounts already leaves the representable range. */
-    AMOUNT_OVERFLOW
+    AMOUNT_OVERFLOW,
+    /** The exact static contract is known, but its per-firing AE2 quantity is not a long. */
+    UNREPRESENTABLE
 }
