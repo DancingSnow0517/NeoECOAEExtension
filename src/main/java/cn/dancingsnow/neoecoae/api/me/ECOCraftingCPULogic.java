@@ -285,7 +285,10 @@ public class ECOCraftingCPULogic {
             return 0;
         if (!cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler.metadataAvailable(
                 job.requiresOrderedCycleExecution, job.executionSchedule, job.cycleWitnessMissing)) {
-            LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
+            if (!job.cycleMetadataErrorLogged) {
+                LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
+                job.cycleMetadataErrorLogged = true;
+            }
             return 0;
         }
         job.advanceCompletedPhases();

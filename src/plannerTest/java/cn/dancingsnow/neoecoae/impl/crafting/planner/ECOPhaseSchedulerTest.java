@@ -50,4 +50,11 @@ class ECOPhaseSchedulerTest {
         assertFalse(ECOPhaseScheduler.metadataAvailable(true, null, true));
         assertTrue(ECOPhaseScheduler.metadataAvailable(false, null, false));
     }
+    @Test void compactCycleWithoutExpandedWitnessStillRequiresComponentScheduling() {
+        var compactCycle = new ECOExecutionSchedule.ComponentExecutionPhase(2,
+            ECOExecutionSchedule.Type.CYCLE, Set.of(p1), List.of());
+        assertTrue(ECOPhaseScheduler.requiresComponentScheduling(
+            new ECOExecutionSchedule(List.of(dag(), compactCycle))));
+        assertFalse(ECOPhaseScheduler.requiresComponentScheduling(new ECOExecutionSchedule(List.of(dag()))));
+    }
 }

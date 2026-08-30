@@ -19,6 +19,8 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashMap;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.List;
 
@@ -61,6 +63,13 @@ public class ExecutingCraftingJob {
     private static final String NBT_CYCLE_WITNESS_INDEX = "cycleWitnessIndex";
     private static final String NBT_REQUIRES_ORDERED_CYCLE = "requiresOrderedCycleExecution";
     private static final String NBT_CURRENT_COMPONENT = "currentComponentIndex";
+    private static final String NBT_EXECUTION_SCHEDULE = "executionSchedule";
+    private static final String NBT_EXECUTION_SCHEDULE_VERSION = "executionScheduleVersion";
+    private static final int EXECUTION_SCHEDULE_VERSION = 1;
+    private static final String NBT_COMPONENT_ID = "componentId";
+    private static final String NBT_COMPONENT_TYPE = "type";
+    private static final String NBT_COMPONENT_PATTERNS = "patterns";
+    private static final String NBT_COMPONENT_WITNESS = "cycleWitness";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
@@ -70,6 +79,7 @@ public class ExecutingCraftingJob {
     int currentComponentIndex;
     boolean requiresOrderedCycleExecution;
     boolean cycleWitnessMissing;
+    boolean cycleMetadataErrorLogged;
     ECOExecutionSchedule executionSchedule;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
@@ -141,7 +151,7 @@ public class ExecutingCraftingJob {
             cycleWitness.addAll(r.cycleWitness());
             executionSchedule = r.executionSchedule();
         }
-        requiresOrderedCycleExecution = !cycleWitness.isEmpty();
+        requiresOrderedCycleExecution = ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
@@ -185,7 +195,13 @@ public class ExecutingCraftingJob {
         this.cycleWitnessIndex = Math.max(0, data.getInt(NBT_CYCLE_WITNESS_INDEX));
         this.currentComponentIndex = Math.max(0, data.getInt(NBT_CURRENT_COMPONENT));
         this.requiresOrderedCycleExecution = data.getBoolean(NBT_REQUIRES_ORDERED_CYCLE);
-        this.cycleWitnessMissing = requiresOrderedCycleExecution && cycleWitness.isEmpty();
+        this.executionSchedule = readExecutionSchedule(data, registries, level);
+        if (executionSchedule != null) {
+            executionSchedule.phases().stream()
+                .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
+                .forEach(phase -> cycleWitness.addAll(phase.cycleWitness()));
+        }
+        this.cycleWitnessMissing = requiresOrderedCycleExecution && executionSchedule == null;
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {
             ((CraftingService) grid.getCraftingService()).addLink(link);
@@ -222,7 +238,79 @@ public class ExecutingCraftingJob {
         data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
         data.putInt(NBT_CURRENT_COMPONENT, currentComponentIndex);
         data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, requiresOrderedCycleExecution);
+        ListTag scheduleTag = writeExecutionSchedule(registries);
+        if (scheduleTag != null) {
+            data.putInt(NBT_EXECUTION_SCHEDULE_VERSION, EXECUTION_SCHEDULE_VERSION);
+            data.put(NBT_EXECUTION_SCHEDULE, scheduleTag);
+        }
         return data;
+    }
+
+    private @Nullable ListTag writeExecutionSchedule(HolderLookup.Provider registries) {
+        if (executionSchedule == null) return null;
+        ListTag result = new ListTag();
+        for (var phase : executionSchedule.phases()) {
+            ListTag patterns = writePatternDefinitions(phase.patternSet(), registries);
+            ListTag witness = writePatternDefinitions(phase.cycleWitness(), registries);
+            if (patterns == null || witness == null) return null;
+            CompoundTag phaseTag = new CompoundTag();
+            phaseTag.putInt(NBT_COMPONENT_ID, phase.componentId());
+            phaseTag.putString(NBT_COMPONENT_TYPE, phase.type().name());
+            phaseTag.put(NBT_COMPONENT_PATTERNS, patterns);
+            phaseTag.put(NBT_COMPONENT_WITNESS, witness);
+            result.add(phaseTag);
+        }
+        return result;
+    }
+
+    private static @Nullable ListTag writePatternDefinitions(Collection<IPatternDetails> patterns,
+            HolderLookup.Provider registries) {
+        ListTag result = new ListTag();
+        for (IPatternDetails pattern : patterns) {
+            if (pattern == null || pattern.getDefinition() == null) return null;
+            result.add(pattern.getDefinition().toTag(registries));
+        }
+        return result;
+    }
+
+    private static @Nullable ECOExecutionSchedule readExecutionSchedule(CompoundTag data,
+            HolderLookup.Provider registries, Level level) {
+        if (data.getInt(NBT_EXECUTION_SCHEDULE_VERSION) != EXECUTION_SCHEDULE_VERSION
+                || !data.contains(NBT_EXECUTION_SCHEDULE, Tag.TAG_LIST)) return null;
+        ListTag scheduleTag = data.getList(NBT_EXECUTION_SCHEDULE, Tag.TAG_COMPOUND);
+        List<ECOExecutionSchedule.ComponentExecutionPhase> phases = new ArrayList<>();
+        try {
+            for (int i = 0; i < scheduleTag.size(); i++) {
+                CompoundTag phaseTag = scheduleTag.getCompound(i);
+                if (!phaseTag.contains(NBT_COMPONENT_ID, Tag.TAG_INT)
+                        || !phaseTag.contains(NBT_COMPONENT_TYPE, Tag.TAG_STRING)
+                        || !phaseTag.contains(NBT_COMPONENT_PATTERNS, Tag.TAG_LIST)
+                        || !phaseTag.contains(NBT_COMPONENT_WITNESS, Tag.TAG_LIST)) return null;
+                ECOExecutionSchedule.Type type = ECOExecutionSchedule.Type.valueOf(
+                    phaseTag.getString(NBT_COMPONENT_TYPE));
+                LinkedHashSet<IPatternDetails> patterns = new LinkedHashSet<>(readPatternDefinitions(
+                    phaseTag.getList(NBT_COMPONENT_PATTERNS, Tag.TAG_COMPOUND), registries, level));
+                List<IPatternDetails> witness = readPatternDefinitions(
+                    phaseTag.getList(NBT_COMPONENT_WITNESS, Tag.TAG_COMPOUND), registries, level);
+                phases.add(new ECOExecutionSchedule.ComponentExecutionPhase(
+                    phaseTag.getInt(NBT_COMPONENT_ID), type, patterns, witness));
+            }
+            return new ECOExecutionSchedule(phases);
+        } catch (RuntimeException malformed) {
+            return null;
+        }
+    }
+
+    private static List<IPatternDetails> readPatternDefinitions(ListTag definitions,
+            HolderLookup.Provider registries, Level level) {
+        List<IPatternDetails> result = new ArrayList<>();
+        for (int i = 0; i < definitions.size(); i++) {
+            AEItemKey definition = AEItemKey.fromTag(registries, definitions.getCompound(i));
+            IPatternDetails details = definition == null ? null : PatternDetailsHelper.decodePattern(definition, level);
+            if (details == null) throw new IllegalArgumentException("Cannot decode persisted execution pattern");
+            result.add(details);
+        }
+        return List.copyOf(result);
     }
 
     static class TaskProgress {
