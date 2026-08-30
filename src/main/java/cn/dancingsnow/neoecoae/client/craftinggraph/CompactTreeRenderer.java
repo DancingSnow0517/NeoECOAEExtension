@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -183,7 +184,7 @@ public final class CompactTreeRenderer {
                 AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
             if (material != null && material.key() != null && material.requestedBigInteger().signum() > 0 && bottom - y >= 24) {
-                drawAmount(graphics, font, material.exactRequested(),
+                drawAmount(graphics, font, compactAmount(material.exactRequested()),
                     x, y + 20, right, bottom);
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
@@ -213,6 +214,14 @@ public final class CompactTreeRenderer {
         pose.scale(scale, scale, 1.0f);
         graphics.drawString(font, amount, -font.width(amount) / 2, 0, TEXT, false);
         pose.popPose();
+    }
+
+    private static String compactAmount(String value) {
+        try {
+            return HostText.hugeStackAmount(new java.math.BigInteger(value));
+        } catch (RuntimeException ignored) {
+            return value;
+        }
     }
 
     private static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {

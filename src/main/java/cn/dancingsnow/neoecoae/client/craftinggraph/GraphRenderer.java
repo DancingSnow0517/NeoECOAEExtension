@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.client.AEKeyRendering;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import java.util.ArrayList;
@@ -184,11 +185,13 @@ public final class GraphRenderer {
                     drawFitted(graphics, font, statusSymbol(material.status()) + " " + material.status().name(),
                         x + 29, y + 18, pixelWidth - 35, border);
                     drawFitted(graphics, font,
-                        "需求 " + material.exactRequested() + "  库存 " + material.exactFromInventory(),
+                        "需求 " + compactAmount(material.exactRequested()) + "  库存 "
+                            + compactAmount(material.exactFromInventory()),
                         x + 7, y + 38, pixelWidth - 14, MUTED);
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
-                            "合成 " + material.exactToCraft() + "  缺少 " + material.exactMissing(),
+                            "合成 " + compactAmount(material.exactToCraft()) + "  缺少 "
+                                + compactAmount(material.exactMissing()),
                             x + 7, y + 53, pixelWidth - 14,
                             material.missingBigInteger().signum() > 0 ? 0xffff7777 : MUTED);
                     }
@@ -348,6 +351,14 @@ public final class GraphRenderer {
             case UNSUPPORTED -> "?";
             case CYCLE -> "↻";
         };
+    }
+
+    private static String compactAmount(String value) {
+        try {
+            return HostText.hugeStackAmount(new java.math.BigInteger(value));
+        } catch (RuntimeException ignored) {
+            return value;
+        }
     }
 
     private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
