@@ -257,6 +257,17 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         markForUpdate();
     }
 
+    public boolean isLocallyCyclePlanningEnabled() {
+        return cyclePlanningEnabled;
+    }
+
+    public void applyNetworkCyclePlanningEnabled(boolean enabled) {
+        if (cyclePlanningEnabled == enabled) return;
+        cyclePlanningEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
     private boolean isFastCraftingPlannerEnabled() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
@@ -275,15 +286,20 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     private boolean isCyclePlanningEnabled() {
-        return cyclePlanningEnabled;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null
+            ? settings.neoecoae$isCyclePlanningEnabled()
+            : cyclePlanningEnabled;
     }
 
-    /** Reserves a persisted host setting for the upcoming cyclic crafting planner. */
     private void toggleCyclePlanning(Player player) {
         if (!canPlayerInteract(player)) return;
-        cyclePlanningEnabled = !cyclePlanningEnabled;
-        setChanged();
-        markForUpdate();
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setCyclePlanningEnabled(!settings.neoecoae$isCyclePlanningEnabled());
+        } else {
+            applyNetworkCyclePlanningEnabled(!cyclePlanningEnabled);
+        }
     }
 
     public CpuSelectionMode getCpuSelectionMode() {

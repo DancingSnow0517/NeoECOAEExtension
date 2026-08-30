@@ -58,6 +58,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private static final String NEOECOAE_FAST_PLANNER_ENABLED_KEY =
         "neoecoaeFastPlannerEnabled";
     @Unique
+    private static final String NEOECOAE_CYCLE_PLANNING_ENABLED_KEY =
+        "neoecoaeCyclePlanningEnabled";
+    @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getPooledParallelism)
         .reversed()
@@ -94,6 +97,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private boolean neoecoae$fastPlannerEnabled;
     @Unique
     private boolean neoecoae$fastPlannerInitialized;
+    @Unique
+    private boolean neoecoae$cyclePlanningEnabled;
+    @Unique
+    private boolean neoecoae$cyclePlanningInitialized;
     @Unique
     private long neoecoae$substitutionPatternCountVersion = Long.MIN_VALUE;
     @Unique
@@ -177,6 +184,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$fastPlannerEnabled = savedData.getBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY);
             neoecoae$fastPlannerInitialized = true;
         }
+        if (!neoecoae$cyclePlanningInitialized
+            && savedData != null
+            && savedData.contains(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY, Tag.TAG_BYTE)) {
+            neoecoae$cyclePlanningEnabled = savedData.getBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY);
+            neoecoae$cyclePlanningInitialized = true;
+        }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
             && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
@@ -195,6 +208,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$initializeOrSyncFastPlanner(
                 computationHost.isLocallyFastCraftingPlannerEnabled(),
                 computationHost::applyNetworkFastCraftingPlannerEnabled);
+            neoecoae$initializeOrSyncCyclePlanning(
+                computationHost.isLocallyCyclePlanningEnabled(),
+                computationHost::applyNetworkCyclePlanningEnabled);
         }
     }
 
@@ -203,6 +219,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
             neoecoae$ignorePatternSubstitutions);
         savedData.putBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY, neoecoae$fastPlannerEnabled);
+        savedData.putBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY, neoecoae$cyclePlanningEnabled);
     }
 
     @Unique
@@ -222,6 +239,17 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$fastPlannerInitialized = true;
         } else {
             apply.accept(neoecoae$fastPlannerEnabled);
+        }
+    }
+
+    @Unique
+    private void neoecoae$initializeOrSyncCyclePlanning(boolean persistedValue,
+            java.util.function.Consumer<Boolean> apply) {
+        if (!neoecoae$cyclePlanningInitialized) {
+            neoecoae$cyclePlanningEnabled = persistedValue;
+            neoecoae$cyclePlanningInitialized = true;
+        } else {
+            apply.accept(neoecoae$cyclePlanningEnabled);
         }
     }
 
@@ -271,6 +299,20 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         neoecoae$fastPlannerEnabled = enabled;
         for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkFastCraftingPlannerEnabled(enabled);
+        }
+    }
+
+    @Override
+    public boolean neoecoae$isCyclePlanningEnabled() {
+        return neoecoae$cyclePlanningEnabled;
+    }
+
+    @Override
+    public void neoecoae$setCyclePlanningEnabled(boolean enabled) {
+        neoecoae$cyclePlanningInitialized = true;
+        neoecoae$cyclePlanningEnabled = enabled;
+        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            host.applyNetworkCyclePlanningEnabled(enabled);
         }
     }
 

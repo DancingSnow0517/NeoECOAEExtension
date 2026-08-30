@@ -17,10 +17,10 @@ public interface ECOCraftingNetworkSettings {
 
     void neoecoae$setFastPlannerEnabled(boolean enabled);
 
-    /** Existing planner button controls whether cyclic components are offered to CycleSolver. */
-    default boolean neoecoae$isCyclePlanningEnabled() {
-        return neoecoae$isFastPlannerEnabled();
-    }
+    /** Whether an unavoidable cyclic component may be offered to the cycle solver. */
+    boolean neoecoae$isCyclePlanningEnabled();
+
+    void neoecoae$setCyclePlanningEnabled(boolean enabled);
 
     boolean neoecoae$hasComputationHost();
 
