@@ -15,6 +15,7 @@ import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -65,7 +66,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         super.updateBeforeRender();
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
-        boolean startable = plan != null && !plan.isSimulation();
+        boolean unrepresentable = isUnrepresentablePlan();
+        boolean startable = plan != null && !plan.isSimulation() && !unrepresentable;
         start.active = !menu.hasNoCPU() && startable;
         selectCPU.active = startable;
 
@@ -100,8 +102,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             } else {
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();
             }
-        } else if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && mode.neoecoae$getPlanningStatus() != null) {
+        }
+        if (unrepresentable) {
             planSummary = Component.literal("理论计划（不可执行：数量超过 AE2 long 范围）")
                 .withColor(0xFFAA3333);
             cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
@@ -112,7 +114,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        int size = plan != null ? plan.getEntries().size() : bigIntegerMaterials().size();
+        int size = unrepresentable ? bigIntegerMaterials().size() : plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             ? mode.neoecoae$getCycleItems().size() : 0;
@@ -150,8 +152,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         CraftingPlanSummary plan = menu.getPlan();
-        if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
-        else renderBigIntegerMaterials(graphics, scrollbar.getCurrentScroll());
+        if (isUnrepresentablePlan()) renderBigIntegerMaterials(graphics, scrollbar.getCurrentScroll());
+        else if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled());
@@ -206,7 +208,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
-    private void start() { menu.startJob(); }
+    private void start() {
+        if (isUnrepresentablePlan()) return;
+        menu.startJob();
+    }
 
     private void openGraph() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return;
@@ -232,6 +237,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return mode.neoecoae$getCraftingGraphSnapshot().nodes().stream()
             .filter(node -> node.requestedBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0)
             .toList();
+    }
+
+    private boolean isUnrepresentablePlan() {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
     }
 
     /** Renders the exact planner report when AE2 cannot construct its long-valued native plan. */

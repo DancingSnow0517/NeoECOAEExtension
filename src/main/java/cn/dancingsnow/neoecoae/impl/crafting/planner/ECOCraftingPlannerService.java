@@ -80,7 +80,9 @@ public final class ECOCraftingPlannerService {
                         simulation || solved.status() != PlanningStatus.SUCCESS, multiplePaths, solved.state());
                     case PARTIAL, CYCLE_UNRESOLVED -> bridge.partial(goal, amount, multiplePaths, solved.state());
                     case CYCLE_UNSUPPORTED, CANCELLED, AMOUNT_OVERFLOW -> bridge.unsupported(goal, amount);
-                    case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> null;
+                    // Keep the AE2 menu lifecycle alive with a simulation-only shell. The exact
+                    // planner result is attached to this shell and rendered by the ECO screen.
+                    case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> bridge.unsupported(goal, amount);
                     default -> null;
                 };
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
