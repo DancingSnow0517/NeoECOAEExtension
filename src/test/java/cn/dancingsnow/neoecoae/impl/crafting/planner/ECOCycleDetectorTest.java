@@ -101,7 +101,7 @@ class ECOCycleDetectorTest {
         KeyCounter stock = new KeyCounter(); stock.add(fixture.goal(), 1);
         var result = plan(fixture.network(), stock, false);
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
-        assertEquals(0, result.state().missingItems().get(fixture.goal()));
+        assertEquals(1, result.state().missingItems().get(fixture.goal()));
         assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
         assertTrue(result.trace().cycles().getFirst().members().contains(fixture.goal()));
     }
@@ -130,7 +130,7 @@ class ECOCycleDetectorTest {
         assertEquals(PlanningStatus.PARTIAL, result.status());
         assertEquals(1, result.state().usedItems().get(raw));
         assertEquals(1, result.state().patternTimes().get(px));
-        assertEquals(0, result.state().missingItems().get(a));
+        assertEquals(1, result.state().missingItems().get(a));
         assertTrue(result.trace().cycles().stream().anyMatch(c -> c.members().contains(a)));
     }
 
@@ -141,7 +141,7 @@ class ECOCycleDetectorTest {
             () -> { throw new InterruptedException("cancelled"); }));
     }
 
-    @Test void disabledCyclePathDoesNotSelectAnAcyclicAlternative() throws Exception {
+    @Test void disabledCyclePathStillSelectsAnAcyclicAlternative() throws Exception {
         AEKey iron = key("false_iron"), x = key("false_x"), y = key("false_y");
         var p1 = PlannerFixtures.pattern("iron_x", x, 1, iron, 1L);
         var p2 = PlannerFixtures.pattern("y_x", x, 1, y, 1L);
@@ -151,13 +151,13 @@ class ECOCycleDetectorTest {
             y, one(PlannerFixtures.compiled(2, p3, y, true, ""))));
         KeyCounter stock = new KeyCounter(); stock.add(iron, 1);
         var result = plan(network, stock, false);
-        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
-        assertEquals(0, result.state().patternTimes().getOrDefault(p1, 0L));
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, result.state().patternTimes().getOrDefault(p1, 0L));
         assertEquals(0, result.state().missingItems().get(x));
-        assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
+        assertTrue(result.trace().cycles().isEmpty());
     }
 
-    @Test void disabledCyclePathDoesNotDeferAcyclicAlternatives() throws Exception {
+    @Test void disabledCyclePathDefersACyclicCandidateForAnAcyclicAlternative() throws Exception {
         AEKey iron = key("defer_iron"), x = key("defer_x"), y = key("defer_y");
         var cyclic = PlannerFixtures.pattern("y_x", x, 1, y, 1L);
         var valid = PlannerFixtures.pattern("iron_x", x, 1, iron, 1L);
@@ -168,10 +168,10 @@ class ECOCycleDetectorTest {
             y, one(PlannerFixtures.compiled(2, back, y, true, ""))));
         KeyCounter stock = new KeyCounter(); stock.add(iron, 1);
         var result = plan(network, stock, false);
-        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
-        assertEquals(0, result.state().patternTimes().getOrDefault(valid, 0L));
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(1, result.state().patternTimes().getOrDefault(valid, 0L));
         assertEquals(0, result.state().missingItems().get(x));
-        assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
+        assertTrue(result.trace().cycles().isEmpty());
     }
 
     @Test void disabledCycleSnapshotHandlesExternalInputs() throws Exception {
@@ -201,7 +201,7 @@ class ECOCycleDetectorTest {
         var result = plan(network, new KeyCounter(), false);
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, result.status());
         assertEquals(Set.of(x, y), Set.copyOf(result.trace().cycles().getFirst().members()));
-        assertEquals(0, result.state().missingItems().get(x));
+        assertEquals(1, result.state().missingItems().get(x));
         assertEquals(0, result.state().missingItems().get(y));
     }
 
