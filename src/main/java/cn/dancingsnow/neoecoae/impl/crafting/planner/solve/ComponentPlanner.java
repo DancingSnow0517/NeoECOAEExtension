@@ -286,8 +286,10 @@ public final class ComponentPlanner {
                 unresolvedCycle = true;
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
             }
-            trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
-                requiredOutputs, cycleStatus));
+            List<cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphEdge> externalEdges = cycle
+                .outgoingDependencies().stream().flatMap(dependency -> dependency.relationships().stream()).toList();
+            trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(), externalEdges,
+                requiredOutputs, cycleStatus, null));
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.CYCLE_GROUP, null, null, 0, 0, 0, 0, 0,
                 cycleStatus == CyclePlanningStatus.NOT_REQUIRED ? PlanTraceNode.Selection.NOT_APPLICABLE
                     : PlanTraceNode.Selection.UNSUPPORTED,

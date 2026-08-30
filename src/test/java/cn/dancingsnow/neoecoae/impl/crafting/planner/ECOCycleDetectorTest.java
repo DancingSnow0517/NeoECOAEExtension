@@ -17,9 +17,12 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -169,6 +172,27 @@ class ECOCycleDetectorTest {
         assertEquals(0, result.state().patternTimes().getOrDefault(valid, 0L));
         assertEquals(0, result.state().missingItems().get(x));
         assertEquals(CyclePlanningStatus.DISABLED, result.trace().cycles().getFirst().status());
+    }
+
+    @Test void disabledCycleSnapshotHandlesExternalInputs() throws Exception {
+        AEKey raw = key("snapshot_raw"), a = key("snapshot_a"), b = key("snapshot_b"), goal = key("snapshot_goal");
+        var aPattern = PlannerFixtures.pattern("b_raw_a", a, 1, b, 1L, raw, 1L);
+        var bPattern = PlannerFixtures.pattern("a_b", b, 1, a, 1L);
+        var goalPattern = PlannerFixtures.pattern("a_goal", goal, 1, a, 1L);
+        CompiledNetwork network = network(goal, Map.of(raw, List.of(),
+            a, one(PlannerFixtures.compiled(0, aPattern, a, true, "")),
+            b, one(PlannerFixtures.compiled(1, bPattern, b, true, "")),
+            goal, one(PlannerFixtures.compiled(2, goalPattern, goal, true, ""))));
+        KeyCounter stock = new KeyCounter(); stock.add(raw, 1);
+
+        var outcome = plan(network, stock, false);
+        var planningResult = new ECOPlanningResult(outcome.status(), null, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 0);
+        CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
+
+        assertEquals(1, snapshot.cycleGroups().size());
+        assertTrue(snapshot.cycleGroups().getFirst().externalInputs().stream()
+            .anyMatch(input -> input.key().equals(raw)));
     }
 
     @Test void cycleComponentIsCreatedOnlyWhenNoAlternateProducerExists() throws Exception {

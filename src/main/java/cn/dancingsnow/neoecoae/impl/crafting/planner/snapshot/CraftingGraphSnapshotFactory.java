@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.CandidateStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Edge;
@@ -56,6 +57,9 @@ public final class CraftingGraphSnapshotFactory {
         }
         for (var cycle : trace.cycles()) {
             for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
+            for (var internalEdge : cycle.internalEdges()) {
+                collectPatternMaterials(internalEdge.pattern(), materials);
+            }
         }
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
@@ -71,9 +75,10 @@ public final class CraftingGraphSnapshotFactory {
         Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null || node.key() == null) continue;
+            Integer outputId = nodeIds.get(node.key());
+            if (outputId == null) continue;
             int patternNodeId = patternNodeId(patterns.size());
             patternIds.put(node.pattern(), patternNodeId);
-            int outputId = nodeIds.get(node.key());
             List<Relationship> inputs = selectedInputs(node.key(), trace.edges(), nodeIds);
             if (inputs.isEmpty()) inputs = inputs(node.pattern(), nodeIds);
             List<Relationship> outputs = outputs(node.pattern(), nodeIds);
@@ -109,7 +114,11 @@ public final class CraftingGraphSnapshotFactory {
                 int patternNodeId = patternNodeId(patterns.size());
                 patternIds.put(details, patternNodeId);
                 List<Relationship> inputs = internalEdge.pattern().inputs().stream()
-                    .map(input -> new Relationship(nodeIds.get(input.key()), input.amountPerPattern())).toList();
+                    .map(input -> {
+                        Integer inputId = nodeIds.get(input.key());
+                        return inputId == null ? null : new Relationship(inputId, input.amountPerPattern());
+                    })
+                    .filter(java.util.Objects::nonNull).toList();
                 List<Relationship> outputs = internalEdge.pattern().outputs().stream()
                     .filter(output -> nodeIds.containsKey(output.what()))
                     .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
@@ -163,7 +172,8 @@ public final class CraftingGraphSnapshotFactory {
                     .filter(java.util.Objects::nonNull).toList()));
         }
 
-        int rootNodeId = rootKey == null ? (nodes.isEmpty() ? -1 : 0) : nodeIds.get(rootKey);
+        Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
+        int rootNodeId = rootId == null ? (rootKey == null && !nodes.isEmpty() ? 0 : -1) : rootId;
         var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
             edges.size(), cycles.size(), result.calculationNanos());
         return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, summary);
@@ -172,6 +182,16 @@ public final class CraftingGraphSnapshotFactory {
     /** Pattern visual IDs never collide with material IDs and survive packet serialization. */
     public static int patternNodeId(int snapshotPatternIndex) {
         return -snapshotPatternIndex - 2;
+    }
+
+    private static void collectPatternMaterials(CompiledPattern pattern,
+            Map<AEKey, MutableMaterial> materials) {
+        for (var input : pattern.inputs()) {
+            if (input.key() != null) materials.computeIfAbsent(input.key(), MutableMaterial::new);
+        }
+        for (GenericStack output : pattern.outputs()) {
+            if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
+        }
     }
 
     private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge> edges,
