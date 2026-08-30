@@ -79,8 +79,8 @@ public class NETextures {
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
     public static final IGuiTexture AE2_TOOLBOX =
-        SpriteTexture.of(AppEng.makeId("textures/guis/extra_panels.png"))
-            .setSprite(69, 62, 59, 66);
+        SpriteTexture.of(NeoECOAE.id("textures/gui/eco_extra_panels.png"))
+            .setSprite(0, 0, 61, 66);
 
     public static IGuiTexture SWITCH_OFF = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
         .setSprite(0,28, 22, 12);

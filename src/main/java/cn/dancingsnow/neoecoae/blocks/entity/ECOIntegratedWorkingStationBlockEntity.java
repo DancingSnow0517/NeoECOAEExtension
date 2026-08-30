@@ -841,9 +841,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         UIElement toolbox = new UIElement().style(style -> style.backgroundTexture(NETextures.AE2_TOOLBOX));
         toolbox.layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
-            .left(163)
+            .left(164)
             .top(-5)
-            .width(59)
+            .width(61)
             .height(66)
             .paddingLeft(2)
             .paddingTop(5));
