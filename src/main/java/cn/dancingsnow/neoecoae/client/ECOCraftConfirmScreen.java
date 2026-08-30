@@ -104,7 +104,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             }
         }
         if (unrepresentable) {
-            planSummary = Component.literal("理论计划（不可执行：数量超过 AE2 long 范围）")
+            planSummary = Component.literal("理论计划（不可执行：数量超出范围）")
                 .withColor(0xFFAA3333);
             cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
                 .withColor(AE2_TEXT_DARK);
