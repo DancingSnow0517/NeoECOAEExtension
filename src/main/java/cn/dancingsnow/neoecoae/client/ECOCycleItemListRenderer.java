@@ -8,7 +8,6 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
-import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -59,10 +58,12 @@ final class ECOCycleItemListRenderer {
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<net.minecraft.network.chat.Component> lines = List.of(
-                GuiText.FromStorage.text(item.formatAmount(entry.availableAmount(), AmountFormat.SLOT)),
                 net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.net_output",
-                    formatNetOutput(item, entry.netOutput(), AmountFormat.SLOT)));
+                    "gui.neoecoae.crafting_report.single_net_output",
+                    formatNetOutput(item, entry.singleNetOutput(), AmountFormat.SLOT)),
+                net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.crafting_report.total_net_output",
+                    formatNetOutput(item, entry.totalNetOutput(), AmountFormat.SLOT)));
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
@@ -83,10 +84,12 @@ final class ECOCycleItemListRenderer {
                     new Rect2i(screen.getGuiLeft() + x, screen.getGuiTop() + cellY,
                         CELL_WIDTH, ROW_HEIGHT - 1));
                 var tooltip = AEKeyRendering.getTooltip(item);
-                tooltip.add(GuiText.FromStorage.text(item.formatAmount(entry.availableAmount(), AmountFormat.FULL)));
                 tooltip.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.net_output",
-                    formatNetOutput(item, entry.netOutput(), AmountFormat.FULL)));
+                    "gui.neoecoae.crafting_report.single_net_output",
+                    formatNetOutput(item, entry.singleNetOutput(), AmountFormat.FULL)));
+                tooltip.add(net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.crafting_report.total_net_output",
+                    formatNetOutput(item, entry.totalNetOutput(), AmountFormat.FULL)));
                 hoveredTooltip = tooltip;
                 hoveredMouseX = localMouseX;
                 hoveredMouseY = localMouseY;

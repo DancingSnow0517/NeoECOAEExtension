@@ -32,10 +32,10 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         data.writeVarInt(items.size());
         for (Entry item : items) {
             AEKey.writeKey(data, item.what());
-            data.writeLong(item.availableAmount());
-            data.writeLong(item.netOutput());
+            data.writeLong(item.singleNetOutput());
+            data.writeLong(item.totalNetOutput());
         }
     }
 
-    public record Entry(AEKey what, long availableAmount, long netOutput) {}
+    public record Entry(AEKey what, long singleNetOutput, long totalNetOutput) {}
 }

@@ -97,8 +97,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 for (AEKey key : cycle.keys()) {
                     cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(
                         key,
-                        cycle.availableAmounts().getOrDefault(key, 0L),
-                        cycle.netOutputs().getOrDefault(key, 0L)));
+                        cycle.netOutputs().getOrDefault(key, 0L),
+                        cycle.totalNetOutputs().getOrDefault(key, 0L)));
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
@@ -10,6 +11,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
@@ -24,9 +26,11 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Numeric planner whose only traversal input is the SCC condensation DAG. */
 public final class ComponentPlanner {
@@ -211,7 +215,7 @@ public final class ComponentPlanner {
                 componentStatus(requiredOutputs, cycleStatus),
                 requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
                 cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult));
-            cycleDiagnostics.add(diagnostic(cycle, inventory));
+            cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult));
         }
 
         PlanningStatus status = acyclic.status();
@@ -289,10 +293,13 @@ public final class ComponentPlanner {
         };
     }
 
-    private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory) {
+    private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory,
+            CycleSolveResult cycleResult) {
         Map<AEKey, Long> net = new LinkedHashMap<>();
         for (AEKey member : cycle.members()) net.put(member, 0L);
+        Set<IPatternDetails> countedPatterns = new HashSet<>();
         for (var pattern : cycle.patterns()) {
+            if (!countedPatterns.add(pattern.details())) continue;
             for (var output : pattern.outputs()) if (net.containsKey(output.what())) {
                 net.put(output.what(), saturatedAdd(net.get(output.what()), output.amount()));
             }
@@ -300,12 +307,39 @@ public final class ComponentPlanner {
                 net.put(input.key(), saturatedAdd(net.get(input.key()), -input.amountPerPattern()));
             }
         }
+        Map<AEKey, Long> total = new LinkedHashMap<>();
+        for (AEKey member : cycle.members()) total.put(member, 0L);
+        if (cycleResult == null || cycleResult.status() != CycleSolveStatus.SUCCESS) {
+            total.putAll(net);
+        } else {
+            countedPatterns.clear();
+            for (var pattern : cycle.patterns()) {
+                if (!countedPatterns.add(pattern.details())) continue;
+                long times = cycleResult.patternTimes().getOrDefault(pattern.details(), 0L);
+                if (times == 0) continue;
+                for (var output : pattern.outputs()) if (total.containsKey(output.what())) {
+                    total.put(output.what(), saturatedAdd(total.get(output.what()),
+                        saturatedMultiply(output.amount(), times)));
+                }
+                for (CompiledInput input : pattern.inputs()) if (total.containsKey(input.key())) {
+                    total.put(input.key(), saturatedAdd(total.get(input.key()),
+                        saturatedMultiply(-input.amountPerPattern(), times)));
+                }
+            }
+        }
         return new CycleDiagnostic(cycle.members(), cycle.patterns().stream().map(p -> p.details()).toList(),
-            net, Map.of()).withAvailableAmounts(inventory);
+            net, total, Map.of()).withAvailableAmounts(inventory);
     }
 
     private static long saturatedAdd(long left, long right) {
         try { return Math.addExact(left, right); }
         catch (ArithmeticException ignored) { return right >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE; }
+    }
+
+    private static long saturatedMultiply(long left, long right) {
+        try { return Math.multiplyExact(left, right); }
+        catch (ArithmeticException ignored) {
+            return (left < 0) == (right < 0) ? Long.MAX_VALUE : Long.MIN_VALUE;
+        }
     }
 }

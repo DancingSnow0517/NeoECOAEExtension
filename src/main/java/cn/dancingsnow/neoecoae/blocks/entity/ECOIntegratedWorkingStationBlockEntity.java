@@ -790,7 +790,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         Integer networkToolSlot = null;
         if (networkTool != null) {
             networkToolSlot = networkTool.getPlayerInventorySlot();
-            inputArea.addChild(createNetworkToolbox(networkTool));
         }
 
 
@@ -822,8 +821,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .setText("container.inventory", true)
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
-        root.addChild(createPlayerInventory(holder.player.getInventory(), networkToolSlot)
-            .layout(layout -> layout.marginTop(2)));
+        UIElement playerArea = new UIElement().layout(layout -> layout
+            .flexDirection(FlexDirection.ROW)
+            .alignItems(AlignItems.FLEX_START)
+            .marginTop(2));
+        playerArea.addChild(createPlayerInventory(holder.player.getInventory(), networkToolSlot));
+        if (networkTool != null) {
+            playerArea.addChild(createNetworkToolbox(networkTool));
+        }
+        root.addChild(playerArea);
 
         // Add absolute-positioned floating window last so it renders on top
         root.addChild(allowOutputWindow);
@@ -834,18 +840,20 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         var itemHandler = new NetworkToolItemHandler(networkTool);
         UIElement toolbox = new UIElement().style(style -> style.backgroundTexture(NETextures.AE2_TOOLBOX));
         toolbox.layout(layout -> layout
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(163)
+            .top(-5)
             .width(59)
             .height(66)
             .paddingLeft(4)
-            .paddingTop(6)
-            .marginLeft(6)
-            .alignSelf(AlignItems.CENTER));
+            .paddingTop(6));
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int columnIndex = 0; columnIndex < 3; columnIndex++) {
                 int slot = rowIndex * 3 + columnIndex;
-                row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot)));
+                row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot))
+                    .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
             }
             toolbox.addChild(row);
         }
