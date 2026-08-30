@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
@@ -15,6 +16,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class AcyclicCraftingSolver {
     public record Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace) {}
@@ -27,6 +29,17 @@ public final class AcyclicCraftingSolver {
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             Map<AEKey, Integer> initialChoices, ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, route, inventory, amount, initialChoices, Set.of(), cancellation);
+    }
+
+    /**
+     * Patterns owned by a cyclic component are selected to preserve route identity, but their arithmetic is
+     * deferred wholesale to that component. This prevents one self-growing transition from being planned once
+     * for an acyclic byproduct and a second time for its feedback member.
+     */
+    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
+            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
+            ECOCancellation cancellation) throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
@@ -38,7 +51,8 @@ public final class AcyclicCraftingSolver {
         try {
             for (int attempt = 0; attempt < retryBudget; attempt++) {
                 cancellation.checkpoint();
-                state = runOnce(network, route, new SolveWorkspace(inventory, choices), amount, cancellation);
+                state = runOnce(network, route, new SolveWorkspace(inventory, choices), amount,
+                    deferredPatterns, cancellation);
                 if (!state.unsupported.isEmpty()) {
                     addTrace(network, state, amount, trace);
                     trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
@@ -73,7 +87,8 @@ public final class AcyclicCraftingSolver {
     }
 
     private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
-            long amount, ECOCancellation cancellation) throws InterruptedException, AmountOverflowException {
+            long amount, Set<IPatternDetails> deferredPatterns, ECOCancellation cancellation)
+            throws InterruptedException, AmountOverflowException {
         SolveState state = new SolveState(workspace.inventory());
         state.stored.set(network.goal(), 0); // AE2 ignores stored final output during planning.
         state.demand.put(network.goal(), amount);
@@ -110,6 +125,10 @@ public final class AcyclicCraftingSolver {
             if (choice >= fast.size()) choice = fast.size() - 1;
             CompiledPattern pattern = fast.get(choice);
             state.selected.put(key, pattern);
+            if (deferredPatterns.contains(pattern.details())) {
+                // The untouched demand becomes a required output of the owning cycle component.
+                continue;
+            }
             long times = CheckedAmounts.ceilDiv(requested, pattern.outputPerPattern());
             long oldTimes = state.patternTimes.getOrDefault(pattern.details(), 0L);
             state.patternTimes.put(pattern.details(), CheckedAmounts.add(oldTimes, times, "patternTimes"));

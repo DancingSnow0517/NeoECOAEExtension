@@ -14,10 +14,19 @@ public final class ECOPhaseScheduler {
         return !requiresOrderedCycleExecution || (schedule != null && !witnessMissing);
     }
 
+    /** A compact single-transition cycle has no expanded witness but still needs component phase ordering. */
+    public static boolean requiresComponentScheduling(ECOExecutionSchedule schedule) {
+        return schedule != null && schedule.phases().stream().anyMatch(phase ->
+            phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.patternSet().isEmpty());
+    }
+
     public static boolean canDispatch(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
             IPatternDetails pattern) {
         if (phase.patternSet().stream().noneMatch(member -> samePattern(member, pattern))) return false;
         if (phase.type() == ECOExecutionSchedule.Type.DAG) return true;
+        // A cycle phase without a per-firing witness carries a compact single-transition plan: there is only
+        // one pattern to fire, so no ordering is being suppressed and the pattern set is the whole gate.
+        if (phase.cycleWitness().isEmpty()) return true;
         return witnessIndex >= 0 && witnessIndex < phase.cycleWitness().size()
             && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
     }

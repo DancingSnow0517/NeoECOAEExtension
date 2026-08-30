@@ -28,13 +28,18 @@ final class PlannerFixtures {
         return new Pattern(name, inputs.toArray(IPatternDetails.IInput[]::new), List.copyOf(outputs));
     }
     static CompiledPattern compiled(int id, Pattern pattern, AEKey output, boolean fast, String reason) {
+        return compiled(id, pattern, output, fast, reason, true);
+    }
+    /** {@code stable} mirrors smart-pattern-bus NET_GROWTH_SAFE evidence; fixture patterns are deterministic. */
+    static CompiledPattern compiled(int id, Pattern pattern, AEKey output, boolean fast, String reason,
+            boolean stable) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (var input : pattern.getInputs()) {
             var possible = input.getPossibleInputs()[0];
             inputs.add(new CompiledInput(input, possible.what(), possible.amount() * input.getMultiplier(), fast, reason));
         }
         long count = pattern.getOutputs().stream().filter(s -> s.what().equals(output)).mapToLong(GenericStack::amount).sum();
-        return new CompiledPattern(id, pattern, output, count, inputs, pattern.getOutputs(), fast, reason);
+        return new CompiledPattern(id, pattern, output, count, inputs, pattern.getOutputs(), fast, reason, stable);
     }
     static CompiledNetwork network(AEKey goal, Map<AEKey, List<CompiledPattern>> patterns) {
         Map<AEKey, List<CompiledPattern>> copy = new LinkedHashMap<>(patterns);

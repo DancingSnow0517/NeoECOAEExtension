@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
@@ -54,6 +55,7 @@ public final class CraftingNetworkCompiler {
         List<GenericStack> outputs;
         long outputPerPattern = 0;
         String unsupported = null;
+        boolean netGrowthValidated = NetGrowthPatternValidationRegistry.isValidated(details);
         try {
             outputs = List.copyOf(details.getOutputs());
             if (outputs.isEmpty()) {
@@ -95,7 +97,7 @@ public final class CraftingNetworkCompiler {
         }
         return new CompiledPattern(
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
-            unsupported == null ? "" : unsupported
+            unsupported == null ? "" : unsupported, netGrowthValidated
         );
     }
 
@@ -124,8 +126,10 @@ public final class CraftingNetworkCompiler {
             return List.copyOf(alternatives);
         }
         long amount = Math.multiplyExact(primary.amount(), multiplier);
-        if (input.getRemainingKey(primary.what()) != null) {
-            return List.of(new CompiledInput(input, primary.what(), amount, false, "UNSUPPORTED_REMAINDER"));
+        AEKey remainder = input.getRemainingKey(primary.what());
+        if (remainder != null) {
+            return List.of(new CompiledInput(input, primary.what(), amount, false, "UNSUPPORTED_REMAINDER",
+                remainder, multiplier));
         }
         return List.of(new CompiledInput(input, primary.what(), amount, true, ""));
     }

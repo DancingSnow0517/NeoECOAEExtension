@@ -5,6 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest;
@@ -52,16 +53,34 @@ public final class ComponentPlanner {
 
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
             long amount, boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
+        ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
+            cancellation);
+        return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled, cancellation);
+    }
+
+    public ActiveRouteSelector.Selection selectRoutes(CondensationGraph condensation,
+            boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
+        // Cycle planning controls whether an unavoidable cycle may be solved; it must never disable choosing
+        // an available acyclic producer instead.
+        return activeRouteSelector.select(condensation.source(), true, cancellation);
+    }
+
+    public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
+            KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
+            ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
-        ActiveRouteSelector.Selection activeSelection = activeRouteSelector.select(condensation.source(), cancellation);
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
             .filter(AcyclicComponent.class::isInstance)
             .map(AcyclicComponent.class::cast)
             .map(AcyclicComponent::key)
             .toList();
+        var cycleOwnedPatterns = activeSelection.cyclicComponents().stream()
+            .flatMap(cycle -> cycle.patterns().stream())
+            .map(CompiledPattern::details)
+            .collect(java.util.stream.Collectors.toSet());
         var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount,
-            activeSelection.choices(), cancellation);
+            activeSelection.choices(), cycleOwnedPatterns, cancellation);
         ECOPlanTrace trace = acyclic.trace();
         for (var deferred : activeSelection.deferredCyclicCandidates()) {
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, deferred.producedKey(), deferred.details(),
@@ -107,6 +126,13 @@ public final class ComponentPlanner {
                 long demand = acyclic.state().demandFor(member);
                 if (demand > 0) requiredOutputs.put(member, demand);
             }
+            var ownedDetails = cycle.patterns().stream().map(CompiledPattern::details)
+                .collect(java.util.stream.Collectors.toSet());
+            for (var selected : acyclic.state().selected.entrySet()) {
+                if (!ownedDetails.contains(selected.getValue().details())) continue;
+                long demand = acyclic.state().demandFor(selected.getKey());
+                if (demand > 0) requiredOutputs.put(selected.getKey(), demand);
+            }
             CyclePlanningStatus cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
             String diagnostic = null;
             CycleSolveResult cycleResult = null;
@@ -125,7 +151,7 @@ public final class ComponentPlanner {
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED, diagnostic));
             } else {
                 // The cycle solver is a plug-in: it receives a snapshot and never touches the DAG workspace.
-                Map<AEKey, Long> stock = relevantStock(cycle, inventory, acyclic.state());
+                Map<AEKey, Long> stock = relevantStock(cycle, requiredOutputs.keySet(), inventory, acyclic.state());
                 Map<AEKey, Long> solveTargets;
                 try {
                     solveTargets = additionalOutputTargets(requiredOutputs, stock, network.goal());
@@ -139,7 +165,7 @@ public final class ComponentPlanner {
                 }
                 if (!solveTargets.isEmpty()) {
                     cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, solveTargets, stock,
-                        cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions(true)), cancellation);
+                        cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions()), cancellation);
                     cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                     diagnostic = cycleResult.summary();
                     unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
@@ -198,9 +224,11 @@ public final class ComponentPlanner {
                 .map(c -> c.componentId()).toList());
     }
 
-    private static Map<AEKey, Long> relevantStock(CycleComponent cycle, KeyCounter inventory, SolveState state) {
+    private static Map<AEKey, Long> relevantStock(CycleComponent cycle, java.util.Set<AEKey> requiredOutputs,
+            KeyCounter inventory, SolveState state) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         for (AEKey member : cycle.members()) result.put(member, remaining(inventory, state, member));
+        for (AEKey required : requiredOutputs) result.putIfAbsent(required, remaining(inventory, state, required));
         for (var dependency : cycle.outgoingDependencies()) {
             for (var relationship : dependency.relationships()) {
                 AEKey key = relationship.requiredInput();

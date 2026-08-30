@@ -7,14 +7,15 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridg
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CraftingNetworkCompiler;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.SinglePatternGrowthCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
@@ -24,7 +25,7 @@ public final class ECOCraftingPlannerService {
     private final CraftingGraphBuilder graphBuilder = new CraftingGraphBuilder();
     private final TarjanSccAnalyzer sccAnalyzer = new TarjanSccAnalyzer();
     private final ComponentPlanner componentPlanner = new ComponentPlanner(
-        new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        new AcyclicCraftingSolver(), SinglePatternGrowthCycleSolver.overBoundedSolver());
     private final AE2CraftingPlanBridge bridge = new AE2CraftingPlanBridge();
 
     /** Per-calculation session: structural compilation is reused by all AE2 CRAFT_LESS probes. */
@@ -35,6 +36,7 @@ public final class ECOCraftingPlannerService {
         private final boolean cyclePlanningEnabled;
         private CompiledNetwork compiled;
         private CondensationGraph condensation;
+        private ActiveRouteSelector.Selection activeSelection;
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
                 boolean cyclePlanningEnabled) {
@@ -54,7 +56,10 @@ public final class ECOCraftingPlannerService {
                     var sccs = sccAnalyzer.analyze(graph, cancellation);
                     condensation = CondensationGraph.build(graph, sccs, cancellation);
                 }
-                var solved = componentPlanner.plan(compiled, condensation, inventory, amount,
+                if (activeSelection == null) {
+                    activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+                }
+                var solved = componentPlanner.plan(compiled, activeSelection, inventory, amount,
                     cyclePlanningEnabled, cancellation);
                 boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
                 var plan = switch (solved.status()) {

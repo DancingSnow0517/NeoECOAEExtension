@@ -7,6 +7,13 @@ public record CycleSolveDiagnostic(Code code, String message) {
         SATISFIED_FROM_STOCK,
         /** A concrete firing order was found. */
         WITNESS_FOUND,
+        /**
+         * One validated pattern forms the whole cycle on its own and grows its feedback key, so the firing
+         * count, seed and external demand were computed as exact integer algebra instead of searched.
+         */
+        SINGLE_PATTERN_NET_GROWTH,
+        /** The single-pattern net growth calculator declined; the bounded search answered instead. */
+        NET_GROWTH_NOT_APPLICABLE,
         /** The witness' start-up seed is fully covered by the supplied stock. */
         SEED_COVERED_BY_STOCK,
         /** The witness needs more start-up material than the stock snapshot holds. */

@@ -8,6 +8,7 @@ import appeng.crafting.pattern.AECraftingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
@@ -66,6 +67,7 @@ public final class AE2PatternIntrospection {
     public static void onRecipeReloadOrServerReload() {
         reloadGeneration++;
         ECOCraftingFastPathCache.clearAllCaches();
+        NetGrowthPatternValidationRegistry.clear();
     }
 
     private static Optional<Object> getFastPathPatternIdentity(IPatternDetails details) {

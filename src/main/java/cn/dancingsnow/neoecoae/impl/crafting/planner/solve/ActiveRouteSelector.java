@@ -36,13 +36,33 @@ public final class ActiveRouteSelector {
 
     public Selection select(CraftingDependencyGraph universe, ECOCancellation cancellation)
             throws InterruptedException {
+        return select(universe, true, cancellation);
+    }
+
+    /**
+     * Selects the active producer route. When cycle avoidance is disabled, the first supported producer of
+     * every key is analyzed exactly once; cyclic alternatives are not searched.
+     */
+    public Selection select(CraftingDependencyGraph universe, boolean avoidCycles,
+            ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, Integer> choices = new LinkedHashMap<>();
+        Map<AEKey, List<CompiledPattern>> candidatesByKey = new LinkedHashMap<>();
         List<CompiledPattern> deferred = new ArrayList<>();
-        for (AEKey key : universe.nodes().keySet()) choices.put(key, 0);
+        for (AEKey key : universe.nodes().keySet()) {
+            choices.put(key, 0);
+            candidatesByKey.put(key, fastCandidates(universe, key));
+        }
+        if (!avoidCycles) {
+            CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
+            List<SccComponent> sccs = tarjan.analyze(active, cancellation);
+            CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
+            List<CycleComponent> cycles = condensation.cycles();
+            return new Selection(cycles.isEmpty(), choices, condensation, cycles, List.of());
+        }
         int guard = Math.max(1, universe.nodes().size() + universe.edges().size() + 1);
         for (int attempt = 0; attempt < guard; attempt++) {
             cancellation.checkpoint();
-            CraftingDependencyGraph active = activeGraph(universe, choices, cancellation);
+            CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
             List<SccComponent> sccs = tarjan.analyze(active, cancellation);
             List<SccComponent> cyclic = sccs.stream().filter(SccComponent::cyclic).toList();
             CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
@@ -52,7 +72,7 @@ public final class ActiveRouteSelector {
             for (SccComponent scc : cyclic) {
                 cancellation.checkpoint();
                 for (AEKey member : scc.members()) {
-                    List<CompiledPattern> candidates = fastCandidates(universe, member);
+                    List<CompiledPattern> candidates = candidatesByKey.getOrDefault(member, List.of());
                     int current = choices.getOrDefault(member, 0);
                     if (current + 1 < candidates.size()) {
                         deferred.add(candidates.get(current));
@@ -65,19 +85,20 @@ public final class ActiveRouteSelector {
             }
             if (!advanced) return new Selection(false, choices, condensation, condensation.cycles(), deferred);
         }
-        CraftingDependencyGraph active = activeGraph(universe, choices, cancellation);
+        CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
         List<SccComponent> sccs = tarjan.analyze(active, cancellation);
         CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
         return new Selection(false, choices, condensation, condensation.cycles(), deferred);
     }
 
     private static CraftingDependencyGraph activeGraph(CraftingDependencyGraph universe,
-            Map<AEKey, Integer> choices, ECOCancellation cancellation) throws InterruptedException {
+            Map<AEKey, Integer> choices, Map<AEKey, List<CompiledPattern>> candidatesByKey,
+            ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, CraftingGraphNode> nodes = new LinkedHashMap<>();
         List<CraftingGraphEdge> edges = new ArrayList<>();
         for (AEKey key : universe.nodes().keySet()) {
             cancellation.checkpoint();
-            List<CompiledPattern> candidates = fastCandidates(universe, key);
+            List<CompiledPattern> candidates = candidatesByKey.getOrDefault(key, List.of());
             int choice = choices.getOrDefault(key, 0);
             if (choice >= candidates.size()) choice = candidates.size() - 1;
             List<CompiledPattern> selected = choice >= 0 ? List.of(candidates.get(choice)) : List.of();

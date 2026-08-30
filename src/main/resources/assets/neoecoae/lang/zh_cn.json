@@ -477,9 +477,9 @@
   "gui.neoecoae.crafting_report.net_output": "净产出：%s",
   "gui.neoecoae.crafting.fast_planner.on": "ECO 快速规划：已启用",
   "gui.neoecoae.crafting.fast_planner.off": "ECO 快速规划：已禁用",
-  "gui.neoecoae.crafting.cycle_planning.on": "循环规划：已启用（求解器尚未实现）",
+  "gui.neoecoae.crafting.cycle_planning.on": "循环规划：已启用",
   "gui.neoecoae.crafting.cycle_planning.off": "循环规划：已禁用",
-  "gui.neoecoae.crafting_report.cycle_unsupported": "检测到循环配方，当前版本暂不支持循环规划。",
+  "gui.neoecoae.crafting_report.cycle_unsupported": "检测到当前求解器无法处理的循环配方。",
   "gui.neoecoae.crafting_graph.open": "规划图",
   "gui.neoecoae.crafting_graph.title": "ECO 合成规划图",
   "gui.neoecoae.crafting_graph.search": "搜索"

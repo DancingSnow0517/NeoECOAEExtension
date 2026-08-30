@@ -8,6 +8,12 @@ public record CompiledInput(
     AEKey key,
     long amountPerPattern,
     boolean fastSupported,
-    String unsupportedReason
+    String unsupportedReason,
+    AEKey remainderKey,
+    long remainderAmountPerPattern
 ) {
+    public CompiledInput(IPatternDetails.IInput source, AEKey key, long amountPerPattern,
+            boolean fastSupported, String unsupportedReason) {
+        this(source, key, amountPerPattern, fastSupported, unsupportedReason, null, 0L);
+    }
 }

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +20,18 @@ import java.util.stream.Collectors;
  *   <li>{@code producedOutputs} — gross production of the witness, byproducts included.</li>
  *   <li>{@code deliverableOutputs} — what is on hand for the required keys once the witness has run.</li>
  *   <li>{@code executionWitness} — a concrete, replayable, never-negative firing order.</li>
+ *   <li>{@code executionPlan} — the same work in compact {@code pattern × count} form.</li>
  * </ul>
  *
  * <p>{@code requiredSeed} together with {@code externalDemand} is exactly what the witness needs:
  * replaying the witness from {@code requiredSeed}, importing {@code externalDemand} across the
  * boundary, keeps every stock level at or above zero.
+ *
+ * <p>{@code executionPlan} is metadata, never a second source of truth. For an ordinary multi-pattern cycle
+ * it is the order-preserving run-length encoding of {@code executionWitness}, so the witness semantics are
+ * untouched. A single-transition phase may instead carry a compact plan with an <em>empty</em> witness:
+ * there is exactly one pattern to fire, so no ordering is being suppressed, and a plan of {@code N} firings
+ * costs one entry instead of {@code N}.
  */
 public record CycleSolveResult(
     CycleSolveStatus status,
@@ -33,6 +42,7 @@ public record CycleSolveResult(
     Map<AEKey, Long> producedOutputs,
     Map<AEKey, Long> deliverableOutputs,
     List<CycleFiring> executionWitness,
+    List<PatternRun> executionPlan,
     List<CycleSolveDiagnostic> diagnostics,
     CycleSolveMetrics metrics
 ) {
@@ -44,10 +54,48 @@ public record CycleSolveResult(
         producedOutputs = Map.copyOf(producedOutputs);
         deliverableOutputs = Map.copyOf(deliverableOutputs);
         executionWitness = List.copyOf(executionWitness);
+        executionPlan = List.copyOf(executionPlan);
         diagnostics = List.copyOf(diagnostics);
         if (status == CycleSolveStatus.SUCCESS && !seedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful cycle solve cannot report a seed shortfall");
         }
+        if (!executionWitness.isEmpty() && totalRunCount(executionPlan) != executionWitness.size()) {
+            throw new IllegalArgumentException("A compact execution plan must account for every witness step");
+        }
+    }
+
+    /** Legacy shape: the compact plan is the run-length encoding of the per-firing witness. */
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<CycleSolveDiagnostic> diagnostics,
+            CycleSolveMetrics metrics) {
+        this(status, patternTimes, externalDemand, requiredSeed, seedShortfall, producedOutputs,
+            deliverableOutputs, executionWitness, compress(executionWitness), diagnostics, metrics);
+    }
+
+    /** Order-preserving run-length encoding; it never merges non-adjacent runs. */
+    private static List<PatternRun> compress(List<CycleFiring> witness) {
+        List<PatternRun> runs = new ArrayList<>();
+        CompiledPattern current = null;
+        long count = 0;
+        for (CycleFiring firing : witness) {
+            if (current != null && current.details() == firing.pattern().details()) {
+                count++;
+                continue;
+            }
+            if (current != null) runs.add(new PatternRun(current, count));
+            current = firing.pattern();
+            count = 1;
+        }
+        if (current != null) runs.add(new PatternRun(current, count));
+        return List.copyOf(runs);
+    }
+
+    private static long totalRunCount(List<PatternRun> runs) {
+        long total = 0;
+        for (PatternRun run : runs) total = Math.addExact(total, run.count());
+        return total;
     }
 
     public static CycleSolveResult failure(CycleSolveStatus status, List<CycleSolveDiagnostic> diagnostics,
@@ -69,7 +117,16 @@ public record CycleSolveResult(
         return failure(CycleSolveStatus.NOT_IMPLEMENTED, CycleSolveDiagnostic.Code.NOT_IMPLEMENTED, message);
     }
 
-    /** Total firings in the witness; equals {@code executionWitness.size()}. */
+    /** Pure annotation: same answer, extra explanation. Used to record why a fast path stepped aside. */
+    public CycleSolveResult withAdditionalDiagnostics(List<CycleSolveDiagnostic> extra) {
+        if (extra.isEmpty()) return this;
+        List<CycleSolveDiagnostic> merged = new ArrayList<>(extra);
+        merged.addAll(diagnostics);
+        return new CycleSolveResult(status, patternTimes, externalDemand, requiredSeed, seedShortfall,
+            producedOutputs, deliverableOutputs, executionWitness, executionPlan, merged, metrics);
+    }
+
+    /** Total firings in the plan; equals {@code executionWitness.size()} whenever a witness is present. */
     public long totalFirings() {
         return patternTimes.values().stream().mapToLong(Long::longValue).sum();
     }

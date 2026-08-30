@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
@@ -403,9 +404,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return null;
         }
         IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, level);
-        return details instanceof IMolecularAssemblerSupportedPattern
-            ? new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack))
-            : null;
+        if (!(details instanceof IMolecularAssemblerSupportedPattern)) return null;
+        NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+        return new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack));
     }
 
     @Override
@@ -670,6 +671,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
+                NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
                 patternDetails.add(details);
             }
         }

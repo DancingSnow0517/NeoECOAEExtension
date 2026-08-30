@@ -14,9 +14,14 @@ public record CycleSolveRequest(
     List<ComponentDependency> externalResourceBoundary,
     PlannerOptions options
 ) {
-    public record PlannerOptions(boolean cyclePlanningEnabled, CycleSolveLimits limits) {
-        public PlannerOptions(boolean cyclePlanningEnabled) {
-            this(cyclePlanningEnabled, CycleSolveLimits.DEFAULT);
+    public record PlannerOptions(CycleSolveLimits limits) {
+        public PlannerOptions() {
+            this(CycleSolveLimits.DEFAULT);
+        }
+
+        /** Source-compatible bridge for callers compiled against the former enable flag. */
+        public PlannerOptions(boolean ignoredCyclePlanningEnabled, CycleSolveLimits limits) {
+            this(limits);
         }
 
         public PlannerOptions {
