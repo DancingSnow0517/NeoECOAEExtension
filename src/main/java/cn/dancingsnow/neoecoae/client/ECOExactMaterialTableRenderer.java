@@ -6,9 +6,10 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
-import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +23,8 @@ import net.minecraft.network.chat.Component;
  * same layout and interaction for an explanatory plan whose amounts are represented by BigInteger.
  */
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
+    private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
+    private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y) {
         super(screen, x, y, 7);
     }
@@ -98,9 +101,34 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
             return key.formatAmount(amount.longValue(), format);
         }
+        int amountPerUnit = Math.max(1, key.getAmountPerUnit());
+        BigDecimal displayAmount = new BigDecimal(amount)
+            .divide(BigDecimal.valueOf(amountPerUnit), 6, RoundingMode.DOWN);
         if (format == AmountFormat.FULL) {
-            return NumberFormat.getNumberInstance().format(amount);
+            String formatted = NumberFormat.getNumberInstance().format(displayAmount.stripTrailingZeros());
+            String unit = key.getUnitSymbol();
+            return unit == null ? formatted : formatted + " " + unit;
         }
-        return HostText.hugeStackAmount(amount);
+        return compact(displayAmount, format == AmountFormat.SLOT_LARGE_FONT ? 3 : 4);
+    }
+
+    /** Mirrors AE2's decimal SI formatter while accepting an arbitrary-precision value. */
+    private static String compact(BigDecimal value, int maxWidth) {
+        if (value.signum() == 0) return "0";
+        int suffix = 0;
+        BigDecimal scaled = value;
+        while (suffix < SI_SUFFIXES.length - 1 && scaled.compareTo(THOUSAND_DECIMAL) >= 0) {
+            scaled = scaled.divide(THOUSAND_DECIMAL, 6, RoundingMode.DOWN);
+            suffix++;
+        }
+        int decimals = Math.max(0, maxWidth - integerDigits(scaled) - (suffix == 0 ? 0 : 1) - 1);
+        String result = scaled.setScale(Math.min(2, decimals), RoundingMode.DOWN)
+            .stripTrailingZeros().toPlainString() + SI_SUFFIXES[suffix];
+        if (result.length() <= maxWidth) return result;
+        return scaled.setScale(0, RoundingMode.DOWN).toPlainString() + SI_SUFFIXES[suffix];
+    }
+
+    private static int integerDigits(BigDecimal value) {
+        return Math.max(1, value.precision() - value.scale());
     }
 }
