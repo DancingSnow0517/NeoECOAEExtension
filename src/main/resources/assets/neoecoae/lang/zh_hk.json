@@ -426,5 +426,6 @@
   "gui.neoecoae.storage_interface.transfer_prefix": "傳輸：",
   "gui.neoecoae.storage_interface.transfer_suffix": " / tick",
   "gui.neoecoae.crafting_report.single_net_output": "單次淨產出：%s",
-  "gui.neoecoae.crafting_report.total_net_output": "總淨產出：%s"
+  "gui.neoecoae.crafting_report.total_net_output": "總淨產出：%s",
+  "gui.neoecoae.crafting_report.requested_exact": "請求總量：%s"
 }

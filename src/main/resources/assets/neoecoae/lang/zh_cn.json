@@ -478,6 +478,7 @@
   "gui.neoecoae.crafting_report.bytes_only": "字节：%s B",
   "gui.neoecoae.crafting_report.single_net_output": "单次净产出：%s",
   "gui.neoecoae.crafting_report.total_net_output": "总净产出：%s",
+  "gui.neoecoae.crafting_report.requested_exact": "请求总量：%s",
   "gui.neoecoae.crafting.fast_planner.on": "ECO 快速规划：已启用",
   "gui.neoecoae.crafting.fast_planner.off": "ECO 快速规划：已禁用",
   "gui.neoecoae.crafting.cycle_planning.on": "循环规划：已启用",

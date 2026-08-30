@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.client;
 
 import appeng.client.gui.AEBaseScreen;
-import appeng.api.client.AEKeyRendering;
 import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
@@ -38,6 +37,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private static final MathContext TIME_PRECISION = new MathContext(5, RoundingMode.HALF_UP);
 
     private final ECOCraftConfirmTableRenderer table;
+    private final ECOExactMaterialTableRenderer exactTable;
     private final ECOCycleItemListRenderer cycleItems;
     private final Button start;
     private final Button selectCPU;
@@ -50,6 +50,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
         table = new ECOCraftConfirmTableRenderer(this, 9, 27);
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -113,7 +114,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        int size = unrepresentable ? bigIntegerMaterials().size() : plan != null ? plan.getEntries().size() : 0;
+        int size = unrepresentable ? exactMaterials().size() : plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             ? mode.neoecoae$getCycleItems().size() : 0;
@@ -151,7 +152,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         CraftingPlanSummary plan = menu.getPlan();
-        if (isUnrepresentablePlan()) renderBigIntegerMaterials(graphics, scrollbar.getCurrentScroll());
+        if (isUnrepresentablePlan()) {
+            exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
+        }
         else if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
@@ -177,7 +180,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
-        if (hovered == null) hovered = table.getHoveredStack();
+        if (hovered == null) hovered = isUnrepresentablePlan()
+            ? exactTable.getHoveredStack() : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
 
@@ -231,35 +235,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
     }
 
-    private List<CraftingGraphSnapshot.MaterialNode> bigIntegerMaterials() {
+    private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
-        return mode.neoecoae$getCraftingGraphSnapshot().nodes().stream()
-            .filter(node -> node.requestedBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0)
-            .toList();
+        return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes());
     }
 
     private boolean isUnrepresentablePlan() {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
-    }
-
-    /** Renders the exact planner report when AE2 cannot construct its long-valued native plan. */
-    private void renderBigIntegerMaterials(GuiGraphics graphics, int scroll) {
-        List<CraftingGraphSnapshot.MaterialNode> materials = bigIntegerMaterials();
-        int left = 9;
-        int top = 27;
-        int rowHeight = 18;
-        int first = Math.max(0, scroll);
-        int visible = 7;
-        for (int index = first; index < Math.min(materials.size(), first + visible); index++) {
-            var material = materials.get(index);
-            int y = top + (index - first) * rowHeight;
-            AEKeyRendering.drawInGui(minecraft, graphics, left + 2, y + 1, material.key());
-            graphics.drawString(font, material.key().getDisplayName(), left + 22, y + 2, AE2_TEXT_DARK, false);
-            String amount = "req " + material.exactRequested() + "  miss " + material.exactMissing();
-            graphics.drawString(font, Component.literal(amount), left + 22, y + 10,
-                material.missingBigInteger().signum() > 0 ? 0xFFAA3333 : AE2_TEXT_DARK, false);
-        }
     }
 
     private static final class CraftingGraphButton extends IconButton {
