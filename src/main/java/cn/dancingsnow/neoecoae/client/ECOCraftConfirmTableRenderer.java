@@ -9,12 +9,19 @@ import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 
 /** AE2 report cells with the ECO report's seven visible rows. */
 final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPlanSummaryEntry> {
-    ECOCraftConfirmTableRenderer(AEBaseScreen<?> screen, int x, int y) {
+    private static final int MISSING_OVERLAY = 0x1AFF0000;
+    private static final int DISABLED_CYCLE_OVERLAY = 0x1AB86BFF;
+    private final Predicate<AEKey> disabledCycleRequirement;
+
+    ECOCraftConfirmTableRenderer(AEBaseScreen<?> screen, int x, int y,
+            Predicate<AEKey> disabledCycleRequirement) {
         super(screen, x, y, 7);
+        this.disabledCycleRequirement = disabledCycleRequirement;
     }
 
     @Override protected List<Component> getEntryDescription(CraftingPlanSummaryEntry entry) {
@@ -42,6 +49,7 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     }
 
     @Override protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {
-        return entry.getMissingAmount() > 0 ? 0x1AFF0000 : 0;
+        if (entry.getMissingAmount() <= 0) return 0;
+        return disabledCycleRequirement.test(entry.getWhat()) ? DISABLED_CYCLE_OVERLAY : MISSING_OVERLAY;
     }
 }

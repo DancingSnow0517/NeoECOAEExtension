@@ -14,6 +14,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -25,8 +26,14 @@ import net.minecraft.network.chat.Component;
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
     private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
     private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
-    ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y) {
+    private static final int MISSING_OVERLAY = 0x1AFF0000;
+    private static final int DISABLED_CYCLE_OVERLAY = 0x1AB86BFF;
+    private final Predicate<AEKey> disabledCycleRequirement;
+
+    ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
+            Predicate<AEKey> disabledCycleRequirement) {
         super(screen, x, y, 7);
+        this.disabledCycleRequirement = disabledCycleRequirement;
     }
 
     @Override
@@ -73,7 +80,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
-        return entry.missingBigInteger().signum() > 0 ? 0x1AFF0000 : 0;
+        if (entry.missingBigInteger().signum() <= 0) return 0;
+        return disabledCycleRequirement.test(entry.key()) ? DISABLED_CYCLE_OVERLAY : MISSING_OVERLAY;
     }
 
     static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes) {

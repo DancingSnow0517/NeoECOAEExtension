@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client;
 
+import appeng.api.stacks.AEKey;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
@@ -49,8 +50,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27);
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -243,6 +244,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private boolean isUnrepresentablePlan() {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+    }
+
+    private boolean isDisabledCycleRequirement(AEKey key) {
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode) || mode.neoecoae$isCyclePlanningEnabled()) {
+            return false;
+        }
+        return mode.neoecoae$getCycleItems().stream().anyMatch(entry -> entry.what().equals(key));
     }
 
     private static final class CraftingGraphButton extends IconButton {

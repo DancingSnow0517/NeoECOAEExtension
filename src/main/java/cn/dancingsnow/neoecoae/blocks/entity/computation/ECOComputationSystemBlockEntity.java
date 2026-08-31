@@ -78,7 +78,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private boolean ignorePatternSubstitutions;
     @Persisted
     @DescSynced
-    private boolean fastCraftingPlannerEnabled;
+    private boolean fastCraftingPlannerEnabled = true;
     @Persisted
     @DescSynced
     private boolean cyclePlanningEnabled;
