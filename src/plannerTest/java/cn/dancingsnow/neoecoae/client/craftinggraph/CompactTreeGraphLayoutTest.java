@@ -155,6 +155,10 @@ class CompactTreeGraphLayoutTest {
             .filter(node -> node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP).count());
         assertEquals(0, projected.nodes().values().stream()
             .filter(node -> node.kind() == ClientCraftingGraph.Kind.FOLDER).count());
+        int projectedCycleId = projected.nodes().values().stream()
+            .filter(node -> node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP)
+            .mapToInt(ClientCraftingGraph.Node::id).findFirst().orElseThrow();
+        assertEquals(96, CompactTreeLayout.nodeWidth(projected, projectedCycleId));
     }
 
     @Test

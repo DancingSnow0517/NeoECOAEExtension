@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,12 +60,13 @@ class CraftingGraphProductionAcceptanceTest {
 
     @Test void cycleItemEntryRoundTripPreservesComponentId() {
         var item = BenchmarkKey.of("list_component");
-        var source = new ECOCycleItemList(List.of(new ECOCycleItemList.Entry(item, 4, -2, 17)));
+        var source = new ECOCycleItemList(List.of(new ECOCycleItemList.Entry(item, 4, 0, false, 17)));
         var encoded = buffer();
         source.writeToPacket(encoded);
         var decoded = new ECOCycleItemList(new RegistryFriendlyByteBuf(encoded.copy(), RegistryAccess.EMPTY));
         assertEquals(source, decoded);
         assertEquals(17, decoded.items().getFirst().componentId());
+        assertFalse(decoded.items().getFirst().totalNetOutputKnown());
     }
 
     @Test void cycleListValuesMatchCycleSnapshotValues() {
@@ -76,6 +78,7 @@ class CraftingGraphProductionAcceptanceTest {
         assertEquals(cycle.componentId(), entry.componentId());
         assertEquals(cycle.singleNetOutputs().getFirst().amount(), entry.singleNetOutput());
         assertEquals(cycle.totalNetOutputs().getFirst().amount(), entry.totalNetOutput());
+        assertTrue(entry.totalNetOutputKnown());
     }
 
     @Test void graphButtonFocusDecisionUsesSelectedCycleOrSingleDistinctCycle() {
@@ -99,8 +102,10 @@ class CraftingGraphProductionAcceptanceTest {
             new CraftingGraphSnapshot.PatternNode(-3, "P2", List.of(new CraftingGraphSnapshot.Relationship(1, 1)),
                 List.of(new CraftingGraphSnapshot.Relationship(0, 1)), 4,
                 CraftingGraphSnapshot.CandidateStatus.SELECTED, null, 7));
-        var cycle = new CraftingGraphSnapshot.CycleGroup(7, List.of(0, 1), List.of(), "SOLVED", List.of(), List.of(),
-            List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        var cycle = new CraftingGraphSnapshot.CycleGroup(7, List.of(0, 1), List.of(), "SOLVED",
+            List.of(new CraftingGraphSnapshot.KeyAmount(b, 1)), List.of(), List.of(), List.of(), List.of(),
+            List.of(new CraftingGraphSnapshot.KeyAmount(b, 1)),
+            List.of(new CraftingGraphSnapshot.KeyAmount(b, 4)), List.of());
         var snapshot = new CraftingGraphSnapshot(0,
             List.of(material(0, a), material(1, b)), patterns, List.of(), List.of(cycle),
             new CraftingGraphSnapshot.Summary("SUCCESS", 2, 2, 0, 1, 0));
@@ -118,6 +123,18 @@ class CraftingGraphProductionAcceptanceTest {
             var two = boxes.get(j);
             assertFalse(one.intersects(two.x(), two.y(), two.x() + two.width(), two.y() + two.height()));
         }
+        double centerX = boxes.stream().mapToDouble(GraphLayoutSnapshot.Box::centerX).average().orElseThrow();
+        double centerY = boxes.stream().mapToDouble(GraphLayoutSnapshot.Box::centerY).average().orElseThrow();
+        var radii = boxes.stream().mapToDouble(box -> Math.hypot(box.centerX() - centerX,
+            box.centerY() - centerY)).toArray();
+        assertTrue(java.util.Arrays.stream(radii).max().orElseThrow()
+            - java.util.Arrays.stream(radii).min().orElseThrow() < 1,
+            "cycle materials and recipes must share one visible ring");
+        assertTrue(boxes.stream().allMatch(box -> box.width() == 20 && box.height() == 30),
+            "every internal cycle box must use the compact 20x30 tile");
+        assertTrue(layout.links().stream().allMatch(link -> layout.edgePoints(link).size() > 2),
+            "neighboring cycle nodes must be connected by sampled curves");
+        assertEquals(1, GraphRenderer.cycleOutputNodeId(graph));
     }
 
     @Test void selfLoopLayoutHasDistinctMaterialAndPatternBoxes() {
@@ -134,7 +151,10 @@ class CraftingGraphProductionAcceptanceTest {
         assertFalse(layout.box(0).intersects(layout.box(-2).x(), layout.box(-2).y(),
             layout.box(-2).x() + layout.box(-2).width(), layout.box(-2).y() + layout.box(-2).height()));
         assertEquals(2, layout.boxes().size());
+        assertTrue(layout.boxes().values().stream().allMatch(box -> box.width() == 20 && box.height() == 30));
         assertTrue(layout.links().stream().allMatch(link -> layout.edgePoints(link).size() >= 2));
+        assertNotEquals(layout.edgePoints(layout.links().get(0)), layout.edgePoints(layout.links().get(1)),
+            "the two directions of a self-loop must use opposite sides of the ring");
     }
 
     @Test void externalInputAndByproductRemainBoundaryFlowNodes() {
@@ -161,6 +181,13 @@ class CraftingGraphProductionAcceptanceTest {
         assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == 2 && link.toId() == -2));
         assertTrue(graph.links().stream().anyMatch(link -> link.fromId() == -2 && link.toId() == 3
             && link.kind() == CraftingGraphSnapshot.EdgeKind.BYPRODUCT));
+        var layout = new CircularCycleLayout().layout(graph, 1);
+        assertTrue(layout.boxes().values().stream().allMatch(box -> box.width() == 20 && box.height() == 30),
+            "internal and boundary flow nodes must use the same compact tile size");
+        assertTrue(graph.links().stream()
+            .filter(link -> graph.isBoundaryMaterial(link.fromId()) || graph.isBoundaryMaterial(link.toId()))
+            .allMatch(link -> layout.edgePoints(link).size() > 2),
+            "boundary flow nodes must attach as curved radial satellites");
     }
 
     @Test void snapshotSerializationAndFirstFramePipelineAtProductionScales() {

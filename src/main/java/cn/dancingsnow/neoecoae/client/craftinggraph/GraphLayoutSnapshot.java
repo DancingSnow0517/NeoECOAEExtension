@@ -17,7 +17,7 @@ public final class GraphLayoutSnapshot {
     public static final int CYCLE_HEIGHT = 72;
     public static final int COMPACT_MATERIAL_WIDTH = 20;
     public static final int COMPACT_MATERIAL_HEIGHT = 30;
-    public static final int COMPACT_CYCLE_WIDTH = 132;
+    public static final int COMPACT_CYCLE_WIDTH = 96;
     public static final int COMPACT_CYCLE_HEIGHT = 34;
     public static final int COMPACT_FOLDER_WIDTH = COMPACT_MATERIAL_WIDTH;
     public static final int COMPACT_FOLDER_HEIGHT = COMPACT_MATERIAL_HEIGHT;

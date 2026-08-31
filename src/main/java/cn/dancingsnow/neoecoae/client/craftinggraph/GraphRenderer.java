@@ -52,6 +52,9 @@ public final class GraphRenderer {
         for (var link : links) {
             drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
         }
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+            drawCycleOutputArrow(graphics, graph, layout, cameraX, cameraY, zoom);
+        }
         ClientCraftingGraph.Node hovered = null;
         float worldMouseX = (mouseX - cameraX) / zoom;
         float worldMouseY = (mouseY - cameraY) / zoom;
@@ -79,13 +82,7 @@ public final class GraphRenderer {
         List<GraphLayoutSnapshot.Point> route = layout.edgePoints(link);
         if (route.size() >= 2) {
             drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
-            var end = route.getLast();
-            int endX = screen(cameraX, end.x(), zoom);
-            int endY = screen(cameraY, end.y(), zoom);
-            graphics.fill(endX - 4, endY - 2, endX, endY + 3, color);
-            if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && zoom >= 0.72f) {
-                drawEdgeAmount(graphics, graph, link, route, cameraX, cameraY, zoom);
-            }
+            drawArrowHead(graphics, route, color, cameraX, cameraY, zoom);
             return;
         }
         int x1 = screen(cameraX, from.x() + from.width(), zoom);
@@ -97,10 +94,54 @@ public final class GraphRenderer {
         graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
         graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
         graphics.fill(x2 - 4, y2 - 2, x2, y2 + 3, color);
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && zoom >= 0.72f) {
-            drawEdgeAmount(graphics, graph, link, List.of(new GraphLayoutSnapshot.Point(x1, y1),
-                new GraphLayoutSnapshot.Point(x2, y2)), cameraX, cameraY, zoom);
+    }
+
+    private static void drawCycleOutputArrow(GuiGraphics graphics, ClientCraftingGraph graph,
+            GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom) {
+        Integer outputId = cycleOutputNodeId(graph);
+        var output = outputId == null ? null : layout.box(outputId);
+        if (output == null) return;
+        var ring = layout.boxes().values().stream().filter(box -> !graph.isBoundaryMaterial(box.nodeId())).toList();
+        float centerX = (float) ring.stream().mapToDouble(GraphLayoutSnapshot.Box::centerX).average()
+            .orElse(output.centerX());
+        float centerY = (float) ring.stream().mapToDouble(GraphLayoutSnapshot.Box::centerY).average()
+            .orElse(output.centerY());
+        float dx = output.centerX() - centerX;
+        float dy = output.centerY() - centerY;
+        float length = Math.max(0.001f, (float) Math.hypot(dx, dy));
+        dx /= length;
+        dy /= length;
+        var start = new GraphLayoutSnapshot.Point(output.centerX() + dx * output.width() / 2,
+            output.centerY() + dy * output.height() / 2);
+        var end = new GraphLayoutSnapshot.Point(start.x() + dx * 30, start.y() + dy * 30);
+        var route = List.of(start, end);
+        int color = 0xff75c48b;
+        drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
+        drawArrowHead(graphics, route, color, cameraX, cameraY, zoom);
+    }
+
+    static @Nullable Integer cycleOutputNodeId(ClientCraftingGraph graph) {
+        var cycle = graph.source().cycleGroups().stream()
+            .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+        if (cycle == null) return null;
+        for (var output : cycle.requiredOutputs()) {
+            Integer id = materialId(graph, output.key());
+            if (id != null && !graph.isBoundaryMaterial(id)) return id;
         }
+        for (var output : cycle.singleNetOutputs()) {
+            if (output.amount() <= 0) continue;
+            Integer id = materialId(graph, output.key());
+            if (id != null && !graph.isBoundaryMaterial(id)) return id;
+        }
+        var root = graph.nodes().get(graph.rootId());
+        return root != null && root.kind() == ClientCraftingGraph.Kind.MATERIAL
+            && !graph.isBoundaryMaterial(root.id()) ? root.id() : null;
+    }
+
+    private static @Nullable Integer materialId(ClientCraftingGraph graph, AEKey key) {
+        return graph.nodes().values().stream()
+            .filter(node -> node.kind() == ClientCraftingGraph.Kind.MATERIAL && key.equals(node.key()))
+            .map(ClientCraftingGraph.Node::id).findFirst().orElse(null);
     }
 
     private static void drawEdgeAmount(GuiGraphics graphics, ClientCraftingGraph graph,
@@ -143,12 +184,20 @@ public final class GraphRenderer {
             } else if (y1 == y2) {
                 graphics.hLine(Math.min(x1, x2), Math.max(x1, x2), y1, color);
             } else {
-                // Rounding can introduce a one-pixel diagonal between otherwise orthogonal points.
-                int middle = (x1 + x2) / 2;
-                graphics.hLine(Math.min(x1, middle), Math.max(x1, middle), y1, color);
-                graphics.vLine(middle, Math.min(y1, y2), Math.max(y1, y2), color);
-                graphics.hLine(Math.min(middle, x2), Math.max(middle, x2), y2, color);
+                drawDiagonal(graphics, x1, y1, x2, y2, color);
             }
+        }
+    }
+
+    private static void drawDiagonal(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
+        int dx = x2 - x1;
+        int dy = y2 - y1;
+        int steps = Math.max(Math.abs(dx), Math.abs(dy));
+        if (steps == 0) return;
+        for (int i = 0; i <= steps; i++) {
+            int x = x1 + Math.round(dx * (i / (float) steps));
+            int y = y1 + Math.round(dy * (i / (float) steps));
+            graphics.fill(x, y, x + 1, y + 1, color);
         }
     }
 
@@ -162,6 +211,11 @@ public final class GraphRenderer {
         int pixelWidth = right - x;
         int pixelHeight = bottom - y;
         int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : border(graph, node);
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+            drawCompactCycleNode(graphics, graph, node, box, border, selected, x, y, right, bottom,
+                pixelWidth, pixelHeight, cameraY, zoom);
+            return;
+        }
         graphics.fill(x, y, right, bottom, 0xee171b20);
         int borderWidth = selected ? 3 : 2;
         graphics.fill(x, y, right, Math.min(bottom, y + borderWidth), border);
@@ -174,11 +228,6 @@ public final class GraphRenderer {
         switch (node.kind()) {
             case MATERIAL -> {
                 var material = node.material();
-                if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
-                    drawCycleMaterial(graphics, graph, node, box, border, x, y, right, bottom, pixelWidth,
-                        pixelHeight, zoom, font);
-                    break;
-                }
                 if (zoom >= 0.7f && pixelWidth >= 82 && pixelHeight >= 48) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 7, y + 8, material.key());
                     drawFitted(graphics, font, node.label(), x + 29, y + 7, pixelWidth - 35, TEXT);
@@ -209,8 +258,7 @@ public final class GraphRenderer {
             }
             case PATTERN -> {
                 var pattern = node.pattern();
-                String symbol = graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS ? "⚒"
-                    : pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? "⚒" : "×";
+                String symbol = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? "⚒" : "×";
                 graphics.drawCenteredString(font, symbol, (x + right) / 2,
                     y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
@@ -238,36 +286,64 @@ public final class GraphRenderer {
         }
     }
 
-    private static void drawCycleMaterial(GuiGraphics graphics, ClientCraftingGraph graph,
-            ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, int x, int y, int right,
-            int bottom, int pixelWidth, int pixelHeight, float zoom, Font font) {
-        var material = node.material();
-        if (zoom >= 0.55f && pixelWidth >= 82 && pixelHeight >= 54) {
-            AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 6, y + 5, material.key());
-            String prefix = graph.isExternalInput(node.id()) ? "↤ "
-                : graph.isBoundaryOutput(node.id()) ? "↦ " : "";
-            drawFitted(graphics, font, prefix + node.label(), x + 29, y + 6, pixelWidth - 35, TEXT);
-            var cycle = graph.source().cycleGroups().stream()
-                .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
-            if (cycle != null && !graph.isBoundaryMaterial(node.id())) {
-                long single = amountFor(cycle.singleNetOutputs(), material.key());
-                long total = amountFor(cycle.totalNetOutputs(), material.key());
-                drawFitted(graphics, font, "单次 " + signed(material.key(), single), x + 6, y + 38,
-                    pixelWidth - 12, single == 0 ? MUTED : single > 0 ? 0xff75c48b : 0xffe07a7a);
-                drawFitted(graphics, font, "总计 " + signed(material.key(), total), x + 6, y + 52,
-                    pixelWidth - 12, total == 0 ? MUTED : total > 0 ? 0xff75c48b : 0xffe07a7a);
-            } else {
-                drawFitted(graphics, font,
-                    graph.isExternalInput(node.id()) ? "外部输入" : "循环副产物/边界输出", x + 6, y + 38,
-                    pixelWidth - 12, MUTED);
-            }
-        } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {
-            AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 4, material.key());
-            drawFitted(graphics, font, node.label(), x + 24, y + 4, pixelWidth - 28, TEXT);
-        } else {
-            graphics.drawCenteredString(font, graph.isBoundaryMaterial(node.id()) ? "·" : "↻",
-                (x + right) / 2, y + Math.max(2, (pixelHeight - font.lineHeight) / 2), border);
+    private static void drawCompactCycleNode(GuiGraphics graphics, ClientCraftingGraph graph,
+            ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, boolean selected, int x, int y,
+            int right, int bottom, int pixelWidth, int pixelHeight, float cameraY, float zoom) {
+        graphics.fill(x, y, right, bottom, 0xee171b20);
+        int borderWidth = selected ? 2 : 1;
+        graphics.fill(x, y, right, Math.min(bottom, y + borderWidth), border);
+        graphics.fill(x, Math.max(y, bottom - borderWidth), right, bottom, border);
+        graphics.fill(x, y, Math.min(right, x + borderWidth), bottom, border);
+        graphics.fill(Math.max(x, right - borderWidth), y, right, bottom, border);
+        if (pixelWidth < 12 || pixelHeight < 18) return;
+
+        Font font = Minecraft.getInstance().font;
+        int numberTop = screen(cameraY, box.y() + 20, zoom);
+        int iconBottom = Math.min(bottom, numberTop);
+        if (node.kind() == ClientCraftingGraph.Kind.MATERIAL && node.material() != null) {
+            int iconX = x + Math.max(0, (pixelWidth - 16) / 2);
+            int iconY = y + Math.max(0, (iconBottom - y - 16) / 2);
+            AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, node.material().key());
+        } else if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
+            graphics.drawCenteredString(font, "⚒", (x + right) / 2,
+                y + Math.max(1, (iconBottom - y - font.lineHeight) / 2), border);
         }
+
+        CompactCycleValue value = compactCycleValue(graph, node);
+        int textY = numberTop + Math.max(0, (bottom - numberTop - font.lineHeight) / 2);
+        graphics.drawCenteredString(font, fit(font, value.text(), Math.max(1, pixelWidth - 2)),
+            (x + right) / 2, textY, value.color());
+    }
+
+    private record CompactCycleValue(String text, int color) {}
+
+    private static CompactCycleValue compactCycleValue(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
+        if (node.kind() == ClientCraftingGraph.Kind.PATTERN && node.pattern() != null) {
+            return new CompactCycleValue(compactAmount(Long.toString(node.pattern().firingCount())), TEXT);
+        }
+        if (node.material() == null) return new CompactCycleValue("-", MUTED);
+        var cycle = graph.source().cycleGroups().stream()
+            .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+        if (cycle == null) return new CompactCycleValue("-", MUTED);
+        AEKey key = node.material().key();
+        long amount;
+        boolean signed;
+        if (graph.isExternalInput(node.id())) {
+            amount = amountFor(cycle.externalInputs(), key);
+            signed = false;
+        } else if (graph.isBoundaryOutput(node.id())) {
+            amount = graph.links().stream().filter(link -> link.toId() == node.id())
+                .mapToLong(ClientCraftingGraph.Link::amount).sum();
+            signed = true;
+        } else {
+            amount = amountFor(cycle.singleNetOutputs(), key);
+            signed = true;
+        }
+        String magnitude = compactAmount(Long.toString(amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount)));
+        String text = signed && amount > 0 ? "+" + magnitude : signed && amount < 0 ? "-" + magnitude : magnitude;
+        int color = amount == 0 ? MUTED : signed && amount < 0 ? 0xffe07a7a
+            : signed && amount > 0 ? 0xff75c48b : TEXT;
+        return new CompactCycleValue(text, color);
     }
 
     private static int screen(float camera, float world, float zoom) {
@@ -358,6 +434,39 @@ public final class GraphRenderer {
             return HostText.hugeStackAmount(new java.math.BigInteger(value));
         } catch (RuntimeException ignored) {
             return value;
+        }
+    }
+
+    /** Draws a direction-aware triangular head instead of the old always-left-facing end cap. */
+    private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+            float cameraX, float cameraY, float zoom) {
+        var end = route.getLast();
+        GraphLayoutSnapshot.Point previous = route.get(route.size() - 2);
+        for (int i = route.size() - 2; i >= 0 && previous.equals(end); i--) previous = route.get(i);
+        int x = screen(cameraX, end.x(), zoom);
+        int y = screen(cameraY, end.y(), zoom);
+        float dx = end.x() - previous.x();
+        float dy = end.y() - previous.y();
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dx >= 0) {
+                graphics.fill(x - 5, y - 3, x - 3, y + 4, color);
+                graphics.fill(x - 3, y - 2, x - 1, y + 3, color);
+                graphics.fill(x - 1, y - 1, x + 1, y + 2, color);
+            } else {
+                graphics.fill(x + 3, y - 3, x + 5, y + 4, color);
+                graphics.fill(x + 1, y - 2, x + 3, y + 3, color);
+                graphics.fill(x - 1, y - 1, x + 1, y + 2, color);
+            }
+        } else {
+            if (dy >= 0) {
+                graphics.fill(x - 3, y - 5, x + 4, y - 3, color);
+                graphics.fill(x - 2, y - 3, x + 3, y - 1, color);
+                graphics.fill(x - 1, y - 1, x + 2, y + 1, color);
+            } else {
+                graphics.fill(x - 3, y + 3, x + 4, y + 5, color);
+                graphics.fill(x - 2, y + 1, x + 3, y + 3, color);
+                graphics.fill(x - 1, y - 1, x + 2, y + 1, color);
+            }
         }
     }
 
