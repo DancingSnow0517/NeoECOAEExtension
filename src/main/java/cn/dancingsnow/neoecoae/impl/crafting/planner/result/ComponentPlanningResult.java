@@ -20,7 +20,10 @@ public record ComponentPlanningResult(
     @Nullable CycleExternalDemandStatus externalDemandStatus,
     Map<AEKey, Long> externalMissingItems,
     @Nullable String diagnostic,
-    @Nullable CycleSolveResult cycleResult
+    @Nullable CycleSolveResult cycleResult,
+    CycleExecutionDisposition cycleDisposition,
+    /** Projection of this component's already-committed contribution to the global used-items ledger. */
+    Map<AEKey, Long> stockReservations
 ) {
     public enum Type { ACYCLIC, CYCLIC }
 
@@ -38,7 +41,8 @@ public record ComponentPlanningResult(
     public ComponentPlanningResult(int componentId, Type type, Status status, Map<AEKey, Long> requiredOutputs,
             @Nullable CyclePlanningStatus cycleStatus, @Nullable String diagnostic) {
         this(componentId, type, status, requiredOutputs, Set.of(), Set.of(), cycleStatus, null, Map.of(),
-            diagnostic, null);
+            diagnostic, null, type == Type.CYCLIC ? CycleExecutionDisposition.BLOCKED
+                : CycleExecutionDisposition.NOT_REQUIRED, Map.of());
     }
 
     /** Legacy/test shape where every reported pattern is also considered selected for execution. */
@@ -47,7 +51,8 @@ public record ComponentPlanningResult(
             @Nullable CycleExternalDemandStatus externalDemandStatus, Map<AEKey, Long> externalMissingItems,
             @Nullable String diagnostic, @Nullable CycleSolveResult cycleResult) {
         this(componentId, type, status, requiredOutputs, patterns, patterns, cycleStatus, externalDemandStatus,
-            externalMissingItems, diagnostic, cycleResult);
+            externalMissingItems, diagnostic, cycleResult, type == Type.CYCLIC
+                ? CycleExecutionDisposition.BLOCKED : CycleExecutionDisposition.NOT_REQUIRED, Map.of());
     }
 
     public ComponentPlanningResult {
@@ -55,5 +60,7 @@ public record ComponentPlanningResult(
         patterns = Set.copyOf(patterns);
         executionPatterns = Set.copyOf(executionPatterns);
         externalMissingItems = Map.copyOf(externalMissingItems);
+        java.util.Objects.requireNonNull(cycleDisposition, "cycleDisposition");
+        stockReservations = Map.copyOf(stockReservations);
     }
 }

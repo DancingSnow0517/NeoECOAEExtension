@@ -175,7 +175,8 @@ class ECOPlannerSemanticContractTest {
             Set<IPatternDetails> patterns) {
         return new ComponentPlanningResult(id, ComponentPlanningResult.Type.ACYCLIC,
             ComponentPlanningResult.Status.PLANNED, requiredOutputs, patterns, patterns,
-            null, null, Map.of(), null, null);
+            null, null, Map.of(), null, null,
+            cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExecutionDisposition.NOT_REQUIRED, Map.of());
     }
 
     private static KeyCounter counter(AEKey key, long amount) {

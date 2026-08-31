@@ -9,15 +9,18 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The only boundary that interprets planner components as an executable contract. */
 public final class ECOExecutionPlanBuilder {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOExecutionPlanBuilder.class);
     private ECOExecutionPlanBuilder() { }
 
     public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
             List<ComponentPlanningResult> components, List<Integer> executionOrder,
             Map<IPatternDetails, Long> patternTimes) {
-        validateStockSatisfiedCycles(signature, components);
+        validateCycleDispositions(signature, components);
         ECOExecutionSchedule schedule = ECOExecutionSchedule.from(components, executionOrder, patternTimes);
         Map<Integer, ComponentPlanningResult> componentById = new HashMap<>();
         components.forEach(component -> componentById.put(component.componentId(), component));
@@ -89,6 +92,7 @@ public final class ECOExecutionPlanBuilder {
                     .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
                     .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
         }
+        logCycleDispositionResults(components, schedule);
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }
 
@@ -112,21 +116,96 @@ public final class ECOExecutionPlanBuilder {
         }
     }
 
-    private static void validateStockSatisfiedCycles(PlanIdentity.Signature signature,
+    private static void validateCycleDispositions(PlanIdentity.Signature signature,
             List<ComponentPlanningResult> components) {
+        Map<appeng.api.stacks.AEKey, Long> projectedReservations = new HashMap<>();
         for (ComponentPlanningResult component : components) {
-            if (component.type() != ComponentPlanningResult.Type.CYCLIC || component.cycleResult() == null
-                    || !component.cycleResult().status().solved()) continue;
-            boolean hasFirings = component.cycleResult().patternTimes().values().stream()
-                .anyMatch(count -> count != null && count > 0);
-            if (hasFirings) continue;
-            for (var requirement : component.requiredOutputs().entrySet()) {
-                if (requirement.getValue() == null || requirement.getValue() <= 0) continue;
-                long reserved = signature.usedItems().getOrDefault(requirement.getKey(), 0L);
-                if (reserved < requirement.getValue()) {
-                    throw new IllegalStateException("Stock-satisfied cycle consumption is absent from usedItems");
+            if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
+            switch (component.cycleDisposition()) {
+                case NOT_REQUIRED -> {
+                    if (hasPositiveFirings(component) || !component.stockReservations().isEmpty()) {
+                        throw componentFailure(component,
+                            "NOT_REQUIRED component has positive firings or stock reservations");
+                    }
                 }
+                case STOCK_SATISFIED -> validateStockSatisfied(signature, component);
+                case ORDERED_EXECUTION -> validateOrdered(component);
+                case BLOCKED -> throw componentFailure(component,
+                    "Planner marked cyclic component BLOCKED: " + component.diagnostic());
             }
+            for (var reservation : component.stockReservations().entrySet()) {
+                long planned = reservation.getValue() == null ? -1L : reservation.getValue();
+                long finalUsed = signature.usedItems().getOrDefault(reservation.getKey(), 0L);
+                if (planned <= 0L || finalUsed < planned) {
+                    throw componentFailure(component, "Stock reservation is absent from final usedItems: key="
+                        + reservation.getKey() + " stockReserved=" + planned + " finalUsedItems=" + finalUsed);
+                }
+                projectedReservations.merge(reservation.getKey(), planned, Math::addExact);
+            }
+        }
+        projectedReservations.forEach((key, projected) -> {
+            long finalUsed = signature.usedItems().getOrDefault(key, 0L);
+            if (projected > finalUsed) {
+                throw new IllegalStateException("Cycle stock reservation projections exceed final usedItems: key="
+                    + key + " projected=" + projected + " finalUsedItems=" + finalUsed);
+            }
+        });
+    }
+
+    private static void validateStockSatisfied(PlanIdentity.Signature signature,
+            ComponentPlanningResult component) {
+        if (component.requiredOutputs().isEmpty()) {
+            throw componentFailure(component, "STOCK_SATISFIED component has no positive demand");
+        }
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
+                || hasPositiveFirings(component)) {
+            throw componentFailure(component, "STOCK_SATISFIED requires a solved zero-firing cycle result");
+        }
+        for (var requirement : component.requiredOutputs().entrySet()) {
+            long required = requirement.getValue() == null ? -1L : requirement.getValue();
+            long stockReserved = component.stockReservations().getOrDefault(requirement.getKey(), 0L);
+            long finalUsed = signature.usedItems().getOrDefault(requirement.getKey(), 0L);
+            if (required <= 0L || stockReserved < required || finalUsed < stockReserved) {
+                throw componentFailure(component, "STOCK_SATISFIED accounting mismatch: key="
+                    + requirement.getKey() + " required=" + required + " stockReserved=" + stockReserved
+                    + " finalUsedItems=" + finalUsed);
+            }
+        }
+    }
+
+    private static void validateOrdered(ComponentPlanningResult component) {
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
+                || !hasPositiveFirings(component) || component.cycleResult().executionPlan().isEmpty()) {
+            throw componentFailure(component,
+                "ORDERED_EXECUTION requires solved positive firings and compact execution metadata");
+        }
+    }
+
+    private static boolean hasPositiveFirings(ComponentPlanningResult component) {
+        return component.cycleResult() != null && component.cycleResult().patternTimes().values().stream()
+            .anyMatch(count -> count != null && count > 0L);
+    }
+
+    private static IllegalStateException componentFailure(ComponentPlanningResult component, String detail) {
+        return new IllegalStateException("cycleComponent=" + component.componentId() + " disposition="
+            + component.cycleDisposition() + " requiredOutputs=" + component.requiredOutputs().size()
+            + " stockReservations=" + component.stockReservations().size() + " detail=" + detail);
+    }
+
+    private static void logCycleDispositionResults(List<ComponentPlanningResult> components,
+            ECOExecutionSchedule schedule) {
+        if (!LOGGER.isDebugEnabled()) return;
+        for (ComponentPlanningResult component : components) {
+            if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
+            long firings = component.cycleResult() == null ? 0L
+                : component.cycleResult().patternTimes().values().stream().filter(java.util.Objects::nonNull)
+                    .filter(count -> count > 0L).reduce(0L, Math::addExact);
+            boolean emitted = schedule.phases().stream().anyMatch(phase -> phase.componentId() == component.componentId());
+            LOGGER.debug("[ECO-CYCLE-DISPOSITION] componentId={} disposition={} requiredOutputs={} "
+                    + "stockReservations={} cyclePatternKinds={} cycleFirings={} runtimePhaseEmitted={}",
+                component.componentId(), component.cycleDisposition(), component.requiredOutputs().size(),
+                component.stockReservations().size(), component.cycleResult() == null ? 0
+                    : component.cycleResult().patternTimes().size(), firings, emitted);
         }
     }
 

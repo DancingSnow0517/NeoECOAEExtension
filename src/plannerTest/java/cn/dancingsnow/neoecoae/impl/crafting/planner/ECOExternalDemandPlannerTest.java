@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExternalDemandStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExecutionDisposition;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
@@ -61,6 +62,7 @@ class ECOExternalDemandPlannerTest {
         assertFalse(outcome.state().patternTimes().isEmpty(),
             "existing final output must not turn an additional cycle request into an empty job");
         assertFalse(cycle(outcome).cycleResult().executionWitness().isEmpty());
+        assertEquals(CycleExecutionDisposition.ORDERED_EXECUTION, cycle(outcome).cycleDisposition());
         assertEquals(1, cycle(outcome).requiredOutputs().get(goal),
             "UI demand remains the requested additional amount");
     }
@@ -101,6 +103,7 @@ class ECOExternalDemandPlannerTest {
         Fixture f = fixture(1, false, false);
         var outcome = plan(f.network, stock(f.a, 1));
         assertEquals(CycleExternalDemandStatus.MISSING, cycle(outcome).externalDemandStatus());
+        assertEquals(CycleExecutionDisposition.BLOCKED, cycle(outcome).cycleDisposition());
         assertEquals(Map.of(f.leaf, 1L), cycle(outcome).externalMissingItems());
         assertEquals(0, outcome.state().usedItems().get(f.a));
         assertFalse(outcome.state().patternTimes().containsKey(f.cycleInput.details()));

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExecutionDisposition;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -47,17 +48,21 @@ class ECOPhaseSchedulerTest {
     }
     @Test void scheduleUsesExplicitSupplierToConsumerIds() {
         var c1 = new ComponentPlanningResult(1, ComponentPlanningResult.Type.ACYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), Set.of(p1), null, null,
+            java.util.Map.of(), null, null, CycleExecutionDisposition.NOT_REQUIRED, java.util.Map.of());
         var c2 = new ComponentPlanningResult(2, ComponentPlanningResult.Type.CYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p2), null, null, java.util.Map.of(), null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p2), Set.of(p2), null, null,
+            java.util.Map.of(), null, null, CycleExecutionDisposition.ORDERED_EXECUTION, java.util.Map.of());
         var schedule = ECOExecutionSchedule.from(List.of(c2, c1), List.of(1, 2));
         assertEquals(List.of(1, 2), schedule.phases().stream().map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
     }
     @Test void physicalPatternOwnedByCycleIsNotAlsoGatedByDagPhase() {
         var dagView = new ComponentPlanningResult(1, ComponentPlanningResult.Type.ACYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), Set.of(p1), null, null,
+            java.util.Map.of(), null, null, CycleExecutionDisposition.NOT_REQUIRED, java.util.Map.of());
         var cycleOwner = new ComponentPlanningResult(2, ComponentPlanningResult.Type.CYCLIC,
-            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
+            ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), Set.of(p1), null, null,
+            java.util.Map.of(), null, null, CycleExecutionDisposition.ORDERED_EXECUTION, java.util.Map.of());
         var schedule = ECOExecutionSchedule.from(List.of(dagView, cycleOwner), List.of(1, 2));
         assertEquals(1, schedule.phases().size());
         assertEquals(ECOExecutionSchedule.Type.CYCLE, schedule.phases().getFirst().type());
@@ -162,6 +167,9 @@ class ECOPhaseSchedulerTest {
             Set<appeng.api.crafting.IPatternDetails> candidates,
             Set<appeng.api.crafting.IPatternDetails> executionPatterns) {
         return new ComponentPlanningResult(id, type, ComponentPlanningResult.Status.PLANNED,
-            requiredOutputs, candidates, executionPatterns, null, null, java.util.Map.of(), null, null);
+            requiredOutputs, candidates, executionPatterns, null, null, java.util.Map.of(), null, null,
+            type == ComponentPlanningResult.Type.CYCLIC && !executionPatterns.isEmpty()
+                ? CycleExecutionDisposition.ORDERED_EXECUTION : CycleExecutionDisposition.NOT_REQUIRED,
+            java.util.Map.of());
     }
 }

@@ -18,24 +18,26 @@ public enum ECOExecutionRequirement {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
             boolean plannedMember = component.executionPatterns().stream().anyMatch(pattern ->
                 plannedCount(pattern, plannedTasks) > 0);
-            boolean solvedFirings = component.cycleResult() != null
-                && component.cycleResult().status().solved()
-                && component.cycleResult().patternTimes().values().stream()
-                    .anyMatch(count -> count != null && count > 0);
-            if (!plannedMember && !solvedFirings) continue;
-            if (component.cycleStatus() != CyclePlanningStatus.SOLVED || component.cycleResult() == null
-                    || !component.cycleResult().status().solved()) return BLOCKED;
-            if (solvedFirings) ordered = true;
+            switch (component.cycleDisposition()) {
+                case BLOCKED -> { return BLOCKED; }
+                case NOT_REQUIRED, STOCK_SATISFIED -> {
+                    if (plannedMember) return BLOCKED;
+                }
+                case ORDERED_EXECUTION -> {
+                    if (!plannedMember || component.cycleStatus() != CyclePlanningStatus.SOLVED
+                            || component.cycleResult() == null || !component.cycleResult().status().solved()) {
+                        return BLOCKED;
+                    }
+                    ordered = true;
+                }
+            }
         }
         return ordered ? ORDERED : NONE;
     }
 
     public static boolean componentIsOrdered(ComponentPlanningResult component) {
         return component != null && component.type() == ComponentPlanningResult.Type.CYCLIC
-            && component.cycleStatus() == CyclePlanningStatus.SOLVED
-            && component.cycleResult() != null && component.cycleResult().status().solved()
-            && component.cycleResult().patternTimes().values().stream()
-                .anyMatch(count -> count != null && count > 0);
+            && component.cycleDisposition() == CycleExecutionDisposition.ORDERED_EXECUTION;
     }
 
     private static long plannedCount(IPatternDetails pattern, Map<IPatternDetails, Long> tasks) {

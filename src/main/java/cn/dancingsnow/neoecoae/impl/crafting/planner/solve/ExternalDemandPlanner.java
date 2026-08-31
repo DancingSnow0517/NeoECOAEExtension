@@ -37,14 +37,16 @@ final class ExternalDemandPlanner {
     ExternalDemandPlanner(AcyclicCraftingSolver acyclicSolver) { this.acyclicSolver = acyclicSolver; }
 
     Outcome solve(CompiledNetwork network, CycleComponent cycle, CycleSolveResult cycleResult,
-            KeyCounter inventory, SolveState base, ECOCancellation cancellation) throws InterruptedException {
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            ECOCancellation cancellation) throws InterruptedException {
         KeyCounter available = remainingInventory(inventory, base);
-        for (var seed : cycleResult.requiredSeed().entrySet()) {
-            if (seed.getValue() < 0 || available.get(seed.getKey()) < seed.getValue()) {
-                return failure(CycleExternalDemandStatus.MISSING, Map.of(seed.getKey(), seed.getValue()),
-                    "Required seed is unavailable before external-demand planning");
+        for (var reservation : additionalCycleReservations.entrySet()) {
+            long amount = reservation.getValue();
+            if (amount < 0L || available.get(reservation.getKey()) < amount) {
+                return failure(CycleExternalDemandStatus.MISSING, Map.of(reservation.getKey(), Math.max(0L, amount)),
+                    "Cycle-owned stock is unavailable before external-demand planning");
             }
-            available.remove(seed.getKey(), seed.getValue());
+            if (amount > 0L) available.remove(reservation.getKey(), amount);
         }
 
         KeyCounter direct = new KeyCounter();

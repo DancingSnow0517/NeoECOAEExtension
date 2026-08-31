@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleExecutionDisposition;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlanBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
@@ -75,7 +76,8 @@ class RuntimeExecutionStateTest {
             List.of(), CycleSolveMetrics.NONE);
         var component = new ComponentPlanningResult(10, ComponentPlanningResult.Type.CYCLIC,
             ComponentPlanningResult.Status.PLANNED, Map.of(a, 1L), Set.of(first, second),
-            Set.of(first, second), CyclePlanningStatus.SOLVED, null, Map.of(), null, cycleResult);
+            Set.of(first, second), CyclePlanningStatus.SOLVED, null, Map.of(), null, cycleResult,
+            CycleExecutionDisposition.ORDERED_EXECUTION, Map.of());
         var signature = new PlanIdentity.Signature(a, 1L,
             Map.of(PlanIdentity.patternIdentityFor(first), 10_000L,
                 PlanIdentity.patternIdentityFor(second), 2L), Map.of(), Map.of(), Map.of());
