@@ -86,7 +86,20 @@ public class ECOCraftingCPULogic {
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
     private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
+    private static final long STALLED_DISPATCH_LOG_INTERVAL_TICKS = 100L;
     private long lastBatchRejectionLogTick = Long.MIN_VALUE;
+    private long lastStalledDispatchLogTick = Long.MIN_VALUE;
+
+    private static final class DispatchDiagnostics {
+        int runnableTasks;
+        int phaseRejectedTasks;
+        int tasksWithoutProviders;
+        int tasksWithBusyProviders;
+        int tasksMissingInputs;
+        int energyBlockedProviders;
+        int providerRejections;
+        @Nullable IPatternDetails firstMissingInputPattern;
+    }
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -119,6 +132,8 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        this.lastStalledDispatchLogTick = Long.MIN_VALUE;
+        logSubmittedJob(craftId, this.job);
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -150,8 +165,12 @@ public class ECOCraftingCPULogic {
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
         // 未激活时不 tick。
-        if (!cpu.isActive())
+        if (!cpu.isActive()) {
+            if (job != null) {
+                logStalledDispatch(job, job.activePhase(), 0, new DispatchDiagnostics(), "cpu-inactive");
+            }
             return;
+        }
         cantStoreItems = false;
         // 无任务时只需尝试清空物品。
         if (this.job == null) {
@@ -178,11 +197,13 @@ public class ECOCraftingCPULogic {
 
         // 暂停时不调度更多工作
         if (job.suspended) {
+            logStalledDispatch(job, job.activePhase(), 0, new DispatchDiagnostics(), "job-suspended");
             return;
         }
 
         Level level = cpu.getLevel();
         if (level == null) {
+            logStalledDispatch(job, job.activePhase(), 0, new DispatchDiagnostics(), "level-unavailable");
             return;
         }
 
@@ -198,6 +219,9 @@ public class ECOCraftingCPULogic {
                     break;
                 }
             } while (remainingOperations > 0);
+        } else {
+            logStalledDispatch(job, job.activePhase(), remainingOperations, new DispatchDiagnostics(),
+                "operation-limit-zero");
         }
     }
 
@@ -294,7 +318,11 @@ public class ECOCraftingCPULogic {
         job.advanceCompletedPhases();
         var activePhase = job.activePhase();
         boolean componentScheduled = job.requiresOrderedCycleExecution;
-        if (componentScheduled && activePhase == null) return 0;
+        var diagnostics = new DispatchDiagnostics();
+        if (componentScheduled && activePhase == null) {
+            logStalledDispatch(job, activePhase, maxPatterns, diagnostics, "no-active-phase");
+            return 0;
+        }
 
         var pushedPatterns = 0;
 
@@ -324,17 +352,23 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
+                diagnostics.runnableTasks++;
                 if (activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
-                        .canDispatch(activePhase, job.cycleWitnessIndex, details)) continue;
+                        .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
+                    diagnostics.phaseRejectedTasks++;
+                    continue;
+                }
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
                 List<ICraftingProvider> candidateProviders = collectCandidateProviders(craftingService, details);
                 if (candidateProviders.isEmpty()) {
+                    diagnostics.tasksWithoutProviders++;
                     continue;
                 }
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
                     if (!hasAvailableProvider(candidateProviders)) {
+                        diagnostics.tasksWithBusyProviders++;
                         continue taskLoop;
                     }
 
@@ -344,6 +378,10 @@ public class ECOCraftingCPULogic {
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
+                        diagnostics.tasksMissingInputs++;
+                        if (diagnostics.firstMissingInputPattern == null) {
+                            diagnostics.firstMissingInputPattern = details;
+                        }
                         continue taskLoop;
                     }
 
@@ -402,6 +440,7 @@ public class ECOCraftingCPULogic {
                         if (!flatRateProvider
                                 && energyService.extractAEPower(patternPower, Actionable.SIMULATE,
                                     PowerMultiplier.CONFIG) < patternPower - 0.01) {
+                            diagnostics.energyBlockedProviders++;
                             break;
                         }
 
@@ -418,6 +457,7 @@ public class ECOCraftingCPULogic {
                         }
 
                         if (!pushed) {
+                            diagnostics.providerRejections++;
                             continue;
                         }
 
@@ -435,6 +475,12 @@ public class ECOCraftingCPULogic {
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);
+                        if (orderedWitness) {
+                            // The next witness entry may name a different pattern. Re-enter executeCrafting so
+                            // the phase gate resolves that entry afresh instead of continuing this task's inner
+                            // loop and accidentally dispatching the old pattern again.
+                            break taskLoop;
+                        }
                         if (task.getValue().value <= 0) {
                             if (!componentScheduled) it.remove();
                             continue taskLoop;
@@ -457,7 +503,117 @@ public class ECOCraftingCPULogic {
             endStatusChangeBatchSafely();
         }
 
+        if (pushedPatterns == 0) {
+            logStalledDispatch(job, activePhase, maxPatterns, diagnostics, "dispatch-returned-zero");
+        }
         return pushedPatterns;
+    }
+
+    private void logSubmittedJob(UUID craftId, ExecutingCraftingJob submittedJob) {
+        var schedule = submittedJob.executionSchedule;
+        var phases = schedule == null ? List.of() : schedule.phases().stream()
+            .map(phase -> phase.componentId() + ":" + phase.type()
+                + "(patterns=" + phase.patternSet().size() + ",witness=" + phase.cycleWitness().size() + ")")
+            .toList();
+        long remainingTasks = remainingTaskCount(submittedJob);
+        LOGGER.info(
+            "[ECO-EXEC] submitted job={} finalOutput={} remainingOutput={} tasks={} taskExecutions={} "
+                + "orderedCycle={} phases={}",
+            craftId,
+            submittedJob.finalOutput,
+            submittedJob.remainingAmount,
+            submittedJob.tasks.size(),
+            remainingTasks,
+            submittedJob.requiresOrderedCycleExecution,
+            phases
+        );
+    }
+
+    private void logStalledDispatch(ExecutingCraftingJob stalledJob,
+            @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase,
+            int maxPatterns, DispatchDiagnostics diagnostics, String reason) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastStalledDispatchLogTick;
+        if (lastStalledDispatchLogTick != Long.MIN_VALUE && elapsed >= 0L
+                && elapsed < STALLED_DISPATCH_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        lastStalledDispatchLogTick = tick;
+
+        String phaseDescription = phase == null ? "none"
+            : phase.componentId() + ":" + phase.type()
+                + "(patterns=" + phase.patternSet().size() + ",witness=" + phase.cycleWitness().size() + ")";
+        IPatternDetails expectedWitnessPattern = phase != null && stalledJob.cycleWitnessIndex >= 0
+                && stalledJob.cycleWitnessIndex < phase.cycleWitness().size()
+            ? phase.cycleWitness().get(stalledJob.cycleWitnessIndex)
+            : null;
+        Object expectedWitness = expectedWitnessPattern == null ? "none" : expectedWitnessPattern.getDefinition();
+        Object missingInputPattern = diagnostics.firstMissingInputPattern == null ? "none"
+            : diagnostics.firstMissingInputPattern.getDefinition();
+        Object requiredInputs = diagnostics.firstMissingInputPattern == null ? List.of()
+            : describePatternInputs(diagnostics.firstMissingInputPattern);
+        LOGGER.warn(
+            "[ECO-EXEC] stalled job={} reason={} tick={} maxPatterns={} suspended={} phaseIndex={} phase={} "
+                + "witnessIndex={} expectedWitness={} taskKinds={} taskExecutions={} runnableTasks={} "
+                + "phaseRejected={} noProviders={} providersBusy={} missingInputs={} energyBlocked={} "
+                + "providerRejected={} missingInputPattern={} requiredInputs={} inventoryKinds={} waitingKinds={}",
+            stalledJob.link.getCraftingID(),
+            reason,
+            tick,
+            maxPatterns,
+            stalledJob.suspended,
+            stalledJob.currentComponentIndex,
+            phaseDescription,
+            stalledJob.cycleWitnessIndex,
+            expectedWitness,
+            stalledJob.tasks.size(),
+            remainingTaskCount(stalledJob),
+            diagnostics.runnableTasks,
+            diagnostics.phaseRejectedTasks,
+            diagnostics.tasksWithoutProviders,
+            diagnostics.tasksWithBusyProviders,
+            diagnostics.tasksMissingInputs,
+            diagnostics.energyBlockedProviders,
+            diagnostics.providerRejections,
+            missingInputPattern,
+            requiredInputs,
+            inventory.list.size(),
+            stalledJob.waitingFor.list.size()
+        );
+    }
+
+    private List<String> describePatternInputs(IPatternDetails pattern) {
+        var result = new ArrayList<String>();
+        for (var input : pattern.getInputs()) {
+            if (input == null) continue;
+            var alternatives = new ArrayList<String>();
+            var possibleInputs = input.getPossibleInputs();
+            if (possibleInputs != null) {
+                for (var possible : possibleInputs) {
+                    if (possible == null || possible.what() == null) continue;
+                    long required;
+                    try {
+                        required = Math.multiplyExact(possible.amount(), input.getMultiplier());
+                    } catch (ArithmeticException overflow) {
+                        required = Long.MAX_VALUE;
+                    }
+                    long available = inventory.extract(possible.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+                    alternatives.add(possible.what() + " required=" + required + " available=" + available);
+                }
+            }
+            result.add(alternatives.toString());
+        }
+        return result;
+    }
+
+    private static long remainingTaskCount(ExecutingCraftingJob inspectedJob) {
+        long total = 0L;
+        for (var progress : inspectedJob.tasks.values()) {
+            if (progress.value <= 0L) continue;
+            if (Long.MAX_VALUE - total < progress.value) return Long.MAX_VALUE;
+            total += progress.value;
+        }
+        return total;
     }
 
     /**
