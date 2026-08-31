@@ -34,6 +34,26 @@ public final class CraftingGraphBuilder {
                     edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
                     if (reachable.add(input.key())) work.addLast(input.key());
                 }
+                // A returned/reusable seed is a real production edge. Keeping it in the normalized semantic graph
+                // is what makes a feedback contract visible to Tarjan instead of presenting it as a DAG.
+                for (var feedback : pattern.semantics().feedbackEdges()) {
+                    nodes.putIfAbsent(feedback.returnedKey(),
+                        new CraftingGraphNode(feedback.returnedKey(), network.producersOf(feedback.returnedKey())));
+                    nodes.putIfAbsent(feedback.dependentOutput(),
+                        new CraftingGraphNode(feedback.dependentOutput(),
+                            network.producersOf(feedback.dependentOutput())));
+                    CompiledInput edgeInput = pattern.inputs().stream()
+                        .filter(input -> feedback.returnedKey().equals(input.remainderKey())
+                            || feedback.returnedKey().equals(input.key()))
+                        .findFirst()
+                        .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().getFirst());
+                    if (edgeInput != null) {
+                        edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
+                            pattern, edgeInput));
+                    }
+                    if (reachable.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
+                    if (reachable.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
+                }
             }
         }
         return new CraftingDependencyGraph(network.goal(), nodes, edges);

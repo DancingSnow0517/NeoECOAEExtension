@@ -98,7 +98,10 @@ public final class PatternProfileValidator {
         Map<AEKey, PlannerAmount> exactConsumption = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> exactProduction = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> exactRemainder = new LinkedHashMap<>();
-        for (GenericStack output : pattern.outputs()) {
+        // The semantic adapter may expose returned/reusable stock that is not present in AE2's ordinary output list.
+        // Feed the normalized gross output vector into the existing exact validator so the growth fast path cannot
+        // silently undercount Thunder feedback while the algebra itself remains unchanged.
+        for (GenericStack output : pattern.grossOutputs()) {
             if (output == null || output.what() == null || output.amount() <= 0) {
                 return NetGrowthRejection.INDETERMINATE_OUTPUT;
             }

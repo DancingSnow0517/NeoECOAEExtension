@@ -437,37 +437,51 @@ public final class GraphRenderer {
         }
     }
 
-    /** Draws a direction-aware triangular head instead of the old always-left-facing end cap. */
+    /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
     private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
         var end = route.getLast();
         GraphLayoutSnapshot.Point previous = route.get(route.size() - 2);
         for (int i = route.size() - 2; i >= 0 && previous.equals(end); i--) previous = route.get(i);
-        int x = screen(cameraX, end.x(), zoom);
-        int y = screen(cameraY, end.y(), zoom);
-        float dx = end.x() - previous.x();
-        float dy = end.y() - previous.y();
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            if (dx >= 0) {
-                graphics.fill(x - 5, y - 3, x - 3, y + 4, color);
-                graphics.fill(x - 3, y - 2, x - 1, y + 3, color);
-                graphics.fill(x - 1, y - 1, x + 1, y + 2, color);
-            } else {
-                graphics.fill(x + 3, y - 3, x + 5, y + 4, color);
-                graphics.fill(x + 1, y - 2, x + 3, y + 3, color);
-                graphics.fill(x - 1, y - 1, x + 1, y + 2, color);
-            }
-        } else {
-            if (dy >= 0) {
-                graphics.fill(x - 3, y - 5, x + 4, y - 3, color);
-                graphics.fill(x - 2, y - 3, x + 3, y - 1, color);
-                graphics.fill(x - 1, y - 1, x + 2, y + 1, color);
-            } else {
-                graphics.fill(x - 3, y + 3, x + 4, y + 5, color);
-                graphics.fill(x - 2, y + 1, x + 3, y + 3, color);
-                graphics.fill(x - 1, y - 1, x + 2, y + 1, color);
+        float tipX = cameraX + end.x() * zoom;
+        float tipY = cameraY + end.y() * zoom;
+        float dx = (end.x() - previous.x()) * zoom;
+        float dy = (end.y() - previous.y()) * zoom;
+        float length = Math.max(0.001f, (float) Math.hypot(dx, dy));
+        float unitX = dx / length;
+        float unitY = dy / length;
+        float baseX = tipX - unitX * 6f;
+        float baseY = tipY - unitY * 6f;
+        float normalX = -unitY * 3.5f;
+        float normalY = unitX * 3.5f;
+        fillTriangle(graphics, tipX, tipY, baseX + normalX, baseY + normalY,
+            baseX - normalX, baseY - normalY, color);
+    }
+
+    private static void fillTriangle(GuiGraphics graphics, float ax, float ay, float bx, float by,
+            float cx, float cy, int color) {
+        int minX = (int) Math.floor(Math.min(ax, Math.min(bx, cx)));
+        int maxX = (int) Math.ceil(Math.max(ax, Math.max(bx, cx)));
+        int minY = (int) Math.floor(Math.min(ay, Math.min(by, cy)));
+        int maxY = (int) Math.ceil(Math.max(ay, Math.max(by, cy)));
+        float orientation = edge(ax, ay, bx, by, cx, cy);
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                float px = x + 0.5f;
+                float py = y + 0.5f;
+                float one = edge(ax, ay, bx, by, px, py);
+                float two = edge(bx, by, cx, cy, px, py);
+                float three = edge(cx, cy, ax, ay, px, py);
+                if (orientation >= 0 ? one >= 0 && two >= 0 && three >= 0
+                        : one <= 0 && two <= 0 && three <= 0) {
+                    graphics.fill(x, y, x + 1, y + 1, color);
+                }
             }
         }
+    }
+
+    private static float edge(float ax, float ay, float bx, float by, float px, float py) {
+        return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
     }
 
     private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {

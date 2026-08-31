@@ -2,7 +2,14 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
 
@@ -13,6 +20,11 @@ public final class ECOPhaseScheduler {
     public static boolean metadataAvailable(boolean requiresOrderedCycleExecution,
             ECOExecutionSchedule schedule, boolean witnessMissing) {
         return !requiresOrderedCycleExecution || (schedule != null && !witnessMissing);
+    }
+
+    /** Any ECO execution plan, including a pure DAG, carries supplier-to-consumer phase order. */
+    public static boolean hasExecutionPhases(ECOExecutionSchedule schedule) {
+        return schedule != null && !schedule.phases().isEmpty();
     }
 
     /** A compact single-transition cycle has no expanded witness but still needs component phase ordering. */
@@ -61,27 +73,25 @@ public final class ECOPhaseScheduler {
         long remaining = remainingTasks.applyAsLong(pattern);
         if (remaining <= 0L) return PlannerAmount.ZERO;
         try {
+            PatternSemantics semantics = semantic(pattern);
+            if (!semantics.supported()) return PlannerAmount.ZERO;
             PlannerAmount consumed = PlannerAmount.ZERO;
-            for (var input : pattern.getInputs()) {
-                if (input == null || input.getMultiplier() <= 0L) return PlannerAmount.ZERO;
-                var possible = input.getPossibleInputs();
-                if (possible == null || possible.length != 1 || possible[0] == null
-                        || possible[0].what() == null || possible[0].amount() <= 0L) return PlannerAmount.ZERO;
-                if (key.equals(possible[0].what())) {
-                    consumed = consumed.add(PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier()));
+            for (var input : semantics.consumedInputs()) {
+                if (input.amountPerPattern().signum() <= 0L) return PlannerAmount.ZERO;
+                if (key.equals(input.key())) {
+                    consumed = consumed.add(input.amountPerPattern());
                 }
             }
             if (consumed.signum() <= 0) return PlannerAmount.ZERO;
             PlannerAmount produced = PlannerAmount.ZERO;
-            for (var output : pattern.getOutputs()) {
+            for (var output : semantics.producedOutputs()) {
                 if (output != null && key.equals(output.what()) && output.amount() > 0L) {
                     produced = produced.add(output.amount());
                 }
             }
-            for (var input : pattern.getInputs()) {
-                var possible = input.getPossibleInputs();
-                if (key.equals(input.getRemainingKey(possible[0].what()))) {
-                    produced = produced.add(input.getMultiplier());
+            for (var output : semantics.returnedOutputs()) {
+                if (output != null && key.equals(output.what()) && output.amount() > 0L) {
+                    produced = produced.add(output.amount());
                 }
             }
             if (produced.compareTo(consumed) <= 0) return PlannerAmount.ZERO;
@@ -91,13 +101,21 @@ public final class ECOPhaseScheduler {
         }
     }
 
-    /** Pattern detail instances may be reconstructed by AE2; the encoded pattern item is the stable identity. */
+    private static PatternSemantics semantic(IPatternDetails pattern) {
+        PatternSemanticAdapter adapter = PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern);
+        if (adapter == null) return new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
+            .analyze(pattern);
+        try {
+            return adapter.analyze(pattern);
+        } catch (RuntimeException rejected) {
+            return PatternSemantics.unsupported(pattern, null,
+                "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
+        }
+    }
+
+    /** Pattern detail instances may be reconstructed by AE2; use the shared strict structural identity. */
     public static boolean samePattern(IPatternDetails left, IPatternDetails right) {
-        if (left == right) return true;
-        if (left == null || right == null) return false;
-        var leftDefinition = left.getDefinition();
-        var rightDefinition = right.getDefinition();
-        return leftDefinition != null && leftDefinition.equals(rightDefinition);
+        return PlanIdentity.samePattern(left, right);
     }
 
     public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
@@ -105,12 +123,28 @@ public final class ECOPhaseScheduler {
         if (phase.type() == ECOExecutionSchedule.Type.CYCLE && witnessIndex < phase.cycleWitness().size()) return false;
         for (var pattern : phase.patternSet()) {
             if (remainingTasks.applyAsLong(pattern) > 0) return false;
-            for (var output : pattern.getOutputs()) if (hasInFlightOutput.test(output.what())) return false;
+            for (var output : producedAndReturned(pattern)) {
+                if (output != null && output.what() != null && hasInFlightOutput.test(output.what())) return false;
+            }
         }
         return true;
     }
 
     public static int witnessAfterDispatch(int witnessIndex, boolean accepted) {
         return accepted ? Math.addExact(witnessIndex, 1) : witnessIndex;
+    }
+
+    private static List<GenericStack> producedAndReturned(IPatternDetails pattern) {
+        PatternSemantics semantics = semantic(pattern);
+        List<GenericStack> result = new ArrayList<>(semantics.producedOutputs());
+        result.addAll(semantics.returnedOutputs());
+        if (result.isEmpty()) {
+            try {
+                result.addAll(pattern.getOutputs());
+            } catch (RuntimeException ignored) {
+                // A malformed pattern cannot contribute an in-flight completion key.
+            }
+        }
+        return result;
     }
 }

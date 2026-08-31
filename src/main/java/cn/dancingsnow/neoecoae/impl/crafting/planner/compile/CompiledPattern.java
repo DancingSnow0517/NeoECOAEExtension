@@ -3,7 +3,10 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.compile;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,11 +29,13 @@ public record CompiledPattern(
     List<GenericStack> outputs,
     boolean fastSupported,
     String unsupportedReason,
-    boolean netGrowthValidated
+    boolean netGrowthValidated,
+    PatternSemantics semantics
 ) {
     public CompiledPattern {
         inputs = List.copyOf(inputs);
         outputs = List.copyOf(outputs);
+        if (semantics == null) semantics = new AE2PatternSemanticAdapter().analyze(details);
     }
 
     /**
@@ -42,13 +47,21 @@ public record CompiledPattern(
             List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
             String unsupportedReason) {
         this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported, unsupportedReason,
-            false);
+            false, null);
     }
 
     public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, long outputPerPattern,
             List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
             String unsupportedReason, boolean netGrowthValidated) {
         this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported,
-            unsupportedReason, netGrowthValidated);
+            unsupportedReason, netGrowthValidated, null);
+    }
+
+    /** Gross per-firing outputs used by cycle algebra: normal products plus normalized returned/reusable stock. */
+    public List<GenericStack> grossOutputs() {
+        if (semantics.returnedOutputs().isEmpty()) return outputs;
+        List<GenericStack> result = new ArrayList<>(outputs);
+        result.addAll(semantics.returnedOutputs());
+        return List.copyOf(result);
     }
 }

@@ -5,6 +5,9 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -17,6 +20,17 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternVali
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
+    private final List<PatternSemanticAdapter> semanticAdapters;
+
+    public CraftingNetworkCompiler() {
+        this(PatternSemanticAdapters.defaults());
+    }
+
+    /** Constructor kept injectable so planner tests and integrations can supply an explicit semantic contract. */
+    public CraftingNetworkCompiler(List<PatternSemanticAdapter> semanticAdapters) {
+        this.semanticAdapters = PatternSemanticAdapters.copy(semanticAdapters);
+    }
+
     public CompiledNetwork compile(ICraftingService service, AEKey goal, ECOCancellation cancellation)
             throws InterruptedException {
         return compile(service, goal, false, cancellation);
@@ -54,24 +68,42 @@ public final class CraftingNetworkCompiler {
                         work.addLast(input.key());
                     }
                 }
+                for (AEKey returned : pattern.semantics().returnedKeys()) {
+                    edgeCount++;
+                    if (queued.add(returned)) work.addLast(returned);
+                }
+                for (var feedback : pattern.semantics().feedbackEdges()) {
+                    edgeCount++;
+                    if (queued.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
+                    if (queued.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
+                }
             }
             producers.put(key, List.copyOf(compiled));
         }
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
     }
 
-    private static CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
+    private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean cyclePlanningEnabled) {
-        List<CompiledInput> inputs = new ArrayList<>();
+        List<CompiledInput> inputs;
         List<GenericStack> outputs;
         PlannerAmount outputPerPattern = PlannerAmount.ZERO;
         String unsupported = null;
         String contractEvidence = null;
-        boolean netGrowthValidated = cyclePlanningEnabled
-            && (NetGrowthPatternValidationRegistry.isValidated(details)
-                || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details));
+        PatternSemanticAdapter adapter = PatternSemanticAdapters.find(semanticAdapters, details);
+        PatternSemantics semantics;
         try {
-            outputs = List.copyOf(details.getOutputs());
+            PatternSemantics analyzed = adapter == null
+                ? PatternSemantics.unsupported(details, null, "NO_PATTERN_SEMANTIC_ADAPTER")
+                : adapter.analyze(details);
+            semantics = analyzed == null
+                ? PatternSemantics.unsupported(details, null, "NULL_PATTERN_SEMANTICS") : analyzed;
+        } catch (RuntimeException e) {
+            semantics = PatternSemantics.unsupported(details, null,
+                "SEMANTIC_ANALYSIS_FAILED:" + e.getClass().getSimpleName());
+        }
+        try {
+            outputs = semantics.producedOutputs().isEmpty() ? safeOutputs(details) : semantics.producedOutputs();
             if (outputs.isEmpty()) {
                 unsupported = "NO_OUTPUTS";
             }
@@ -88,33 +120,90 @@ public final class CraftingNetworkCompiler {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
             }
 
-            IPatternDetails.IInput[] rawInputs = details.getInputs();
-            if (rawInputs == null) {
-                unsupported = "NULL_INPUT_ARRAY";
+            if (!semantics.exactStaticAnalysis() && unsupported == null) {
+                unsupported = semantics.unsupportedReason() == null
+                    ? "UNSUPPORTED_PATTERN_SEMANTICS" : semantics.unsupportedReason();
+            } else if ((semantics.matchingMode() == PatternSemantics.MatchingMode.FUZZY
+                    || semantics.matchingMode() == PatternSemantics.MatchingMode.UNKNOWN) && unsupported == null) {
+                unsupported = "UNSUPPORTED_MATCHING_SEMANTICS";
+            } else if (semantics.executionRestriction() != PatternSemantics.ExecutionRestriction.NONE
+                    && unsupported == null) {
+                unsupported = "UNSUPPORTED_EXECUTION_RESTRICTION";
+            }
+
+            if (!semantics.consumedInputs().isEmpty()) {
+                inputs = compileInputs(semantics);
             } else {
-                for (IPatternDetails.IInput input : rawInputs) {
-                    List<CompiledInput> compiledInputs = compileInputs(input);
-                    inputs.addAll(compiledInputs);
-                    for (CompiledInput compiledInput : compiledInputs) {
-                        if (!compiledInput.unsupportedReason().isEmpty() && contractEvidence == null) {
-                            contractEvidence = compiledInput.unsupportedReason();
-                        }
-                        if (!compiledInput.fastSupported() && unsupported == null) {
-                            unsupported = compiledInput.unsupportedReason();
-                        }
-                    }
+                inputs = compileRawInputs(details);
+            }
+            for (CompiledInput compiledInput : inputs) {
+                if (!compiledInput.unsupportedReason().isEmpty() && contractEvidence == null) {
+                    contractEvidence = compiledInput.unsupportedReason();
                 }
+                if (!compiledInput.fastSupported() && unsupported == null) {
+                    unsupported = compiledInput.unsupportedReason();
+                }
+            }
+            if (!semantics.supported() && unsupported == null) {
+                unsupported = semantics.unsupportedReason() == null
+                    ? "UNSUPPORTED_PATTERN_SEMANTICS" : semantics.unsupportedReason();
+            } else if (adapter == null && unsupported == null) {
+                unsupported = "NO_PATTERN_SEMANTIC_ADAPTER";
             }
         } catch (RuntimeException e) {
             outputs = safeOutputs(details);
+            inputs = List.of();
             unsupported = "MALFORMED_PATTERN:" + e.getClass().getSimpleName();
         }
+
+        boolean netGrowthValidated = cyclePlanningEnabled
+            && (NetGrowthPatternValidationRegistry.isValidated(details)
+                || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details)
+                || semantics.cycleSafeForStaticPlanning());
         String recordedReason = unsupported != null ? unsupported
             : contractEvidence == null ? "" : contractEvidence;
         return new CompiledPattern(
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
-            recordedReason, netGrowthValidated
+            recordedReason, netGrowthValidated, semantics
         );
+    }
+
+    private static List<CompiledInput> compileRawInputs(IPatternDetails details) {
+        List<CompiledInput> inputs = new ArrayList<>();
+        IPatternDetails.IInput[] rawInputs = details.getInputs();
+        if (rawInputs == null) throw new IllegalArgumentException("null input array");
+        for (IPatternDetails.IInput input : rawInputs) inputs.addAll(compileInputs(input));
+        return inputs;
+    }
+
+    private static List<CompiledInput> compileInputs(PatternSemantics semantics) {
+        List<CompiledInput> inputs = new ArrayList<>();
+        for (PatternSemantics.Input input : semantics.consumedInputs()) {
+            String reason = "";
+            boolean fastSupported = semantics.supported();
+            if (semantics.matchingMode() == PatternSemantics.MatchingMode.SUBSTITUTION) {
+                reason = "UNSUPPORTED_SUBSTITUTION";
+            } else if (semantics.matchingMode() == PatternSemantics.MatchingMode.FUZZY
+                    || semantics.matchingMode() == PatternSemantics.MatchingMode.UNKNOWN) {
+                fastSupported = false;
+                reason = "UNSUPPORTED_MATCHING_SEMANTICS";
+            }
+            if (semantics.executionRestriction() != PatternSemantics.ExecutionRestriction.NONE) {
+                fastSupported = false;
+                reason = "UNSUPPORTED_EXECUTION_RESTRICTION";
+            }
+            if (input.returnedKey() != null && !semantics.cycleSafeForStaticPlanning()) {
+                fastSupported = false;
+                reason = "UNSUPPORTED_REMAINDER";
+            }
+            if (input.amountPerPattern().signum() <= 0) {
+                fastSupported = false;
+                reason = "INVALID_INPUT_AMOUNT";
+            }
+            inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
+                input.returnedKey(), input.returnedAmountPerPattern()));
+        }
+        return List.copyOf(inputs);
     }
 
     private static List<CompiledInput> compileInputs(IPatternDetails.IInput input) {
@@ -132,8 +221,7 @@ public final class CraftingNetworkCompiler {
         }
         // A substitution set is still safe to plan when the planner commits to one concrete member. Use the
         // pattern's primary input deterministically; AE2 may accept other members at execution time, but the
-        // aggregate plan never relies on that substitution. Keeping every alternative here would turn one input
-        // slot into simultaneous dependencies and excluding the pattern would hide valid acyclic producer routes.
+        // aggregate plan never relies on that substitution.
         PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(multiplier);
         AEKey remainder = input.getRemainingKey(primary.what());
         if (remainder != null) {
@@ -151,4 +239,5 @@ public final class CraftingNetworkCompiler {
             return List.of();
         }
     }
+
 }

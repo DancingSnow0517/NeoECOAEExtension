@@ -28,6 +28,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -38,6 +40,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(CraftConfirmMenu.class)
 public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
+    @Unique
+    private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
     @GuiSync(99)
     private boolean neoecoae$showFastPlannerReport;
@@ -108,9 +112,26 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
-        if (result instanceof ECOCraftingPlanDiagnostics diagnostics
-                && diagnostics.neoecoae$getPlanningResult() != null) {
-            var planningResult = diagnostics.neoecoae$getPlanningResult();
+        ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
+            ? diagnostics.neoecoae$getPlanningResult()
+            : null;
+        String source = "plan-field";
+        if (planningResult == null) {
+            planningResult = ECOPlanningResultRegistry.find(result);
+            source = planningResult == null ? "none" : "registry-exact";
+        }
+        NEOECOAE_LOGGER.info(
+            "[ECO-CONFIRM] capture finalOutput={} planClass={} diagnosticsPresent={} planningResultPresent={} "
+                + "source={} status={} solvedCycleExpected={} cycleSafetyRequired={} components={} "
+                + "registrySchedules={} registryMetadata={}",
+            result == null ? null : result.finalOutput(), result == null ? null : result.getClass().getName(),
+            result instanceof ECOCraftingPlanDiagnostics, planningResult != null, source,
+            planningResult == null ? null : planningResult.status(),
+            ECOPlanningResultRegistry.cycleExpected(planningResult),
+            ECOPlanningResultRegistry.cycleSafetyRequired(result, planningResult),
+            ECOPlanningResultRegistry.describePlanningResult(planningResult),
+            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
+        if (planningResult != null) {
             neoecoae$confirmedPlanningResult = planningResult;
             neoecoae$calculationNanos = planningResult.calculationNanos();
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
@@ -139,7 +160,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
     }
 
-    /** Bind only the synchronous submission represented by this confirmation menu to its complete ECO plan. */
+    /**
+     * Bind only the synchronous submission represented by this confirmation menu to its complete ECO plan,
+     * execution schedule and independent cycle expectation. The latter remains true when schedule propagation
+     * fails, allowing the executor to stop instead of silently treating a solved cycle as a vanilla DAG.
+     */
     @WrapOperation(
         method = "startJob",
         at = @At(
@@ -164,8 +189,24 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             ? diagnostics.neoecoae$getPlanningResult()
             : null;
         if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
+        if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
+        NEOECOAE_LOGGER.info(
+            "[ECO-CONFIRM] submit finalOutput={} planningResultPresent={} status={} solvedCycleExpected={} "
+                + "cycleSafetyRequired={} resultSignature={} submittedSignature={} strictPlanMatch={} "
+                + "components={} registrySchedules={} registryMetadata={}",
+            result == null ? null : result.finalOutput(), planningResult != null,
+            planningResult == null ? null : planningResult.status(),
+            ECOPlanningResultRegistry.cycleExpected(planningResult),
+            ECOPlanningResultRegistry.cycleSafetyRequired(result, planningResult),
+            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.describe(
+                cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.of(result)),
+            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.describe(
+                cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.of(submittedPlan)),
+            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.matches(result, submittedPlan),
+            ECOPlanningResultRegistry.describePlanningResult(planningResult),
+            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
         ECOPlanningResult boundResult = planningResult;
-        return ECOPlanningResultRegistry.withSubmissionAlias(result, boundResult,
+        return ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
     }
 

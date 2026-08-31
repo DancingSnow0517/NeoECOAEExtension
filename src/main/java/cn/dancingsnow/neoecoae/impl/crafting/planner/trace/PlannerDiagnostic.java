@@ -28,6 +28,8 @@ public record PlannerDiagnostic(Code code, String message) {
         AMOUNT_OVERFLOW,
         /** Planning completed; the resulting AE2 execution field needs more than a signed long. */
         EXECUTION_AMOUNT_UNREPRESENTABLE,
+        /** The raw AE2 task vector consumes more material than the plan can physically supply. */
+        PLAN_MATERIAL_CLOSURE_INVALID,
         CANCELLED,
         INTERNAL_ERROR
     }

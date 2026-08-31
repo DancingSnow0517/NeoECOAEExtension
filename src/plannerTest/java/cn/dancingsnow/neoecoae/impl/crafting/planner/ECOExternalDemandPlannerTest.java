@@ -172,7 +172,7 @@ class ECOExternalDemandPlannerTest {
         assertFalse(result.executionSchedule().phases().isEmpty());
     }
 
-    @Test void simulatedOrNonSuccessfulCyclePlanIsNeverRegisteredForExecution() throws Exception {
+    @Test void simulatedPlanIsRejectedAndNonSuccessfulCycleIsRegisteredOnlyFailClosed() throws Exception {
         Fixture f = fixture(2, true, false);
         var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
         var executable = new AE2CraftingPlanBridge().success(
@@ -188,7 +188,13 @@ class ECOExternalDemandPlannerTest {
         var partialResult = new ECOPlanningResult(PlanningStatus.PARTIAL, executable, outcome.trace(),
             outcome.cycles(), outcome.components(), outcome.executionComponentOrder(), 1L);
         ECOPlanningResultRegistry.register(executable, partialResult);
-        assertNull(ECOPlanningResultRegistry.find(executable));
+        assertSame(partialResult, ECOPlanningResultRegistry.find(executable));
+        var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(executable);
+        assertNotNull(recovered);
+        assertTrue(recovered.cycleExpected());
+        assertEquals(ECOPlanningResultRegistry.RecoveryState.MISSING_OR_INVALID_SCHEDULE, recovered.state());
+        assertEquals("STATUS_NOT_SUCCESS", recovered.rejectionReason());
+        assertNull(recovered.schedule(), "a non-success result must never provide executable cycle metadata");
     }
 
     @Test void patchedPlanRebindsScheduleToSubmittedPatternInstances() throws Exception {
@@ -210,14 +216,14 @@ class ECOExternalDemandPlannerTest {
             original.multiplePaths(), original.usedItems(), new KeyCounter(), original.missingItems(), patchedTasks);
         var recovered = ECOPlanningResultRegistry.recoverSchedule(copied);
         assertNotNull(recovered);
-        assertEquals("rebound-output-signature", recovered.matchMode());
+        assertEquals("strict-plan-identity", recovered.matchMode());
         assertTrue(recovered.schedule().phases().stream().flatMap(phase -> phase.patternSet().stream())
             .allMatch(patchedTasks::containsKey));
         assertTrue(recovered.schedule().phases().stream().flatMap(phase -> phase.cycleWitness().stream())
             .allMatch(patchedTasks::containsKey));
     }
 
-    @Test void largerBatchAlternateDagProducerRebindsByEqualTotalProduction() throws Exception {
+    @Test void largerBatchAlternateDagProducerDoesNotMatchByEqualTotalProduction() throws Exception {
         Fixture f = fixture(2, false, false);
         var outcome = plan(f.network, stock(f.a, 2, f.leaf, 2), 2);
         var bridge = new AE2CraftingPlanBridge();
@@ -244,13 +250,10 @@ class ECOExternalDemandPlannerTest {
             original.multiplePaths(), original.usedItems(), new KeyCounter(), original.missingItems(), replacedTasks);
 
         var recovered = ECOPlanningResultRegistry.recoverSchedule(copied);
-        assertNotNull(recovered);
-        assertEquals("rebound-output-signature", recovered.matchMode());
-        assertTrue(recovered.schedule().phases().stream().flatMap(phase -> phase.patternSet().stream())
-            .anyMatch(pattern -> pattern == replacement));
+        assertNull(recovered, "different physical definition and firing count must not bind metadata");
     }
 
-    @Test void confirmedTransformedPlanRestoresCompleteExecutableCyclePlan() throws Exception {
+    @Test void confirmedTransformedPlanRemainsAuthoritativeAndDoesNotReceiveMismatchedMetadata() throws Exception {
         Fixture f = fixture(1, false, false);
         var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
         var bridge = new AE2CraftingPlanBridge();
@@ -277,15 +280,165 @@ class ECOExternalDemandPlannerTest {
         assertNotEquals(executable.patternTimes(), submittedCopy.patternTimes());
         assertNotEquals(confirmed.patternTimes(), submittedCopy.patternTimes(),
             "the submission path may transform the task vector after confirmation");
-        assertSame(executable, ECOPlanningResultRegistry.withSubmissionAlias(confirmed, result, () -> {
-            assertSame(executable, ECOPlanningResultRegistry.resolveSubmissionPlan(submittedCopy));
-            return ECOPlanningResultRegistry.resolveSubmissionPlan(submittedCopy);
+        assertSame(submittedCopy, ECOPlanningResultRegistry.withSubmissionAlias(confirmed, result, () -> {
+            assertFalse(ECOPlanningResultRegistry.shouldPreserveSubmissionPlan(submittedCopy),
+                "a transformed task vector must never be protected by the confirmation alias");
+            var resolved = ECOPlanningResultRegistry.resolveSubmissionPlan(submittedCopy);
+            assertSame(submittedCopy, resolved);
+            assertNull(ECOPlanningResultRegistry.activeSubmissionMetadata(resolved),
+                "different submitted task vector must not receive ECO metadata");
+            return resolved;
         }));
         assertSame(submittedCopy, ECOPlanningResultRegistry.resolveSubmissionPlan(submittedCopy),
             "the confirmation binding must not escape its synchronous submitJob call");
-        assertSame(executable, ECOPlanningResultRegistry.withSubmissionAlias(confirmed, result,
+        assertSame(submittedCopy, ECOPlanningResultRegistry.withSubmissionAlias(confirmed, result,
             () -> ECOPlanningResultRegistry.resolveSubmissionPlan(submittedCopy)),
-            "a rejected submission must be recoverable in a later confirmation retry");
+            "a rejected submission must remain the submitted plan on a later retry");
+    }
+
+    @Test void exactConfirmedPlanCanBeProtectedFromExternalTaskVectorRewrite() throws Exception {
+        Fixture f = fixture(1, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var executable = new AE2CraftingPlanBridge().success(
+            PlannerTestKey.of("registry_transform_guard_unique"), 1, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), executable, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+
+        assertTrue(ECOPlanningResultRegistry.withSubmissionAlias(executable, result, () -> {
+            assertTrue(ECOPlanningResultRegistry.shouldPreserveSubmissionPlan(executable));
+            assertSame(executable, ECOPlanningResultRegistry.resolveSubmissionPlan(executable));
+            return true;
+        }));
+        assertFalse(ECOPlanningResultRegistry.shouldPreserveSubmissionPlan(executable),
+            "the protection must not escape the synchronous submission scope");
+    }
+
+    @Test void solvedCycleExpectationSurvivesWhenScheduleConstructionProducesNoCyclePhase() throws Exception {
+        Fixture f = fixture(1, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var executable = new AE2CraftingPlanBridge().success(
+            f.network.goal(), 1, false, false, outcome.state());
+        int cycleComponentId = outcome.components().stream()
+            .filter(component -> component.type()
+                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .findFirst().orElseThrow().componentId();
+        List<Integer> brokenExecutionOrder = outcome.executionComponentOrder().stream()
+            .filter(componentId -> componentId != cycleComponentId).toList();
+        var result = new ECOPlanningResult(PlanningStatus.SUCCESS, executable, outcome.trace(), outcome.cycles(),
+            outcome.components(), brokenExecutionOrder, 1L);
+
+        assertTrue(ECOPlanningResultRegistry.cycleExpected(result));
+        assertThrows(IllegalStateException.class, result::executionSchedule,
+            "an incomplete schedule must not be accepted even when its remaining phases are acyclic");
+        ECOPlanningResultRegistry.withSubmissionAlias(executable, result, () -> {
+            var resolved = ECOPlanningResultRegistry.resolveSubmissionPlan(executable);
+            var metadata = ECOPlanningResultRegistry.activeSubmissionMetadata(resolved);
+            assertNotNull(metadata, "a missing schedule must not erase the independently known cycle expectation");
+            assertTrue(metadata.cycleExpected());
+            assertFalse(ECOPhaseScheduler.requiresComponentScheduling(metadata.executionSchedule()),
+                "the executor can now detect this invariant violation and refuse dispatch");
+            return null;
+        });
+        assertNull(ECOPlanningResultRegistry.activeSubmissionMetadata(executable));
+    }
+
+    @Test void rebuiltPlanCanBeRegisteredUnderItsActualReturnedSignature() throws Exception {
+        Fixture f = fixture(2, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var original = new AE2CraftingPlanBridge().success(
+            f.network.goal(), 1, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), original, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+        Map<IPatternDetails, Long> rebuiltTasks = new LinkedHashMap<>(original.patternTimes());
+        var changed = rebuiltTasks.entrySet().iterator().next();
+        rebuiltTasks.put(changed.getKey(), Math.addExact(changed.getValue(), 23L));
+        var rebuilt = new CraftingPlan(original.finalOutput(), original.bytes(), false, original.multiplePaths(),
+            original.usedItems(), new KeyCounter(), original.missingItems(), rebuiltTasks);
+
+        ECOPlanningResultRegistry.register(rebuilt, result);
+        assertNull(ECOPlanningResultRegistry.find(rebuilt),
+            "a rebuilt plan with a different execution vector must not be registered under the ECO result");
+    }
+
+    @Test void multipleAliasesFromOnePlanningResultDoNotCreateRecoveryAmbiguity() throws Exception {
+        Fixture f = fixture(2, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var original = new AE2CraftingPlanBridge().success(
+            PlannerTestKey.of("registry_alias_dedupe_unique"), 1, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), original, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+        ECOPlanningResultRegistry.register(original, result);
+
+        Map<IPatternDetails, Long> firstAliasTasks = rebuiltPatternInstances(original.patternTimes(), "alias-one-");
+        var firstAlias = new CraftingPlan(original.finalOutput(), original.bytes(), false, original.multiplePaths(),
+            original.usedItems(), new KeyCounter(), original.missingItems(), firstAliasTasks);
+        ECOPlanningResultRegistry.register(firstAlias, result);
+
+        Map<IPatternDetails, Long> submittedTasks = rebuiltPatternInstances(original.patternTimes(), "submitted-");
+        var submitted = new CraftingPlan(original.finalOutput(), original.bytes(), false, original.multiplePaths(),
+            original.usedItems(), new KeyCounter(), original.missingItems(), submittedTasks);
+        var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(submitted);
+
+        assertNotNull(recovered, "aliases of one planning attempt must collapse to one recovery candidate");
+        assertEquals(ECOPlanningResultRegistry.RecoveryState.VALID_SCHEDULE, recovered.state());
+        assertEquals("strict-plan-identity", recovered.matchMode());
+        assertTrue(ECOPhaseScheduler.requiresComponentScheduling(recovered.schedule()));
+    }
+
+    @Test void nonAliasPathRecoversFailClosedCycleExpectationWithoutValidSchedule() throws Exception {
+        Fixture f = fixture(1, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var executable = new AE2CraftingPlanBridge().success(
+            PlannerTestKey.of("registry_fail_closed_unique"), 1, false, false, outcome.state());
+        int cycleComponentId = outcome.components().stream()
+            .filter(component -> component.type()
+                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .findFirst().orElseThrow().componentId();
+        List<Integer> brokenExecutionOrder = List.of(cycleComponentId);
+        var brokenResult = new ECOPlanningResult(PlanningStatus.SUCCESS, executable, outcome.trace(),
+            outcome.cycles(), outcome.components(), brokenExecutionOrder, 1L);
+
+        assertThrows(IllegalStateException.class, brokenResult::executionSchedule,
+            "the fixture must exercise the SCHEDULE_BUILD_FAILED registration path");
+        ECOPlanningResultRegistry.register(executable, brokenResult);
+        var copied = new CraftingPlan(executable.finalOutput(), executable.bytes(), false,
+            executable.multiplePaths(), executable.usedItems(), new KeyCounter(), executable.missingItems(),
+            rebuiltPatternInstances(executable.patternTimes(), "fail-closed-copy-"));
+        var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(copied);
+
+        assertNotNull(recovered);
+        assertTrue(recovered.cycleExpected());
+        assertEquals(ECOPlanningResultRegistry.RecoveryState.MISSING_OR_INVALID_SCHEDULE, recovered.state());
+        assertTrue(recovered.rejectionReason().startsWith("SCHEDULE_BUILD_FAILED:"));
+        assertNull(recovered.schedule());
+    }
+
+    @Test void nativeFallbackPlanContainingKnownCycleIsRegisteredFailClosed() throws Exception {
+        Fixture f = fixture(1, false, false);
+        var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
+        var nativePlan = new AE2CraftingPlanBridge().success(
+            PlannerTestKey.of("native_fallback_cycle_unique"), 1, false, false, outcome.state());
+        var fallbackDiagnostic = new ECOPlanningResult(PlanningStatus.PARTIAL_UNSUPPORTED, null,
+            outcome.trace(), outcome.cycles(), outcome.components(), outcome.executionComponentOrder(), 1L);
+
+        assertFalse(ECOPlanningResultRegistry.cycleExpected(fallbackDiagnostic));
+        assertFalse(ECOPlanningResultRegistry.cycleSafetyRequired(nativePlan, fallbackDiagnostic),
+            "a result without an executable plan cannot transfer cycle metadata to a native candidate");
+        ECOPlanningResultRegistry.register(nativePlan, fallbackDiagnostic);
+        var copied = new CraftingPlan(nativePlan.finalOutput(), nativePlan.bytes(), false,
+            nativePlan.multiplePaths(), nativePlan.usedItems(), new KeyCounter(), nativePlan.missingItems(),
+            nativePlan.patternTimes());
+        var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(copied);
+
+        assertNull(recovered, "an unrelated native candidate must not inherit ECO cycle metadata");
+    }
+
+    private static Map<IPatternDetails, Long> rebuiltPatternInstances(
+            Map<IPatternDetails, Long> source, String prefix) {
+        Map<IPatternDetails, Long> rebuilt = new LinkedHashMap<>();
+        source.forEach((pattern, count) -> rebuilt.put(new PlannerFixtures.Pattern(
+            prefix + pattern, pattern.getInputs(), pattern.getOutputs()), count));
+        return rebuilt;
     }
 
     @Test void equalConfirmedSignaturesRemainIsolatedAcrossConcurrentSubmissions() throws Exception {
@@ -325,8 +478,8 @@ class ECOExternalDemandPlannerTest {
                 confirmed, secondResult, () -> awaitAndResolve(entered, release, submittedCopy)));
             assertTrue(entered.await(5, TimeUnit.SECONDS));
             release.countDown();
-            assertSame(firstExecutable, first.get(5, TimeUnit.SECONDS));
-            assertSame(secondExecutable, second.get(5, TimeUnit.SECONDS));
+            assertSame(submittedCopy, first.get(5, TimeUnit.SECONDS));
+            assertSame(submittedCopy, second.get(5, TimeUnit.SECONDS));
         } finally {
             release.countDown();
             executor.shutdownNow();

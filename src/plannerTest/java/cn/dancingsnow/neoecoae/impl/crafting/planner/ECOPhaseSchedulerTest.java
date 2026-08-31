@@ -18,7 +18,7 @@ class ECOPhaseSchedulerTest {
     @Test void dagPhaseAllowsAllMembersButNoDependentPhasePattern() {
         assertTrue(ECOPhaseScheduler.canDispatch(dag(), 0, p1));
         assertTrue(ECOPhaseScheduler.canDispatch(dag(), 0, p2));
-        assertFalse(ECOPhaseScheduler.canDispatch(dag(), 0, PlannerFixtures.pattern("later", a, 1)));
+        assertFalse(ECOPhaseScheduler.canDispatch(dag(), 0, PlannerFixtures.pattern("later", a, 1, b, 1L)));
     }
     @Test void cyclePhaseAllowsOnlyCurrentWitnessStep() {
         assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 0, p1));
@@ -77,7 +77,13 @@ class ECOPhaseSchedulerTest {
         assertEquals(1, schedule.phases().size());
         assertEquals(ECOExecutionSchedule.Type.DAG, schedule.phases().getFirst().type());
         assertEquals(Set.of(p1), schedule.phases().getFirst().patternSet());
+        assertTrue(ECOPhaseScheduler.hasExecutionPhases(schedule));
         assertFalse(ECOPhaseScheduler.requiresComponentScheduling(schedule));
+    }
+    @Test void activeDagScheduleRejectsUnownedPlanTasks() {
+        var dagOwner = component(1, ComponentPlanningResult.Type.ACYCLIC, Set.of(p1), Set.of(p1));
+        assertThrows(IllegalStateException.class, () -> ECOExecutionSchedule.from(
+            List.of(dagOwner), List.of(1), java.util.Map.of(p1, 1L, p2, 1L)));
     }
     @Test void activeCycleScheduleRejectsUnownedPlanTasks() {
         var cycleOwner = component(1, ComponentPlanningResult.Type.CYCLIC, Set.of(p1), Set.of(p1));
@@ -98,6 +104,23 @@ class ECOPhaseSchedulerTest {
         assertEquals(List.of(2, 1), schedule.phases().stream()
             .map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
     }
+    @Test void selfReturnedInputDoesNotHideAnotherPlannedSupplier() {
+        var consumer = new PlannerFixtures.Pattern("self_returning_consumer",
+            new appeng.api.crafting.IPatternDetails.IInput[] {new PlannerFixtures.Input(b, 1, true)},
+            List.of(new appeng.api.stacks.GenericStack(a, 1)));
+        var supplier = PlannerFixtures.pattern("actual_supplier", b, 1);
+        var consumerComponent = component(1, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(b, 1L), Set.of(consumer), Set.of(consumer));
+        var supplierComponent = component(2, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(b, 1L), Set.of(supplier), Set.of(supplier));
+
+        var schedule = ECOExecutionSchedule.from(
+            List.of(supplierComponent, consumerComponent), List.of(1, 2),
+            java.util.Map.of(consumer, 1L, supplier, 1L));
+
+        assertEquals(List.of(2, 1), schedule.phases().stream()
+            .map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
+    }
     @Test void missingOrderedMetadataIsFailSafeWhilePureDagRemainsNative() {
         assertFalse(ECOPhaseScheduler.metadataAvailable(true, null, true));
         assertTrue(ECOPhaseScheduler.metadataAvailable(false, null, false));
@@ -107,7 +130,9 @@ class ECOPhaseSchedulerTest {
             ECOExecutionSchedule.Type.CYCLE, Set.of(p1), List.of());
         assertTrue(ECOPhaseScheduler.requiresComponentScheduling(
             new ECOExecutionSchedule(List.of(dag(), compactCycle))));
-        assertFalse(ECOPhaseScheduler.requiresComponentScheduling(new ECOExecutionSchedule(List.of(dag()))));
+        var dagSchedule = new ECOExecutionSchedule(List.of(dag()));
+        assertTrue(ECOPhaseScheduler.hasExecutionPhases(dagSchedule));
+        assertFalse(ECOPhaseScheduler.requiresComponentScheduling(dagSchedule));
     }
     @Test void compactSelfGrowingCycleRetainsFeedbackForAllRemainingCrafts() {
         var growing = PlannerFixtures.pattern("growing", a, 2, a, 1L, b, 7L);

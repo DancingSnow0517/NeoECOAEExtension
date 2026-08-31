@@ -2,6 +2,10 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
@@ -9,9 +13,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Runtime component phases. The list is explicitly execution (supplier-to-consumer) order. */
 public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
+
     public ECOExecutionSchedule { phases = List.copyOf(phases); }
     public record ComponentExecutionPhase(int componentId, Type type, Set<IPatternDetails> patternSet,
             List<IPatternDetails> cycleWitness) {
@@ -81,14 +89,13 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
             phases.add(new ComponentExecutionPhase(id, type, patterns, witness));
         }
 
-        boolean orderedCycle = phases.stream().anyMatch(phase -> phase.type() == Type.CYCLE);
-        if (orderedCycle && plannedTasks != null) {
+        if (plannedTasks != null) {
             List<IPatternDetails> unassigned = executableTasks.stream()
                 .filter(pattern -> !containsPhysicalPattern(assignedPatterns, pattern))
                 .toList();
             if (!unassigned.isEmpty()) {
                 throw new IllegalStateException(
-                    "Cycle execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
+                    "Execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
             }
         }
         return new ECOExecutionSchedule(orderByExecutableDependencies(phases, components));
@@ -106,7 +113,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         Map<AEKey, List<Integer>> outputProducers = new HashMap<>();
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             for (IPatternDetails pattern : phases.get(phaseIndex).patternSet()) {
-                for (var output : pattern.getOutputs()) {
+                for (var output : producedAndReturned(pattern)) {
                     if (output == null || output.what() == null || output.amount() <= 0L) continue;
                     List<Integer> producers = outputProducers.computeIfAbsent(
                         output.what(), ignored -> new ArrayList<>());
@@ -121,7 +128,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             if (phases.get(phaseIndex).type() != Type.CYCLE) continue;
             for (IPatternDetails pattern : phases.get(phaseIndex).patternSet()) {
-                for (var output : pattern.getOutputs()) {
+                for (var output : producedAndReturned(pattern)) {
                     if (output != null && output.what() != null && output.amount() > 0L) {
                         selectedProducer.putIfAbsent(output.what(), phaseIndex);
                     }
@@ -149,20 +156,28 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         int[] indegree = new int[phases.size()];
         for (int i = 0; i < phases.size(); i++) outgoing.add(new LinkedHashSet<>());
         for (int consumer = 0; consumer < phases.size(); consumer++) {
+            int consumerPhase = consumer;
             for (IPatternDetails pattern : phases.get(consumer).patternSet()) {
-                for (var input : pattern.getInputs()) {
-                    if (input == null) continue;
-                    var possibleInputs = input.getPossibleInputs();
-                    if (possibleInputs == null || possibleInputs.length == 0 || possibleInputs[0] == null
-                            || possibleInputs[0].what() == null) continue;
-                    AEKey key = possibleInputs[0].what();
+                PatternSemantics semantics = semantic(pattern);
+                for (var input : semantics.consumedInputs()) {
+                    AEKey key = input.key();
                     Integer selected = selectedProducer.get(key);
-                    if (selected != null) {
-                        addDependency(outgoing, indegree, selected, consumer);
+                    List<Integer> producers;
+                    if (selected != null && selected != consumerPhase) {
+                        producers = List.of(selected);
+                    } else if (selected != null) {
+                        // A pattern may return/re-emit one of its own inputs. That self-production is not a
+                        // substitute for a different planned producer of the same key; retain the other producer
+                        // edges so a dynamic/catalyst pattern cannot be placed before its actual supplier.
+                        producers = outputProducers.getOrDefault(key, List.of()).stream()
+                            .filter(producer -> producer != consumerPhase)
+                            .toList();
                     } else {
-                        for (int producer : outputProducers.getOrDefault(key, List.of())) {
-                            addDependency(outgoing, indegree, producer, consumer);
-                        }
+                        producers = outputProducers.getOrDefault(key, List.of());
+                    }
+                    for (int producer : producers) {
+                        logDependency(phases, producer, consumerPhase, pattern, key, semantics,
+                            addDependency(outgoing, indegree, producer, consumerPhase));
                     }
                 }
             }
@@ -185,14 +200,18 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         return List.copyOf(ordered);
     }
 
-    private static void addDependency(List<Set<Integer>> outgoing, int[] indegree,
+    private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
             int producer, int consumer) {
-        if (producer == consumer) return;
-        if (outgoing.get(producer).add(consumer)) indegree[consumer]++;
+        if (producer == consumer) return false;
+        if (outgoing.get(producer).add(consumer)) {
+            indegree[consumer]++;
+            return true;
+        }
+        return false;
     }
 
     private static boolean produces(IPatternDetails pattern, AEKey key) {
-        for (var output : pattern.getOutputs()) {
+        for (var output : producedAndReturned(pattern)) {
             if (output != null && output.what() != null && output.amount() > 0L && key.equals(output.what())) {
                 return true;
             }
@@ -216,6 +235,46 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
             .toList();
         if (matches.size() == 1) return matches.getFirst();
         return requirePlannedTask ? null : source;
+    }
+
+    private static PatternSemantics semantic(IPatternDetails pattern) {
+        PatternSemanticAdapter adapter = PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern);
+        if (adapter == null) return new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
+            .analyze(pattern);
+        try {
+            return adapter.analyze(pattern);
+        } catch (RuntimeException rejected) {
+            return PatternSemantics.unsupported(pattern, null,
+                "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
+        }
+    }
+
+    private static List<GenericStack> producedAndReturned(IPatternDetails pattern) {
+        PatternSemantics semantics = semantic(pattern);
+        List<GenericStack> result = new ArrayList<>(semantics.producedOutputs());
+        result.addAll(semantics.returnedOutputs());
+        try {
+            // Keep the raw AE2 output contract as a compatibility backstop for an integration adapter that can
+            // describe inputs but not every concrete output. Duplicates only affect the local producer lookup.
+            result.addAll(pattern.getOutputs());
+        } catch (RuntimeException ignored) {
+            // A malformed pattern cannot add a dependency edge.
+        }
+        return result;
+    }
+
+    private static void logDependency(List<ComponentExecutionPhase> phases, int producer, int consumer,
+            IPatternDetails consumerPattern, AEKey key, PatternSemantics semantics, boolean edgeAdded) {
+        if (!LOGGER.isDebugEnabled()) return;
+        IPatternDetails producerPattern = phases.get(producer).patternSet().stream()
+            .filter(pattern -> producedAndReturned(pattern).stream().anyMatch(output -> output != null
+                && key.equals(output.what())))
+            .findFirst()
+            .orElseGet(() -> phases.get(producer).patternSet().stream().findFirst().orElse(null));
+        LOGGER.debug("[ECO-DEPENDENCY] producer={} consumer={} key={} producerPhase={} consumerPhase={} "
+                + "edgeAdded={} matchMode={} definition={}",
+            producerPattern, consumerPattern, key, producer, consumer, edgeAdded, semantics.matchingMode(),
+            semantics.physicalDefinition());
     }
 
     private static void addPhysicalPattern(List<IPatternDetails> patterns, IPatternDetails candidate) {

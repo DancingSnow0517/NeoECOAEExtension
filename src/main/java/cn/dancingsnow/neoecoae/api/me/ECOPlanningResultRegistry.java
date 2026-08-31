@@ -1,278 +1,348 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.Signature;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
-import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Short-lived side channel for planning metadata when a planning accelerator copies a CraftingPlan.
- * The copy retains the plan contents but cannot retain fields added to the original object by a mixin.
+ * Short-lived side channel for planning metadata when a planner or confirmation integration copies a
+ * {@link ICraftingPlan}. The executable plan is always the object received by submission; this registry only
+ * recovers metadata that is proved to describe that exact executable task vector.
  */
 public final class ECOPlanningResultRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
-    private static final Map<PlanSignature, Entry> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
-    /**
-     * Exact signature of the plan retained by CraftConfirmMenu -> cycle-aware ECO plan shown with it.
-     *
-     * <p>Some planner/confirmation integrations rebuild the public CraftingPlan before CPU submission. More
-     * importantly, a multi-planner may retain one candidate's task map while the ECO diagnostics shown beside
-     * it came from the cycle-aware candidate. Matching the submitted task map against the ECO task map cannot
-     * recover from that situation: they are deliberately different plans. This alias is recorded only at the
-     * user's confirmation boundary, so it identifies the plan that was actually approved without guessing
-     * between every same-output candidate produced in the background. The binding exists only while the
-     * confirmation menu is synchronously inside {@code ICraftingService.submitJob}; a global signature map
-     * would let equal plans from different players overwrite each other and would lose the binding after a
-     * rejected submission was retried.
-     */
+    private static final Map<Signature, List<Entry>> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {
     }
 
+    /** Store only metadata whose source result and registered plan have the same complete identity. */
     public static void register(ICraftingPlan plan, ECOPlanningResult result) {
-        // Only an executable success can be restored at CPU submission. A simulated/partial candidate could
-        // otherwise overwrite a valid entry from another attempt with the same public plan signature.
-        if (plan == null || result == null || result.plan() == null
-                || result.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
-                || plan.simulation() || result.plan().simulation()
-                || !sameFinalOutput(plan, result.plan())
-                || !ECOPhaseScheduler.requiresComponentScheduling(result.executionSchedule())) return;
-        PlanSignature signature = signatureOf(plan);
-        if (signature == null) return;
-        synchronized (RESULTS) {
-            long now = System.nanoTime();
-            removeExpired(now);
-            RESULTS.put(signature, new Entry(result, Map.copyOf(plan.patternTimes()),
-                counterContents(plan.usedItems()), now));
-            while (RESULTS.size() > MAX_ENTRIES) {
-                RESULTS.remove(RESULTS.keySet().iterator().next());
-            }
+        RegistrationInspection inspection = inspectRegistration(plan, result);
+        boolean validSchedule = inspection.reason() == null;
+        boolean failClosedMetadata = inspection.canStoreFailClosedMetadata();
+        if (!validSchedule && !failClosedMetadata) {
+            logRegistration(false, inspection, plan, result, null, null);
+            return;
         }
+        Signature signature = PlanIdentity.of(plan);
+        if (signature == null) {
+            logRegistration(false, inspection.withReason("SIGNATURE_UNAVAILABLE"), plan, result, null, null);
+            return;
+        }
+
+        RecoveryState recoveryState = validSchedule
+            ? RecoveryState.VALID_SCHEDULE
+            : RecoveryState.MISSING_OR_INVALID_SCHEDULE;
+        UUID planningId = result.planningId();
+        long now = System.nanoTime();
+        synchronized (RESULTS) {
+            removeExpired(now);
+            List<Entry> entries = RESULTS.computeIfAbsent(signature, ignored -> new ArrayList<>());
+            // Multiple aliases of one ECO planning result are one candidate. Different planning IDs remain
+            // independent even if they happen to have byte-for-byte equal plans.
+            entries.removeIf(entry -> entry.planningId().equals(planningId));
+            entries.add(new Entry(result, signature, Map.copyOf(plan.patternTimes()),
+                counterContents(plan.usedItems()), counterContents(plan.emittedItems()),
+                counterContents(plan.missingItems()), inspection.schedule(), inspection.cycleExpected(),
+                recoveryState, inspection.reason(), planningId, now));
+            trimEntries();
+        }
+        logRegistration(validSchedule, inspection, plan, result, planningId, recoveryState);
+    }
+
+    /** True independently of whether schedule construction/propagation succeeded. */
+    public static boolean cycleExpected(@Nullable ECOPlanningResult result) {
+        if (result == null || result.plan() == null) return false;
+        return result.components().stream().anyMatch(component -> {
+            if (component.type() != ComponentPlanningResult.Type.CYCLIC
+                    || component.cycleStatus() != CyclePlanningStatus.SOLVED) return false;
+            boolean solvedFirings = component.cycleResult() != null
+                && component.cycleResult().status().solved()
+                && component.cycleResult().patternTimes().values().stream()
+                    .anyMatch(count -> count != null && count > 0);
+            boolean plannedCyclicPattern = component.patterns().stream().anyMatch(pattern ->
+                result.plan().patternTimes().entrySet().stream().anyMatch(task ->
+                    task.getValue() != null && task.getValue() > 0
+                        && ECOPhaseScheduler.samePattern(pattern, task.getKey())));
+            return solvedFirings || plannedCyclicPattern;
+        });
+    }
+
+    /**
+     * A fallback plan is cycle-sensitive only when the diagnostic result is itself the exact same plan. A shared
+     * final output is not enough to transfer a cycle expectation between planner candidates.
+     */
+    public static boolean cycleSafetyRequired(ICraftingPlan publicPlan, @Nullable ECOPlanningResult result) {
+        if (publicPlan == null || result == null || result.plan() == null
+                || !PlanIdentity.matches(publicPlan, result.plan())) return false;
+        return result.components().stream()
+            .filter(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)
+            .flatMap(component -> component.patterns().stream())
+            .anyMatch(pattern -> publicPlan.patternTimes().entrySet().stream().anyMatch(task ->
+                task.getValue() != null && task.getValue() > 0
+                    && ECOPhaseScheduler.samePattern(pattern, task.getKey())));
+    }
+
+    public static List<String> describePlanningResult(@Nullable ECOPlanningResult result) {
+        return componentSummary(result);
     }
 
     public static @Nullable ECOPlanningResult find(ICraftingPlan plan) {
-        PlanSignature signature = signatureOf(plan);
+        Signature signature = PlanIdentity.of(plan);
         if (signature == null) return null;
         synchronized (RESULTS) {
-            long now = System.nanoTime();
-            removeExpired(now);
-            Entry entry = RESULTS.get(signature);
-            return entry == null ? null : entry.result();
+            removeExpired(System.nanoTime());
+            return uniqueEntry(RESULTS.get(signature));
         }
     }
 
     /**
-     * Runs one confirmation-menu submission with an exact binding from the displayed plan to its complete ECO
-     * executable plan. The previous binding is restored for nested calls and all paths, including exceptions.
+     * Emits one low-frequency candidate decision report for the final plan. The output-only comparison here is
+     * diagnostic text only; it is never used to attach metadata or choose a plan.
+     */
+    public static void logCandidateSelection(@Nullable ICraftingPlan submittedPlan,
+            @Nullable ECOPlanningResult selected) {
+        Signature submittedSignature = PlanIdentity.of(submittedPlan);
+        if (submittedSignature == null) return;
+        synchronized (RESULTS) {
+            removeExpired(System.nanoTime());
+            boolean emitted = false;
+            for (List<Entry> entries : RESULTS.values()) {
+                for (Entry entry : entries) {
+                    if (!entry.signature().sameFinalOutput(submittedSignature)) continue;
+                    boolean strict = entry.signature().equals(submittedSignature);
+                    boolean isSelected = selected != null && entry.result() == selected && strict;
+                    LOGGER.debug("[ECO-CANDIDATE] planningId={} finalOutput={} signature={} executions={} "
+                            + "selected={} rejected={} reason={}", entry.planningId(), submittedPlan.finalOutput(),
+                        PlanIdentity.describe(entry.signature()), entry.signature().executionCount(), isSelected,
+                        !isSelected, strict ? isSelected ? "" : "strict-candidate-not-selected" : "strict-plan-mismatch");
+                    emitted = true;
+                }
+            }
+            if (!emitted) {
+                LOGGER.debug("[ECO-CANDIDATE] planningId={} finalOutput={} signature={} executions={} selected={} "
+                        + "rejected={} reason={}", selected == null ? null : selected.planningId(),
+                    submittedPlan.finalOutput(), PlanIdentity.describe(submittedSignature),
+                    submittedSignature.executionCount(), selected != null, selected == null,
+                    selected == null ? "no-registered-candidate" : "selected-result-not-registered");
+            }
+        }
+    }
+
+    /**
+     * Binds metadata to one synchronous confirmation submission. The binding contains no executable plan and can
+     * therefore never replace the plan passed by the confirmation path.
      */
     public static <T> T withSubmissionAlias(ICraftingPlan confirmedPlan, @Nullable ECOPlanningResult result,
             Supplier<T> submission) {
         Objects.requireNonNull(submission, "submission");
         SubmissionAlias previous = ACTIVE_SUBMISSION_ALIAS.get();
         SubmissionAlias current = createSubmissionAlias(confirmedPlan, result);
-        if (current == null) {
-            ACTIVE_SUBMISSION_ALIAS.remove();
-        } else {
-            ACTIVE_SUBMISSION_ALIAS.set(current);
-        }
+        if (current == null) ACTIVE_SUBMISSION_ALIAS.remove();
+        else ACTIVE_SUBMISSION_ALIAS.set(current);
         try {
             return submission.get();
         } finally {
-            if (previous == null) {
-                ACTIVE_SUBMISSION_ALIAS.remove();
-            } else {
-                ACTIVE_SUBMISSION_ALIAS.set(previous);
-            }
+            if (previous == null) ACTIVE_SUBMISSION_ALIAS.remove();
+            else ACTIVE_SUBMISSION_ALIAS.set(previous);
         }
     }
 
     private static @Nullable SubmissionAlias createSubmissionAlias(ICraftingPlan confirmedPlan,
             @Nullable ECOPlanningResult result) {
         if (confirmedPlan == null || result == null || result.plan() == null
-                || result.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
-                || result.plan().simulation()
-                || !ECOPhaseScheduler.requiresComponentScheduling(result.executionSchedule())
-                || !sameFinalOutput(confirmedPlan, result.plan())) {
-            return null;
+                || result.status() != PlanningStatus.SUCCESS || result.plan().simulation()) return null;
+        Signature confirmedSignature = PlanIdentity.of(confirmedPlan);
+        if (confirmedSignature == null || !PlanIdentity.matches(confirmedSignature, result.plan())) return null;
+
+        ECOExecutionSchedule schedule;
+        try {
+            schedule = result.executionSchedule();
+        } catch (RuntimeException scheduleFailure) {
+            LOGGER.error("[ECO-SUBMISSION] failed to build confirmed metadata schedule; "
+                + "preserving cycleExpected for fail-closed dispatch", scheduleFailure);
+            schedule = null;
         }
-        PlanSignature signature = signatureOf(confirmedPlan);
-        return signature == null ? null : new SubmissionAlias(signature, result.plan());
+        boolean expected = cycleExpected(result);
+        if (!expected && !ECOPhaseScheduler.hasExecutionPhases(schedule)) return null;
+        return new SubmissionAlias(confirmedSignature, result.planningId(), schedule, expected, "ECO");
+    }
+
+    /** Metadata is visible only if the submitted plan proves the same complete identity as the confirmation plan. */
+    public static @Nullable SubmissionMetadata activeSubmissionMetadata(ICraftingPlan plan) {
+        SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
+        if (alias == null || !PlanIdentity.matches(alias.confirmedSignature(), plan)) return null;
+        return new SubmissionMetadata(alias.executionSchedule(), alias.cycleExpected(), alias.planningId(), true,
+            alias.selectedPlanner());
     }
 
     /**
-     * Restores the complete cycle-aware plan approved in CraftConfirmMenu. This happens before initial item
-     * extraction and before the ECO CPU stores the plan, so tasks, used items, bytes and execution metadata all
-     * come from one internally consistent planner result.
+     * Returns whether an optional submission optimizer must leave this exact ECO plan untouched.
      *
-     * <p>There is deliberately no global same-output or fuzzy fallback here. The final output check is sufficient
-     * only because the alias is scoped to this exact synchronous confirmation call; background candidates and
-     * submissions on other threads cannot observe it. This also covers integrations that transform the task map
-     * inside {@code submitJob}, after the confirmation menu established the binding.
+     * <p>This is deliberately stricter than {@link #activeSubmissionMetadata(ICraftingPlan)}'s caller-facing
+     * metadata contract: an optimizer may only be bypassed while the synchronous confirmation alias still proves
+     * the complete submitted task vector. A same-output candidate, a rebuilt plan with different counts, or a
+     * submission outside the confirmation scope is never protected.</p>
+     */
+    public static boolean shouldPreserveSubmissionPlan(@Nullable ICraftingPlan plan) {
+        SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
+        boolean preserve = alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan);
+        if (preserve) {
+            LOGGER.debug("[ECO-SUBMISSION] preserving strictly bound plan from external task-vector rewrite "
+                    + "planningId={} signature={}", alias.planningId(), PlanIdentity.describe(alias.confirmedSignature()));
+        }
+        return preserve;
+    }
+
+    /**
+     * The submitted plan is authoritative. This method is retained as a compatibility hook for cluster/CPU
+     * integrations, but it deliberately returns the input object on every path.
      */
     public static ICraftingPlan resolveSubmissionPlan(ICraftingPlan submittedPlan) {
-        PlanSignature signature = signatureOf(submittedPlan);
-        if (signature == null) return submittedPlan;
+        Signature submittedSignature = PlanIdentity.of(submittedPlan);
         SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
-        if (alias == null || alias.executablePlan().simulation()
-                || !sameFinalOutput(submittedPlan, alias.executablePlan())) {
-            return submittedPlan;
-        }
-        ICraftingPlan executable = alias.executablePlan();
-        if (executable != submittedPlan) {
-            LOGGER.info(
-                "[ECO-EXEC] restored confirmed cycle plan finalOutput={} submittedKinds={} "
-                    + "submittedExecutions={} executableKinds={} executableExecutions={} signatureChanged={}",
-                submittedPlan.finalOutput(), submittedPlan.patternTimes().size(),
-                executionCount(submittedPlan.patternTimes()), executable.patternTimes().size(),
-                executionCount(executable.patternTimes()), !alias.confirmedSignature().equals(signature));
-        }
-        return executable;
+        boolean metadataMatch = alias != null && PlanIdentity.matches(alias.confirmedSignature(), submittedPlan);
+        long submittedExecutions = PlanIdentity.executionCount(
+            submittedPlan == null ? null : submittedPlan.patternTimes());
+        LOGGER.info("[ECO-SUBMISSION] selectedPlanner={} submittedSignature={} submittedExecutions={} "
+                + "metadataPlanningId={} metadataMatch={} planReplaced=false cpuExecutions={}",
+            alias == null ? "unknown" : alias.selectedPlanner(), PlanIdentity.describe(submittedSignature),
+            submittedExecutions, alias == null ? null : alias.planningId(), metadataMatch, submittedExecutions);
+        return submittedPlan;
     }
 
-    /**
-     * Recovers and rebinds a schedule to the exact pattern instances received by the CPU. Planning accelerators
-     * may replace ordinary details with patched details after the ECO planner has returned its plan.
-     */
-    public static @Nullable RecoveredSchedule recoverSchedule(ICraftingPlan plan) {
-        PlanSignature signature = signatureOf(plan);
+    /** Recover/rebind only strict metadata; no same-output or production-scaled candidate search remains. */
+    public static @Nullable RecoveredExecutionMetadata recoverExecutionMetadata(ICraftingPlan plan) {
+        Signature signature = PlanIdentity.of(plan);
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            Entry exact = RESULTS.get(signature);
-            if (exact != null) {
-                return new RecoveredSchedule(exact.result().executionSchedule(), "exact-definition");
-            }
+            List<Entry> entries = RESULTS.get(signature);
+            Entry entry = uniqueEntryObject(entries);
+            if (entry == null) return null;
 
-            List<RecoveredSchedule> compatible = new ArrayList<>();
-            for (var candidate : RESULTS.entrySet()) {
-                if (!candidate.getKey().sameOutput(signature)) continue;
-                ECOExecutionSchedule rebound = rebind(candidate.getValue(), plan.patternTimes());
-                if (rebound != null) compatible.add(new RecoveredSchedule(rebound, "rebound-output-signature"));
+            ECOExecutionSchedule rebound = rebind(entry, plan.patternTimes());
+            if (entry.schedule() != null && rebound == null) {
+                // The full signature matched but the phase contains an unexpected non-task pattern. Do not guess a
+                // mapping; retaining the original schedule is safe for the same strict plan identity, and the
+                // phase scheduler compares the same stable definition for reconstructed wrappers.
+                rebound = entry.schedule();
             }
-            return compatible.size() == 1 ? compatible.getFirst() : null;
+            return recovered(entry, rebound, "strict-plan-identity");
         }
+    }
+
+    public static @Nullable RecoveredSchedule recoverSchedule(ICraftingPlan plan) {
+        RecoveredExecutionMetadata metadata = recoverExecutionMetadata(plan);
+        return metadata == null || metadata.schedule() == null
+            ? null : new RecoveredSchedule(metadata.schedule(), metadata.matchMode());
+    }
+
+    private static RecoveredExecutionMetadata recovered(Entry entry,
+            @Nullable ECOExecutionSchedule schedule, String matchMode) {
+        return new RecoveredExecutionMetadata(schedule, entry.cycleExpected(), entry.recoveryState(),
+            entry.rejectionReason(), entry.planningId(), matchMode);
     }
 
     public static int registeredScheduleCount() {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return RESULTS.size();
+            return (int) RESULTS.values().stream().flatMap(List::stream)
+                .filter(entry -> entry.recoveryState() == RecoveryState.VALID_SCHEDULE).count();
+        }
+    }
+
+    public static int registeredMetadataCount() {
+        synchronized (RESULTS) {
+            removeExpired(System.nanoTime());
+            return RESULTS.values().stream().mapToInt(List::size).sum();
         }
     }
 
     public static String mismatchDiagnostic(ICraftingPlan plan) {
-        PlanSignature submittedSignature = signatureOf(plan);
+        Signature submittedSignature = PlanIdentity.of(plan);
         if (submittedSignature == null) return "submitted-signature-unavailable";
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
             List<String> candidates = new ArrayList<>();
             int index = 0;
-            for (var registered : RESULTS.entrySet()) {
-                if (!registered.getKey().sameOutput(submittedSignature)) continue;
-                candidates.add(describeMismatch(index++, registered.getValue(), plan));
+            for (List<Entry> entries : RESULTS.values()) {
+                for (Entry entry : entries) {
+                    boolean sameOutput = entry.signature().sameFinalOutput(submittedSignature);
+                    boolean strict = entry.signature().equals(submittedSignature);
+                    candidates.add("candidate=" + index++ + ",planningId=" + entry.planningId()
+                        + ",sameFinalOutput=" + sameOutput + ",strictMatch=" + strict
+                        + ",registered=" + PlanIdentity.describe(entry.signature())
+                        + ",submitted=" + PlanIdentity.describe(submittedSignature));
+                }
             }
-            return candidates.isEmpty() ? "same-output-candidates=0" : String.join("; ", candidates);
+            return candidates.isEmpty() ? "strict-candidates=0" : String.join("; ", candidates);
         }
     }
 
     private static void removeExpired(long now) {
-        RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
+        RESULTS.entrySet().removeIf(entry -> {
+            entry.getValue().removeIf(value -> now - value.createdNanos() > MAX_AGE_NANOS);
+            return entry.getValue().isEmpty();
+        });
     }
 
-    private static boolean sameFinalOutput(ICraftingPlan left, ICraftingPlan right) {
-        return left.finalOutput() != null && right.finalOutput() != null
-            && left.finalOutput().amount() == right.finalOutput().amount()
-            && left.finalOutput().what().equals(right.finalOutput().what());
-    }
-
-    private static long executionCount(Map<IPatternDetails, Long> tasks) {
-        long total = 0L;
-        for (long value : tasks.values()) {
-            if (value <= 0L) continue;
-            if (Long.MAX_VALUE - total < value) return Long.MAX_VALUE;
-            total += value;
+    private static void trimEntries() {
+        while (RESULTS.values().stream().mapToInt(List::size).sum() > MAX_ENTRIES) {
+            var oldestBucket = RESULTS.entrySet().iterator().next();
+            oldestBucket.getValue().clear();
+            RESULTS.remove(oldestBucket.getKey());
         }
-        return total;
     }
 
-    private static @Nullable PlanSignature signatureOf(ICraftingPlan plan) {
-        if (plan == null || plan.finalOutput() == null) return null;
-        Map<Object, Long> patternTimes = new HashMap<>();
-        for (var entry : plan.patternTimes().entrySet()) {
-            // Real encoded patterns have a stable AEItemKey definition. The details fallback also keeps this
-            // usable for synthetic/test plans and for in-process wrappers that preserve the pattern instances.
-            Object identity = entry.getKey().getDefinition();
-            if (identity == null) identity = entry.getKey();
-            patternTimes.merge(identity, entry.getValue(), Long::sum);
-        }
-        // Accelerated submission normalizes emittedItems (observed as non-empty while planning and empty at
-        // CPU submission). Emitted items are not executable tasks and do not affect component/witness order,
-        // so intentionally keep them out of this recovery identity.
-        return new PlanSignature(plan.finalOutput().what(), plan.finalOutput().amount(), Map.copyOf(patternTimes));
+    private static @Nullable ECOPlanningResult uniqueEntry(@Nullable List<Entry> entries) {
+        Entry entry = uniqueEntryObject(entries);
+        return entry == null ? null : entry.result();
+    }
+
+    private static @Nullable Entry uniqueEntryObject(@Nullable List<Entry> entries) {
+        if (entries == null || entries.isEmpty()) return null;
+        UUID planningId = entries.getFirst().planningId();
+        return entries.stream().allMatch(entry -> entry.planningId().equals(planningId)) ? entries.getFirst() : null;
     }
 
     private static @Nullable ECOExecutionSchedule rebind(Entry entry,
             Map<IPatternDetails, Long> submittedTasks) {
-        if (entry.tasks().size() != submittedTasks.size()) return null;
-        Map<IPatternDetails, IPatternDetails> mapping = new HashMap<>();
-        Set<IPatternDetails> usedTargets = new HashSet<>();
-        for (var sourceTask : entry.tasks().entrySet()) {
-            List<IPatternDetails> matches = submittedTasks.entrySet().stream()
-                .filter(target -> !usedTargets.contains(target.getKey()))
-                .filter(target -> sourceTask.getValue().equals(target.getValue()))
-                .filter(target -> ECOPhaseScheduler.samePattern(sourceTask.getKey(), target.getKey()))
-                .map(Map.Entry::getKey)
-                .toList();
-            if (matches.size() != 1) {
-                PatternOutputSignature outputs = outputSignature(sourceTask.getKey());
-                matches = submittedTasks.entrySet().stream()
-                    .filter(target -> !usedTargets.contains(target.getKey()))
-                    .filter(target -> sourceTask.getValue().equals(target.getValue()))
-                    .filter(target -> outputs.equals(outputSignature(target.getKey())))
-                    .map(Map.Entry::getKey)
-                    .toList();
-            }
-            // Planning accelerators can replace an external DAG producer with a larger-batch alternate after
-            // planning. Match that replacement only when its total production is identical. Never scale a
-            // cycle-owned pattern: witness entries represent individual firings and must remain exact.
-            if (matches.size() != 1 && !isCycleOwned(entry.result().executionSchedule(), sourceTask.getKey())) {
-                PatternProductionSignature production = productionSignature(
-                    sourceTask.getKey(), sourceTask.getValue());
-                matches = submittedTasks.entrySet().stream()
-                    .filter(target -> !usedTargets.contains(target.getKey()))
-                    .filter(target -> production.equals(productionSignature(target.getKey(), target.getValue())))
-                    .map(Map.Entry::getKey)
-                    .toList();
-            }
-            if (matches.size() != 1) return null;
-            mapping.put(sourceTask.getKey(), matches.getFirst());
-            usedTargets.add(matches.getFirst());
-        }
-        if (usedTargets.size() != submittedTasks.size()) return null;
+        ECOExecutionSchedule sourceSchedule = entry.schedule();
+        if (sourceSchedule == null) return null;
+        Map<IPatternDetails, IPatternDetails> mapping = taskMapping(entry.tasks(), submittedTasks);
+        if (mapping == null) return null;
 
         List<ECOExecutionSchedule.ComponentExecutionPhase> phases = new ArrayList<>();
-        for (var phase : entry.result().executionSchedule().phases()) {
+        for (var phase : sourceSchedule.phases()) {
             LinkedHashSet<IPatternDetails> patterns = new LinkedHashSet<>();
             for (IPatternDetails source : phase.patternSet()) {
                 IPatternDetails target = mappedPattern(source, mapping);
@@ -291,11 +361,24 @@ public final class ECOPlanningResultRegistry {
         return new ECOExecutionSchedule(phases);
     }
 
-    private static boolean isCycleOwned(ECOExecutionSchedule schedule, IPatternDetails pattern) {
-        return schedule.phases().stream()
-            .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
-            .flatMap(phase -> phase.patternSet().stream())
-            .anyMatch(member -> ECOPhaseScheduler.samePattern(member, pattern));
+    private static @Nullable Map<IPatternDetails, IPatternDetails> taskMapping(
+            Map<IPatternDetails, Long> sourceTasks, Map<IPatternDetails, Long> submittedTasks) {
+        if (sourceTasks.size() != submittedTasks.size()
+                || !PlanIdentity.sameTaskCounts(sourceTasks, submittedTasks)) return null;
+        Map<IPatternDetails, IPatternDetails> mapping = new HashMap<>();
+        Set<IPatternDetails> usedTargets = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var sourceTask : sourceTasks.entrySet()) {
+            List<IPatternDetails> matches = submittedTasks.entrySet().stream()
+                .filter(target -> !usedTargets.contains(target.getKey()))
+                .filter(target -> sourceTask.getValue().equals(target.getValue()))
+                .filter(target -> ECOPhaseScheduler.samePattern(sourceTask.getKey(), target.getKey()))
+                .map(Map.Entry::getKey)
+                .toList();
+            if (matches.size() != 1) return null;
+            mapping.put(sourceTask.getKey(), matches.getFirst());
+            usedTargets.add(matches.getFirst());
+        }
+        return usedTargets.size() == submittedTasks.size() ? mapping : null;
     }
 
     private static @Nullable IPatternDetails mappedPattern(IPatternDetails source,
@@ -307,114 +390,125 @@ public final class ECOPlanningResultRegistry {
             .map(Map.Entry::getValue)
             .distinct()
             .toList();
-        if (matches.size() == 1) return matches.getFirst();
-        PatternOutputSignature outputs = outputSignature(source);
-        matches = mapping.entrySet().stream()
-            .filter(entry -> outputs.equals(outputSignature(entry.getKey())))
-            .map(Map.Entry::getValue)
-            .distinct()
-            .toList();
         return matches.size() == 1 ? matches.getFirst() : null;
     }
 
-    private static PatternOutputSignature outputSignature(IPatternDetails pattern) {
-        Map<AEKey, Long> outputs = new HashMap<>();
-        for (var output : pattern.getOutputs()) {
-            if (output != null && output.what() != null) {
-                outputs.merge(output.what(), output.amount(), Long::sum);
-            }
-        }
-        return new PatternOutputSignature(Map.copyOf(outputs));
-    }
-
-    private static PatternProductionSignature productionSignature(IPatternDetails pattern, long executions) {
-        Map<AEKey, BigInteger> totals = new HashMap<>();
-        BigInteger multiplier = BigInteger.valueOf(executions);
-        for (var output : pattern.getOutputs()) {
-            if (output != null && output.what() != null) {
-                totals.merge(output.what(), BigInteger.valueOf(output.amount()).multiply(multiplier), BigInteger::add);
-            }
-        }
-        return new PatternProductionSignature(Map.copyOf(totals));
-    }
-
-    private static String describeMismatch(int index, Entry entry, ICraftingPlan submittedPlan) {
-        Map<IPatternDetails, Long> registered = entry.tasks();
-        Map<IPatternDetails, Long> submitted = submittedPlan.patternTimes();
-        Map<AEKey, Long> submittedUsed = counterContents(submittedPlan.usedItems());
-        long registeredExecutions = registered.values().stream().mapToLong(Long::longValue).sum();
-        long submittedExecutions = submitted.values().stream().mapToLong(Long::longValue).sum();
-        int definitionMatches = 0;
-        int outputMatches = 0;
-        int amountMatches = 0;
-        List<String> samples = new ArrayList<>();
-        for (var source : registered.entrySet()) {
-            List<Map.Entry<IPatternDetails, Long>> byDefinition = submitted.entrySet().stream()
-                .filter(target -> ECOPhaseScheduler.samePattern(source.getKey(), target.getKey()))
-                .toList();
-            if (!byDefinition.isEmpty()) definitionMatches++;
-            PatternOutputSignature outputs = outputSignature(source.getKey());
-            List<Map.Entry<IPatternDetails, Long>> byOutput = submitted.entrySet().stream()
-                .filter(target -> outputs.equals(outputSignature(target.getKey())))
-                .toList();
-            if (!byOutput.isEmpty()) outputMatches++;
-            if (byOutput.stream().anyMatch(target -> source.getValue().equals(target.getValue()))) amountMatches++;
-            if ((byOutput.size() != 1 || byOutput.stream().noneMatch(target ->
-                    source.getValue().equals(target.getValue()))) && samples.size() < 3) {
-                List<Long> submittedAmounts = byOutput.stream().map(Map.Entry::getValue).toList();
-                samples.add("outputs=" + outputs.outputs() + ",registered=" + source.getValue()
-                    + ",submittedSameOutput=" + submittedAmounts + ",matches=" + byOutput.size()
-                    + ",registeredUsed=" + usedFor(outputs.outputs().keySet(), entry.usedItems())
-                    + ",submittedUsed=" + usedFor(outputs.outputs().keySet(), submittedUsed));
-            }
-        }
-        List<String> submittedOnly = submitted.entrySet().stream()
-            .filter(target -> registered.entrySet().stream().noneMatch(source ->
-                ECOPhaseScheduler.samePattern(source.getKey(), target.getKey())
-                    || outputSignature(source.getKey()).equals(outputSignature(target.getKey()))
-                    || (!isCycleOwned(entry.result().executionSchedule(), source.getKey())
-                        && productionSignature(source.getKey(), source.getValue()).equals(
-                            productionSignature(target.getKey(), target.getValue())))))
-            .limit(3)
-            .map(target -> "outputs=" + outputSignature(target.getKey()).outputs() + ",executions="
-                + target.getValue())
-            .toList();
-        return "candidate=" + index + ",registeredKinds=" + registered.size() + ",submittedKinds="
-            + submitted.size() + ",registeredExecutions=" + registeredExecutions + ",submittedExecutions="
-            + submittedExecutions + ",definitionMatches=" + definitionMatches + ",outputMatches="
-            + outputMatches + ",amountMatches=" + amountMatches + ",samples=" + samples
-            + ",submittedOnly=" + submittedOnly;
-    }
-
-    private static Map<AEKey, Long> counterContents(KeyCounter counter) {
-        Map<AEKey, Long> result = new HashMap<>();
+    private static Map<AEKey, Long> counterContents(@Nullable KeyCounter counter) {
+        if (counter == null) return Map.of();
+        Map<AEKey, Long> result = new LinkedHashMap<>();
         for (var value : counter) result.put(value.getKey(), value.getLongValue());
         return Map.copyOf(result);
     }
 
-    private static Map<AEKey, Long> usedFor(Set<AEKey> keys, Map<AEKey, Long> used) {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
-        for (AEKey key : keys) result.put(key, used.getOrDefault(key, 0L));
-        return result;
+    private static RegistrationInspection inspectRegistration(@Nullable ICraftingPlan plan,
+            @Nullable ECOPlanningResult result) {
+        PlanningStatus status = result == null ? null : result.status();
+        boolean planSimulation = plan != null && plan.simulation();
+        boolean resultPlanSimulation = result != null && result.plan() != null && result.plan().simulation();
+        boolean strictPlanMatch = plan != null && result != null && result.plan() != null
+            && PlanIdentity.matches(plan, result.plan());
+        ECOExecutionSchedule schedule = null;
+        String reason = null;
+        if (plan == null) reason = "PLAN_NULL";
+        else if (result == null) reason = "RESULT_NULL";
+        else if (result.plan() == null) reason = "RESULT_PLAN_NULL";
+        else if (!strictPlanMatch) reason = "PLAN_IDENTITY_MISMATCH";
+        else if (status != PlanningStatus.SUCCESS) reason = "STATUS_NOT_SUCCESS";
+        else if (planSimulation) reason = "PLAN_SIMULATION";
+        else if (resultPlanSimulation) reason = "RESULT_PLAN_SIMULATION";
+        boolean cycleExpected = cycleExpected(result);
+        if (reason == null) {
+            try {
+                schedule = result.executionSchedule();
+                if (schedule == null) reason = "SCHEDULE_NULL";
+                else if (schedule.phases().isEmpty()) reason = "SCHEDULE_EMPTY";
+                else if (cycleExpected && schedule.phases().stream().noneMatch(phase ->
+                        phase.type() == ECOExecutionSchedule.Type.CYCLE)) reason = "NO_CYCLE_PHASE";
+                else if (cycleExpected && schedule.phases().stream()
+                        .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
+                        .allMatch(phase -> phase.patternSet().isEmpty())) reason = "EMPTY_CYCLE_PATTERN_SET";
+            } catch (RuntimeException scheduleFailure) {
+                reason = "SCHEDULE_BUILD_FAILED:" + scheduleFailure.getClass().getSimpleName();
+            }
+        }
+        return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
+            schedule, cycleExpected, reason);
     }
 
-    private record PlanSignature(AEKey finalWhat, long finalAmount, Map<Object, Long> patternTimes) {
-        boolean sameOutput(PlanSignature other) {
-            return finalAmount == other.finalAmount && finalWhat.equals(other.finalWhat);
+    private static void logRegistration(boolean registered, RegistrationInspection inspection,
+            @Nullable ICraftingPlan plan, @Nullable ECOPlanningResult result,
+            @Nullable UUID planningId, @Nullable RecoveryState recoveryState) {
+        ECOExecutionSchedule schedule = inspection.schedule();
+        int phaseCount = schedule == null ? 0 : schedule.phases().size();
+        long cyclePhaseCount = schedule == null ? 0 : schedule.phases().stream()
+            .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE).count();
+        String message = "[ECO-METADATA] status={} strictPlanMatch={} cycleExpected={} phaseCount={} "
+            + "cyclePhaseCount={} registered={} recoveryState={} reason={} planningId={} signature={}";
+        Signature signature = PlanIdentity.of(plan);
+        if (registered || inspection.cycleExpected()) {
+            LOGGER.info(message, inspection.status(), inspection.strictPlanMatch(), inspection.cycleExpected(),
+                phaseCount, cyclePhaseCount, registered, recoveryState,
+                registered ? "REGISTERED" : inspection.reason(), planningId, PlanIdentity.describe(signature));
+        } else {
+            LOGGER.debug(message, inspection.status(), inspection.strictPlanMatch(), inspection.cycleExpected(),
+                phaseCount, cyclePhaseCount, false, recoveryState, inspection.reason(), planningId,
+                PlanIdentity.describe(signature));
         }
     }
 
-    private record PatternOutputSignature(Map<AEKey, Long> outputs) {
+    private static List<String> componentSummary(@Nullable ECOPlanningResult result) {
+        if (result == null) return List.of();
+        return result.components().stream().map(component -> {
+            long cycleFirings = component.cycleResult() == null ? 0L
+                : PlanIdentity.executionCount(component.cycleResult().patternTimes());
+            return component.componentId() + ":" + component.type() + "/" + component.status()
+                + "(cycleStatus=" + component.cycleStatus()
+                + ",cycleResult=" + (component.cycleResult() == null ? null : component.cycleResult().status())
+                + ",cycleFirings=" + cycleFirings + ",patterns=" + component.patterns().size()
+                + ",executionPatterns=" + component.executionPatterns().size() + ")";
+        }).toList();
     }
 
-    private record PatternProductionSignature(Map<AEKey, BigInteger> totals) {
+    public record SubmissionMetadata(@Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected,
+            @Nullable UUID planningId, boolean metadataMatch, String selectedPlanner) {
+        public SubmissionMetadata(@Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected) {
+            this(executionSchedule, cycleExpected, null, true, "ECO");
+        }
     }
 
-    private record Entry(ECOPlanningResult result, Map<IPatternDetails, Long> tasks,
-            Map<AEKey, Long> usedItems, long createdNanos) {
+    private record SubmissionAlias(Signature confirmedSignature, UUID planningId,
+            @Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected, String selectedPlanner) {
     }
 
-    private record SubmissionAlias(PlanSignature confirmedSignature, ICraftingPlan executablePlan) {
+    private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
+            Map<AEKey, Long> usedItems, Map<AEKey, Long> emittedItems, Map<AEKey, Long> missingItems,
+            @Nullable ECOExecutionSchedule schedule, boolean cycleExpected, RecoveryState recoveryState,
+            @Nullable String rejectionReason, UUID planningId, long createdNanos) {
+    }
+
+    private record RegistrationInspection(@Nullable PlanningStatus status, boolean planSimulation,
+            boolean resultPlanSimulation, boolean strictPlanMatch, @Nullable ECOExecutionSchedule schedule,
+            boolean cycleExpected, @Nullable String reason) {
+        RegistrationInspection withReason(String replacement) {
+            return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
+                schedule, cycleExpected, replacement);
+        }
+
+        boolean canStoreFailClosedMetadata() {
+            if (!cycleExpected || reason == null || !strictPlanMatch) return false;
+            return reason.equals("SCHEDULE_NULL") || reason.equals("SCHEDULE_EMPTY")
+                || reason.equals("NO_CYCLE_PHASE") || reason.equals("EMPTY_CYCLE_PATTERN_SET")
+                || reason.equals("STATUS_NOT_SUCCESS") || reason.startsWith("SCHEDULE_BUILD_FAILED:");
+        }
+    }
+
+    public enum RecoveryState {
+        VALID_SCHEDULE,
+        MISSING_OR_INVALID_SCHEDULE
+    }
+
+    public record RecoveredExecutionMetadata(@Nullable ECOExecutionSchedule schedule, boolean cycleExpected,
+            RecoveryState state, @Nullable String rejectionReason, UUID planningId, String matchMode) {
     }
 
     public record RecoveredSchedule(ECOExecutionSchedule schedule, String matchMode) {

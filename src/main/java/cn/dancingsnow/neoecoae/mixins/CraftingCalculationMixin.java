@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -10,7 +11,9 @@ import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCalculationSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import net.minecraft.world.level.Level;
@@ -22,9 +25,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Mixin(CraftingCalculation.class)
 public abstract class CraftingCalculationMixin implements ECOCraftingCalculationSettings {
+    @Unique
+    private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
     private static final ECOCraftingPlannerService NEOECOAE_DAG_PLANNER = new ECOCraftingPlannerService();
     @Unique
@@ -102,15 +109,56 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         ECOPlanningResult attemptResult = neoecoae$attemptPlanningResult.get();
         neoecoae$attemptPlanningResult.remove();
         CraftingPlan plan = cir.getReturnValue();
-        if (plan != null && attemptResult != null
+        Object publicPlan = plan;
+        if (!simulate && (neoecoae$plannerSession != null || attemptResult != null)) {
+            NEOECOAE_LOGGER.info(
+                "[ECO-PLANNING-RETURN] amount={} planPresent={} attemptResultPresent={} status={} "
+                    + "cycleExpected={} diagnosticsPresent={} diagnosticsAttached={}",
+                amount, plan != null, attemptResult != null,
+                attemptResult == null ? null : attemptResult.status(),
+                ECOPlanningResultRegistry.cycleExpected(attemptResult),
+                publicPlan instanceof ECOCraftingPlanDiagnostics,
+                publicPlan instanceof ECOCraftingPlanDiagnostics diagnostics
+                    && diagnostics.neoecoae$getPlanningResult() != null);
+        }
+        if (plan != null && attemptResult != null && PlanIdentity.matches(plan, attemptResult.plan())
                 && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 && diagnostics.neoecoae$getPlanningResult() == null) {
-            // Another RETURN transformer may rebuild/patch the public plan produced by this exact attempt.
-            // Carry the attempt-local diagnostic onto that plan so the confirmation boundary can bind the
-            // transformed signature back to the complete ECO executable plan. A calculation-wide "last"
-            // result is unsafe here because multi-planners can evaluate candidates concurrently.
+            // Another RETURN transformer may rebuild/patch the public plan produced by this exact attempt. Carry
+            // the diagnostic only when the complete executable identity still matches that result.
             diagnostics.neoecoae$setPlanningResult(attemptResult);
         }
+        if (plan != null && attemptResult != null && PlanIdentity.matches(plan, attemptResult.plan())) {
+            // Register the actual plan leaving this attempt as well as the original ECO plan. RETURN
+            // transformers are allowed to rebuild CraftingPlan; metadata is retained only for an exact identity.
+            ECOPlanningResultRegistry.register(plan, attemptResult);
+        }
+    }
+
+    @Inject(method = "run", at = @At("RETURN"), order = 2000)
+    private void attachEcoDiagnosticToFinalPublicPlan(CallbackInfoReturnable<ICraftingPlan> cir) {
+        ICraftingPlan plan = cir.getReturnValue();
+        if (plan == null || plan.simulation()) return;
+
+        ECOPlanningResult selected = ECOPlanningResultRegistry.find(plan);
+        ECOPlanningResultRegistry.logCandidateSelection(plan, selected);
+        String source = selected == null ? "none" : "registry-exact";
+
+        Object publicPlan = plan;
+        if (selected != null && PlanIdentity.matches(plan, selected.plan())
+                && publicPlan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && diagnostics.neoecoae$getPlanningResult() == null) {
+            diagnostics.neoecoae$setPlanningResult(selected);
+        }
+        if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
+            ECOPlanningResultRegistry.register(plan, selected);
+        }
+        NEOECOAE_LOGGER.info(
+            "[ECO-PLANNING-FINAL] finalOutput={} planClass={} diagnosticsPresent={} selectedResultPresent={} "
+                + "source={} strictCandidate={} registrySchedules={} registryMetadata={}",
+            plan.finalOutput(), plan.getClass().getName(), publicPlan instanceof ECOCraftingPlanDiagnostics,
+            selected != null, source, selected != null,
+            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
     }
 
     @Override

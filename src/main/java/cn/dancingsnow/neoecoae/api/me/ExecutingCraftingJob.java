@@ -49,6 +49,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import java.util.ArrayList;
 
 public class ExecutingCraftingJob {
@@ -64,6 +65,9 @@ public class ExecutingCraftingJob {
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
     private static final String NBT_CYCLE_WITNESS_INDEX = "cycleWitnessIndex";
+    private static final String NBT_CYCLE_EXPECTED = "cycleExpected";
+    private static final String NBT_REQUIRES_COMPONENT_SCHEDULING = "requiresComponentScheduling";
+    /** Legacy key written before cycle safety and general component scheduling were separated. */
     private static final String NBT_REQUIRES_ORDERED_CYCLE = "requiresOrderedCycleExecution";
     private static final String NBT_CURRENT_COMPONENT = "currentComponentIndex";
     private static final String NBT_EXECUTION_SCHEDULE = "executionSchedule";
@@ -80,9 +84,11 @@ public class ExecutingCraftingJob {
     final List<IPatternDetails> cycleWitness = new ArrayList<>();
     int cycleWitnessIndex;
     int currentComponentIndex;
-    boolean requiresOrderedCycleExecution;
+    boolean cycleExpected;
+    boolean requiresComponentScheduling;
     boolean cycleWitnessMissing;
     boolean cycleMetadataErrorLogged;
+    @Nullable PermanentExecutionError permanentExecutionError;
     ECOExecutionSchedule executionSchedule;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
@@ -93,7 +99,7 @@ public class ExecutingCraftingJob {
     boolean suspended;
 
     @Nullable ECOExecutionSchedule.ComponentExecutionPhase activePhase() {
-        if (!requiresOrderedCycleExecution || executionSchedule == null
+        if (!requiresComponentScheduling || executionSchedule == null
                 || currentComponentIndex >= executionSchedule.phases().size()) return null;
         return executionSchedule.phases().get(currentComponentIndex);
     }
@@ -102,6 +108,10 @@ public class ExecutingCraftingJob {
         return ECOPhaseScheduler.isComplete(phase, cycleWitnessIndex,
             this::remainingTasksFor,
             key -> waitingFor.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) > 0);
+    }
+
+    boolean hasPermanentExecutionError() {
+        return permanentExecutionError != null;
     }
 
     long remainingTasksFor(IPatternDetails pattern) {
@@ -153,37 +163,79 @@ public class ExecutingCraftingJob {
         ECOPlanningResult planningResult = plan instanceof ECOCraftingPlanDiagnostics d
             ? d.neoecoae$getPlanningResult()
             : null;
-        boolean recoveredPlanningResult = false;
-        ECOPlanningResultRegistry.RecoveredSchedule recoveredSchedule = null;
-        if (planningResult == null || planningResult.executionSchedule().phases().isEmpty()) {
-            recoveredSchedule = ECOPlanningResultRegistry.recoverSchedule(plan);
-            recoveredPlanningResult = recoveredSchedule != null && !recoveredSchedule.schedule().phases().isEmpty();
+        ECOPlanningResultRegistry.SubmissionMetadata submissionMetadata =
+            ECOPlanningResultRegistry.activeSubmissionMetadata(plan);
+        cycleExpected = submissionMetadata != null
+            ? submissionMetadata.cycleExpected()
+            : ECOPlanningResultRegistry.cycleSafetyRequired(plan, planningResult);
+        ECOPlanningResultRegistry.RecoveredExecutionMetadata recoveredMetadata = null;
+        if (submissionMetadata != null) {
+            executionSchedule = submissionMetadata.executionSchedule();
         }
-        if (planningResult != null) {
-            ECOPlanningResult r = planningResult;
-            cycleWitness.addAll(r.cycleWitness());
-            executionSchedule = r.executionSchedule();
+        if (executionSchedule == null && planningResult != null) {
+            try {
+                executionSchedule = planningResult.executionSchedule();
+            } catch (RuntimeException scheduleFailure) {
+                LOGGER.error("[ECO-EXEC] failed to build execution schedule from attached planning result; "
+                    + "preserving cycle expectation for fail-safe dispatch", scheduleFailure);
+            }
         }
-        if (recoveredPlanningResult) {
-            executionSchedule = recoveredSchedule.schedule();
-            cycleWitness.clear();
-            executionSchedule.phases().stream()
-                .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
-                .forEach(phase -> cycleWitness.addAll(phase.cycleWitness()));
+        if (executionSchedule == null || executionSchedule.phases().isEmpty()
+                || (cycleExpected && !ECOPhaseScheduler.requiresComponentScheduling(executionSchedule))) {
+            recoveredMetadata = ECOPlanningResultRegistry.recoverExecutionMetadata(plan);
         }
-        if (recoveredPlanningResult) {
+        if (recoveredMetadata != null) {
+            cycleExpected = cycleExpected || recoveredMetadata.cycleExpected();
+            if (ECOPhaseScheduler.hasExecutionPhases(recoveredMetadata.schedule())) {
+                executionSchedule = recoveredMetadata.schedule();
+            }
+        }
+        if (executionSchedule != null) executionSchedule.phases().stream()
+            .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
+            .forEach(phase -> cycleWitness.addAll(phase.cycleWitness()));
+        if (recoveredMetadata != null
+                && recoveredMetadata.state() == ECOPlanningResultRegistry.RecoveryState.VALID_SCHEDULE) {
             LOGGER.info(
-                "[ECO-EXEC] recovered execution schedule finalOutput={} phases={} matchMode={}",
-                plan.finalOutput(), executionSchedule.phases().size(), recoveredSchedule.matchMode());
+                "[ECO-EXEC] recovered execution schedule finalOutput={} phases={} matchMode={} planningId={}",
+                plan.finalOutput(), executionSchedule.phases().size(), recoveredMetadata.matchMode(),
+                recoveredMetadata.planningId());
+        } else if (recoveredMetadata != null && recoveredMetadata.cycleExpected()) {
+            LOGGER.error(
+                "[ECO-EXEC] recovered fail-closed cycle expectation finalOutput={} state={} reason={} "
+                    + "matchMode={} planningId={}",
+                plan.finalOutput(), recoveredMetadata.state(), recoveredMetadata.rejectionReason(),
+                recoveredMetadata.matchMode(), recoveredMetadata.planningId());
         } else if (executionSchedule == null || executionSchedule.phases().isEmpty()) {
             LOGGER.warn(
-                "[ECO-EXEC] no registered cycle schedule matched submitted plan finalOutput={} "
-                    + "patternKinds={} emittedKinds={} registeredCycleSchedules={} mismatch={}",
+                "[ECO-EXEC] no registered execution schedule matched submitted plan finalOutput={} "
+                    + "patternKinds={} emittedKinds={} registeredCycleSchedules={} registeredMetadata={} mismatch={}",
                 plan.finalOutput(), plan.patternTimes().size(), plan.emittedItems().size(),
                 ECOPlanningResultRegistry.registeredScheduleCount(),
+                ECOPlanningResultRegistry.registeredMetadataCount(),
                 ECOPlanningResultRegistry.mismatchDiagnostic(plan));
         }
-        requiresOrderedCycleExecution = ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
+        LOGGER.info("[ECO-SUBMISSION] selectedPlanner={} submittedSignature={} submittedExecutions={} "
+                + "metadataPlanningId={} metadataMatch={} planReplaced=false cpuExecutions={}",
+            submissionMetadata == null ? planningResult == null ? "unknown" : "ECO"
+                : submissionMetadata.selectedPlanner(), PlanIdentity.describe(PlanIdentity.of(plan)),
+            PlanIdentity.executionCount(plan.patternTimes()),
+            submissionMetadata == null ? recoveredMetadata == null ? null : recoveredMetadata.planningId()
+                : submissionMetadata.planningId(),
+            submissionMetadata != null || recoveredMetadata != null,
+            PlanIdentity.executionCount(plan.patternTimes()));
+        cycleExpected = cycleExpected || ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
+        requiresComponentScheduling = ECOPhaseScheduler.hasExecutionPhases(executionSchedule);
+        cycleWitnessMissing = cycleExpected && !ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
+        permanentExecutionError = cycleWitnessMissing
+            ? PermanentExecutionError.CYCLE_METADATA_MISSING
+            : null;
+        if (cycleWitnessMissing) {
+            LOGGER.error(
+                "[ECO-EXEC] solved cycle metadata is missing; job will remain fail-safe finalOutput={} "
+                    + "submissionBound={} planningResultPresent={} schedulePresent={} phaseCount={}",
+                plan.finalOutput(), submissionMetadata != null, planningResult != null, executionSchedule != null,
+                executionSchedule == null ? 0 : executionSchedule.phases().size());
+        }
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
@@ -226,14 +278,25 @@ public class ExecutingCraftingJob {
         this.suspended = data.getBoolean(NBT_SUSPENDED);
         this.cycleWitnessIndex = Math.max(0, data.getInt(NBT_CYCLE_WITNESS_INDEX));
         this.currentComponentIndex = Math.max(0, data.getInt(NBT_CURRENT_COMPONENT));
-        this.requiresOrderedCycleExecution = data.getBoolean(NBT_REQUIRES_ORDERED_CYCLE);
+        boolean legacyOrderedCycle = data.getBoolean(NBT_REQUIRES_ORDERED_CYCLE);
+        this.cycleExpected = data.contains(NBT_CYCLE_EXPECTED, Tag.TAG_BYTE)
+            ? data.getBoolean(NBT_CYCLE_EXPECTED)
+            : legacyOrderedCycle;
         this.executionSchedule = readExecutionSchedule(data, registries, level);
         if (executionSchedule != null) {
             executionSchedule.phases().stream()
                 .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
                 .forEach(phase -> cycleWitness.addAll(phase.cycleWitness()));
         }
-        this.cycleWitnessMissing = requiresOrderedCycleExecution && executionSchedule == null;
+        // The persisted flag is only a diagnostic hint. A missing or unreadable DAG schedule must fall back to
+        // ordinary execution instead of leaving the job with component scheduling enabled and no active phase.
+        // Known cycles remain fail-closed below through cycleExpected/cycleWitnessMissing.
+        this.requiresComponentScheduling = ECOPhaseScheduler.hasExecutionPhases(executionSchedule);
+        this.cycleWitnessMissing = cycleExpected
+            && !ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
+        this.permanentExecutionError = cycleWitnessMissing
+            ? PermanentExecutionError.CYCLE_METADATA_MISSING
+            : null;
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {
             ((CraftingService) grid.getCraftingService()).addLink(link);
@@ -269,7 +332,10 @@ public class ExecutingCraftingJob {
         data.putBoolean(NBT_SUSPENDED, suspended);
         data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
         data.putInt(NBT_CURRENT_COMPONENT, currentComponentIndex);
-        data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, requiresOrderedCycleExecution);
+        data.putBoolean(NBT_CYCLE_EXPECTED, cycleExpected);
+        data.putBoolean(NBT_REQUIRES_COMPONENT_SCHEDULING, requiresComponentScheduling);
+        // Retain the legacy safety bit so downgrading does not turn a known cycle into unordered execution.
+        data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, cycleExpected);
         ListTag scheduleTag = writeExecutionSchedule(registries);
         if (scheduleTag != null) {
             data.putInt(NBT_EXECUTION_SCHEDULE_VERSION, EXECUTION_SCHEDULE_VERSION);
@@ -347,5 +413,9 @@ public class ExecutingCraftingJob {
 
     static class TaskProgress {
         long value = 0;
+    }
+
+    enum PermanentExecutionError {
+        CYCLE_METADATA_MISSING
     }
 }

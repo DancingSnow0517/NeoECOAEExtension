@@ -354,7 +354,7 @@ public final class ComponentPlanner {
         Set<IPatternDetails> countedPatterns = new HashSet<>();
         for (var pattern : cycle.patterns()) {
             if (!countedPatterns.add(pattern.details())) continue;
-            for (var output : pattern.outputs()) if (exactNet.containsKey(output.what())) {
+            for (var output : pattern.grossOutputs()) if (exactNet.containsKey(output.what())) {
                 exactNet.put(output.what(), exactNet.get(output.what()).add(output.amount()));
             }
             for (CompiledInput input : pattern.inputs()) if (exactNet.containsKey(input.key())) {
@@ -369,7 +369,7 @@ public final class ComponentPlanner {
                 if (!countedPatterns.add(pattern.details())) continue;
                 long times = cycleResult.patternTimes().getOrDefault(pattern.details(), 0L);
                 if (times == 0) continue;
-                for (var output : pattern.outputs()) if (exactTotal.containsKey(output.what())) {
+                for (var output : pattern.grossOutputs()) if (exactTotal.containsKey(output.what())) {
                     exactTotal.put(output.what(), exactTotal.get(output.what()).add(
                         PlannerAmount.of(output.amount()).multiply(times)));
                 }

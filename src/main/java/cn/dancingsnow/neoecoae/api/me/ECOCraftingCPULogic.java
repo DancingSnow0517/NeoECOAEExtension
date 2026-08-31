@@ -195,6 +195,13 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        // Missing metadata for a planner-confirmed cycle is permanent for this job. Do not repeatedly enter the
+        // dispatch path on every tick; retain the job for inspection/cancellation and report the reason once.
+        if (job.hasPermanentExecutionError()) {
+            logCycleMetadataFailureOnce(job);
+            return;
+        }
+
         // 暂停时不调度更多工作
         if (job.suspended) {
             logStalledDispatch(job, job.activePhase(), 0, new DispatchDiagnostics(), "job-suspended");
@@ -308,16 +315,13 @@ public class ECOCraftingCPULogic {
         if (job == null)
             return 0;
         if (!cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler.metadataAvailable(
-                job.requiresOrderedCycleExecution, job.executionSchedule, job.cycleWitnessMissing)) {
-            if (!job.cycleMetadataErrorLogged) {
-                LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch (fail-safe)");
-                job.cycleMetadataErrorLogged = true;
-            }
+                job.cycleExpected, job.executionSchedule, job.cycleWitnessMissing)) {
+            logCycleMetadataFailureOnce(job);
             return 0;
         }
         job.advanceCompletedPhases();
         var activePhase = job.activePhase();
-        boolean componentScheduled = job.requiresOrderedCycleExecution;
+        boolean componentScheduled = job.requiresComponentScheduling;
         var diagnostics = new DispatchDiagnostics();
         if (componentScheduled && activePhase == null) {
             logStalledDispatch(job, activePhase, maxPatterns, diagnostics, "no-active-phase");
@@ -509,22 +513,37 @@ public class ECOCraftingCPULogic {
         return pushedPatterns;
     }
 
+    private void logCycleMetadataFailureOnce(ExecutingCraftingJob job) {
+        if (job.cycleMetadataErrorLogged) return;
+        LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch permanently (fail-safe) "
+            + "error={} finalOutput={}", job.permanentExecutionError, job.finalOutput);
+        job.cycleMetadataErrorLogged = true;
+    }
+
     private void logSubmittedJob(UUID craftId, ExecutingCraftingJob submittedJob) {
         var schedule = submittedJob.executionSchedule;
         var phases = schedule == null ? List.of() : schedule.phases().stream()
             .map(phase -> phase.componentId() + ":" + phase.type()
                 + "(patterns=" + phase.patternSet().size() + ",witness=" + phase.cycleWitness().size() + ")")
             .toList();
+        int phaseCount = schedule == null ? 0 : schedule.phases().size();
+        long cyclePhaseCount = schedule == null ? 0L : schedule.phases().stream()
+            .filter(phase -> phase.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE)
+            .count();
         long remainingTasks = remainingTaskCount(submittedJob);
         LOGGER.info(
             "[ECO-EXEC] submitted job={} finalOutput={} remainingOutput={} tasks={} taskExecutions={} "
-                + "orderedCycle={} phases={}",
+                + "componentScheduled={} cycleExpected={} metadataMissing={} phaseCount={} cyclePhaseCount={} phases={}",
             craftId,
             submittedJob.finalOutput,
             submittedJob.remainingAmount,
             submittedJob.tasks.size(),
             remainingTasks,
-            submittedJob.requiresOrderedCycleExecution,
+            submittedJob.requiresComponentScheduling,
+            submittedJob.cycleExpected,
+            submittedJob.cycleWitnessMissing,
+            phaseCount,
+            cyclePhaseCount,
             phases
         );
     }
@@ -1421,6 +1440,13 @@ public class ECOCraftingCPULogic {
 
     public boolean isJobSuspended() {
         return job != null && job.suspended;
+    }
+
+    /** Stable diagnostic hook for CPU menus/integrations; null means the job is still executable. */
+    public @Nullable String getPermanentExecutionError() {
+        return job == null || job.permanentExecutionError == null
+            ? null
+            : job.permanentExecutionError.name();
     }
 
     public void setJobSuspended(boolean suspended) {

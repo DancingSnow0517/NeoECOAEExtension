@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
+import java.util.UUID;
 import appeng.api.crafting.IPatternDetails;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,13 +14,15 @@ public record ECOPlanningResult(
     List<CycleDiagnostic> cycles,
     List<ComponentPlanningResult> components,
     List<Integer> executionComponentOrder,
-    long calculationNanos
+    long calculationNanos,
+    UUID planningId
 ) {
     public ECOPlanningResult {
         cycles = List.copyOf(cycles);
         components = List.copyOf(components);
         executionComponentOrder = List.copyOf(executionComponentOrder);
         calculationNanos = Math.max(0L, calculationNanos);
+        planningId = planningId == null ? UUID.randomUUID() : planningId;
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
         }
@@ -46,5 +49,11 @@ public record ECOPlanningResult(
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, long calculationNanos) {
         this(status, plan, trace, cycles, List.of(), List.of(), calculationNanos);
+    }
+
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos) {
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, UUID.randomUUID());
     }
 }

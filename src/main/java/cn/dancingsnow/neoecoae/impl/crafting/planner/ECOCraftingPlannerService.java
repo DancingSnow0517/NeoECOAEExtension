@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.SinglePatternGrowthCycleSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
@@ -20,6 +21,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
@@ -75,6 +77,7 @@ public final class ECOCraftingPlannerService {
                 } else {
                     solved = componentPlanner.plan(compiled, condensation, inventory, amount, false, cancellation);
                 }
+                solved = rejectUnclosedSuccess(solved, amount);
                 boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
                 var plan = switch (solved.status()) {
                     case SUCCESS, MISSING_ITEMS -> bridge.success(goal, amount,
@@ -89,6 +92,7 @@ public final class ECOCraftingPlannerService {
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
                     solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos));
+                logPlanningSummary(result, amount, simulation);
                 logPlanningFailure(result, amount, simulation);
                 attach(result);
                 return result;
@@ -104,9 +108,27 @@ public final class ECOCraftingPlannerService {
                     e.getClass().getSimpleName() + ": " + e.getMessage()));
                 var result = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(),
                     List.of(), elapsedSince(startedNanos));
+                logPlanningSummary(result, amount, simulation);
                 logPlanningFailure(result, amount, simulation);
                 return result;
             }
+        }
+
+        private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
+            if (solved.status() != PlanningStatus.SUCCESS) return solved;
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount);
+            if (issue == null) return solved;
+
+            String key = issue.key() == null ? "<plan>" : issue.key().toString();
+            String message = "Raw AE2 task vector is not materially closed: key=" + key
+                + " required=" + issue.required() + " supplied=" + issue.supplied()
+                + " reason=" + issue.reason();
+            solved.trace().addDiagnostic(new PlannerDiagnostic(
+                PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID, message));
+            LOGGER.warn("[ECO-PLANNER] declining false SUCCESS goal={} amount={} {}",
+                goal, amount, message);
+            return new ComponentPlanner.Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, solved.state(), solved.trace(),
+                solved.cycles(), solved.components(), solved.executionComponentOrder());
         }
 
         private void logPlanningFailure(ECOPlanningResult result, long amount, boolean simulation) {
@@ -140,6 +162,22 @@ public final class ECOCraftingPlannerService {
                         component.componentId(), diagnostic.code(), diagnostic.message());
                 }
             }
+        }
+
+        private void logPlanningSummary(ECOPlanningResult result, long amount, boolean simulation) {
+            if (simulation && result.status() == PlanningStatus.SUCCESS) {
+                LOGGER.debug("[ECO-PLAN] planningId={} planner=ECO status={} patternKinds={} taskExecutions={} "
+                        + "cycleExpected={} amount={} simulation={}", result.planningId(), result.status(),
+                    result.plan() == null ? 0 : result.plan().patternTimes().size(),
+                    result.plan() == null ? 0 : PlanIdentity.executionCount(result.plan().patternTimes()),
+                    ECOPlanningResultRegistry.cycleExpected(result), amount, true);
+                return;
+            }
+            LOGGER.info("[ECO-PLAN] planningId={} planner=ECO status={} patternKinds={} taskExecutions={} "
+                    + "cycleExpected={} amount={} simulation={}", result.planningId(), result.status(),
+                result.plan() == null ? 0 : result.plan().patternTimes().size(),
+                result.plan() == null ? 0 : PlanIdentity.executionCount(result.plan().patternTimes()),
+                ECOPlanningResultRegistry.cycleExpected(result), amount, simulation);
         }
 
         private void attach(ECOPlanningResult result) {

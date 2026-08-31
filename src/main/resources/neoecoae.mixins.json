@@ -21,7 +21,8 @@
     "StoredEnergyAmountMixin",
     "ae2.AECraftingPatternAccessor",
     "extendedae.ContainerExIOPortMixin",
-    "extendedae.TileExIOPortMixin"
+    "extendedae.TileExIOPortMixin",
+    "useless.CraftingServiceSmartDoublingMixin"
   ],
   "client": [
     "client.CraftingCPUScreenMixin",

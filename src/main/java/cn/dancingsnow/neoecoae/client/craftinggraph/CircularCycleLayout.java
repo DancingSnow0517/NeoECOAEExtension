@@ -57,16 +57,23 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
         centerY += shiftY;
 
         Map<ClientCraftingGraph.Link, List<GraphLayoutSnapshot.Point>> routes = new LinkedHashMap<>();
-        for (var link : graph.links()) {
+        GraphPortAllocator ports = new GraphPortAllocator();
+        Map<ClientCraftingGraph.Link, BoundaryPort> boundaryPorts = boundaryPorts(graph, boxes, boundary, ports);
+        List<ClientCraftingGraph.Link> orderedLinks = graph.links().stream()
+            .sorted(Comparator.comparingInt((ClientCraftingGraph.Link link) -> link.kind().ordinal())
+                .thenComparingInt(ClientCraftingGraph.Link::fromId)
+                .thenComparingInt(ClientCraftingGraph.Link::toId))
+            .toList();
+        for (var link : orderedLinks) {
             var from = boxes.get(link.fromId());
             var to = boxes.get(link.toId());
             if (from == null || to == null) continue;
             Integer fromIndex = ringIndex.get(link.fromId());
             Integer toIndex = ringIndex.get(link.toId());
             if (fromIndex != null && toIndex != null) {
-                routes.put(link, ringRoute(from, to, fromIndex, toIndex, ring.size(), centerX, centerY));
+                routes.put(link, ringRoute(link, from, to, fromIndex, toIndex, ring.size(), centerX, centerY, ports));
             } else {
-                routes.put(link, boundaryRoute(from, to));
+                routes.put(link, boundaryRoute(link, from, to, ports, boundaryPorts.get(link)));
             }
         }
         GraphLayoutSnapshot.Bounds bounds = bounds(boxes, routes);
@@ -165,18 +172,37 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
             byAnchor.computeIfAbsent(anchor, ignored -> new ArrayList<>()).add(id);
         }
         float satelliteRadius = radius + largestRingNode / 2 + maxDiameter(graph, ids) / 2 + SATELLITE_GAP;
-        float angularStep = (maxDiameter(graph, ids) + 26) / satelliteRadius;
+        float satelliteStep = maxDiameter(graph, ids) + 26;
         for (var entry : byAnchor.entrySet()) {
             List<Integer> group = entry.getValue().stream().sorted().toList();
             double baseAngle = entry.getKey() < 0 ? Math.PI
                 : ringAngle(entry.getKey(), Math.max(1, ringSize));
+            GraphPortAllocator.Side side = sideForAngle(baseAngle);
+            var anchor = radialPoint(centerX, centerY, radius, baseAngle);
             for (int i = 0; i < group.size(); i++) {
                 int id = group.get(i);
-                double angle = baseAngle + (i - (group.size() - 1) / 2d) * angularStep;
-                boxes.put(id, centeredBox(graph.nodes().get(id), centerX + satelliteRadius * Math.cos(angle),
-                    centerY + satelliteRadius * Math.sin(angle)));
+                float offset = (float) ((i - (group.size() - 1) / 2d) * satelliteStep);
+                float x = switch (side) {
+                    case LEFT -> centerX - satelliteRadius;
+                    case RIGHT -> centerX + satelliteRadius;
+                    case TOP, BOTTOM -> anchor.x() + offset;
+                };
+                float y = switch (side) {
+                    case TOP -> centerY - satelliteRadius;
+                    case BOTTOM -> centerY + satelliteRadius;
+                    case LEFT, RIGHT -> anchor.y() + offset;
+                };
+                boxes.put(id, centeredBox(graph.nodes().get(id), x, y));
             }
         }
+    }
+
+    private static GraphPortAllocator.Side sideForAngle(double angle) {
+        float dx = (float) Math.cos(angle);
+        float dy = (float) Math.sin(angle);
+        if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? GraphPortAllocator.Side.RIGHT
+            : GraphPortAllocator.Side.LEFT;
+        return dy >= 0 ? GraphPortAllocator.Side.BOTTOM : GraphPortAllocator.Side.TOP;
     }
 
     private static int relatedRingIndex(ClientCraftingGraph graph, int id, Map<Integer, Integer> ringIndex) {
@@ -200,15 +226,25 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
             (float) centerY - height / 2, width, height);
     }
 
-    private static List<GraphLayoutSnapshot.Point> ringRoute(GraphLayoutSnapshot.Box from,
-            GraphLayoutSnapshot.Box to, int fromIndex, int toIndex, int count, float centerX, float centerY) {
+    private static List<GraphLayoutSnapshot.Point> ringRoute(ClientCraftingGraph.Link link,
+            GraphLayoutSnapshot.Box from, GraphLayoutSnapshot.Box to, int fromIndex, int toIndex, int count,
+            float centerX, float centerY, GraphPortAllocator ports) {
         if (count == 2) {
-            boolean rightLane = fromIndex == 0;
+            // A two-node cycle normally consists of one material -> pattern input and one
+            // pattern -> material output. Keep their ports on opposite rectangle sides;
+            // automatic nearest-boundary selection would attach both routes to the same
+            // top/bottom edge when the nodes happen to be vertically aligned.
+            boolean rightLane = switch (link.kind()) {
+                case PATTERN_OUTPUT, BYPRODUCT -> true;
+                case PATTERN_INPUT -> false;
+                case CYCLE_INTERNAL -> fromIndex == 0;
+            };
             float laneX = rightLane ? Math.max(from.x() + from.width(), to.x() + to.width()) + 34
                 : Math.min(from.x(), to.x()) - 34;
             var control = new GraphLayoutSnapshot.Point(laneX, (from.centerY() + to.centerY()) / 2);
-            return quadraticRoute(boundary(from, control.x(), control.y()), control,
-                boundary(to, control.x(), control.y()));
+            GraphPortAllocator.Side side = rightLane ? GraphPortAllocator.Side.RIGHT : GraphPortAllocator.Side.LEFT;
+            return quadraticRoute(ports.attach(from, control.x(), control.y(), true, side), control,
+                ports.attach(to, control.x(), control.y(), false, side));
         }
         int forward = Math.floorMod(toIndex - fromIndex, count);
         if (forward == 1 || forward == count - 1) {
@@ -216,13 +252,13 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
             double middleAngle = ringAngle(fromIndex, count) + direction * Math.PI / count;
             float arcRadius = (float) Math.hypot(from.centerX() - centerX, from.centerY() - centerY) + 20;
             var control = radialPoint(centerX, centerY, arcRadius, middleAngle);
-            return quadraticRoute(boundary(from, control.x(), control.y()), control,
-                boundary(to, control.x(), control.y()));
+            return quadraticRoute(ports.attach(from, control.x(), control.y(), true, null), control,
+                ports.attach(to, control.x(), control.y(), false, null));
         }
 
         // As in circular-layout exterior routing, chords that skip ring neighbors travel outside the circle.
         int signedSteps = forward <= count / 2 ? forward : forward - count;
-        int segments = Math.max(4, Math.abs(signedSteps) * 3);
+        int segments = Math.max(16, Math.abs(signedSteps) * 8);
         float fromRadius = (float) Math.hypot(from.centerX() - centerX, from.centerY() - centerY);
         float toRadius = (float) Math.hypot(to.centerX() - centerX, to.centerY() - centerY);
         float outerRadius = Math.max(fromRadius, toRadius)
@@ -231,36 +267,157 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
         double startAngle = ringAngle(fromIndex, count);
         double angleStep = signedSteps * 2 * Math.PI / count / segments;
         var firstOuter = radialPoint(centerX, centerY, outerRadius, startAngle);
-        append(route, boundary(from, firstOuter.x(), firstOuter.y()));
+        append(route, ports.attach(from, firstOuter.x(), firstOuter.y(), true, null));
         for (int i = 0; i <= segments; i++) {
             append(route, radialPoint(centerX, centerY, outerRadius, startAngle + angleStep * i));
         }
         var lastOuter = route.getLast();
-        append(route, boundary(to, lastOuter.x(), lastOuter.y()));
+        append(route, ports.attach(to, lastOuter.x(), lastOuter.y(), false, null));
         return List.copyOf(route);
     }
 
-    private static List<GraphLayoutSnapshot.Point> boundaryRoute(GraphLayoutSnapshot.Box from,
-            GraphLayoutSnapshot.Box to) {
+    private static List<GraphLayoutSnapshot.Point> boundaryRoute(ClientCraftingGraph.Link link,
+            GraphLayoutSnapshot.Box from, GraphLayoutSnapshot.Box to, GraphPortAllocator ports,
+            BoundaryPort boundaryPort) {
+        if (boundaryPort != null) {
+            boolean coreIsFrom = boundaryPort.nodeId() == link.fromId();
+            GraphLayoutSnapshot.Box core = coreIsFrom ? from : to;
+            GraphLayoutSnapshot.Box satellite = coreIsFrom ? to : from;
+            GraphLayoutSnapshot.Point satellitePort = ports.attach(satellite, core.centerX(), core.centerY(),
+                !coreIsFrom, null);
+            GraphLayoutSnapshot.Point start = coreIsFrom ? boundaryPort.point() : satellitePort;
+            GraphLayoutSnapshot.Point end = coreIsFrom ? satellitePort : boundaryPort.point();
+            float length = Math.max(1, distance(start, end));
+            float handle = Math.min(42, length * 0.28f);
+            var outward = sideVector(boundaryPort.side());
+            var coreControl = new GraphLayoutSnapshot.Point(boundaryPort.point().x() + outward.x() * handle,
+                boundaryPort.point().y() + outward.y() * handle);
+            var satelliteControl = new GraphLayoutSnapshot.Point(satellitePort.x() - outward.x() * handle,
+                satellitePort.y() - outward.y() * handle);
+            return coreIsFrom
+                ? cubicRoute(start, coreControl, satelliteControl, end)
+                : cubicRoute(start, satelliteControl, coreControl, end);
+        }
+
         float dx = to.centerX() - from.centerX();
         float dy = to.centerY() - from.centerY();
         float length = Math.max(1, (float) Math.hypot(dx, dy));
         float bend = Math.min(36, length * 0.16f) * (((from.nodeId() ^ to.nodeId()) & 1) == 0 ? 1 : -1);
         var control = new GraphLayoutSnapshot.Point((from.centerX() + to.centerX()) / 2 - dy / length * bend,
             (from.centerY() + to.centerY()) / 2 + dx / length * bend);
-        return quadraticRoute(boundary(from, control.x(), control.y()), control,
-            boundary(to, control.x(), control.y()));
+        GraphLayoutSnapshot.Point start = ports.attach(from, control.x(), control.y(), true, null);
+        GraphLayoutSnapshot.Point end = ports.attach(to, control.x(), control.y(), false, null);
+        return quadraticRoute(start, control, end);
     }
+
+    private static GraphLayoutSnapshot.Point sideVector(GraphPortAllocator.Side side) {
+        return switch (side) {
+            case TOP -> new GraphLayoutSnapshot.Point(0, -1);
+            case RIGHT -> new GraphLayoutSnapshot.Point(1, 0);
+            case BOTTOM -> new GraphLayoutSnapshot.Point(0, 1);
+            case LEFT -> new GraphLayoutSnapshot.Point(-1, 0);
+        };
+    }
+
+    /**
+     * All external materials connected to one core node share its outward-facing side. Their attachment points
+     * divide the complete side length evenly instead of competing for the two regular ring ports.
+     */
+    private static Map<ClientCraftingGraph.Link, BoundaryPort> boundaryPorts(ClientCraftingGraph graph,
+            Map<Integer, GraphLayoutSnapshot.Box> boxes, Set<Integer> boundaryIds, GraphPortAllocator ports) {
+        Map<Integer, List<BoundaryLink>> byCore = new LinkedHashMap<>();
+        for (var link : graph.links()) {
+            boolean fromBoundary = boundaryIds.contains(link.fromId());
+            boolean toBoundary = boundaryIds.contains(link.toId());
+            if (fromBoundary == toBoundary) continue;
+            int coreId = fromBoundary ? link.toId() : link.fromId();
+            int satelliteId = fromBoundary ? link.fromId() : link.toId();
+            byCore.computeIfAbsent(coreId, ignored -> new ArrayList<>())
+                .add(new BoundaryLink(link, satelliteId));
+        }
+
+        Map<ClientCraftingGraph.Link, BoundaryPort> result = new LinkedHashMap<>();
+        for (var entry : byCore.entrySet()) {
+            GraphLayoutSnapshot.Box core = boxes.get(entry.getKey());
+            if (core == null) continue;
+            float averageX = 0;
+            float averageY = 0;
+            int positioned = 0;
+            for (var value : entry.getValue()) {
+                GraphLayoutSnapshot.Box satellite = boxes.get(value.satelliteId());
+                if (satellite == null) continue;
+                averageX += satellite.centerX();
+                averageY += satellite.centerY();
+                positioned++;
+            }
+            if (positioned == 0) continue;
+            GraphPortAllocator.Side side = GraphPortAllocator.nearestSide(core,
+                averageX / positioned, averageY / positioned);
+            ports.reserveSide(entry.getKey(), side);
+            List<BoundaryLink> links = entry.getValue().stream()
+                .sorted(Comparator.comparingDouble((BoundaryLink value) -> boundaryOrder(
+                        boxes.get(value.satelliteId()), side))
+                    .thenComparingInt(BoundaryLink::satelliteId)
+                    .thenComparingInt(value -> value.link().kind().ordinal())
+                    .thenComparingInt(value -> value.link().fromId())
+                    .thenComparingInt(value -> value.link().toId()))
+                .toList();
+            for (int i = 0; i < links.size(); i++) {
+                var value = links.get(i);
+                result.put(value.link(), new BoundaryPort(entry.getKey(),
+                    GraphPortAllocator.evenlySpacedPoint(core, side, i, links.size()), side));
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static double boundaryOrder(GraphLayoutSnapshot.Box satellite, GraphPortAllocator.Side side) {
+        if (satellite == null) return Double.POSITIVE_INFINITY;
+        return side == GraphPortAllocator.Side.TOP || side == GraphPortAllocator.Side.BOTTOM
+            ? satellite.centerX() : satellite.centerY();
+    }
+
+    private record BoundaryLink(ClientCraftingGraph.Link link, int satelliteId) {}
+    private record BoundaryPort(int nodeId, GraphLayoutSnapshot.Point point, GraphPortAllocator.Side side) {}
 
     private static List<GraphLayoutSnapshot.Point> quadraticRoute(GraphLayoutSnapshot.Point start,
             GraphLayoutSnapshot.Point control, GraphLayoutSnapshot.Point end) {
-        List<GraphLayoutSnapshot.Point> result = new ArrayList<>();
-        for (int i = 0; i <= 12; i++) {
-            float t = i / 12f;
+        float controlLength = distance(start, control) + distance(control, end);
+        int segments = Math.max(16, Math.min(64, (int) Math.ceil(controlLength / 3f)));
+        List<GraphLayoutSnapshot.Point> result = new ArrayList<>(segments + 1);
+        for (int i = 0; i <= segments; i++) {
+            float t = i / (float) segments;
             float inverse = 1 - t;
             append(result, new GraphLayoutSnapshot.Point(
                 inverse * inverse * start.x() + 2 * inverse * t * control.x() + t * t * end.x(),
                 inverse * inverse * start.y() + 2 * inverse * t * control.y() + t * t * end.y()));
+        }
+        return List.copyOf(result);
+    }
+
+    private static float distance(GraphLayoutSnapshot.Point one, GraphLayoutSnapshot.Point two) {
+        return (float) Math.hypot(two.x() - one.x(), two.y() - one.y());
+    }
+
+    private static List<GraphLayoutSnapshot.Point> cubicRoute(GraphLayoutSnapshot.Point start,
+            GraphLayoutSnapshot.Point firstControl, GraphLayoutSnapshot.Point secondControl,
+            GraphLayoutSnapshot.Point end) {
+        float controlLength = distance(start, firstControl) + distance(firstControl, secondControl)
+            + distance(secondControl, end);
+        int segments = Math.max(16, Math.min(64, (int) Math.ceil(controlLength / 3f)));
+        List<GraphLayoutSnapshot.Point> result = new ArrayList<>(segments + 1);
+        for (int i = 0; i <= segments; i++) {
+            float t = i / (float) segments;
+            float inverse = 1 - t;
+            append(result, new GraphLayoutSnapshot.Point(
+                inverse * inverse * inverse * start.x()
+                    + 3 * inverse * inverse * t * firstControl.x()
+                    + 3 * inverse * t * t * secondControl.x()
+                    + t * t * t * end.x(),
+                inverse * inverse * inverse * start.y()
+                    + 3 * inverse * inverse * t * firstControl.y()
+                    + 3 * inverse * t * t * secondControl.y()
+                    + t * t * t * end.y()));
         }
         return List.copyOf(result);
     }
@@ -272,15 +429,6 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
 
     private static void append(List<GraphLayoutSnapshot.Point> points, GraphLayoutSnapshot.Point point) {
         if (points.isEmpty() || !points.getLast().equals(point)) points.add(point);
-    }
-
-    private static GraphLayoutSnapshot.Point boundary(GraphLayoutSnapshot.Box box, float targetX, float targetY) {
-        float dx = targetX - box.centerX();
-        float dy = targetY - box.centerY();
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            return new GraphLayoutSnapshot.Point(dx >= 0 ? box.x() + box.width() : box.x(), box.centerY());
-        }
-        return new GraphLayoutSnapshot.Point(box.centerX(), dy >= 0 ? box.y() + box.height() : box.y());
     }
 
     private static double diameter(ClientCraftingGraph.Node node) {

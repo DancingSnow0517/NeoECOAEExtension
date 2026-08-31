@@ -195,7 +195,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (AEKey member : request.component().members()) index.putIfAbsent(member, index.size());
         for (CompiledPattern pattern : transitions) {
             for (CompiledInput input : pattern.inputs()) index.putIfAbsent(input.key(), index.size());
-            for (GenericStack output : pattern.outputs()) index.putIfAbsent(output.what(), index.size());
+            for (GenericStack output : pattern.grossOutputs()) index.putIfAbsent(output.what(), index.size());
         }
         for (AEKey required : request.plannerRequiredOutputs().keySet()) index.putIfAbsent(required, index.size());
         if (index.size() > limits.maxKeys()) {
@@ -229,7 +229,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 int slot = index.get(input.key());
                 exactCons[slot] = exactCons[slot].add(input.amountPerPattern());
             }
-            for (GenericStack output : pattern.outputs()) {
+            for (GenericStack output : pattern.grossOutputs()) {
                 int slot = index.get(output.what());
                 exactProd[slot] = exactProd[slot].add(output.amount());
             }
