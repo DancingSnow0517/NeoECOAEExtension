@@ -52,6 +52,11 @@ public final class PlanIdentity {
         return leftIdentity != null && leftIdentity.equals(rightIdentity);
     }
 
+    /** Stable structural identity exposed to execution-plan validation. */
+    public static @Nullable PatternIdentity patternIdentityFor(@Nullable IPatternDetails pattern) {
+        return patternIdentity(pattern);
+    }
+
     /** Exact task-vector comparison that still permits AE2 to reconstruct wrapper instances. */
     public static boolean sameTaskCounts(@Nullable Map<IPatternDetails, Long> left,
             @Nullable Map<IPatternDetails, Long> right) {

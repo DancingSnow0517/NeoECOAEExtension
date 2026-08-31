@@ -245,6 +245,14 @@ tasks.register('plannerTest', Test) {
     useJUnitPlatform()
 }
 
+// The source-set filter selects tests by convention; explicitly compile its two package-private support fixtures.
+tasks.named('compilePlannerTestJava', JavaCompile).configure {
+    source files(
+        'src/test/java/cn/dancingsnow/neoecoae/impl/crafting/planner/PlannerFixtures.java',
+        'src/test/java/cn/dancingsnow/neoecoae/impl/crafting/planner/PlannerTestKey.java'
+    )
+}
+
 configurations {
     runtimeClasspath.extendsFrom localRuntime
 }

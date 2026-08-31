@@ -24,61 +24,61 @@ import java.lang.reflect.Modifier;
 @SuppressWarnings("unused")
 public class NETextures {
     private static final Logger LOGGER = LoggerFactory.getLogger(NETextures.class);
-    public static final IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
+    public static IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(2, 2, 2, 4);
-    public static final IGuiTexture INVENTORY_BORDER = SpriteTexture.of(NeoECOAE.id("textures/gui/inventory_border.png"))
+    public static IGuiTexture INVENTORY_BORDER = SpriteTexture.of(NeoECOAE.id("textures/gui/inventory_border.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(1, 1, 1, 1);
-    public static final IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/card_background.png"))
+    public static IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/card_background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(3, 3, 3, 3);
-    public static final IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/gui/nbtbench.png"))
+    public static IGuiTexture NBT_BENCH = SpriteTexture.of(NeoECOAE.id("textures/gui/nbtbench.png"))
         .setSprite(0, 0, 176, 253);
 
-    public static final IGuiTexture HOST_PANEL_BORDER = Sprites.BORDER_THICK_RT1;
+    public static IGuiTexture HOST_PANEL_BORDER = Sprites.BORDER_THICK_RT1;
 
-    public static final IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/button.png"))
+    public static IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/button.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 2, 2, 5);
-    public static final IGuiTexture BUTTON_DISABLED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_disabled.png"))
+    public static IGuiTexture BUTTON_DISABLED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_disabled.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 4, 2, 5);
-    public static final IGuiTexture BUTTON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/button_hover.png"))
+    public static IGuiTexture BUTTON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/button_hover.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
-    public static final IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_highlighted.png"))
+    public static IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_highlighted.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
     // AE2's priority panel uses its own atlas instead of the mod's generic controls.
-    public static final IGuiTexture AE2_BUTTON = SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button.png"))
+    public static IGuiTexture AE2_BUTTON = SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button.png"))
         .setSprite(0, 0, 200, 20)
         .setBorder(3);
-    public static final IGuiTexture AE2_BUTTON_HIGHLIGHTED =
+    public static IGuiTexture AE2_BUTTON_HIGHLIGHTED =
         SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_highlighted.png"))
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
-    public static final IGuiTexture AE2_BUTTON_DISABLED =
+    public static IGuiTexture AE2_BUTTON_DISABLED =
         SpriteTexture.of(AppEng.makeId("textures/gui/sprites/button_disabled.png"))
             .setSprite(0, 0, 200, 20)
             .setBorder(3);
-    public static final IGuiTexture PRIORITY_BACKGROUND =
+    public static IGuiTexture PRIORITY_BACKGROUND =
         SpriteTexture.of(AppEng.makeId("textures/guis/priority.png"))
             .setSprite(0, 0, 176, 125);
-    public static final IGuiTexture PRIORITY_TEXT_FIELD =
+    public static IGuiTexture PRIORITY_TEXT_FIELD =
         SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
             .setSprite(0, 0, 128, 12)
             .setBorder(1, 0, 1, 0);
-    public static final IGuiTexture PRIORITY_TEXT_FIELD_DISABLED =
+    public static IGuiTexture PRIORITY_TEXT_FIELD_DISABLED =
         SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
             .setSprite(0, 12, 128, 12)
             .setBorder(1, 0, 1, 0);
-    public static final IGuiTexture PRIORITY_TEXT_FIELD_FOCUS =
+    public static IGuiTexture PRIORITY_TEXT_FIELD_FOCUS =
         SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
-    public static final IGuiTexture AE2_TOOLBOX =
+    public static IGuiTexture AE2_TOOLBOX =
         SpriteTexture.of(NeoECOAE.id("textures/gui/eco_extra_panels.png"))
             .setSprite(0, 0, 61, 66);
 
@@ -99,11 +99,11 @@ public class NETextures {
             .setSprite(x, y, width, height);
     }
 
-    public static final IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/slot.png"))
+    public static IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/slot.png"))
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
 
-    public static final IGuiTexture AE2_SLOT_HIGHLIGHT = new IGuiTexture() {
+    public static IGuiTexture AE2_SLOT_HIGHLIGHT = new IGuiTexture() {
         @Override
         public void draw(
             GuiGraphics graphics,
@@ -160,33 +160,33 @@ public class NETextures {
         );
     }
 
-    public static final IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
+    public static IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
         .setSpriteSize(Size.of(6, 18));
 
-    public static final IGuiTexture BAR = SpriteTexture.of(NeoECOAE.id("textures/gui/bar.png"))
+    public static IGuiTexture BAR = SpriteTexture.of(NeoECOAE.id("textures/gui/bar.png"))
         .setSpriteSize(Size.of(4, 16))
         .setWrapMode(SpriteTexture.WrapMode.REPEAT);
 
-    public static final IGuiTexture PATTERN_OVERLAY = widgetTexture("pattern_overlay.png");
-    public static final IGuiTexture OUTPUTS = widgetTexture("outputs.png");
+    public static IGuiTexture PATTERN_OVERLAY = widgetTexture("pattern_overlay.png");
+    public static IGuiTexture OUTPUTS = widgetTexture("outputs.png");
 
-    public static final IGuiTexture COOLING_OFF = widgetTexture("crafting/cooling_off.png");
-    public static final IGuiTexture COOLING_OFF_DOWN = widgetTexture("crafting/cooling_off_down.png");
-    public static final IGuiTexture COOLING_ON = widgetTexture("crafting/cooling_on.png");
-    public static final IGuiTexture COOLING_ON_DOWN = widgetTexture("crafting/cooling_on_down.png");
+    public static IGuiTexture COOLING_OFF = widgetTexture("crafting/cooling_off.png");
+    public static IGuiTexture COOLING_OFF_DOWN = widgetTexture("crafting/cooling_off_down.png");
+    public static IGuiTexture COOLING_ON = widgetTexture("crafting/cooling_on.png");
+    public static IGuiTexture COOLING_ON_DOWN = widgetTexture("crafting/cooling_on_down.png");
 
-    public static final IGuiTexture OVERCLOCK_OFF = widgetTexture("crafting/overclock_off.png");
-    public static final IGuiTexture OVERCLOCK_OFF_DOWN = widgetTexture("crafting/overclock_off_down.png");
-    public static final IGuiTexture OVERCLOCK_ON = widgetTexture("crafting/overclock_on.png");
-    public static final IGuiTexture OVERCLOCK_ON_DOWN = widgetTexture("crafting/overclock_on_down.png");
+    public static IGuiTexture OVERCLOCK_OFF = widgetTexture("crafting/overclock_off.png");
+    public static IGuiTexture OVERCLOCK_OFF_DOWN = widgetTexture("crafting/overclock_off_down.png");
+    public static IGuiTexture OVERCLOCK_ON = widgetTexture("crafting/overclock_on.png");
+    public static IGuiTexture OVERCLOCK_ON_DOWN = widgetTexture("crafting/overclock_on_down.png");
 
-    public static final IGuiTexture PROGRESS_BAR_COOLANT =
+    public static IGuiTexture PROGRESS_BAR_COOLANT =
         SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/coolant_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_HOT_COOLANT =
+    public static IGuiTexture PROGRESS_BAR_HOT_COOLANT =
         SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_CRAFTING =
+    public static IGuiTexture PROGRESS_BAR_CRAFTING =
         SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/crafting_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_LIMIT =
+    public static IGuiTexture PROGRESS_BAR_LIMIT =
         SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/limit_progress.png"));
 
     private static IGuiTexture widgetTexture(String path) {
@@ -194,24 +194,24 @@ public class NETextures {
     }
 
     public static class Crafting {
-        public static final IGuiTexture BACKGROUND_DARK =
+        public static IGuiTexture BACKGROUND_DARK =
             SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/background_dark.png"))
                 .setSpriteSize(Size.of(32, 32))
                 .setBorder(6, 12, 6, 6);
-        public static final IGuiTexture BACKGROUND_LIGHT =
+        public static IGuiTexture BACKGROUND_LIGHT =
             SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/background_light.png"))
                 .setSpriteSize(Size.of(32, 32))
                 .setBorder(6, 12, 6, 6);
-        public static final IGuiTexture STATUS_BACKGROUND =
+        public static IGuiTexture STATUS_BACKGROUND =
             SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/status_background.png"));
-        public static final IGuiTexture UNAVAILABLE_STATUS =
+        public static IGuiTexture UNAVAILABLE_STATUS =
             SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/unavailable_status.png"));
 
 
-        public static final IGuiTexture F0 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f0.png"));
-        public static final IGuiTexture F4 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f4.png"));
-        public static final IGuiTexture F6 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f6.png"));
-        public static final IGuiTexture F9 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f9.png"));
+        public static IGuiTexture F0 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f0.png"));
+        public static IGuiTexture F4 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f4.png"));
+        public static IGuiTexture F6 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f6.png"));
+        public static IGuiTexture F9 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f9.png"));
 
     }
 

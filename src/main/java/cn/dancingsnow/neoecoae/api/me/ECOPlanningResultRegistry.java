@@ -2,8 +2,6 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.Signature;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
@@ -12,6 +10,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionContract;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -85,8 +85,7 @@ public final class ECOPlanningResultRegistry {
             // independent even if they happen to have byte-for-byte equal plans.
             entries.removeIf(entry -> entry.planningId().equals(planningId));
             entries.add(new Entry(result, signature, Map.copyOf(plan.patternTimes()),
-                counterContents(plan.usedItems()), counterContents(plan.emittedItems()),
-                counterContents(plan.missingItems()), inspection.schedule(), inspection.cycleExpected(),
+                inspection.executionPlan(), inspection.cycleExpected(),
                 recoveryState, inspection.reason(), planningId, now));
             trimEntries();
         }
@@ -95,20 +94,7 @@ public final class ECOPlanningResultRegistry {
 
     /** True independently of whether schedule construction/propagation succeeded. */
     public static boolean cycleExpected(@Nullable ECOPlanningResult result) {
-        if (result == null || result.plan() == null) return false;
-        return result.components().stream().anyMatch(component -> {
-            if (component.type() != ComponentPlanningResult.Type.CYCLIC
-                    || component.cycleStatus() != CyclePlanningStatus.SOLVED) return false;
-            boolean solvedFirings = component.cycleResult() != null
-                && component.cycleResult().status().solved()
-                && component.cycleResult().patternTimes().values().stream()
-                    .anyMatch(count -> count != null && count > 0);
-            boolean plannedCyclicPattern = component.patterns().stream().anyMatch(pattern ->
-                result.plan().patternTimes().entrySet().stream().anyMatch(task ->
-                    task.getValue() != null && task.getValue() > 0
-                        && ECOPhaseScheduler.samePattern(pattern, task.getKey())));
-            return solvedFirings || plannedCyclicPattern;
-        });
+        return result != null && result.executionRequirement() != ECOExecutionRequirement.NONE;
     }
 
     /**
@@ -118,12 +104,7 @@ public final class ECOPlanningResultRegistry {
     public static boolean cycleSafetyRequired(ICraftingPlan publicPlan, @Nullable ECOPlanningResult result) {
         if (publicPlan == null || result == null || result.plan() == null
                 || !PlanIdentity.matches(publicPlan, result.plan())) return false;
-        return result.components().stream()
-            .filter(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)
-            .flatMap(component -> component.patterns().stream())
-            .anyMatch(pattern -> publicPlan.patternTimes().entrySet().stream().anyMatch(task ->
-                task.getValue() != null && task.getValue() > 0
-                    && ECOPhaseScheduler.samePattern(pattern, task.getKey())));
+        return result.executionRequirement() != ECOExecutionRequirement.NONE;
     }
 
     public static List<String> describePlanningResult(@Nullable ECOPlanningResult result) {
@@ -198,24 +179,24 @@ public final class ECOPlanningResultRegistry {
         Signature confirmedSignature = PlanIdentity.of(confirmedPlan);
         if (confirmedSignature == null || !PlanIdentity.matches(confirmedSignature, result.plan())) return null;
 
-        ECOExecutionSchedule schedule;
+        ECOExecutionPlan executionPlan;
         try {
-            schedule = result.executionSchedule();
+            executionPlan = result.executionPlan();
         } catch (RuntimeException scheduleFailure) {
             LOGGER.error("[ECO-SUBMISSION] failed to build confirmed metadata schedule; "
                 + "preserving cycleExpected for fail-closed dispatch", scheduleFailure);
-            schedule = null;
+            executionPlan = null;
         }
         boolean expected = cycleExpected(result);
-        if (!expected && !ECOPhaseScheduler.hasExecutionPhases(schedule)) return null;
-        return new SubmissionAlias(confirmedSignature, result.planningId(), schedule, expected, "ECO");
+        if (!expected && executionPlan == null) return null;
+        return new SubmissionAlias(confirmedSignature, result.planningId(), executionPlan, expected, "ECO");
     }
 
     /** Metadata is visible only if the submitted plan proves the same complete identity as the confirmation plan. */
     public static @Nullable SubmissionMetadata activeSubmissionMetadata(ICraftingPlan plan) {
         SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
         if (alias == null || !PlanIdentity.matches(alias.confirmedSignature(), plan)) return null;
-        return new SubmissionMetadata(alias.executionSchedule(), alias.cycleExpected(), alias.planningId(), true,
+        return new SubmissionMetadata(alias.executionPlan(), alias.cycleExpected(), alias.planningId(), true,
             alias.selectedPlanner());
     }
 
@@ -264,26 +245,20 @@ public final class ECOPlanningResultRegistry {
             Entry entry = uniqueEntryObject(entries);
             if (entry == null) return null;
 
-            ECOExecutionSchedule rebound = rebind(entry, plan.patternTimes());
-            if (entry.schedule() != null && rebound == null) {
-                // The full signature matched but the phase contains an unexpected non-task pattern. Do not guess a
-                // mapping; retaining the original schedule is safe for the same strict plan identity, and the
-                // phase scheduler compares the same stable definition for reconstructed wrappers.
-                rebound = entry.schedule();
-            }
+            ECOExecutionPlan rebound = rebind(entry, plan.patternTimes());
             return recovered(entry, rebound, "strict-plan-identity");
         }
     }
 
     public static @Nullable RecoveredSchedule recoverSchedule(ICraftingPlan plan) {
         RecoveredExecutionMetadata metadata = recoverExecutionMetadata(plan);
-        return metadata == null || metadata.schedule() == null
-            ? null : new RecoveredSchedule(metadata.schedule(), metadata.matchMode());
+        return metadata == null || metadata.executionPlan() == null
+            ? null : new RecoveredSchedule(metadata.executionPlan().schedule(), metadata.matchMode());
     }
 
     private static RecoveredExecutionMetadata recovered(Entry entry,
-            @Nullable ECOExecutionSchedule schedule, String matchMode) {
-        return new RecoveredExecutionMetadata(schedule, entry.cycleExpected(), entry.recoveryState(),
+            @Nullable ECOExecutionPlan executionPlan, String matchMode) {
+        return new RecoveredExecutionMetadata(executionPlan, entry.cycleExpected(), entry.recoveryState(),
             entry.rejectionReason(), entry.planningId(), matchMode);
     }
 
@@ -349,15 +324,21 @@ public final class ECOPlanningResultRegistry {
         return entries.stream().allMatch(entry -> entry.planningId().equals(planningId)) ? entries.getFirst() : null;
     }
 
-    private static @Nullable ECOExecutionSchedule rebind(Entry entry,
+    private static @Nullable ECOExecutionPlan rebind(Entry entry,
             Map<IPatternDetails, Long> submittedTasks) {
-        ECOExecutionSchedule sourceSchedule = entry.schedule();
-        if (sourceSchedule == null) return null;
+        ECOExecutionPlan sourcePlan = entry.executionPlan();
+        if (sourcePlan == null) return null;
         Map<IPatternDetails, IPatternDetails> mapping = taskMapping(entry.tasks(), submittedTasks);
         if (mapping == null) return null;
-
-        List<ECOExecutionSchedule.ComponentExecutionPhase> phases = new ArrayList<>();
-        for (var phase : sourceSchedule.phases()) {
+        List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>();
+        for (var task : sourcePlan.tasks()) {
+            IPatternDetails target = mappedPattern(task.pattern(), mapping);
+            if (target == null) return null;
+            tasks.add(new ECOExecutionPlan.TaskSpec(task.id(), task.identity(), target,
+                ECOExecutionPlan.PatternRuntimeInfo.from(target), task.totalCount(), task.phaseIndex(), task.kind()));
+        }
+        List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>();
+        for (var phase : sourcePlan.schedule().phases()) {
             LinkedHashSet<IPatternDetails> patterns = new LinkedHashSet<>();
             for (IPatternDetails source : phase.patternSet()) {
                 IPatternDetails target = mappedPattern(source, mapping);
@@ -370,10 +351,11 @@ public final class ECOPlanningResultRegistry {
                 if (target == null) return null;
                 witness.add(target);
             }
-            phases.add(new ECOExecutionSchedule.ComponentExecutionPhase(
+            schedulePhases.add(new ECOExecutionSchedule.ComponentExecutionPhase(
                 phase.componentId(), phase.type(), patterns, witness));
         }
-        return new ECOExecutionSchedule(phases);
+        return new ECOExecutionPlan(sourcePlan.signature(), sourcePlan.mode(), tasks, sourcePlan.phases(),
+            new ECOExecutionSchedule(schedulePhases));
     }
 
     private static @Nullable Map<IPatternDetails, IPatternDetails> taskMapping(
@@ -408,13 +390,6 @@ public final class ECOPlanningResultRegistry {
         return matches.size() == 1 ? matches.getFirst() : null;
     }
 
-    private static Map<AEKey, Long> counterContents(@Nullable KeyCounter counter) {
-        if (counter == null) return Map.of();
-        Map<AEKey, Long> result = new LinkedHashMap<>();
-        for (var value : counter) result.put(value.getKey(), value.getLongValue());
-        return Map.copyOf(result);
-    }
-
     private static RegistrationInspection inspectRegistration(@Nullable ICraftingPlan plan,
             @Nullable ECOPlanningResult result) {
         PlanningStatus status = result == null ? null : result.status();
@@ -422,7 +397,7 @@ public final class ECOPlanningResultRegistry {
         boolean resultPlanSimulation = result != null && result.plan() != null && result.plan().simulation();
         boolean strictPlanMatch = plan != null && result != null && result.plan() != null
             && PlanIdentity.matches(plan, result.plan());
-        ECOExecutionSchedule schedule = null;
+        ECOExecutionPlan executionPlan = null;
         String reason = null;
         if (plan == null) reason = "PLAN_NULL";
         else if (result == null) reason = "RESULT_NULL";
@@ -434,9 +409,9 @@ public final class ECOPlanningResultRegistry {
         boolean cycleExpected = cycleExpected(result);
         if (reason == null) {
             try {
-                schedule = result.executionSchedule();
-                if (schedule == null) reason = "SCHEDULE_NULL";
-                else if (schedule.phases().isEmpty()) reason = "SCHEDULE_EMPTY";
+                executionPlan = result.executionPlan();
+                ECOExecutionSchedule schedule = executionPlan.schedule();
+                if (schedule.phases().isEmpty()) reason = "SCHEDULE_EMPTY";
                 else if (cycleExpected && schedule.phases().stream().noneMatch(phase ->
                         phase.type() == ECOExecutionSchedule.Type.CYCLE)) reason = "NO_CYCLE_PHASE";
                 else if (cycleExpected && schedule.phases().stream()
@@ -447,13 +422,13 @@ public final class ECOPlanningResultRegistry {
             }
         }
         return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
-            schedule, cycleExpected, reason);
+            executionPlan, cycleExpected, reason);
     }
 
     private static void logRegistration(boolean registered, RegistrationInspection inspection,
             @Nullable ICraftingPlan plan, @Nullable ECOPlanningResult result,
             @Nullable UUID planningId, @Nullable RecoveryState recoveryState) {
-        ECOExecutionSchedule schedule = inspection.schedule();
+        ECOExecutionSchedule schedule = inspection.executionPlan() == null ? null : inspection.executionPlan().schedule();
         int phaseCount = schedule == null ? 0 : schedule.phases().size();
         long cyclePhaseCount = schedule == null ? 0 : schedule.phases().stream()
             .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE).count();
@@ -484,29 +459,31 @@ public final class ECOPlanningResultRegistry {
         }).toList();
     }
 
-    public record SubmissionMetadata(@Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected,
+    public record SubmissionMetadata(@Nullable ECOExecutionPlan executionPlan, boolean cycleExpected,
             @Nullable UUID planningId, boolean metadataMatch, String selectedPlanner) {
-        public SubmissionMetadata(@Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected) {
-            this(executionSchedule, cycleExpected, null, true, "ECO");
+        public SubmissionMetadata(@Nullable ECOExecutionPlan executionPlan, boolean cycleExpected) {
+            this(executionPlan, cycleExpected, null, true, "ECO");
+        }
+        public @Nullable ECOExecutionSchedule executionSchedule() {
+            return executionPlan == null ? null : executionPlan.schedule();
         }
     }
 
     private record SubmissionAlias(Signature confirmedSignature, UUID planningId,
-            @Nullable ECOExecutionSchedule executionSchedule, boolean cycleExpected, String selectedPlanner) {
+            @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, String selectedPlanner) {
     }
 
     private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
-            Map<AEKey, Long> usedItems, Map<AEKey, Long> emittedItems, Map<AEKey, Long> missingItems,
-            @Nullable ECOExecutionSchedule schedule, boolean cycleExpected, RecoveryState recoveryState,
+            @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, RecoveryState recoveryState,
             @Nullable String rejectionReason, UUID planningId, long createdNanos) {
     }
 
     private record RegistrationInspection(@Nullable PlanningStatus status, boolean planSimulation,
-            boolean resultPlanSimulation, boolean strictPlanMatch, @Nullable ECOExecutionSchedule schedule,
+            boolean resultPlanSimulation, boolean strictPlanMatch, @Nullable ECOExecutionPlan executionPlan,
             boolean cycleExpected, @Nullable String reason) {
         RegistrationInspection withReason(String replacement) {
             return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
-                schedule, cycleExpected, replacement);
+                executionPlan, cycleExpected, replacement);
         }
 
         boolean canStoreFailClosedMetadata() {
@@ -522,8 +499,11 @@ public final class ECOPlanningResultRegistry {
         MISSING_OR_INVALID_SCHEDULE
     }
 
-    public record RecoveredExecutionMetadata(@Nullable ECOExecutionSchedule schedule, boolean cycleExpected,
+    public record RecoveredExecutionMetadata(@Nullable ECOExecutionPlan executionPlan, boolean cycleExpected,
             RecoveryState state, @Nullable String rejectionReason, UUID planningId, String matchMode) {
+        public @Nullable ECOExecutionSchedule schedule() {
+            return executionPlan == null ? null : executionPlan.schedule();
+        }
     }
 
     public record RecoveredSchedule(ECOExecutionSchedule schedule, String matchMode) {

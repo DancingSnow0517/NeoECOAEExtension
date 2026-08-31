@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
@@ -52,6 +53,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
+    private final Map<cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.PatternIdentity,
+        List<ICraftingProvider>> providerTopologyCache = new HashMap<>();
+    enum BatchMode { FINITE, VIRTUAL }
+
+    /** Common batch dispatch entry point; mode-specific implementations retain their capability checks. */
+    private DispatchResult dispatchBatch(ExecutingCraftingJob job, ECOExtractedPatternExecution execution,
+            KeyCounter[] container, List<ICraftingProvider> providers, IEnergyService energy, double power,
+            long remaining, BatchMode mode) {
+        long accepted = mode == BatchMode.VIRTUAL
+            ? tryPushVerifiedVirtualBatch(job, execution, container, providers, remaining)
+            : tryPushVerifiedFastPathBatch(job, execution, container, providers, energy, power, remaining);
+        if (accepted > 0) return new DispatchResult.Accepted(accepted);
+        if (accepted < 0) return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
+        return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+    }
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     final ECOCraftingCPU cpu;
@@ -132,6 +148,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        providerTopologyCache.clear();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
         logSubmittedJob(craftId, this.job);
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
@@ -217,15 +234,9 @@ public class ECOCraftingCPULogic {
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
-            do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, level);
-
-                if (pushedPatterns > 0) {
-                    remainingOperations -= pushedPatterns;
-                } else {
-                    break;
-                }
-            } while (remainingOperations > 0);
+            // One engine pass is one tick. The pass snapshots eligible task ids and attempts each at most once;
+            // a compressed batch may still transfer many crafts in that single task attempt.
+            executeCrafting(remainingOperations, cc, eg, level);
         } else {
             logStalledDispatch(job, job.activePhase(), remainingOperations, new DispatchDiagnostics(),
                 "operation-limit-zero");
@@ -237,6 +248,24 @@ public class ECOCraftingCPULogic {
         if (currentJob == null) {
             return;
         }
+        drainBufferedFinalOutput(currentJob);
+    }
+
+    /** Releases final-output units retained as cycle feedback once the current gate no longer needs them. */
+    private void releaseSurplusFinalOutput(ExecutingCraftingJob currentJob) {
+        if (currentJob.finalOutput == null || currentJob.finalOutput.what() == null) return;
+        AEKey key = currentJob.finalOutput.what();
+        long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        long reserve = currentJob.finalOutputFeedbackReserve(key);
+        long surplus = Math.max(0L, stored - Math.min(stored, reserve));
+        if (surplus <= 0L) return;
+        long transferable = currentJob.bufferedFinalOutput.accept(surplus, Actionable.SIMULATE);
+        if (transferable <= 0L) return;
+        long extracted = inventory.extract(key, transferable, Actionable.MODULATE);
+        long accepted = currentJob.bufferedFinalOutput.accept(extracted, Actionable.MODULATE);
+        if (accepted != extracted) throw new IllegalStateException("Final-output buffer rejected CPU-owned surplus");
+        postChange(key);
+        cpu.markDirty();
         drainBufferedFinalOutput(currentJob);
     }
 
@@ -314,14 +343,17 @@ public class ECOCraftingCPULogic {
         var job = this.job;
         if (job == null)
             return 0;
-        if (!cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler.metadataAvailable(
-                job.cycleExpected, job.executionSchedule, job.cycleWitnessMissing)) {
+        if (job.hasPermanentExecutionError()) {
             logCycleMetadataFailureOnce(job);
             return 0;
         }
+        // Materialize the shared runtime cursor once the immutable execution metadata is available.
+        job.runtimeExecutionState();
         job.advanceCompletedPhases();
+        releaseSurplusFinalOutput(job);
+        if (this.job != job) return 0;
         var activePhase = job.activePhase();
-        boolean componentScheduled = job.requiresComponentScheduling;
+        boolean componentScheduled = job.phased();
         var diagnostics = new DispatchDiagnostics();
         if (componentScheduled && activePhase == null) {
             logStalledDispatch(job, activePhase, maxPatterns, diagnostics, "no-active-phase");
@@ -329,35 +361,25 @@ public class ECOCraftingCPULogic {
         }
 
         var pushedPatterns = 0;
+        // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
+        // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
+        providerTopologyCache.clear();
 
         beginStatusChangeBatch();
         try {
-            java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it;
-            boolean orderedWitness = activePhase != null
-                && activePhase.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE
-                && job.cycleWitnessIndex < activePhase.cycleWitness().size();
-            if (orderedWitness) {
-                var expected = activePhase.cycleWitness().get(job.cycleWitnessIndex);
-                var expectedTask = job.taskFor(expected);
-                if (expectedTask == null || expectedTask.getValue().value <= 0) {
-                    LOGGER.error("Current cycle witness step has no remaining task; refusing to skip ordered step");
-                    return 0;
-                }
-                it = job.tasks.entrySet().iterator();
-            } else {
-                it = job.tasks.entrySet().iterator();
-            }
+            List<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> eligibleTasks = job.eligiblePatterns()
+                .stream().map(job::taskFor).filter(java.util.Objects::nonNull).toList();
+            java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it = eligibleTasks.iterator();
             taskLoop: while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
-                    if (!componentScheduled) it.remove();
                     continue;
                 }
 
                 var details = task.getKey();
                 diagnostics.runnableTasks++;
-                if (activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
+                if (job.runtimeExecutionState == null && activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
                         .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
                     diagnostics.phaseRejectedTasks++;
                     continue;
@@ -370,7 +392,7 @@ public class ECOCraftingCPULogic {
                     diagnostics.tasksWithoutProviders++;
                     continue;
                 }
-                while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
+                if (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
                     if (!hasAvailableProvider(candidateProviders)) {
                         diagnostics.tasksWithBusyProviders++;
                         continue taskLoop;
@@ -397,20 +419,15 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
                     long batchResult = 0L;
-                    if (!orderedWitness) {
-                        batchResult = tryPushVerifiedVirtualBatch(
-                            job, execution, craftingContainer, candidateProviders, task.getValue().value);
+                    long dispatchLimit = job.dispatchLimit(details);
+                    DispatchResult batchDispatch = dispatchBatch(job, execution, craftingContainer,
+                        candidateProviders, energyService, patternPower, dispatchLimit, BatchMode.VIRTUAL);
+                    if (batchDispatch instanceof DispatchResult.Waiting) {
+                        batchDispatch = dispatchBatch(job, execution, craftingContainer, candidateProviders,
+                            energyService, patternPower, dispatchLimit, BatchMode.FINITE);
                     }
-                    if (!orderedWitness && batchResult == 0L) {
-                        batchResult = tryPushVerifiedFastPathBatch(
-                            job,
-                            execution,
-                            craftingContainer,
-                            candidateProviders,
-                            energyService,
-                            patternPower,
-                            task.getValue().value);
-                    }
+                    if (batchDispatch instanceof DispatchResult.Accepted accepted) batchResult = accepted.count();
+                    else if (batchDispatch instanceof DispatchResult.Rejected) batchResult = -1L;
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
@@ -418,10 +435,9 @@ public class ECOCraftingCPULogic {
                         if (this.job != job) {
                             break taskLoop;
                         }
-                        task.getValue().value -= batchResult;
+                        job.applyDispatchResult(details, batchDispatch);
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
-                            if (!componentScheduled) it.remove();
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -432,72 +448,50 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
-                    boolean pushed = false;
+                    // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
+                    // (notably useless_mod's dynamic-output bridge) wrap this exact call site by descriptor.
+                    DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                    boolean sawAvailable = false;
                     for (ICraftingProvider provider : candidateProviders) {
-                        if (provider.isBusy()) {
-                            continue;
-                        }
-
-                        // A fully virtualized host is billed a flat group-wide draw per tick, so it neither
-                        // gates on nor pays this per-pattern charge.
+                        if (provider.isBusy()) continue;
+                        sawAvailable = true;
                         boolean flatRateProvider = paysFlatRateCraftingPower(provider);
-                        if (!flatRateProvider
-                                && energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                                    PowerMultiplier.CONFIG) < patternPower - 0.01) {
+                        if (!flatRateProvider && energyService.extractAEPower(patternPower, Actionable.SIMULATE,
+                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             diagnostics.energyBlockedProviders++;
+                            single = new DispatchResult.Waiting(DispatchResult.WaitReason.ENERGY_UNAVAILABLE);
                             break;
                         }
-
+                        final boolean accepted;
                         try {
-                            pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                    ? patternBus.pushPattern(execution, job.link.getCraftingID())
-                                    : provider.pushPattern(details, craftingContainer);
-                        } catch (RuntimeException e) {
-                            LOGGER.error(
-                                "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally",
-                                e
-                            );
-                            pushed = false;
-                        }
-
-                        if (!pushed) {
+                            accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
+                                : provider.pushPattern(details, craftingContainer);
+                        } catch (RuntimeException failure) {
                             diagnostics.providerRejections++;
+                            LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
+                                failure);
                             continue;
                         }
-
-                        if (!flatRateProvider) {
-                            chargeAcceptedPatternEnergy(energyService, patternPower);
+                        if (!accepted) {
+                            diagnostics.providerRejections++;
+                            single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
+                            continue;
                         }
-                        pushedPatterns++;
-                        if (this.job != job) {
-                            break taskLoop;
-                        }
-                        recordPushedPattern(job, execution, 1);
-                        if (orderedWitness) job.cycleWitnessIndex =
-                            cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
-                                .witnessAfterDispatch(job.cycleWitnessIndex, true);
-
-                        task.getValue().value--;
-                        postPatternOutputsChange(details);
-                        if (orderedWitness) {
-                            // The next witness entry may name a different pattern. Re-enter executeCrafting so
-                            // the phase gate resolves that entry afresh instead of continuing this task's inner
-                            // loop and accidentally dispatching the old pattern again.
-                            break taskLoop;
-                        }
-                        if (task.getValue().value <= 0) {
-                            if (!componentScheduled) it.remove();
-                            continue taskLoop;
-                        }
-
-                        if (pushedPatterns == maxPatterns) {
-                            break taskLoop;
-                        }
-
+                        if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, patternPower);
+                        recordPushedPattern(job, execution, 1L);
+                        single = new DispatchResult.Accepted(1L);
                         break;
                     }
-
-                    if (!pushed) {
+                    if (!sawAvailable) {
+                        single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                    }
+                    if (single instanceof DispatchResult.Accepted) {
+                        pushedPatterns++;
+                        if (this.job != job) break taskLoop;
+                        job.applyDispatchResult(details, single);
+                        postPatternOutputsChange(details);
+                    } else {
                         CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
                         continue taskLoop;
                     }
@@ -516,10 +510,10 @@ public class ECOCraftingCPULogic {
     private void logCycleMetadataFailureOnce(ExecutingCraftingJob job) {
         if (job.cycleMetadataErrorLogged) return;
         LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch permanently (fail-safe) "
-            + "error={} finalOutput={} craftId={} cycleExpected={} cycleWitnessMissing={} "
-            + "requiresComponentScheduling={} schedulePresent={} phaseCount={} cyclePhaseCount={}",
+            + "error={} finalOutput={} craftId={} executionMode={} "
+            + "componentScheduled={} schedulePresent={} phaseCount={} cyclePhaseCount={}",
             job.permanentExecutionError, job.finalOutput, job.link == null ? null : job.link.getCraftingID(),
-            job.cycleExpected, job.cycleWitnessMissing, job.requiresComponentScheduling,
+            job.executionMode, job.phased(),
             job.executionSchedule != null,
             job.executionSchedule == null ? 0 : job.executionSchedule.phases().size(),
             job.executionSchedule == null ? 0 : job.executionSchedule.phases().stream()
@@ -547,9 +541,9 @@ public class ECOCraftingCPULogic {
             submittedJob.remainingAmount,
             submittedJob.tasks.size(),
             remainingTasks,
-            submittedJob.requiresComponentScheduling,
-            submittedJob.cycleExpected,
-            submittedJob.cycleWitnessMissing,
+            submittedJob.phased(),
+            submittedJob.orderedCycle(),
+            submittedJob.permanentExecutionError != null,
             phaseCount,
             cyclePhaseCount,
             phases
@@ -570,10 +564,17 @@ public class ECOCraftingCPULogic {
         String phaseDescription = phase == null ? "none"
             : phase.componentId() + ":" + phase.type()
                 + "(patterns=" + phase.patternSet().size() + ",witness=" + phase.cycleWitness().size() + ")";
-        IPatternDetails expectedWitnessPattern = phase != null && stalledJob.cycleWitnessIndex >= 0
-                && stalledJob.cycleWitnessIndex < phase.cycleWitness().size()
-            ? phase.cycleWitness().get(stalledJob.cycleWitnessIndex)
-            : null;
+        IPatternDetails expectedWitnessPattern = null;
+        if (stalledJob.runtimeExecutionState != null && stalledJob.runtimeExecutionState.activePhase() != null) {
+            var runtimePhase = stalledJob.runtimeExecutionState.activePhase();
+            if (stalledJob.runtimeExecutionState.stepIndex() < runtimePhase.steps().size()) {
+                int taskId = runtimePhase.steps().get(stalledJob.runtimeExecutionState.stepIndex()).taskId();
+                expectedWitnessPattern = stalledJob.runtimeExecutionState.plan().task(taskId).pattern();
+            }
+        } else if (phase != null && stalledJob.cycleWitnessIndex >= 0
+                && stalledJob.cycleWitnessIndex < phase.cycleWitness().size()) {
+            expectedWitnessPattern = phase.cycleWitness().get(stalledJob.cycleWitnessIndex);
+        }
         Object expectedWitness = expectedWitnessPattern == null ? "none" : expectedWitnessPattern.getDefinition();
         Object missingInputPattern = diagnostics.firstMissingInputPattern == null ? "none"
             : diagnostics.firstMissingInputPattern.getDefinition();
@@ -683,11 +684,18 @@ public class ECOCraftingCPULogic {
      */
     private List<ICraftingProvider> collectCandidateProviders(CraftingService craftingService,
             IPatternDetails details) {
+        var identity = cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.patternIdentityFor(details);
+        if (identity != null) {
+            var cached = providerTopologyCache.get(identity);
+            if (cached != null) return cached;
+        }
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
             providers.add(provider);
         }
-        return providers;
+        List<ICraftingProvider> result = List.copyOf(providers);
+        if (identity != null && !result.isEmpty()) providerTopologyCache.put(identity, result);
+        return result;
     }
 
     /** Live availability check over the reusable candidate set; allocates nothing. */
@@ -1056,8 +1064,7 @@ public class ECOCraftingCPULogic {
 
         if (what.matches(job.finalOutput)) {
             ExecutingCraftingJob currentJob = job;
-            long reserveTarget = cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
-                .compactCycleFeedbackReserve(currentJob.activePhase(), currentJob::remainingTasksFor, what);
+            long reserveTarget = currentJob.finalOutputFeedbackReserve(what);
             long alreadyReserved = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
             long toReserve = Math.min(amount, Math.max(0L, reserveTarget - alreadyReserved));
             inventory.insert(what, toReserve, type);
@@ -1144,6 +1151,7 @@ public class ECOCraftingCPULogic {
 
         // 结束任务。
         this.job = null;
+        providerTopologyCache.clear();
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -1341,6 +1349,7 @@ public class ECOCraftingCPULogic {
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
+            providerTopologyCache.clear();
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             if (this.job.finalOutput == null) {
                 finishJob(false);

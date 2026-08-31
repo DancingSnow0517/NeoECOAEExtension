@@ -29,15 +29,18 @@ class ECOPhaseSchedulerTest {
         assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 2, p1));
         assertTrue(ECOPhaseScheduler.canDispatch(cycle(), 2, p2));
     }
-    @Test void dagWaitsForRemainingTasks() { assertFalse(ECOPhaseScheduler.isComplete(dag(), 0, p -> p == p1 ? 1 : 0, k -> false)); }
-    @Test void dagWaitsForInFlightOutput() { assertFalse(ECOPhaseScheduler.isComplete(dag(), 0, p -> 0, k -> k.equals(a))); }
-    @Test void dagCompletesAfterTasksAndOutputs() { assertTrue(ECOPhaseScheduler.isComplete(dag(), 0, p -> 0, k -> false)); }
-    @Test void cycleWaitsForWitnessEnd() { assertFalse(ECOPhaseScheduler.isComplete(cycle(), 1, p -> 0, k -> false)); }
-    @Test void cycleWaitsForRemainingTaskAndInFlightOutput() {
-        assertFalse(ECOPhaseScheduler.isComplete(cycle(), 2, p -> p == p2 ? 1 : 0, k -> false));
-        assertFalse(ECOPhaseScheduler.isComplete(cycle(), 2, p -> 0, k -> k.equals(b)));
+    @Test void dagWaitsForRemainingTasks() { assertFalse(ECOPhaseScheduler.isComplete(dag(), 0, p -> p == p1 ? 1 : 0)); }
+    @Test void dagCompletesWhenTasksDispatchedEvenIfOutputIsInFlight() {
+        // In-flight intermediate output is consumed by the next phase's input extraction;
+        // it must not gate completion of the producing phase.
+        assertTrue(ECOPhaseScheduler.isComplete(dag(), 0, p -> 0));
     }
-    @Test void cycleCompletesAfterWitnessTasksAndOutputs() { assertTrue(ECOPhaseScheduler.isComplete(cycle(), 2, p -> 0, k -> false)); }
+    @Test void cycleWaitsForWitnessEnd() { assertFalse(ECOPhaseScheduler.isComplete(cycle(), 1, p -> 0)); }
+    @Test void cycleWaitsForRemainingTaskButNotInFlightOutput() {
+        assertFalse(ECOPhaseScheduler.isComplete(cycle(), 2, p -> p == p2 ? 1 : 0));
+        assertTrue(ECOPhaseScheduler.isComplete(cycle(), 2, p -> 0));
+    }
+    @Test void cycleCompletesAfterWitnessTasksAndOutputs() { assertTrue(ECOPhaseScheduler.isComplete(cycle(), 2, p -> 0)); }
     @Test void busyProviderOrMissingInputDoesNotAdvanceWitness() {
         assertEquals(0, ECOPhaseScheduler.witnessAfterDispatch(0, false));
         assertEquals(1, ECOPhaseScheduler.witnessAfterDispatch(0, true));

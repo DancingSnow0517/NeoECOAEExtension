@@ -2,20 +2,20 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
+import java.util.function.Predicate;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Pure phase policy shared by runtime and focused scheduler tests. */
 public final class ECOPhaseScheduler {
     private ECOPhaseScheduler() {}
+    private static final ConcurrentHashMap<PlanIdentity.PatternIdentity, PatternSemantics> SEMANTIC_CACHE =
+        new ConcurrentHashMap<>();
 
     public static boolean metadataAvailable(boolean requiresOrderedCycleExecution,
             ECOExecutionSchedule schedule, boolean witnessMissing) {
@@ -102,15 +102,25 @@ public final class ECOPhaseScheduler {
     }
 
     private static PatternSemantics semantic(IPatternDetails pattern) {
+        var identity = PlanIdentity.patternIdentityFor(pattern);
+        if (identity != null) {
+            var cached = SEMANTIC_CACHE.get(identity);
+            if (cached != null) return cached;
+        }
         PatternSemanticAdapter adapter = PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern);
-        if (adapter == null) return new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
+        PatternSemantics result;
+        if (adapter == null) result = new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
             .analyze(pattern);
+        else {
         try {
-            return adapter.analyze(pattern);
+            result = adapter.analyze(pattern);
         } catch (RuntimeException rejected) {
-            return PatternSemantics.unsupported(pattern, null,
+            result = PatternSemantics.unsupported(pattern, null,
                 "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
         }
+        }
+        if (identity != null) SEMANTIC_CACHE.putIfAbsent(identity, result);
+        return result;
     }
 
     /** Pattern detail instances may be reconstructed by AE2; use the shared strict structural identity. */
@@ -119,32 +129,27 @@ public final class ECOPhaseScheduler {
     }
 
     public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
-            ToLongFunction<IPatternDetails> remainingTasks, Predicate<AEKey> hasInFlightOutput) {
+            ToLongFunction<IPatternDetails> remainingTasks) {
         if (phase.type() == ECOExecutionSchedule.Type.CYCLE && witnessIndex < phase.cycleWitness().size()) return false;
         for (var pattern : phase.patternSet()) {
             if (remainingTasks.applyAsLong(pattern) > 0) return false;
-            for (var output : producedAndReturned(pattern)) {
-                if (output != null && output.what() != null && hasInFlightOutput.test(output.what())) return false;
-            }
         }
         return true;
+    }
+
+    /**
+     * Compatibility overload for callers compiled against the pre-deadlock API.
+     * The in-flight predicate is intentionally ignored: transport state is not a
+     * phase-completion condition.
+     */
+    @Deprecated
+    public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
+            ToLongFunction<IPatternDetails> remainingTasks, Predicate<AEKey> ignoredInFlightPredicate) {
+        return isComplete(phase, witnessIndex, remainingTasks);
     }
 
     public static int witnessAfterDispatch(int witnessIndex, boolean accepted) {
         return accepted ? Math.addExact(witnessIndex, 1) : witnessIndex;
     }
 
-    private static List<GenericStack> producedAndReturned(IPatternDetails pattern) {
-        PatternSemantics semantics = semantic(pattern);
-        List<GenericStack> result = new ArrayList<>(semantics.producedOutputs());
-        result.addAll(semantics.returnedOutputs());
-        if (result.isEmpty()) {
-            try {
-                result.addAll(pattern.getOutputs());
-            } catch (RuntimeException ignored) {
-                // A malformed pattern cannot contribute an in-flight completion key.
-            }
-        }
-        return result;
-    }
 }
