@@ -13,6 +13,8 @@ public class NEConfig {
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
+    /** Temporary ordinary-path parallel dispatch ceiling until adaptive scheduling is wired in. */
+    public static final int MAX_ECO_CPU_PUSH_TICK_LIMIT = 16_384;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -98,11 +100,11 @@ public class NEConfig {
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
             "实际值仍会受可用协处理器数量限制。",
-            "默认不限制；设置具体值可限制超大合成作业每 tick 的推送量。",
+            "当前上限为 16384；后续动态发配策略接入后再调整。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
             "The effective value is still limited by the number of available co-processors.",
-            "The default is unlimited; set a concrete value to cap pushes per tick for very large crafting jobs.")
-        .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
+            "The temporary hard ceiling is 16384 until adaptive dispatch is integrated.")
+        .defineInRange("ecoCpuPushTickLimit", MAX_ECO_CPU_PUSH_TICK_LIMIT, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
@@ -129,7 +131,7 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
-    public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
+    public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
@@ -150,7 +152,7 @@ public class NEConfig {
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
-        ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
+        ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }
 

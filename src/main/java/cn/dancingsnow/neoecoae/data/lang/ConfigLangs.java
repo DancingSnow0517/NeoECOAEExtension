@@ -59,6 +59,7 @@ public class ConfigLangs {
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
+                "The temporary hard ceiling is 16384 until adaptive dispatch is integrated.\n" +
                 "The effective value is still capped by available co-processors."
         );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");

@@ -55,6 +55,11 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingCPULogic {
     private final Map<cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.PatternIdentity,
         List<ICraftingProvider>> providerTopologyCache = new HashMap<>();
+    /**
+     * Ordinary dispatch is deliberately policy-driven. The default fills currently visible provider capacity;
+     * adaptive policies can be installed without touching extraction, rollback or runtime accounting.
+     */
+    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = ECOParallelDispatchStrategy.INSTANCE;
     enum BatchMode { FINITE, VIRTUAL }
 
     /** Common batch dispatch entry point; mode-specific implementations retain their capability checks. */
@@ -119,6 +124,15 @@ public class ECOCraftingCPULogic {
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
+    }
+
+    public ECOCraftingDispatchStrategy getOrdinaryDispatchStrategy() {
+        return ordinaryDispatchStrategy;
+    }
+
+    /** Installs the ordinary-path scheduling policy used by subsequent engine passes. */
+    public void setOrdinaryDispatchStrategy(ECOCraftingDispatchStrategy strategy) {
+        this.ordinaryDispatchStrategy = java.util.Objects.requireNonNull(strategy, "strategy");
     }
 
     public ICraftingSubmitResult trySubmitJob(
@@ -234,8 +248,8 @@ public class ECOCraftingCPULogic {
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
-            // One engine pass is one tick. The pass snapshots eligible task ids and attempts each at most once;
-            // a compressed batch may still transfer many crafts in that single task attempt.
+            // One engine pass is one tick. The pass snapshots eligible task ids; the ordinary dispatch strategy
+            // decides how many one-craft provider calls may fill the currently available parallel lanes.
             executeCrafting(remainingOperations, cc, eg, level);
         } else {
             logStalledDispatch(job, job.activePhase(), remainingOperations, new DispatchDiagnostics(),
@@ -327,9 +341,12 @@ public class ECOCraftingCPULogic {
         return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
     }
 
-    private int calculateOperationLimit(int coProcessors, int configuredLimit) {
+    static int calculateOperationLimit(int coProcessors, int configuredLimit) {
         long baseLimit = (long) Math.max(0, coProcessors) + 1L;
-        long safeConfiguredLimit = Math.max(0, configuredLimit);
+        long safeConfiguredLimit = Math.min(
+            (long) NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
+            Math.max(0L, configuredLimit)
+        );
         return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
     }
 
@@ -450,50 +467,125 @@ public class ECOCraftingCPULogic {
 
                     // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
                     // (notably useless_mod's dynamic-output bridge) wrap this exact call site by descriptor.
-                    DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
-                    boolean sawAvailable = false;
-                    for (ICraftingProvider provider : candidateProviders) {
-                        if (provider.isBusy()) continue;
-                        sawAvailable = true;
-                        boolean flatRateProvider = paysFlatRateCraftingPower(provider);
-                        if (!flatRateProvider && energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
-                            diagnostics.energyBlockedProviders++;
-                            single = new DispatchResult.Waiting(DispatchResult.WaitReason.ENERGY_UNAVAILABLE);
-                            break;
+                    // The strategy only chooses order and attempt budget; this loop retains the transaction.
+                    var strategyContext = new ECOCraftingDispatchStrategy.DispatchContext(
+                        details,
+                        task.getValue().value,
+                        Math.max(0, maxPatterns - pushedPatterns),
+                        candidateProviders,
+                        estimateOrdinaryDispatchSlots(candidateProviders, Math.max(0, maxPatterns - pushedPatterns))
+                    );
+                    ECOCraftingDispatchStrategy.DispatchDecision strategyDecision;
+                    try {
+                        strategyDecision = ordinaryDispatchStrategy.choose(strategyContext);
+                        if (strategyDecision == null) {
+                            throw new IllegalStateException("ordinary dispatch strategy returned null");
                         }
-                        final boolean accepted;
-                        try {
-                            accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
-                                : provider.pushPattern(details, craftingContainer);
-                        } catch (RuntimeException failure) {
-                            diagnostics.providerRejections++;
-                            LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
-                                failure);
-                            continue;
-                        }
-                        if (!accepted) {
-                            diagnostics.providerRejections++;
-                            single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
-                            continue;
-                        }
-                        if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, patternPower);
-                        recordPushedPattern(job, execution, 1L);
-                        single = new DispatchResult.Accepted(1L);
-                        break;
+                    } catch (RuntimeException strategyFailure) {
+                        // A policy failure must not strand a crafting job. Fall back to the conservative built-in
+                        // policy while retaining the failure in the log for the policy implementation author.
+                        LOGGER.error("Ordinary crafting dispatch strategy failed; using parallel fallback", strategyFailure);
+                        strategyDecision = ECOParallelDispatchStrategy.INSTANCE.choose(strategyContext);
                     }
-                    if (!sawAvailable) {
-                        single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                    int ordinaryAttemptLimit = Math.min(strategyDecision.maxAttempts(), strategyContext.dispatchBudget());
+                    if (task.getValue().value < ordinaryAttemptLimit) {
+                        ordinaryAttemptLimit = (int) task.getValue().value;
                     }
-                    if (single instanceof DispatchResult.Accepted) {
-                        pushedPatterns++;
-                        if (this.job != job) break taskLoop;
-                        job.applyDispatchResult(details, single);
-                        postPatternOutputsChange(details);
-                    } else {
+                    List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
+                    if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
                         CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
                         continue taskLoop;
+                    }
+
+                    ordinaryDispatch: for (int attempt = 0; attempt < ordinaryAttemptLimit; attempt++) {
+                        if (task.getValue().value <= 0 || pushedPatterns >= maxPatterns) {
+                            break;
+                        }
+                        if (!hasAvailableProvider(dispatchProviders)) {
+                            diagnostics.tasksWithBusyProviders++;
+                            break;
+                        }
+
+                        KeyCounter attemptOutputs;
+                        KeyCounter attemptContainerItems;
+                        @Nullable KeyCounter[] attemptContainer;
+                        ECOExtractedPatternExecution attemptExecution;
+                        double attemptPower;
+                        if (attempt == 0) {
+                            // The first craft was already extracted for the shared fast-path offer search. Reuse
+                            // that exact container; extracting it a second time would leak one craft on fallback.
+                            attemptOutputs = expectedOutputs;
+                            attemptContainerItems = expectedContainerItems;
+                            attemptContainer = craftingContainer;
+                            attemptExecution = execution;
+                            attemptPower = patternPower;
+                        } else {
+                            attemptOutputs = new KeyCounter();
+                            attemptContainerItems = new KeyCounter();
+                            attemptContainer = CraftingCpuHelper.extractPatternInputs(
+                                details, inventory, level, attemptOutputs, attemptContainerItems);
+                            attemptExecution = attemptContainer == null ? null : ECOExtractedPatternExecution.create(
+                                details, attemptContainer, attemptOutputs, attemptContainerItems, level);
+                            attemptPower = attemptContainer == null
+                                ? 0.0D : CraftingCpuHelper.calculatePatternPower(attemptContainer);
+                        }
+                        if (attemptContainer == null) {
+                            diagnostics.tasksMissingInputs++;
+                            if (diagnostics.firstMissingInputPattern == null) {
+                                diagnostics.firstMissingInputPattern = details;
+                            }
+                            break;
+                        }
+
+                        DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                        boolean sawAvailable = false;
+                        for (ICraftingProvider provider : dispatchProviders) {
+                            if (provider.isBusy()) continue;
+                            sawAvailable = true;
+                            boolean flatRateProvider = paysFlatRateCraftingPower(provider);
+                            if (!flatRateProvider && energyService.extractAEPower(attemptPower, Actionable.SIMULATE,
+                                    PowerMultiplier.CONFIG) < attemptPower - 0.01) {
+                                diagnostics.energyBlockedProviders++;
+                                single = new DispatchResult.Waiting(DispatchResult.WaitReason.ENERGY_UNAVAILABLE);
+                                break;
+                            }
+                            final boolean accepted;
+                            try {
+                                // This exact call site is part of the integration contract with dynamic-output
+                                // provider mixins. Do not move it into a helper without updating those mixins.
+                                accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                    ? patternBus.pushPattern(attemptExecution, job.link.getCraftingID())
+                                    : provider.pushPattern(details, attemptContainer);
+                            } catch (RuntimeException failure) {
+                                diagnostics.providerRejections++;
+                                LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
+                                    failure);
+                                continue;
+                            }
+                            if (!accepted) {
+                                diagnostics.providerRejections++;
+                                single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
+                                continue;
+                            }
+                            if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
+                            recordPushedPattern(job, attemptExecution, 1L);
+                            single = new DispatchResult.Accepted(1L);
+                            break;
+                        }
+                        if (!sawAvailable) {
+                            single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                        }
+                        if (single instanceof DispatchResult.Accepted) {
+                            pushedPatterns++;
+                            if (this.job != job) break taskLoop;
+                            job.applyDispatchResult(details, single);
+                            postPatternOutputsChange(details);
+                            if (task.getValue().value <= 0) continue taskLoop;
+                            if (pushedPatterns == maxPatterns) break taskLoop;
+                            continue;
+                        }
+                        CraftingCpuHelper.reinjectPatternInputs(inventory, attemptContainer);
+                        break ordinaryDispatch;
                     }
                 }
             }
@@ -706,6 +798,36 @@ public class ECOCraftingCPULogic {
             }
         }
         return false;
+    }
+
+    /**
+     * Conservative ordinary-path capacity hint supplied to the policy layer.
+     *
+     * <p>ECO pattern buses expose the number of reachable worker slots, while generic AE2 providers only expose
+     * the busy predicate. Generic providers therefore contribute the remaining CPU budget and stop naturally when
+     * their live {@code isBusy()} gate closes (or a push is rejected). Network-switch buses are deduplicated by
+     * dispatch scope so the same pooled workers are not counted once per physical bus.</p>
+     */
+    private int estimateOrdinaryDispatchSlots(List<ICraftingProvider> candidateProviders, int dispatchBudget) {
+        var visitedScopes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        long slots = 0L;
+        for (ICraftingProvider provider : candidateProviders) {
+            if (provider.isBusy()) continue;
+            long contribution;
+            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+                if (controller == null || !visitedScopes.add(controller.getDispatchScope())) continue;
+                contribution = Math.max(1L, patternBus.getAvailableThreadSlots());
+            } else {
+                // Generic providers expose no numeric capacity. Their isBusy() contract is the live gate, so allow
+                // the policy to probe up to the remaining CPU budget and stop as soon as the provider is saturated.
+                contribution = Math.max(1L, dispatchBudget);
+            }
+            slots = slots > Integer.MAX_VALUE - contribution
+                ? Integer.MAX_VALUE : slots + contribution;
+            if (slots >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        }
+        return (int) slots;
     }
 
     private int tryPushVerifiedFastPathBatch(
