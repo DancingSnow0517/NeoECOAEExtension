@@ -14,10 +14,9 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
  * @param maxKeys      relevant-key cap for one SCC; above it the component is {@code TOO_COMPLEX}
  * @param maxPatterns  pattern cap for one SCC; above it the component is {@code TOO_COMPLEX}
  * @param maxStates    distinct-marking cap shared by the first search and the whole seed ladder
- * @param maxFirings   breadth-first depth cap. This is an operational cap of the current per-firing BFS
- *                     model, not a mathematical guarantee: one firing is one pattern execution, so a target
- *                     of N units costs roughly N depth. Re-evaluate it if batch firing or witness
- *                     compression is ever added.
+ * @param maxFirings   search macro-step cap. A macro-step may contain a verified batch of the same pattern, so
+ *                     this is no longer a cap on the exact pattern firing counts. It remains an operational cap,
+ *                     not a mathematical guarantee: targets that need more interleaving steps remain unknown.
  * @param maxSeedLadderSteps number of doubling steps the seed ladder may verify
  */
 public record CycleSolveLimits(

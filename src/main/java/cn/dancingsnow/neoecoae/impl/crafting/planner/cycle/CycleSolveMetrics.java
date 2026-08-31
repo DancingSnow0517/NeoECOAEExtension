@@ -6,6 +6,7 @@ public record CycleSolveMetrics(
     int transitions,
     long statesVisited,
     long statesExpanded,
+    /** Expanded per-firing witness length; zero means the exact witness is retained only in compact batch form. */
     int witnessLength,
     int seedLadderSteps,
     boolean stateBudgetExhausted,

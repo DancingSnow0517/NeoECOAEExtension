@@ -33,7 +33,7 @@ public record ECOPlanningResult(
             || status == PlanningStatus.INTERNAL_ERROR;
     }
 
-    /** Ordered cycle witness consumed by the ECO CPU; empty means vanilla scheduling is preserved. */
+    /** Expanded ordered cycle witness consumed by the ECO CPU; large plans may retain only a compact execution plan. */
     public List<IPatternDetails> cycleWitness() {
         return executionSchedule().phases().stream().filter(p -> p.type() == ECOExecutionSchedule.Type.CYCLE)
             .flatMap(p -> p.cycleWitness().stream())
@@ -44,6 +44,31 @@ public record ECOPlanningResult(
         return status == PlanningStatus.SUCCESS && plan != null
             ? ECOExecutionSchedule.from(components, executionComponentOrder, plan.patternTimes())
             : ECOExecutionSchedule.from(components, executionComponentOrder);
+    }
+
+    /** Creates the immutable runtime hand-off once the physical plan has been selected. */
+    public ECOExecutionContract executionContract() {
+        if (plan == null) {
+            throw new IllegalStateException("Cannot create an execution contract without a plan");
+        }
+        var signature = cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.of(plan);
+        if (signature == null) throw new IllegalStateException("Plan identity unavailable");
+        ECOExecutionSchedule schedule;
+        try {
+            schedule = executionSchedule();
+        } catch (RuntimeException ex) {
+            return new ECOExecutionContract(planningId, signature, ExecutionMode.BLOCKED, null,
+                "SCHEDULE_BUILD_FAILED:" + ex.getClass().getSimpleName());
+        }
+        boolean cycle = components.stream().anyMatch(c -> c.type() == ComponentPlanningResult.Type.CYCLIC
+            && c.cycleStatus() == CyclePlanningStatus.SOLVED);
+        if (cycle && (schedule == null || schedule.phases().stream().noneMatch(p -> p.type() == ECOExecutionSchedule.Type.CYCLE))) {
+            return new ECOExecutionContract(planningId, signature, ExecutionMode.BLOCKED, schedule,
+                "CYCLE_METADATA_MISSING");
+        }
+        ExecutionMode mode = cycle ? ExecutionMode.ORDERED_CYCLE
+            : schedule != null && !schedule.phases().isEmpty() ? ExecutionMode.PHASED_DAG : ExecutionMode.NATIVE;
+        return new ECOExecutionContract(planningId, signature, mode, schedule, null);
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,

@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionContract;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -41,6 +42,20 @@ public final class ECOPlanningResultRegistry {
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {
+    }
+
+    /** Strict resolver used by confirmation and CPU code. It never transfers metadata by output alone. */
+    public static @Nullable ECOExecutionContract resolveContract(ICraftingPlan plan,
+            @Nullable ECOPlanningResult attached) {
+        if (plan == null) return null;
+        if (attached != null && attached.plan() != null && PlanIdentity.matches(plan, attached.plan())) {
+            try { return attached.executionContract(); }
+            catch (RuntimeException ignored) { return null; }
+        }
+        ECOPlanningResult registered = find(plan);
+        if (registered == null || registered.plan() == null || !PlanIdentity.matches(plan, registered.plan())) return null;
+        try { return registered.executionContract(); }
+        catch (RuntimeException ignored) { return null; }
     }
 
     /** Store only metadata whose source result and registered plan have the same complete identity. */

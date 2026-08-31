@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,11 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         public ComponentExecutionPhase { patternSet = Set.copyOf(patternSet); cycleWitness = List.copyOf(cycleWitness); }
     }
     public enum Type { DAG, CYCLE }
+
+    /** Builds the final physical graph from compiler-normalized semantics. */
+    public static SelectedExecutionGraph selectedGraph(Map<IPatternDetails, PatternSemantics> selectedSemantics) {
+        return SelectedExecutionGraph.build(selectedSemantics);
+    }
 
     public static ECOExecutionSchedule from(List<ComponentPlanningResult> components, List<Integer> executionOrder) {
         return from(components, executionOrder, null);

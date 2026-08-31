@@ -32,9 +32,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Numeric planner whose only traversal input is the SCC condensation DAG. */
 public final class ComponentPlanner {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ComponentPlanner.class);
+
     public record Outcome(
         PlanningStatus status,
         SolveState state,
@@ -74,6 +78,12 @@ public final class ComponentPlanner {
             KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
+        LOGGER.info(
+            "[ECO-CYCLE-DEBUG] enabled={} acyclic={} components={} cyclicComponents={} deferredCandidates={} "
+                + "cycleMembers={}",
+            cyclePlanningEnabled, activeSelection.acyclic(), activeSelection.condensation().components().size(),
+            activeSelection.cyclicComponents().size(), activeSelection.deferredCyclicCandidates().size(),
+            activeSelection.cyclicComponents().stream().map(CycleComponent::members).toList());
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
             .filter(AcyclicComponent.class::isInstance)
@@ -214,6 +224,14 @@ public final class ComponentPlanner {
                     }
                 }
             }
+            if (cyclePlanningEnabled) {
+                LOGGER.info(
+                    "[ECO-CYCLE-DEBUG] componentId={} members={} requiredOutputs={} cycleStatus={} "
+                        + "cycleResultStatus={} cyclePatternTimes={} externalDemandStatus={} ",
+                    cycle.componentId(), cycle.members(), exactRequiredOutputs, cycleStatus,
+                    cycleResult == null ? null : cycleResult.status(),
+                    cycleResult == null ? Map.of() : cycleResult.patternTimes(), externalDemandStatus);
+            }
             List<cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphEdge> externalEdges = cycle
                 .outgoingDependencies().stream().flatMap(dependency -> dependency.relationships().stream()).toList();
             trace.addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(), externalEdges,
@@ -242,6 +260,13 @@ public final class ComponentPlanner {
         if (unresolvedCycle && (status == PlanningStatus.SUCCESS || status == PlanningStatus.MISSING_ITEMS)) {
             status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
                 ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
+        }
+        if (cyclePlanningEnabled) {
+            LOGGER.info(
+                "[ECO-CYCLE-DEBUG] final status={} unresolvedCycle={} amountUnrepresentable={} "
+                    + "statePatternTimes={} stateUsed={} stateEmitted={} stateMissing={}",
+                status, unresolvedCycle, amountUnrepresentable, acyclic.state().plannerPatternTimes(),
+                acyclic.state().usedAmounts(), acyclic.state().emittedAmounts(), acyclic.state().missingAmounts());
         }
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
             List.copyOf(componentResults), activeCondensation.executionOrder().stream()

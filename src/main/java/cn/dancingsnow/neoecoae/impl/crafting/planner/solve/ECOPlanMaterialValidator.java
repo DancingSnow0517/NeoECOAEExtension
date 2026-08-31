@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
@@ -17,14 +18,27 @@ public final class ECOPlanMaterialValidator {
      * plan's initial/emitted items and physical pattern outputs. This check intentionally uses the raw AE2 pattern
      * contract: it is the contract the CPU will execute after all planner metadata has been discarded.
      */
-    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount) {
+    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
+            KeyCounter initialInventory) {
         if (state == null || finalGoal == null || finalAmount <= 0L) {
             return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "INVALID_PLAN_ARGUMENT");
         }
 
         Map<AEKey, PlannerAmount> supply = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> demand = new LinkedHashMap<>();
+        // `used` already accounts for the portion of the initial inventory reserved by the planner. Add only the
+        // unreserved remainder here; adding the complete inventory on top of `used` would double-count seeds and
+        // could turn an actually open material balance into a false SUCCESS.
         state.usedAmounts().forEach((key, amount) -> add(supply, key, amount));
+        if (initialInventory != null) {
+            for (var entry : initialInventory) {
+                if (entry.getLongValue() <= 0) continue;
+                PlannerAmount available = PlannerAmount.of(entry.getLongValue());
+                PlannerAmount reserved = state.usedAmounts().getOrDefault(entry.getKey(), PlannerAmount.ZERO);
+                PlannerAmount remainder = available.subtract(reserved).max(PlannerAmount.ZERO);
+                add(supply, entry.getKey(), remainder);
+            }
+        }
         state.emittedAmounts().forEach((key, amount) -> add(supply, key, amount));
 
         try {
@@ -88,6 +102,11 @@ public final class ECOPlanMaterialValidator {
             }
         }
         return null;
+    }
+
+    /** Backward-compatible form for callers that intentionally validate only the planner counters. */
+    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount) {
+        return firstDeficit(state, finalGoal, finalAmount, null);
     }
 
     private static void add(Map<AEKey, PlannerAmount> counter, AEKey key, PlannerAmount amount) {

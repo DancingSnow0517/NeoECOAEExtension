@@ -516,7 +516,15 @@ public class ECOCraftingCPULogic {
     private void logCycleMetadataFailureOnce(ExecutingCraftingJob job) {
         if (job.cycleMetadataErrorLogged) return;
         LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch permanently (fail-safe) "
-            + "error={} finalOutput={}", job.permanentExecutionError, job.finalOutput);
+            + "error={} finalOutput={} craftId={} cycleExpected={} cycleWitnessMissing={} "
+            + "requiresComponentScheduling={} schedulePresent={} phaseCount={} cyclePhaseCount={}",
+            job.permanentExecutionError, job.finalOutput, job.link == null ? null : job.link.getCraftingID(),
+            job.cycleExpected, job.cycleWitnessMissing, job.requiresComponentScheduling,
+            job.executionSchedule != null,
+            job.executionSchedule == null ? 0 : job.executionSchedule.phases().size(),
+            job.executionSchedule == null ? 0 : job.executionSchedule.phases().stream()
+            .filter(phase -> phase.type()
+                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE).count());
         job.cycleMetadataErrorLogged = true;
     }
 

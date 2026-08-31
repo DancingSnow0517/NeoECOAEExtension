@@ -44,9 +44,10 @@ public final class ECOCraftingPlannerService {
         private final AEKey goal;
         private final KeyCounter inventory;
         private final boolean cyclePlanningEnabled;
-        private CompiledNetwork compiled;
-        private CondensationGraph condensation;
-        private ActiveRouteSelector.Selection activeSelection;
+        private volatile CompiledNetwork compiled;
+        private volatile CondensationGraph condensation;
+        private volatile ActiveRouteSelector.Selection activeSelection;
+        private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
                 boolean cyclePlanningEnabled) {
@@ -60,18 +61,11 @@ public final class ECOCraftingPlannerService {
                 throws InterruptedException {
             long startedNanos = System.nanoTime();
             try {
-                if (compiled == null) {
-                    compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled, cancellation);
-                }
-                if (condensation == null) {
-                    var graph = graphBuilder.build(compiled, cancellation);
-                    var sccs = sccAnalyzer.analyze(graph, cancellation);
-                    condensation = CondensationGraph.build(graph, sccs, cancellation);
-                }
+                ensureCompiled(cancellation);
                 ComponentPlanner.Outcome solved;
                 if (cyclePlanningEnabled) {
-                    if (activeSelection == null) {
-                        activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
+                    if (activeSelection == null) synchronized (initializationLock) {
+                        if (activeSelection == null) activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
                     }
                     solved = componentPlanner.plan(compiled, activeSelection, inventory, amount, true, cancellation);
                 } else {
@@ -114,9 +108,21 @@ public final class ECOCraftingPlannerService {
             }
         }
 
+        private void ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
+            if (compiled != null && condensation != null) return;
+            synchronized (initializationLock) {
+                if (compiled == null) compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled, cancellation);
+                if (condensation == null) {
+                    var graph = graphBuilder.build(compiled, cancellation);
+                    var sccs = sccAnalyzer.analyze(graph, cancellation);
+                    condensation = CondensationGraph.build(graph, sccs, cancellation);
+                }
+            }
+        }
+
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS) return solved;
-            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount);
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory);
             if (issue == null) return solved;
 
             String key = issue.key() == null ? "<plan>" : issue.key().toString();

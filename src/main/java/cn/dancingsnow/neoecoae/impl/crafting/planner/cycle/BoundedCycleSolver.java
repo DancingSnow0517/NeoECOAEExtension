@@ -43,6 +43,10 @@ import org.jetbrains.annotations.Nullable;
  * cached: every answer belongs to the one stock snapshot it was computed from.
  */
 public final class BoundedCycleSolver implements CycleSolver {
+    /** Keep the legacy per-firing witness only while it remains cheap to materialize. */
+    private static final long MAX_EXPANDED_WITNESS = 100_000L;
+    /** The greedy walk is only a fast probe; the bounded search remains responsible for difficult interleavings. */
+    private static final int MAX_GREEDY_MACRO_STEPS = 4_096;
 
     @Override
     public CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation)
@@ -76,10 +80,11 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         if (first.kind == Search.Kind.REACHED) {
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.WITNESS_FOUND,
-                "Found a firing order of " + first.witness.size() + " step(s) within the stock snapshot"));
+                "Found a verified batch firing order of " + first.witness.size()
+                    + " macro-step(s) within the stock snapshot"));
             return witnessResult(model, model.stock, first.witness, diagnostics,
                 new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited, expanded,
-                    first.witness.size(), 0, false, false));
+                    expandedWitnessLength(first.witness), 0, false, false));
         }
         if (first.kind != Search.Kind.EXHAUSTED) {
             return budgetResult(model, first, visited, expanded, 0);
@@ -116,7 +121,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                         + ") produces a verified firing order"));
                 return witnessResult(model, start, attempt.witness, diagnostics,
                     new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited, expanded,
-                        attempt.witness.size(), step + 1, false, false));
+                        expandedWitnessLength(attempt.witness), step + 1, false, false));
             }
             if (attempt.kind != Search.Kind.EXHAUSTED) break;
         }
@@ -295,15 +300,22 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     // ---------------------------------------------------------------------------------------------------
-    // Bounded breadth-first marking search
+    // Bounded batch marking search
     // ---------------------------------------------------------------------------------------------------
 
     /**
-     * Breadth-first over markings, transitions tried in ascending pattern id.
+     * Best-first over markings, with each edge representing a safe batch of one transition.
      *
-     * <p>Breadth-first buys two things: the first witness found is one of minimum firing count, and because
-     * a marking is therefore first reached at its minimum depth, exact-marking deduplication is enough to
-     * keep the search finite without discarding any shorter solution.
+     * <p>The old search treated every execution as a separate edge. That is needlessly expensive for the common
+     * bottom-of-the-tree growth loop where one pattern consumes a batch of an intermediate and another pattern
+     * converts the whole batch back into a growing raw-material stock. A successor now carries a positive batch
+     * count. The count is bounded by the current marking for internal inputs; boundary inputs remain lazily
+     * importable exactly as they were in the single-firing model.
+     *
+     * <p>One-firing, target-boundary, dependency-unblocking and maximal-safe batches are all retained as candidate
+     * edges. A returned path is still replayed exactly before it is accepted, so batching can improve search cost
+     * without weakening the non-negative-material invariant. The depth limit is therefore a limit on search macro
+     * steps, while the exact execution counts remain in the result's pattern map.
      */
     private Search search(Model model, PlannerAmount[] start, int stateBudget, int maxFirings, ECOCancellation cancellation)
             throws InterruptedException {
@@ -312,10 +324,13 @@ public final class BoundedCycleSolver implements CycleSolver {
         int transitionCount = model.transitionCount();
         List<Node> nodes = new ArrayList<>();
         Set<Marking> seen = new HashSet<>();
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        java.util.PriorityQueue<Integer> queue = new java.util.PriorityQueue<>((left, right) -> {
+            int progress = compareProgress(model, nodes.get(left), nodes.get(right));
+            return progress != 0 ? progress : Integer.compare(left, right);
+        });
 
         PlannerAmount[] root = Arrays.copyOf(start, n);
-        nodes.add(new Node(root, -1, -1, 0));
+        nodes.add(new Node(root, -1, null, 0));
         seen.add(new Marking(root));
         if (satisfied(root, model.required)) {
             outcome.kind = Search.Kind.REACHED;
@@ -323,11 +338,15 @@ public final class BoundedCycleSolver implements CycleSolver {
             outcome.statesVisited = 1;
             return outcome;
         }
-        queue.addLast(0);
+
+        Search greedy = greedySearch(model, root, stateBudget, maxFirings, cancellation);
+        if (greedy != null) return greedy;
+
+        queue.add(0);
 
         while (!queue.isEmpty()) {
             cancellation.checkpoint();
-            int index = queue.pollFirst();
+            int index = queue.poll();
             Node node = nodes.get(index);
             if (node.depth >= maxFirings) {
                 outcome.firingDepthTruncated = true;
@@ -335,27 +354,31 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
             outcome.statesExpanded++;
             for (int t = 0; t < transitionCount; t++) {
-                if (!enabled(node.marking, model.cons[t], model.suppliable)) {
+                List<Long> batches = candidateBatchCounts(model, node.marking, t);
+                if (batches.isEmpty()) {
                     outcome.considerUnblock(model, node.marking, t);
                     continue;
                 }
-                PlannerAmount[] next = fire(node.marking, model.cons[t], model.prod[t]);
-                Marking key = new Marking(next);
-                if (seen.contains(key)) continue;
-                if (seen.size() >= stateBudget) {
-                    outcome.stateBudgetExhausted = true;
-                    break;
+                for (long batch : batches) {
+                    PlannerAmount[] next = fireBatch(model, node.marking, t, batch);
+                    Marking key = new Marking(next);
+                    if (seen.contains(key)) continue;
+                    if (seen.size() >= stateBudget) {
+                        outcome.stateBudgetExhausted = true;
+                        break;
+                    }
+                    seen.add(key);
+                    int child = nodes.size();
+                    nodes.add(new Node(next, index, new BatchFiring(t, batch), node.depth + 1));
+                    if (satisfied(next, model.required)) {
+                        outcome.kind = Search.Kind.REACHED;
+                        outcome.witness = witnessOf(nodes, child);
+                        outcome.statesVisited = seen.size();
+                        return outcome;
+                    }
+                    queue.add(child);
                 }
-                seen.add(key);
-                int child = nodes.size();
-                nodes.add(new Node(next, index, t, node.depth + 1));
-                if (satisfied(next, model.required)) {
-                    outcome.kind = Search.Kind.REACHED;
-                    outcome.witness = witnessOf(nodes, child);
-                    outcome.statesVisited = seen.size();
-                    return outcome;
-                }
-                queue.addLast(child);
+                if (outcome.stateBudgetExhausted) break;
             }
             if (outcome.stateBudgetExhausted) break;
         }
@@ -367,31 +390,209 @@ public final class BoundedCycleSolver implements CycleSolver {
         return outcome;
     }
 
-    private static List<Integer> witnessOf(List<Node> nodes, int leaf) {
-        ArrayDeque<Integer> reversed = new ArrayDeque<>();
+    /**
+     * Cheap maximal-batch walk used before the general search. Bottom-of-tree material loops usually have only one
+     * enabled transition at each wave; taking its largest safe batch then reaches the next wave in logarithmic time.
+     * The walk is deliberately heuristic: if it gets stuck, the exact bounded search below still receives the
+     * original root and all smaller candidates.
+     */
+    private static Search greedySearch(Model model, PlannerAmount[] start, int stateBudget, int maxFirings,
+            ECOCancellation cancellation) throws InterruptedException {
+        PlannerAmount[] marking = Arrays.copyOf(start, start.length);
+        Set<Marking> seen = new HashSet<>();
+        List<BatchFiring> witness = new ArrayList<>();
+        seen.add(new Marking(marking));
+
+        int greedyLimit = Math.min(maxFirings, MAX_GREEDY_MACRO_STEPS);
+        for (int depth = 0; depth < greedyLimit; depth++) {
+            cancellation.checkpoint();
+            if (satisfied(marking, model.required)) {
+                Search result = new Search();
+                result.kind = Search.Kind.REACHED;
+                result.witness = List.copyOf(witness);
+                result.statesVisited = seen.size();
+                result.statesExpanded = witness.size();
+                return result;
+            }
+
+            Lookahead bestLookahead = null;
+            PlannerAmount bestScore = null;
+            PlannerAmount[] bestMarking = null;
+            BatchFiring bestFiring = null;
+            for (int transition = 0; transition < model.transitionCount(); transition++) {
+                for (long batch : candidateBatchCounts(model, marking, transition)) {
+                    PlannerAmount[] next = fireBatch(model, marking, transition, batch);
+                    if (seen.contains(new Marking(next))) continue;
+                    PlannerAmount score = deficitScore(model, next);
+                    Lookahead lookahead = lookaheadScore(model, next, 2);
+                    if (bestFiring == null || compareLookahead(lookahead, bestLookahead) < 0
+                            || compareLookahead(lookahead, bestLookahead) == 0 && score.compareTo(bestScore) < 0
+                            || compareLookahead(lookahead, bestLookahead) == 0 && score.equals(bestScore)
+                                && batch < bestFiring.count()) {
+                        bestLookahead = lookahead;
+                        bestScore = score;
+                        bestMarking = next;
+                        bestFiring = new BatchFiring(transition, batch);
+                    }
+                }
+            }
+            if (bestFiring == null) return null;
+            if (seen.size() >= stateBudget) return null;
+            seen.add(new Marking(bestMarking));
+            witness.add(bestFiring);
+            marking = bestMarking;
+        }
+        return satisfied(marking, model.required) ? reachedSearch(witness, seen) : null;
+    }
+
+    private static Lookahead lookaheadScore(Model model, PlannerAmount[] marking, int steps) {
+        Lookahead best = new Lookahead(deficitScore(model, marking), 0);
+        if (steps <= 0) return best;
+        for (int transition = 0; transition < model.transitionCount(); transition++) {
+            for (long batch : candidateBatchCounts(model, marking, transition)) {
+                Lookahead child = lookaheadScore(model,
+                    fireBatch(model, marking, transition, batch), steps - 1);
+                Lookahead candidate = new Lookahead(child.score(), child.steps() + 1);
+                if (compareLookahead(candidate, best) < 0) best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static int compareLookahead(Lookahead left, Lookahead right) {
+        if (right == null) return -1;
+        int score = left.score().compareTo(right.score());
+        return score != 0 ? score : Integer.compare(left.steps(), right.steps());
+    }
+
+    private static Search reachedSearch(List<BatchFiring> witness, Set<Marking> seen) {
+        Search result = new Search();
+        result.kind = Search.Kind.REACHED;
+        result.witness = List.copyOf(witness);
+        result.statesVisited = seen.size();
+        result.statesExpanded = witness.size();
+        return result;
+    }
+
+    /**
+     * Returns deterministic batch sizes for one transition at one marking.
+     *
+     * <p>The maximal safe batch is the important fast path. The smaller candidates preserve useful alternate
+     * interleavings when another transition needs an intermediate before the maximal batch would consume it all.
+     */
+    private static List<Long> candidateBatchCounts(Model model, PlannerAmount[] marking, int transition) {
+        PlannerAmount maximum = maximumSafeBatch(model, marking, transition);
+        if (maximum.signum() <= 0) return List.of();
+
+        Set<Long> candidates = new LinkedHashSet<>();
+        addBatchCandidate(candidates, PlannerAmount.ONE, maximum);
+
+        long[] consumes = model.cons[transition];
+        long[] produces = model.prod[transition];
+        for (int i = 0; i < model.keyCount(); i++) {
+            PlannerAmount delta = PlannerAmount.of(produces[i]).subtract(consumes[i]);
+            if (delta.signum() <= 0 || model.required[i].compareTo(marking[i]) <= 0) continue;
+            addBatchCandidate(candidates,
+                model.required[i].subtract(marking[i]).ceilDiv(delta), maximum);
+        }
+
+        // Add counts that make a currently disabled internal input of another transition available. This retains
+        // interleavings such as "produce enough catalyst, then switch transition" without enumerating every count.
+        for (int other = 0; other < model.transitionCount(); other++) {
+            for (int i = 0; i < model.keyCount(); i++) {
+                long needed = model.cons[other][i];
+                if (needed <= 0L || model.suppliable[i] || marking[i].compareTo(PlannerAmount.of(needed)) >= 0) {
+                    continue;
+                }
+                PlannerAmount delta = PlannerAmount.of(produces[i]).subtract(consumes[i]);
+                if (delta.signum() <= 0) continue;
+                addBatchCandidate(candidates,
+                    PlannerAmount.of(needed).subtract(marking[i]).ceilDiv(delta), maximum);
+            }
+        }
+
+        addBatchCandidate(candidates, maximum, maximum);
+        return candidates.stream().sorted(java.util.Comparator.reverseOrder()).toList();
+    }
+
+    private static PlannerAmount maximumSafeBatch(Model model, PlannerAmount[] marking, int transition) {
+        PlannerAmount maximum = null;
+        for (int i = 0; i < model.keyCount(); i++) {
+            long consumed = model.cons[transition][i];
+            if (consumed <= 0L || model.suppliable[i]) continue;
+            PlannerAmount available = marking[i].divide(PlannerAmount.of(consumed));
+            maximum = maximum == null ? available : maximum.min(available);
+        }
+        // A transition with no internal input is already structurally unconstrained. Permit a target-directed
+        // batch, but keep the candidate generator finite by never inventing an unbounded maximal successor.
+        return maximum == null ? PlannerAmount.of(Long.MAX_VALUE) : maximum;
+    }
+
+    private static void addBatchCandidate(Set<Long> candidates, PlannerAmount candidate, PlannerAmount maximum) {
+        if (candidate == null || candidate.signum() <= 0 || !candidate.fitsLong()
+                || candidate.compareTo(maximum) > 0) return;
+        candidates.add(candidate.longValueExact());
+    }
+
+    private static int compareProgress(Model model, Node left, Node right) {
+        PlannerAmount leftDeficit = deficitScore(model, left.marking);
+        PlannerAmount rightDeficit = deficitScore(model, right.marking);
+        int deficit = leftDeficit.compareTo(rightDeficit);
+        if (deficit != 0) return deficit;
+        return Integer.compare(left.depth, right.depth);
+    }
+
+    private static PlannerAmount deficitScore(Model model, PlannerAmount[] marking) {
+        PlannerAmount result = PlannerAmount.ZERO;
+        for (int i = 0; i < model.keyCount(); i++) {
+            if (model.required[i].compareTo(marking[i]) > 0) {
+                result = result.add(model.required[i].subtract(marking[i]));
+            }
+        }
+        return result;
+    }
+
+    private static List<BatchFiring> witnessOf(List<Node> nodes, int leaf) {
+        ArrayDeque<BatchFiring> reversed = new ArrayDeque<>();
         int cursor = leaf;
         while (cursor > 0) {
             Node node = nodes.get(cursor);
-            reversed.addFirst(node.transition);
+            reversed.addFirst(node.firing);
             cursor = node.parent;
         }
         return List.copyOf(reversed);
     }
 
-    private static boolean enabled(PlannerAmount[] marking, long[] cons, boolean[] suppliable) {
-        for (int i = 0; i < cons.length; i++) {
-            if (cons[i] > 0 && !suppliable[i] && marking[i].compareTo(PlannerAmount.of(cons[i])) < 0) return false;
-        }
-        return true;
-    }
-
-    private static PlannerAmount[] fire(PlannerAmount[] marking, long[] cons, long[] prod) {
+    private static PlannerAmount[] fireBatch(Model model, PlannerAmount[] marking, int transition, long batch) {
         PlannerAmount[] next = marking.clone();
+        PlannerAmount count = PlannerAmount.of(batch);
+        long[] cons = model.cons[transition];
+        long[] prod = model.prod[transition];
         for (int i = 0; i < next.length; i++) {
-            if (cons[i] > 0) next[i] = next[i].subtract(cons[i]).max(PlannerAmount.ZERO);
-            if (prod[i] > 0) next[i] = next[i].add(prod[i]);
+            if (cons[i] <= 0L && prod[i] <= 0L) continue;
+            if (model.suppliable[i]) {
+                next[i] = advanceWithBoundarySupply(marking[i], cons[i], prod[i], count);
+            } else {
+                PlannerAmount consumed = PlannerAmount.of(cons[i]).multiply(count);
+                PlannerAmount produced = PlannerAmount.of(prod[i]).multiply(count);
+                next[i] = marking[i].subtract(consumed).add(produced);
+            }
         }
         return next;
+    }
+
+    /** Final marking after a repeated transition whose boundary inputs may be imported on demand. */
+    private static PlannerAmount advanceWithBoundarySupply(PlannerAmount marking, long consumed, long produced,
+            PlannerAmount count) {
+        if (count.signum() <= 0) return marking;
+        PlannerAmount c = PlannerAmount.of(consumed);
+        PlannerAmount p = PlannerAmount.of(produced);
+        if (consumed <= 0L) return marking.add(p.multiply(count));
+        if (produced >= consumed) {
+            PlannerAmount first = marking.subtract(c).max(PlannerAmount.ZERO).add(p);
+            return first.add(p.subtract(c).multiply(count.subtract(PlannerAmount.ONE)));
+        }
+        return marking.subtract(c.multiply(count)).add(p.multiply(count)).max(p);
     }
 
     private static boolean satisfied(PlannerAmount[] marking, PlannerAmount[] required) {
@@ -422,7 +623,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET, List.copyOf(diagnostics), metrics);
     }
 
-    private CycleSolveResult witnessResult(Model model, PlannerAmount[] start, List<Integer> witness,
+    private CycleSolveResult witnessResult(Model model, PlannerAmount[] start, List<BatchFiring> witness,
             List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
         Simulation actual = simulate(model, start, witness);
         if (!actual.lazySeed.isEmpty()) {
@@ -447,12 +648,27 @@ public final class BoundedCycleSolver implements CycleSolver {
         });
 
         Map<IPatternDetails, Long> patternTimes = new LinkedHashMap<>();
-        List<CycleFiring> firings = new ArrayList<>(witness.size());
-        for (int step = 0; step < witness.size(); step++) {
-            CompiledPattern pattern = model.transitions.get(witness.get(step));
-            firings.add(new CycleFiring(step, pattern));
-            patternTimes.merge(pattern.details(), 1L, Long::sum);
+        List<PatternRun> executionPlan = new ArrayList<>(witness.size());
+        try {
+            for (BatchFiring firing : witness) {
+                CompiledPattern pattern = model.transitions.get(firing.transition());
+                long previous = patternTimes.getOrDefault(pattern.details(), 0L);
+                patternTimes.put(pattern.details(), Math.addExact(previous, firing.count()));
+                appendRun(executionPlan, pattern, firing.count());
+            }
+        } catch (ArithmeticException overflow) {
+            diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                "Batch firing count exceeds AE2 long range"));
+            CycleSolveMetrics overflowMetrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(),
+                metrics.statesVisited(), metrics.statesExpanded(), 0, metrics.seedLadderSteps(),
+                metrics.stateBudgetExhausted(), metrics.firingDepthTruncated(), true);
+            return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE, List.copyOf(diagnostics),
+                overflowMetrics);
         }
+
+        // Keep the old per-firing witness for ordinary-sized cycles. Large bottom-of-tree cycles use the exact
+        // ordered batch plan instead, avoiding an allocation proportional to the number of crafts.
+        List<CycleFiring> firings = expandWitness(model, witness);
 
         Map<AEKey, PlannerAmount> exactProduced = Map.copyOf(bare.produced);
         Map<AEKey, PlannerAmount> exactDeliverable = exactDeliverable(model, actual.marking);
@@ -480,41 +696,96 @@ public final class BoundedCycleSolver implements CycleSolver {
                 : exactShortfall.isEmpty() ? CycleSolveStatus.SUCCESS : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
             Map.copyOf(patternTimes), externalDemand, requiredSeed, Map.copyOf(shortfall),
             representable(exactProduced), representable(exactDeliverable), List.copyOf(firings),
-            List.copyOf(explanation), metrics);
+            List.copyOf(executionPlan), List.copyOf(explanation), metrics);
     }
 
     /**
-     * Replays a witness step by step. Deficits on boundary keys are booked as imports, deficits on keys the
+     * Replays a witness in verified batches. Deficits on boundary keys are booked as imports, deficits on keys the
      * SCC has to own are booked as seed; both are recorded rather than allowed to go negative, so the pair
-     * (seed, import) is exactly what the order needs to run.
+     * (seed, import) is exactly what the order needs to run. The deficit calculation is closed-form for a repeated
+     * transition, so replay remains proportional to the number of macro-steps rather than the firing count.
      */
-    private static Simulation simulate(Model model, PlannerAmount[] start, List<Integer> witness) {
+    private static Simulation simulate(Model model, PlannerAmount[] start, List<BatchFiring> witness) {
         int n = model.keyCount();
         PlannerAmount[] marking = Arrays.copyOf(start, n);
         Map<AEKey, PlannerAmount> lazySeed = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> lazyImport = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
-        for (int transition : witness) {
+        for (BatchFiring firing : witness) {
+            int transition = firing.transition();
+            PlannerAmount count = PlannerAmount.of(firing.count());
             long[] cons = model.cons[transition];
             long[] prod = model.prod[transition];
             for (int i = 0; i < n; i++) {
                 if (cons[i] <= 0) continue;
-                PlannerAmount required = PlannerAmount.of(cons[i]);
-                PlannerAmount deficit = required.subtract(marking[i]);
+                PlannerAmount deficit = batchDeficit(marking[i], cons[i], prod[i], count);
                 if (deficit.signum() > 0) {
                     AEKey key = model.keys.get(i);
                     (model.suppliable[i] ? lazyImport : lazySeed).merge(key, deficit, PlannerAmount::add);
                     marking[i] = marking[i].add(deficit);
                 }
-                marking[i] = marking[i].subtract(required);
+                marking[i] = marking[i].subtract(PlannerAmount.of(cons[i]).multiply(count));
             }
             for (int i = 0; i < n; i++) {
                 if (prod[i] <= 0) continue;
-                marking[i] = marking[i].add(prod[i]);
-                produced.merge(model.keys.get(i), PlannerAmount.of(prod[i]), PlannerAmount::add);
+                PlannerAmount total = PlannerAmount.of(prod[i]).multiply(count);
+                marking[i] = marking[i].add(total);
+                produced.merge(model.keys.get(i), total, PlannerAmount::add);
             }
         }
         return new Simulation(marking, lazySeed, lazyImport, produced);
+    }
+
+    /** Minimum extra stock needed before a repeated transition can run without a deficit on this key. */
+    private static PlannerAmount batchDeficit(PlannerAmount marking, long consumed, long produced,
+            PlannerAmount count) {
+        if (consumed <= 0L || count.signum() <= 0) return PlannerAmount.ZERO;
+        PlannerAmount c = PlannerAmount.of(consumed);
+        PlannerAmount p = PlannerAmount.of(produced);
+        PlannerAmount requiredBeforeLast = produced >= consumed
+            ? c
+            : c.multiply(count).subtract(p.multiply(count.subtract(PlannerAmount.ONE)));
+        return requiredBeforeLast.subtract(marking).max(PlannerAmount.ZERO);
+    }
+
+    private static void appendRun(List<PatternRun> runs, CompiledPattern pattern, long count) {
+        if (count <= 0L) return;
+        if (!runs.isEmpty() && runs.getLast().pattern().details() == pattern.details()) {
+            PatternRun previous = runs.removeLast();
+            runs.add(new PatternRun(pattern, Math.addExact(previous.count(), count)));
+        } else {
+            runs.add(new PatternRun(pattern, count));
+        }
+    }
+
+    private static List<CycleFiring> expandWitness(Model model, List<BatchFiring> witness) {
+        long total = 0L;
+        for (BatchFiring firing : witness) {
+            if (Long.MAX_VALUE - total < firing.count() || total + firing.count() > MAX_EXPANDED_WITNESS) {
+                return List.of();
+            }
+            total += firing.count();
+        }
+        List<CycleFiring> result = new ArrayList<>((int) total);
+        int step = 0;
+        for (BatchFiring firing : witness) {
+            CompiledPattern pattern = model.transitions.get(firing.transition());
+            for (long count = 0; count < firing.count(); count++) {
+                result.add(new CycleFiring(step++, pattern));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static int expandedWitnessLength(List<BatchFiring> witness) {
+        long total = 0L;
+        for (BatchFiring firing : witness) {
+            if (Long.MAX_VALUE - total < firing.count() || total + firing.count() > MAX_EXPANDED_WITNESS) {
+                return 0;
+            }
+            total += firing.count();
+        }
+        return (int) total;
     }
 
     private static Map<AEKey, Long> deliverable(Model model, PlannerAmount[] marking) {
@@ -631,6 +902,15 @@ public final class BoundedCycleSolver implements CycleSolver {
     // Internal data
     // ---------------------------------------------------------------------------------------------------
 
+    private record BatchFiring(int transition, long count) {
+        private BatchFiring {
+            if (transition < 0) throw new IllegalArgumentException("Batch transition must not be negative");
+            if (count <= 0L) throw new IllegalArgumentException("Batch firing count must be positive");
+        }
+    }
+
+    private record Lookahead(PlannerAmount score, int steps) {}
+
     private record Model(
         List<AEKey> keys,
         List<CompiledPattern> transitions,
@@ -659,13 +939,13 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final class Node {
         private final PlannerAmount[] marking;
         private final int parent;
-        private final int transition;
+        private final BatchFiring firing;
         private final int depth;
 
-        private Node(PlannerAmount[] marking, int parent, int transition, int depth) {
+        private Node(PlannerAmount[] marking, int parent, BatchFiring firing, int depth) {
             this.marking = marking;
             this.parent = parent;
-            this.transition = transition;
+            this.firing = firing;
             this.depth = depth;
         }
     }
@@ -691,7 +971,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         private enum Kind { REACHED, EXHAUSTED, STATE_BUDGET, DEPTH_TRUNCATED }
 
         private Kind kind = Kind.EXHAUSTED;
-        private List<Integer> witness = List.of();
+        private List<BatchFiring> witness = List.of();
         private long statesVisited;
         private long statesExpanded;
         private boolean stateBudgetExhausted;

@@ -42,10 +42,45 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     private volatile ECOPlanningResult neoecoae$lastPlanningResult;
     /** Result of this exact runCraftAttempt invocation; candidate planners may invoke attempts concurrently. */
     @Unique
-    private final ThreadLocal<ECOPlanningResult> neoecoae$attemptPlanningResult = new ThreadLocal<>();
-    /** Prevents a native fallback path from re-entering the ECO hook if AE2 invokes the attempt again. */
+    private volatile ThreadLocal<ECOPlanningResult> neoecoae$attemptPlanningResult;
+    /** Re-entrant native fallback marker; calculation probes may run on different worker threads. */
     @Unique
-    private boolean neoecoae$nativeFallbackBypass;
+    private volatile ThreadLocal<Boolean> neoecoae$nativeFallbackBypass;
+
+    /**
+     * Mixin-added fields are not guaranteed to run their Java field initializers in every
+     * transformed/constructed CraftingCalculation path. Recover lazily before use so a
+     * partially initialized instance cannot abort a candidate calculation with an NPE.
+     */
+    @Unique
+    private ThreadLocal<ECOPlanningResult> neoecoae$getAttemptPlanningResult() {
+        ThreadLocal<ECOPlanningResult> local = this.neoecoae$attemptPlanningResult;
+        if (local == null) {
+            synchronized (this) {
+                local = this.neoecoae$attemptPlanningResult;
+                if (local == null) {
+                    local = new ThreadLocal<>();
+                    this.neoecoae$attemptPlanningResult = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    @Unique
+    private ThreadLocal<Boolean> neoecoae$getNativeFallbackBypass() {
+        ThreadLocal<Boolean> local = this.neoecoae$nativeFallbackBypass;
+        if (local == null) {
+            synchronized (this) {
+                local = this.neoecoae$nativeFallbackBypass;
+                if (local == null) {
+                    local = ThreadLocal.withInitial(() -> false);
+                    this.neoecoae$nativeFallbackBypass = local;
+                }
+            }
+        }
+        return local;
+    }
 
     @Shadow
     abstract void handlePausing() throws InterruptedException;
@@ -78,16 +113,18 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     private void runEcoDagAttempt(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) throws InterruptedException {
         // A RETURN hook must never observe a result left by an earlier probe on a reused worker thread.
-        neoecoae$attemptPlanningResult.remove();
+        ThreadLocal<ECOPlanningResult> attemptResultLocal = neoecoae$getAttemptPlanningResult();
+        attemptResultLocal.remove();
         if (neoecoae$plannerSession == null) {
             return;
         }
-        if (neoecoae$nativeFallbackBypass) {
-            neoecoae$nativeFallbackBypass = false;
+        ThreadLocal<Boolean> fallbackBypassLocal = neoecoae$getNativeFallbackBypass();
+        if (fallbackBypassLocal.get()) {
+            fallbackBypassLocal.remove();
             return;
         }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
-        neoecoae$attemptPlanningResult.set(result);
+        attemptResultLocal.set(result);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {
             case SUCCESS -> cir.setReturnValue(result.plan());
@@ -98,7 +135,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
             case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
                 // Keep the structured diagnostic, but preserve AE2 semantics through its native planner.
-                neoecoae$nativeFallbackBypass = true;
+                fallbackBypassLocal.set(true);
             }
         }
     }
@@ -106,8 +143,9 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Inject(method = "runCraftAttempt", at = @At("RETURN"), order = 2000)
     private void attachEcoDiagnosticToNativePlan(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) {
-        ECOPlanningResult attemptResult = neoecoae$attemptPlanningResult.get();
-        neoecoae$attemptPlanningResult.remove();
+        ThreadLocal<ECOPlanningResult> attemptResultLocal = neoecoae$getAttemptPlanningResult();
+        ECOPlanningResult attemptResult = attemptResultLocal.get();
+        attemptResultLocal.remove();
         CraftingPlan plan = cir.getReturnValue();
         Object publicPlan = plan;
         if (!simulate && (neoecoae$plannerSession != null || attemptResult != null)) {

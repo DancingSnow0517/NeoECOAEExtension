@@ -10,8 +10,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
  * has no interleaving to pick — the order of {@code N} firings of the only pattern in the phase is not a
  * choice — so a plan of a million firings is one entry, never a million witness steps.
  *
- * <p>For an ordinary multi-pattern cycle the per-firing {@link CycleFiring} witness stays authoritative and
- * keeps its semantics; the compact form of such a witness is only its order-preserving run-length encoding.
+ * <p>For a normal-sized witness this is its order-preserving run-length encoding. For a large batch search result it
+ * can be the only materialized execution trace, retaining the exact order without allocating one object per firing.
  */
 public record PatternRun(CompiledPattern pattern, long count) {
     public PatternRun {

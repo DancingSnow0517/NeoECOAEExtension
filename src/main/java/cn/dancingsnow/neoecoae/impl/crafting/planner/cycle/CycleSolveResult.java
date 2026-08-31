@@ -28,11 +28,10 @@ import java.util.stream.Collectors;
  * replaying the witness from {@code requiredSeed}, importing {@code externalDemand} across the
  * boundary, keeps every stock level at or above zero.
  *
- * <p>{@code executionPlan} is metadata, never a second source of truth. For an ordinary multi-pattern cycle
- * it is the order-preserving run-length encoding of {@code executionWitness}, so the witness semantics are
- * untouched. A single-transition phase may instead carry a compact plan with an <em>empty</em> witness:
- * there is exactly one pattern to fire, so no ordering is being suppressed, and a plan of {@code N} firings
- * costs one entry instead of {@code N}.
+ * <p>{@code executionPlan} is metadata, never a second source of truth. For an expanded witness it is the
+ * order-preserving run-length encoding of {@code executionWitness}. The bounded solver may also keep a verified
+ * multi-pattern witness in compact batch form when expanding it would be proportional to millions of firings; in
+ * that case the witness list is empty and the ordered {@code executionPlan} is the available execution trace.
  */
 public record CycleSolveResult(
     CycleSolveStatus status,
