@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CraftingNetworkCompiler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
@@ -14,14 +15,14 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.SinglePatternGrowthC
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,73 +110,44 @@ public final class ECOCraftingPlannerService {
         }
 
         private void logPlanningFailure(ECOPlanningResult result, long amount, boolean simulation) {
-            if (result.status() == PlanningStatus.SUCCESS) {
-                return;
-            }
+            if (result.status() == PlanningStatus.SUCCESS) return;
 
-            Set<String> reasons = new LinkedHashSet<>();
-            boolean rejectedCandidate = false;
-            for (PlannerDiagnostic diagnostic : result.trace().diagnostics()) {
-                switch (diagnostic.code()) {
-                    case CYCLE_DISABLED -> reasons.add(
-                        "CYCLE_PLANNING_DISABLED(关闭了循环规划)");
-                    case CYCLE_SEED_REQUIRED -> reasons.add(
-                        "CYCLE_SEED_REQUIRED(缺少启动种子)");
-                    case CYCLE_BUDGET_EXHAUSTED -> reasons.add(
-                        "CYCLE_SEARCH_BUDGET_EXHAUSTED(搜索预算耗尽)");
-                    case CYCLE_TOO_COMPLEX -> reasons.add(
-                        "CYCLE_TOO_COMPLEX(循环过于复杂)");
-                    case CYCLE_EXTERNAL_DEMAND_MISSING -> reasons.add(
-                        "CYCLE_EXTERNAL_INPUT_MISSING(外部输入缺失)");
-                    case CYCLE_EXTERNAL_DEMAND_UNREPRESENTABLE -> reasons.add(
-                        "CYCLE_EXTERNAL_AMOUNT_UNREPRESENTABLE(AE2 无法表示外部计划数量)");
-                    case CANDIDATE_REJECTED, CANDIDATE_DEFERRED_CYCLE -> rejectedCandidate = true;
-                    case EXECUTION_AMOUNT_UNREPRESENTABLE -> reasons.add(
-                        "EXECUTION_AMOUNT_UNREPRESENTABLE(AE2 无法表示该理论计划的数量)");
-                    case INTERNAL_ERROR -> reasons.add(
-                        "INTERNAL_ERROR(planner 内部异常)");
-                    default -> {
-                    }
-                }
-            }
-            if (rejectedCandidate) {
-                reasons.add("NO_SUITABLE_ALTERNATE_PRODUCER(没有选择到合适的备用 producer)");
-            }
-            if (reasons.isEmpty()) {
-                reasons.add("UNCLASSIFIED(未匹配到七类原因，请查看原始 diagnostic)");
-            }
-
-            LOGGER.warn(
-                "[ECO-PLANNER] planning failed goal={} amount={} cyclePlanningEnabled={} simulation={} "
-                    + "status={} reasons={} elapsedNanos={}",
-                goal, amount, cyclePlanningEnabled, simulation, result.status(), reasons, result.calculationNanos());
-            for (PlannerDiagnostic diagnostic : result.trace().diagnostics()) {
-                LOGGER.warn("[ECO-PLANNER] diagnostic code={} message={}",
-                    diagnostic.code(), diagnostic.message());
-            }
-            result.trace().nodes().stream()
-                .filter(node -> node.exactMissing().signum() > 0)
-                .forEach(node -> LOGGER.warn(
-                    "[ECO-PLANNER] missing key={} amount={} requested={} fromInventory={} toCraft={}",
-                    node.key(), node.exactMissing(), node.exactRequested(), node.exactFromInventory(),
-                    node.exactToCraft()));
+            // Ordinary missing-item / alternate-route results are expected during AE2 probing. Keep them out of
+            // the warning log; an unresolved bounded cycle is the diagnostic the current investigation needs.
             for (var component : result.components()) {
-                if (component.status() == ComponentPlanningResult.Status.PLANNED
-                        || component.status() == ComponentPlanningResult.Status.NOT_REQUIRED) {
+                CycleSolveResult cycle = component.cycleResult();
+                if (component.type() != ComponentPlanningResult.Type.CYCLIC
+                        || cycle == null || cycle.status() != CycleSolveStatus.UNKNOWN_BUDGET) {
                     continue;
                 }
+                var metrics = cycle.metrics();
                 LOGGER.warn(
-                    "[ECO-PLANNER] component id={} type={} status={} cycleStatus={} externalDemandStatus={} "
-                        + "requiredOutputs={} externalMissingItems={} diagnostic={}",
-                    component.componentId(), component.type(), component.status(), component.cycleStatus(),
-                    component.externalDemandStatus(), component.requiredOutputs(), component.externalMissingItems(),
-                    component.diagnostic());
+                    "[ECO-PLANNER] cycle solve unknown goal={} amount={} simulation={} componentId={} "
+                        + "patterns={} requiredOutputs={} cycleStatus={} cycleResultStatus={} "
+                        + "requiredSeed={} seedShortfall={} externalDemand={} "
+                        + "keys={} transitions={} statesVisited={} statesExpanded={} witnessLength={} "
+                        + "seedLadderSteps={} stateBudgetExhausted={} firingDepthTruncated={} "
+                        + "amountOverflowTruncated={} elapsedNanos={}",
+                    goal, amount, simulation, component.componentId(),
+                    component.patterns(),
+                    component.requiredOutputs(), component.cycleStatus(), cycle.status(), cycle.requiredSeed(),
+                    cycle.seedShortfall(), cycle.externalDemand(), metrics.relevantKeys(), metrics.transitions(),
+                    metrics.statesVisited(), metrics.statesExpanded(), metrics.witnessLength(),
+                    metrics.seedLadderSteps(), metrics.stateBudgetExhausted(), metrics.firingDepthTruncated(),
+                    metrics.amountOverflowTruncated(), result.calculationNanos());
+                for (var diagnostic : cycle.diagnostics()) {
+                    LOGGER.warn("[ECO-PLANNER] cycle diagnostic componentId={} code={} message={}",
+                        component.componentId(), diagnostic.code(), diagnostic.message());
+                }
             }
         }
 
         private void attach(ECOPlanningResult result) {
             if ((Object) result.plan() instanceof ECOCraftingPlanDiagnostics diagnostics) {
                 diagnostics.neoecoae$setPlanningResult(result);
+            }
+            if (result.plan() != null) {
+                ECOPlanningResultRegistry.register(result.plan(), result);
             }
         }
 

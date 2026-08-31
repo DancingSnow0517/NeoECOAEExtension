@@ -436,6 +436,7 @@
   "gui.neoecoae.crafting_report.bytes_only": "Bytes: %s B",
   "gui.neoecoae.crafting_report.single_net_output": "Single net output: %s",
   "gui.neoecoae.crafting_report.total_net_output": "Total net output: %s",
+  "gui.neoecoae.crafting_report.total_net_output_unknown": "Total net output: unknown",
   "gui.neoecoae.crafting.fast_planner.on": "ECO Fast Planner: Enabled",
   "gui.neoecoae.crafting.fast_planner.off": "ECO Fast Planner: Disabled",
   "gui.neoecoae.crafting_report.cycle_unsupported": "A cyclic recipe was detected. Cycle planning is not supported yet.",

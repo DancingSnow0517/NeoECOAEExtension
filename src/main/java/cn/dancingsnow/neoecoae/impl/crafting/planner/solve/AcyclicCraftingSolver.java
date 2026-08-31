@@ -13,8 +13,11 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +54,17 @@ public final class AcyclicCraftingSolver {
         SolveState state = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
-            state = runOnce(network, route, new SolveWorkspace(inventory, choices), amount,
+            List<AEKey> currentRoute = selectedRoute(
+                network, route.keys(), choices, deferredPatterns, cancellation);
+            if (currentRoute == null) {
+                state = new SolveState(inventory);
+                state.unsupported.add(network.goal());
+                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
+                    "The currently selected alternate producer route contains an undeclared cycle"));
+                return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+            }
+            state = runOnce(network, new AcyclicRoutePlan(currentRoute),
+                new SolveWorkspace(inventory, choices), amount,
                 deferredPatterns, cancellation);
             if (!state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
@@ -86,6 +99,72 @@ public final class AcyclicCraftingSolver {
         }
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK, "Candidate retry budget exhausted"));
         return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+    }
+
+    /**
+     * Candidate fallback can change a pattern's inputs after the caller built its structural route. Recompute
+     * the goal-first topological order for the current choices so a newly introduced dependency is never
+     * visited before the consumer that creates its demand. Keys owned by cycle components remain outside this
+     * pass and are left untouched for the cycle transaction.
+     *
+     * @return the selected route, or {@code null} when the selected acyclic subset now contains a cycle
+     */
+    private static List<AEKey> selectedRoute(CompiledNetwork network, List<AEKey> allowedRoute,
+            Map<AEKey, Integer> choices, Set<IPatternDetails> deferredPatterns,
+            ECOCancellation cancellation) throws InterruptedException {
+        Set<AEKey> allowed = new LinkedHashSet<>(allowedRoute);
+        if (!allowed.contains(network.goal())) return List.of();
+
+        Map<AEKey, Set<AEKey>> outgoing = new LinkedHashMap<>();
+        Map<AEKey, Integer> indegree = new LinkedHashMap<>();
+        ArrayDeque<AEKey> discover = new ArrayDeque<>();
+        Set<AEKey> reachable = new LinkedHashSet<>();
+        discover.add(network.goal());
+        reachable.add(network.goal());
+        indegree.put(network.goal(), 0);
+
+        while (!discover.isEmpty()) {
+            cancellation.checkpoint();
+            AEKey key = discover.removeFirst();
+            CompiledPattern selected = selectedPattern(network, key, choices);
+            if (selected == null || deferredPatterns.contains(selected.details())) continue;
+            Set<AEKey> dependencies = outgoing.computeIfAbsent(key, ignored -> new LinkedHashSet<>());
+            for (CompiledInput input : selected.inputs()) {
+                AEKey dependency = input.key();
+                if (!allowed.contains(dependency) || !dependencies.add(dependency)) continue;
+                indegree.merge(dependency, 1, Integer::sum);
+                if (reachable.add(dependency)) {
+                    indegree.putIfAbsent(dependency, 0);
+                    discover.addLast(dependency);
+                }
+            }
+        }
+
+        ArrayDeque<AEKey> ready = new ArrayDeque<>();
+        for (AEKey key : reachable) if (indegree.getOrDefault(key, 0) == 0) ready.addLast(key);
+        List<AEKey> ordered = new ArrayList<>(reachable.size());
+        while (!ready.isEmpty()) {
+            cancellation.checkpoint();
+            AEKey key = ready.removeFirst();
+            ordered.add(key);
+            for (AEKey dependency : outgoing.getOrDefault(key, Set.of())) {
+                int remaining = indegree.merge(dependency, -1, Integer::sum);
+                if (remaining == 0) ready.addLast(dependency);
+            }
+        }
+        return ordered.size() == reachable.size() ? List.copyOf(ordered) : null;
+    }
+
+    private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,
+            Map<AEKey, Integer> choices) {
+        List<CompiledPattern> candidates = network.producersOf(key).stream()
+            .filter(CompiledPattern::fastSupported)
+            .toList();
+        if (candidates.isEmpty()) return null;
+        int choice = choices.getOrDefault(key, 0);
+        if (choice < 0) choice = 0;
+        if (choice >= candidates.size()) choice = candidates.size() - 1;
+        return candidates.get(choice);
     }
 
     private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,

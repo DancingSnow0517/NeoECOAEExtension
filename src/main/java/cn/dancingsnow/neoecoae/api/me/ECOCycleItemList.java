@@ -22,7 +22,8 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         int size = data.readVarInt();
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            items.add(new Entry(AEKey.readKey(data), data.readLong(), data.readLong(), data.readVarInt()));
+            items.add(new Entry(AEKey.readKey(data), data.readLong(), data.readLong(), data.readBoolean(),
+                data.readVarInt()));
         }
         return items;
     }
@@ -34,14 +35,20 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
             AEKey.writeKey(data, item.what());
             data.writeLong(item.singleNetOutput());
             data.writeLong(item.totalNetOutput());
+            data.writeBoolean(item.totalNetOutputKnown());
             data.writeVarInt(item.componentId());
         }
     }
 
-    public record Entry(AEKey what, long singleNetOutput, long totalNetOutput, int componentId) {
+    public record Entry(AEKey what, long singleNetOutput, long totalNetOutput,
+            boolean totalNetOutputKnown, int componentId) {
+        public Entry(AEKey what, long singleNetOutput, long totalNetOutput, int componentId) {
+            this(what, singleNetOutput, totalNetOutput, true, componentId);
+        }
+
         /** Compatibility constructor for callers that only have the old three numeric fields. */
         public Entry(AEKey what, long singleNetOutput, long totalNetOutput) {
-            this(what, singleNetOutput, totalNetOutput, -1);
+            this(what, singleNetOutput, totalNetOutput, true, -1);
         }
     }
 }

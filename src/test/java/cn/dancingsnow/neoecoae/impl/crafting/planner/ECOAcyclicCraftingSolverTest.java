@@ -75,6 +75,36 @@ class ECOAcyclicCraftingSolverTest {
         assertEquals(1, solved.state().usedItems().get(b));
     }
 
+    @Test void retryRebuildsTopologyForAnAlternateWithANewDependency() throws Exception {
+        var leaf = PlannerTestKey.of("retry_topology_leaf");
+        var missing = PlannerTestKey.of("retry_topology_missing");
+        var energy = PlannerTestKey.of("retry_topology_energy");
+        var middle = PlannerTestKey.of("retry_topology_middle");
+        var goal = PlannerTestKey.of("retry_topology_goal");
+        var goalPattern = PlannerFixtures.pattern("retry_topology_goal", goal, 1, middle, 1L);
+        var rejected = PlannerFixtures.pattern("retry_topology_rejected", middle, 1, missing, 1L);
+        var alternate = PlannerFixtures.pattern("retry_topology_alternate", middle, 1, energy, 1L);
+        var energyPattern = PlannerFixtures.pattern("retry_topology_energy", energy, 1, leaf, 1L);
+        var network = network(goal, Map.of(
+            goal, List.of(cp(0, goalPattern, goal, true)),
+            middle, List.of(cp(1, rejected, middle, true), cp(2, alternate, middle, true)),
+            energy, List.of(cp(3, energyPattern, energy, true)),
+            missing, List.of(),
+            leaf, List.of()));
+
+        // This is valid for the rejected candidate but stale for the alternate: energy appears before the
+        // middle pattern that starts demanding it. The solver must rebuild the route after the retry.
+        var staleRoute = new AcyclicRoutePlan(List.of(goal, energy, middle, leaf, missing));
+        var solved = new AcyclicCraftingSolver().solve(
+            network, staleRoute, stock(leaf, 1), 1, ECOCancellation.NONE);
+
+        assertEquals(PlanningStatus.SUCCESS, solved.status());
+        assertEquals(0L, solved.state().patternTimes().getOrDefault(rejected, 0L));
+        assertEquals(1L, solved.state().patternTimes().get(alternate));
+        assertEquals(1L, solved.state().patternTimes().get(energyPattern));
+        assertEquals(1L, solved.state().usedItems().get(leaf));
+    }
+
     @Test void overflowedRejectedCandidateDoesNotChangeProducerSelection() throws Exception {
         var hugeLeaf = PlannerTestKey.of("retry_wide_leaf"); var usableLeaf = PlannerTestKey.of("retry_usable_leaf");
         var goal = PlannerTestKey.of("retry_wide_goal");

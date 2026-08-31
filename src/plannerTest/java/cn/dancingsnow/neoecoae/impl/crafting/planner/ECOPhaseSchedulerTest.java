@@ -56,8 +56,47 @@ class ECOPhaseSchedulerTest {
         var cycleOwner = new ComponentPlanningResult(2, ComponentPlanningResult.Type.CYCLIC,
             ComponentPlanningResult.Status.PLANNED, java.util.Map.of(), Set.of(p1), null, null, java.util.Map.of(), null, null);
         var schedule = ECOExecutionSchedule.from(List.of(dagView, cycleOwner), List.of(1, 2));
-        assertTrue(schedule.phases().getFirst().patternSet().isEmpty());
-        assertEquals(Set.of(p1), schedule.phases().getLast().patternSet());
+        assertEquals(1, schedule.phases().size());
+        assertEquals(ECOExecutionSchedule.Type.CYCLE, schedule.phases().getFirst().type());
+        assertEquals(Set.of(p1), schedule.phases().getFirst().patternSet());
+    }
+    @Test void physicalPatternHasExactlyOneDagOwner() {
+        var firstView = component(1, ComponentPlanningResult.Type.ACYCLIC, Set.of(p1), Set.of(p1));
+        var secondView = component(2, ComponentPlanningResult.Type.ACYCLIC, Set.of(p1), Set.of(p1));
+        var schedule = ECOExecutionSchedule.from(
+            List.of(firstView, secondView), List.of(1, 2), java.util.Map.of(p1, 7L));
+        assertEquals(1, schedule.phases().size());
+        assertEquals(1, schedule.phases().getFirst().componentId());
+        assertEquals(Set.of(p1), schedule.phases().getFirst().patternSet());
+    }
+    @Test void unselectedCandidatesAndEmptyStructuralComponentsAreOmitted() {
+        var selectedDag = component(1, ComponentPlanningResult.Type.ACYCLIC, Set.of(p1, p2), Set.of(p1));
+        var unusedCycle = component(2, ComponentPlanningResult.Type.CYCLIC, Set.of(p2), Set.of());
+        var schedule = ECOExecutionSchedule.from(
+            List.of(selectedDag, unusedCycle), List.of(1, 2), java.util.Map.of(p1, 3L));
+        assertEquals(1, schedule.phases().size());
+        assertEquals(ECOExecutionSchedule.Type.DAG, schedule.phases().getFirst().type());
+        assertEquals(Set.of(p1), schedule.phases().getFirst().patternSet());
+        assertFalse(ECOPhaseScheduler.requiresComponentScheduling(schedule));
+    }
+    @Test void activeCycleScheduleRejectsUnownedPlanTasks() {
+        var cycleOwner = component(1, ComponentPlanningResult.Type.CYCLIC, Set.of(p1), Set.of(p1));
+        assertThrows(IllegalStateException.class, () -> ECOExecutionSchedule.from(
+            List.of(cycleOwner), List.of(1), java.util.Map.of(p1, 1L, p2, 1L)));
+    }
+    @Test void finalPatternDependenciesOverrideStaleComponentOrder() {
+        var consumer = PlannerFixtures.pattern("alternate_consumer", a, 1, b, 1L);
+        var supplier = PlannerFixtures.pattern("alternate_supplier", b, 1);
+        var consumerComponent = component(1, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(a, 1L), Set.of(consumer), Set.of(consumer));
+        var supplierComponent = component(2, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(b, 1L), Set.of(supplier), Set.of(supplier));
+
+        var schedule = ECOExecutionSchedule.from(List.of(consumerComponent, supplierComponent),
+            List.of(1, 2), java.util.Map.of(consumer, 1L, supplier, 1L));
+
+        assertEquals(List.of(2, 1), schedule.phases().stream()
+            .map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
     }
     @Test void missingOrderedMetadataIsFailSafeWhilePureDagRemainsNative() {
         assertFalse(ECOPhaseScheduler.metadataAvailable(true, null, true));
@@ -82,5 +121,19 @@ class ECOPhaseSchedulerTest {
         var scaledCycle = new ECOExecutionSchedule.ComponentExecutionPhase(3,
             ECOExecutionSchedule.Type.CYCLE, Set.of(consumesTwo), List.of());
         assertEquals(16L, ECOPhaseScheduler.compactCycleFeedbackReserve(scaledCycle, p -> 8L, a));
+    }
+
+    private static ComponentPlanningResult component(int id, ComponentPlanningResult.Type type,
+            Set<appeng.api.crafting.IPatternDetails> candidates,
+            Set<appeng.api.crafting.IPatternDetails> executionPatterns) {
+        return component(id, type, java.util.Map.of(), candidates, executionPatterns);
+    }
+
+    private static ComponentPlanningResult component(int id, ComponentPlanningResult.Type type,
+            java.util.Map<appeng.api.stacks.AEKey, Long> requiredOutputs,
+            Set<appeng.api.crafting.IPatternDetails> candidates,
+            Set<appeng.api.crafting.IPatternDetails> executionPatterns) {
+        return new ComponentPlanningResult(id, type, ComponentPlanningResult.Status.PLANNED,
+            requiredOutputs, candidates, executionPatterns, null, null, java.util.Map.of(), null, null);
     }
 }

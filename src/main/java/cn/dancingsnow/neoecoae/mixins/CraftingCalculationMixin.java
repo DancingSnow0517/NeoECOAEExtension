@@ -32,7 +32,10 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Unique
     private ECOCraftingPlannerService.Session neoecoae$plannerSession;
     @Unique
-    private ECOPlanningResult neoecoae$lastPlanningResult;
+    private volatile ECOPlanningResult neoecoae$lastPlanningResult;
+    /** Result of this exact runCraftAttempt invocation; candidate planners may invoke attempts concurrently. */
+    @Unique
+    private final ThreadLocal<ECOPlanningResult> neoecoae$attemptPlanningResult = new ThreadLocal<>();
     /** Prevents a native fallback path from re-entering the ECO hook if AE2 invokes the attempt again. */
     @Unique
     private boolean neoecoae$nativeFallbackBypass;
@@ -67,6 +70,8 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)
     private void runEcoDagAttempt(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) throws InterruptedException {
+        // A RETURN hook must never observe a result left by an earlier probe on a reused worker thread.
+        neoecoae$attemptPlanningResult.remove();
         if (neoecoae$plannerSession == null) {
             return;
         }
@@ -75,6 +80,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             return;
         }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
+        neoecoae$attemptPlanningResult.set(result);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {
             case SUCCESS -> cir.setReturnValue(result.plan());
@@ -90,12 +96,20 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
     }
 
-    @Inject(method = "runCraftAttempt", at = @At("RETURN"))
+    @Inject(method = "runCraftAttempt", at = @At("RETURN"), order = 2000)
     private void attachEcoDiagnosticToNativePlan(boolean simulate, long amount,
             CallbackInfoReturnable<CraftingPlan> cir) {
+        ECOPlanningResult attemptResult = neoecoae$attemptPlanningResult.get();
+        neoecoae$attemptPlanningResult.remove();
         CraftingPlan plan = cir.getReturnValue();
-        if (plan != null && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics) {
-            diagnostics.neoecoae$setPlanningResult(neoecoae$lastPlanningResult);
+        if (plan != null && attemptResult != null
+                && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && diagnostics.neoecoae$getPlanningResult() == null) {
+            // Another RETURN transformer may rebuild/patch the public plan produced by this exact attempt.
+            // Carry the attempt-local diagnostic onto that plan so the confirmation boundary can bind the
+            // transformed signature back to the complete ECO executable plan. A calculation-wide "last"
+            // result is unsafe here because multi-planners can evaluate candidates concurrently.
+            diagnostics.neoecoae$setPlanningResult(attemptResult);
         }
     }
 

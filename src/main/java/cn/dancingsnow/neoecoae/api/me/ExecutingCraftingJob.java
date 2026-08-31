@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -50,6 +52,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import java.util.ArrayList;
 
 public class ExecutingCraftingJob {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final String NBT_LINK = "link";
     private static final String NBT_PLAYER_ID = "playerId";
     private static final String NBT_FINAL_OUTPUT = "finalOutput";
@@ -147,9 +150,38 @@ public class ExecutingCraftingJob {
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
-        if (plan instanceof ECOCraftingPlanDiagnostics d && d.neoecoae$getPlanningResult() instanceof ECOPlanningResult r) {
+        ECOPlanningResult planningResult = plan instanceof ECOCraftingPlanDiagnostics d
+            ? d.neoecoae$getPlanningResult()
+            : null;
+        boolean recoveredPlanningResult = false;
+        ECOPlanningResultRegistry.RecoveredSchedule recoveredSchedule = null;
+        if (planningResult == null || planningResult.executionSchedule().phases().isEmpty()) {
+            recoveredSchedule = ECOPlanningResultRegistry.recoverSchedule(plan);
+            recoveredPlanningResult = recoveredSchedule != null && !recoveredSchedule.schedule().phases().isEmpty();
+        }
+        if (planningResult != null) {
+            ECOPlanningResult r = planningResult;
             cycleWitness.addAll(r.cycleWitness());
             executionSchedule = r.executionSchedule();
+        }
+        if (recoveredPlanningResult) {
+            executionSchedule = recoveredSchedule.schedule();
+            cycleWitness.clear();
+            executionSchedule.phases().stream()
+                .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
+                .forEach(phase -> cycleWitness.addAll(phase.cycleWitness()));
+        }
+        if (recoveredPlanningResult) {
+            LOGGER.info(
+                "[ECO-EXEC] recovered execution schedule finalOutput={} phases={} matchMode={}",
+                plan.finalOutput(), executionSchedule.phases().size(), recoveredSchedule.matchMode());
+        } else if (executionSchedule == null || executionSchedule.phases().isEmpty()) {
+            LOGGER.warn(
+                "[ECO-EXEC] no registered cycle schedule matched submitted plan finalOutput={} "
+                    + "patternKinds={} emittedKinds={} registeredCycleSchedules={} mismatch={}",
+                plan.finalOutput(), plan.patternTimes().size(), plan.emittedItems().size(),
+                ECOPlanningResultRegistry.registeredScheduleCount(),
+                ECOPlanningResultRegistry.mismatchDiagnostic(plan));
         }
         requiresOrderedCycleExecution = ECOPhaseScheduler.requiresComponentScheduling(executionSchedule);
         this.link = link;

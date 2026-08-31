@@ -38,7 +38,9 @@ public record ECOPlanningResult(
     }
 
     public ECOExecutionSchedule executionSchedule() {
-        return ECOExecutionSchedule.from(components, executionComponentOrder);
+        return status == PlanningStatus.SUCCESS && plan != null
+            ? ECOExecutionSchedule.from(components, executionComponentOrder, plan.patternTimes())
+            : ECOExecutionSchedule.from(components, executionComponentOrder);
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,

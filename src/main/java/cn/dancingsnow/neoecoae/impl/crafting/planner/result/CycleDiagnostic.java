@@ -14,10 +14,10 @@ public record CycleDiagnostic(
     Map<AEKey, Long> totalNetOutputs,
     Map<AEKey, Long> availableAmounts
 ) {
-    /** Legacy shape: when no execution counts are available, total output equals one cycle's output. */
+    /** Legacy shape: without execution counts the total output is unknown, rather than equal to one cycle. */
     public CycleDiagnostic(List<AEKey> keys, List<IPatternDetails> patterns,
             Map<AEKey, Long> netOutputs, Map<AEKey, Long> availableAmounts) {
-        this(keys, patterns, netOutputs, netOutputs, availableAmounts);
+        this(keys, patterns, netOutputs, Map.of(), availableAmounts);
     }
 
     public CycleDiagnostic {

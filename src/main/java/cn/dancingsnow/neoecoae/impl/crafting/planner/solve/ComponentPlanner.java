@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 
 /** Numeric planner whose only traversal input is the SCC condensation DAG. */
 public final class ComponentPlanner {
@@ -126,6 +127,7 @@ public final class ComponentPlanner {
                         : ComponentPlanningResult.Status.NOT_REQUIRED,
                     demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
                     acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
+                    selectedExecutionPattern(acyclic.state(), acyclicComponent.key()),
                     null, null, Map.of(), null, null));
                 continue;
             }
@@ -228,6 +230,7 @@ public final class ComponentPlanner {
                 ComponentPlanningResult.Type.CYCLIC,
                 componentStatus(exactRequiredOutputs, cycleStatus),
                 requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
+                selectedCycleExecutionPatterns(cycleResult),
                 cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult));
             cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult, trace));
         }
@@ -257,6 +260,23 @@ public final class ComponentPlanner {
             }
         }
         return Map.copyOf(result);
+    }
+
+    private static Set<IPatternDetails> selectedExecutionPattern(SolveState state, AEKey key) {
+        CompiledPattern selected = state.selected.get(key);
+        if (selected == null || state.patternTimes
+                .getOrDefault(selected.details(), PlannerAmount.ZERO).signum() <= 0) {
+            return Set.of();
+        }
+        return Set.of(selected.details());
+    }
+
+    private static Set<IPatternDetails> selectedCycleExecutionPatterns(@Nullable CycleSolveResult result) {
+        if (result == null || result.status() != CycleSolveStatus.SUCCESS) return Set.of();
+        return result.patternTimes().entrySet().stream()
+            .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
+            .map(Map.Entry::getKey)
+            .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     /** Stock the DAG pass has not already spent. The cycle solver must never double-spend an item. */
@@ -342,10 +362,8 @@ public final class ComponentPlanner {
             }
         }
         Map<AEKey, PlannerAmount> exactTotal = new LinkedHashMap<>();
-        for (AEKey member : cycle.members()) exactTotal.put(member, PlannerAmount.ZERO);
-        if (cycleResult == null || cycleResult.status() != CycleSolveStatus.SUCCESS) {
-            exactTotal.putAll(exactNet);
-        } else {
+        if (cycleResult != null && cycleResult.status() == CycleSolveStatus.SUCCESS) {
+            for (AEKey member : cycle.members()) exactTotal.put(member, PlannerAmount.ZERO);
             countedPatterns.clear();
             for (var pattern : cycle.patterns()) {
                 if (!countedPatterns.add(pattern.details())) continue;

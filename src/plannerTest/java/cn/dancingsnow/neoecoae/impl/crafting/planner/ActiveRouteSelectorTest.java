@@ -124,6 +124,9 @@ class ActiveRouteSelectorTest {
         assertEquals(PlanningStatus.CYCLE_UNRESOLVED, outcome.status());
         assertEquals(CyclePlanningStatus.DISABLED, outcome.trace().cycles().getFirst().status());
         assertEquals(1L, outcome.state().missingItems().get(a));
+        assertFalse(outcome.cycles().getFirst().netOutputs().isEmpty());
+        assertTrue(outcome.cycles().getFirst().totalNetOutputs().isEmpty(),
+            "an unresolved cycle must not report one-cycle output as its planned total");
         assertEquals(CyclePlanningStatus.DISABLED, outcome.components().stream()
             .filter(component -> component.cycleStatus() != null).findFirst().orElseThrow().cycleStatus());
     }

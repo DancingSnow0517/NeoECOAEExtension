@@ -67,9 +67,7 @@ final class ECOCycleItemListRenderer {
                 net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.single_net_output",
                     formatNetOutput(item, entry.singleNetOutput(), AmountFormat.SLOT)),
-                net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.total_net_output",
-                    formatNetOutput(item, entry.totalNetOutput(), AmountFormat.SLOT)));
+                totalNetOutputLine(item, entry, AmountFormat.SLOT));
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
@@ -96,9 +94,7 @@ final class ECOCycleItemListRenderer {
                 tooltip.add(net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.single_net_output",
                     formatNetOutput(item, entry.singleNetOutput(), AmountFormat.FULL)));
-                tooltip.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.total_net_output",
-                    formatNetOutput(item, entry.totalNetOutput(), AmountFormat.FULL)));
+                tooltip.add(totalNetOutputLine(item, entry, AmountFormat.FULL));
                 hoveredTooltip = tooltip;
                 hoveredMouseX = localMouseX;
                 hoveredMouseY = localMouseY;
@@ -116,6 +112,13 @@ final class ECOCycleItemListRenderer {
         String formatted = item.formatAmount(amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount),
             format);
         return amount > 0 ? "+" + formatted : amount < 0 ? "-" + formatted : "0";
+    }
+
+    private static Component totalNetOutputLine(AEKey item, ECOCycleItemList.Entry entry, AmountFormat format) {
+        return entry.totalNetOutputKnown()
+            ? Component.translatable("gui.neoecoae.crafting_report.total_net_output",
+                formatNetOutput(item, entry.totalNetOutput(), format))
+            : Component.translatable("gui.neoecoae.crafting_report.total_net_output_unknown");
     }
 
     int getScrollableRows(int size) {
