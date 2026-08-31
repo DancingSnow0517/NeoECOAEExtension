@@ -57,12 +57,12 @@ class RuntimeExecutionStateTest {
     void restoreIncludesCompressedStepRemainderAndRejectsCursorAccountingDrift() {
         ECOExecutionPlan plan = plan();
         RuntimeExecutionState state = new RuntimeExecutionState(plan);
-        state.restore(new long[] {5_005L, 2L, 1L}, 0, 0, 5_000L);
+        state.restore(new long[] {5_005L, 2L, 1L}, new int[] {0, 0}, new long[] {5_000L, 0L});
         assertEquals(5_000L, state.dispatchLimit(0));
         assertThrows(IllegalArgumentException.class,
-            () -> state.restore(new long[] {15_005L, 2L, 1L}, 0, 0, 5_000L));
+            () -> state.restore(new long[] {15_005L, 2L, 1L}, new int[] {0, 0}, new long[] {5_000L, 0L}));
         assertThrows(IllegalArgumentException.class,
-            () -> state.restore(new long[] {5_005L, 2L, 1L}, 0, 1, 1L));
+            () -> state.restore(new long[] {5_005L, 2L, 1L}, new int[] {1, 0}, new long[] {1L, 0L}));
     }
 
     @Test
@@ -89,6 +89,33 @@ class RuntimeExecutionStateTest {
             "the immutable execution plan must not depend on an expanded legacy witness");
     }
 
+    @Test
+    void independentPhasesRunTogetherAndUnlockConsumerWithoutWaveBarrier() {
+        var firstIdentity = PlanIdentity.patternIdentityFor(first);
+        var secondIdentity = PlanIdentity.patternIdentityFor(second);
+        var consumerIdentity = PlanIdentity.patternIdentityFor(consumer);
+        var tasks = List.of(
+            new ECOExecutionPlan.TaskSpec(0, firstIdentity, first, ECOExecutionPlan.PatternRuntimeInfo.from(first), 1, 0, ECOExecutionPlan.TaskKind.DAG),
+            new ECOExecutionPlan.TaskSpec(1, secondIdentity, second, ECOExecutionPlan.PatternRuntimeInfo.from(second), 2, 1, ECOExecutionPlan.TaskKind.DAG),
+            new ECOExecutionPlan.TaskSpec(2, consumerIdentity, consumer, ECOExecutionPlan.PatternRuntimeInfo.from(consumer), 1, 2, ECOExecutionPlan.TaskKind.DAG));
+        var phases = List.of(
+            new ECOExecutionPlan.PhaseSpec(0, 1, ECOExecutionSchedule.Type.DAG, List.of(0), List.of(), List.of()),
+            new ECOExecutionPlan.PhaseSpec(1, 2, ECOExecutionSchedule.Type.DAG, List.of(1), List.of(), List.of()),
+            new ECOExecutionPlan.PhaseSpec(2, 3, ECOExecutionSchedule.Type.DAG, List.of(2), List.of(), List.of(0)));
+        var signature = new PlanIdentity.Signature(c, 1, Map.of(firstIdentity, 1L, secondIdentity, 2L, consumerIdentity, 1L), Map.of(), Map.of(), Map.of());
+        var schedulePhases = List.of(
+            new ECOExecutionSchedule.ComponentExecutionPhase(1, ECOExecutionSchedule.Type.DAG, Set.of(first), List.of()),
+            new ECOExecutionSchedule.ComponentExecutionPhase(2, ECOExecutionSchedule.Type.DAG, Set.of(second), List.of()),
+            new ECOExecutionSchedule.ComponentExecutionPhase(3, ECOExecutionSchedule.Type.DAG, Set.of(consumer), List.of()));
+        var state = new RuntimeExecutionState(new ECOExecutionPlan(signature, ExecutionMode.PHASED_DAG, tasks, phases,
+            new ECOExecutionSchedule(schedulePhases, List.of(new ECOExecutionSchedule.PhaseDependency(0, 2)))));
+
+        assertEquals(Set.of(0, 1), Set.copyOf(state.eligibleTaskIds()));
+        state.applyAccepted(0, 1);
+        assertEquals(Set.of(1, 2), Set.copyOf(state.eligibleTaskIds()),
+            "consumer should unlock as soon as its own producer completes");
+    }
+
     private ECOExecutionPlan plan() {
         var firstIdentity = PlanIdentity.patternIdentityFor(first);
         var secondIdentity = PlanIdentity.patternIdentityFor(second);
@@ -110,13 +137,14 @@ class RuntimeExecutionStateTest {
             new ECOExecutionPlan.PhaseSpec(0, 10, ECOExecutionSchedule.Type.CYCLE, List.of(0, 1),
                 List.of(new ECOExecutionPlan.ExecutionStep(0, 10_000L),
                     new ECOExecutionPlan.ExecutionStep(1, 1L),
-                    new ECOExecutionPlan.ExecutionStep(0, 2L))),
-            new ECOExecutionPlan.PhaseSpec(1, 11, ECOExecutionSchedule.Type.DAG, List.of(2), List.of()));
+                    new ECOExecutionPlan.ExecutionStep(0, 2L)), List.of()),
+            new ECOExecutionPlan.PhaseSpec(1, 11, ECOExecutionSchedule.Type.DAG, List.of(2), List.of(), List.of(0)));
         var schedule = new ECOExecutionSchedule(List.of(
             new ECOExecutionSchedule.ComponentExecutionPhase(10, ECOExecutionSchedule.Type.CYCLE,
                 Set.of(first, second), List.of()),
             new ECOExecutionSchedule.ComponentExecutionPhase(11, ECOExecutionSchedule.Type.DAG,
-                Set.of(consumer), List.of())));
+                Set.of(consumer), List.of())),
+            List.of(new ECOExecutionSchedule.PhaseDependency(0, 1)));
         return new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE, tasks, phases, schedule);
     }
 }

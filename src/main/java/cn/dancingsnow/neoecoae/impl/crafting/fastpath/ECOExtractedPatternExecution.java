@@ -122,6 +122,10 @@ public final class ECOExtractedPatternExecution {
         return craftingContainer;
     }
 
+    public IPatternDetails details() {
+        return details;
+    }
+
     public List<GenericStack> expectedOutputs() {
         return expectedOutputs;
     }

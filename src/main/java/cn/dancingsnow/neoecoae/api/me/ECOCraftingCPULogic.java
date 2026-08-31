@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
@@ -44,6 +45,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedCraft;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -59,7 +61,8 @@ public class ECOCraftingCPULogic {
      * Ordinary dispatch is deliberately policy-driven. The default fills currently visible provider capacity;
      * adaptive policies can be installed without touching extraction, rollback or runtime accounting.
      */
-    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = ECOParallelDispatchStrategy.INSTANCE;
+    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = new ECOAdaptiveDispatchStrategy();
+    private final Map<BatchProbeKey, BatchCapacityProbeState> batchProbeStates = new HashMap<>();
     enum BatchMode { FINITE, VIRTUAL }
 
     /** Common batch dispatch entry point; mode-specific implementations retain their capability checks. */
@@ -110,6 +113,40 @@ public class ECOCraftingCPULogic {
     private static final long STALLED_DISPATCH_LOG_INTERVAL_TICKS = 100L;
     private long lastBatchRejectionLogTick = Long.MIN_VALUE;
     private long lastStalledDispatchLogTick = Long.MIN_VALUE;
+    private long lastBatchProbeLogTick = Long.MIN_VALUE;
+    private long batchProbeBudgetTick = Long.MIN_VALUE;
+    private int batchProbesUsedThisTick;
+    private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
+    private int taskDispatchCursor;
+
+    private static final class BatchProbeKey {
+        private final Object scope;
+        private final Object pattern;
+        private final int hash;
+
+        private BatchProbeKey(Object scope, Object pattern) {
+            this.scope = Objects.requireNonNull(scope, "scope");
+            this.pattern = Objects.requireNonNull(pattern, "pattern");
+            this.hash = 31 * System.identityHashCode(scope) + pattern.hashCode();
+        }
+
+        @Override public int hashCode() { return hash; }
+        @Override public boolean equals(Object other) {
+            return other instanceof BatchProbeKey key && scope == key.scope && pattern.equals(key.pattern);
+        }
+    }
+
+    private record ProbeDispatchOutcome(DispatchResult result, int probeCount) {}
+
+    private record TaskProbeKey(ExecutingCraftingJob job, Object taskIdentity) {
+        @Override public boolean equals(Object other) {
+            return other instanceof TaskProbeKey key && job == key.job && taskIdentity.equals(key.taskIdentity);
+        }
+
+        @Override public int hashCode() {
+            return 31 * System.identityHashCode(job) + taskIdentity.hashCode();
+        }
+    }
 
     private static final class DispatchDiagnostics {
         int runnableTasks;
@@ -163,6 +200,7 @@ public class ECOCraftingCPULogic {
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
         providerTopologyCache.clear();
+        resetBatchProbeBudgetForCurrentTick();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
         logSubmittedJob(craftId, this.job);
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
@@ -381,20 +419,22 @@ public class ECOCraftingCPULogic {
         // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
         // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
         providerTopologyCache.clear();
+        resetBatchProbeBudgetForCurrentTick();
 
         beginStatusChangeBatch();
         try {
-            List<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> eligibleTasks = job.eligiblePatterns()
-                .stream().map(job::taskFor).filter(java.util.Objects::nonNull).toList();
-            java.util.Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> it = eligibleTasks.iterator();
-            taskLoop: while (it.hasNext()) {
-                var task = it.next();
-                if (task.getValue().value <= 0) {
-                    postPatternOutputsChange(task.getKey());
+            List<ExecutingCraftingJob.DispatchTask> readyTasks = job.eligibleDispatchTasks();
+            int fairQuantum = readyTasks.isEmpty() ? 0 : Math.max(1, maxPatterns / readyTasks.size());
+            List<ExecutingCraftingJob.DispatchTask> eligibleTasks = new ArrayList<>(fairTaskOrder(readyTasks));
+            int taskIndex = 0;
+            taskLoop: while (taskIndex < eligibleTasks.size()) {
+                var task = eligibleTasks.get(taskIndex++);
+                if (task.progress().value <= 0) {
+                    postPatternOutputsChange(task.pattern());
                     continue;
                 }
 
-                var details = task.getKey();
+                var details = task.pattern();
                 diagnostics.runnableTasks++;
                 if (job.runtimeExecutionState == null && activePhase != null && !cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler
                         .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
@@ -409,7 +449,7 @@ public class ECOCraftingCPULogic {
                     diagnostics.tasksWithoutProviders++;
                     continue;
                 }
-                if (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
+                if (task.progress().value > 0 && pushedPatterns < maxPatterns) {
                     if (!hasAvailableProvider(candidateProviders)) {
                         diagnostics.tasksWithBusyProviders++;
                         continue taskLoop;
@@ -428,20 +468,38 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
-                    // The single normalization point for this dispatch: fast-path key, slot signatures, expected
-                    // outputs/remainders/inputs and the arithmetic batch ceiling are built exactly once here and
-                    // reused by the offer search, the verification and the batch push.
-                    ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
-                            details, craftingContainer, expectedOutputs, expectedContainerItems, level);
-
-                    var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+                    var extractedCraft = new ECOExtractedCraft(craftingContainer, expectedOutputs,
+                        expectedContainerItems, CraftingCpuHelper.calculatePatternPower(craftingContainer));
                     long batchResult = 0L;
-                    long dispatchLimit = job.dispatchLimit(details);
-                    DispatchResult batchDispatch = dispatchBatch(job, execution, craftingContainer,
-                        candidateProviders, energyService, patternPower, dispatchLimit, BatchMode.VIRTUAL);
-                    if (batchDispatch instanceof DispatchResult.Waiting) {
-                        batchDispatch = dispatchBatch(job, execution, craftingContainer, candidateProviders,
-                            energyService, patternPower, dispatchLimit, BatchMode.FINITE);
+                    long dispatchLimit = job.dispatchLimit(task);
+                    ECOExtractedPatternExecution execution = null;
+                    DispatchResult batchDispatch = new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+                    if (hasFastPathProvider(candidateProviders) || hasBatchProbeProvider(candidateProviders)) {
+                        execution = ECOExtractedPatternExecution.create(details, craftingContainer,
+                            expectedOutputs, expectedContainerItems, level);
+                        if (hasFastPathProvider(candidateProviders)) {
+                            batchDispatch = dispatchBatch(job, execution, craftingContainer, candidateProviders,
+                                energyService, extractedCraft.patternPower(), dispatchLimit, BatchMode.VIRTUAL);
+                            if (batchDispatch instanceof DispatchResult.Waiting) {
+                                batchDispatch = dispatchBatch(job, execution, craftingContainer, candidateProviders,
+                                    energyService, extractedCraft.patternPower(), dispatchLimit, BatchMode.FINITE);
+                            }
+                        }
+                        int remainingBatchProbeBudget = Math.max(0,
+                            ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_CPU_PER_TICK - batchProbesUsedThisTick);
+                        if (batchDispatch instanceof DispatchResult.Waiting && remainingBatchProbeBudget > 0) {
+                            Object taskIdentity = task.taskId() >= 0
+                                ? Integer.valueOf(task.taskId())
+                                : patternIdentityOrObject(details);
+                            Object taskProbeIdentity = new TaskProbeKey(job, taskIdentity);
+                            if (batchProbedTasksThisTick.add(taskProbeIdentity)) {
+                                ProbeDispatchOutcome probe = tryPushProbedBatch(job, execution, craftingContainer,
+                                    candidateProviders, energyService, extractedCraft.patternPower(), dispatchLimit,
+                                    remainingBatchProbeBudget, task.taskId());
+                                batchProbesUsedThisTick += probe.probeCount();
+                                batchDispatch = probe.result();
+                            }
+                        }
                     }
                     if (batchDispatch instanceof DispatchResult.Accepted accepted) batchResult = accepted.count();
                     else if (batchDispatch instanceof DispatchResult.Rejected) batchResult = -1L;
@@ -452,9 +510,10 @@ public class ECOCraftingCPULogic {
                         if (this.job != job) {
                             break taskLoop;
                         }
-                        job.applyDispatchResult(details, batchDispatch);
+                        job.applyDispatchResult(task, batchDispatch);
+                        appendNewReadyTasks(job, eligibleTasks);
                         postPatternOutputsChange(details);
-                        if (task.getValue().value <= 0) {
+                        if (task.progress().value <= 0) {
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -468,12 +527,13 @@ public class ECOCraftingCPULogic {
                     // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
                     // (notably useless_mod's dynamic-output bridge) wrap this exact call site by descriptor.
                     // The strategy only chooses order and attempt budget; this loop retains the transaction.
+                    List<ICraftingProvider> ordinaryProviders = ordinaryProviders(candidateProviders);
                     var strategyContext = new ECOCraftingDispatchStrategy.DispatchContext(
                         details,
-                        task.getValue().value,
-                        Math.max(0, maxPatterns - pushedPatterns),
-                        candidateProviders,
-                        estimateOrdinaryDispatchSlots(candidateProviders, Math.max(0, maxPatterns - pushedPatterns))
+                        task.progress().value,
+                        Math.min(fairQuantum, Math.max(0, maxPatterns - pushedPatterns)),
+                        ordinaryProviders,
+                        estimateOrdinaryDispatchSlots(ordinaryProviders, Math.max(0, maxPatterns - pushedPatterns))
                     );
                     ECOCraftingDispatchStrategy.DispatchDecision strategyDecision;
                     try {
@@ -487,10 +547,10 @@ public class ECOCraftingCPULogic {
                         LOGGER.error("Ordinary crafting dispatch strategy failed; using parallel fallback", strategyFailure);
                         strategyDecision = ECOParallelDispatchStrategy.INSTANCE.choose(strategyContext);
                     }
-                    int ordinaryAttemptLimit = Math.min(strategyDecision.maxAttempts(), strategyContext.dispatchBudget());
-                    if (task.getValue().value < ordinaryAttemptLimit) {
-                        ordinaryAttemptLimit = (int) task.getValue().value;
-                    }
+                    long runtimeLimit = job.dispatchLimit(task);
+                    int ordinaryAttemptLimit = (int) Math.min(
+                        Math.min((long) strategyDecision.maxAttempts(), strategyContext.dispatchBudget()),
+                        Math.min(task.progress().value, runtimeLimit));
                     List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
                     if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
                         CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
@@ -498,34 +558,35 @@ public class ECOCraftingCPULogic {
                     }
 
                     ordinaryDispatch: for (int attempt = 0; attempt < ordinaryAttemptLimit; attempt++) {
-                        if (task.getValue().value <= 0 || pushedPatterns >= maxPatterns) {
+                        if (task.progress().value <= 0 || pushedPatterns >= maxPatterns) {
                             break;
                         }
                         if (!hasAvailableProvider(dispatchProviders)) {
                             diagnostics.tasksWithBusyProviders++;
+                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
+                                for (var provider : dispatchProviders) adaptive.onBusy(provider, false);
+                            }
                             break;
                         }
 
                         KeyCounter attemptOutputs;
                         KeyCounter attemptContainerItems;
                         @Nullable KeyCounter[] attemptContainer;
-                        ECOExtractedPatternExecution attemptExecution;
+                        @Nullable ECOExtractedPatternExecution attemptExecution = null;
                         double attemptPower;
                         if (attempt == 0) {
                             // The first craft was already extracted for the shared fast-path offer search. Reuse
                             // that exact container; extracting it a second time would leak one craft on fallback.
-                            attemptOutputs = expectedOutputs;
-                            attemptContainerItems = expectedContainerItems;
-                            attemptContainer = craftingContainer;
+                            attemptOutputs = extractedCraft.expectedOutputs();
+                            attemptContainerItems = extractedCraft.expectedContainerItems();
+                            attemptContainer = extractedCraft.craftingContainer();
                             attemptExecution = execution;
-                            attemptPower = patternPower;
+                            attemptPower = extractedCraft.patternPower();
                         } else {
                             attemptOutputs = new KeyCounter();
                             attemptContainerItems = new KeyCounter();
                             attemptContainer = CraftingCpuHelper.extractPatternInputs(
                                 details, inventory, level, attemptOutputs, attemptContainerItems);
-                            attemptExecution = attemptContainer == null ? null : ECOExtractedPatternExecution.create(
-                                details, attemptContainer, attemptOutputs, attemptContainerItems, level);
                             attemptPower = attemptContainer == null
                                 ? 0.0D : CraftingCpuHelper.calculatePatternPower(attemptContainer);
                         }
@@ -553,34 +614,51 @@ public class ECOCraftingCPULogic {
                             try {
                                 // This exact call site is part of the integration contract with dynamic-output
                                 // provider mixins. Do not move it into a helper without updating those mixins.
-                                accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus && attemptExecution == null) {
+                                attemptExecution = ECOExtractedPatternExecution.create(details, attemptContainer,
+                                    attemptOutputs, attemptContainerItems, level);
+                            }
+                            accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
                                     ? patternBus.pushPattern(attemptExecution, job.link.getCraftingID())
                                     : provider.pushPattern(details, attemptContainer);
                             } catch (RuntimeException failure) {
                                 diagnostics.providerRejections++;
+                                if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
+                                    adaptive.onException(provider);
+                                }
                                 LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
                                     failure);
                                 continue;
                             }
                             if (!accepted) {
                                 diagnostics.providerRejections++;
+                                if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
+                                    adaptive.onRejected(provider);
+                                }
                                 single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
                                 continue;
                             }
+                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
+                                adaptive.onAccepted(provider);
+                            }
                             if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
-                            recordPushedPattern(job, attemptExecution, 1L);
+                            recordPushedPattern(job, attemptOutputs, attemptContainerItems, 1L);
                             single = new DispatchResult.Accepted(1L);
                             break;
                         }
                         if (!sawAvailable) {
                             single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
+                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
+                                for (var provider : dispatchProviders) adaptive.onBusy(provider, false);
+                            }
                         }
                         if (single instanceof DispatchResult.Accepted) {
                             pushedPatterns++;
                             if (this.job != job) break taskLoop;
-                            job.applyDispatchResult(details, single);
+                            job.applyDispatchResult(task, single);
+                            appendNewReadyTasks(job, eligibleTasks);
                             postPatternOutputsChange(details);
-                            if (task.getValue().value <= 0) continue taskLoop;
+                            if (task.progress().value <= 0) continue taskLoop;
                             if (pushedPatterns == maxPatterns) break taskLoop;
                             continue;
                         }
@@ -800,6 +878,66 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
+    /** Two fair rounds: the first prevents monopolization, the second reuses budget left by blocked tasks. */
+    private List<ExecutingCraftingJob.DispatchTask> fairTaskOrder(
+            List<ExecutingCraftingJob.DispatchTask> readyTasks) {
+        if (readyTasks.size() <= 1) return readyTasks;
+        int offset = Math.floorMod(taskDispatchCursor++, readyTasks.size());
+        List<ExecutingCraftingJob.DispatchTask> result = new ArrayList<>(readyTasks.size() * 2);
+        for (int round = 0; round < 2; round++) {
+            for (int i = 0; i < readyTasks.size(); i++) result.add(readyTasks.get((offset + i) % readyTasks.size()));
+        }
+        return result;
+    }
+
+    private void appendNewReadyTasks(ExecutingCraftingJob job,
+            List<ExecutingCraftingJob.DispatchTask> scheduled) {
+        if (job.runtimeExecutionState == null) return;
+        for (var candidate : job.eligibleDispatchTasks()) {
+            boolean known = false;
+            for (var existing : scheduled) if (existing.taskId() == candidate.taskId()) { known = true; break; }
+            if (!known) scheduled.add(candidate);
+        }
+    }
+
+    private boolean hasFastPathProvider(List<ICraftingProvider> candidateProviders) {
+        for (var provider : candidateProviders) {
+            if (provider instanceof ECOCraftingPatternBusBlockEntity) return true;
+        }
+        return false;
+    }
+
+    private boolean hasBatchProbeProvider(List<ICraftingProvider> candidateProviders) {
+        for (var provider : candidateProviders) {
+            if (provider instanceof ECOBatchProbeCraftingProvider
+                    && !(provider instanceof ECOCraftingPatternBusBlockEntity)) return true;
+        }
+        return false;
+    }
+
+    private static Object patternIdentityOrObject(IPatternDetails pattern) {
+        Object identity = cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity
+            .patternIdentityFor(pattern);
+        return identity == null ? pattern : identity;
+    }
+
+    /** Probe-batch providers are a distinct ownership contract and never enter the ordinary push loop. */
+    private static List<ICraftingProvider> ordinaryProviders(List<ICraftingProvider> providers) {
+        boolean filtered = false;
+        for (var provider : providers) {
+            if (provider instanceof ECOBatchProbeCraftingProvider) {
+                filtered = true;
+                break;
+            }
+        }
+        if (!filtered) return providers;
+        List<ICraftingProvider> ordinary = new ArrayList<>(providers.size());
+        for (var provider : providers) {
+            if (!(provider instanceof ECOBatchProbeCraftingProvider)) ordinary.add(provider);
+        }
+        return List.copyOf(ordinary);
+    }
+
     /**
      * Conservative ordinary-path capacity hint supplied to the policy layer.
      *
@@ -819,15 +957,157 @@ public class ECOCraftingCPULogic {
                 if (controller == null || !visitedScopes.add(controller.getDispatchScope())) continue;
                 contribution = Math.max(1L, patternBus.getAvailableThreadSlots());
             } else {
-                // Generic providers expose no numeric capacity. Their isBusy() contract is the live gate, so allow
-                // the policy to probe up to the remaining CPU budget and stop as soon as the provider is saturated.
-                contribution = Math.max(1L, dispatchBudget);
+                // A plain ICraftingProvider did not opt in to any numeric capacity contract. It may consume the
+                // remaining global CPU budget and naturally stops on isBusy(), rejection, or task/runtime limits.
+                contribution = Math.max(0, dispatchBudget);
             }
             slots = slots > Integer.MAX_VALUE - contribution
                 ? Integer.MAX_VALUE : slots + contribution;
             if (slots >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
         }
         return (int) slots;
+    }
+
+    private ProbeDispatchOutcome tryPushProbedBatch(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            List<ICraftingProvider> candidateProviders,
+            IEnergyService energyService,
+            double patternPower,
+            long runtimeDispatchLimit,
+            int remainingCpuProbeBudget,
+            int taskId) {
+        ECOBatchProbeCraftingProvider selected = null;
+        for (var provider : candidateProviders) {
+            if (provider instanceof ECOBatchProbeCraftingProvider capable
+                    && !(provider instanceof ECOCraftingPatternBusBlockEntity) && !provider.isBusy()) {
+                selected = capable;
+                break;
+            }
+        }
+        if (selected == null) {
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), 0);
+        }
+
+        long legalUpper = calculateBatchRequestSize(execution, runtimeDispatchLimit);
+        legalUpper = Math.min(legalUpper, maxBatchSizeFromEnergy(
+            energyService, patternPower, (int) Math.min(Integer.MAX_VALUE, legalUpper)));
+        long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, execution.inputItems(), Math.max(0L, legalUpper - 1L));
+        legalUpper = Math.min(legalUpper, availableExtra + 1L);
+        if (legalUpper <= 0L) {
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), 0);
+        }
+
+        final Object scope;
+        try {
+            scope = Objects.requireNonNull(selected.eco$getBatchProbeScope(),
+                "batch probe provider returned a null scope");
+        } catch (RuntimeException contractViolation) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            LOGGER.error("[ECO-BATCH-PROBE] provider returned an invalid dispatch scope", contractViolation);
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), 0);
+        }
+        BatchProbeKey key = new BatchProbeKey(scope, patternIdentityOrObject(executionDetails(execution)));
+        BatchCapacityProbeState state = batchProbeStates.computeIfAbsent(key, ignored -> new BatchCapacityProbeState());
+        int requiredBudget = ECOBatchProbeScheduler.candidates(state.startingUpperBound(legalUpper)).length;
+        int probesAlreadyUsed = ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_CPU_PER_TICK
+            - remainingCpuProbeBudget;
+        if (!ECOBatchProbeScheduler.canStartCpuProbeWindow(probesAlreadyUsed, requiredBudget)) {
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), 0);
+        }
+
+        ECOBatchProbeCraftingProvider provider = selected;
+        ECOBatchProbeScheduler.ProbeResult probe;
+        int[] attemptedProbes = { 0 };
+        try {
+            probe = ECOBatchProbeScheduler.probe(state, legalUpper, remainingCpuProbeBudget,
+                candidate -> {
+                    attemptedProbes[0]++;
+                    return provider.eco$simulateBatch(execution, candidate);
+                });
+        } catch (RuntimeException contractViolation) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            LOGGER.error("[ECO-BATCH-PROBE] side-effect-free simulation failed", contractViolation);
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), attemptedProbes[0]);
+        }
+        if (probe.selected() <= 0L) {
+            logBatchProbe(taskId, execution, scope, probe, state, "no-capacity");
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), probe.probeCount());
+        }
+
+        long craftCount = probe.selected();
+        List<GenericStack> extraInputs;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), craftCount - 1L);
+        } catch (RuntimeException invalidBatch) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), probe.probeCount());
+        }
+        boolean extraExtracted = false;
+        boolean ownershipTransferred = false;
+        try {
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            extraExtracted = true;
+            if (!provider.eco$commitBatch(execution, craftCount, job.link.getCraftingID())) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
+                logBatchProbe(taskId, execution, scope, probe, state, "commit-rejected");
+                return new ProbeDispatchOutcome(
+                    new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), probe.probeCount());
+            }
+            ownershipTransferred = true;
+            double requiredPower = patternPower * craftCount;
+            if (Double.isFinite(requiredPower)) chargeAcceptedPatternEnergy(energyService, requiredPower);
+            if (this.job == job) recordPushedPattern(job, execution, craftCount);
+            logBatchProbe(taskId, execution, scope, probe, state, "accepted");
+            return new ProbeDispatchOutcome(new DispatchResult.Accepted(craftCount), probe.probeCount());
+        } catch (RuntimeException failure) {
+            if (ownershipTransferred) {
+                LOGGER.error("[ECO-BATCH-PROBE] commit failed after ownership transfer; accounting as accepted", failure);
+                return new ProbeDispatchOutcome(new DispatchResult.Accepted(craftCount), probe.probeCount());
+            }
+            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraExtracted);
+            LOGGER.error("[ECO-BATCH-PROBE] commit failed before ownership transfer; inputs were rolled back", failure);
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), probe.probeCount());
+        } catch (Error failure) {
+            if (!ownershipTransferred) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraExtracted);
+            }
+            throw failure;
+        }
+    }
+
+    private static IPatternDetails executionDetails(ECOExtractedPatternExecution execution) {
+        return execution.details();
+    }
+
+    private void resetBatchProbeBudgetForCurrentTick() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (batchProbeBudgetTick == currentTick) return;
+        batchProbeBudgetTick = currentTick;
+        batchProbesUsedThisTick = 0;
+        batchProbedTasksThisTick.clear();
+    }
+
+    private void logBatchProbe(int taskId, ECOExtractedPatternExecution execution, Object scope,
+            ECOBatchProbeScheduler.ProbeResult probe, BatchCapacityProbeState state, String result) {
+        if (!LOGGER.isDebugEnabled()) return;
+        long tick = TickHandler.instance().getCurrentTick();
+        if (lastBatchProbeLogTick != Long.MIN_VALUE
+                && tick - lastBatchProbeLogTick < BATCH_REJECTION_LOG_INTERVAL_TICKS) return;
+        lastBatchProbeLogTick = tick;
+        LOGGER.debug("[ECO-BATCH-PROBE] taskId={} pattern={} scope={} upper={} candidates={} probeCount={} selected={} knownGood={} knownBad={} result={}",
+            taskId, executionDetails(execution), scope, probe.upperBound(), java.util.Arrays.toString(probe.candidates()),
+            probe.probeCount(), probe.selected(), state.historicalKnownGood(), state.knownBadExclusive(), result);
     }
 
     private int tryPushVerifiedFastPathBatch(
@@ -1140,16 +1420,34 @@ public class ECOCraftingCPULogic {
                 Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
-
         for (var expectedContainerItem : execution.expectedContainerItems()) {
-            job.waitingFor.insert(
-                    expectedContainerItem.what(), Math.multiplyExact(expectedContainerItem.amount(), multiplier),
-                    Actionable.MODULATE);
-            job.timeTracker.addMaxItems(
-                    Math.multiplyExact(expectedContainerItem.amount(), multiplier),
-                    expectedContainerItem.what().getType());
+            job.waitingFor.insert(expectedContainerItem.what(),
+                Math.multiplyExact(expectedContainerItem.amount(), multiplier), Actionable.MODULATE);
+            job.timeTracker.addMaxItems(Math.multiplyExact(expectedContainerItem.amount(), multiplier),
+                expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());
+        cpu.markDirty();
+    }
+
+    private void recordPushedPattern(
+            ExecutingCraftingJob job, KeyCounter expectedOutputs, KeyCounter expectedContainerItems, long craftCount) {
+        long multiplier = Math.max(1L, craftCount);
+        for (var expectedOutput : expectedOutputs) {
+            job.waitingFor.insert(expectedOutput.getKey(), Math.multiplyExact(expectedOutput.getLongValue(), multiplier),
+                Actionable.MODULATE);
+            postChange(expectedOutput.getKey());
+        }
+
+        for (var expectedContainerItem : expectedContainerItems) {
+            job.waitingFor.insert(
+                    expectedContainerItem.getKey(), Math.multiplyExact(expectedContainerItem.getLongValue(), multiplier),
+                    Actionable.MODULATE);
+            job.timeTracker.addMaxItems(
+                    Math.multiplyExact(expectedContainerItem.getLongValue(), multiplier),
+                    expectedContainerItem.getKey().getType());
+            postChange(expectedContainerItem.getKey());
+        }
 
         cpu.markDirty();
     }

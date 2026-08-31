@@ -355,7 +355,7 @@ public final class ECOPlanningResultRegistry {
                 phase.componentId(), phase.type(), patterns, witness));
         }
         return new ECOExecutionPlan(sourcePlan.signature(), sourcePlan.mode(), tasks, sourcePlan.phases(),
-            new ECOExecutionSchedule(schedulePhases));
+            new ECOExecutionSchedule(schedulePhases, sourcePlan.schedule().dependencies()));
     }
 
     private static @Nullable Map<IPatternDetails, IPatternDetails> taskMapping(

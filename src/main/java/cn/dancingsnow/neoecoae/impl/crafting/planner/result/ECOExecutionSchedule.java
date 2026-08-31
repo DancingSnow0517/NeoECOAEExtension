@@ -17,10 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Runtime component phases. The list is explicitly execution (supplier-to-consumer) order. */
-public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
+public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<PhaseDependency> dependencies) {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
 
-    public ECOExecutionSchedule { phases = List.copyOf(phases); }
+    public ECOExecutionSchedule {
+        phases = List.copyOf(phases);
+        dependencies = List.copyOf(dependencies);
+    }
+    public ECOExecutionSchedule(List<ComponentExecutionPhase> phases) { this(phases, List.of()); }
+    public record PhaseDependency(int producerPhase, int consumerPhase) { }
     public record ComponentExecutionPhase(int componentId, Type type, Set<IPatternDetails> patternSet,
             List<IPatternDetails> cycleWitness) {
         public ComponentExecutionPhase { patternSet = Set.copyOf(patternSet); cycleWitness = List.copyOf(cycleWitness); }
@@ -106,7 +111,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
                     "Execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
             }
         }
-        return new ECOExecutionSchedule(orderByExecutableDependencies(phases, components));
+        OrderedSchedule ordered = orderByExecutableDependencies(phases, components);
+        return new ECOExecutionSchedule(ordered.phases(), ordered.dependencies());
     }
 
     /**
@@ -114,9 +120,9 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
      * phase edges from the final physical patterns so dependencies introduced by that alternate cannot remain
      * behind their consumers in the stale component order.
      */
-    private static List<ComponentExecutionPhase> orderByExecutableDependencies(
+    private static OrderedSchedule orderByExecutableDependencies(
             List<ComponentExecutionPhase> phases, List<ComponentPlanningResult> components) {
-        if (phases.size() < 2) return List.copyOf(phases);
+        if (phases.size() < 2) return new OrderedSchedule(List.copyOf(phases), List.of());
 
         Map<AEKey, List<Integer>> outputProducers = new HashMap<>();
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
@@ -194,9 +200,11 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
         PriorityQueue<Integer> ready = new PriorityQueue<>();
         for (int i = 0; i < indegree.length; i++) if (indegree[i] == 0) ready.add(i);
         List<ComponentExecutionPhase> ordered = new ArrayList<>(phases.size());
+        List<Integer> orderedIndices = new ArrayList<>(phases.size());
         while (!ready.isEmpty()) {
             int phaseIndex = ready.remove();
             ordered.add(phases.get(phaseIndex));
+            orderedIndices.add(phaseIndex);
             for (int dependent : outgoing.get(phaseIndex)) {
                 if (--indegree[dependent] == 0) ready.add(dependent);
             }
@@ -205,8 +213,21 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
             throw new IllegalStateException(
                 "Final executable pattern dependencies contain a cycle outside a solved cycle phase");
         }
-        return List.copyOf(ordered);
+        int[] remapped = new int[phases.size()];
+        for (int i = 0; i < orderedIndices.size(); i++) remapped[orderedIndices.get(i)] = i;
+        List<PhaseDependency> dependencies = new ArrayList<>();
+        for (int producer = 0; producer < outgoing.size(); producer++) {
+            for (int consumer : outgoing.get(producer)) {
+                dependencies.add(new PhaseDependency(remapped[producer], remapped[consumer]));
+            }
+        }
+        dependencies.sort(java.util.Comparator.comparingInt(PhaseDependency::consumerPhase)
+            .thenComparingInt(PhaseDependency::producerPhase));
+        return new OrderedSchedule(List.copyOf(ordered), List.copyOf(dependencies));
     }
+
+    private record OrderedSchedule(List<ComponentExecutionPhase> phases,
+            List<PhaseDependency> dependencies) { }
 
     private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
             int producer, int consumer) {

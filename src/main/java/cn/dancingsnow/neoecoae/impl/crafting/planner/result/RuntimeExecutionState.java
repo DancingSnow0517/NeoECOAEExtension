@@ -4,162 +4,183 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** The sole mutable source of task counts and phase/step cursors for an ECO execution plan. */
+/** Mutable task accounting with dependency-aware multi-ready phases. */
 public final class RuntimeExecutionState {
     private final ECOExecutionPlan plan;
     private final long[] remaining;
+    private final int[] stepIndex;
+    private final long[] stepRemaining;
+    private final int[] unmetDependencies;
+    private final boolean[] complete;
     private int phaseIndex;
-    private int stepIndex;
-    private long stepRemaining;
 
     public RuntimeExecutionState(ECOExecutionPlan plan) {
         this.plan = Objects.requireNonNull(plan, "plan");
-        this.remaining = plan.tasks().stream().mapToLong(ECOExecutionPlan.TaskSpec::totalCount).toArray();
-        loadStepRemaining();
-        advanceCompletedPhases();
+        remaining = plan.tasks().stream().mapToLong(ECOExecutionPlan.TaskSpec::totalCount).toArray();
+        stepIndex = new int[plan.phases().size()];
+        stepRemaining = new long[plan.phases().size()];
+        unmetDependencies = new int[plan.phases().size()];
+        complete = new boolean[plan.phases().size()];
+        for (int i = 0; i < plan.phases().size(); i++) {
+            unmetDependencies[i] = plan.phases().get(i).dependencies().size();
+            loadStep(i);
+        }
+        refreshCompletion();
     }
-
     public ECOExecutionPlan plan() { return plan; }
     public int phaseIndex() { return phaseIndex; }
-    public int stepIndex() { return stepIndex; }
-    public long stepRemaining() { return stepRemaining; }
-    public boolean finished() { return phaseIndex >= plan.phases().size(); }
-    public long remaining(int taskId) { return remaining[checkedTaskId(taskId)]; }
+    public int stepIndex() { return activePhase() == null ? 0 : stepIndex[phaseIndex]; }
+    public long stepRemaining() { return activePhase() == null ? 0L : stepRemaining[phaseIndex]; }
+    public boolean finished() { return allComplete(); }
+    public long remaining(int taskId) { return remaining[checked(taskId)]; }
     public long[] remainingSnapshot() { return remaining.clone(); }
-
+    public int stepIndex(int phaseId) { return stepIndex[phaseId]; }
+    public long stepRemaining(int phaseId) { return stepRemaining[phaseId]; }
     public ECOExecutionPlan.PhaseSpec activePhase() {
-        return finished() ? null : plan.phases().get(phaseIndex);
-    }
-
-    /** Tasks eligible now. An ordered run exposes exactly one task until its compressed count is consumed. */
-    public List<Integer> eligibleTaskIds() {
-        advanceCompletedPhases();
-        ECOExecutionPlan.PhaseSpec phase = activePhase();
-        if (phase == null) return List.of();
-        if (stepIndex < phase.steps().size()) {
-            int taskId = phase.steps().get(stepIndex).taskId();
-            return remaining[taskId] > 0 ? List.of(taskId) : List.of();
+        for (int i = 0; i < plan.phases().size(); i++) {
+            if (!complete[i] && unmetDependencies[i] == 0) return plan.phases().get(i);
         }
+        return null;
+    }
+    public List<Integer> eligibleTaskIds() {
+        refreshCompletion();
         List<Integer> result = new ArrayList<>();
-        for (int taskId : phase.taskIds()) if (remaining[taskId] > 0) result.add(taskId);
+        for (int phase = 0; phase < plan.phases().size(); phase++) {
+            if (complete[phase] || unmetDependencies[phase] != 0) continue;
+            var spec = plan.phases().get(phase);
+            if (stepIndex[phase] < spec.steps().size()) {
+                int id = spec.steps().get(stepIndex[phase]).taskId();
+                if (remaining[id] > 0) result.add(id);
+            } else {
+                for (int id : spec.taskIds()) if (remaining[id] > 0) result.add(id);
+            }
+        }
         return List.copyOf(result);
     }
-
-    /** Maximum count the current gate permits for this task, including a compressed ordered run. */
     public long dispatchLimit(int taskId) {
-        checkedTaskId(taskId);
-        ECOExecutionPlan.PhaseSpec phase = activePhase();
-        if (phase == null || !phase.taskIds().contains(taskId)) return 0L;
-        if (stepIndex < phase.steps().size()) {
-            return phase.steps().get(stepIndex).taskId() == taskId
-                ? Math.min(remaining[taskId], stepRemaining) : 0L;
+        checked(taskId);
+        refreshCompletion();
+        int phase = plan.task(taskId).phaseIndex();
+        if (complete[phase] || unmetDependencies[phase] != 0) return 0L;
+        var spec = plan.phases().get(phase);
+        if (stepIndex[phase] < spec.steps().size()) {
+            return spec.steps().get(stepIndex[phase]).taskId() == taskId
+                ? Math.min(remaining[taskId], stepRemaining[phase]) : 0L;
         }
         return remaining[taskId];
     }
-
-    /** Applies one accepted provider ownership transfer and advances steps/phases atomically. */
     public void applyAccepted(int taskId, long count) {
         long permitted = dispatchLimit(taskId);
         if (count <= 0 || count > permitted) {
-            throw new IllegalArgumentException("Dispatch count " + count + " exceeds runtime gate " + permitted);
+            throw new IllegalArgumentException("Dispatch count exceeds runtime gate");
         }
         remaining[taskId] -= count;
-        ECOExecutionPlan.PhaseSpec phase = activePhase();
-        if (phase != null && stepIndex < phase.steps().size()) {
-            stepRemaining -= count;
-            if (stepRemaining == 0) {
-                stepIndex++;
-                loadStepRemaining();
+        int phase = plan.task(taskId).phaseIndex();
+        var spec = plan.phases().get(phase);
+        if (stepIndex[phase] < spec.steps().size()) {
+            stepRemaining[phase] -= count;
+            if (stepRemaining[phase] == 0) {
+                stepIndex[phase]++;
+                loadStep(phase);
             }
         }
-        advanceCompletedPhases();
+        refreshCompletion();
     }
 
-    public void restore(long[] restoredRemaining, int restoredPhaseIndex, int restoredStepIndex,
-            long restoredStepRemaining) {
+    public void restore(long[] restoredRemaining, int[] restoredSteps, long[] restoredStepRemaining) {
         if (restoredRemaining == null || restoredRemaining.length != remaining.length) {
-            throw new IllegalArgumentException("Persisted task vector length does not match the execution plan");
+            throw new IllegalArgumentException("Persisted task vector length mismatch");
+        }
+        if (restoredSteps.length != stepIndex.length || restoredStepRemaining.length != stepRemaining.length) {
+            throw new IllegalArgumentException("Persisted phase cursor length mismatch");
         }
         for (int i = 0; i < remaining.length; i++) {
             if (restoredRemaining[i] < 0 || restoredRemaining[i] > plan.task(i).totalCount()) {
-                throw new IllegalArgumentException("Invalid persisted remaining count for task " + i);
+                throw new IllegalArgumentException("Invalid persisted remaining");
             }
             remaining[i] = restoredRemaining[i];
         }
-        if (restoredPhaseIndex < 0 || restoredPhaseIndex > plan.phases().size()) {
-            throw new IllegalArgumentException("Invalid persisted phase cursor");
-        }
-        phaseIndex = restoredPhaseIndex;
-        if (finished()) {
-            if (restoredStepIndex != 0 || restoredStepRemaining != 0) {
-                throw new IllegalArgumentException("A finished plan cannot retain an ordered step cursor");
+        for (int phase = 0; phase < stepIndex.length; phase++) {
+            var steps = plan.phases().get(phase).steps();
+            int index = restoredSteps[phase];
+            long cursorRemaining = restoredStepRemaining[phase];
+            if (index < 0 || index > steps.size()) {
+                throw new IllegalArgumentException("Invalid persisted step cursor");
             }
-            stepIndex = 0;
-            stepRemaining = 0;
-            return;
-        }
-        var steps = activePhase().steps();
-        if (restoredStepIndex < 0 || restoredStepIndex > steps.size()) {
-            throw new IllegalArgumentException("Invalid persisted step cursor");
-        }
-        stepIndex = restoredStepIndex;
-        if (stepIndex == steps.size()) {
-            if (restoredStepRemaining != 0) throw new IllegalArgumentException("Completed steps retain work");
-            stepRemaining = 0;
-        } else {
-            long full = steps.get(stepIndex).count();
-            if (restoredStepRemaining <= 0 || restoredStepRemaining > full) {
-                throw new IllegalArgumentException("Invalid persisted compressed-step remainder");
+            if (index == steps.size() ? cursorRemaining != 0L
+                    : cursorRemaining <= 0L || cursorRemaining > steps.get(index).count()) {
+                throw new IllegalArgumentException("Invalid persisted step remainder");
             }
-            stepRemaining = restoredStepRemaining;
+            stepIndex[phase] = index;
+            stepRemaining[phase] = cursorRemaining;
+            validateCursor(phase);
         }
-        validateCursorAgainstRemaining();
-        advanceCompletedPhases();
+        java.util.Arrays.fill(complete, false);
+        for (int i = 0; i < unmetDependencies.length; i++) {
+            unmetDependencies[i] = plan.phases().get(i).dependencies().size();
+        }
+        refreshCompletion();
     }
 
-    private void advanceCompletedPhases() {
-        while (!finished()) {
-            var phase = activePhase();
-            if (stepIndex < phase.steps().size()) return;
-            boolean workLeft = false;
-            for (int taskId : phase.taskIds()) if (remaining[taskId] > 0) { workLeft = true; break; }
-            if (workLeft) return;
-            phaseIndex++;
-            stepIndex = 0;
-            loadStepRemaining();
+    private void validateCursor(int phase) {
+        var spec = plan.phases().get(phase);
+        long[] consumed = new long[remaining.length];
+        for (int i = 0; i < stepIndex[phase]; i++) {
+            var step = spec.steps().get(i);
+            consumed[step.taskId()] = Math.addExact(consumed[step.taskId()], step.count());
         }
-    }
-
-    private void loadStepRemaining() {
-        var phase = activePhase();
-        stepRemaining = phase != null && stepIndex < phase.steps().size()
-            ? phase.steps().get(stepIndex).count() : 0L;
-    }
-
-    private void validateCursorAgainstRemaining() {
-        if (finished()) return;
-        var phase = activePhase();
-        long[] consumedByTask = new long[remaining.length];
-        for (int i = 0; i < stepIndex; i++) {
-            var step = phase.steps().get(i);
-            consumedByTask[step.taskId()] = Math.addExact(consumedByTask[step.taskId()], step.count());
+        if (stepIndex[phase] < spec.steps().size()) {
+            var step = spec.steps().get(stepIndex[phase]);
+            consumed[step.taskId()] = Math.addExact(
+                consumed[step.taskId()], step.count() - stepRemaining[phase]);
         }
-        if (stepIndex < phase.steps().size()) {
-            var step = phase.steps().get(stepIndex);
-            consumedByTask[step.taskId()] = Math.addExact(consumedByTask[step.taskId()], step.count() - stepRemaining);
-        }
-        for (int taskId : phase.taskIds()) {
-            long actuallyConsumed = plan.task(taskId).totalCount() - remaining[taskId];
-            boolean orderedTraceActive = stepIndex < phase.steps().size();
-            if (actuallyConsumed < consumedByTask[taskId]
-                    || (orderedTraceActive && actuallyConsumed != consumedByTask[taskId])) {
-                throw new IllegalArgumentException("Persisted cursor is ahead of task accounting");
+        boolean traceActive = stepIndex[phase] < spec.steps().size();
+        for (int taskId : spec.taskIds()) {
+            long actual = plan.task(taskId).totalCount() - remaining[taskId];
+            if (actual < consumed[taskId] || traceActive && actual != consumed[taskId]) {
+                throw new IllegalArgumentException("Persisted cursor does not match task accounting");
             }
         }
     }
-
-    private int checkedTaskId(int taskId) {
-        if (taskId < 0 || taskId >= remaining.length) throw new IllegalArgumentException("Unknown task " + taskId);
-        return taskId;
+    private void refreshCompletion() {
+        boolean changed;
+        do {
+            changed = false;
+            for (int i = 0; i < complete.length; i++) {
+                if (!complete[i] && unmetDependencies[i] == 0 && phaseDone(i)) {
+                    complete[i] = true;
+                    changed = true;
+                    for (int j = 0; j < complete.length; j++) {
+                        if (plan.phases().get(j).dependencies().contains(i)) unmetDependencies[j]--;
+                    }
+                }
+            }
+        } while (changed);
+        for (int i = 0; i < complete.length; i++) {
+            if (!complete[i] && unmetDependencies[i] == 0) {
+                phaseIndex = i;
+                break;
+            }
+        }
+    }
+    private boolean phaseDone(int phase) {
+        var spec = plan.phases().get(phase);
+        if (stepIndex[phase] < spec.steps().size()) return false;
+        for (int id : spec.taskIds()) if (remaining[id] > 0) return false;
+        return true;
+    }
+    private boolean allComplete() {
+        refreshCompletion();
+        for (boolean value : complete) if (!value) return false;
+        return true;
+    }
+    private void loadStep(int phase) {
+        var steps = plan.phases().get(phase).steps();
+        stepRemaining[phase] = stepIndex[phase] < steps.size()
+            ? steps.get(stepIndex[phase]).count() : 0L;
+    }
+    private int checked(int id) {
+        if (id < 0 || id >= remaining.length) throw new IllegalArgumentException("Unknown task " + id);
+        return id;
     }
 }

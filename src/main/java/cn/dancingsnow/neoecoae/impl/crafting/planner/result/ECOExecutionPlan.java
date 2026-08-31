@@ -59,12 +59,13 @@ public record ECOExecutionPlan(
     }
 
     public record PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
-            List<Integer> taskIds, List<ExecutionStep> steps) {
+            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
         public PhaseSpec {
             if (index < 0) throw new IllegalArgumentException("Negative phase index");
             Objects.requireNonNull(type, "type");
             taskIds = List.copyOf(taskIds);
             steps = List.copyOf(steps);
+            dependencies = List.copyOf(dependencies);
         }
     }
 
@@ -96,6 +97,15 @@ public record ECOExecutionPlan(
             }
             if (phase.type() == ECOExecutionSchedule.Type.DAG && !phase.steps().isEmpty()) {
                 throw new IllegalArgumentException("A DAG phase cannot contain ordered cycle steps");
+            }
+            java.util.HashSet<Integer> uniqueDependencies = new java.util.HashSet<>();
+            for (int dependency : phase.dependencies()) {
+                if (dependency < 0 || dependency >= phaseIndex) {
+                    throw new IllegalArgumentException("Phase dependencies must follow stable topological order");
+                }
+                if (!uniqueDependencies.add(dependency)) {
+                    throw new IllegalArgumentException("Duplicate phase dependency");
+                }
             }
             for (ExecutionStep step : phase.steps()) {
                 if (!phase.taskIds().contains(step.taskId())) {

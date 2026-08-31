@@ -86,8 +86,8 @@ public class ExecutingCraftingJob {
     private static final String NBT_EXECUTION_MODE = "executionMode";
     private static final String NBT_EXECUTION_CONTRACT_VERSION = "executionContractVersion";
     private static final String NBT_PLAN_SIGNATURE_HASH = "planSignatureHash";
-    private static final int EXECUTION_CONTRACT_VERSION = 4;
-    private static final String NBT_EXECUTION_PLAN = "executionPlanV4";
+    private static final int EXECUTION_CONTRACT_VERSION = 5;
+    private static final String NBT_EXECUTION_PLAN = "executionPlanV5";
     private static final String NBT_PLAN_TASKS = "planTasks";
     private static final String NBT_PLAN_PHASES = "planPhases";
     private static final String NBT_TASK_ID = "taskId";
@@ -97,6 +97,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_TASK_KIND = "kind";
     private static final String NBT_PHASE_TASK_IDS = "taskIds";
     private static final String NBT_PHASE_STEPS = "steps";
+    private static final String NBT_PHASE_DEPENDENCIES = "dependencies";
     private static final String NBT_STEP_COUNT = "count";
     private static final String NBT_STEP_REMAINING = "stepRemaining";
     private static final String NBT_SIGNATURE_USED = "signatureUsed";
@@ -115,6 +116,7 @@ public class ExecutingCraftingJob {
     ECOExecutionSchedule executionSchedule;
     @Nullable ECOExecutionContract executionContract;
     @Nullable RuntimeExecutionState runtimeExecutionState;
+    @Nullable Map<Integer, TaskProgress> runtimeProgressProjection;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -122,6 +124,9 @@ public class ExecutingCraftingJob {
     @Nullable
     Integer playerId;
     boolean suspended;
+
+    /** Stable dispatch reference. Runtime plans use task ids; native jobs retain their compatibility progress. */
+    record DispatchTask(int taskId, IPatternDetails pattern, TaskProgress progress) {}
 
     @Nullable ECOExecutionSchedule.ComponentExecutionPhase activePhase() {
         if (runtimeExecutionState != null) {
@@ -196,14 +201,13 @@ public class ExecutingCraftingJob {
         executionStepIndex = cycleWitnessIndex;
     }
 
-    long dispatchLimit(IPatternDetails pattern) {
-        if (runtimeExecutionState == null) return remainingTasksFor(pattern);
-        for (var task : runtimeExecutionState.plan().tasks()) {
-            if (ECOPhaseScheduler.samePattern(pattern, task.pattern())) {
-                return runtimeExecutionState.dispatchLimit(task.id());
-            }
-        }
-        return 0L;
+    long dispatchLimit(DispatchTask task) {
+        return runtimeExecutionState == null ? task.progress().value : dispatchLimit(task.taskId());
+    }
+
+    long dispatchLimit(int taskId) {
+        if (runtimeExecutionState == null) return 0L;
+        return runtimeExecutionState.dispatchLimit(taskId);
     }
 
     long finalOutputFeedbackReserve(AEKey key) {
@@ -211,10 +215,11 @@ public class ExecutingCraftingJob {
         if (runtimeExecutionState == null) {
             return ECOPhaseScheduler.compactCycleFeedbackReserve(activePhase(), this::remainingTasksFor, key);
         }
-        var phase = runtimeExecutionState.activePhase();
-        if (phase == null || phase.type() != ECOExecutionSchedule.Type.CYCLE) return 0L;
         long reserve = 0L;
         for (int taskId : runtimeExecutionState.eligibleTaskIds()) {
+            var phase = runtimeExecutionState.plan().phases().get(
+                runtimeExecutionState.plan().task(taskId).phaseIndex());
+            if (phase.type() != ECOExecutionSchedule.Type.CYCLE) continue;
             long perCraft = 0L;
             var pattern = runtimeExecutionState.plan().task(taskId).pattern();
             for (var input : pattern.getInputs()) {
@@ -237,36 +242,68 @@ public class ExecutingCraftingJob {
         return reserve;
     }
 
-    List<IPatternDetails> eligiblePatterns() {
+    List<DispatchTask> eligibleDispatchTasks() {
         if (runtimeExecutionState == null) return tasks.entrySet().stream()
-            .filter(entry -> entry.getValue().value > 0).map(Map.Entry::getKey).toList();
+            .filter(entry -> entry.getValue().value > 0)
+            .map(entry -> new DispatchTask(-1, entry.getKey(), entry.getValue())).toList();
+        if (runtimeProgressProjection == null) {
+            Map<Integer, TaskProgress> projection = new HashMap<>();
+            for (var spec : runtimeExecutionState.plan().tasks()) {
+                var compatibility = tasks.get(spec.pattern());
+                if (compatibility == null) {
+                    var matched = taskFor(spec.pattern());
+                    compatibility = matched == null ? new TaskProgress() : matched.getValue();
+                }
+                if (compatibility.value == 0) {
+                    compatibility.value = runtimeExecutionState.remaining(spec.id());
+                }
+                projection.put(spec.id(), compatibility);
+            }
+            runtimeProgressProjection = projection;
+        }
         return runtimeExecutionState.eligibleTaskIds().stream()
-            .map(id -> runtimeExecutionState.plan().task(id).pattern()).toList();
+            .map(id -> {
+                var spec = runtimeExecutionState.plan().task(id);
+                return new DispatchTask(id, spec.pattern(), runtimeProgressProjection.get(id));
+            }).toList();
     }
 
-    void applyAccepted(IPatternDetails pattern, long count) {
+    void applyAccepted(DispatchTask task, long count) {
         if (runtimeExecutionState == null) {
-            var task = taskFor(pattern);
-            if (task == null || count <= 0 || count > task.getValue().value) {
+            if (count <= 0 || count > task.progress().value) {
                 throw new IllegalArgumentException("Accepted dispatch does not match a remaining task");
             }
-            task.getValue().value -= count;
+            task.progress().value -= count;
             return;
         }
-        for (var task : runtimeExecutionState.plan().tasks()) {
-            if (!ECOPhaseScheduler.samePattern(pattern, task.pattern())) continue;
-            runtimeExecutionState.applyAccepted(task.id(), count);
-            var compatibility = taskFor(pattern);
-            if (compatibility != null) compatibility.getValue().value = runtimeExecutionState.remaining(task.id());
-            syncRuntimeProjection();
-            return;
-        }
-        throw new IllegalArgumentException("Accepted dispatch references an unknown task");
+        applyAccepted(task.taskId(), count);
+        task.progress().value = runtimeExecutionState.remaining(task.taskId());
+        syncRuntimeProjection();
     }
 
-    long applyDispatchResult(IPatternDetails pattern, DispatchResult result) {
+    void applyAccepted(int taskId, long count) {
+        if (runtimeExecutionState == null) {
+            throw new IllegalStateException("Task ids are unavailable for native execution");
+        }
+        runtimeExecutionState.applyAccepted(taskId, count);
+        syncRuntimeProjection();
+    }
+
+    long applyDispatchResult(DispatchTask task, DispatchResult result) {
         if (result instanceof DispatchResult.Accepted accepted) {
-            applyAccepted(pattern, accepted.count());
+            applyAccepted(task, accepted.count());
+            return accepted.count();
+        }
+        if (result instanceof DispatchResult.Fatal fatal) {
+            permanentExecutionError = PermanentExecutionError.EXECUTION_PLAN_INVALID;
+            LOGGER.error("[ECO-EXEC] fatal dispatch result: {}", fatal.reason());
+        }
+        return 0L;
+    }
+
+    long applyDispatchResult(int taskId, DispatchResult result) {
+        if (result instanceof DispatchResult.Accepted accepted) {
+            applyAccepted(taskId, accepted.count());
             return accepted.count();
         }
         if (result instanceof DispatchResult.Fatal fatal) {
@@ -485,7 +522,7 @@ public class ExecutingCraftingJob {
                     restored.plan().mode(), restored.plan(), null);
                 this.executionSchedule = restored.plan().schedule();
                 this.runtimeExecutionState = new RuntimeExecutionState(restored.plan());
-                this.runtimeExecutionState.restore(restored.remaining(), currentComponentIndex, executionStepIndex,
+                this.runtimeExecutionState.restore(restored.remaining(), restored.stepIndexes(),
                     restored.stepRemaining());
                 this.executionMode = restored.plan().mode();
                 this.permanentExecutionError = null;
@@ -577,7 +614,6 @@ public class ExecutingCraftingJob {
         ECOExecutionPlan plan = state.plan();
         CompoundTag root = new CompoundTag();
         root.putString(NBT_EXECUTION_MODE, plan.mode().name());
-        root.putLong(NBT_STEP_REMAINING, state.stepRemaining());
         root.put(NBT_SIGNATURE_USED, writeKeyAmounts(plan.signature().usedItems(), registries));
         root.put(NBT_SIGNATURE_EMITTED, writeKeyAmounts(plan.signature().emittedItems(), registries));
         root.put(NBT_SIGNATURE_MISSING, writeKeyAmounts(plan.signature().missingItems(), registries));
@@ -600,6 +636,9 @@ public class ExecutingCraftingJob {
             tag.putInt(NBT_COMPONENT_ID, phase.componentId());
             tag.putString(NBT_COMPONENT_TYPE, phase.type().name());
             tag.putIntArray(NBT_PHASE_TASK_IDS, phase.taskIds());
+            tag.putIntArray(NBT_PHASE_DEPENDENCIES, phase.dependencies());
+            tag.putInt(NBT_EXECUTION_STEP, state.stepIndex(phase.index()));
+            tag.putLong(NBT_STEP_REMAINING, state.stepRemaining(phase.index()));
             ListTag steps = new ListTag();
             for (var step : phase.steps()) {
                 CompoundTag stepTag = new CompoundTag();
@@ -620,7 +659,6 @@ public class ExecutingCraftingJob {
                 || !root.contains(NBT_PLAN_TASKS, Tag.TAG_LIST)
                 || !root.contains(NBT_PLAN_PHASES, Tag.TAG_LIST)
                 || !root.contains(NBT_EXECUTION_MODE, Tag.TAG_STRING)
-                || !root.contains(NBT_STEP_REMAINING, Tag.TAG_LONG)
                 || !root.contains(NBT_SIGNATURE_USED, Tag.TAG_LIST)
                 || !root.contains(NBT_SIGNATURE_EMITTED, Tag.TAG_LIST)
                 || !root.contains(NBT_SIGNATURE_MISSING, Tag.TAG_LIST)) {
@@ -656,17 +694,25 @@ public class ExecutingCraftingJob {
 
         ListTag phaseTags = root.getList(NBT_PLAN_PHASES, Tag.TAG_COMPOUND);
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>();
+        int[] stepIndexes = new int[phaseTags.size()];
+        long[] stepRemaining = new long[phaseTags.size()];
         List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>();
         for (int i = 0; i < phaseTags.size(); i++) {
             CompoundTag tag = phaseTags.getCompound(i);
             if (!tag.contains(NBT_COMPONENT_ID, Tag.TAG_INT)
                     || !tag.contains(NBT_COMPONENT_TYPE, Tag.TAG_STRING)
                     || !tag.contains(NBT_PHASE_TASK_IDS, Tag.TAG_INT_ARRAY)
+                    || !tag.contains(NBT_PHASE_DEPENDENCIES, Tag.TAG_INT_ARRAY)
+                    || !tag.contains(NBT_EXECUTION_STEP, Tag.TAG_INT)
+                    || !tag.contains(NBT_STEP_REMAINING, Tag.TAG_LONG)
                     || !tag.contains(NBT_PHASE_STEPS, Tag.TAG_LIST)) {
                 throw new IllegalArgumentException("Persisted phase entry is incomplete");
             }
             var type = ECOExecutionSchedule.Type.valueOf(tag.getString(NBT_COMPONENT_TYPE));
             List<Integer> taskIds = java.util.Arrays.stream(tag.getIntArray(NBT_PHASE_TASK_IDS)).boxed().toList();
+            List<Integer> dependencies = java.util.Arrays.stream(tag.getIntArray(NBT_PHASE_DEPENDENCIES)).boxed().toList();
+            stepIndexes[i] = tag.getInt(NBT_EXECUTION_STEP);
+            stepRemaining[i] = tag.getLong(NBT_STEP_REMAINING);
             List<ECOExecutionPlan.ExecutionStep> steps = new ArrayList<>();
             ListTag stepTags = tag.getList(NBT_PHASE_STEPS, Tag.TAG_COMPOUND);
             for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
@@ -678,7 +724,7 @@ public class ExecutingCraftingJob {
                     step.getLong(NBT_STEP_COUNT)));
             }
             int componentId = tag.getInt(NBT_COMPONENT_ID);
-            phases.add(new ECOExecutionPlan.PhaseSpec(i, componentId, type, taskIds, steps));
+            phases.add(new ECOExecutionPlan.PhaseSpec(i, componentId, type, taskIds, steps, dependencies));
             LinkedHashSet<IPatternDetails> patterns = new LinkedHashSet<>();
             for (int taskId : taskIds) patterns.add(tasks.get(taskId).pattern());
             schedulePhases.add(new ECOExecutionSchedule.ComponentExecutionPhase(componentId, type, patterns, List.of()));
@@ -692,8 +738,12 @@ public class ExecutingCraftingJob {
         if (signature.hashCode() != expectedSignatureHash) {
             throw new IllegalArgumentException("Persisted plan signature does not match its payload");
         }
-        var plan = new ECOExecutionPlan(signature, mode, tasks, phases, new ECOExecutionSchedule(schedulePhases));
-        return new RestoredExecution(plan, remaining, root.getLong(NBT_STEP_REMAINING));
+        List<ECOExecutionSchedule.PhaseDependency> dependencies = new ArrayList<>();
+        for (var phase : phases) for (int producer : phase.dependencies())
+            dependencies.add(new ECOExecutionSchedule.PhaseDependency(producer, phase.index()));
+        var plan = new ECOExecutionPlan(signature, mode, tasks, phases,
+            new ECOExecutionSchedule(schedulePhases, dependencies));
+        return new RestoredExecution(plan, remaining, stepIndexes, stepRemaining);
     }
 
     private static ListTag writeKeyAmounts(Map<AEKey, Long> values, HolderLookup.Provider registries) {
@@ -714,7 +764,8 @@ public class ExecutingCraftingJob {
         return Map.copyOf(result);
     }
 
-    private record RestoredExecution(ECOExecutionPlan plan, long[] remaining, long stepRemaining) { }
+    private record RestoredExecution(ECOExecutionPlan plan, long[] remaining, int[] stepIndexes,
+            long[] stepRemaining) { }
 
     private @Nullable ListTag writeExecutionSchedule(HolderLookup.Provider registries) {
         if (executionSchedule == null) return null;

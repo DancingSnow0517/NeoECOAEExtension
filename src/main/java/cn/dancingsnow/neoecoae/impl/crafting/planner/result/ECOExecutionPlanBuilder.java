@@ -65,6 +65,7 @@ public final class ECOExecutionPlanBuilder {
 
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>();
         for (int phaseIndex = 0; phaseIndex < schedule.phases().size(); phaseIndex++) {
+            int currentPhaseIndex = phaseIndex;
             var schedulePhase = schedule.phases().get(phaseIndex);
             List<Integer> taskIds = schedulePhase.patternSet().stream()
                 .map(ECOExecutionPlanBuilder::requireIdentity).map(taskIdByIdentity::get)
@@ -84,7 +85,9 @@ public final class ECOExecutionPlanBuilder {
                 validateCycleCounts(component, steps, tasks);
             }
             phases.add(new ECOExecutionPlan.PhaseSpec(phaseIndex, schedulePhase.componentId(),
-                schedulePhase.type(), taskIds, steps));
+                schedulePhase.type(), taskIds, steps, schedule.dependencies().stream()
+                    .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
+                    .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }
