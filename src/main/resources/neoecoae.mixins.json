@@ -22,7 +22,9 @@
     "ae2.AECraftingPatternAccessor",
     "extendedae.ContainerExIOPortMixin",
     "extendedae.TileExIOPortMixin",
-    "useless.CraftingServiceSmartDoublingMixin"
+    "useless.CraftingServiceSmartDoublingMixin",
+    "useless.UselessDynamicPatternAccessor",
+    "useless.UselessScaledPatternAccessor"
   ],
   "client": [
     "client.CraftingCPUScreenMixin",

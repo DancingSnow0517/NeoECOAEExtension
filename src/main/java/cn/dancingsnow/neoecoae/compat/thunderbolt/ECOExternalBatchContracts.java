@@ -1,16 +1,16 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 /** Pure validation shared by optional external batch-provider integrations. */
-final class ECOExternalBatchContracts {
+public final class ECOExternalBatchContracts {
     private ECOExternalBatchContracts() {
     }
 
-    static long thunderboltRequest(long legalUpper, long providerCapacity, long cpuCopyBudget) {
+    public static long thunderboltRequest(long legalUpper, long providerCapacity, long cpuCopyBudget) {
         return Math.min(Math.max(0L, legalUpper),
             Math.min(Math.max(0L, providerCapacity), Math.max(0L, cpuCopyBudget)));
     }
 
-    static long acceptedFromLeftover(long requested, long leftover) {
+    public static long acceptedFromLeftover(long requested, long leftover) {
         if (requested <= 0L) {
             throw new IllegalArgumentException("Requested external batch must be positive");
         }

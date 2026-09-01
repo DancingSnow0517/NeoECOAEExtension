@@ -17,6 +17,7 @@ import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CraftingNetworkCompiler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
@@ -35,6 +36,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValida
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.mixins.useless.UselessDynamicPatternAccessor;
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -45,6 +47,35 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class ECOPlannerSemanticContractTest {
+    @Test
+    void uselessRelaxedInputCommitsToAConcreteStaticCandidate() throws Exception {
+        AEKey input = PlannerTestKey.of("useless_relaxed_input");
+        AEKey goal = PlannerTestKey.of("useless_relaxed_goal");
+        var pattern = new UselessDynamicPattern(goal, input, true, false);
+
+        CompiledNetwork network = new CraftingNetworkCompiler().compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+        CompiledPattern compiled = network.producersOf(goal).getFirst();
+
+        assertTrue(compiled.fastSupported(), compiled::unsupportedReason);
+        assertEquals(PatternSemantics.MatchingMode.SUBSTITUTION, compiled.semantics().matchingMode());
+        assertEquals(input, compiled.inputs().getFirst().key());
+    }
+
+    @Test
+    void uselessDynamicOutputCannotEnterExactCycleAlgebra() throws Exception {
+        AEKey input = PlannerTestKey.of("useless_dynamic_input");
+        AEKey goal = PlannerTestKey.of("useless_dynamic_goal");
+        var pattern = new UselessDynamicPattern(goal, input, false, true);
+
+        CompiledNetwork network = new CraftingNetworkCompiler().compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+        CompiledPattern compiled = network.producersOf(goal).getFirst();
+
+        assertFalse(compiled.fastSupported());
+        assertEquals("USELESS_DYNAMIC_OUTPUT_NOT_STATIC", compiled.unsupportedReason());
+    }
+
     @Test
     void exactNonDamageableReusableAlternativeProducesAggregatedPlan() throws Exception {
         AEKey goal = PlannerTestKey.of("reusable_stock_goal");
@@ -325,5 +356,25 @@ class ECOPlannerSemanticContractTest {
         @Override public IInput[] getInputs() { return delegate.getInputs(); }
         @Override public List<GenericStack> getOutputs() { return delegate.getOutputs(); }
         @Override public String toString() { return delegate.toString(); }
+    }
+
+    public static final class UselessDynamicPattern implements IPatternDetails, UselessDynamicPatternAccessor {
+        private final PlannerFixtures.Pattern delegate;
+        private final boolean relaxedInput;
+        private final boolean dynamicOutput;
+
+        private UselessDynamicPattern(AEKey output, AEKey input, boolean relaxedInput, boolean dynamicOutput) {
+            this.delegate = PlannerFixtures.pattern("useless-dynamic", output, 1, input, 1L);
+            this.relaxedInput = relaxedInput;
+            this.dynamicOutput = dynamicOutput;
+        }
+
+        @Override public boolean neoecoae$isItemIdInput(int slot) { return relaxedInput && slot == 0; }
+        @Override public boolean neoecoae$isTagInput(int slot) { return false; }
+        @Override public boolean neoecoae$isFluidTagInput(int slot) { return false; }
+        @Override public boolean neoecoae$usesDynamicOutputs() { return dynamicOutput; }
+        @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
+        @Override public IInput[] getInputs() { return delegate.getInputs(); }
+        @Override public List<GenericStack> getOutputs() { return delegate.getOutputs(); }
     }
 }

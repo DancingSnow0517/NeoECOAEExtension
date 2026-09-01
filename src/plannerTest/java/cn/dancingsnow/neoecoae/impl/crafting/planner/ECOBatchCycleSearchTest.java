@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
@@ -112,6 +113,127 @@ class ECOBatchCycleSearchTest {
         assertTrue(result.executionWitness().isEmpty());
         assertFalse(result.executionPlan().isEmpty());
         assertTrue(result.metrics().statesVisited() < 1_000L);
+    }
+
+    @Test
+    void largeThreePatternNetGrowthRingUsesExactIntegerBalance() throws Exception {
+        AEKey a = PlannerTestKey.of("exact_ring_a");
+        AEKey b = PlannerTestKey.of("exact_ring_b");
+        AEKey c = PlannerTestKey.of("exact_ring_c");
+        CompiledPattern aToB = compiled(0,
+            PlannerFixtures.pattern("exact_a_to_b", b, 3, a, 2L), b);
+        CompiledPattern bToC = compiled(1,
+            PlannerFixtures.pattern("exact_b_to_c", c, 3, b, 2L), c);
+        CompiledPattern cToA = compiled(2,
+            PlannerFixtures.pattern("exact_c_to_a", a, 3, c, 2L), a);
+        CompiledNetwork network = PlannerFixtures.network(a, producers(
+            a, List.of(cToA), b, List.of(aToB), c, List.of(bToC)));
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        CycleComponent cycle = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE).cycles().getFirst();
+
+        CycleSolveResult result = new BoundedCycleSolver().solve(
+            new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest(
+                cycle, Map.of(a, 40_000_000L), Map.of(a, 2L), cycle.outgoingDependencies(),
+                new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result::summary);
+        assertTrue(result.patternTimes().getOrDefault(aToB.details(), 0L) > 0L);
+        assertTrue(result.patternTimes().getOrDefault(bToC.details(), 0L) > 0L);
+        assertTrue(result.patternTimes().getOrDefault(cToA.details(), 0L) > 0L);
+        assertTrue(result.deliverableOutputs().getOrDefault(a, 0L) >= 40_000_000L);
+        assertTrue(result.executionWitness().isEmpty(), "large exact rings must stay run-length encoded");
+        assertFalse(result.executionPlan().isEmpty());
+        assertTrue(result.diagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.code() == CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT));
+        assertTrue(result.metrics().statesVisited() < 1_000L,
+            "proof work must be independent of the expanded firing count");
+    }
+
+    @Test
+    void nonGrowingThreePatternRingDoesNotUseTheExactGrowthProof() throws Exception {
+        AEKey a = PlannerTestKey.of("flat_ring_a");
+        AEKey b = PlannerTestKey.of("flat_ring_b");
+        AEKey c = PlannerTestKey.of("flat_ring_c");
+        CompiledPattern aToB = compiled(0, PlannerFixtures.pattern("flat_a_to_b", b, 1, a, 1L), b);
+        CompiledPattern bToC = compiled(1, PlannerFixtures.pattern("flat_b_to_c", c, 1, b, 1L), c);
+        CompiledPattern cToA = compiled(2, PlannerFixtures.pattern("flat_c_to_a", a, 1, c, 1L), a);
+        CompiledNetwork network = PlannerFixtures.network(a, producers(
+            a, List.of(cToA), b, List.of(aToB), c, List.of(bToC)));
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        CycleComponent cycle = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE).cycles().getFirst();
+
+        CycleSolveResult result = new BoundedCycleSolver(1, 1, 1, 1).solve(
+            new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest(
+                cycle, Map.of(a, 100L), Map.of(a, 1L), cycle.outgoingDependencies(),
+                new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertFalse(result.status() == CycleSolveStatus.SUCCESS);
+        assertFalse(result.diagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.code() == CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT));
+    }
+
+    @Test
+    void exactThreePatternRingBooksExternalBoundaryInputs() throws Exception {
+        AEKey a = PlannerTestKey.of("boundary_ring_a");
+        AEKey b = PlannerTestKey.of("boundary_ring_b");
+        AEKey c = PlannerTestKey.of("boundary_ring_c");
+        AEKey fuel = PlannerTestKey.of("boundary_ring_fuel");
+        AEKey ore = PlannerTestKey.of("boundary_ring_ore");
+        CompiledPattern aToB = compiled(0,
+            PlannerFixtures.pattern("boundary_a_to_b", b, 3, a, 2L, fuel, 5L), b);
+        CompiledPattern bToC = compiled(1,
+            PlannerFixtures.pattern("boundary_b_to_c", c, 3, b, 2L), c);
+        CompiledPattern cToA = compiled(2,
+            PlannerFixtures.pattern("boundary_c_to_a", a, 3, c, 2L), a);
+        CompiledPattern oreToFuel = compiled(3,
+            PlannerFixtures.pattern("boundary_ore_to_fuel", fuel, 1, ore, 1L), fuel);
+        CompiledNetwork network = PlannerFixtures.network(a, producers(
+            a, List.of(cToA), b, List.of(aToB), c, List.of(bToC),
+            fuel, List.of(oreToFuel), ore, List.of()));
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        CycleComponent cycle = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE).cycles().getFirst();
+
+        CycleSolveResult result = new BoundedCycleSolver().solve(
+            new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest(
+                cycle, Map.of(a, 1_000_000L), Map.of(a, 2L), cycle.outgoingDependencies(),
+                new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result::summary);
+        long forwardFirings = result.patternTimes().getOrDefault(aToB.details(), 0L);
+        assertEquals(Math.multiplyExact(forwardFirings, 5L), result.externalDemand().getOrDefault(fuel, 0L));
+    }
+
+    @Test
+    void exactThreePatternRingReportsMissingStartupSeedWithoutFalseSuccess() throws Exception {
+        AEKey a = PlannerTestKey.of("seed_ring_a");
+        AEKey b = PlannerTestKey.of("seed_ring_b");
+        AEKey c = PlannerTestKey.of("seed_ring_c");
+        CompiledPattern aToB = compiled(0, PlannerFixtures.pattern("seed_a_to_b", b, 3, a, 2L), b);
+        CompiledPattern bToC = compiled(1, PlannerFixtures.pattern("seed_b_to_c", c, 3, b, 2L), c);
+        CompiledPattern cToA = compiled(2, PlannerFixtures.pattern("seed_c_to_a", a, 3, c, 2L), a);
+        CompiledNetwork network = PlannerFixtures.network(a, producers(
+            a, List.of(cToA), b, List.of(aToB), c, List.of(bToC)));
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        CycleComponent cycle = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE).cycles().getFirst();
+
+        CycleSolveResult result = new BoundedCycleSolver().solve(
+            new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest(
+                cycle, Map.of(a, 1_000L), Map.of(), cycle.outgoingDependencies(),
+                new cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest.PlannerOptions()),
+            ECOCancellation.NONE);
+
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result::summary);
+        assertFalse(result.requiredSeed().isEmpty());
+        assertEquals(result.requiredSeed(), result.seedShortfall());
+        assertTrue(result.diagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.code() == CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT));
     }
 
     private static CompiledPattern compiled(int id, PlannerFixtures.Pattern pattern, AEKey output) {

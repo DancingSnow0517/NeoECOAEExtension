@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.semantic;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.compat.extendedaeplus.ExtendedAEPlusPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ThunderPatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,8 +13,8 @@ public final class PatternSemanticAdapters {
     }
 
     public static List<PatternSemanticAdapter> defaults() {
-        return List.of(new ThunderPatternSemanticAdapter(), new ExtendedAEPlusPatternSemanticAdapter(),
-            new AE2PatternSemanticAdapter());
+        return List.of(new ThunderPatternSemanticAdapter(), new UselessPatternSemanticAdapter(),
+            new ExtendedAEPlusPatternSemanticAdapter(), new AE2PatternSemanticAdapter());
     }
 
     public static PatternSemanticAdapter find(List<PatternSemanticAdapter> adapters, IPatternDetails pattern) {

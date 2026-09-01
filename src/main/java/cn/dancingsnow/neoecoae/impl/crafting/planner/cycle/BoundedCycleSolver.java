@@ -51,6 +51,10 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final int GREEDY_TOP_K = 6;
     private static final int MAX_GREEDY_CANDIDATE_EVALUATIONS = 8_192;
     private static final int MAX_GREEDY_LOOKAHEAD_NODES = 16_384;
+    /** Exact ring counts use exponential pivot growth, so this is independent of the requested craft amount. */
+    private static final int MAX_EXACT_RING_PIVOT_STEPS = 128;
+    /** Protects compact witness construction for pathologically weak net-growth ratios. */
+    private static final int MAX_EXACT_RING_MACRO_STEPS = 8_192;
     private final int greedyTopK;
     private final int maxGreedyCandidateEvaluations;
     private final int maxGreedyLookaheadNodes;
@@ -96,6 +100,9 @@ public final class BoundedCycleSolver implements CycleSolver {
             return new CycleSolveResult(CycleSolveStatus.SUCCESS, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
                 deliverable(model, model.stock), List.of(), List.copyOf(diagnostics), stockMetrics);
         }
+
+        CycleSolveResult exactRing = solveDeterministicRing(model, cancellation);
+        if (exactRing != null) return exactRing;
 
         int budget = limits.maxStates();
         Search first = search(model, model.stock, budget, limits.maxFirings(), cancellation);
@@ -298,7 +305,9 @@ public final class BoundedCycleSolver implements CycleSolver {
                 }
             }
         }
-        return new Model(keys, transitions, cons, prod, suppliable, producesRequired, stock, required);
+        boolean[] member = new boolean[n];
+        for (AEKey key : request.component().members()) member[index.get(key)] = true;
+        return new Model(keys, transitions, cons, prod, suppliable, member, producesRequired, stock, required);
     }
 
     private static @Nullable String unsupportedReason(CompiledPattern pattern) {
@@ -323,6 +332,296 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (output == null || output.what() == null || output.amount() <= 0) return "INVALID_OUTPUT";
         }
         return null;
+    }
+
+    // ---------------------------------------------------------------------------------------------------
+    // Exact deterministic-ring fast path
+    // ---------------------------------------------------------------------------------------------------
+
+    /**
+     * Solves a strict one-producer/one-consumer material ring without enumerating markings.
+     *
+     * <p>For ring key {@code i}, the balance constraint is
+     * {@code stock[i] + produced[i-1] * x[i-1] - consumed[i] * x[i] >= required[i]}.
+     * Choosing one transition count determines lower bounds for every predecessor around the ring. Because the
+     * product of output ratios is strictly growing, exponentially increasing that pivot reaches a feasible exact
+     * integer vector in at most logarithmic work. The vector is then turned into a compact, replayable batch order;
+     * {@link #witnessResult} remains the final authority for non-negativity, seed and boundary imports.
+     */
+    private CycleSolveResult solveDeterministicRing(Model model, ECOCancellation cancellation)
+            throws InterruptedException {
+        ExactRing ring = exactRing(model);
+        if (ring == null) return null;
+
+        PlannerAmount[] counts = exactRingCounts(model, ring, cancellation);
+        if (counts == null) return null;
+        List<BatchFiring> witness = exactRingWitness(model, ring, counts, cancellation);
+        if (witness == null) return null;
+
+        Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
+        PlannerAmount[] verifiedStart = Arrays.copyOf(model.stock, model.keyCount());
+        bare.lazySeed.forEach((key, amount) -> {
+            int slot = model.keys.indexOf(key);
+            if (slot >= 0) verifiedStart[slot] = verifiedStart[slot].max(amount);
+        });
+
+        List<CycleSolveDiagnostic> diagnostics = new ArrayList<>();
+        diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.DETERMINISTIC_RING_EXACT,
+            "Solved a deterministic " + ring.size() + "-transition net-growth ring by exact integer balance"
+                + " and verified it in " + witness.size() + " compact batch step(s)"));
+        CycleSolveMetrics metrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(),
+            witness.size() + 1L, witness.size(), expandedWitnessLength(witness), 0, false, false);
+        return witnessResult(model, verifiedStart, witness, diagnostics, metrics);
+    }
+
+    @Nullable
+    private static ExactRing exactRing(Model model) {
+        int transitionCount = model.transitionCount();
+        // Two-transition loops already have a tuned compact greedy path. This proof targets the multi-stage rings
+        // that previously fell through to the 100k-state search.
+        if (transitionCount < 3) return null;
+
+        List<Integer> memberKeys = new ArrayList<>();
+        for (int key = 0; key < model.keyCount(); key++) if (model.member[key]) memberKeys.add(key);
+        if (memberKeys.size() != transitionCount) return null;
+
+        int[] consumedMember = new int[transitionCount];
+        int[] producedMember = new int[transitionCount];
+        int[] consumer = new int[model.keyCount()];
+        int[] producer = new int[model.keyCount()];
+        Arrays.fill(consumedMember, -1);
+        Arrays.fill(producedMember, -1);
+        Arrays.fill(consumer, -1);
+        Arrays.fill(producer, -1);
+
+        for (int transition = 0; transition < transitionCount; transition++) {
+            for (int key : memberKeys) {
+                if (model.cons[transition][key] > 0L) {
+                    if (consumedMember[transition] >= 0 || consumer[key] >= 0) return null;
+                    consumedMember[transition] = key;
+                    consumer[key] = transition;
+                }
+                if (model.prod[transition][key] > 0L) {
+                    if (producedMember[transition] >= 0 || producer[key] >= 0) return null;
+                    producedMember[transition] = key;
+                    producer[key] = transition;
+                }
+            }
+            if (consumedMember[transition] < 0 || producedMember[transition] < 0
+                    || consumedMember[transition] == producedMember[transition]) return null;
+        }
+        for (int key : memberKeys) if (consumer[key] < 0 || producer[key] < 0) return null;
+
+        // A side key that is both consumed and produced would add another coupled balance equation. Keep this path
+        // strict and let the general bounded solver retain responsibility for that structure.
+        for (int key = 0; key < model.keyCount(); key++) {
+            if (model.member[key]) continue;
+            boolean consumed = false;
+            boolean produced = false;
+            for (int transition = 0; transition < transitionCount; transition++) {
+                consumed |= model.cons[transition][key] > 0L;
+                produced |= model.prod[transition][key] > 0L;
+            }
+            if (consumed && produced) return null;
+        }
+
+        int[] transitions = new int[transitionCount];
+        int[] keys = new int[transitionCount];
+        boolean[] visited = new boolean[transitionCount];
+        int current = 0;
+        for (int position = 0; position < transitionCount; position++) {
+            if (current < 0 || visited[current]) return null;
+            visited[current] = true;
+            transitions[position] = current;
+            keys[position] = consumedMember[current];
+            current = consumer[producedMember[current]];
+        }
+        if (current != transitions[0]) return null;
+        for (boolean seen : visited) if (!seen) return null;
+
+        long[] consumed = new long[transitionCount];
+        long[] produced = new long[transitionCount];
+        PlannerAmount totalConsumedRatio = PlannerAmount.ONE;
+        PlannerAmount totalProducedRatio = PlannerAmount.ONE;
+        for (int position = 0; position < transitionCount; position++) {
+            int transition = transitions[position];
+            int nextKey = keys[(position + 1) % transitionCount];
+            if (producedMember[transition] != nextKey) return null;
+            consumed[position] = model.cons[transition][keys[position]];
+            produced[position] = model.prod[transition][nextKey];
+            totalConsumedRatio = totalConsumedRatio.multiply(consumed[position]);
+            totalProducedRatio = totalProducedRatio.multiply(produced[position]);
+        }
+        if (totalProducedRatio.compareTo(totalConsumedRatio) <= 0) return null;
+
+        PlannerAmount[] base = zeroes(transitionCount);
+        for (int key = 0; key < model.keyCount(); key++) {
+            if (model.member[key] || model.required[key].compareTo(model.stock[key]) <= 0) continue;
+            int producingTransition = -1;
+            long amount = 0L;
+            for (int transition = 0; transition < transitionCount; transition++) {
+                long net = model.prod[transition][key] - model.cons[transition][key];
+                if (net < 0L || net > 0L && producingTransition >= 0) return null;
+                if (net > 0L) {
+                    producingTransition = transition;
+                    amount = net;
+                }
+            }
+            if (producingTransition < 0) return null;
+            int position = positionOf(transitions, producingTransition);
+            PlannerAmount needed = model.required[key].subtract(model.stock[key]).ceilDiv(PlannerAmount.of(amount));
+            base[position] = base[position].max(needed);
+        }
+        return new ExactRing(transitions, keys, consumed, produced, base);
+    }
+
+    @Nullable
+    private static PlannerAmount[] exactRingCounts(Model model, ExactRing ring, ECOCancellation cancellation)
+            throws InterruptedException {
+        PlannerAmount pivot = ring.baseCounts[0];
+        for (int attempt = 0; attempt < MAX_EXACT_RING_PIVOT_STEPS; attempt++) {
+            cancellation.checkpoint();
+            PlannerAmount[] counts = ringCountsForPivot(model, ring, pivot);
+            PlannerAmount closure = requiredRingProducerCount(model, ring, 1, counts[1]).max(ring.baseCounts[0]);
+            if (pivot.compareTo(closure) >= 0) {
+                counts[0] = pivot;
+                for (PlannerAmount count : counts) if (!count.fitsLong()) return null;
+                return counts;
+            }
+            PlannerAmount doubled = pivot.signum() == 0 ? PlannerAmount.ONE : pivot.multiply(2L);
+            pivot = doubled.max(closure);
+            if (!pivot.fitsLong()) return null;
+        }
+        return null;
+    }
+
+    private static PlannerAmount[] ringCountsForPivot(Model model, ExactRing ring, PlannerAmount pivot) {
+        int size = ring.size();
+        PlannerAmount[] counts = zeroes(size);
+        counts[0] = pivot.max(ring.baseCounts[0]);
+        for (int offset = 0; offset < size - 1; offset++) {
+            int keyPosition = offset == 0 ? 0 : size - offset;
+            int producerPosition = (keyPosition - 1 + size) % size;
+            counts[producerPosition] = requiredRingProducerCount(model, ring, keyPosition,
+                counts[keyPosition]).max(ring.baseCounts[producerPosition]);
+        }
+        return counts;
+    }
+
+    private static PlannerAmount requiredRingProducerCount(Model model, ExactRing ring, int keyPosition,
+            PlannerAmount consumerCount) {
+        int size = ring.size();
+        int producerPosition = (keyPosition - 1 + size) % size;
+        int key = ring.keys[keyPosition];
+        PlannerAmount numerator = model.required[key].subtract(model.stock[key])
+            .add(PlannerAmount.of(ring.consumed[keyPosition]).multiply(consumerCount));
+        return numerator.signum() <= 0 ? PlannerAmount.ZERO
+            : numerator.ceilDiv(PlannerAmount.of(ring.produced[producerPosition]));
+    }
+
+    @Nullable
+    private static List<BatchFiring> exactRingWitness(Model model, ExactRing ring, PlannerAmount[] exactCounts,
+            ECOCancellation cancellation) throws InterruptedException {
+        int size = ring.size();
+        long[] remaining = new long[size];
+        for (int position = 0; position < size; position++) remaining[position] = exactCounts[position].longValueExact();
+
+        PlannerAmount[] marking = Arrays.copyOf(model.stock, model.keyCount());
+        List<BatchFiring> witness = new ArrayList<>();
+        int cursor = bestRingStart(model, ring, remaining);
+        for (int macro = 0; macro < MAX_EXACT_RING_MACRO_STEPS; macro++) {
+            cancellation.checkpoint();
+            if (allZero(remaining)) return List.copyOf(witness);
+
+            boolean progressed = false;
+            for (int offset = 0; offset < size; offset++) {
+                int position = (cursor + offset) % size;
+                if (remaining[position] <= 0L) continue;
+                int transition = ring.transitions[position];
+                PlannerAmount safe = maximumSafeBatch(model, marking, transition)
+                    .min(PlannerAmount.of(remaining[position]));
+                if (safe.signum() <= 0 || !safe.fitsLong()) continue;
+                long batch = safe.longValueExact();
+                marking = fireBatch(model, marking, transition, batch);
+                remaining[position] -= batch;
+                appendBatch(witness, transition, batch);
+                progressed = true;
+            }
+            if (progressed) continue;
+
+            // A ring without initial stock needs a finite start-up seed. Add only enough to enable one remaining
+            // transition in this construction; witness replay independently derives and reports the exact seed.
+            int seedPosition = bestSeedPosition(model, ring, marking, remaining);
+            if (seedPosition < 0) return null;
+            int transition = ring.transitions[seedPosition];
+            boolean added = false;
+            for (int key = 0; key < model.keyCount(); key++) {
+                long consumed = model.cons[transition][key];
+                if (consumed <= 0L || model.suppliable[key]) continue;
+                PlannerAmount deficit = PlannerAmount.of(consumed).subtract(marking[key]).max(PlannerAmount.ZERO);
+                if (deficit.signum() > 0) {
+                    marking[key] = marking[key].add(deficit);
+                    added = true;
+                }
+            }
+            if (!added) return null;
+            cursor = seedPosition;
+        }
+        return null;
+    }
+
+    private static int bestRingStart(Model model, ExactRing ring, long[] remaining) {
+        int best = 0;
+        PlannerAmount bestCapacity = PlannerAmount.ZERO;
+        for (int position = 0; position < ring.size(); position++) {
+            if (remaining[position] <= 0L) continue;
+            PlannerAmount capacity = maximumSafeBatch(model, model.stock, ring.transitions[position]);
+            if (capacity.compareTo(bestCapacity) > 0) {
+                best = position;
+                bestCapacity = capacity;
+            }
+        }
+        return best;
+    }
+
+    private static int bestSeedPosition(Model model, ExactRing ring, PlannerAmount[] marking, long[] remaining) {
+        int best = -1;
+        PlannerAmount bestDeficit = null;
+        for (int position = 0; position < ring.size(); position++) {
+            if (remaining[position] <= 0L) continue;
+            int transition = ring.transitions[position];
+            PlannerAmount deficit = PlannerAmount.ZERO;
+            for (int key = 0; key < model.keyCount(); key++) {
+                long consumed = model.cons[transition][key];
+                if (consumed > 0L && !model.suppliable[key]) {
+                    deficit = deficit.add(PlannerAmount.of(consumed).subtract(marking[key]).max(PlannerAmount.ZERO));
+                }
+            }
+            if (best < 0 || deficit.compareTo(bestDeficit) < 0) {
+                best = position;
+                bestDeficit = deficit;
+            }
+        }
+        return best;
+    }
+
+    private static void appendBatch(List<BatchFiring> witness, int transition, long count) {
+        if (!witness.isEmpty() && witness.getLast().transition() == transition) {
+            BatchFiring previous = witness.removeLast();
+            witness.add(new BatchFiring(transition, Math.addExact(previous.count(), count)));
+        } else {
+            witness.add(new BatchFiring(transition, count));
+        }
+    }
+
+    private static boolean allZero(long[] values) {
+        for (long value : values) if (value != 0L) return false;
+        return true;
+    }
+
+    private static int positionOf(int[] values, int target) {
+        for (int index = 0; index < values.length; index++) if (values[index] == target) return index;
+        return -1;
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -1115,6 +1414,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         long[][] cons,
         long[][] prod,
         boolean[] suppliable,
+        boolean[] member,
         boolean[] producesRequired,
         PlannerAmount[] stock,
         PlannerAmount[] required
@@ -1146,6 +1446,11 @@ public final class BoundedCycleSolver implements CycleSolver {
             this.firing = firing;
             this.depth = depth;
         }
+    }
+
+    private record ExactRing(int[] transitions, int[] keys, long[] consumed, long[] produced,
+            PlannerAmount[] baseCounts) {
+        int size() { return transitions.length; }
     }
 
     /** Value wrapper so an exact marking can be deduplicated in a hash set. */

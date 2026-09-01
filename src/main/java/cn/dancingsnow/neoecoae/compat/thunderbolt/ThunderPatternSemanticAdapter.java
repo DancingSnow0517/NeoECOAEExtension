@@ -1,6 +1,8 @@
-package cn.dancingsnow.neoecoae.impl.crafting.planner.semantic;
+package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.lang.reflect.Method;
 import java.util.Locale;
 

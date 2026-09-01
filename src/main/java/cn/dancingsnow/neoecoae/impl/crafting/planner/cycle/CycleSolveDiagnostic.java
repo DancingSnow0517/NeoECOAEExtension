@@ -12,6 +12,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
          * count, seed and external demand were computed as exact integer algebra instead of searched.
          */
         SINGLE_PATTERN_NET_GROWTH,
+        /** A deterministic multi-pattern ring was solved by exact integer balance instead of marking search. */
+        DETERMINISTIC_RING_EXACT,
         /** The single-pattern net growth calculator declined; the bounded search answered instead. */
         NET_GROWTH_NOT_APPLICABLE,
         /** The witness' start-up seed is fully covered by the supplied stock. */
