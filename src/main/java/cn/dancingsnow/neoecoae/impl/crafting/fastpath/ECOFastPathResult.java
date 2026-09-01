@@ -8,6 +8,7 @@ public final class ECOFastPathResult {
     private final List<GenericStack> outputEntries;
     private final List<GenericStack> remainingEntries;
     private final List<GenericStack> inputEntries;
+    private final ECODurabilityBatchModel durabilityModel;
     private final long createdTick;
 
     private ECOFastPathResult(
@@ -15,12 +16,14 @@ public final class ECOFastPathResult {
         List<GenericStack> outputEntries,
         List<GenericStack> remainingEntries,
         List<GenericStack> inputEntries,
-        long lastAccessTick
+        long lastAccessTick,
+        ECODurabilityBatchModel durabilityModel
     ) {
         this.negative = negative;
         this.outputEntries = List.copyOf(outputEntries);
         this.remainingEntries = List.copyOf(remainingEntries);
         this.inputEntries = List.copyOf(inputEntries);
+        this.durabilityModel = durabilityModel;
         this.createdTick = lastAccessTick;
     }
 
@@ -30,11 +33,21 @@ public final class ECOFastPathResult {
         List<GenericStack> inputEntries,
         long tick
     ) {
-        return new ECOFastPathResult(false, outputEntries, remainingEntries, inputEntries, tick);
+        return positive(outputEntries, remainingEntries, inputEntries, tick, null);
+    }
+
+    public static ECOFastPathResult positive(
+        List<GenericStack> outputEntries,
+        List<GenericStack> remainingEntries,
+        List<GenericStack> inputEntries,
+        long tick,
+        ECODurabilityBatchModel durabilityModel
+    ) {
+        return new ECOFastPathResult(false, outputEntries, remainingEntries, inputEntries, tick, durabilityModel);
     }
 
     public static ECOFastPathResult negative(long tick) {
-        return new ECOFastPathResult(true, List.of(), List.of(), List.of(), tick);
+        return new ECOFastPathResult(true, List.of(), List.of(), List.of(), tick, null);
     }
 
     public boolean isNegative() {
@@ -52,6 +65,8 @@ public final class ECOFastPathResult {
     public List<GenericStack> inputEntries() {
         return inputEntries;
     }
+
+    public ECODurabilityBatchModel durabilityModel() { return durabilityModel; }
 
     /**
      * Full value comparison against a dispatch's expected data. Called exactly once per dispatch, from

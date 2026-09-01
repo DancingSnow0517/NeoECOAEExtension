@@ -47,6 +47,9 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedCraft;
+import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedBridge;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -451,6 +454,7 @@ public class ECOCraftingCPULogic {
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
                 List<ICraftingProvider> candidateProviders = collectCandidateProviders(craftingService, details);
+                logProviderResolution(candidateProviders);
                 if (candidateProviders.isEmpty()) {
                     diagnostics.tasksWithoutProviders++;
                     continue;
@@ -480,7 +484,9 @@ public class ECOCraftingCPULogic {
                     long dispatchLimit = job.dispatchLimit(task);
                     ECOExtractedPatternExecution execution = null;
                     DispatchResult batchDispatch = new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
-                    if (hasFastPathProvider(candidateProviders) || hasBatchProbeProvider(candidateProviders)) {
+                    if (hasFastPathProvider(candidateProviders)
+                            || hasExternalCountedProvider(candidateProviders)
+                            || hasBatchProbeProvider(candidateProviders)) {
                         execution = ECOExtractedPatternExecution.create(details, craftingContainer,
                             expectedOutputs, expectedContainerItems, level);
                         if (hasFastPathProvider(candidateProviders)) {
@@ -490,6 +496,12 @@ public class ECOCraftingCPULogic {
                                 batchDispatch = dispatchBatch(job, execution, craftingContainer, candidateProviders,
                                     energyService, extractedCraft.patternPower(), dispatchLimit, BatchMode.FINITE);
                             }
+                        }
+                        if (batchDispatch instanceof DispatchResult.Waiting
+                                && hasExternalCountedProvider(candidateProviders)) {
+                            batchDispatch = tryPushExternalCountedBatch(job, execution, craftingContainer,
+                                candidateProviders, energyService, extractedCraft.patternPower(), dispatchLimit,
+                                task.progress().value, Math.max(0, maxPatterns - pushedPatterns), level);
                         }
                         int remainingBatchProbeBudget = Math.max(0,
                             ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_CPU_PER_TICK - batchProbesUsedThisTick);
@@ -556,6 +568,12 @@ public class ECOCraftingCPULogic {
                     int ordinaryAttemptLimit = (int) Math.min(
                         Math.min((long) strategyDecision.maxAttempts(), strategyContext.dispatchBudget()),
                         Math.min(task.progress().value, runtimeLimit));
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("[ECO-ORDINARY-BOUND] taskRemaining={} runtimeDispatchLimit={} fairQuantum={} "
+                                + "cpuRemaining={} strategyMaxAttempts={} dispatchBudget={} selectedAttempts={}",
+                            task.progress().value, runtimeLimit, fairQuantum, Math.max(0, maxPatterns - pushedPatterns),
+                            strategyDecision.maxAttempts(), strategyContext.dispatchBudget(), ordinaryAttemptLimit);
+                    }
                     List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
                     if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
                         CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
@@ -876,6 +894,42 @@ public class ECOCraftingCPULogic {
         return result;
     }
 
+    /** Temporary diagnostic for confirming which dispatch contract each advertised provider selects. */
+    private void logProviderResolution(List<ICraftingProvider> providers) {
+        if (!LOGGER.isDebugEnabled()) return;
+        for (ICraftingProvider provider : providers) {
+            String capability;
+            String dispatchMode;
+            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+                if (controller != null && controller.getCapabilitySnapshot().virtualMode()) {
+                    capability = "Virtual";
+                    dispatchMode = "VIRTUAL";
+                } else {
+                    capability = "FiniteBatch";
+                    dispatchMode = "FINITE";
+                }
+            } else if (ECOThunderboltBatchBridge.supports(provider)) {
+                capability = "ThunderboltBatch";
+                dispatchMode = "EXTERNAL_BATCH";
+            } else if (ECODataEnergisticsCountedBridge.supports(provider)) {
+                capability = "DataEnergisticsCounted";
+                dispatchMode = "EXTERNAL_COUNTED";
+            } else if (provider instanceof ECOBatchProbeCraftingProvider) {
+                capability = "ProbeBatch";
+                dispatchMode = "PROBE";
+            } else if (provider instanceof ECOParallelCraftingProvider) {
+                capability = "Parallel";
+                dispatchMode = "ORDINARY_PARALLEL";
+            } else {
+                capability = "Ordinary";
+                dispatchMode = "ORDINARY";
+            }
+            LOGGER.debug("[ECO-PROVIDER-RESOLVE] provider={} capability={} dispatchMode={}",
+                provider, capability, dispatchMode);
+        }
+    }
+
     private void logCycleInitialInventory(ExecutingCraftingJob currentJob,
             @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase) {
         if (phase == null || phase.type()
@@ -960,6 +1014,17 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
+    private boolean hasExternalCountedProvider(List<ICraftingProvider> candidateProviders) {
+        for (var provider : candidateProviders) {
+            // Thunderbolt can optionally mix a bridge onto NeoECO's own bus. Its native verified fast paths retain
+            // stronger recipe and ownership guarantees, so external contracts are considered only for other hosts.
+            if (provider instanceof ECOCraftingPatternBusBlockEntity) continue;
+            if (ECOThunderboltBatchBridge.supports(provider)
+                    || ECODataEnergisticsCountedBridge.supports(provider)) return true;
+        }
+        return false;
+    }
+
     private boolean hasBatchProbeProvider(List<ICraftingProvider> candidateProviders) {
         for (var provider : candidateProviders) {
             if (isUnknownBatchProbeProvider(provider)) return true;
@@ -1027,6 +1092,211 @@ public class ECOCraftingCPULogic {
             if (slots >= Integer.MAX_VALUE) return Integer.MAX_VALUE;
         }
         return (int) slots;
+    }
+
+    /**
+     * Dispatches through external counted contracts without teaching ECO any third-party machine internals.
+     * Native Thunderbolt providers take precedence over Data Energistics' registry because a subclass may inherit
+     * Data Energistics' conservative single-copy fallback while exposing a stronger native batch contract itself.
+     */
+    private DispatchResult tryPushExternalCountedBatch(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            List<ICraftingProvider> candidateProviders,
+            IEnergyService energyService,
+            double patternPower,
+            long runtimeDispatchLimit,
+            long taskRemaining,
+            long cpuCopyBudget,
+            Level level) {
+        long legalUpper = calculateExternalBatchLegalUpper(
+            execution, energyService, patternPower, runtimeDispatchLimit, taskRemaining);
+        if (legalUpper <= 1L) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        for (ICraftingProvider candidate : candidateProviders) {
+            if (candidate instanceof ECOCraftingPatternBusBlockEntity || candidate.isBusy()) continue;
+            if (ECOThunderboltBatchBridge.supports(candidate)) {
+                DispatchResult result = tryPushThunderboltBatch(job, execution, firstCraftingContainer,
+                    candidate, energyService, patternPower,
+                    legalUpper, cpuCopyBudget, level);
+                if (!(result instanceof DispatchResult.Waiting)) return result;
+            }
+        }
+
+        String patternIdentity = String.valueOf(patternIdentityOrObject(executionDetails(execution)));
+        long tick = Math.max(0L, TickHandler.instance().getCurrentTick());
+        for (ICraftingProvider provider : candidateProviders) {
+            if (provider instanceof ECOCraftingPatternBusBlockEntity
+                    || ECOThunderboltBatchBridge.supports(provider)
+                    || provider.isBusy()
+                    || !ECODataEnergisticsCountedBridge.supports(provider)) continue;
+            var admission = ECODataEnergisticsCountedBridge.prepare(
+                provider, executionDetails(execution), firstCraftingContainer, legalUpper, patternIdentity, tick);
+            if (admission == null) continue;
+            DispatchResult result = tryCommitDataEnergisticsAdmission(job, execution, firstCraftingContainer,
+                provider, admission, energyService, patternPower, legalUpper);
+            if (!(result instanceof DispatchResult.Waiting)) return result;
+        }
+        return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+    }
+
+    private long calculateExternalBatchLegalUpper(
+            ECOExtractedPatternExecution execution,
+            IEnergyService energyService,
+            double patternPower,
+            long runtimeDispatchLimit,
+            long taskRemaining) {
+        long initial = calculateBatchRequestSize(execution, Math.min(taskRemaining, runtimeDispatchLimit));
+        long energyLimit = maxBatchSizeFromEnergy(energyService, patternPower, initial);
+        long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, execution.inputItems(), Math.max(0L, initial - 1L));
+        long extractableLimit = availableExtra == Long.MAX_VALUE ? Long.MAX_VALUE : availableExtra + 1L;
+        return calculateProbeLegalUpperBound(taskRemaining, runtimeDispatchLimit,
+            execution.arithmeticBatchLimit(), extractableLimit, energyLimit);
+    }
+
+    private DispatchResult tryPushThunderboltBatch(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            ICraftingProvider provider,
+            IEnergyService energyService,
+            double patternPower,
+            long legalUpper,
+            long cpuCopyBudget,
+            Level level) {
+        final long capacity;
+        try {
+            capacity = Math.max(0L, ECOThunderboltBatchBridge.capacity(provider, executionDetails(execution)));
+        } catch (RuntimeException failure) {
+            LOGGER.error("Thunderbolt batch provider failed while reporting capacity: " + provider, failure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        long requested = ECOExternalBatchContracts.thunderboltRequest(legalUpper, capacity, cpuCopyBudget);
+        if (requested <= 1L) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        List<GenericStack> extraInputs;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), requested - 1L);
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+        } catch (RuntimeException extractionFailure) {
+            LOGGER.error("Thunderbolt batch inputs could not be extracted", extractionFailure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        final long leftover;
+        try {
+            leftover = ECOThunderboltBatchBridge.pushBatch(provider, executionDetails(execution),
+                firstCraftingContainer, requested, level, job.link.getCraftingID());
+        } catch (RuntimeException providerFailure) {
+            // Thunderbolt's own dispatcher treats an exception as a full leftover. The provider contract requires
+            // failure before ownership when it cannot return a valid leftover count.
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+            LOGGER.error("Thunderbolt batch provider failed; treating the complete batch as leftover: " + provider,
+                providerFailure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        final long accepted;
+        try {
+            accepted = ECOExternalBatchContracts.acceptedFromLeftover(requested, leftover);
+        } catch (IllegalArgumentException invalidContract) {
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+            LOGGER.error("Thunderbolt batch provider {} returned invalid leftover {} for requested {}",
+                provider, leftover, requested);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        if (accepted <= 0L) {
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        if (leftover > 0L) {
+            ECOBatchCraftingHelper.insertAll(
+                inventory, ECOBatchCraftingHelper.multiply(execution.inputItems(), leftover));
+        }
+        chargeCountedBatchEnergy(energyService, patternPower, accepted);
+        if (this.job == job) recordPushedPattern(job, execution, accepted);
+        LOGGER.debug("[ECO-EXTERNAL-BATCH] provider={} capability=Thunderbolt requested={} accepted={} leftover={}",
+            provider, requested, accepted, leftover);
+        return new DispatchResult.Accepted(accepted);
+    }
+
+    private DispatchResult tryCommitDataEnergisticsAdmission(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            ICraftingProvider provider,
+            ECODataEnergisticsCountedBridge.PreparedAdmission admission,
+            IEnergyService energyService,
+            double patternPower,
+            long requestedCount) {
+        long count = admission.count();
+        final ECOUselessDynamicOutputBridge.Registration dynamicRegistration;
+        try {
+            dynamicRegistration = ECOUselessDynamicOutputBridge.prepare(
+                this, executionDetails(execution), count);
+        } catch (RuntimeException compatibilityFailure) {
+            LOGGER.error("Useless dynamic-output compatibility preparation failed", compatibilityFailure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        if (dynamicRegistration == null) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+        List<GenericStack> extraInputs;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), count - 1L);
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+        } catch (RuntimeException extractionFailure) {
+            LOGGER.error("Data Energistics counted inputs could not be extracted", extractionFailure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        boolean accepted = false;
+        RuntimeException providerFailure = null;
+        try {
+            accepted = admission.commit(firstCraftingContainer);
+        } catch (RuntimeException failure) {
+            providerFailure = failure;
+        }
+        boolean ownershipTransferred = accepted || admission.hasTransferredInputOwnership();
+        if (!ownershipTransferred) {
+            ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+            if (providerFailure != null) {
+                LOGGER.error("Data Energistics counted provider failed before ownership: " + provider, providerFailure);
+            }
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        if (providerFailure != null) {
+            LOGGER.error("Data Energistics counted provider failed after taking ownership; accounting as accepted: "
+                + provider, providerFailure);
+        } else if (!accepted) {
+            LOGGER.error("Data Energistics counted provider returned false after taking ownership; accounting {} crafts as accepted",
+                count);
+        }
+        try {
+            dynamicRegistration.commit(
+                job.link.getCraftingID(), job.finalOutput == null ? null : job.finalOutput.what());
+        } catch (RuntimeException compatibilityFailure) {
+            // The provider owns the inputs already. Preserve counted accounting and surface the missing dynamic
+            // registration loudly; rolling inputs back here would duplicate the physical batch.
+            LOGGER.error("Useless dynamic outputs could not be registered after counted ownership transfer",
+                compatibilityFailure);
+        }
+        chargeCountedBatchEnergy(energyService, patternPower, count);
+        if (this.job == job) recordPushedPattern(job, execution, count);
+        LOGGER.debug("[ECO-EXTERNAL-BATCH] provider={} capability=DataEnergistics requested={} accepted={}",
+            provider, requestedCount, count);
+        return new DispatchResult.Accepted(count);
+    }
+
+    private void chargeCountedBatchEnergy(IEnergyService energyService, double patternPower, long count) {
+        double requiredPower = patternPower * count;
+        if (Double.isFinite(requiredPower)) chargeAcceptedPatternEnergy(energyService, requiredPower);
     }
 
     private ProbeDispatchOutcome tryPushProbedBatch(

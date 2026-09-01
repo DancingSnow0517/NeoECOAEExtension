@@ -102,6 +102,17 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> inputs,
         long tick
     ) {
+        putPositive(key, outputs, remaining, inputs, tick, null);
+    }
+
+    public void putPositive(
+        ECOFastPathKey key,
+        List<GenericStack> outputs,
+        List<GenericStack> remaining,
+        List<GenericStack> inputs,
+        long tick,
+        @Nullable ECODurabilityBatchModel durabilityModel
+    ) {
         if (!ECOFastPathStacks.areValidItemStacks(
                 outputs, Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
             || !ECOFastPathStacks.areValidItemStacks(
@@ -111,7 +122,7 @@ public final class ECOCraftingFastPathCache {
             putNegative(key, tick);
             return;
         }
-        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
+        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, durabilityModel));
         verifySuccessCount++;
     }
 

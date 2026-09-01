@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -192,6 +193,31 @@ class ECOCraftingDispatchStrategyTest {
         assertFalse(ECOCraftingCPULogic.isUnknownBatchProbeProviderType(
             cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.class),
             "F9 remains on its known-capacity offer path");
+    }
+
+    @Test
+    void externalBatchRequestHonorsLegalCapacityAndCpuBoundaries() {
+        assertEquals(10_000_000L,
+            ECOExternalBatchContracts.thunderboltRequest(10_000_000L, Long.MAX_VALUE, 10_000_000L));
+        assertEquals(16_384L,
+            ECOExternalBatchContracts.thunderboltRequest(10_000_000L, Long.MAX_VALUE, 16_384L));
+        assertEquals(4_096L,
+            ECOExternalBatchContracts.thunderboltRequest(10_000_000L, 4_096L, 16_384L));
+        assertEquals(0L, ECOExternalBatchContracts.thunderboltRequest(10L, -1L, 10L));
+    }
+
+    @Test
+    void externalBatchLeftoverProducesAcceptedCountAndRejectsBrokenContracts() {
+        assertEquals(10_000_000L,
+            ECOExternalBatchContracts.acceptedFromLeftover(10_000_000L, 0L));
+        assertEquals(7_500_000L,
+            ECOExternalBatchContracts.acceptedFromLeftover(10_000_000L, 2_500_000L));
+        assertEquals(0L,
+            ECOExternalBatchContracts.acceptedFromLeftover(10_000_000L, 10_000_000L));
+        assertThrows(IllegalArgumentException.class,
+            () -> ECOExternalBatchContracts.acceptedFromLeftover(10L, -1L));
+        assertThrows(IllegalArgumentException.class,
+            () -> ECOExternalBatchContracts.acceptedFromLeftover(10L, 11L));
     }
 
     /** The strategy only needs a non-null pattern identity; dispatch never invokes this test double. */

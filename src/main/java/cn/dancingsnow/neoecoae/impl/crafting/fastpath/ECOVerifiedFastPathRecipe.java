@@ -84,6 +84,9 @@ public final class ECOVerifiedFastPathRecipe {
         return result.inputEntries();
     }
 
+    @Nullable
+    public ECODurabilityBatchModel durabilityModel() { return result.durabilityModel(); }
+
     /** True only for the very execution context this credential was verified against. */
     public boolean isVerifiedFor(ECOExtractedPatternExecution candidate) {
         return this.execution == candidate;
@@ -101,7 +104,8 @@ public final class ECOVerifiedFastPathRecipe {
 
     /** Largest batch the per-craft amounts of the verified execution can still represent. */
     public long arithmeticBatchLimit() {
-        return execution.arithmeticBatchLimit();
+        long limit = execution.arithmeticBatchLimit();
+        return durabilityModel() == null ? limit : Math.min(limit, durabilityModel().maxBatchSize());
     }
 
     /**

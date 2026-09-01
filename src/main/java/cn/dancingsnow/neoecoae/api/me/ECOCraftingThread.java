@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECODurabilityBatchModel;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
@@ -235,8 +236,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         var outputTotal = ECOBatchCraftingHelper.multiply(verified.outputsPerCraft(), batchSize);
-        var inputTotal = ECOBatchCraftingHelper.multiply(verified.inputsPerCraft(), batchSize);
-        var remainingTotal = ECOBatchCraftingHelper.multiply(verified.remainingPerCraft(), batchSize);
+        var model = verified.recipe().durabilityModel();
+        var inputTotal = model == null
+            ? ECOBatchCraftingHelper.multiply(verified.inputsPerCraft(), batchSize)
+            : model.batchInputs(verified.inputsPerCraft(), batchSize);
+        var remainingTotal = model == null
+            ? ECOBatchCraftingHelper.multiply(verified.remainingPerCraft(), batchSize)
+            : model.batchRemainders(verified.remainingPerCraft(), batchSize);
         var work = new ECOBatchCraftingWork(
             batchSize,
             inputTotal,
@@ -263,9 +269,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         ECOVirtualCraftingWork work = new ECOVirtualCraftingWork(
             verified.craftCount(),
-            ECOBatchCraftingHelper.multiply(verified.recipe().inputsPerCraft(), verified.craftCount()),
+            verified.recipe().durabilityModel() == null
+                ? ECOBatchCraftingHelper.multiply(verified.recipe().inputsPerCraft(), verified.craftCount())
+                : verified.recipe().durabilityModel().batchInputs(verified.recipe().inputsPerCraft(), verified.craftCount()),
             ECOBatchCraftingHelper.multiply(verified.recipe().outputsPerCraft(), verified.craftCount()),
-            ECOBatchCraftingHelper.multiply(verified.recipe().remainingPerCraft(), verified.craftCount()),
+            verified.recipe().durabilityModel() == null
+                ? ECOBatchCraftingHelper.multiply(verified.recipe().remainingPerCraft(), verified.craftCount())
+                : verified.recipe().durabilityModel().batchRemainders(verified.recipe().remainingPerCraft(), verified.craftCount()),
             verified.craftingJobId()
         );
         if (!canRetainGenericStacks(work.outputTotal())
@@ -378,6 +388,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         KeyCounter[] table = execution.craftingContainer();
         craftingInv.clearContent();
         pattern.fillCraftingGrid(table, craftingInv::setItem);
+        List<ItemStack> beforeSlots = new ArrayList<>();
+        for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) beforeSlots.add(craftingInv.getItem(slot).copy());
         ItemStack outputItem = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
         if (outputItem.isEmpty()) {
             craftingInv.clearContent();
@@ -388,8 +400,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
 
+        List<ItemStack> remainingSlots = pattern.getRemainingItems(craftingInv.asCraftInput());
         List<ItemStack> list = new ArrayList<>();
-        for (ItemStack item : pattern.getRemainingItems(craftingInv.asCraftInput())) {
+        for (ItemStack item : remainingSlots) {
             if (!item.isEmpty()) {
                 list.add(item.copy());
             }
@@ -397,7 +410,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         List<ItemStack> inputs = snapshotCraftingInputs();
         if (verifyFastPath) {
-            verifyAndCacheFastPath(execution, outputItem, inputs, list, tick);
+            verifyAndCacheFastPath(execution, outputItem, inputs, list, beforeSlots, remainingSlots, tick);
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         cache.recordSlowPathAccepted();
@@ -411,6 +424,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ItemStack outputItem,
         List<ItemStack> inputs,
         List<ItemStack> remaining,
+        List<ItemStack> beforeSlots,
+        List<ItemStack> remainingSlots,
         long tick
     ) {
         ECOFastPathKey key = execution.key();
@@ -431,7 +446,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             cache.putNegative(key, tick);
             return;
         }
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick);
+        var model = ECODurabilityBatchModel.analyze(beforeSlots, remainingSlots).orElse(null);
+        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick, model);
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {

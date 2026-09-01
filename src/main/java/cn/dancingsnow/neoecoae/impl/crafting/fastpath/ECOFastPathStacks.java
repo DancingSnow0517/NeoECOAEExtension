@@ -138,11 +138,8 @@ public final class ECOFastPathStacks {
             return false;
         }
         if (validation == ItemStackValidation.FAST_PATH_INPUT) {
-            // The concrete AEItemKey (including its full component patch) is part of both the slot-sensitive
-            // cache key and the value verification snapshot. Immutable component-filtered ingredients are
-            // therefore safe to reuse. Stateful inputs remain excluded below.
-            return !itemStack.isDamageableItem()
-                && !itemStack.getItem().hasCraftingRemainingItem(itemStack);
+            // Stateful inputs are admitted only after the slow-path verifier attaches a concrete model.
+            return true;
         }
         return true;
     }
