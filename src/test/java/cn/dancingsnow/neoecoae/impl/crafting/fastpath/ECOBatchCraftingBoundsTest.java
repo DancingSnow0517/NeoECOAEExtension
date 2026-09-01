@@ -74,6 +74,31 @@ class ECOBatchCraftingBoundsTest {
     }
 
     @Test
+    void stackValidationReportsTheSpecificFailure() {
+        assertEquals(
+            ECOFastPathStacks.ItemStackValidationFailure.EMPTY_REQUIRED,
+            ECOFastPathStacks.validateItemStacks(
+                List.of(), Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+        );
+        assertEquals(
+            ECOFastPathStacks.ItemStackValidationFailure.NON_ITEM_KEY,
+            ECOFastPathStacks.validateItemStacks(
+                List.of(new GenericStack(FastPathTestKey.of("fluid-like"), 1L)),
+                Integer.MAX_VALUE,
+                true,
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+        );
+        assertEquals(
+            ECOFastPathStacks.ItemStackValidationFailure.INVALID_AMOUNT,
+            ECOFastPathStacks.validateItemStacks(
+                List.of(new GenericStack(FastPathTestKey.of("overflow"), Integer.MAX_VALUE + 1L)),
+                Integer.MAX_VALUE,
+                true,
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+        );
+    }
+
+    @Test
     void virtualMultiplierAcceptsCraftCountsAboveIntRange() {
         long craftCount = (long) Integer.MAX_VALUE + 42L;
         GenericStack perCraft = new GenericStack(FastPathTestKey.of("virtual-long"), 1L);

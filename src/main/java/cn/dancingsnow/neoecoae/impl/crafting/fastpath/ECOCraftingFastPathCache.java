@@ -38,6 +38,8 @@ public final class ECOCraftingFastPathCache {
 
     private final int limit;
     private final Map<ECOFastPathKey, ECOFastPathResult> entries;
+    private final Map<String, Long> ineligibleReasonCounts = new LinkedHashMap<>();
+    private final Map<String, String> ineligibleReasonExamples = new LinkedHashMap<>();
 
     private long hitCount;
     private long missCount;
@@ -213,6 +215,19 @@ public final class ECOCraftingFastPathCache {
         disabledCount++;
     }
 
+    public void recordDisabled(String reason) {
+        recordDisabled();
+        ineligibleReasonCounts.merge(reason == null || reason.isBlank() ? "UNKNOWN" : reason, 1L, Long::sum);
+    }
+
+    public void recordDisabled(ECOExtractedPatternExecution execution) {
+        String reason = execution == null ? "UNKNOWN" : execution.fastPathReason();
+        recordDisabled(reason);
+        if (execution != null) {
+            ineligibleReasonExamples.putIfAbsent(reason, execution.expectedOutputs().toString());
+        }
+    }
+
     public void recordFallbackSlowPath() {
         fallbackSlowPathCount++;
     }
@@ -260,7 +275,7 @@ public final class ECOCraftingFastPathCache {
         long positiveLookups = hitCount + missCount + negativeHitCount;
         double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} reasons={} examples={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
             owner,
             entries.size(),
             limit,
@@ -271,6 +286,8 @@ public final class ECOCraftingFastPathCache {
             verifySuccessCount,
             verifyRejectCount,
             disabledCount,
+            ineligibleReasonCounts,
+            ineligibleReasonExamples,
             fallbackSlowPathCount,
             expectedMismatchCount,
             nonItemKeyCount,

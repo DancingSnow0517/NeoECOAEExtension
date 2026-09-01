@@ -111,15 +111,17 @@ public final class SolveState {
 
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
     boolean applyCycleTransaction(CycleSolveResult cycle, Map<AEKey, Long> ownedCycleReservations,
-            Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,
+            Map<AEKey, Long> plannedCycleInputs, Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,
             KeyCounter directExternalReservations, List<SolveState> externalStates) {
         if (cycle == null || cycle.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
                 || !cycle.seedShortfall().isEmpty()) return false;
         SolveState candidate = copy();
         try {
             for (var entry : cycle.requiredSeed().entrySet()) {
-                if (entry.getValue() < 0
-                        || ownedCycleReservations.getOrDefault(entry.getKey(), 0L) < entry.getValue()) return false;
+                if (entry.getValue() < 0) return false;
+                long availableSeed = Math.addExact(ownedCycleReservations.getOrDefault(entry.getKey(), 0L),
+                    plannedCycleInputs.getOrDefault(entry.getKey(), 0L));
+                if (availableSeed < entry.getValue()) return false;
             }
             for (var entry : additionalCycleReservations.entrySet()) {
                 if (entry.getValue() < 0) return false;

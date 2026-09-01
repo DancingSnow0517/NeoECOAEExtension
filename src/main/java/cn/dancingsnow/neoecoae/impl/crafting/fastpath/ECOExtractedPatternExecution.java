@@ -37,7 +37,8 @@ public final class ECOExtractedPatternExecution {
     @Nullable
     private final ECOFastPathKey key;
 
-    private final boolean fastPathEligible;
+    @Nullable
+    private final String fastPathRejectionReason;
     private final long arithmeticBatchLimit;
 
     private ECOExtractedPatternExecution(
@@ -48,7 +49,7 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> inputItems,
         ECORecipeClassifier.Classification classification,
         @Nullable ECOFastPathKey key,
-        boolean fastPathEligible
+        @Nullable String fastPathRejectionReason
     ) {
         this.details = details;
         this.craftingContainer = craftingContainer;
@@ -59,7 +60,7 @@ public final class ECOExtractedPatternExecution {
         this.inputItems = List.copyOf(inputItems);
         this.classification = classification;
         this.key = key;
-        this.fastPathEligible = fastPathEligible;
+        this.fastPathRejectionReason = fastPathRejectionReason;
         this.arithmeticBatchLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
             this.inputItems, this.expectedOutputs, this.expectedContainerItems
         );
@@ -80,20 +81,10 @@ public final class ECOExtractedPatternExecution {
         ECOFastPathStacks.ItemStackValidation resultValidation = classification.type() == ECORecipeClassifier.Type.NORMAL
             ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
             : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
-        boolean eligible = key.isPresent()
-            && NEConfig.ecoAe2FastPathEnabled
-            && !NEConfig.postCraftingEvent
-            && AE2PatternIntrospection.isAvailable()
-            && AE2PatternIntrospection.isKnownSafePatternType(details)
-            && outputs.size() == 1
-            && ECOFastPathStacks.areValidItemStacks(
-                outputs, Integer.MAX_VALUE, true, resultValidation)
-            && ECOFastPathStacks.areValidItemStacks(
-                containers, Integer.MAX_VALUE, false, resultValidation)
-            && ECOFastPathStacks.areValidItemStacks(
-                inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT);
+        String rejectionReason = findFastPathRejectionReason(
+            details, key, outputs, containers, inputs, resultValidation);
         return new ECOExtractedPatternExecution(
-            details, craftingContainer, outputs, containers, inputs, classification, key.orElse(null), eligible
+            details, craftingContainer, outputs, containers, inputs, classification, key.orElse(null), rejectionReason
         );
     }
 
@@ -106,7 +97,7 @@ public final class ECOExtractedPatternExecution {
             ECOFastPathStacks.copyCounters(craftingContainer),
             ECORecipeClassifier.classify(details),
             null,
-            false
+            "SLOW_EXECUTION_CONTEXT"
         );
     }
 
@@ -124,8 +115,48 @@ public final class ECOExtractedPatternExecution {
         return new ECOExtractedPatternExecution(
             null, new KeyCounter[0], expectedOutputs, expectedContainerItems, inputItems,
             new ECORecipeClassifier.Classification(ECORecipeClassifier.Type.NORMAL, true, "TEST_NORMALIZED"),
-            key, key != null
+            key, key == null ? "KEY_BUILD_FAILED" : null
         );
+    }
+
+    @Nullable
+    private static String findFastPathRejectionReason(
+        IPatternDetails details,
+        Optional<ECOFastPathKey> key,
+        List<GenericStack> outputs,
+        List<GenericStack> containers,
+        List<GenericStack> inputs,
+        ECOFastPathStacks.ItemStackValidation resultValidation
+    ) {
+        if (key.isEmpty()) return "KEY_BUILD_FAILED";
+        if (!NEConfig.ecoAe2FastPathEnabled) return "FAST_PATH_DISABLED";
+        if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
+        if (!AE2PatternIntrospection.isAvailable()) return "AE2_INTROSPECTION_UNAVAILABLE";
+        if (!AE2PatternIntrospection.isKnownSafePatternType(details)) return "UNSAFE_PATTERN_TYPE";
+        if (outputs.size() != 1) return "OUTPUT_COUNT_" + outputs.size();
+
+        String outputFailure = validationFailure(
+            "OUTPUT", outputs, true, resultValidation);
+        if (outputFailure != null) return outputFailure;
+        String remainderFailure = validationFailure(
+            "REMAINDER", containers, false, resultValidation);
+        if (remainderFailure != null) return remainderFailure;
+        return validationFailure(
+            "INPUT", inputs, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT);
+    }
+
+    @Nullable
+    private static String validationFailure(
+        String role,
+        List<GenericStack> stacks,
+        boolean requireNonEmpty,
+        ECOFastPathStacks.ItemStackValidation validation
+    ) {
+        ECOFastPathStacks.ItemStackValidationFailure failure = ECOFastPathStacks.validateItemStacks(
+            stacks, Integer.MAX_VALUE, requireNonEmpty, validation);
+        return failure == ECOFastPathStacks.ItemStackValidationFailure.NONE
+            ? null
+            : role + "_" + failure.name();
     }
 
     public KeyCounter[] craftingContainer() {
@@ -157,7 +188,9 @@ public final class ECOExtractedPatternExecution {
     }
 
     public String fastPathReason() {
-        return classification.reason();
+        if (!NEConfig.ecoAe2FastPathEnabled) return "FAST_PATH_DISABLED";
+        if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
+        return fastPathRejectionReason == null ? classification.reason() : fastPathRejectionReason;
     }
 
     @Nullable
@@ -166,7 +199,7 @@ public final class ECOExtractedPatternExecution {
     }
 
     public boolean fastPathEligible() {
-        return fastPathEligible;
+        return fastPathRejectionReason == null;
     }
 
     /**
@@ -179,7 +212,7 @@ public final class ECOExtractedPatternExecution {
 
     public boolean canUseFastPath() {
         return key != null
-            && fastPathEligible
+            && fastPathRejectionReason == null
             && NEConfig.ecoAe2FastPathEnabled
             && !NEConfig.postCraftingEvent;
     }

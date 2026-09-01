@@ -312,7 +312,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         ECOFastPathKey key = execution.key();
         if (!execution.canUseFastPath()) {
-            cache.recordDisabled();
+            cache.recordDisabled(execution);
             return calcPatternSlow(execution, controller, craftingJobId, false, tick);
         }
 

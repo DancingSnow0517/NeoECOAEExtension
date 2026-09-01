@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
@@ -67,6 +68,187 @@ class ECOExternalDemandPlannerTest {
             "UI demand remains the requested additional amount");
     }
 
+    @Test void cycleBoundaryDemandCanBeDelegatedToAnUpstreamGrowthCycle() throws Exception {
+        AEKey goal = key("delegated_goal");
+        AEKey a = key("delegated_a");
+        AEKey b = key("delegated_b");
+        AEKey growth = key("delegated_growth");
+        AEKey c = key("delegated_c");
+        AEKey d = key("delegated_d");
+
+        var consumeGrowth = compiled(100,
+            PlannerFixtures.pattern("consume_growth", b, 1, a, 1L, growth, 1L, c, 1L), b);
+        var finishDetails = PlannerFixtures.multiOutput("finish_goal",
+            List.of(new GenericStack(a, 1), new GenericStack(goal, 1)), b, 1L);
+        var finishA = compiled(101, finishDetails, a);
+        var finishGoal = compiled(102, finishDetails, goal);
+
+        var growStep = compiled(103, PlannerFixtures.pattern("grow_step", d, 1, c, 1L), d);
+        var emitDetails = PlannerFixtures.multiOutput("emit_growth",
+            List.of(new GenericStack(c, 2), new GenericStack(growth, 1)), d, 1L);
+        var emitC = compiled(104, emitDetails, c);
+        var emitGrowth = compiled(105, emitDetails, growth);
+        var unsupportedGrowth = PlannerFixtures.compiled(106,
+            PlannerFixtures.pattern("unsupported_growth", growth, 1, d, 1L), growth,
+            false, "UNSUPPORTED_GROWTH_ROUTE");
+
+        Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
+        producers.put(goal, List.of(finishGoal));
+        producers.put(a, List.of(finishA));
+        producers.put(b, List.of(consumeGrowth));
+        producers.put(growth, List.of(unsupportedGrowth));
+        producers.put(c, List.of(emitC));
+        producers.put(d, List.of(growStep));
+
+        var outcome = plan(PlannerFixtures.network(goal, producers), stock(a, 1, c, 2));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "components=" + outcome.components()
+            + " diagnostics=" + outcome.trace().diagnostics() + " missing=" + outcome.state().missingAmounts());
+        var cycles = outcome.components().stream()
+            .filter(component -> component.type()
+                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .toList();
+        assertEquals(2, cycles.size());
+        assertTrue(cycles.stream().allMatch(component -> component.cycleStatus()
+            == cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus.SOLVED));
+        assertTrue(outcome.state().patternTimes().containsKey(consumeGrowth.details()));
+        assertTrue(outcome.state().patternTimes().containsKey(emitGrowth.details()));
+        assertTrue(outcome.state().missingItems().isEmpty());
+        int consumerId = cycles.stream().filter(component -> component.executionPatterns()
+            .contains(consumeGrowth.details())).findFirst().orElseThrow().componentId();
+        int supplierId = cycles.stream().filter(component -> component.executionPatterns()
+            .contains(emitGrowth.details())).findFirst().orElseThrow().componentId();
+        assertTrue(outcome.executionComponentOrder().indexOf(supplierId)
+            < outcome.executionComponentOrder().indexOf(consumerId));
+        var schedule = ECOExecutionSchedule.from(
+            outcome.components(), outcome.executionComponentOrder(), outcome.state().patternTimes());
+        assertEquals(2, schedule.phases().stream()
+            .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE).count());
+    }
+
+    @Test void externalAcyclicPrefixCanDeferItsNestedGrowthCycleDependency() throws Exception {
+        AEKey goal = key("nested_goal");
+        AEKey a = key("nested_a");
+        AEKey b = key("nested_b");
+        AEKey external = key("nested_external");
+        AEKey growth = key("nested_growth");
+        AEKey c = key("nested_c");
+        AEKey d = key("nested_d");
+
+        var consumeExternal = compiled(110,
+            PlannerFixtures.pattern("consume_nested_external", b, 1, a, 1L, external, 1L), b);
+        var finishDetails = PlannerFixtures.multiOutput("finish_nested_goal",
+            List.of(new GenericStack(a, 1), new GenericStack(goal, 1)), b, 1L);
+        var externalPrefix = compiled(113,
+            PlannerFixtures.pattern("nested_external_prefix", external, 1, growth, 1L), external);
+        var growStep = compiled(114, PlannerFixtures.pattern("nested_grow_step", d, 1, c, 1L), d);
+        var emitDetails = PlannerFixtures.multiOutput("emit_nested_growth",
+            List.of(new GenericStack(c, 2), new GenericStack(growth, 1)), d, 1L);
+
+        Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
+        producers.put(goal, List.of(compiled(111, finishDetails, goal)));
+        producers.put(a, List.of(compiled(112, finishDetails, a)));
+        producers.put(b, List.of(consumeExternal));
+        producers.put(external, List.of(externalPrefix));
+        producers.put(growth, List.of(compiled(115, emitDetails, growth)));
+        producers.put(c, List.of(compiled(116, emitDetails, c)));
+        producers.put(d, List.of(growStep));
+
+        var outcome = plan(PlannerFixtures.network(goal, producers), stock(a, 1, c, 1));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "components=" + outcome.components()
+            + " diagnostics=" + outcome.trace().diagnostics() + " missing=" + outcome.state().missingAmounts());
+        assertTrue(outcome.state().patternTimes().containsKey(externalPrefix.details()),
+            "the acyclic prefix must remain in the executable task vector");
+        assertTrue(outcome.state().patternTimes().containsKey(emitDetails),
+            "the nested growth cycle must be planned instead of rejected as an external cycle");
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(2, outcome.components().stream().filter(component -> component.type()
+            == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .filter(component -> component.cycleStatus()
+                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus.SOLVED)
+            .count());
+        var executable = new AE2CraftingPlanBridge().success(goal, 1, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), executable, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+        assertFalse(assertDoesNotThrow(result::executionSchedule).phases().isEmpty(),
+            "cross-cycle stock projections must remain within the final used-items ledger");
+    }
+
+    @Test void missingCycleStartupSeedCanBeDelegatedToAnUpstreamGrowthCycle() throws Exception {
+        AEKey goal = key("seed_recovery_goal");
+        AEKey seed = key("seed_recovery_seed");
+        AEKey intermediate = key("seed_recovery_intermediate");
+        AEKey catalyst = key("seed_recovery_catalyst");
+        AEKey growth = key("seed_recovery_growth");
+        AEKey growthIntermediate = key("seed_recovery_growth_intermediate");
+
+        var consumeSeed = compiled(120,
+            PlannerFixtures.pattern("consume_recovered_seed", intermediate, 1, seed, 1L, catalyst, 1L),
+            intermediate);
+        var finishDetails = PlannerFixtures.multiOutput("finish_with_seed_growth",
+            List.of(new GenericStack(seed, 2), new GenericStack(goal, 1)), intermediate, 1L);
+        var growStep = compiled(123, PlannerFixtures.pattern("grow_seed_supplier",
+            growthIntermediate, 1, growth, 1L), growthIntermediate);
+        var emitSeedDetails = PlannerFixtures.multiOutput("emit_startup_seed",
+            List.of(new GenericStack(growth, 2), new GenericStack(intermediate, 1),
+                new GenericStack(catalyst, 1)), growthIntermediate, 1L);
+
+        Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
+        producers.put(goal, List.of(compiled(121, finishDetails, goal)));
+        producers.put(seed, List.of(compiled(122, finishDetails, seed)));
+        producers.put(intermediate, List.of(consumeSeed));
+        producers.put(catalyst, List.of(compiled(125, emitSeedDetails, catalyst)));
+        producers.put(growth, List.of(compiled(124, emitSeedDetails, growth)));
+        producers.put(growthIntermediate, List.of(growStep));
+
+        var outcome = plan(PlannerFixtures.network(goal, producers), stock(growth, 1));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "components=" + outcome.components()
+            + " diagnostics=" + outcome.trace().diagnostics() + " missing=" + outcome.state().missingAmounts());
+        assertTrue(outcome.state().patternTimes().containsKey(finishDetails));
+        assertTrue(outcome.state().patternTimes().containsKey(emitSeedDetails),
+            () -> "tasks=" + outcome.state().patternTimes() + " components=" + outcome.components());
+        assertEquals(1L, outcome.state().usedItems().get(growth));
+        assertEquals(0L, outcome.state().usedItems().get(intermediate),
+            "a crafted startup seed must not be projected as an inventory reservation");
+        var executable = new AE2CraftingPlanBridge().success(goal, 1, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), executable, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+        assertFalse(assertDoesNotThrow(result::executionSchedule).phases().isEmpty());
+    }
+
+    @Test void cycleMemberStartupSeedCanUseAnIndependentAlternateProducer() throws Exception {
+        AEKey goal = key("alternate_seed_goal");
+        AEKey feedback = key("alternate_seed_feedback");
+        AEKey intermediate = key("alternate_seed_intermediate");
+        AEKey leaf = key("alternate_seed_leaf");
+
+        var consumeFeedback = compiled(130,
+            PlannerFixtures.pattern("consume_alternate_feedback", intermediate, 1, feedback, 1L), intermediate);
+        var finishDetails = PlannerFixtures.multiOutput("finish_alternate_seed_cycle",
+            List.of(new GenericStack(feedback, 2), new GenericStack(goal, 1)), intermediate, 1L);
+        var alternateSeed = compiled(133,
+            PlannerFixtures.pattern("craft_independent_startup_seed", intermediate, 1, leaf, 1L), intermediate);
+
+        Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
+        producers.put(goal, List.of(compiled(131, finishDetails, goal)));
+        producers.put(feedback, List.of(compiled(132, finishDetails, feedback)));
+        producers.put(intermediate, List.of(consumeFeedback, alternateSeed));
+        producers.put(leaf, List.of());
+        CompiledNetwork network = PlannerFixtures.network(goal, producers);
+
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var selection = new ActiveRouteSelector().select(graph, false, ECOCancellation.NONE);
+        assertFalse(selection.acyclic(), "the primary route must remain cyclic for this recovery test");
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, selection, stock(leaf, 1), 1, true, ECOCancellation.NONE);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "components=" + outcome.components()
+            + " diagnostics=" + outcome.trace().diagnostics() + " missing=" + outcome.state().missingAmounts());
+        assertTrue(outcome.state().patternTimes().containsKey(alternateSeed.details()));
+        assertTrue(outcome.state().patternTimes().containsKey(finishDetails));
+        assertEquals(1L, outcome.state().usedItems().get(leaf));
+        assertEquals(0L, outcome.state().usedItems().get(intermediate));
+    }
+
     @Test void oreCanBeCraftedIntoCycleExternalInput() throws Exception {
         Fixture f = fixture(1, false, false);
         var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
@@ -94,7 +276,8 @@ class ECOExternalDemandPlannerTest {
         Fixture f = fixture(0, true, true);
         var outcome = plan(f.network, stock(f.a, 1));
         assertNotEquals(PlanningStatus.SUCCESS, outcome.status());
-        assertNull(cycle(outcome).externalDemandStatus(), "Tarjan absorbs this route before it becomes boundary demand");
+        assertEquals(CycleExternalDemandStatus.FORBIDDEN_ROUTE, cycle(outcome).externalDemandStatus(),
+            "startup-seed recovery must reject a route that re-enters the current SCC");
         assertEquals(0, outcome.state().usedItems().get(f.a));
         assertFalse(outcome.state().patternTimes().containsKey(f.cycleInput.details()));
     }
@@ -107,14 +290,16 @@ class ECOExternalDemandPlannerTest {
         assertEquals(Map.of(f.leaf, 1L), cycle(outcome).externalMissingItems());
         assertEquals(0, outcome.state().usedItems().get(f.a));
         assertFalse(outcome.state().patternTimes().containsKey(f.cycleInput.details()));
-        assertTrue(outcome.state().missingItems().isEmpty(), "failed external transaction must not pollute base state");
+        assertEquals(1, outcome.state().missingItems().get(f.leaf),
+            "the concrete external leaf deficit must be visible in AE2 confirmation");
     }
 
     @Test void unsupportedExternalPatternIsNotMissing() throws Exception {
         Fixture f = fixture(1, false, false, false);
         var outcome = plan(f.network, stock(f.a, 1, f.leaf, 1));
         assertEquals(CycleExternalDemandStatus.UNSUPPORTED, cycle(outcome).externalDemandStatus());
-        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(1, outcome.state().missingItems().get(f.network.goal()),
+            "an unsupported boundary must keep the incomplete cycle from being submitted as an empty plan");
     }
 
     @Test void externalDagComponentsExecuteBeforeCycle() throws Exception {

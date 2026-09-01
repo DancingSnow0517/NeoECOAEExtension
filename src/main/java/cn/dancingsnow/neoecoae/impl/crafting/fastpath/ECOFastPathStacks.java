@@ -42,6 +42,19 @@ public final class ECOFastPathStacks {
         }
     }
 
+    enum ItemStackValidationFailure {
+        NONE,
+        NULL_COLLECTION,
+        TOO_MANY_ENTRIES,
+        EMPTY_REQUIRED,
+        NULL_STACK,
+        INVALID_AMOUNT,
+        NON_ITEM_KEY,
+        EMPTY_ITEM_STACK,
+        DAMAGED_ITEM,
+        COMPONENT_PATCH
+    }
+
     private ECOFastPathStacks() {
     }
 
@@ -112,44 +125,53 @@ public final class ECOFastPathStacks {
         boolean requireNonEmpty,
         ItemStackValidation validation
     ) {
-        if (stacks == null
-            || stacks.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
-            || requireNonEmpty && stacks.isEmpty()) {
-            return false;
-        }
-        for (GenericStack stack : stacks) {
-            if (!isValidItemStack(stack, maxAmount, validation)) {
-                return false;
-            }
-        }
-        return true;
+        return validateItemStacks(stacks, maxAmount, requireNonEmpty, validation)
+            == ItemStackValidationFailure.NONE;
     }
 
-    private static boolean isValidItemStack(
+    static ItemStackValidationFailure validateItemStacks(
+        List<GenericStack> stacks,
+        long maxAmount,
+        boolean requireNonEmpty,
+        ItemStackValidation validation
+    ) {
+        if (stacks == null) return ItemStackValidationFailure.NULL_COLLECTION;
+        if (stacks.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES) {
+            return ItemStackValidationFailure.TOO_MANY_ENTRIES;
+        }
+        if (requireNonEmpty && stacks.isEmpty()) return ItemStackValidationFailure.EMPTY_REQUIRED;
+        for (GenericStack stack : stacks) {
+            ItemStackValidationFailure failure = validateItemStack(stack, maxAmount, validation);
+            if (failure != ItemStackValidationFailure.NONE) return failure;
+        }
+        return ItemStackValidationFailure.NONE;
+    }
+
+    private static ItemStackValidationFailure validateItemStack(
         @Nullable GenericStack stack,
         long maxAmount,
         ItemStackValidation validation
     ) {
-        if (stack == null || stack.amount() <= 0 || stack.amount() > maxAmount) {
-            return false;
+        if (stack == null) return ItemStackValidationFailure.NULL_STACK;
+        if (stack.amount() <= 0 || stack.amount() > maxAmount) {
+            return ItemStackValidationFailure.INVALID_AMOUNT;
         }
         if (!(stack.what() instanceof AEItemKey itemKey)) {
-            return false;
+            return ItemStackValidationFailure.NON_ITEM_KEY;
         }
         if (validation == ItemStackValidation.PERSISTED) {
-            return true;
+            return ItemStackValidationFailure.NONE;
         }
         ItemStack itemStack = itemKey.toStack(1);
-        if (itemStack.isEmpty()
-            || itemKey.isDamaged() && !validation.isDamagedAllowed()
-            || !validation.isComponentPatchAllowed() && !itemStack.isComponentsPatchEmpty()) {
-            return false;
+        if (itemStack.isEmpty()) return ItemStackValidationFailure.EMPTY_ITEM_STACK;
+        if (itemKey.isDamaged() && !validation.isDamagedAllowed()) {
+            return ItemStackValidationFailure.DAMAGED_ITEM;
         }
-        if (validation == ItemStackValidation.FAST_PATH_INPUT) {
-            // Stateful inputs are admitted only after the slow-path verifier attaches a concrete model.
-            return true;
+        if (!validation.isComponentPatchAllowed() && !itemStack.isComponentsPatchEmpty()) {
+            return ItemStackValidationFailure.COMPONENT_PATCH;
         }
-        return true;
+        // Stateful inputs are admitted only after the slow-path verifier attaches a concrete model.
+        return ItemStackValidationFailure.NONE;
     }
 
     private static Optional<ItemStack> toItemStack(GenericStack stack) {

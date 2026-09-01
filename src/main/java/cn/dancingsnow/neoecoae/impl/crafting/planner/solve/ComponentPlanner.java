@@ -108,6 +108,8 @@ public final class ComponentPlanner {
         }
         List<ComponentPlanningResult> componentResults = new ArrayList<>();
         List<CycleDiagnostic> cycleDiagnostics = new ArrayList<>();
+        Map<Integer, Map<AEKey, PlannerAmount>> delegatedCycleDemands = new LinkedHashMap<>();
+        Map<AEKey, Long> attributedCycleReservations = new LinkedHashMap<>();
         boolean unresolvedCycle = false;
 
         if (!activeSelection.acyclic()) {
@@ -163,6 +165,11 @@ public final class ComponentPlanner {
                     if (exactDemand.fitsLong()) requiredOutputs.put(selected.getKey(), exactDemand.longValueExact());
                 }
             }
+            delegatedCycleDemands.getOrDefault(cycle.componentId(), Map.of()).forEach((key, demand) -> {
+                if (demand.signum() <= 0) return;
+                exactRequiredOutputs.merge(key, demand, PlannerAmount::add);
+                if (demand.fitsLong()) requiredOutputs.merge(key, demand.longValueExact(), Math::addExact);
+            });
             CyclePlanningStatus cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
             String diagnostic = null;
             CycleSolveResult cycleResult = null;
@@ -170,7 +177,8 @@ public final class ComponentPlanner {
             Map<AEKey, Long> externalMissingItems = Map.of();
             CycleExecutionDisposition disposition = exactRequiredOutputs.isEmpty()
                 ? CycleExecutionDisposition.NOT_REQUIRED : CycleExecutionDisposition.BLOCKED;
-            Map<AEKey, Long> stockReservations = existingComponentReservations(requiredOutputs, acyclic.state());
+            Map<AEKey, Long> stockReservations = existingComponentReservations(
+                requiredOutputs, acyclic.state(), attributedCycleReservations);
             if (exactRequiredOutputs.isEmpty()) {
                 cycleStatus = CyclePlanningStatus.NOT_REQUIRED;
             } else if (!cyclePlanningEnabled) {
@@ -195,21 +203,72 @@ public final class ComponentPlanner {
                     cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                     diagnostic = cycleResult.summary();
                     if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
-                    unresolvedCycle |= cycleStatus != CyclePlanningStatus.SOLVED;
                     trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
+                }
+                ExternalDemandPlanner.Outcome external = null;
+                boolean externalFailureHandled = false;
+                boolean startupRecoveryAttempted = false;
+                Map<AEKey, Long> plannedCycleInputs = Map.of();
+                if (cycleResult != null
+                        && cycleResult.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                        && !cycleResult.seedShortfall().isEmpty()) {
+                    startupRecoveryAttempted = true;
+                    Map<AEKey, Long> recoveryDemands = mergeDemands(
+                        cycleResult.positiveExternalDemand(), cycleResult.seedShortfall());
+                    Map<AEKey, Long> recoveryReservations = cycleInitialReservations(
+                        exactRequiredOutputs, stock, cycleResult);
+                    Map<AEKey, Long> recoveryAdditionalReservations = reservationRemainder(
+                        recoveryReservations, stockReservations);
+                    Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
+                        activeSelection.choices(), cycle, recoveryDemands.keySet());
+                    external = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
+                        acyclic.state(), recoveryAdditionalReservations, delegatedInputs, cancellation);
+                    externalDemandStatus = external.status();
+                    externalMissingItems = external.missingLeaves();
+                    trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
+                        external.diagnostic()));
+                    if (external.solved()) {
+                        Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
+                        CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
+                            representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
+                            new CycleSolveRequest.PlannerOptions()), cancellation);
+                        if (recovered.status() == CycleSolveStatus.SUCCESS
+                                && demandsCover(recoveryDemands, recovered.positiveExternalDemand())) {
+                            plannedCycleInputs = cycleResult.seedShortfall();
+                            cycleResult = recovered;
+                            cycleStatus = CyclePlanningStatus.SOLVED;
+                            diagnostic = "Cycle startup seed was planned through its external producer route";
+                        } else {
+                            cycleResult = recovered;
+                            cycleStatus = recovered.status() == CycleSolveStatus.SUCCESS
+                                ? CyclePlanningStatus.UNSUPPORTED : CyclePlanningStatus.of(recovered.status());
+                            diagnostic = recovered.status() == CycleSolveStatus.SUCCESS
+                                ? "Recovered cycle requires boundary inputs not covered by startup planning"
+                                : recovered.summary();
+                        }
+                    }
                 }
                 if (cycleResult != null && cycleStatus == CyclePlanningStatus.SOLVED) {
                     Map<AEKey, Long> initialReservations = cycleInitialReservations(
                         exactRequiredOutputs, stock, cycleResult);
                     Map<AEKey, Long> additionalReservations = reservationRemainder(
                         initialReservations, stockReservations);
-                    var external = externalDemandPlanner.solve(network, cycle, cycleResult, inventory,
-                        acyclic.state(), additionalReservations, cancellation);
-                    externalDemandStatus = external.status();
-                    externalMissingItems = external.missingLeaves();
-                    trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
-                        external.diagnostic()));
+                    if (external == null) {
+                        Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
+                            activeSelection.choices(), cycle, cycleResult.positiveExternalDemand().keySet());
+                        external = externalDemandPlanner.solve(network, cycle, cycleResult, inventory,
+                            acyclic.state(), additionalReservations, delegatedInputs, cancellation);
+                        externalDemandStatus = external.status();
+                        externalMissingItems = external.missingLeaves();
+                        trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
+                            external.diagnostic()));
+                    }
                     if (!external.solved()) {
+                        LOGGER.warn("[ECO-CYCLE-BOUNDARY] componentId={} members={} requiredOutputs={} "
+                                + "externalDemand={} status={} missingLeaves={} diagnostic={}",
+                            cycle.componentId(), cycle.members(), exactRequiredOutputs,
+                            cycleResult.positiveExternalDemand(), external.status(), externalMissingItems,
+                            external.diagnostic());
                         // Keep the failed cycle explanatory only, but surface its concrete leaf deficits through
                         // the AE2 plan. Without this propagation a PARTIAL plan contains a large task vector with
                         // an empty missing-items counter, so confirmation reports a generic "missing materials"
@@ -231,6 +290,7 @@ public final class ComponentPlanner {
                         }
                         diagnostic = external.diagnostic();
                         unresolvedCycle = true;
+                        externalFailureHandled = true;
                     } else {
                         // PlannerCounter exposes an immutable view, not an immutable snapshot. Freeze it before
                         // replaceWith() so the component projection observes the committed delta exactly once.
@@ -241,11 +301,26 @@ public final class ComponentPlanner {
                             diagnostic = "Zero-firing cycle solve did not reserve its required outputs";
                             unresolvedCycle = true;
                         } else if (!acyclic.state().applyCycleTransaction(cycleResult, initialReservations,
-                            additionalReservations, inventory, external.directReservations(), external.states())) {
+                            plannedCycleInputs, additionalReservations, inventory, external.directReservations(),
+                            external.states())) {
                             cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
                             diagnostic = "Cycle/external-DAG transaction validation failed";
                             unresolvedCycle = true;
                         } else {
+                            if (!external.delegatedCycleDemands().isEmpty()) {
+                                LOGGER.info("[ECO-CYCLE-BOUNDARY] componentId={} delegatedDemands={}",
+                                    cycle.componentId(), external.delegatedCycleDemands());
+                            }
+                            external.delegatedCycleDemands().forEach((key, demand) -> {
+                                CycleComponent supplier = cyclicSupplier(network, activeCondensation,
+                                    activeSelection.choices(), key, cycle.componentId());
+                                if (supplier == null) {
+                                    throw new IllegalStateException("Delegated cycle input lost its supplier: " + key);
+                                }
+                                delegatedCycleDemands
+                                    .computeIfAbsent(supplier.componentId(), ignored -> new LinkedHashMap<>())
+                                    .merge(key, PlannerAmount.of(demand), PlannerAmount::add);
+                            });
                             stockReservations = mergeReservations(stockReservations,
                                 reservationDelta(usedBefore, acyclic.state().usedAmounts()));
                             disposition = hasFirings ? CycleExecutionDisposition.ORDERED_EXECUTION
@@ -262,6 +337,38 @@ public final class ComponentPlanner {
                                         + " cycle firing(s)"));
                             }
                         }
+                    }
+                }
+                if (cycleResult != null && cycleStatus != CyclePlanningStatus.SOLVED
+                        && cycleStatus != CyclePlanningStatus.NOT_REQUIRED) {
+                    unresolvedCycle = true;
+                    if (external != null && !external.solved()) {
+                        if (!externalFailureHandled) {
+                            boolean onlyUnproducibleSeed = startupRecoveryAttempted
+                                && !externalMissingItems.isEmpty()
+                                && cycleResult.seedShortfall().keySet().containsAll(externalMissingItems.keySet());
+                            if (!externalMissingItems.isEmpty() && !onlyUnproducibleSeed) {
+                                acyclic.state().markMissing(externalMissingItems);
+                            } else if (!startupRecoveryAttempted && !cycleResult.seedShortfall().isEmpty()) {
+                                acyclic.state().markMissing(cycleResult.seedShortfall());
+                            } else if (!startupRecoveryAttempted && !requiredOutputs.isEmpty()) {
+                                acyclic.state().markCycleMissing(requiredOutputs);
+                            }
+                            if (external.status() == CycleExternalDemandStatus.UNSUPPORTED) {
+                                cycleStatus = CyclePlanningStatus.UNSUPPORTED;
+                            } else if (external.status() == CycleExternalDemandStatus.UNREPRESENTABLE) {
+                                cycleStatus = CyclePlanningStatus.UNREPRESENTABLE;
+                                amountUnrepresentable = true;
+                            } else {
+                                cycleStatus = CyclePlanningStatus.INSUFFICIENT_EXTERNAL_INPUT;
+                            }
+                            diagnostic = external.diagnostic();
+                        }
+                        LOGGER.warn("[ECO-CYCLE-BOUNDARY] componentId={} members={} requiredOutputs={} "
+                                + "externalDemand={} seedShortfall={} status={} missingLeaves={} diagnostic={}",
+                            cycle.componentId(), cycle.members(), exactRequiredOutputs,
+                            cycleResult.positiveExternalDemand(), cycleResult.seedShortfall(), external.status(),
+                            external.missingLeaves(), external.diagnostic());
                     }
                 }
             }
@@ -294,6 +401,11 @@ public final class ComponentPlanner {
                 selectedCycleExecutionPatterns(cycleResult),
                 cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult,
                 disposition, stockReservations));
+            if (disposition != CycleExecutionDisposition.BLOCKED
+                    && disposition != CycleExecutionDisposition.NOT_REQUIRED) {
+                stockReservations.forEach((key, reserved) ->
+                    attributedCycleReservations.merge(key, reserved, Math::addExact));
+            }
             cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult, trace));
         }
 
@@ -330,6 +442,55 @@ public final class ComponentPlanner {
         }
         componentReservations.forEach((key, reserved) -> result.merge(key, reserved, Math::addExact));
         return Map.copyOf(result);
+    }
+
+    private static Set<AEKey> delegatedCycleInputs(CompiledNetwork network, CondensationGraph condensation,
+            Map<AEKey, Integer> choices, CycleComponent consumer, Set<AEKey> inputs) {
+        Set<AEKey> delegated = new HashSet<>();
+        inputs.forEach(key -> {
+            CycleComponent supplier = cyclicSupplier(network, condensation, choices, key, consumer.componentId());
+            if (supplier != null) {
+                delegated.add(key);
+            }
+        });
+        return Set.copyOf(delegated);
+    }
+
+    private static Map<AEKey, Long> mergeDemands(Map<AEKey, Long> first, Map<AEKey, Long> second) {
+        Map<AEKey, Long> result = new LinkedHashMap<>(first);
+        second.forEach((key, amount) -> {
+            if (amount != null && amount > 0L) result.merge(key, amount, Math::addExact);
+        });
+        return Map.copyOf(result);
+    }
+
+    private static boolean demandsCover(Map<AEKey, Long> planned, Map<AEKey, Long> required) {
+        return required.entrySet().stream().allMatch(entry -> entry.getValue() != null
+            && entry.getValue() >= 0L && planned.getOrDefault(entry.getKey(), 0L) >= entry.getValue());
+    }
+
+    private static @Nullable CycleComponent cyclicSupplier(CompiledNetwork network, CondensationGraph condensation,
+            Map<AEKey, Integer> choices, AEKey key, int excludedComponentId) {
+        if (condensation.componentFor(key) instanceof CycleComponent direct
+                && direct.componentId() != excludedComponentId) return direct;
+        List<CompiledPattern> candidates = network.producersOf(key).stream()
+            .filter(CompiledPattern::fastSupported).toList();
+        if (!candidates.isEmpty()) {
+            int choice = Math.max(0, Math.min(choices.getOrDefault(key, 0), candidates.size() - 1));
+            IPatternDetails selected = candidates.get(choice).details();
+            CycleComponent selectedOwner = condensation.cycles().stream()
+                .filter(cycle -> cycle.componentId() != excludedComponentId)
+                .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.details() == selected))
+                .findFirst().orElse(null);
+            if (selectedOwner != null) return selectedOwner;
+        }
+
+        List<CycleComponent> byproductOwners = condensation.cycles().stream()
+            .filter(cycle -> cycle.componentId() != excludedComponentId)
+            .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.grossOutputs().stream()
+                .anyMatch(output -> output.what().equals(key))))
+            .distinct().toList();
+        return byproductOwners.size() == 1 ? byproductOwners.getFirst() : null;
     }
 
     private static Set<IPatternDetails> selectedExecutionPattern(SolveState state, AEKey key) {
@@ -381,7 +542,10 @@ public final class ComponentPlanner {
             Map<AEKey, Long> startingStock, CycleSolveResult result) {
         Map<AEKey, Long> reservations = new LinkedHashMap<>();
         result.requiredSeed().forEach((key, amount) -> {
-            if (amount != null && amount > 0L) reservations.put(key, amount);
+            if (amount != null && amount > 0L) {
+                long stockBacked = Math.min(amount, Math.max(0L, startingStock.getOrDefault(key, 0L)));
+                if (stockBacked > 0L) reservations.put(key, stockBacked);
+            }
         });
         requiredOutputs.forEach((key, exactDemand) -> {
             if (!exactDemand.fitsLong() || exactDemand.signum() <= 0) return;
@@ -407,12 +571,14 @@ public final class ComponentPlanner {
 
     /** Stock already consumed by the acyclic pass for a deferred cycle output. This is a projection, not a write. */
     private static Map<AEKey, Long> existingComponentReservations(Map<AEKey, Long> required,
-            SolveState state) {
+            SolveState state, Map<AEKey, Long> alreadyAttributed) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         required.forEach((key, amount) -> {
             if (amount == null || amount <= 0L) return;
             PlannerAmount used = state.usedAmounts().getOrDefault(key, PlannerAmount.ZERO);
-            if (used.signum() > 0) result.put(key, Math.min(amount, used.longValueExact()));
+            if (used.signum() <= 0) return;
+            long available = Math.max(0L, used.longValueExact() - alreadyAttributed.getOrDefault(key, 0L));
+            if (available > 0L) result.put(key, Math.min(amount, available));
         });
         return Map.copyOf(result);
     }

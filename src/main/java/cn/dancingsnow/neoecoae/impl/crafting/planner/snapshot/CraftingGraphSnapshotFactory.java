@@ -59,13 +59,12 @@ public final class CraftingGraphSnapshotFactory {
         }
         for (var cycle : trace.cycles()) {
             for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
-            // Project a missing startup seed onto the cycle's requested output. This keeps the left-hand
-            // AE2-style material row actionable even when no cycle pattern can fire yet.
+            // Surface the deficit on the actual startup key. Projecting the aggregate seed deficit onto every
+            // requested cycle output makes unrelated outputs appear to be missing the same startup material.
             if (cycle.solveResult() != null && !cycle.solveResult().seedShortfall().isEmpty()) {
-                cycle.requiredOutputs().forEach((key, amount) -> {
+                cycle.solveResult().seedShortfall().forEach((key, amount) -> {
                     var material = materials.computeIfAbsent(key, MutableMaterial::new);
-                    PlannerAmount deficit = cycle.solveResult().seedShortfall().values().stream()
-                        .map(PlannerAmount::of).reduce(PlannerAmount.ZERO, PlannerAmount::add);
+                    PlannerAmount deficit = PlannerAmount.of(amount);
                     material.exactMissing = material.exactMissing.max(deficit);
                     material.missing = material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
                 });

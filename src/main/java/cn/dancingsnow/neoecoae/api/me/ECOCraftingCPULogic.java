@@ -118,16 +118,26 @@ public class ECOCraftingCPULogic {
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
     private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
     private static final long STALLED_DISPATCH_LOG_INTERVAL_TICKS = 100L;
+    private static final long DISPATCH_DIAGNOSTICS_LOG_INTERVAL_TICKS = 100L;
+    private static final long DISPATCH_SUMMARY_LOG_INTERVAL_TICKS = 100L;
     private long lastBatchRejectionLogTick = Long.MIN_VALUE;
     private long lastStalledDispatchLogTick = Long.MIN_VALUE;
     private long lastBatchProbeLogTick = Long.MIN_VALUE;
+    private long lastDispatchDiagnosticsLogTick = Long.MIN_VALUE;
+    private long lastDispatchSummaryLogTick = Long.MIN_VALUE;
     private long batchProbeBudgetTick = Long.MIN_VALUE;
     private int batchProbesUsedThisTick;
     private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
     private int taskDispatchCursor;
-    private final Map<AEKey, Long> dispatchedItemsThisTick = new LinkedHashMap<>();
+    private final Map<AEKey, Long> dispatchedItemsSinceLog = new LinkedHashMap<>();
     private final Set<ICraftingProvider> providerResolutionLoggedThisPass =
         Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Map<String, Integer> providerResolutionSummaryThisPass = new LinkedHashMap<>();
+    private final Map<String, Integer> ordinaryBoundSummaryThisPass = new LinkedHashMap<>();
+    private final Map<String, Long> externalBatchCountSinceLog = new LinkedHashMap<>();
+    private long externalBatchRequestedSinceLog;
+    private long externalBatchAcceptedSinceLog;
+    private long externalBatchLeftoverSinceLog;
     private int lastLoggedCycleInitialInventoryPhase = -1;
 
     private static final class BatchProbeKey {
@@ -429,8 +439,9 @@ public class ECOCraftingCPULogic {
         }
 
         var pushedPatterns = 0;
-        dispatchedItemsThisTick.clear();
         providerResolutionLoggedThisPass.clear();
+        providerResolutionSummaryThisPass.clear();
+        ordinaryBoundSummaryThisPass.clear();
         // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
         // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
         providerTopologyCache.clear();
@@ -574,12 +585,9 @@ public class ECOCraftingCPULogic {
                     int ordinaryAttemptLimit = (int) Math.min(
                         Math.min((long) strategyDecision.maxAttempts(), strategyContext.dispatchBudget()),
                         Math.min(task.progress().value, runtimeLimit));
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("[ECO-ORDINARY-BOUND] taskRemaining={} runtimeDispatchLimit={} fairQuantum={} "
-                                + "cpuRemaining={} strategyMaxAttempts={} dispatchBudget={} selectedAttempts={}",
-                            task.progress().value, runtimeLimit, fairQuantum, Math.max(0, maxPatterns - pushedPatterns),
-                            strategyDecision.maxAttempts(), strategyContext.dispatchBudget(), ordinaryAttemptLimit);
-                    }
+                    recordOrdinaryBound(task.progress().value, runtimeLimit, fairQuantum,
+                        Math.max(0, maxPatterns - pushedPatterns), strategyDecision.maxAttempts(),
+                        strategyContext.dispatchBudget(), ordinaryAttemptLimit);
                     List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
                     if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
                         CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
@@ -694,7 +702,8 @@ public class ECOCraftingCPULogic {
             }
         } finally {
             endStatusChangeBatchSafely();
-            logDispatchedItemsForTick();
+            maybeLogDispatchDiagnosticsSummary();
+            maybeLogDispatchedItemsSummary();
         }
 
         if (pushedPatterns == 0) {
@@ -894,9 +903,9 @@ public class ECOCraftingCPULogic {
         return result;
     }
 
-    /** Temporary diagnostic for confirming which dispatch contract each advertised provider selects. */
+    /** Aggregated diagnostic for confirming which dispatch contract each advertised provider selects. */
     private void logProviderResolution(List<ICraftingProvider> providers) {
-        if (!LOGGER.isDebugEnabled()) return;
+        if (!NEConfig.debugEcoFastPath || !LOGGER.isDebugEnabled()) return;
         for (ICraftingProvider provider : providers) {
             if (!providerResolutionLoggedThisPass.add(provider)) continue;
             String capability;
@@ -926,9 +935,45 @@ public class ECOCraftingCPULogic {
                 capability = "Ordinary";
                 dispatchMode = "ORDINARY";
             }
-            LOGGER.debug("[ECO-PROVIDER-RESOLVE] provider={} capability={} dispatchMode={}",
-                provider, capability, dispatchMode);
+            String availability = provider.isBusy() ? "BUSY" : "AVAILABLE";
+            String resolution = provider.getClass().getName() + "->" + capability + "/" + dispatchMode
+                + "/" + availability;
+            providerResolutionSummaryThisPass.merge(resolution, 1, Integer::sum);
         }
+    }
+
+    private void recordOrdinaryBound(long taskRemaining, long runtimeLimit, int fairQuantum, int cpuRemaining,
+            int strategyMaxAttempts, int dispatchBudget, int selectedAttempts) {
+        if (!NEConfig.debugEcoFastPath || !LOGGER.isDebugEnabled()) return;
+        String bound = "remaining=" + taskRemaining + "/runtime=" + runtimeLimit + "/fair=" + fairQuantum
+            + "/cpu=" + cpuRemaining + "/strategy=" + strategyMaxAttempts + "/budget=" + dispatchBudget
+            + "/selected=" + selectedAttempts;
+        ordinaryBoundSummaryThisPass.merge(bound, 1, Integer::sum);
+    }
+
+    private void recordExternalBatch(String capability, long requested, long accepted, long leftover) {
+        if (!NEConfig.debugEcoFastPath || !LOGGER.isDebugEnabled()) return;
+        externalBatchCountSinceLog.merge(capability, 1L, Long::sum);
+        externalBatchRequestedSinceLog = saturatedAdd(externalBatchRequestedSinceLog, requested);
+        externalBatchAcceptedSinceLog = saturatedAdd(externalBatchAcceptedSinceLog, accepted);
+        externalBatchLeftoverSinceLog = saturatedAdd(externalBatchLeftoverSinceLog, leftover);
+    }
+
+    private void maybeLogDispatchDiagnosticsSummary() {
+        if (providerResolutionSummaryThisPass.isEmpty() && ordinaryBoundSummaryThisPass.isEmpty()
+                && externalBatchCountSinceLog.isEmpty()) return;
+        long tick = TickHandler.instance().getCurrentTick();
+        if (!isPeriodicLogDue(lastDispatchDiagnosticsLogTick, tick, DISPATCH_DIAGNOSTICS_LOG_INTERVAL_TICKS)) return;
+        lastDispatchDiagnosticsLogTick = tick;
+        LOGGER.debug("[ECO-DISPATCH-DIAGNOSTICS] tick={} providers={} resolutions={} ordinaryBounds={} "
+                + "externalBatches={} externalRequested={} externalAccepted={} externalLeftover={}",
+            tick, providerResolutionLoggedThisPass.size(), providerResolutionSummaryThisPass,
+            ordinaryBoundSummaryThisPass, externalBatchCountSinceLog, externalBatchRequestedSinceLog,
+            externalBatchAcceptedSinceLog, externalBatchLeftoverSinceLog);
+        externalBatchCountSinceLog.clear();
+        externalBatchRequestedSinceLog = 0L;
+        externalBatchAcceptedSinceLog = 0L;
+        externalBatchLeftoverSinceLog = 0L;
     }
 
     private void logCycleInitialInventory(ExecutingCraftingJob currentJob,
@@ -1221,8 +1266,7 @@ public class ECOCraftingCPULogic {
         }
         chargeCountedBatchEnergy(energyService, patternPower, accepted);
         if (this.job == job) recordPushedPattern(job, execution, accepted);
-        LOGGER.debug("[ECO-EXTERNAL-BATCH] provider={} capability=Thunderbolt requested={} accepted={} leftover={}",
-            provider, requested, accepted, leftover);
+        recordExternalBatch("Thunderbolt", requested, accepted, leftover);
         return new DispatchResult.Accepted(accepted);
     }
 
@@ -1290,8 +1334,7 @@ public class ECOCraftingCPULogic {
         }
         chargeCountedBatchEnergy(energyService, patternPower, count);
         if (this.job == job) recordPushedPattern(job, execution, count);
-        LOGGER.debug("[ECO-EXTERNAL-BATCH] provider={} capability=DataEnergistics requested={} accepted={}",
-            provider, requestedCount, count);
+        recordExternalBatch("DataEnergistics", requestedCount, count, 0L);
         return new DispatchResult.Accepted(count);
     }
 
@@ -1823,7 +1866,7 @@ public class ECOCraftingCPULogic {
 
     private void recordDispatchedItem(AEKey what, long amount) {
         if (what == null || amount <= 0L) return;
-        dispatchedItemsThisTick.merge(what, amount, (left, right) -> {
+        dispatchedItemsSinceLog.merge(what, amount, (left, right) -> {
             try {
                 return Math.addExact(left, right);
             } catch (ArithmeticException overflow) {
@@ -1832,9 +1875,12 @@ public class ECOCraftingCPULogic {
         });
     }
 
-    private void logDispatchedItemsForTick() {
-        if (dispatchedItemsThisTick.isEmpty()) return;
-        String summary = dispatchedItemsThisTick.entrySet().stream().map(entry -> {
+    private void maybeLogDispatchedItemsSummary() {
+        if (dispatchedItemsSinceLog.isEmpty()) return;
+        long tick = TickHandler.instance().getCurrentTick();
+        if (!isPeriodicLogDue(lastDispatchSummaryLogTick, tick, DISPATCH_SUMMARY_LOG_INTERVAL_TICKS)) return;
+        lastDispatchSummaryLogTick = tick;
+        String summary = dispatchedItemsSinceLog.entrySet().stream().map(entry -> {
             String name;
             try {
                 name = entry.getKey().getDisplayName().getString();
@@ -1843,7 +1889,24 @@ public class ECOCraftingCPULogic {
             }
             return name + "×" + entry.getValue();
         }).collect(java.util.stream.Collectors.joining(";"));
-        LOGGER.info("[ECO-DISPATCH-TICK] tick={} sent={}", TickHandler.instance().getCurrentTick(), summary);
+        LOGGER.info("[ECO-DISPATCH-SUMMARY] tick={} intervalTicks={} sent={}",
+            tick, DISPATCH_SUMMARY_LOG_INTERVAL_TICKS, summary);
+        dispatchedItemsSinceLog.clear();
+    }
+
+    private static boolean isPeriodicLogDue(long previousTick, long tick, long intervalTicks) {
+        if (previousTick == Long.MIN_VALUE) return true;
+        long elapsed = tick - previousTick;
+        return elapsed < 0L || elapsed >= intervalTicks;
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (right <= 0L) return left;
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
     }
 
     /**

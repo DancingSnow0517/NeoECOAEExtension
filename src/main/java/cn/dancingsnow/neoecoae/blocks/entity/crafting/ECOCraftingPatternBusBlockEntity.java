@@ -80,6 +80,8 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -711,6 +713,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         dirtyPatternSlots.clear();
 
         patternDetails.clear();
+        Map<String, Integer> fastPathCandidateSummary = NEConfig.debugEcoFastPath ? new TreeMap<>() : null;
         for (int slot = 0; slot < slotCount; slot++) {
             IPatternDetails details = decodedPatternDetails[slot];
             patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
@@ -718,13 +721,20 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
                 ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
-                LOGGER.debug("[ECO-FASTPATH-CANDIDATE] pattern={} type={} supported={} reason={}",
-                    details, classification.type(), classification.supported(), classification.reason());
+                if (fastPathCandidateSummary != null) {
+                    String outcome = classification.type() + "/" + classification.supported()
+                        + "/" + classification.reason();
+                    fastPathCandidateSummary.merge(outcome, 1, Integer::sum);
+                }
                 if (shouldValidateNetGrowthPatterns()) {
                     NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
                 }
                 patternDetails.add(details);
             }
+        }
+        if (fastPathCandidateSummary != null && !fastPathCandidateSummary.isEmpty()) {
+            LOGGER.debug("[ECO-FASTPATH-CANDIDATES] bus={} total={} classifications={}",
+                getBlockPos().toShortString(), patternDetails.size(), fastPathCandidateSummary);
         }
         ICraftingProvider.requestUpdate(this.getMainNode());
         notifyPatternInterfaceHosts();
