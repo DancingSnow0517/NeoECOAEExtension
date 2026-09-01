@@ -108,6 +108,20 @@ public final class ActiveRouteSelector {
                 for (var input : pattern.inputs()) {
                     edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
                 }
+                // Preserve normalized returned-stock feedback when projecting the universe onto the selected
+                // producer route. Dropping this edge turns a reusable seed into ordinary per-firing consumption
+                // and incorrectly demands one copy for every requested craft.
+                for (var feedback : pattern.semantics().feedbackEdges()) {
+                    var edgeInput = pattern.inputs().stream()
+                        .filter(input -> feedback.returnedKey().equals(input.remainderKey())
+                            || feedback.returnedKey().equals(input.key()))
+                        .findFirst()
+                        .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().getFirst());
+                    if (edgeInput != null) {
+                        edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
+                            pattern, edgeInput));
+                    }
+                }
             }
         }
         return new CraftingDependencyGraph(universe.goal(), nodes, edges);

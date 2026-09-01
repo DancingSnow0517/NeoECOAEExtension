@@ -22,11 +22,13 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.SccComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.SinglePatternGrowthCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
@@ -43,6 +45,60 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class ECOPlannerSemanticContractTest {
+    @Test
+    void exactNonDamageableReusableAlternativeProducesAggregatedPlan() throws Exception {
+        AEKey goal = PlannerTestKey.of("reusable_stock_goal");
+        AEKey damageableCrystal = PlannerTestKey.of("damageable_crystal");
+        AEKey masterCrystal = PlannerTestKey.of("master_crystal");
+        var pattern = new AE2ReusablePattern("master-crystal", goal, damageableCrystal, masterCrystal);
+
+        CompiledNetwork network = new CraftingNetworkCompiler(List.of(
+            new AE2PatternSemanticAdapter(masterCrystal::equals))).compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+        var compiled = network.producersOf(goal).getFirst();
+        assertTrue(compiled.fastSupported());
+        assertTrue(compiled.semantics().cycleSafeForStaticPlanning());
+        assertEquals(masterCrystal, compiled.inputs().getFirst().key());
+        assertEquals(masterCrystal, compiled.inputs().getFirst().remainderKey());
+
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(),
+            SinglePatternGrowthCycleSolver.overBoundedSolver())
+            .plan(network, condensation, counter(masterCrystal, 1), 50_000, true, ECOCancellation.NONE);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "trace=" + outcome.trace().diagnostics()
+            + " components=" + outcome.components() + " missing=" + outcome.state().missingAmounts()
+            + " used=" + outcome.state().usedAmounts() + " patterns=" + outcome.state().patternTimes());
+        assertEquals(50_000L, outcome.state().patternTimes().get(pattern));
+        assertTrue(outcome.components().stream().anyMatch(component ->
+            component.type() == ComponentPlanningResult.Type.CYCLIC
+                && component.cycleStatus() == CyclePlanningStatus.SOLVED));
+
+        var plan = new AE2CraftingPlanBridge().success(goal, 50_000, false, false, outcome.state());
+        var result = new ECOPlanningResult(outcome.status(), plan, outcome.trace(), outcome.cycles(),
+            outcome.components(), outcome.executionComponentOrder(), 1L);
+        assertTrue(result.executionSchedule().phases().stream().anyMatch(phase ->
+            phase.type() == ECOExecutionSchedule.Type.CYCLE && phase.patternSet().contains(pattern)));
+    }
+
+    @Test
+    void damageableSelfRemainderStillDeclinesFastPlanning() throws Exception {
+        AEKey goal = PlannerTestKey.of("damageable_remainder_goal");
+        AEKey damageableCrystal = PlannerTestKey.of("damageable_crystal");
+        var pattern = new AE2ReusablePattern("damageable-crystal", goal, damageableCrystal);
+
+        CompiledNetwork network = new CraftingNetworkCompiler(List.of(
+            new AE2PatternSemanticAdapter(key -> false))).compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+        var compiled = network.producersOf(goal).getFirst();
+
+        assertFalse(compiled.fastSupported());
+        assertFalse(compiled.semantics().cycleSafeForStaticPlanning());
+        assertEquals("UNSUPPORTED_REMAINDER", compiled.unsupportedReason());
+    }
+
     @Test
     void sameOutputDifferentPlannerCandidatesNeverCrossWire() throws Exception {
         AEKey goal = PlannerTestKey.of("candidate_binding_goal");
@@ -214,6 +270,35 @@ class ECOPlannerSemanticContractTest {
         @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
         @Override public IInput[] getInputs() { return delegate.getInputs(); }
         @Override public List<GenericStack> getOutputs() { return delegate.getOutputs(); }
+    }
+
+    private static final class AE2ReusablePattern implements IPatternDetails {
+        private final String name;
+        private final AEKey output;
+        private final AEKey[] possibleInputs;
+
+        private AE2ReusablePattern(String name, AEKey output, AEKey... possibleInputs) {
+            this.name = name;
+            this.output = output;
+            this.possibleInputs = possibleInputs;
+        }
+
+        @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
+        @Override public IInput[] getInputs() {
+            return new IInput[] {new IInput() {
+                @Override public GenericStack[] getPossibleInputs() {
+                    return java.util.Arrays.stream(possibleInputs)
+                        .map(key -> new GenericStack(key, 1)).toArray(GenericStack[]::new);
+                }
+                @Override public long getMultiplier() { return 1; }
+                @Override public boolean isValid(AEKey input, Level level) {
+                    return java.util.Arrays.asList(possibleInputs).contains(input);
+                }
+                @Override public AEKey getRemainingKey(AEKey template) { return template; }
+            }};
+        }
+        @Override public List<GenericStack> getOutputs() { return List.of(new GenericStack(output, 1)); }
+        @Override public String toString() { return name; }
     }
 
     /** Public so ThunderPatternSemanticAdapter can invoke the optional bridge method reflectively. */

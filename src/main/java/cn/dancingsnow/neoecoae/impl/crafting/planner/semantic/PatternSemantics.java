@@ -49,7 +49,13 @@ public record PatternSemantics(
     }
 
     public boolean cycleSafeForStaticPlanning() {
-        return completeForStaticPlanning() && cycleSafe;
+        // A normalized AE2 substitution slot is safe here when the adapter has committed the plan to one concrete
+        // member and independently proved its reusable-stock contract. Fuzzy/unknown matching remains forbidden.
+        return supported()
+            && matchingMode != MatchingMode.FUZZY
+            && matchingMode != MatchingMode.UNKNOWN
+            && executionRestriction == ExecutionRestriction.NONE
+            && cycleSafe;
     }
 
     public Set<AEKey> consumedKeys() {
