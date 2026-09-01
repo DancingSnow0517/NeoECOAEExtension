@@ -19,18 +19,26 @@ public final class ECOFastPathStacks {
     private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
 
     enum ItemStackValidation {
-        PERSISTED(true),
-        FAST_PATH(false),
-        FAST_PATH_INPUT(true);
+        PERSISTED(true, true),
+        FAST_PATH(false, false),
+        FAST_PATH_INPUT(true, true),
+        /** A slow-path-verified result may carry component patches and non-zero durability. */
+        FAST_PATH_MUTATION(true, true);
 
         private final boolean componentPatchAllowed;
+        private final boolean damagedAllowed;
 
-        ItemStackValidation(boolean componentPatchAllowed) {
+        ItemStackValidation(boolean componentPatchAllowed, boolean damagedAllowed) {
             this.componentPatchAllowed = componentPatchAllowed;
+            this.damagedAllowed = damagedAllowed;
         }
 
         boolean isComponentPatchAllowed() {
             return componentPatchAllowed;
+        }
+
+        boolean isDamagedAllowed() {
+            return damagedAllowed;
         }
     }
 
@@ -133,7 +141,7 @@ public final class ECOFastPathStacks {
         }
         ItemStack itemStack = itemKey.toStack(1);
         if (itemStack.isEmpty()
-            || itemKey.isDamaged()
+            || itemKey.isDamaged() && !validation.isDamagedAllowed()
             || !validation.isComponentPatchAllowed() && !itemStack.isComponentsPatchEmpty()) {
             return false;
         }

@@ -111,6 +111,20 @@ public final class ECOBatchCraftingHelper {
         return ECOFastPathStacks.copyCounter(counter);
     }
 
+    /** Returns {@code total - alreadyOwned}, preserving concrete AEItemKey components. */
+    public static List<GenericStack> subtract(List<GenericStack> total, List<GenericStack> alreadyOwned) {
+        KeyCounter counter = new KeyCounter();
+        for (GenericStack stack : total) counter.add(stack.what(), stack.amount());
+        for (GenericStack stack : alreadyOwned) {
+            long available = counter.get(stack.what());
+            if (available < stack.amount()) {
+                throw new IllegalArgumentException("Batch total is smaller than its first craft inputs");
+            }
+            counter.remove(stack.what(), stack.amount());
+        }
+        return ECOFastPathStacks.copyCounter(counter);
+    }
+
     public static int maxCraftsFromInventory(ListCraftingInventory inventory, List<GenericStack> perCraft,
             int requested) {
         int max = requested;

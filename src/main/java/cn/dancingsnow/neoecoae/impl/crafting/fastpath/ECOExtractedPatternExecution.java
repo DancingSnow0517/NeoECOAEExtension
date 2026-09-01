@@ -32,6 +32,7 @@ public final class ECOExtractedPatternExecution {
     private final List<GenericStack> expectedOutputs;
     private final List<GenericStack> expectedContainerItems;
     private final List<GenericStack> inputItems;
+    private final ECORecipeClassifier.Classification classification;
 
     @Nullable
     private final ECOFastPathKey key;
@@ -45,6 +46,7 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> expectedOutputs,
         List<GenericStack> expectedContainerItems,
         List<GenericStack> inputItems,
+        ECORecipeClassifier.Classification classification,
         @Nullable ECOFastPathKey key,
         boolean fastPathEligible
     ) {
@@ -55,6 +57,7 @@ public final class ECOExtractedPatternExecution {
         this.expectedOutputs = List.copyOf(expectedOutputs);
         this.expectedContainerItems = List.copyOf(expectedContainerItems);
         this.inputItems = List.copyOf(inputItems);
+        this.classification = classification;
         this.key = key;
         this.fastPathEligible = fastPathEligible;
         this.arithmeticBatchLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
@@ -72,7 +75,11 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
         List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
         List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
+        ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
         Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
+        ECOFastPathStacks.ItemStackValidation resultValidation = classification.type() == ECORecipeClassifier.Type.NORMAL
+            ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
+            : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
         boolean eligible = key.isPresent()
             && NEConfig.ecoAe2FastPathEnabled
             && !NEConfig.postCraftingEvent
@@ -80,13 +87,13 @@ public final class ECOExtractedPatternExecution {
             && AE2PatternIntrospection.isKnownSafePatternType(details)
             && outputs.size() == 1
             && ECOFastPathStacks.areValidItemStacks(
-                outputs, Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                outputs, Integer.MAX_VALUE, true, resultValidation)
             && ECOFastPathStacks.areValidItemStacks(
-                containers, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                containers, Integer.MAX_VALUE, false, resultValidation)
             && ECOFastPathStacks.areValidItemStacks(
                 inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT);
         return new ECOExtractedPatternExecution(
-            details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible
+            details, craftingContainer, outputs, containers, inputs, classification, key.orElse(null), eligible
         );
     }
 
@@ -97,6 +104,7 @@ public final class ECOExtractedPatternExecution {
             List.of(),
             List.of(),
             ECOFastPathStacks.copyCounters(craftingContainer),
+            ECORecipeClassifier.classify(details),
             null,
             false
         );
@@ -114,7 +122,9 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> inputItems
     ) {
         return new ECOExtractedPatternExecution(
-            null, new KeyCounter[0], expectedOutputs, expectedContainerItems, inputItems, key, key != null
+            null, new KeyCounter[0], expectedOutputs, expectedContainerItems, inputItems,
+            new ECORecipeClassifier.Classification(ECORecipeClassifier.Type.NORMAL, true, "TEST_NORMALIZED"),
+            key, key != null
         );
     }
 
@@ -136,6 +146,18 @@ public final class ECOExtractedPatternExecution {
 
     public List<GenericStack> inputItems() {
         return inputItems;
+    }
+
+    public ECORecipeClassifier.Classification classification() {
+        return classification;
+    }
+
+    public ECORecipeClassifier.Type fastPathType() {
+        return classification.type();
+    }
+
+    public String fastPathReason() {
+        return classification.reason();
     }
 
     @Nullable

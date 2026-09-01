@@ -26,13 +26,22 @@ public final class ECODurabilityBatchModel {
             ItemStack in = before.get(i);
             ItemStack out = after.get(i);
             if (in.isEmpty()) continue;
-            if (!in.isDamageableItem()) continue;
             if (out.isEmpty()) {
-                if (in.getDamageValue() + 1 < in.getMaxDamage()) return Optional.empty();
-                found.add(new Transition(in.copyWithCount(1), null, 1, in.getMaxDamage() - in.getDamageValue()));
+                // A damageable tool that is consumed rather than returned is an ordinary per-craft input. It
+                // needs no reusable-state model: multiplying that input is exactly the physical contract.
                 continue;
             }
-            if (!ItemStack.isSameItemSameComponents(in, out)) return Optional.empty();
+            if (!ItemStack.isSameItem(in, out)) continue;
+            if (!ItemStack.isSameItemSameComponents(in, out) && !in.isDamageableItem()) {
+                // Non-damageable component transitions may encode arbitrary recipe state. Durability-bearing
+                // stacks are safe to extrapolate from their monotonic damage delta; the remaining components
+                // are carried by the final stack emitted by the batch model.
+                continue;
+            }
+            if (!in.isDamageableItem()) {
+                found.add(new Transition(in.copyWithCount(1), out.copyWithCount(1), 0, Long.MAX_VALUE));
+                continue;
+            }
             int delta = out.getDamageValue() - in.getDamageValue();
             if (delta < 0) return Optional.empty();
             found.add(new Transition(in.copyWithCount(1), out.copyWithCount(1), delta,

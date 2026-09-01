@@ -113,16 +113,39 @@ public final class ECOCraftingFastPathCache {
         long tick,
         @Nullable ECODurabilityBatchModel durabilityModel
     ) {
+        putPositive(key, outputs, remaining, inputs, tick, durabilityModel,
+            ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
+    }
+
+    public void putPositive(
+        ECOFastPathKey key,
+        List<GenericStack> outputs,
+        List<GenericStack> remaining,
+        List<GenericStack> inputs,
+        long tick,
+        @Nullable ECODurabilityBatchModel durabilityModel,
+        ECORecipeClassifier.Type type,
+        List<ECOFastPathComponentChange> inputComponentChanges,
+        List<ECOFastPathComponentChange> outputComponentChanges,
+        List<ECOFastPathDurabilityDelta> durabilityDeltas,
+        List<GenericStack> reusableInputs
+    ) {
+        ECOFastPathStacks.ItemStackValidation resultValidation =
+            inputComponentChanges.isEmpty() && outputComponentChanges.isEmpty()
+                    && durabilityDeltas.isEmpty() && reusableInputs.isEmpty()
+                ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
+                : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
         if (!ECOFastPathStacks.areValidItemStacks(
-                outputs, Integer.MAX_VALUE, true, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                outputs, Integer.MAX_VALUE, true, resultValidation)
             || !ECOFastPathStacks.areValidItemStacks(
-                remaining, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH)
+                remaining, Integer.MAX_VALUE, false, resultValidation)
             || !ECOFastPathStacks.areValidItemStacks(
                 inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)) {
             putNegative(key, tick);
             return;
         }
-        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, durabilityModel));
+        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, durabilityModel, type,
+            inputComponentChanges, outputComponentChanges, durabilityDeltas, reusableInputs));
         verifySuccessCount++;
     }
 

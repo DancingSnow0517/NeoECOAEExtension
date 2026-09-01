@@ -87,6 +87,48 @@ public final class ECOVerifiedFastPathRecipe {
     @Nullable
     public ECODurabilityBatchModel durabilityModel() { return result.durabilityModel(); }
 
+    public ECORecipeClassifier.Type type() { return result.type(); }
+
+    public List<ECOFastPathComponentChange> inputComponentChanges() {
+        return result.inputComponentChanges();
+    }
+
+    public List<ECOFastPathComponentChange> outputComponentChanges() {
+        return result.outputComponentChanges();
+    }
+
+    public List<ECOFastPathDurabilityDelta> durabilityDeltas() {
+        return result.durabilityDeltas();
+    }
+
+    public List<GenericStack> reusableInputs() { return result.reusableInputs(); }
+
+    /** Physical inputs owned by one worker for an entire verified batch. */
+    public List<GenericStack> batchInputs(long craftCount) {
+        if (craftCount <= 0L) return List.of();
+        return durabilityModel() == null
+            ? ECOBatchCraftingHelper.multiply(inputsPerCraft(), craftCount)
+            : durabilityModel().batchInputs(inputsPerCraft(), craftCount);
+    }
+
+    /** Physical remainders emitted by one worker after an entire verified batch. */
+    public List<GenericStack> batchRemainders(long craftCount) {
+        if (craftCount <= 0L) return List.of();
+        return durabilityModel() == null
+            ? ECOBatchCraftingHelper.multiply(remainingPerCraft(), craftCount)
+            : durabilityModel().batchRemainders(remainingPerCraft(), craftCount);
+    }
+
+    /** Inputs beyond the first craft, which are still owned by the CPU at dispatch time. */
+    public List<GenericStack> additionalInputs(long craftCount) {
+        return ECOBatchCraftingHelper.subtract(batchInputs(craftCount), inputsPerCraft());
+    }
+
+    /** Component-mutating reusable items need a verified state model before they may be multiplied. */
+    public boolean batchSafe() {
+        return reusableInputs().isEmpty() || durabilityModel() != null;
+    }
+
     /** True only for the very execution context this credential was verified against. */
     public boolean isVerifiedFor(ECOExtractedPatternExecution candidate) {
         return this.execution == candidate;
@@ -114,7 +156,7 @@ public final class ECOVerifiedFastPathRecipe {
      */
     @Nullable
     public ECOVerifiedFastPathExecution withBatch(int batchSize, @Nullable UUID craftingJobId) {
-        if (batchSize <= 0 || batchSize > arithmeticBatchLimit()) {
+        if (batchSize <= 0 || batchSize > arithmeticBatchLimit() || !batchSafe()) {
             return null;
         }
         return ECOVerifiedFastPathExecution.trusted(this, batchSize, craftingJobId);
@@ -122,6 +164,7 @@ public final class ECOVerifiedFastPathRecipe {
 
     /** Virtual mode has no int/arithmetic batch ceiling; totals are validated as 64-bit values when materialized. */
     public ECOVerifiedVirtualExecution withVirtualBatch(long craftCount, @Nullable UUID craftingJobId) {
-        return craftCount <= 0L ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId);
+        return craftCount <= 0L || craftCount > arithmeticBatchLimit() || !batchSafe()
+            ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId);
     }
 }
