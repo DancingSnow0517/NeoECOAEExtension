@@ -91,7 +91,13 @@ public final class ECOCraftingPlannerService {
                 attach(result);
                 return result;
             } catch (InterruptedException e) {
-                throw e;
+                ECOPlanTrace trace = new ECOPlanTrace();
+                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANCELLED,
+                    "Crafting candidate calculation was cancelled"));
+                var result = new ECOPlanningResult(PlanningStatus.CANCELLED, null, trace, List.of(), List.of(),
+                    List.of(), elapsedSince(startedNanos));
+                logPlanningSummary(result, amount, simulation);
+                return result;
             } catch (RuntimeException e) {
                 LOGGER.error(
                     "[ECO-PLANNER] reason=INTERNAL_ERROR description=planner 内部异常 goal={} amount={} "

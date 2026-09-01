@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +36,8 @@ import java.util.stream.Collectors;
  */
 public record CycleSolveResult(
     CycleSolveStatus status,
+    ExecutionCountKnowledge executionCountKnowledge,
+    Map<IPatternDetails, PlannerAmount> exactPatternTimes,
     Map<IPatternDetails, Long> patternTimes,
     Map<AEKey, Long> externalDemand,
     Map<AEKey, Long> requiredSeed,
@@ -47,6 +50,9 @@ public record CycleSolveResult(
     CycleSolveMetrics metrics
 ) {
     public CycleSolveResult {
+        executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
+            : executionCountKnowledge;
+        exactPatternTimes = Map.copyOf(exactPatternTimes);
         patternTimes = Map.copyOf(patternTimes);
         externalDemand = Map.copyOf(externalDemand);
         requiredSeed = Map.copyOf(requiredSeed);
@@ -62,6 +68,17 @@ public record CycleSolveResult(
         if (!executionWitness.isEmpty() && totalRunCount(executionPlan) != executionWitness.size()) {
             throw new IllegalArgumentException("A compact execution plan must account for every witness step");
         }
+    }
+
+    /** Runtime-compatible constructor. Exact counts are derived before any diagnostic arithmetic. */
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<PatternRun> executionPlan,
+            List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
+        this(status, inferredKnowledge(status, patternTimes), exact(patternTimes), patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            diagnostics, metrics);
     }
 
     /** Legacy shape: the compact plan is the run-length encoding of the per-firing witness. */
@@ -100,8 +117,8 @@ public record CycleSolveResult(
 
     public static CycleSolveResult failure(CycleSolveStatus status, List<CycleSolveDiagnostic> diagnostics,
             CycleSolveMetrics metrics) {
-        return new CycleSolveResult(status, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), List.of(),
-            diagnostics, metrics);
+        return new CycleSolveResult(status, ExecutionCountKnowledge.UNKNOWN, Map.of(), Map.of(), Map.of(), Map.of(),
+            Map.of(), Map.of(), Map.of(), List.of(), List.of(), diagnostics, metrics);
     }
 
     public static CycleSolveResult failure(CycleSolveStatus status, CycleSolveDiagnostic.Code code, String message) {
@@ -122,14 +139,15 @@ public record CycleSolveResult(
         if (extra.isEmpty()) return this;
         List<CycleSolveDiagnostic> merged = new ArrayList<>(extra);
         merged.addAll(diagnostics);
-        return new CycleSolveResult(status, patternTimes, externalDemand, requiredSeed, seedShortfall,
-            producedOutputs, deliverableOutputs, executionWitness, executionPlan, merged, metrics);
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            merged, metrics);
     }
 
     /** Exact total firings in the plan; it may exceed the legacy long projection. */
     public PlannerAmount plannerTotalFirings() {
         PlannerAmount total = PlannerAmount.ZERO;
-        for (long count : patternTimes.values()) total = total.add(count);
+        for (PlannerAmount count : exactPatternTimes.values()) total = total.add(count);
         return total;
     }
 
@@ -155,5 +173,21 @@ public record CycleSolveResult(
             if (amount != null && amount > 0) result.put(key, amount);
         });
         return Map.copyOf(result);
+    }
+
+    public boolean hasExactExecutionCounts() {
+        return executionCountKnowledge == ExecutionCountKnowledge.EXACT;
+    }
+
+    private static Map<IPatternDetails, PlannerAmount> exact(Map<IPatternDetails, Long> values) {
+        Map<IPatternDetails, PlannerAmount> result = new LinkedHashMap<>();
+        values.forEach((pattern, count) -> result.put(pattern, PlannerAmount.of(count == null ? 0L : count)));
+        return Map.copyOf(result);
+    }
+
+    private static ExecutionCountKnowledge inferredKnowledge(CycleSolveStatus status,
+            Map<IPatternDetails, Long> patternTimes) {
+        return status == CycleSolveStatus.SUCCESS || !patternTimes.isEmpty()
+            ? ExecutionCountKnowledge.EXACT : ExecutionCountKnowledge.UNKNOWN;
     }
 }

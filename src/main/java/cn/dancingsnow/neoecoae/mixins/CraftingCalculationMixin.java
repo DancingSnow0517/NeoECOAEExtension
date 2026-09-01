@@ -123,7 +123,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             fallbackBypassLocal.remove();
             return;
         }
-        ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::handlePausing);
+        ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::neoecoae$checkpointExternal);
         attemptResultLocal.set(result);
         neoecoae$lastPlanningResult = result;
         switch (result.status()) {
@@ -138,6 +138,29 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
                 fallbackBypassLocal.set(true);
             }
         }
+    }
+
+    /** Translate candidate-planner exit/timeout signals at the integration boundary without a Thunder dependency. */
+    @Unique
+    private void neoecoae$checkpointExternal() throws InterruptedException {
+        try {
+            handlePausing();
+        } catch (RuntimeException signal) {
+            if (!neoecoae$isCancellationSignal(signal)) throw signal;
+            InterruptedException cancelled = new InterruptedException("External crafting candidate was cancelled");
+            cancelled.initCause(signal);
+            throw cancelled;
+        }
+    }
+
+    @Unique
+    private static boolean neoecoae$isCancellationSignal(Throwable failure) {
+        for (Throwable cursor = failure; cursor != null; cursor = cursor.getCause()) {
+            String name = cursor.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+            if (name.contains("cancel") || name.contains("timeout") || name.contains("candidateexit")
+                    || name.contains("abort")) return true;
+        }
+        return Thread.currentThread().isInterrupted();
     }
 
     @Inject(method = "runCraftAttempt", at = @At("RETURN"), order = 2000)

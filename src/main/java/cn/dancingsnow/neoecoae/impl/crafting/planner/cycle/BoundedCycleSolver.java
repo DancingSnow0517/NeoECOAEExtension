@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +48,29 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final long MAX_EXPANDED_WITNESS = 100_000L;
     /** The greedy walk is only a fast probe; the bounded search remains responsible for difficult interleavings. */
     private static final int MAX_GREEDY_MACRO_STEPS = 4_096;
+    private static final int GREEDY_TOP_K = 6;
+    private static final int MAX_GREEDY_CANDIDATE_EVALUATIONS = 8_192;
+    private static final int MAX_GREEDY_LOOKAHEAD_NODES = 16_384;
+    private final int greedyTopK;
+    private final int maxGreedyCandidateEvaluations;
+    private final int maxGreedyLookaheadNodes;
+    private final int maxGreedyMacroSteps;
+
+    public BoundedCycleSolver() {
+        this(GREEDY_TOP_K, MAX_GREEDY_CANDIDATE_EVALUATIONS, MAX_GREEDY_LOOKAHEAD_NODES,
+            MAX_GREEDY_MACRO_STEPS);
+    }
+
+    /** Testable heuristic limits; these never change the exact bounded-search budgets or verdicts. */
+    public BoundedCycleSolver(int topK, int candidateEvaluations, int lookaheadNodes, int macroSteps) {
+        if (topK < 1 || candidateEvaluations < 1 || lookaheadNodes < 1 || macroSteps < 1) {
+            throw new IllegalArgumentException("Heuristic limits must be positive");
+        }
+        this.greedyTopK = topK;
+        this.maxGreedyCandidateEvaluations = candidateEvaluations;
+        this.maxGreedyLookaheadNodes = lookaheadNodes;
+        this.maxGreedyMacroSteps = macroSteps;
+    }
 
     @Override
     public CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation)
@@ -84,7 +108,9 @@ public final class BoundedCycleSolver implements CycleSolver {
                     + " macro-step(s) within the stock snapshot"));
             return witnessResult(model, model.stock, first.witness, diagnostics,
                 new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited, expanded,
-                    expandedWitnessLength(first.witness), 0, false, false));
+                    expandedWitnessLength(first.witness), 0, false, false, false,
+                    first.greedyCandidates, first.lookaheadNodes, first.heuristicMacroSteps,
+                    first.heuristicBudgetExhausted));
         }
         if (first.kind != Search.Kind.EXHAUSTED) {
             return budgetResult(model, first, visited, expanded, 0);
@@ -339,7 +365,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             return outcome;
         }
 
-        Search greedy = greedySearch(model, root, stateBudget, maxFirings, cancellation);
+        Search greedy = greedySearch(model, root, stateBudget, maxFirings, cancellation, outcome);
         if (greedy != null) return greedy;
 
         queue.add(0);
@@ -396,64 +422,133 @@ public final class BoundedCycleSolver implements CycleSolver {
      * The walk is deliberately heuristic: if it gets stuck, the exact bounded search below still receives the
      * original root and all smaller candidates.
      */
-    private static Search greedySearch(Model model, PlannerAmount[] start, int stateBudget, int maxFirings,
-            ECOCancellation cancellation) throws InterruptedException {
+    private Search greedySearch(Model model, PlannerAmount[] start, int stateBudget, int maxFirings,
+            ECOCancellation cancellation, Search accounting) throws InterruptedException {
         PlannerAmount[] marking = Arrays.copyOf(start, start.length);
         Set<Marking> seen = new HashSet<>();
         List<BatchFiring> witness = new ArrayList<>();
         seen.add(new Marking(marking));
+        CycleHeuristicBudget budget = new CycleHeuristicBudget(maxGreedyCandidateEvaluations,
+            maxGreedyLookaheadNodes, Math.min(maxFirings, maxGreedyMacroSteps));
 
-        int greedyLimit = Math.min(maxFirings, MAX_GREEDY_MACRO_STEPS);
+        int greedyLimit = Math.min(maxFirings, maxGreedyMacroSteps);
         for (int depth = 0; depth < greedyLimit; depth++) {
             cancellation.checkpoint();
+            if (!budget.macroStep()) return abandonGreedy(accounting, budget);
             if (satisfied(marking, model.required)) {
                 Search result = new Search();
                 result.kind = Search.Kind.REACHED;
                 result.witness = List.copyOf(witness);
                 result.statesVisited = seen.size();
                 result.statesExpanded = witness.size();
+                copyHeuristicMetrics(result, budget);
                 return result;
             }
 
-            Lookahead bestLookahead = null;
-            PlannerAmount bestScore = null;
-            PlannerAmount[] bestMarking = null;
-            BatchFiring bestFiring = null;
+            List<GreedyCandidate> candidates = new ArrayList<>();
             for (int transition = 0; transition < model.transitionCount(); transition++) {
-                for (long batch : candidateBatchCounts(model, marking, transition)) {
+                for (long batch : greedyCandidateBatchCounts(model, marking, transition)) {
+                    if (!budget.candidate()) return abandonGreedy(accounting, budget);
                     PlannerAmount[] next = fireBatch(model, marking, transition, batch);
                     if (seen.contains(new Marking(next))) continue;
-                    PlannerAmount score = deficitScore(model, next);
-                    Lookahead lookahead = lookaheadScore(model, next, 2);
-                    if (bestFiring == null || compareLookahead(lookahead, bestLookahead) < 0
-                            || compareLookahead(lookahead, bestLookahead) == 0 && score.compareTo(bestScore) < 0
-                            || compareLookahead(lookahead, bestLookahead) == 0 && score.equals(bestScore)
-                                && batch < bestFiring.count()) {
-                        bestLookahead = lookahead;
-                        bestScore = score;
-                        bestMarking = next;
-                        bestFiring = new BatchFiring(transition, batch);
+                    BatchFiring firing = new BatchFiring(transition, batch);
+                    if (satisfied(next, model.required)) {
+                        List<BatchFiring> reached = new ArrayList<>(witness);
+                        reached.add(firing);
+                        Search result = reachedSearch(reached, seen);
+                        copyHeuristicMetrics(result, budget);
+                        return result;
                     }
+                    PlannerAmount score = deficitScore(model, next);
+                    candidates.add(new GreedyCandidate(firing, next, score,
+                        boundaryImportScore(model, transition, batch)));
                 }
             }
-            if (bestFiring == null) return null;
-            if (seen.size() >= stateBudget) return null;
+            if (isStrictSimpleRing(model) && !candidates.isEmpty()) {
+                GreedyCandidate selected = simpleRingCandidate(model, marking, candidates);
+                if (seen.size() >= stateBudget) return abandonGreedy(accounting, budget);
+                seen.add(new Marking(selected.marking()));
+                witness.add(selected.firing());
+                marking = selected.marking();
+                continue;
+            }
+            candidates.sort(java.util.Comparator.comparing(GreedyCandidate::score)
+                .thenComparing(GreedyCandidate::boundaryImportScore)
+                .thenComparingInt(candidate -> candidate.firing().transition())
+                .thenComparingLong(candidate -> candidate.firing().count()));
+
+            Lookahead bestLookahead = null;
+            PlannerAmount bestScore = null;
+            PlannerAmount bestBoundaryImport = null;
+            PlannerAmount[] bestMarking = null;
+            BatchFiring bestFiring = null;
+            int top = Math.min(greedyTopK, candidates.size());
+            for (int index = 0; index < top; index++) {
+                GreedyCandidate candidate = candidates.get(index);
+                Lookahead lookahead = lookaheadScore(model, candidate.marking(), 2, budget, cancellation);
+                if (lookahead == null) return abandonGreedy(accounting, budget);
+                PlannerAmount score = candidate.score();
+                long batch = candidate.firing().count();
+                    int futureScore = bestLookahead == null ? -1
+                        : lookahead.score().compareTo(bestLookahead.score());
+                    if (bestFiring == null || futureScore < 0
+                            || futureScore == 0 && score.compareTo(bestScore) < 0
+                            || futureScore == 0 && score.equals(bestScore)
+                                && candidate.boundaryImportScore().compareTo(bestBoundaryImport) < 0
+                            || futureScore == 0 && score.equals(bestScore)
+                                && candidate.boundaryImportScore().equals(bestBoundaryImport)
+                                && lookahead.steps() < bestLookahead.steps()
+                            || futureScore == 0 && score.equals(bestScore)
+                                && candidate.boundaryImportScore().equals(bestBoundaryImport)
+                                && lookahead.steps() == bestLookahead.steps() && batch < bestFiring.count()) {
+                        bestLookahead = lookahead;
+                        bestScore = score;
+                        bestBoundaryImport = candidate.boundaryImportScore();
+                        bestMarking = candidate.marking();
+                        bestFiring = candidate.firing();
+                    }
+            }
+            if (bestFiring == null) return abandonGreedy(accounting, budget);
+            if (seen.size() >= stateBudget) return abandonGreedy(accounting, budget);
             seen.add(new Marking(bestMarking));
             witness.add(bestFiring);
             marking = bestMarking;
         }
-        return satisfied(marking, model.required) ? reachedSearch(witness, seen) : null;
+        if (!satisfied(marking, model.required)) {
+            budget.markExhausted();
+            return abandonGreedy(accounting, budget);
+        }
+        Search result = reachedSearch(witness, seen);
+        copyHeuristicMetrics(result, budget);
+        return result;
     }
 
-    private static Lookahead lookaheadScore(Model model, PlannerAmount[] marking, int steps) {
+    private static Search abandonGreedy(Search accounting, CycleHeuristicBudget budget) {
+        copyHeuristicMetrics(accounting, budget);
+        return null;
+    }
+
+    private static void copyHeuristicMetrics(Search search, CycleHeuristicBudget budget) {
+        search.greedyCandidates = budget.candidateEvaluations();
+        search.lookaheadNodes = budget.lookaheadNodes();
+        search.heuristicMacroSteps = budget.macroSteps();
+        search.heuristicBudgetExhausted = budget.exhausted();
+    }
+
+    private static Lookahead lookaheadScore(Model model, PlannerAmount[] marking, int steps,
+            CycleHeuristicBudget budget, ECOCancellation cancellation) throws InterruptedException {
+        if (!budget.lookahead()) return null;
+        cancellation.checkpoint();
         Lookahead best = new Lookahead(deficitScore(model, marking), 0);
-        if (steps <= 0) return best;
+        if (best.score().isZero() || steps <= 0) return best;
         for (int transition = 0; transition < model.transitionCount(); transition++) {
-            for (long batch : candidateBatchCounts(model, marking, transition)) {
+            for (long batch : greedyCandidateBatchCounts(model, marking, transition)) {
                 Lookahead child = lookaheadScore(model,
-                    fireBatch(model, marking, transition, batch), steps - 1);
+                    fireBatch(model, marking, transition, batch), steps - 1, budget, cancellation);
+                if (child == null) return null;
                 Lookahead candidate = new Lookahead(child.score(), child.steps() + 1);
                 if (compareLookahead(candidate, best) < 0) best = candidate;
+                if (best.score().isZero()) return best;
             }
         }
         return best;
@@ -513,6 +608,95 @@ public final class BoundedCycleSolver implements CycleSolver {
 
         addBatchCandidate(candidates, maximum, maximum);
         return candidates.stream().sorted(java.util.Comparator.reverseOrder()).toList();
+    }
+
+    /** Greedy never treats the synthetic unbounded sentinel as a meaningful maximal batch. */
+    private static List<Long> greedyCandidateBatchCounts(Model model, PlannerAmount[] marking, int transition) {
+        List<Long> candidates = candidateBatchCounts(model, marking, transition);
+        java.util.stream.Stream<Long> usable = candidates.stream();
+        if (!hasFiniteInternalBound(model, transition)) {
+            usable = usable.filter(count -> count != Long.MAX_VALUE);
+        }
+        // Exact target/unblocking boundaries must be considered before an over-producing maximal batch.
+        return usable.sorted().toList();
+    }
+
+    private static boolean hasFiniteInternalBound(Model model, int transition) {
+        for (int i = 0; i < model.keyCount(); i++) {
+            if (model.cons[transition][i] > 0L && !model.suppliable[i]) return true;
+        }
+        return false;
+    }
+
+    private static PlannerAmount boundaryImportScore(Model model, int transition, long batch) {
+        PlannerAmount total = PlannerAmount.ZERO;
+        for (int i = 0; i < model.keyCount(); i++) {
+            if (model.suppliable[i] && model.cons[transition][i] > 0L) {
+                total = total.add(PlannerAmount.of(model.cons[transition][i]).multiply(batch));
+            }
+        }
+        return total;
+    }
+
+    /** Strict deterministic two-member ring: one internal consumer/producer per member and no route branching. */
+    private static boolean isStrictSimpleRing(Model model) {
+        if (model.transitionCount() != 2) return false;
+        int[] consumed = {-1, -1};
+        for (int transition = 0; transition < 2; transition++) {
+            for (int key = 0; key < model.keyCount(); key++) {
+                if (model.cons[transition][key] <= 0L || model.suppliable[key]) continue;
+                if (consumed[transition] >= 0) return false;
+                consumed[transition] = key;
+            }
+            if (consumed[transition] < 0) return false;
+        }
+        return consumed[0] != consumed[1]
+            && model.prod[0][consumed[1]] > 0L && model.prod[1][consumed[0]] > 0L;
+    }
+
+    private static GreedyCandidate simpleRingCandidate(Model model, PlannerAmount[] marking,
+            List<GreedyCandidate> candidates) {
+        GreedyCandidate best = null;
+        boolean onlyNeedsOneRequiredFiring = deficitScore(model, marking)
+            .compareTo(maxRequiredProductionPerFiring(model)) <= 0;
+        for (GreedyCandidate candidate : candidates) {
+            boolean requiredProducer = model.producesRequired[candidate.firing().transition()];
+            if (best == null) {
+                best = candidate;
+                continue;
+            }
+            boolean bestRequired = model.producesRequired[best.firing().transition()];
+            if (requiredProducer != bestRequired) {
+                if (requiredProducer) best = candidate;
+                continue;
+            }
+            if (requiredProducer) {
+                int progress = candidate.score().compareTo(best.score());
+                if (progress < 0 || progress == 0 && candidate.firing().count() < best.firing().count()) {
+                    best = candidate;
+                }
+            } else if (onlyNeedsOneRequiredFiring
+                    ? candidate.firing().count() < best.firing().count()
+                    : candidate.firing().count() > best.firing().count()) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static PlannerAmount maxRequiredProductionPerFiring(Model model) {
+        PlannerAmount best = PlannerAmount.ONE;
+        for (int transition = 0; transition < model.transitionCount(); transition++) {
+            if (!model.producesRequired[transition]) continue;
+            PlannerAmount produced = PlannerAmount.ZERO;
+            for (int key = 0; key < model.keyCount(); key++) {
+                if (model.required[key].signum() > 0 && model.prod[transition][key] > model.cons[transition][key]) {
+                    produced = produced.add(model.prod[transition][key] - model.cons[transition][key]);
+                }
+            }
+            best = best.max(produced);
+        }
+        return best;
     }
 
     private static PlannerAmount maximumSafeBatch(Model model, PlannerAmount[] marking, int transition) {
@@ -618,7 +802,9 @@ public final class BoundedCycleSolver implements CycleSolver {
                 "Reached the firing-depth budget; nothing is proven"));
         }
         CycleSolveMetrics metrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(), visited,
-            expanded, 0, ladderSteps, search.stateBudgetExhausted, search.firingDepthTruncated, false);
+            expanded, 0, ladderSteps, search.stateBudgetExhausted, search.firingDepthTruncated, false,
+            search.greedyCandidates, search.lookaheadNodes, search.heuristicMacroSteps,
+            search.heuristicBudgetExhausted);
         diagnostics.add(metrics(metrics));
         return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET, List.copyOf(diagnostics), metrics);
     }
@@ -647,8 +833,14 @@ public final class BoundedCycleSolver implements CycleSolver {
             if (missing.signum() > 0) exactShortfall.put(key, missing);
         });
 
+        Map<IPatternDetails, PlannerAmount> exactPatternTimes = new LinkedHashMap<>();
+        for (BatchFiring firing : witness) {
+            IPatternDetails details = model.transitions.get(firing.transition()).details();
+            exactPatternTimes.merge(details, PlannerAmount.of(firing.count()), PlannerAmount::add);
+        }
         Map<IPatternDetails, Long> patternTimes = new LinkedHashMap<>();
         List<PatternRun> executionPlan = new ArrayList<>(witness.size());
+        boolean runtimeCountsRepresentable = true;
         try {
             for (BatchFiring firing : witness) {
                 CompiledPattern pattern = model.transitions.get(firing.transition());
@@ -657,13 +849,11 @@ public final class BoundedCycleSolver implements CycleSolver {
                 appendRun(executionPlan, pattern, firing.count());
             }
         } catch (ArithmeticException overflow) {
+            runtimeCountsRepresentable = false;
+            patternTimes.clear();
+            executionPlan.clear();
             diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
                 "Batch firing count exceeds AE2 long range"));
-            CycleSolveMetrics overflowMetrics = new CycleSolveMetrics(model.keyCount(), model.transitionCount(),
-                metrics.statesVisited(), metrics.statesExpanded(), 0, metrics.seedLadderSteps(),
-                metrics.stateBudgetExhausted(), metrics.firingDepthTruncated(), true);
-            return CycleSolveResult.failure(CycleSolveStatus.UNREPRESENTABLE, List.copyOf(diagnostics),
-                overflowMetrics);
         }
 
         // Keep the old per-firing witness for ordinary-sized cycles. Large bottom-of-tree cycles use the exact
@@ -674,7 +864,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<AEKey, PlannerAmount> exactDeliverable = exactDeliverable(model, actual.marking);
         // Produced/deliverable totals are theoretical cycle bookkeeping. Only seed, external demand and
         // shortfall become AE2-facing material counters at this boundary.
-        boolean unrepresentable = hasUnrepresentable(exactRequiredSeed, exactExternalDemand, exactShortfall);
+        boolean unrepresentable = !runtimeCountsRepresentable
+            || hasUnrepresentable(exactRequiredSeed, exactExternalDemand, exactShortfall);
         if (unrepresentable) addUnrepresentableDiagnostics(diagnostics, model, "cycle witness boundary",
             exactRequiredSeed, exactExternalDemand, exactShortfall);
         Map<AEKey, Long> requiredSeed = representable(exactRequiredSeed);
@@ -694,7 +885,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         return new CycleSolveResult(
             unrepresentable ? CycleSolveStatus.UNREPRESENTABLE
                 : exactShortfall.isEmpty() ? CycleSolveStatus.SUCCESS : CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
-            Map.copyOf(patternTimes), externalDemand, requiredSeed, Map.copyOf(shortfall),
+            ExecutionCountKnowledge.EXACT, Map.copyOf(exactPatternTimes), Map.copyOf(patternTimes),
+            externalDemand, requiredSeed, Map.copyOf(shortfall),
             representable(exactProduced), representable(exactDeliverable), List.copyOf(firings),
             List.copyOf(executionPlan), List.copyOf(explanation), metrics);
     }
@@ -837,7 +1029,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         return new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.SEARCH_METRICS,
             "keys=" + metrics.relevantKeys() + " transitions=" + metrics.transitions()
                 + " states=" + metrics.statesVisited() + " expanded=" + metrics.statesExpanded()
-                + " witness=" + metrics.witnessLength() + " ladder=" + metrics.seedLadderSteps());
+                + " witness=" + metrics.witnessLength() + " ladder=" + metrics.seedLadderSteps()
+                + " greedyCandidates=" + metrics.greedyCandidates()
+                + " lookaheadNodes=" + metrics.lookaheadNodes()
+                + " heuristicMacroSteps=" + metrics.heuristicMacroSteps()
+                + " heuristicBudgetExhausted=" + metrics.heuristicBudgetExhausted());
     }
 
     private static String describe(Model model, PlannerAmount[] amounts) {
@@ -910,6 +1106,8 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     private record Lookahead(PlannerAmount score, int steps) {}
+    private record GreedyCandidate(BatchFiring firing, PlannerAmount[] marking, PlannerAmount score,
+            PlannerAmount boundaryImportScore) {}
 
     private record Model(
         List<AEKey> keys,
@@ -974,6 +1172,10 @@ public final class BoundedCycleSolver implements CycleSolver {
         private List<BatchFiring> witness = List.of();
         private long statesVisited;
         private long statesExpanded;
+        private long greedyCandidates;
+        private long lookaheadNodes;
+        private long heuristicMacroSteps;
+        private boolean heuristicBudgetExhausted;
         private boolean stateBudgetExhausted;
         private boolean firingDepthTruncated;
         private PlannerAmount[] unblockDeficit;

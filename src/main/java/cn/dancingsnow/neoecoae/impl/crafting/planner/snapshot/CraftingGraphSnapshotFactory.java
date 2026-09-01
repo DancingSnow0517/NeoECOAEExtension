@@ -187,7 +187,14 @@ public final class CraftingGraphSnapshotFactory {
                     .filter(java.util.Objects::nonNull).toList(),
                 diagnostic == null ? List.of() : keyAmounts(diagnostic.netOutputs()),
                 diagnostic == null ? List.of() : keyAmounts(diagnostic.totalNetOutputs()),
-                diagnostic == null ? List.of() : keyAmounts(diagnostic.availableAmounts())));
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.availableAmounts()),
+                diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactNetOutputs()),
+                diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactTotalNetOutputs()),
+                diagnostic == null
+                    ? cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
+                    : diagnostic.executionCountKnowledge(),
+                diagnostic == null ? cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
+                    : diagnostic.solveStatus()));
         }
 
         Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
@@ -269,6 +276,12 @@ public final class CraftingGraphSnapshotFactory {
     private static List<KeyAmount> keyAmounts(Map<AEKey, Long> values) {
         return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+    }
+
+    private static List<ExactKeyAmount> exactKeyAmounts(
+            Map<AEKey, cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount> values) {
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new ExactKeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
     private static final class MutableMaterial {

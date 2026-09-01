@@ -11,15 +11,26 @@ public record CycleSolveMetrics(
     int seedLadderSteps,
     boolean stateBudgetExhausted,
     boolean firingDepthTruncated,
-    boolean amountOverflowTruncated
+    boolean amountOverflowTruncated,
+    long greedyCandidates,
+    long lookaheadNodes,
+    long heuristicMacroSteps,
+    boolean heuristicBudgetExhausted
 ) {
     public static final CycleSolveMetrics NONE =
-        new CycleSolveMetrics(0, 0, 0, 0, 0, 0, false, false, false);
+        new CycleSolveMetrics(0, 0, 0, 0, 0, 0, false, false, false, 0, 0, 0, false);
+
+    public CycleSolveMetrics(int relevantKeys, int transitions, long statesVisited, long statesExpanded,
+            int witnessLength, int seedLadderSteps, boolean stateBudgetExhausted, boolean firingDepthTruncated,
+            boolean amountOverflowTruncated) {
+        this(relevantKeys, transitions, statesVisited, statesExpanded, witnessLength, seedLadderSteps,
+            stateBudgetExhausted, firingDepthTruncated, amountOverflowTruncated, 0, 0, 0, false);
+    }
 
     public CycleSolveMetrics(int relevantKeys, int transitions, long statesVisited, long statesExpanded,
             int witnessLength, int seedLadderSteps, boolean stateBudgetExhausted, boolean firingDepthTruncated) {
         this(relevantKeys, transitions, statesVisited, statesExpanded, witnessLength, seedLadderSteps,
-            stateBudgetExhausted, firingDepthTruncated, false);
+            stateBudgetExhausted, firingDepthTruncated, false, 0, 0, 0, false);
     }
 
     /** True when the search stopped early, so no infeasibility claim may be derived from it. */

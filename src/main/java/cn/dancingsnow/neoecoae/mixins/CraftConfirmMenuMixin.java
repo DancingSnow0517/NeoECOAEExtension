@@ -140,8 +140,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
             for (var cycle : snapshot.cycleGroups()) {
                 LinkedHashSet<AEKey> keys = new LinkedHashSet<>();
-                cycle.singleNetOutputs().forEach(value -> keys.add(value.key()));
-                cycle.totalNetOutputs().forEach(value -> keys.add(value.key()));
+                cycle.exactSingleNetOutputs().forEach(value -> keys.add(value.key()));
+                cycle.exactTotalNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.availableAmounts().forEach(value -> keys.add(value.key()));
                 for (int memberId : cycle.memberNodeIds()) {
                     snapshot.nodes().stream().filter(node -> node.nodeId() == memberId).findFirst().ifPresent(node ->
@@ -150,10 +150,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
                 // still needs a selectable row so every unresolved SCC remains openable from the report.
                 for (AEKey key : keys) {
-                    boolean totalKnown = hasAmountFor(cycle.totalNetOutputs(), key);
                     cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
-                        amountFor(cycle.singleNetOutputs(), key), amountFor(cycle.totalNetOutputs(), key),
-                        totalKnown, cycle.componentId()));
+                        exactAmountFor(cycle.exactSingleNetOutputs(), key),
+                        exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
+                        cycle.solveStatus(), cycle.componentId()));
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
@@ -219,6 +219,13 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private static boolean hasAmountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().anyMatch(value -> value.key().equals(key));
+    }
+
+    @Unique
+    private static java.math.BigInteger exactAmountFor(
+            List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
+        return values.stream().filter(value -> value.key().equals(key)).map(value -> value.amount().value())
+            .findFirst().orElse(java.math.BigInteger.ZERO);
     }
 
     @Override

@@ -229,29 +229,28 @@ public final class SinglePatternGrowthCalculator {
                 PlannerAmount.of(profile.netDeltaPerFiring(key)).multiply(firings)));
         }
 
-        if (!firings.fitsLong() || !shortfall.fitsLong() || !allFit(exactExternalDemand)
-                || !allFit(exactProducedOutputs) || !allFit(exactNetDelta) || !allFit(exactDeliverable)) {
-            return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.UNREPRESENTABLE,
-                SinglePatternGrowthResult.Reason.AMOUNT_UNREPRESENTABLE,
-                "Execution amount exceeds AE2 long range: firings=" + firings
-                    + ", seedShortfall=" + shortfall + ", externalDemand=" + exactExternalDemand
-                    + ", producedOutputs=" + exactProducedOutputs + ", deliverable=" + exactDeliverable
-                    + ", max=" + Long.MAX_VALUE);
-        }
-
-        long firingsLong = firings.longValueExact();
-        SinglePatternGrowthStatus status = shortfall.signum() > 0
+        boolean representable = firings.fitsLong() && shortfall.fitsLong() && allFit(exactExternalDemand)
+            && allFit(exactProducedOutputs) && allFit(exactNetDelta) && allFit(exactDeliverable);
+        long firingsLong = representable ? firings.longValueExact() : 0L;
+        SinglePatternGrowthStatus status = !representable ? SinglePatternGrowthStatus.UNREPRESENTABLE
+            : shortfall.signum() > 0
             ? SinglePatternGrowthStatus.INSUFFICIENT_SEED
             : SinglePatternGrowthStatus.SUCCESS;
         String diagnostic = consume + " " + feedback + " -> " + produce + " " + feedback + " (delta +" + growth
-            + "), " + firingsLong + " firing(s), seed " + consume
+            + "), " + firings + " firing(s), seed " + consume
             + (shortfall.signum() > 0 ? ", seed shortfall " + shortfall : " covered by stock");
-        return new SinglePatternGrowthResult(status, SinglePatternGrowthResult.Reason.NONE, profile, feedback,
+        SinglePatternGrowthResult.Reason reason = status == SinglePatternGrowthStatus.UNREPRESENTABLE
+            ? SinglePatternGrowthResult.Reason.AMOUNT_UNREPRESENTABLE : SinglePatternGrowthResult.Reason.NONE;
+        return new SinglePatternGrowthResult(status, reason, profile, feedback,
             consume.longValueExact(), produce.longValueExact(), growth.longValueExact(), firingsLong,
             Map.of(feedback, consume.longValueExact()),
-            shortfall.signum() > 0 ? Map.of(feedback, shortfall.longValueExact()) : Map.of(),
-            toLongMap(exactExternalDemand), toLongMap(exactProducedOutputs), toLongMap(exactNetDelta),
-            toLongMap(exactDeliverable), List.of(new PatternRun(profile.pattern(), firingsLong)), diagnostic);
+            shortfall.signum() > 0 && shortfall.fitsLong() ? Map.of(feedback, shortfall.longValueExact()) : Map.of(),
+            representableMap(exactExternalDemand), representableMap(exactProducedOutputs),
+            representableMap(exactNetDelta), representableMap(exactDeliverable),
+            representable ? List.of(new PatternRun(profile.pattern(), firingsLong)) : List.of(), diagnostic,
+            firings, Map.of(feedback, consume),
+            shortfall.signum() > 0 ? Map.of(feedback, shortfall) : Map.of(), exactExternalDemand,
+            exactProducedOutputs, exactNetDelta, exactDeliverable);
     }
 
     private static boolean allFit(Map<AEKey, PlannerAmount> amounts) {
@@ -261,6 +260,14 @@ public final class SinglePatternGrowthCalculator {
     private static Map<AEKey, Long> toLongMap(Map<AEKey, PlannerAmount> amounts) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         amounts.forEach((key, amount) -> result.put(key, amount.longValueExact()));
+        return Map.copyOf(result);
+    }
+
+    private static Map<AEKey, Long> representableMap(Map<AEKey, PlannerAmount> amounts) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        amounts.forEach((key, amount) -> {
+            if (amount.fitsLong()) result.put(key, amount.longValueExact());
+        });
         return Map.copyOf(result);
     }
 

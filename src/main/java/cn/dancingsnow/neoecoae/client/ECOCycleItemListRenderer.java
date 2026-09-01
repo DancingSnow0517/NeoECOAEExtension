@@ -9,7 +9,9 @@ import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
+import java.math.BigInteger;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
@@ -66,7 +68,7 @@ final class ECOCycleItemListRenderer {
             List<net.minecraft.network.chat.Component> lines = List.of(
                 net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.single_net_output",
-                    formatNetOutput(item, entry.singleNetOutput(), AmountFormat.SLOT)),
+                    formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.SLOT)),
                 totalNetOutputLine(item, entry, AmountFormat.SLOT));
             var pose = graphics.pose();
             pose.pushPose();
@@ -93,7 +95,7 @@ final class ECOCycleItemListRenderer {
                 }
                 tooltip.add(net.minecraft.network.chat.Component.translatable(
                     "gui.neoecoae.crafting_report.single_net_output",
-                    formatNetOutput(item, entry.singleNetOutput(), AmountFormat.FULL)));
+                    formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.FULL)));
                 tooltip.add(totalNetOutputLine(item, entry, AmountFormat.FULL));
                 hoveredTooltip = tooltip;
                 hoveredMouseX = localMouseX;
@@ -108,17 +110,29 @@ final class ECOCycleItemListRenderer {
         }
     }
 
-    private static String formatNetOutput(AEKey item, long amount, AmountFormat format) {
-        String formatted = item.formatAmount(amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount),
-            format);
-        return amount > 0 ? "+" + formatted : amount < 0 ? "-" + formatted : "0";
+    private static String formatNetOutput(BigInteger amount, AmountFormat format) {
+        if (amount.signum() == 0) return "0";
+        BigInteger absolute = amount.abs();
+        String formatted = format == AmountFormat.FULL ? absolute.toString() : HostText.ae2Amount(absolute);
+        return amount.signum() > 0 ? "+" + formatted : "-" + formatted;
     }
 
     private static Component totalNetOutputLine(AEKey item, ECOCycleItemList.Entry entry, AmountFormat format) {
         return entry.totalNetOutputKnown()
             ? Component.translatable("gui.neoecoae.crafting_report.total_net_output",
-                formatNetOutput(item, entry.totalNetOutput(), format))
-            : Component.translatable("gui.neoecoae.crafting_report.total_net_output_unknown");
+                formatNetOutput(entry.exactTotalNetOutput(), format))
+            : Component.translatable("gui.neoecoae.crafting_report.total_net_output",
+                unknownReason(entry.solveStatus()));
+    }
+
+    private static String unknownReason(cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus status) {
+        return switch (status) {
+            case UNKNOWN_BUDGET -> "未知（预算不足）";
+            case TOO_COMPLEX -> "未知（超出求解范围）";
+            case UNSUPPORTED_PATTERN -> "未知（配方不支持）";
+            case CANCELLED -> "未知（计算被取消）";
+            default -> "未知";
+        };
     }
 
     int getScrollableRows(int size) {

@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.PatternRun;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +42,14 @@ public record SinglePatternGrowthResult(
     Map<AEKey, Long> netDelta,
     Map<AEKey, Long> deliverableOutputs,
     List<PatternRun> executionPlan,
-    String diagnostic
+    String diagnostic,
+    PlannerAmount exactFirings,
+    Map<AEKey, PlannerAmount> exactRequiredSeed,
+    Map<AEKey, PlannerAmount> exactSeedShortfall,
+    Map<AEKey, PlannerAmount> exactExternalDemand,
+    Map<AEKey, PlannerAmount> exactProducedOutputs,
+    Map<AEKey, PlannerAmount> exactNetDelta,
+    Map<AEKey, PlannerAmount> exactDeliverableOutputs
 ) {
     /** Why the calculator produced the status it did. {@link #NONE} accompanies a computed answer. */
     public enum Reason {
@@ -92,6 +100,13 @@ public record SinglePatternGrowthResult(
         netDelta = Map.copyOf(netDelta);
         deliverableOutputs = Map.copyOf(deliverableOutputs);
         executionPlan = List.copyOf(executionPlan);
+        exactFirings = exactFirings == null ? PlannerAmount.ZERO : exactFirings;
+        exactRequiredSeed = Map.copyOf(exactRequiredSeed);
+        exactSeedShortfall = Map.copyOf(exactSeedShortfall);
+        exactExternalDemand = Map.copyOf(exactExternalDemand);
+        exactProducedOutputs = Map.copyOf(exactProducedOutputs);
+        exactNetDelta = Map.copyOf(exactNetDelta);
+        exactDeliverableOutputs = Map.copyOf(exactDeliverableOutputs);
         if (status == SinglePatternGrowthStatus.SUCCESS && !seedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful growth result cannot report a seed shortfall");
         }
@@ -99,7 +114,8 @@ public record SinglePatternGrowthResult(
 
     static SinglePatternGrowthResult declined(SinglePatternGrowthStatus status, Reason reason, String diagnostic) {
         return new SinglePatternGrowthResult(status, reason, null, null, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(),
-            Map.of(), Map.of(), Map.of(), List.of(), diagnostic);
+            Map.of(), Map.of(), Map.of(), List.of(), diagnostic, PlannerAmount.ZERO, Map.of(), Map.of(), Map.of(),
+            Map.of(), Map.of(), Map.of());
     }
 
     @Nullable

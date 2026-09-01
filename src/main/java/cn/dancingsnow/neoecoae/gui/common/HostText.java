@@ -305,7 +305,40 @@ public final class HostText {
 
     public static String ae2Amount(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return ae2Amount(safe.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue());
+        if (safe.bitLength() < Long.SIZE) {
+            return ae2Amount(safe.longValue());
+        }
+        return ae2AmountArbitraryPrecision(safe, 4);
+    }
+
+    /**
+     * Arbitrary-precision counterpart of AE2's {@link ReadableNumberConverter}. The normal long range is delegated
+     * to AE2 verbatim; this continuation exists so exact planner diagnostics do not lose the familiar 100M-style
+     * presentation merely because their mathematical value exceeds {@link Long#MAX_VALUE}.
+     */
+    private static String ae2AmountArbitraryPrecision(BigInteger value, int width) {
+        String digits = value.toString();
+        if (digits.length() <= width) return digits;
+
+        String[] suffixes = {"K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
+        BigInteger base = value;
+        BigInteger last = value.multiply(BigInteger.valueOf(1000));
+        int suffixIndex = -1;
+        int formattedLength = digits.length();
+        while (formattedLength > width && suffixIndex + 1 < suffixes.length) {
+            last = base;
+            base = base.divide(BigInteger.valueOf(1000));
+            suffixIndex++;
+            formattedLength = base.toString().length() + 1;
+        }
+        if (suffixIndex < 0) return digits;
+
+        String suffix = suffixes[suffixIndex];
+        String withPrecision = new BigDecimal(last)
+            .divide(BigDecimal.valueOf(1000), 1, RoundingMode.DOWN)
+            .stripTrailingZeros().toPlainString() + suffix;
+        String withoutPrecision = base + suffix;
+        return withPrecision.length() <= width ? withPrecision : withoutPrecision;
     }
 
     private static String compactTaskAmount(long value) {

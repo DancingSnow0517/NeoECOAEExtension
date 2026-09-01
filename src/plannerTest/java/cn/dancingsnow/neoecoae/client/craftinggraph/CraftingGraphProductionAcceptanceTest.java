@@ -15,6 +15,10 @@ import appeng.menu.guisync.GuiSync;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import com.mojang.serialization.Lifecycle;
 import com.mojang.serialization.MapCodec;
 import io.netty.buffer.Unpooled;
@@ -22,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.math.BigInteger;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -67,6 +72,32 @@ class CraftingGraphProductionAcceptanceTest {
         assertEquals(source, decoded);
         assertEquals(17, decoded.items().getFirst().componentId());
         assertFalse(decoded.items().getFirst().totalNetOutputKnown());
+    }
+
+    @Test void arbitraryPrecisionTotalNetSurvivesSnapshotAndMenuPacketRoundTrips() {
+        var key = BenchmarkKey.of("wide_total_net");
+        BigInteger wide = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)).add(BigInteger.ONE);
+        var exact = new ExactKeyAmount(key, new ExactCycleAmount(wide));
+        var cycle = new CraftingGraphSnapshot.CycleGroup(23, List.of(0), List.of(), "UNREPRESENTABLE",
+            List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+            List.of(new ExactKeyAmount(key, ExactCycleAmount.ZERO)), List.of(exact),
+            ExecutionCountKnowledge.EXACT, CycleSolveStatus.UNREPRESENTABLE);
+        var snapshot = new CraftingGraphSnapshot(0, List.of(material(0, key)), List.of(), List.of(), List.of(cycle),
+            new CraftingGraphSnapshot.Summary("PLANNED_BUT_AMOUNT_UNREPRESENTABLE", 1, 0, 0, 1, 0));
+        var snapshotPacket = buffer();
+        snapshot.writeToPacket(snapshotPacket);
+        var decoded = new CraftingGraphSnapshot(new RegistryFriendlyByteBuf(snapshotPacket.copy(), RegistryAccess.EMPTY));
+        assertEquals(wide, decoded.cycleGroups().getFirst().exactTotalNetOutputs().getFirst().amount().value());
+        assertEquals(ExecutionCountKnowledge.EXACT,
+            decoded.cycleGroups().getFirst().executionCountKnowledge());
+
+        var list = new ECOCycleItemList(List.of(new ECOCycleItemList.Entry(key, BigInteger.ZERO, wide,
+            ExecutionCountKnowledge.EXACT, CycleSolveStatus.UNREPRESENTABLE, 23)));
+        var menuPacket = buffer();
+        list.writeToPacket(menuPacket);
+        var decodedList = new ECOCycleItemList(new RegistryFriendlyByteBuf(menuPacket.copy(), RegistryAccess.EMPTY));
+        assertEquals(wide, decodedList.items().getFirst().exactTotalNetOutput());
+        assertTrue(decodedList.items().getFirst().totalNetOutputKnown());
     }
 
     @Test void cycleListValuesMatchCycleSnapshotValues() {

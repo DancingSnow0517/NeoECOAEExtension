@@ -481,7 +481,12 @@ public final class ComponentPlanner {
     private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory,
             CycleSolveResult cycleResult, ECOPlanTrace trace) {
         Map<AEKey, PlannerAmount> exactNet = new LinkedHashMap<>();
-        for (AEKey member : cycle.members()) exactNet.put(member, PlannerAmount.ZERO);
+        java.util.LinkedHashSet<AEKey> diagnosticKeys = new java.util.LinkedHashSet<>(cycle.members());
+        for (var pattern : cycle.patterns()) {
+            for (var output : pattern.grossOutputs()) diagnosticKeys.add(output.what());
+            for (CompiledInput input : pattern.inputs()) diagnosticKeys.add(input.key());
+        }
+        for (AEKey key : diagnosticKeys) exactNet.put(key, PlannerAmount.ZERO);
         Set<IPatternDetails> countedPatterns = new HashSet<>();
         for (var pattern : cycle.patterns()) {
             if (!countedPatterns.add(pattern.details())) continue;
@@ -493,13 +498,14 @@ public final class ComponentPlanner {
             }
         }
         Map<AEKey, PlannerAmount> exactTotal = new LinkedHashMap<>();
-        if (cycleResult != null && cycleResult.status() == CycleSolveStatus.SUCCESS) {
-            for (AEKey member : cycle.members()) exactTotal.put(member, PlannerAmount.ZERO);
+        if (cycleResult != null && cycleResult.hasExactExecutionCounts()) {
+            for (AEKey key : diagnosticKeys) exactTotal.put(key, PlannerAmount.ZERO);
             countedPatterns.clear();
             for (var pattern : cycle.patterns()) {
                 if (!countedPatterns.add(pattern.details())) continue;
-                long times = cycleResult.patternTimes().getOrDefault(pattern.details(), 0L);
-                if (times == 0) continue;
+                PlannerAmount times = cycleResult.exactPatternTimes().getOrDefault(
+                    pattern.details(), PlannerAmount.ZERO);
+                if (times.isZero()) continue;
                 for (var output : pattern.grossOutputs()) if (exactTotal.containsKey(output.what())) {
                     exactTotal.put(output.what(), exactTotal.get(output.what()).add(
                         PlannerAmount.of(output.amount()).multiply(times)));
@@ -512,8 +518,13 @@ public final class ComponentPlanner {
         }
         addWideCycleDiagnostics(trace, exactNet, "cycle net output");
         addWideCycleDiagnostics(trace, exactTotal, "cycle total net output");
-        return new CycleDiagnostic(cycle.members(), cycle.patterns().stream().map(p -> p.details()).toList(),
-            representable(exactNet), representable(exactTotal), Map.of()).withAvailableAmounts(inventory);
+        return new CycleDiagnostic(List.copyOf(diagnosticKeys),
+            cycle.patterns().stream().map(p -> p.details()).toList(),
+            exactNet, exactTotal, Map.of(),
+            cycleResult == null ? cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
+                : cycleResult.executionCountKnowledge(),
+            cycleResult == null ? CycleSolveStatus.NOT_IMPLEMENTED : cycleResult.status())
+            .withAvailableAmounts(inventory);
     }
 
     private static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> exact) {

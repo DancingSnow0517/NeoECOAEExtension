@@ -7,6 +7,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.Deflater;
@@ -241,13 +244,27 @@ public record CraftingGraphSnapshot(
     public record CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
             List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
             List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
-            List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts) {
+            List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts,
+            List<ExactKeyAmount> exactSingleNetOutputs, List<ExactKeyAmount> exactTotalNetOutputs,
+            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) {
         /** Compatibility constructor for snapshots written before cycle net-output metadata was added. */
         public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
                 List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
                 List<PatternAmount> patternTimes, List<Integer> executionWitness) {
             this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
-                patternTimes, executionWitness, List.of(), List.of(), List.of());
+                patternTimes, executionWitness, List.of(), List.of(), List.of(), List.of(), List.of(),
+                ExecutionCountKnowledge.UNKNOWN, CycleSolveStatus.NOT_IMPLEMENTED);
+        }
+
+        public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
+                List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
+                List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
+                List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts) {
+            this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
+                patternTimes, executionWitness, singleNetOutputs, totalNetOutputs, availableAmounts,
+                exact(singleNetOutputs), exact(totalNetOutputs),
+                totalNetOutputs.isEmpty() ? ExecutionCountKnowledge.UNKNOWN : ExecutionCountKnowledge.EXACT,
+                CycleSolveStatus.NOT_IMPLEMENTED);
         }
 
         public CycleGroup {
@@ -261,13 +278,17 @@ public record CraftingGraphSnapshot(
             singleNetOutputs = List.copyOf(singleNetOutputs);
             totalNetOutputs = List.copyOf(totalNetOutputs);
             availableAmounts = List.copyOf(availableAmounts);
+            exactSingleNetOutputs = List.copyOf(exactSingleNetOutputs);
+            exactTotalNetOutputs = List.copyOf(exactTotalNetOutputs);
         }
 
         private static CycleGroup read(RegistryFriendlyByteBuf data) {
             return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
-                readList(data, KeyAmount::read), readList(data, KeyAmount::read));
+                readList(data, KeyAmount::read), readList(data, KeyAmount::read),
+                readList(data, ExactKeyAmount::read), readList(data, ExactKeyAmount::read),
+                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class));
         }
 
         private void write(RegistryFriendlyByteBuf data) {
@@ -283,6 +304,15 @@ public record CraftingGraphSnapshot(
             writeList(data, singleNetOutputs, KeyAmount::write);
             writeList(data, totalNetOutputs, KeyAmount::write);
             writeList(data, availableAmounts, KeyAmount::write);
+            writeList(data, exactSingleNetOutputs, ExactKeyAmount::write);
+            writeList(data, exactTotalNetOutputs, ExactKeyAmount::write);
+            data.writeEnum(executionCountKnowledge);
+            data.writeEnum(solveStatus);
+        }
+
+        private static List<ExactKeyAmount> exact(List<KeyAmount> values) {
+            return values.stream().map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.amount())))
+                .toList();
         }
     }
 
