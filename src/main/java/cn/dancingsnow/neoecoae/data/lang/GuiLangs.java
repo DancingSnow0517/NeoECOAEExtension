@@ -170,10 +170,35 @@ public class GuiLangs {
 
         // computation interface
         provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
-        provider.add("gui.neoecoae.crafting_report.single_net_output", "Single net output: %s");
-        provider.add("gui.neoecoae.crafting_report.total_net_output", "Total net output: %s");
-        provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total net output: unknown");
+        provider.add("gui.neoecoae.crafting_report.single_net_output", "Single change: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycles present");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning disabled");
+        provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.root", "Root");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.expand", "Expand");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.collapse", "Collapse");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.expand_all", "All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth", "Depth: %s");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth_all", "Depth: All");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.depth_four", "D4");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.fold_four", "Fold4");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.view_tree", "View: Tree");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.view_graph", "View: Graph");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.debug_on", "Debug: ON");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.debug_off", "Debug: OFF");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.plan", "ECO Plan");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.cycle", "ECO Plan  >  Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cycle_title", "Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.status_label", "Status: ");
+        provider.add("gui.neoecoae.crafting_graph.details.seed_label", "Seed: ");
+        provider.add("gui.neoecoae.crafting_graph.details.external_label", "External: ");
+        provider.add("gui.neoecoae.crafting_graph.details.execute_label", "Execute: ");
+        provider.add("gui.neoecoae.crafting_graph.details.witness_steps", "Witness steps: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.required_outputs", "Required outputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.summary.more", ", %s more");
+        provider.add("gui.neoecoae.crafting_graph.summary.more_suffix", " more");
     }
 }

@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import java.util.ArrayList;
+import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -262,19 +263,20 @@ public final class GraphRenderer {
                 graphics.drawCenteredString(font, symbol, (x + right) / 2,
                     y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
-                    graphics.drawCenteredString(font, fit(font, "× " + pattern.firingCount(), pixelWidth - 6),
+                    graphics.drawCenteredString(font,
+                        fit(font, "× " + compactAmount(Long.toString(pattern.firingCount())), pixelWidth - 6),
                         (x + right) / 2, y + 18, TEXT);
                 }
             }
             case CYCLE_GROUP -> {
                 var cycle = node.cycle();
-                drawFitted(graphics, font, "↻  Cycle #" + cycle.componentId(), x + 7, y + 7,
+                drawFitted(graphics, font, "↻  循环 #" + cycle.componentId(), x + 7, y + 7,
                     pixelWidth - 14, border);
                 if (zoom >= 0.6f && pixelHeight >= 38) {
-                    drawFitted(graphics, font, cycle.memberNodeIds().size() + " members · " + cycle.status(),
+                    drawFitted(graphics, font, cycle.memberNodeIds().size() + " 个成员 · " + cycle.status(),
                         x + 7, y + 23, pixelWidth - 14, TEXT);
-                    String required = cycle.requiredOutputs().isEmpty() ? "net output: -"
-                        : "required outputs: " + cycle.requiredOutputs().size();
+                    String required = cycle.requiredOutputs().isEmpty() ? "变化：-"
+                        : "所需产物：" + cycle.requiredOutputs().size();
                     if (pixelHeight >= 55) drawFitted(graphics, font, required, x + 7, y + 40,
                         pixelWidth - 14, MUTED);
                     if (pixelHeight >= 68) drawFitted(graphics, font, "双击查看内部图", x + 7, y + 54,
@@ -326,23 +328,24 @@ public final class GraphRenderer {
             .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
         if (cycle == null) return new CompactCycleValue("-", MUTED);
         AEKey key = node.material().key();
-        long amount;
+        BigInteger amount;
         boolean signed;
         if (graph.isExternalInput(node.id())) {
-            amount = amountFor(cycle.externalInputs(), key);
+            amount = BigInteger.valueOf(amountFor(cycle.externalInputs(), key));
             signed = false;
         } else if (graph.isBoundaryOutput(node.id())) {
-            amount = graph.links().stream().filter(link -> link.toId() == node.id())
-                .mapToLong(ClientCraftingGraph.Link::amount).sum();
+            amount = BigInteger.valueOf(graph.links().stream().filter(link -> link.toId() == node.id())
+                .mapToLong(ClientCraftingGraph.Link::amount).sum());
             signed = true;
         } else {
-            amount = amountFor(cycle.singleNetOutputs(), key);
+            amount = exactAmountFor(cycle.exactSingleNetOutputs(), cycle.singleNetOutputs(), key);
             signed = true;
         }
-        String magnitude = compactAmount(Long.toString(amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount)));
-        String text = signed && amount > 0 ? "+" + magnitude : signed && amount < 0 ? "-" + magnitude : magnitude;
-        int color = amount == 0 ? MUTED : signed && amount < 0 ? 0xffe07a7a
-            : signed && amount > 0 ? 0xff75c48b : TEXT;
+        String magnitude = compactAmount(amount.abs().toString());
+        String text = signed && amount.signum() > 0 ? "+" + magnitude
+            : signed && amount.signum() < 0 ? "-" + magnitude : magnitude;
+        int color = amount.signum() == 0 ? MUTED : signed && amount.signum() < 0 ? 0xffe07a7a
+            : signed && amount.signum() > 0 ? 0xff75c48b : TEXT;
         return new CompactCycleValue(text, color);
     }
 
@@ -368,20 +371,20 @@ public final class GraphRenderer {
             var pattern = node.pattern();
             var lines = new ArrayList<Component>();
             lines.add(Component.literal(pattern.displayIdentity()));
-            lines.add(Component.literal("firing count: " + pattern.firingCount()));
-            lines.add(Component.literal("status: " + pattern.status().name()));
-            lines.add(Component.literal("inputs: " + relationshipText(graph, pattern.inputs())));
-            lines.add(Component.literal("outputs: " + relationshipText(graph, pattern.outputs())));
+            lines.add(Component.literal("执行次数：" + compactAmount(Long.toString(pattern.firingCount()))));
+            lines.add(Component.literal("状态：" + pattern.status().name()));
+            lines.add(Component.literal("输入：" + relationshipText(graph, pattern.inputs())));
+            lines.add(Component.literal("输出：" + relationshipText(graph, pattern.outputs())));
             if (pattern.rejectionReason() != null) lines.add(Component.literal(pattern.rejectionReason()));
             return lines;
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
-            return List.of(Component.literal("Cycle #" + cycle.componentId()), Component.literal(cycle.status()),
-                Component.literal("members: " + cycle.memberNodeIds().size()),
-                Component.literal("required outputs: " + cycle.requiredOutputs().size()),
-                Component.literal("external inputs: " + cycle.externalInputs().size()),
-                Component.literal("required seed: " + cycle.requiredSeed().size()));
+            return List.of(Component.literal("循环 #" + cycle.componentId()), Component.literal(cycle.status()),
+                Component.literal("成员：" + cycle.memberNodeIds().size()),
+                Component.literal("所需产物：" + cycle.requiredOutputs().size()),
+                Component.literal("外部输入：" + cycle.externalInputs().size()),
+                Component.literal("所需种子：" + cycle.requiredSeed().size()));
         }
         if (node.key() == null) return List.of();
         var lines = new ArrayList<>(AEKeyRendering.getTooltip(node.key()));
@@ -390,13 +393,13 @@ public final class GraphRenderer {
             var cycle = graph.source().cycleGroups().stream()
                 .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
             if (cycle != null) {
-                lines.add(Component.literal("single net output: "
-                    + signed(node.key(), amountFor(cycle.singleNetOutputs(), node.key()))));
-                lines.add(Component.literal("total net output: "
-                    + signed(node.key(), amountFor(cycle.totalNetOutputs(), node.key()))));
-                lines.add(Component.literal("required seed: " + amountText(cycle.requiredSeed(), node.key())));
-                lines.add(Component.literal("required output: " + amountText(cycle.requiredOutputs(), node.key())));
-                lines.add(Component.literal("external input: " + amountText(cycle.externalInputs(), node.key())));
+                lines.add(Component.literal("单次变化：" + signedExact(
+                    exactAmountFor(cycle.exactSingleNetOutputs(), cycle.singleNetOutputs(), node.key()))));
+                lines.add(Component.literal("总变化：" + signedExact(
+                    exactAmountFor(cycle.exactTotalNetOutputs(), cycle.totalNetOutputs(), node.key()))));
+                lines.add(Component.literal("所需种子：" + amountText(cycle.requiredSeed(), node.key())));
+                lines.add(Component.literal("所需产物：" + amountText(cycle.requiredOutputs(), node.key())));
+                lines.add(Component.literal("外部输入：" + amountText(cycle.externalInputs(), node.key())));
             }
         }
         return lines;
@@ -431,7 +434,7 @@ public final class GraphRenderer {
 
     private static String compactAmount(String value) {
         try {
-            return HostText.hugeStackAmount(new java.math.BigInteger(value));
+            return HostText.ae2Amount(new BigInteger(value));
         } catch (RuntimeException ignored) {
             return value;
         }
@@ -501,13 +504,25 @@ public final class GraphRenderer {
             var node = graph.nodes().get(relationship.materialNodeId());
             String label = node == null || node.key() == null ? "#" + relationship.materialNodeId()
                 : node.key().getDisplayName().getString();
-            return label + " ×" + relationship.amount();
+            return label + " ×" + compactAmount(Long.toString(relationship.amount()));
         }).reduce((left, right) -> left + ", " + right).orElse("-");
     }
 
     private static String signed(AEKey key, long amount) {
         String value = formatMagnitude(key, amount);
         return amount > 0 ? "+" + value : amount < 0 ? "-" + value : "0";
+    }
+
+    private static BigInteger exactAmountFor(
+            List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> exactValues,
+            List<CraftingGraphSnapshot.KeyAmount> fallback, AEKey key) {
+        return exactValues.stream().filter(value -> value.key().equals(key)).findFirst()
+            .map(value -> value.amount().value()).orElseGet(() -> BigInteger.valueOf(amountFor(fallback, key)));
+    }
+
+    private static String signedExact(BigInteger amount) {
+        String magnitude = amount.abs().toString();
+        return amount.signum() > 0 ? "+" + magnitude : amount.signum() < 0 ? "-" + magnitude : "0";
     }
 
     private static String formatMagnitude(AEKey key, long amount) {

@@ -189,9 +189,9 @@ public final class CompactTreeRenderer {
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
-            String label = cycle == null ? node.label() : "↻ Cycle #" + cycle.componentId();
+            String label = cycle == null ? node.label() : "↻ 循环 #" + cycle.componentId();
             graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " items", x + 6, y + 19,
+            if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
                 MUTED, false);
             graphics.drawString(font, "↻", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
@@ -218,7 +218,7 @@ public final class CompactTreeRenderer {
 
     private static String compactAmount(String value) {
         try {
-            return HostText.hugeStackAmount(new java.math.BigInteger(value));
+            return HostText.ae2Amount(new java.math.BigInteger(value));
         } catch (RuntimeException ignored) {
             return value;
         }
@@ -245,10 +245,10 @@ public final class CompactTreeRenderer {
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP && node.cycle() != null) {
             var cycle = node.cycle();
-            return List.of(Component.literal("Cycle #" + cycle.componentId()),
-                Component.literal("members: " + cycle.memberNodeIds().size()),
-                Component.literal("status: " + cycle.status()),
-                Component.literal("double click: open cycle focus"));
+            return List.of(Component.literal("循环 #" + cycle.componentId()),
+                Component.literal("成员：" + cycle.memberNodeIds().size()),
+                Component.literal("状态：" + cycle.status()),
+                Component.literal("双击：打开循环详情"));
         }
         if (node.material() != null) {
             var material = node.material();
