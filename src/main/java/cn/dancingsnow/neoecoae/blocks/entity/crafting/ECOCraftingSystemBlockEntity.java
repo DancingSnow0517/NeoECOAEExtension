@@ -122,6 +122,21 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private int threadCount = 0;
     private long exactThreadCount = 0L;
 
+    /**
+     * Runtime capability values are read from the server thread only. Keep one immutable result until a runtime
+     * mutation invalidates it; the hot dispatch path uses the separate capacity-only cache for worker slot checks.
+     */
+    @Nullable
+    private CraftingCapabilitySnapshot capabilitySnapshotCache;
+
+    /** Capacity-only view retained while runtime counters and coolant change. */
+    @Nullable
+    private CraftingCapabilitySnapshot capabilityCapacityCache;
+
+    /** Detects a network regroup without retaining a stale standalone capacity view. */
+    @Nullable
+    private NECraftingNetworkCluster capabilityNetworkAssociation;
+
     @Getter
     @DescSynced
     private long performanceAverageNanos = 0L;
@@ -260,6 +275,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private void updateInfo() {
+        invalidateCapabilityCapacity();
         updateCount();
         updateThreadCount();
     }
@@ -298,6 +314,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public void recalculateRunningThreadCountFromWorkers() {
+        invalidateCapabilitySnapshot();
         if (cluster == null) {
             runningThreadCount = 0;
             return;
@@ -320,7 +337,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * count of zero and must keep rejecting every dispatch.
      */
     public int getThreadCountForWorker(ECOCraftingWorkerBlockEntity worker) {
-        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().batchPerFx();
+        NECraftingNetworkCluster network = refreshCapabilityNetworkAssociation();
+        CraftingCapabilitySnapshot.Capacity capacity = network != null
+            ? network.getBatchPerFxCapacity()
+            : getStandaloneCapabilityCapacitySnapshot().batchPerFx();
         if (capacity.unlimited()) {
             return Integer.MAX_VALUE;
         }
@@ -342,7 +362,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * the FT parallel-core total silently caps a network that advertises unlimited capacity.
      */
     public int getDispatchThreadCapacity() {
-        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+        NECraftingNetworkCluster network = refreshCapabilityNetworkAssociation();
+        CraftingCapabilitySnapshot.Capacity capacity = network != null
+            ? network.getTotalBatchCapacity()
+            : getStandaloneCapabilityCapacitySnapshot().totalBatchCapacity();
         return capacity.unlimited() ? Integer.MAX_VALUE : (int) Math.min(Integer.MAX_VALUE, capacity.finiteValue());
     }
 
@@ -405,6 +428,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             coolantMaxOverclock = -1;
             currentCoolantFluid = FluidStack.EMPTY;
         }
+        invalidateCapabilitySnapshot();
         setChanged();
         markForUpdate();
         return true;
@@ -640,6 +664,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
         coolantMaxOverclock = recipe.maxOverclock();
         currentCoolantFluid = coolantFluid;
+        invalidateCapabilitySnapshot();
         setChanged();
         markForUpdate();
         return coolantGain;
@@ -767,13 +792,21 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
      * topology, while FT remains an ordinary-mode timing input.
      */
     public boolean isFullVirtualCraftingMode() {
-        return getCapabilitySnapshot().virtualMode();
+        NECraftingNetworkCluster network = refreshCapabilityNetworkAssociation();
+        if (network != null) {
+            return network.isVirtualMode();
+        }
+        return getStandaloneCapabilityCapacitySnapshot().virtualMode();
     }
 
     /** Authoritative server-side capability state consumed by dispatch, GUI, tooltips and Jade. */
     public CraftingCapabilitySnapshot getCapabilitySnapshot() {
-        if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().getCapabilitySnapshot();
+        NECraftingNetworkCluster network = refreshCapabilityNetworkAssociation();
+        if (network != null) {
+            return network.getCapabilitySnapshot();
+        }
+        if (capabilitySnapshotCache != null) {
+            return capabilitySnapshotCache;
         }
         int physicalFx = cluster == null ? 0 : cluster.getWorkers().size();
         int activeFx = 0;
@@ -791,7 +824,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             NEConfig.CRAFTING_WORKER_BASE_CRAFTS,
             getTier().getOverclockedCrafterQueueMultiply()
         );
-        return CraftingCapabilitySnapshot.calculate(new CraftingCapabilitySnapshot.Input(
+        CraftingCapabilitySnapshot snapshot = CraftingCapabilitySnapshot.calculate(new CraftingCapabilitySnapshot.Input(
             physicalFx,
             activeFx,
             0,
@@ -806,6 +839,43 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             new CraftingCapabilitySnapshot.CoolantState(
                 activeCooling, coolant, MAX_COOLANT, getCurrentCoolingMaxOverclock())
         ));
+        capabilitySnapshotCache = snapshot;
+        return snapshot;
+    }
+
+    /** Invalidates the standalone cache and the shared network cache, if this host belongs to one. */
+    void invalidateCapabilitySnapshot() {
+        capabilitySnapshotCache = null;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().invalidateCapabilitySnapshot();
+        }
+    }
+
+    /** Invalidates both runtime and capacity views after topology or overclock changes. */
+    private void invalidateCapabilityCapacity() {
+        capabilitySnapshotCache = null;
+        capabilityCapacityCache = null;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().invalidateCapabilityCapacity();
+        }
+    }
+
+    private CraftingCapabilitySnapshot getStandaloneCapabilityCapacitySnapshot() {
+        if (capabilityCapacityCache == null) {
+            capabilityCapacityCache = getCapabilitySnapshot();
+        }
+        return capabilityCapacityCache;
+    }
+
+    @Nullable
+    private NECraftingNetworkCluster refreshCapabilityNetworkAssociation() {
+        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+        if (network != capabilityNetworkAssociation) {
+            capabilityNetworkAssociation = network;
+            capabilitySnapshotCache = null;
+            capabilityCapacityCache = null;
+        }
+        return network;
     }
 
     public long getLocalFtParallelCapacity() {
@@ -891,6 +961,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void applyNetworkActiveCooling(boolean value) {
         if (activeCooling == value) return;
         activeCooling = value;
+        invalidateCapabilitySnapshot();
         setChanged();
         markForUpdate();
     }
@@ -1092,7 +1163,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public int getSelectedBuildLength() { return selectedBuildLength; }
 
     @Override
-    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+    public void setSelectedBuildLength(int length) {
+        if (selectedBuildLength == length) return;
+        selectedBuildLength = length;
+        invalidateCapabilityCapacity();
+    }
 
     @Override
     public boolean isMirrorBuild() { return mirrorBuild; }

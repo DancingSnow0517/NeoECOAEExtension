@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.util.Objects;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
@@ -123,6 +125,8 @@ public class ECOCraftingCPULogic {
     private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
     private int taskDispatchCursor;
     private final Map<AEKey, Long> dispatchedItemsThisTick = new LinkedHashMap<>();
+    private final Set<ICraftingProvider> providerResolutionLoggedThisPass =
+        Collections.newSetFromMap(new IdentityHashMap<>());
     private int lastLoggedCycleInitialInventoryPhase = -1;
 
     private static final class BatchProbeKey {
@@ -425,6 +429,7 @@ public class ECOCraftingCPULogic {
 
         var pushedPatterns = 0;
         dispatchedItemsThisTick.clear();
+        providerResolutionLoggedThisPass.clear();
         // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
         // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
         providerTopologyCache.clear();
@@ -584,13 +589,6 @@ public class ECOCraftingCPULogic {
                         if (task.progress().value <= 0 || pushedPatterns >= maxPatterns) {
                             break;
                         }
-                        if (!hasAvailableProvider(dispatchProviders)) {
-                            diagnostics.tasksWithBusyProviders++;
-                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
-                                for (var provider : dispatchProviders) adaptive.onBusy(provider, false);
-                            }
-                            break;
-                        }
 
                         KeyCounter attemptOutputs;
                         KeyCounter attemptContainerItems;
@@ -673,6 +671,7 @@ public class ECOCraftingCPULogic {
                             break;
                         }
                         if (!sawAvailable) {
+                            diagnostics.tasksWithBusyProviders++;
                             single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
                             if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
                                 for (var provider : dispatchProviders) adaptive.onBusy(provider, false);
@@ -898,6 +897,7 @@ public class ECOCraftingCPULogic {
     private void logProviderResolution(List<ICraftingProvider> providers) {
         if (!LOGGER.isDebugEnabled()) return;
         for (ICraftingProvider provider : providers) {
+            if (!providerResolutionLoggedThisPass.add(provider)) continue;
             String capability;
             String dispatchMode;
             if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
@@ -985,7 +985,7 @@ public class ECOCraftingCPULogic {
         return networkReserved ? "NETWORK_INVENTORY" : "PREVIOUS_PHASE_OUTPUT";
     }
 
-    /** Live availability check over the reusable candidate set; allocates nothing. */
+    /** Live availability check over the reusable candidate set; it does not mutate provider state. */
     private boolean hasAvailableProvider(List<ICraftingProvider> candidateProviders) {
         for (int i = 0; i < candidateProviders.size(); i++) {
             if (!candidateProviders.get(i).isBusy()) {

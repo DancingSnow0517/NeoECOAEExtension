@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.DoublePredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Logical pooling of 2-8 network-switch-equipped crafting hosts sharing a frequency and ME grid.
@@ -41,7 +42,17 @@ public class NECraftingNetworkCluster {
      */
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
 
+    /** Shared immutable capability result; all members observe the same topology and runtime counters. */
+    @Nullable
+    private CraftingCapabilitySnapshot capabilitySnapshotCache;
+
+    /** Capacity-only snapshot retained across runtime batch/coolant changes; topology and mode changes clear it. */
+    @Nullable
+    private CraftingCapabilitySnapshot capabilityCapacityCache;
+
     public void configure(List<NECraftingCluster> newMembers) {
+        capabilitySnapshotCache = null;
+        capabilityCapacityCache = null;
         boolean membershipChanged = !isSameMembership(newMembers);
         this.members.clear();
         this.members.addAll(newMembers);
@@ -80,6 +91,29 @@ public class NECraftingNetworkCluster {
 
     public ECOCraftingFastPathCache getFastPathCache() {
         return fastPathCache;
+    }
+
+    /** Called when a member's runtime counters or coolant changes without changing advertised batch capacity. */
+    public void invalidateCapabilitySnapshot() {
+        capabilitySnapshotCache = null;
+    }
+
+    /** Called when topology or an overclock mode changes a worker's advertised batch capacity. */
+    public void invalidateCapabilityCapacity() {
+        capabilitySnapshotCache = null;
+        capabilityCapacityCache = null;
+    }
+
+    public CraftingCapabilitySnapshot.Capacity getBatchPerFxCapacity() {
+        return getCapabilityCapacitySnapshot().batchPerFx();
+    }
+
+    public CraftingCapabilitySnapshot.Capacity getTotalBatchCapacity() {
+        return getCapabilityCapacitySnapshot().totalBatchCapacity();
+    }
+
+    public boolean isVirtualMode() {
+        return getCapabilityCapacitySnapshot().virtualMode();
     }
 
     /**
@@ -201,6 +235,19 @@ public class NECraftingNetworkCluster {
 
     /** The sole derived capability state for every host and worker in this logical network. */
     public CraftingCapabilitySnapshot getCapabilitySnapshot() {
+        if (capabilitySnapshotCache != null) {
+            return capabilitySnapshotCache;
+        }
+        CraftingCapabilitySnapshot snapshot = buildCapabilitySnapshot();
+        capabilitySnapshotCache = snapshot;
+        return snapshot;
+    }
+
+    /**
+     * Computes the full view. Capacity callers use a separate cache so runtime changes do not force a topology
+     * rebuild on every ordinary dispatch attempt.
+     */
+    private CraftingCapabilitySnapshot buildCapabilitySnapshot() {
         int physicalFxCount = 0;
         int activeFxCount = 0;
         int runningBatchCount = 0;
@@ -244,6 +291,13 @@ public class NECraftingNetworkCluster {
             new CraftingCapabilitySnapshot.CoolantState(
                 activeCooling, coolantAmount, coolantCapacity, coolantMaxOverclock)
         ));
+    }
+
+    private CraftingCapabilitySnapshot getCapabilityCapacitySnapshot() {
+        if (capabilityCapacityCache == null) {
+            capabilityCapacityCache = buildCapabilitySnapshot();
+        }
+        return capabilityCapacityCache;
     }
 
     private static int saturatingIntAdd(int left, int right) {

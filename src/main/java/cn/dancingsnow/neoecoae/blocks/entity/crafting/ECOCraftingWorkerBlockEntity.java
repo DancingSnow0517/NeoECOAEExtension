@@ -92,8 +92,12 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                         rate = r;
                     }
                 }
-                refreshDisplayedJob();
-                setChanged();
+                // Thread state transitions call setChanged() at the mutation point. Avoid marking the block entity
+                // dirty on every tick when no persistent field changed; monitor rendering is the only reason to
+                // refresh the derived display here.
+                if (isMonitor()) {
+                    refreshDisplayedJob();
+                }
                 return rate;
             } finally {
                 controller.recordPerformanceSample(System.nanoTime() - startNanos);

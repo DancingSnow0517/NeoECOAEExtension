@@ -149,10 +149,31 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return false;
         }
         // Deterministic, concentrating order over every worker this host can reach - the whole Network Switch
-        // group when one is formed. No rotation and no randomness, so the same network state always picks the
-        // same worker.
-        for (RankedWorker ranked : rankDispatchCandidates()) {
-            if (ranked.worker().pushPattern(execution, craftingJobId)) {
+        // group when one is formed. Select the current best worker in one scan. The fallback list is built and
+        // sorted only when that first provider rejects, which keeps the common successful path allocation-light
+        // without turning repeated provider rejection into an O(n^2) rescan.
+        List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
+        RankedWorker best = findBestDispatchCandidate(candidates);
+        if (best == null) {
+            return false;
+        }
+        if (best.worker().pushPattern(execution, craftingJobId)) {
+            return true;
+        }
+
+        List<RankedWorker> fallback = new ArrayList<>(candidates.size());
+        for (ECOCraftingWorkerBlockEntity worker : candidates) {
+            if (worker == best.worker()) {
+                continue;
+            }
+            int availableSlots = worker.getAvailableThreadSlots();
+            if (availableSlots > 0) {
+                fallback.add(new RankedWorker(worker, availableSlots));
+            }
+        }
+        fallback.sort(DISPATCH_ORDER);
+        for (RankedWorker candidate : fallback) {
+            if (candidate.worker().pushPattern(execution, craftingJobId)) {
                 return true;
             }
         }
@@ -203,8 +224,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (!lookup.isVerified()) {
             return null;
         }
-        List<RankedWorker> ranked = rankDispatchCandidates();
-        return ranked.isEmpty() ? null : new VirtualFastPathOffer(ranked.getFirst().worker(), lookup.recipe());
+        RankedWorker best = findBestDispatchCandidate();
+        return best == null ? null : new VirtualFastPathOffer(best.worker(), lookup.recipe());
     }
 
     @Nullable
@@ -226,13 +247,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (!lookup.isVerified()) {
             return null;
         }
-        List<RankedWorker> ranked = rankDispatchCandidates();
-        if (ranked.isEmpty()) {
+        RankedWorker best = findBestDispatchCandidate();
+        if (best == null) {
             return null;
         }
         // calculateBatchOfferSize is monotone in the worker's free slots, so the highest-ranked candidate also
         // has the largest offer. Taking it keeps a batch concentrated on one worker instead of splitting it.
-        RankedWorker best = ranked.getFirst();
         int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, best.availableSlots(), globalAvailableSlots);
         if (maxBatchSize <= 0) {
             return null;
@@ -241,24 +261,31 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     /**
-     * Live snapshot of every reachable worker with free capacity, ordered by free thread slots descending and
-     * then by block position ascending.
+     * Finds the current highest-capacity reachable worker without building and sorting a complete ranked list.
      *
      * <p>The topology is re-collected here and the capacity is re-measured here: candidate membership may be
      * reused within one dispatch, but "is this worker available right now" must never be cached, and no
      * reference to a removed or rebuilt worker is ever retained.
      */
-    private List<RankedWorker> rankDispatchCandidates() {
-        List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
-        List<RankedWorker> ranked = new ArrayList<>(candidates.size());
+    @Nullable
+    private RankedWorker findBestDispatchCandidate() {
+        return findBestDispatchCandidate(cluster.collectDispatchCandidateWorkers());
+    }
+
+    @Nullable
+    private RankedWorker findBestDispatchCandidate(List<ECOCraftingWorkerBlockEntity> candidates) {
+        RankedWorker best = null;
         for (ECOCraftingWorkerBlockEntity worker : candidates) {
             int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots > 0) {
-                ranked.add(new RankedWorker(worker, availableSlots));
+            if (availableSlots <= 0) {
+                continue;
+            }
+            RankedWorker candidate = new RankedWorker(worker, availableSlots);
+            if (best == null || DISPATCH_ORDER.compare(candidate, best) < 0) {
+                best = candidate;
             }
         }
-        ranked.sort(DISPATCH_ORDER);
-        return ranked;
+        return best;
     }
 
     private record RankedWorker(ECOCraftingWorkerBlockEntity worker, int availableSlots) {}
@@ -316,12 +343,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean isBusy() {
-        if (cluster == null || getAvailableThreadSlots() <= 0) {
-            return true;
-        }
-        // Busy reporting spans the same reachable worker set the dispatch does, so a host whose own workers are
-        // saturated still advertises capacity while a Network Switch peer is idle.
-        return !cluster.hasAvailableDispatchCandidate();
+        // getAvailableThreadSlots() already covers the complete reachable worker set (including Network Switch
+        // peers). Calling hasAvailableDispatchCandidate() afterwards would scan that same set a second time.
+        return getAvailableThreadSlots() <= 0;
     }
 
     public int getAvailableThreadSlots() {
