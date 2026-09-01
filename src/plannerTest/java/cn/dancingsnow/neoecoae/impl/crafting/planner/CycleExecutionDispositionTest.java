@@ -77,6 +77,41 @@ class CycleExecutionDispositionTest {
             .anyMatch(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE));
     }
 
+    @Test void positiveGrowthCycleReservesOneNetworkSeedForHundredRequestedOutputs() throws Exception {
+        var outcome = planSelfGrowingCycle(100, 1);
+        var cycle = cycle(outcome);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(CycleExecutionDisposition.ORDERED_EXECUTION, cycle.cycleDisposition());
+        assertEquals(Map.of(a, 1L), cycle.cycleResult().requiredSeed());
+        assertEquals(1L, outcome.state().usedItems().get(a));
+        assertTrue(cycle.cycleResult().patternTimes().get(grow) > 0L);
+        assertFalse(cycle.cycleResult().executionPlan().isEmpty());
+    }
+
+    @Test void positiveGrowthCycleWithoutSeedFailsWithExplicitShortfall() throws Exception {
+        var outcome = planSelfGrowingCycle(100, 0);
+        var cycle = cycle(outcome);
+
+        assertNotEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(CycleExecutionDisposition.BLOCKED, cycle.cycleDisposition());
+        assertNotNull(cycle.cycleResult());
+        assertEquals(Map.of(a, 1L), cycle.cycleResult().seedShortfall());
+        assertTrue(cycle.cycleResult().summary().toLowerCase(java.util.Locale.ROOT).contains("seed"));
+    }
+
+    @Test void stockAlreadyCoveringCycleDemandDoesNotScheduleCycleFirings() throws Exception {
+        ComponentPlanner.Outcome outcome = planGrowingInternalCycle(100, 1_000);
+        ComponentPlanningResult cycle = cycle(outcome);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(CycleExecutionDisposition.STOCK_SATISFIED, cycle.cycleDisposition());
+        assertTrue(cycle.cycleResult().patternTimes().isEmpty());
+        assertTrue(ECOExecutionSchedule.from(outcome.components(), outcome.executionComponentOrder(),
+            outcome.state().patternTimes()).phases().stream()
+            .noneMatch(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE));
+    }
+
     @Test void stockSatisfiedMissingUsedItemsFailsClosedWithComponentAccountingDiagnostic() {
         ComponentPlanningResult stock = stockSatisfied(1, a, 100);
         PlanIdentity.Signature signature = signature(Map.of(), Map.of());
@@ -141,6 +176,16 @@ class CycleExecutionDispositionTest {
         var growing = PlannerFixtures.compiled(1, grow, a, true, "");
         CompiledNetwork network = PlannerFixtures.network(goal,
             Map.of(goal, List.of(finish), a, List.of(growing)));
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        return new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock(a, storedA), amount, true, ECOCancellation.NONE);
+    }
+
+    private ComponentPlanner.Outcome planSelfGrowingCycle(long amount, long storedA) throws Exception {
+        CompiledNetwork network = PlannerFixtures.network(a, Map.of(a,
+            List.of(PlannerFixtures.compiled(1, grow, a, true, ""))));
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);

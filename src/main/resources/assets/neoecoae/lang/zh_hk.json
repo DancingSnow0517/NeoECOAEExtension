@@ -352,6 +352,7 @@
   "tooltip.neoecoae.holdshift": "按住[Shift]顯示更多資訊",
   "tooltip.neoecoae.max_lenth": "結構最大長度: %d",
   "tooltip.neoecoae.pattern.verified_normal": "已驗證：普通類樣板",
+  "tooltip.neoecoae.pattern.verified_smithing_stonecutting": "已驗證：鍛造台/切石機配方",
   "tooltip.neoecoae.pattern.verified_durability": "已驗證：耐久類樣板",
   "tooltip.neoecoae.pattern.verified_self_growing": "已驗證：自增型樣板",
   "tooltip.neoecoae.pattern.verified_special_nbt": "已驗證：特殊NBT型配方",

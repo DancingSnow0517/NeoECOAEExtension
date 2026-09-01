@@ -215,31 +215,7 @@ public class ExecutingCraftingJob {
         if (runtimeExecutionState == null) {
             return ECOPhaseScheduler.compactCycleFeedbackReserve(activePhase(), this::remainingTasksFor, key);
         }
-        long reserve = 0L;
-        for (int taskId : runtimeExecutionState.eligibleTaskIds()) {
-            var phase = runtimeExecutionState.plan().phases().get(
-                runtimeExecutionState.plan().task(taskId).phaseIndex());
-            if (phase.type() != ECOExecutionSchedule.Type.CYCLE) continue;
-            long perCraft = 0L;
-            var pattern = runtimeExecutionState.plan().task(taskId).pattern();
-            for (var input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null) continue;
-                for (var possible : input.getPossibleInputs()) {
-                    if (possible != null && key.equals(possible.what())) {
-                        perCraft = Math.addExact(perCraft,
-                            Math.multiplyExact(possible.amount(), input.getMultiplier()));
-                        break;
-                    }
-                }
-            }
-            try {
-                reserve = Math.addExact(reserve, Math.multiplyExact(perCraft,
-                    runtimeExecutionState.dispatchLimit(taskId)));
-            } catch (ArithmeticException overflow) {
-                return Long.MAX_VALUE;
-            }
-        }
-        return reserve;
+        return runtimeExecutionState.pendingCycleFeedbackReserve(key);
     }
 
     List<DispatchTask> eligibleDispatchTasks() {

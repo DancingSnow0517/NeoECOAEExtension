@@ -124,6 +124,47 @@ class RuntimeExecutionStateTest {
             "restore should reconstruct independent ready work and newly satisfied dependents");
     }
 
+    @Test
+    void futureCycleFeedbackIsReservedBeforeItsDagDependencyCompletes() {
+        var material = PlannerTestKey.of("runtime_material");
+        var prepared = PlannerTestKey.of("runtime_prepared");
+        var seed = PlannerTestKey.of("runtime_seed");
+        var prepare = PlannerFixtures.pattern("prepare", prepared, 1, material, 1L);
+        var grow = PlannerFixtures.pattern("grow", seed, 2, seed, 1L, prepared, 1L);
+        var prepareIdentity = PlanIdentity.patternIdentityFor(prepare);
+        var growIdentity = PlanIdentity.patternIdentityFor(grow);
+        var tasks = List.of(
+            new ECOExecutionPlan.TaskSpec(0, prepareIdentity, prepare,
+                ECOExecutionPlan.PatternRuntimeInfo.from(prepare), 99L, 0, ECOExecutionPlan.TaskKind.DAG),
+            new ECOExecutionPlan.TaskSpec(1, growIdentity, grow,
+                ECOExecutionPlan.PatternRuntimeInfo.from(grow), 99L, 1,
+                ECOExecutionPlan.TaskKind.CYCLE_ORDERED));
+        var phases = List.of(
+            new ECOExecutionPlan.PhaseSpec(0, 1, ECOExecutionSchedule.Type.DAG,
+                List.of(0), List.of(), List.of()),
+            new ECOExecutionPlan.PhaseSpec(1, 2, ECOExecutionSchedule.Type.CYCLE,
+                List.of(1), List.of(new ECOExecutionPlan.ExecutionStep(1, 99L)), List.of(0)));
+        var signature = new PlanIdentity.Signature(seed, 100L,
+            Map.of(prepareIdentity, 99L, growIdentity, 99L), Map.of(seed, 1L, material, 99L),
+            Map.of(), Map.of());
+        var schedule = new ECOExecutionSchedule(List.of(
+            new ECOExecutionSchedule.ComponentExecutionPhase(1, ECOExecutionSchedule.Type.DAG,
+                Set.of(prepare), List.of()),
+            new ECOExecutionSchedule.ComponentExecutionPhase(2, ECOExecutionSchedule.Type.CYCLE,
+                Set.of(grow), List.of())),
+            List.of(new ECOExecutionSchedule.PhaseDependency(0, 1)));
+        var state = new RuntimeExecutionState(new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE,
+            tasks, phases, schedule));
+
+        assertEquals(List.of(0), state.eligibleTaskIds(), "the cycle must still be blocked by its DAG input");
+        assertEquals(99L, state.pendingCycleFeedbackReserve(seed),
+            "network seed must remain CPU-owned before the cycle phase becomes eligible");
+        state.applyAccepted(0, 99L);
+        assertEquals(List.of(1), state.eligibleTaskIds());
+        state.applyAccepted(1, 99L);
+        assertEquals(0L, state.pendingCycleFeedbackReserve(seed));
+    }
+
     private ECOExecutionPlan plan() {
         var firstIdentity = PlanIdentity.patternIdentityFor(first);
         var secondIdentity = PlanIdentity.patternIdentityFor(second);

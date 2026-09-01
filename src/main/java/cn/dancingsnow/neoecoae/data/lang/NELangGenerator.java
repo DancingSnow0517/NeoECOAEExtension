@@ -71,6 +71,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
         provider.add("tooltip.neoecoae.pattern.verified_normal", "Verified: normal pattern");
+        provider.add("tooltip.neoecoae.pattern.verified_smithing_stonecutting", "Verified: smithing/stonecutting recipe");
         provider.add("tooltip.neoecoae.pattern.verified_durability", "Verified: durability pattern");
         provider.add("tooltip.neoecoae.pattern.verified_self_growing", "Verified: self-growing pattern");
         provider.add("tooltip.neoecoae.pattern.verified_special_nbt", "Verified: special NBT pattern");

@@ -120,6 +120,7 @@ public class ECOCraftingCPULogic {
     private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
     private int taskDispatchCursor;
     private final Map<AEKey, Long> dispatchedItemsThisTick = new LinkedHashMap<>();
+    private int lastLoggedCycleInitialInventoryPhase = -1;
 
     private static final class BatchProbeKey {
         private final Object scope;
@@ -204,6 +205,7 @@ public class ECOCraftingCPULogic {
         providerTopologyCache.clear();
         resetBatchProbeBudgetForCurrentTick();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
+        this.lastLoggedCycleInitialInventoryPhase = -1;
         logSubmittedJob(craftId, this.job);
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -410,6 +412,7 @@ public class ECOCraftingCPULogic {
         releaseSurplusFinalOutput(job);
         if (this.job != job) return 0;
         var activePhase = job.activePhase();
+        logCycleInitialInventory(job, activePhase);
         boolean componentScheduled = job.phased();
         var diagnostics = new DispatchDiagnostics();
         if (componentScheduled && activePhase == null) {
@@ -871,6 +874,61 @@ public class ECOCraftingCPULogic {
         List<ICraftingProvider> result = List.copyOf(providers);
         if (identity != null && !result.isEmpty()) providerTopologyCache.put(identity, result);
         return result;
+    }
+
+    private void logCycleInitialInventory(ExecutingCraftingJob currentJob,
+            @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase) {
+        if (phase == null || phase.type()
+                != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE
+                || currentJob.currentComponentIndex == lastLoggedCycleInitialInventoryPhase) return;
+        lastLoggedCycleInitialInventoryPhase = currentJob.currentComponentIndex;
+
+        Map<AEKey, Long> initial = new LinkedHashMap<>();
+        for (var entry : inventory.list) {
+            if (entry.getLongValue() > 0L) initial.put(entry.getKey(), entry.getLongValue());
+        }
+        IPatternDetails first = null;
+        if (currentJob.runtimeExecutionState != null) {
+            var runtimePhase = currentJob.runtimeExecutionState.activePhase();
+            if (runtimePhase != null && currentJob.runtimeExecutionState.stepIndex() < runtimePhase.steps().size()) {
+                first = currentJob.runtimeExecutionState.plan().task(
+                    runtimePhase.steps().get(currentJob.runtimeExecutionState.stepIndex()).taskId()).pattern();
+            }
+        } else if (!phase.cycleWitness().isEmpty()) {
+            first = phase.cycleWitness().getFirst();
+        }
+        String source = cycleSeedSource(currentJob, first);
+        LOGGER.info("[ECO-EXEC] cycle seed source: {} componentId={} phaseIndex={} cycle initial inventory: {}",
+            source, phase.componentId(), currentJob.currentComponentIndex, initial);
+    }
+
+    private String cycleSeedSource(ExecutingCraftingJob currentJob, @Nullable IPatternDetails firstPattern) {
+        if (firstPattern == null) return "NONE";
+        boolean available = false;
+        boolean networkReserved = false;
+        AEKey preferredSeed = currentJob.finalOutput == null ? null : currentJob.finalOutput.what();
+        boolean firstPatternConsumesPreferredSeed = false;
+        for (var input : firstPattern.getInputs()) {
+            if (input == null || input.getPossibleInputs() == null) continue;
+            for (var possible : input.getPossibleInputs()) {
+                if (possible != null && preferredSeed != null && preferredSeed.equals(possible.what())) {
+                    firstPatternConsumesPreferredSeed = true;
+                }
+            }
+        }
+        Map<AEKey, Long> plannedInitial = currentJob.executionContract == null
+            ? Map.of() : currentJob.executionContract.planSignature().usedItems();
+        for (var input : firstPattern.getInputs()) {
+            if (input == null || input.getPossibleInputs() == null) continue;
+            for (var possible : input.getPossibleInputs()) {
+                if (possible == null || possible.what() == null) continue;
+                if (firstPatternConsumesPreferredSeed && !preferredSeed.equals(possible.what())) continue;
+                if (inventory.extract(possible.what(), Long.MAX_VALUE, Actionable.SIMULATE) > 0L) available = true;
+                if (plannedInitial.getOrDefault(possible.what(), 0L) > 0L) networkReserved = true;
+            }
+        }
+        if (!available) return "NONE";
+        return networkReserved ? "NETWORK_INVENTORY" : "PREVIOUS_PHASE_OUTPUT";
     }
 
     /** Live availability check over the reusable candidate set; allocates nothing. */

@@ -11,6 +11,8 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.crafting.pattern.AESmithingTablePattern;
+import appeng.crafting.pattern.AEStonecuttingPattern;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -1078,7 +1080,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 IPatternDetails details = PatternDetailsHelper.decodePattern(stack, clientLevel);
                 if (details instanceof IMolecularAssemblerSupportedPattern) {
                     tooltip.add(Component.translatable(
-                        NetGrowthPatternValidationRegistry.isSelfGrowingPattern(details)
+                        details instanceof AESmithingTablePattern || details instanceof AEStonecuttingPattern
+                            ? "tooltip.neoecoae.pattern.verified_smithing_stonecutting"
+                            : NetGrowthPatternValidationRegistry.isSelfGrowingPattern(details)
                             ? "tooltip.neoecoae.pattern.verified_self_growing"
                             : isDurabilityPattern(details)
                             ? "tooltip.neoecoae.pattern.verified_durability"

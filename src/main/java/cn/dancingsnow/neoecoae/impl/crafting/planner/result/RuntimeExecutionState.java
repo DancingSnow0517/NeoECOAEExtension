@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
+import appeng.api.stacks.AEKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -59,6 +60,41 @@ public final class RuntimeExecutionState {
                 ? Math.min(remaining[taskId], stepRemaining[phase]) : 0L;
         }
         return remaining[taskId];
+    }
+
+    /**
+     * Amount of a feedback key that must remain CPU-owned while any ordered cycle still needs it.
+     *
+     * <p>This deliberately includes cycle phases whose DAG dependencies have not completed yet. Looking only at
+     * {@link #eligibleTaskIds()} loses a network-provided startup seed before the cycle becomes runnable: the final
+     * output release path sees it as surplus and delivers it to the requester. The conservative upper bound mirrors
+     * the established active-cycle policy and naturally drops to zero as cycle task counts are accepted.</p>
+     */
+    public long pendingCycleFeedbackReserve(AEKey key) {
+        if (key == null) return 0L;
+        long reserve = 0L;
+        for (var task : plan.tasks()) {
+            if (remaining[task.id()] <= 0L) continue;
+            var phase = plan.phases().get(task.phaseIndex());
+            if (phase.type() != ECOExecutionSchedule.Type.CYCLE) continue;
+            long perCraft = 0L;
+            for (var input : task.pattern().getInputs()) {
+                if (input == null || input.getPossibleInputs() == null) continue;
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible != null && key.equals(possible.what())) {
+                        perCraft = Math.addExact(perCraft,
+                            Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                        break;
+                    }
+                }
+            }
+            try {
+                reserve = Math.addExact(reserve, Math.multiplyExact(perCraft, remaining[task.id()]));
+            } catch (ArithmeticException overflow) {
+                return Long.MAX_VALUE;
+            }
+        }
+        return reserve;
     }
     public List<Integer> applyAccepted(int taskId, long count) {
         long permitted = dispatchLimit(taskId);
