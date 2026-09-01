@@ -35,19 +35,19 @@ class RuntimeExecutionStateTest {
 
         assertEquals(List.of(0), state.eligibleTaskIds());
         assertEquals(10_000L, state.dispatchLimit(0));
-        state.applyAccepted(0, 10_000L);
+        assertEquals(List.of(1), state.applyAccepted(0, 10_000L));
         assertEquals(1, state.stepIndex());
         assertEquals(List.of(1), state.eligibleTaskIds());
 
-        state.applyAccepted(1, 1L);
+        assertEquals(List.of(0), state.applyAccepted(1, 1L));
         assertEquals(List.of(0), state.eligibleTaskIds());
-        state.applyAccepted(0, 2L);
+        assertEquals(List.of(0, 1), state.applyAccepted(0, 2L));
         assertEquals(3, state.stepIndex());
         assertEquals(Set.of(0, 1), Set.copyOf(state.eligibleTaskIds()),
             "after the verified cycle trace, the cycle phase owns the aggregate DAG remainder");
 
         state.applyAccepted(0, 3L);
-        state.applyAccepted(1, 1L);
+        assertEquals(List.of(2), state.applyAccepted(1, 1L));
         assertEquals(1, state.phaseIndex(), "phase completion depends only on dispatched task counts");
         assertEquals(List.of(2), state.eligibleTaskIds());
         state.applyAccepted(2, 1L);
@@ -60,6 +60,7 @@ class RuntimeExecutionStateTest {
         RuntimeExecutionState state = new RuntimeExecutionState(plan);
         state.restore(new long[] {5_005L, 2L, 1L}, new int[] {0, 0}, new long[] {5_000L, 0L});
         assertEquals(5_000L, state.dispatchLimit(0));
+        assertEquals(List.of(0), state.eligibleTaskIds(), "restore must rebuild the ready frontier once");
         assertThrows(IllegalArgumentException.class,
             () -> state.restore(new long[] {15_005L, 2L, 1L}, new int[] {0, 0}, new long[] {5_000L, 0L}));
         assertThrows(IllegalArgumentException.class,
@@ -113,9 +114,14 @@ class RuntimeExecutionStateTest {
             new ECOExecutionSchedule(schedulePhases, List.of(new ECOExecutionSchedule.PhaseDependency(0, 2)))));
 
         assertEquals(Set.of(0, 1), Set.copyOf(state.eligibleTaskIds()));
-        state.applyAccepted(0, 1);
+        assertEquals(List.of(2), state.applyAccepted(0, 1));
         assertEquals(Set.of(1, 2), Set.copyOf(state.eligibleTaskIds()),
             "consumer should unlock as soon as its own producer completes");
+
+        var restored = new RuntimeExecutionState(state.plan());
+        restored.restore(new long[] {0L, 2L, 1L}, new int[] {0, 0, 0}, new long[] {0L, 0L, 0L});
+        assertEquals(Set.of(1, 2), Set.copyOf(restored.eligibleTaskIds()),
+            "restore should reconstruct independent ready work and newly satisfied dependents");
     }
 
     private ECOExecutionPlan plan() {

@@ -246,6 +246,13 @@ public class ExecutingCraftingJob {
         if (runtimeExecutionState == null) return tasks.entrySet().stream()
             .filter(entry -> entry.getValue().value > 0)
             .map(entry -> new DispatchTask(-1, entry.getKey(), entry.getValue())).toList();
+        ensureRuntimeProgressProjection();
+        List<DispatchTask> result = new ArrayList<>();
+        for (int taskId : runtimeExecutionState.eligibleTaskIds()) result.add(runtimeDispatchTask(taskId));
+        return result;
+    }
+
+    private void ensureRuntimeProgressProjection() {
         if (runtimeProgressProjection == null) {
             Map<Integer, TaskProgress> projection = new HashMap<>();
             for (var spec : runtimeExecutionState.plan().tasks()) {
@@ -261,11 +268,11 @@ public class ExecutingCraftingJob {
             }
             runtimeProgressProjection = projection;
         }
-        return runtimeExecutionState.eligibleTaskIds().stream()
-            .map(id -> {
-                var spec = runtimeExecutionState.plan().task(id);
-                return new DispatchTask(id, spec.pattern(), runtimeProgressProjection.get(id));
-            }).toList();
+    }
+
+    private DispatchTask runtimeDispatchTask(int taskId) {
+        var spec = runtimeExecutionState.plan().task(taskId);
+        return new DispatchTask(taskId, spec.pattern(), runtimeProgressProjection.get(taskId));
     }
 
     void applyAccepted(DispatchTask task, long count) {
@@ -287,6 +294,25 @@ public class ExecutingCraftingJob {
         }
         runtimeExecutionState.applyAccepted(taskId, count);
         syncRuntimeProjection();
+    }
+
+    List<DispatchTask> applyDispatchResultAndGetNewlyReady(DispatchTask task, DispatchResult result) {
+        if (!(result instanceof DispatchResult.Accepted accepted)) {
+            applyDispatchResult(task, result);
+            return List.of();
+        }
+        if (runtimeExecutionState == null) {
+            applyAccepted(task, accepted.count());
+            return List.of();
+        }
+        ensureRuntimeProgressProjection();
+        List<Integer> newlyReadyIds = runtimeExecutionState.applyAccepted(task.taskId(), accepted.count());
+        task.progress().value = runtimeExecutionState.remaining(task.taskId());
+        syncRuntimeProjection();
+        if (newlyReadyIds.isEmpty()) return List.of();
+        List<DispatchTask> resultTasks = new ArrayList<>(newlyReadyIds.size());
+        for (int taskId : newlyReadyIds) resultTasks.add(runtimeDispatchTask(taskId));
+        return resultTasks;
     }
 
     long applyDispatchResult(DispatchTask task, DispatchResult result) {

@@ -38,17 +38,30 @@ class ECOCraftingDispatchStrategyTest {
     }
 
     @Test
-    void plainProviderAdaptivePolicyCanUseFullGlobalDispatchBudget() {
+    void plainProviderAdaptivePolicyUsesRemainingWindowCredit() {
         var provider = new StubProvider();
+        var strategy = new ECOAdaptiveDispatchStrategy();
         var context = new ECOCraftingDispatchStrategy.DispatchContext(
             new StubPattern(), 1_000_000L, 16_384, List.of(provider), 16_384);
 
-        var decision = new ECOAdaptiveDispatchStrategy().choose(context);
+        var decision = strategy.choose(context);
 
-        assertEquals(16_384, decision.maxAttempts());
+        assertEquals(ECOAdaptiveDispatchStrategy.GENERIC_INITIAL_WINDOW, decision.maxAttempts());
+        for (int i = 0; i < ECOAdaptiveDispatchStrategy.GENERIC_INITIAL_WINDOW; i++) strategy.onAccepted(provider);
+        assertEquals(0, strategy.choose(context).maxAttempts(),
+            "accepted work in the current tick must consume the generic provider credit");
         assertFalse(ECOBatchProbeCraftingProvider.class.isAssignableFrom(StubProvider.class));
         assertFalse(ECOParallelCraftingProvider.class.isAssignableFrom(ECOBatchProbeCraftingProvider.class));
         assertFalse(ECOBatchProbeCraftingProvider.class.isAssignableFrom(ECOParallelCraftingProvider.class));
+    }
+
+    @Test
+    void adaptivePolicyKeepsParallelSlotsIndependentFromGenericCredit() {
+        var parallel = new StubParallelProvider(37);
+        var context = new ECOCraftingDispatchStrategy.DispatchContext(
+            new StubPattern(), 1_000_000L, 100, List.of(parallel), 100);
+
+        assertEquals(37, new ECOAdaptiveDispatchStrategy().choose(context).maxAttempts());
     }
 
     @Test
@@ -132,6 +145,17 @@ class ECOCraftingDispatchStrategyTest {
     }
 
     private static final class StubProvider implements appeng.api.networking.crafting.ICraftingProvider {
+        @Override public List<appeng.api.crafting.IPatternDetails> getAvailablePatterns() { return List.of(); }
+        @Override public boolean pushPattern(appeng.api.crafting.IPatternDetails pattern,
+                appeng.api.stacks.KeyCounter[] inputHolder) { return true; }
+        @Override public boolean isBusy() { return false; }
+    }
+
+    private static final class StubParallelProvider implements appeng.api.networking.crafting.ICraftingProvider,
+            ECOParallelCraftingProvider {
+        private final int slots;
+        private StubParallelProvider(int slots) { this.slots = slots; }
+        @Override public int eco$getAvailableParallelSlots() { return slots; }
         @Override public List<appeng.api.crafting.IPatternDetails> getAvailablePatterns() { return List.of(); }
         @Override public boolean pushPattern(appeng.api.crafting.IPatternDetails pattern,
                 appeng.api.stacks.KeyCounter[] inputHolder) { return true; }

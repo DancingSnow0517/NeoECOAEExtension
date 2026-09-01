@@ -8,7 +8,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Scope-aware ordinary dispatch policy. Plain providers are bounded only by the task and CPU dispatch budgets. */
+/** Scope-aware ordinary dispatch policy with per-tick adaptive credit for plain providers. */
 public final class ECOAdaptiveDispatchStrategy implements ECOCraftingDispatchStrategy {
     public static final int GENERIC_INITIAL_WINDOW = 16;
     public static final int GENERIC_MIN_WINDOW = 1;
@@ -40,7 +40,7 @@ public final class ECOAdaptiveDispatchStrategy implements ECOCraftingDispatchStr
             state.resetTick(tick, genericWindowCeiling(context.taskRemaining()));
             long allowance = provider instanceof ECOParallelCraftingProvider capable
                 ? Math.max(0L, capable.eco$getAvailableParallelSlots())
-                : context.dispatchBudget();
+                : state.remainingCredit();
             total = Math.min(Integer.MAX_VALUE, total + allowance);
         }
         return new DispatchDecision(ordered, (int) Math.min(context.dispatchBudget(), total));
@@ -50,6 +50,9 @@ public final class ECOAdaptiveDispatchStrategy implements ECOCraftingDispatchStr
     public synchronized void onBusy(ICraftingProvider provider, boolean hadAccepted) { if (!hadAccepted) state(provider).shrink(); }
     public synchronized void onRejected(ICraftingProvider provider) { state(provider).shrink(); }
     public synchronized void onException(ICraftingProvider provider) { state(provider).resetWindow(); }
+    public synchronized boolean hasRemainingCredit(ICraftingProvider provider) {
+        return provider instanceof ECOParallelCraftingProvider || state(provider).remainingCredit() > 0L;
+    }
     private AdaptiveWindowState state(ICraftingProvider provider) { return states.computeIfAbsent(scope(provider), ignored -> new AdaptiveWindowState()); }
     private Object scope(ICraftingProvider provider) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity bus && bus.getCraftingController() != null) {

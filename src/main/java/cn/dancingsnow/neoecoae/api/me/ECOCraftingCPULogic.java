@@ -510,8 +510,7 @@ public class ECOCraftingCPULogic {
                         if (this.job != job) {
                             break taskLoop;
                         }
-                        job.applyDispatchResult(task, batchDispatch);
-                        appendNewReadyTasks(job, eligibleTasks);
+                        eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, batchDispatch));
                         postPatternOutputsChange(details);
                         if (task.progress().value <= 0) {
                             continue taskLoop;
@@ -601,6 +600,8 @@ public class ECOCraftingCPULogic {
                         DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
                         boolean sawAvailable = false;
                         for (ICraftingProvider provider : dispatchProviders) {
+                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive
+                                    && !adaptive.hasRemainingCredit(provider)) continue;
                             if (provider.isBusy()) continue;
                             sawAvailable = true;
                             boolean flatRateProvider = paysFlatRateCraftingPower(provider);
@@ -655,8 +656,7 @@ public class ECOCraftingCPULogic {
                         if (single instanceof DispatchResult.Accepted) {
                             pushedPatterns++;
                             if (this.job != job) break taskLoop;
-                            job.applyDispatchResult(task, single);
-                            appendNewReadyTasks(job, eligibleTasks);
+                            eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, single));
                             postPatternOutputsChange(details);
                             if (task.progress().value <= 0) continue taskLoop;
                             if (pushedPatterns == maxPatterns) break taskLoop;
@@ -888,16 +888,6 @@ public class ECOCraftingCPULogic {
             for (int i = 0; i < readyTasks.size(); i++) result.add(readyTasks.get((offset + i) % readyTasks.size()));
         }
         return result;
-    }
-
-    private void appendNewReadyTasks(ExecutingCraftingJob job,
-            List<ExecutingCraftingJob.DispatchTask> scheduled) {
-        if (job.runtimeExecutionState == null) return;
-        for (var candidate : job.eligibleDispatchTasks()) {
-            boolean known = false;
-            for (var existing : scheduled) if (existing.taskId() == candidate.taskId()) { known = true; break; }
-            if (!known) scheduled.add(candidate);
-        }
     }
 
     private boolean hasFastPathProvider(List<ICraftingProvider> candidateProviders) {
