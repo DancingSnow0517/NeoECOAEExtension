@@ -191,7 +191,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.toolbar.debug_off", "Debug: OFF");
         provider.add("gui.neoecoae.crafting_graph.breadcrumb.plan", "ECO Plan");
         provider.add("gui.neoecoae.crafting_graph.breadcrumb.cycle", "ECO Plan  >  Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.breadcrumb.cluster", "ECO Plan  >  Cycle Cluster #%s");
         provider.add("gui.neoecoae.crafting_graph.details.cycle_title", "Cycle #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_title", "Cycle Cluster #%s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_cycles", "Independent cycles: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_flows", "Inter-cycle flows: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.cluster_hint", "Double-click a ring node to open one cycle");
         provider.add("gui.neoecoae.crafting_graph.details.status_label", "Status: ");
         provider.add("gui.neoecoae.crafting_graph.details.seed_label", "Seed: ");
         provider.add("gui.neoecoae.crafting_graph.details.external_label", "External: ");

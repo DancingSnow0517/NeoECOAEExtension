@@ -68,7 +68,7 @@ public final class CompactTreeLayout implements GraphLayoutEngine {
     static float nodeWidth(ClientCraftingGraph graph, int id) {
         return switch (graph.nodes().get(id).kind()) {
             case MATERIAL -> GraphLayoutSnapshot.COMPACT_MATERIAL_WIDTH;
-            case CYCLE_GROUP -> GraphLayoutSnapshot.COMPACT_CYCLE_WIDTH;
+            case CYCLE_GROUP, CYCLE_CLUSTER -> GraphLayoutSnapshot.COMPACT_CYCLE_WIDTH;
             case FOLDER -> GraphLayoutSnapshot.COMPACT_FOLDER_WIDTH;
             case REFERENCE -> GraphLayoutSnapshot.COMPACT_REFERENCE_WIDTH;
             case PATTERN -> GraphLayoutSnapshot.PATTERN_WIDTH;
@@ -78,7 +78,7 @@ public final class CompactTreeLayout implements GraphLayoutEngine {
     static float nodeHeight(ClientCraftingGraph graph, int id) {
         return switch (graph.nodes().get(id).kind()) {
             case MATERIAL -> GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT;
-            case CYCLE_GROUP -> GraphLayoutSnapshot.COMPACT_CYCLE_HEIGHT;
+            case CYCLE_GROUP, CYCLE_CLUSTER -> GraphLayoutSnapshot.COMPACT_CYCLE_HEIGHT;
             case FOLDER -> GraphLayoutSnapshot.COMPACT_FOLDER_HEIGHT;
             case REFERENCE -> GraphLayoutSnapshot.COMPACT_REFERENCE_HEIGHT;
             case PATTERN -> GraphLayoutSnapshot.PATTERN_HEIGHT;

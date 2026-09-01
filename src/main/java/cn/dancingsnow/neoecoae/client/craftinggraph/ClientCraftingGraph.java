@@ -14,20 +14,33 @@ import org.jetbrains.annotations.Nullable;
 
 /** Client-only presentation model. It never references planner or solver classes. */
 public final class ClientCraftingGraph {
-    public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP, FOLDER, REFERENCE }
-    public enum View { MAIN, CYCLE_FOCUS }
+    public enum Kind { MATERIAL, PATTERN, CYCLE_GROUP, CYCLE_CLUSTER, FOLDER, REFERENCE }
+    public enum View { MAIN, CYCLE_FOCUS, CYCLE_CLUSTER }
 
     public record Node(int id, Kind kind, String label, @Nullable AEKey key,
             @Nullable CraftingGraphSnapshot.MaterialNode material,
             @Nullable CraftingGraphSnapshot.PatternNode pattern,
-            @Nullable CraftingGraphSnapshot.CycleGroup cycle) {}
+            @Nullable CraftingGraphSnapshot.CycleGroup cycle, @Nullable CycleCluster cluster) {
+        public Node(int id, Kind kind, String label, @Nullable AEKey key,
+                @Nullable CraftingGraphSnapshot.MaterialNode material,
+                @Nullable CraftingGraphSnapshot.PatternNode pattern,
+                @Nullable CraftingGraphSnapshot.CycleGroup cycle) {
+            this(id, kind, label, key, material, pattern, cycle, null);
+        }
+    }
 
-    public record Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected) {}
+    public record Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected,
+            int materialNodeId) {
+        public Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected) {
+            this(fromId, toId, amount, kind, selected, -1);
+        }
+    }
 
     private final CraftingGraphSnapshot source;
     private final View view;
     private final int rootId;
     private final int focusedCycleId;
+    private final @Nullable CycleCluster focusedCluster;
     private final @Nullable Integer focusedMaterialId;
     private final Map<Integer, Node> nodes;
     private final List<Link> links;
@@ -41,24 +54,27 @@ public final class ClientCraftingGraph {
 
     private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
             Map<Integer, Node> nodes, List<Link> links) {
-        this(source, view, rootId, focusedCycleId, null, nodes, links, Map.of(), false, Set.of(), Set.of(), Set.of());
+        this(source, view, rootId, focusedCycleId, null, null, nodes, links, Map.of(), false, Set.of(), Set.of(),
+            Set.of());
     }
 
     private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
             Map<Integer, Node> nodes, List<Link> links, Map<Integer, CompactTreeNode> compactTreeNodes,
             boolean compactTree) {
-        this(source, view, rootId, focusedCycleId, null, nodes, links, compactTreeNodes, compactTree, Set.of(),
+        this(source, view, rootId, focusedCycleId, null, null, nodes, links, compactTreeNodes, compactTree, Set.of(),
             Set.of(), Set.of());
     }
 
     private ClientCraftingGraph(CraftingGraphSnapshot source, View view, int rootId, int focusedCycleId,
-            @Nullable Integer focusedMaterialId, Map<Integer, Node> nodes, List<Link> links,
+            @Nullable CycleCluster focusedCluster, @Nullable Integer focusedMaterialId,
+            Map<Integer, Node> nodes, List<Link> links,
             Map<Integer, CompactTreeNode> compactTreeNodes, boolean compactTree, Set<Integer> boundaryMaterialIds,
             Set<Integer> externalInputIds, Set<Integer> boundaryOutputIds) {
         this.source = source;
         this.view = view;
         this.rootId = rootId;
         this.focusedCycleId = focusedCycleId;
+        this.focusedCluster = focusedCluster;
         this.focusedMaterialId = focusedMaterialId;
         this.nodes = Map.copyOf(nodes);
         this.links = List.copyOf(links);
@@ -85,7 +101,8 @@ public final class ClientCraftingGraph {
     static ClientCraftingGraph compact(ClientCraftingGraph source, Map<Integer, Node> nodes, List<Link> links,
             Map<Integer, CompactTreeNode> compactTreeNodes, int rootId) {
         return new ClientCraftingGraph(source.source, source.view, rootId, source.focusedCycleId,
-            source.focusedMaterialId, nodes, links, compactTreeNodes, true, source.boundaryMaterialIds,
+            source.focusedCluster, source.focusedMaterialId, nodes, links, compactTreeNodes, true,
+            source.boundaryMaterialIds,
             source.externalInputIds, source.boundaryOutputIds);
     }
 
@@ -94,6 +111,11 @@ public final class ClientCraftingGraph {
         for (var cycle : snapshot.cycleGroups()) {
             for (int member : cycle.memberNodeIds()) cycleByMember.put(member, cycle);
         }
+        List<CycleCluster> clusters = CycleClusterProjection.derive(snapshot);
+        Map<Integer, CycleCluster> clusterByComponent = new HashMap<>();
+        for (CycleCluster cluster : clusters) for (int componentId : cluster.componentIds()) {
+            clusterByComponent.put(componentId, cluster);
+        }
         Map<Integer, Node> nodes = new LinkedHashMap<>();
         for (var material : snapshot.nodes()) {
             if (!cycleByMember.containsKey(material.nodeId())) {
@@ -101,8 +123,14 @@ public final class ClientCraftingGraph {
             }
         }
         for (var cycle : snapshot.cycleGroups()) {
+            if (clusterByComponent.containsKey(cycle.componentId())) continue;
             int id = cycleVisualId(cycle.componentId());
-            nodes.put(id, new Node(id, Kind.CYCLE_GROUP, "Cycle #" + cycle.componentId(), null, null, null, cycle));
+            nodes.put(id, new Node(id, Kind.CYCLE_GROUP, "循环 #" + cycle.componentId(), null, null, null, cycle));
+        }
+        for (CycleCluster cluster : clusters) {
+            int id = clusterVisualId(cluster.clusterId());
+            nodes.put(id, new Node(id, Kind.CYCLE_CLUSTER, "循环簇 #" + cluster.clusterId(), null, null,
+                null, null, cluster));
         }
         for (var pattern : snapshot.patterns()) {
             if (!advanced && pattern.status() != CraftingGraphSnapshot.CandidateStatus.SELECTED) continue;
@@ -116,13 +144,16 @@ public final class ClientCraftingGraph {
         List<Link> links = new ArrayList<>();
         Set<String> dedupe = new HashSet<>();
         for (var edge : snapshot.edges()) {
-            int from = collapse(edge.fromId(), cycleByMember);
-            int to = collapse(edge.toId(), cycleByMember);
+            int from = collapse(edge.fromId(), cycleByMember, clusterByComponent);
+            int to = collapse(edge.toId(), cycleByMember, clusterByComponent);
             if (from == to || !nodes.containsKey(from) || !nodes.containsKey(to)) continue;
-            String identity = from + ":" + to + ":" + edge.kind();
-            if (dedupe.add(identity)) links.add(new Link(from, to, edge.amount(), edge.kind(), edge.selected()));
+            int materialId = edgeMaterialId(edge);
+            String identity = from + ":" + to + ":" + edge.kind() + ":" + materialId + ":" + edge.amount()
+                + ":" + edge.fromId() + ":" + edge.toId();
+            if (dedupe.add(identity)) links.add(new Link(from, to, edge.amount(), edge.kind(), edge.selected(),
+                materialId));
         }
-        int root = collapse(snapshot.rootNodeId(), cycleByMember);
+        int root = collapse(snapshot.rootNodeId(), cycleByMember, clusterByComponent);
         return new ClientCraftingGraph(snapshot, View.MAIN, root, -1, nodes, links);
     }
 
@@ -175,7 +206,7 @@ public final class ClientCraftingGraph {
                         && dedupe.add(input.materialNodeId() + ":" + patternId + ":input:" + input.amount())) {
                     // Focus view deliberately reverses the dependency edge: material/input -> pattern.
                     links.add(new Link(input.materialNodeId(), patternId, input.amount(),
-                        CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected));
+                        CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
                 }
             }
             for (var output : pattern.outputs()) {
@@ -183,7 +214,8 @@ public final class ClientCraftingGraph {
                         && dedupe.add(patternId + ":" + output.materialNodeId() + ":output:" + output.amount())) {
                     CraftingGraphSnapshot.EdgeKind kind = members.contains(output.materialNodeId())
                         ? CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT : CraftingGraphSnapshot.EdgeKind.BYPRODUCT;
-                    links.add(new Link(patternId, output.materialNodeId(), output.amount(), kind, selected));
+                    links.add(new Link(patternId, output.materialNodeId(), output.amount(), kind, selected,
+                        output.materialNodeId()));
                 }
             }
         }
@@ -193,7 +225,8 @@ public final class ClientCraftingGraph {
             for (var edge : snapshot.edges()) {
                 if (members.contains(edge.fromId()) && members.contains(edge.toId())
                         && dedupe.add(edge.fromId() + ":" + edge.toId() + ":legacy:" + edge.amount())) {
-                    links.add(new Link(edge.fromId(), edge.toId(), edge.amount(), edge.kind(), edge.selected()));
+                    links.add(new Link(edge.fromId(), edge.toId(), edge.amount(), edge.kind(), edge.selected(),
+                        edgeMaterialId(edge)));
                 }
             }
         }
@@ -204,8 +237,62 @@ public final class ClientCraftingGraph {
         Integer focusedId = focusedMaterial == null ? null : snapshot.nodes().stream()
             .filter(node -> members.contains(node.nodeId()) && node.key().equals(focusedMaterial))
             .map(CraftingGraphSnapshot.MaterialNode::nodeId).findFirst().orElse(null);
-        return new ClientCraftingGraph(snapshot, View.CYCLE_FOCUS, root, componentId, focusedId, nodes, links, Map.of(),
-            false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+        return new ClientCraftingGraph(snapshot, View.CYCLE_FOCUS, root, componentId, null, focusedId, nodes, links,
+            Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+    }
+
+    /** Builds a multi-SCC focus while retaining every component's independent ring membership. */
+    public static ClientCraftingGraph cluster(CraftingGraphSnapshot snapshot, CycleCluster cluster,
+            boolean advanced) {
+        Set<Integer> componentIds = Set.copyOf(cluster.componentIds());
+        Set<Integer> memberIds = new LinkedHashSet<>();
+        for (var cycle : snapshot.cycleGroups()) if (componentIds.contains(cycle.componentId())) {
+            memberIds.addAll(cycle.memberNodeIds());
+        }
+        for (InterCycleFlow flow : cluster.flows()) memberIds.add(flow.materialNodeId());
+
+        Map<Integer, Node> nodes = new LinkedHashMap<>();
+        for (var material : snapshot.nodes()) if (memberIds.contains(material.nodeId())) {
+            nodes.put(material.nodeId(), materialNode(material));
+        }
+        List<CraftingGraphSnapshot.PatternNode> patterns = snapshot.patterns().stream()
+            .filter(pattern -> componentIds.contains(pattern.componentId()))
+            .filter(pattern -> advanced || pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED
+                || pattern.firingCount() > 0)
+            .toList();
+        // A zero-firing/stock-satisfied SCC still needs a visible ring. Retain its structural patterns when the
+        // selected projection would otherwise leave the component empty.
+        Set<Integer> visibleComponents = patterns.stream().map(CraftingGraphSnapshot.PatternNode::componentId)
+            .collect(java.util.stream.Collectors.toSet());
+        if (!visibleComponents.containsAll(componentIds)) {
+            List<CraftingGraphSnapshot.PatternNode> expanded = new ArrayList<>(patterns);
+            for (var pattern : snapshot.patterns()) if (componentIds.contains(pattern.componentId())
+                    && !visibleComponents.contains(pattern.componentId())) expanded.add(pattern);
+            patterns = List.copyOf(expanded);
+        }
+        for (var pattern : patterns) nodes.put(pattern.patternNodeId(), patternNode(pattern.patternNodeId(), pattern));
+
+        List<Link> links = new ArrayList<>();
+        Set<String> dedupe = new LinkedHashSet<>();
+        for (var pattern : patterns) {
+            boolean selected = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED;
+            for (var input : pattern.inputs()) if (nodes.containsKey(input.materialNodeId())) {
+                String identity = input.materialNodeId() + ":" + pattern.patternNodeId() + ":in:" + input.amount();
+                if (dedupe.add(identity)) links.add(new Link(input.materialNodeId(), pattern.patternNodeId(),
+                    input.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
+            }
+            for (var output : pattern.outputs()) if (nodes.containsKey(output.materialNodeId())) {
+                String identity = pattern.patternNodeId() + ":" + output.materialNodeId() + ":out:" + output.amount();
+                if (dedupe.add(identity)) links.add(new Link(pattern.patternNodeId(), output.materialNodeId(),
+                    output.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT, selected,
+                    output.materialNodeId()));
+            }
+        }
+        int root = cluster.componentIds().stream().map(componentId -> snapshot.cycleGroups().stream()
+                .filter(cycle -> cycle.componentId() == componentId).findFirst().orElse(null))
+            .filter(java.util.Objects::nonNull).flatMap(cycle -> cycle.memberNodeIds().stream()).findFirst().orElse(-1);
+        return new ClientCraftingGraph(snapshot, View.CYCLE_CLUSTER, root, -1, cluster, null, nodes, links, Map.of(),
+            false, Set.of(), Set.of(), Set.of());
     }
 
     public ClientCraftingGraph limited(int focusId, int depth, Set<Integer> collapsed) {
@@ -227,7 +314,8 @@ public final class ClientCraftingGraph {
         for (int id : visible) subset.put(id, nodes.get(id));
         List<Link> subsetLinks = links.stream()
             .filter(link -> visible.contains(link.fromId()) && visible.contains(link.toId())).toList();
-        return new ClientCraftingGraph(source, view, focusId, focusedCycleId, focusedMaterialId, subset, subsetLinks,
+        return new ClientCraftingGraph(source, view, focusId, focusedCycleId, focusedCluster, focusedMaterialId,
+            subset, subsetLinks,
             Map.of(), compactTree, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
     }
 
@@ -235,6 +323,7 @@ public final class ClientCraftingGraph {
     public View view() { return view; }
     public int rootId() { return rootId; }
     public int focusedCycleId() { return focusedCycleId; }
+    public @Nullable CycleCluster focusedCluster() { return focusedCluster; }
     public @Nullable Integer focusedMaterialId() { return focusedMaterialId; }
     public Map<Integer, Node> nodes() { return nodes; }
     public List<Link> links() { return links; }
@@ -254,14 +343,27 @@ public final class ClientCraftingGraph {
     }
 
     public static int cycleVisualId(int componentId) { return Integer.MIN_VALUE + componentId; }
+    public static int clusterVisualId(int clusterId) { return Integer.MIN_VALUE / 2 + clusterId; }
 
-    private static int collapse(int id, Map<Integer, CraftingGraphSnapshot.CycleGroup> cycleByMember) {
+    private static int collapse(int id, Map<Integer, CraftingGraphSnapshot.CycleGroup> cycleByMember,
+            Map<Integer, CycleCluster> clusterByComponent) {
         var cycle = cycleByMember.get(id);
-        return cycle == null ? id : cycleVisualId(cycle.componentId());
+        if (cycle == null) return id;
+        CycleCluster cluster = clusterByComponent.get(cycle.componentId());
+        return cluster == null ? cycleVisualId(cycle.componentId()) : clusterVisualId(cluster.clusterId());
+    }
+
+    private static int edgeMaterialId(CraftingGraphSnapshot.Edge edge) {
+        return switch (edge.kind()) {
+            case PATTERN_OUTPUT, BYPRODUCT -> edge.fromId() >= 0 ? edge.fromId() : edge.toId();
+            case PATTERN_INPUT, CYCLE_INTERNAL -> edge.toId() >= 0 ? edge.toId() : edge.fromId();
+        };
     }
 
     private static Node materialNode(CraftingGraphSnapshot.MaterialNode material) {
-        return new Node(material.nodeId(), Kind.MATERIAL, material.key().getDisplayName().getString(), material.key(),
+        String label = material.key() == null ? "Material #" + material.nodeId()
+            : material.key().getDisplayName().getString();
+        return new Node(material.nodeId(), Kind.MATERIAL, label, material.key(),
             material, null, null);
     }
 

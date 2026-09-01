@@ -194,6 +194,13 @@ public final class CompactTreeRenderer {
             if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
                 MUTED, false);
             graphics.drawString(font, "↻", right - 14, y + 9, border, false);
+        } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
+            var cluster = node.cluster();
+            String label = cluster == null ? node.label() : "◎ 循环簇 #" + cluster.clusterId();
+            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
+            if (cluster != null) graphics.drawString(font, cluster.componentIds().size() + " 个循环", x + 6,
+                y + 19, MUTED, false);
+            graphics.drawString(font, "◎", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             graphics.drawString(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
                 MUTED, false);
@@ -250,6 +257,13 @@ public final class CompactTreeRenderer {
                 Component.literal("状态：" + cycle.status()),
                 Component.literal("双击：打开循环详情"));
         }
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER && node.cluster() != null) {
+            var cluster = node.cluster();
+            return List.of(Component.literal("循环簇 #" + cluster.clusterId()),
+                Component.literal("独立循环：" + cluster.componentIds().size()),
+                Component.literal("跨环物料流：" + cluster.flows().size()),
+                Component.literal("双击：打开循环簇"));
+        }
         if (node.material() != null) {
             var material = node.material();
             return List.of(Component.literal(node.label()), Component.literal("requested: " + material.exactRequested()),
@@ -269,6 +283,7 @@ public final class CompactTreeRenderer {
             return 0xff788996;
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) return 0xff8d98a3;
         if (node.material() == null) return 0xff8293a4;
         return switch (node.material().status()) {

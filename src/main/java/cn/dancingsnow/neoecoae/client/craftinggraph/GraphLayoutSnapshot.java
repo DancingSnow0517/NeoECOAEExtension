@@ -159,7 +159,7 @@ public final class GraphLayoutSnapshot {
         return switch (node.kind()) {
             case MATERIAL -> MATERIAL_WIDTH;
             case PATTERN -> PATTERN_WIDTH;
-            case CYCLE_GROUP -> CYCLE_WIDTH;
+            case CYCLE_GROUP, CYCLE_CLUSTER -> CYCLE_WIDTH;
             case FOLDER -> COMPACT_FOLDER_WIDTH;
             case REFERENCE -> COMPACT_REFERENCE_WIDTH;
         };
@@ -169,7 +169,7 @@ public final class GraphLayoutSnapshot {
         return switch (node.kind()) {
             case MATERIAL -> MATERIAL_HEIGHT;
             case PATTERN -> PATTERN_HEIGHT;
-            case CYCLE_GROUP -> CYCLE_HEIGHT;
+            case CYCLE_GROUP, CYCLE_CLUSTER -> CYCLE_HEIGHT;
             case FOLDER -> COMPACT_FOLDER_HEIGHT;
             case REFERENCE -> COMPACT_REFERENCE_HEIGHT;
         };

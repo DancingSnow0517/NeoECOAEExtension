@@ -52,9 +52,15 @@ public final class GraphRenderer {
 
         for (var link : links) {
             drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
+            if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER && zoom >= 0.55f) {
+                drawEdgeAmount(graphics, graph, link, layout.edgePoints(link), cameraX, cameraY, zoom);
+            }
         }
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
             drawCycleOutputArrow(graphics, graph, layout, cameraX, cameraY, zoom);
+        }
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
+            drawClusterLabels(graphics, graph, layout, cameraX, cameraY, zoom);
         }
         ClientCraftingGraph.Node hovered = null;
         float worldMouseX = (mouseX - cameraX) / zoom;
@@ -166,9 +172,38 @@ public final class GraphRenderer {
             material = graph.nodes().get(link.toId());
         }
         AEKey key = material == null || material.material() == null ? null : material.material().key();
+        if (key == null && link.materialNodeId() >= 0) {
+            key = graph.source().nodes().stream().filter(node -> node.nodeId() == link.materialNodeId())
+                .map(CraftingGraphSnapshot.MaterialNode::key).findFirst().orElse(null);
+        }
         if (key == null) return "×" + link.amount();
         long magnitude = link.amount() == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(link.amount());
         return "×" + key.formatAmount(magnitude, AmountFormat.SLOT);
+    }
+
+    private static void drawClusterLabels(GuiGraphics graphics, ClientCraftingGraph graph,
+            GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom) {
+        CycleCluster cluster = graph.focusedCluster();
+        if (cluster == null) return;
+        Font font = Minecraft.getInstance().font;
+        for (int componentId : cluster.componentIds()) {
+            Set<Integer> ids = new HashSet<>();
+            graph.source().cycleGroups().stream().filter(cycle -> cycle.componentId() == componentId).findFirst()
+                .ifPresent(cycle -> ids.addAll(cycle.memberNodeIds()));
+            graph.nodes().values().stream().filter(node -> node.pattern() != null
+                    && node.pattern().componentId() == componentId).map(ClientCraftingGraph.Node::id).forEach(ids::add);
+            float minX = Float.MAX_VALUE;
+            float minY = Float.MAX_VALUE;
+            for (int id : ids) {
+                var box = layout.box(id);
+                if (box == null) continue;
+                minX = Math.min(minX, box.x());
+                minY = Math.min(minY, box.y());
+            }
+            if (minX == Float.MAX_VALUE) continue;
+            graphics.drawString(font, "循环 #" + componentId, screen(cameraX, minX, zoom),
+                screen(cameraY, minY - 14, zoom), 0xffe2b766, false);
+        }
     }
 
     private static void drawRoutedLink(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
@@ -212,7 +247,8 @@ public final class GraphRenderer {
         int pixelWidth = right - x;
         int pixelHeight = bottom - y;
         int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : border(graph, node);
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
+                || graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
             drawCompactCycleNode(graphics, graph, node, box, border, selected, x, y, right, bottom,
                 pixelWidth, pixelHeight, cameraY, zoom);
             return;
@@ -283,6 +319,17 @@ public final class GraphRenderer {
                         pixelWidth - 14, MUTED);
                 }
             }
+            case CYCLE_CLUSTER -> {
+                var cluster = node.cluster();
+                drawFitted(graphics, font, "◎  循环簇 #" + cluster.clusterId(), x + 7, y + 7,
+                    pixelWidth - 14, border);
+                if (zoom >= 0.6f && pixelHeight >= 38) {
+                    drawFitted(graphics, font, cluster.componentIds().size() + " 个独立循环 · "
+                        + cluster.flows().size() + " 条跨环流", x + 7, y + 23, pixelWidth - 14, TEXT);
+                    if (pixelHeight >= 55) drawFitted(graphics, font, "双击查看循环簇", x + 7, y + 40,
+                        pixelWidth - 14, MUTED);
+                }
+            }
             case FOLDER -> { }
             case REFERENCE -> { }
         }
@@ -325,7 +372,10 @@ public final class GraphRenderer {
         }
         if (node.material() == null) return new CompactCycleValue("-", MUTED);
         var cycle = graph.source().cycleGroups().stream()
-            .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+            .filter(value -> graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
+                ? value.componentId() == graph.focusedCycleId()
+                : value.memberNodeIds().contains(node.material().nodeId()))
+            .findFirst().orElse(null);
         if (cycle == null) return new CompactCycleValue("-", MUTED);
         AEKey key = node.material().key();
         BigInteger amount;
@@ -386,9 +436,25 @@ public final class GraphRenderer {
                 Component.literal("外部输入：" + cycle.externalInputs().size()),
                 Component.literal("所需种子：" + cycle.requiredSeed().size()));
         }
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
+            var cluster = node.cluster();
+            return List.of(Component.literal("循环簇 #" + cluster.clusterId()),
+                Component.literal("独立 SCC：" + cluster.componentIds().size()),
+                Component.literal("跨环物料流：" + cluster.flows().size()),
+                Component.literal("循环：" + cluster.componentIds()));
+        }
         if (node.key() == null) return List.of();
         var lines = new ArrayList<>(AEKeyRendering.getTooltip(node.key()));
         lines.add(Component.literal("registry id: " + node.key().getId()));
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER && graph.focusedCluster() != null
+                && node.material() != null) {
+            for (InterCycleFlow flow : graph.focusedCluster().flows()) {
+                if (flow.materialNodeId() != node.material().nodeId()) continue;
+                lines.add(Component.literal("跨环流：循环 #" + flow.fromComponentId() + " → #"
+                    + flow.toComponentId() + "（输出 ×" + compactAmount(Long.toString(flow.outputAmount()))
+                    + " / 输入 ×" + compactAmount(Long.toString(flow.inputAmount())) + "）"));
+            }
+        }
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && node.material() != null) {
             var cycle = graph.source().cycleGroups().stream()
                 .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
@@ -407,6 +473,7 @@ public final class GraphRenderer {
 
     private static int border(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
             return node.pattern().status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? 0xff66a182 : 0xff9a5964;
         }

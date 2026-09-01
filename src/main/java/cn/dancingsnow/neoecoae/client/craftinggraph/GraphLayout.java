@@ -31,6 +31,7 @@ public final class GraphLayout implements GraphLayoutEngine {
     private final Mode mode;
     private final GraphLayoutEngine legacy;
     private final GraphLayoutEngine circular;
+    private final GraphLayoutEngine cycleCluster;
     private final GraphLayoutEngine compactTree;
     private boolean reportedCompactTreeFailure;
 
@@ -39,15 +40,22 @@ public final class GraphLayout implements GraphLayoutEngine {
     }
 
     public GraphLayout(Mode mode) {
-        this(mode, new LayeredGraphLayout(), new CircularCycleLayout(), new CompactTreeLayout());
+        this(mode, new LayeredGraphLayout(), new CircularCycleLayout(), new CycleClusterLayout(),
+            new CompactTreeLayout());
     }
 
     // Package-visible for backend selection tests without touching the screen.
     GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
             GraphLayoutEngine compactTree) {
+        this(mode, legacy, circular, new CycleClusterLayout(), compactTree);
+    }
+
+    GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
+            GraphLayoutEngine cycleCluster, GraphLayoutEngine compactTree) {
         this.mode = mode;
         this.legacy = legacy;
         this.circular = circular;
+        this.cycleCluster = cycleCluster;
         this.compactTree = compactTree;
     }
 
@@ -59,6 +67,9 @@ public final class GraphLayout implements GraphLayoutEngine {
     public GraphLayoutSnapshot layout(ClientCraftingGraph graph, long version) {
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
             return circular.layout(graph, version);
+        }
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
+            return cycleCluster.layout(graph, version);
         }
         if (mode == Mode.COMPACT_TREE) {
             try {
