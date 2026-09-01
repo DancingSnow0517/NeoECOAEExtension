@@ -37,7 +37,7 @@ public final class ECOExtractedPatternExecution {
     private final ECOFastPathKey key;
 
     private final boolean fastPathEligible;
-    private final int arithmeticBatchLimit;
+    private final long arithmeticBatchLimit;
 
     private ECOExtractedPatternExecution(
         IPatternDetails details,
@@ -151,7 +151,7 @@ public final class ECOExtractedPatternExecution {
      * Largest batch multiplier the per-craft amounts of this dispatch can still represent. Computed once with
      * the rest of the context, because it depends only on the already-normalized per-craft lists.
      */
-    public int arithmeticBatchLimit() {
+    public long arithmeticBatchLimit() {
         return arithmeticBatchLimit;
     }
 

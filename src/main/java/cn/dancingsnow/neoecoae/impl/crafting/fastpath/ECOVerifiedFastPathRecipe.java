@@ -100,7 +100,7 @@ public final class ECOVerifiedFastPathRecipe {
     }
 
     /** Largest batch the per-craft amounts of the verified execution can still represent. */
-    public int arithmeticBatchLimit() {
+    public long arithmeticBatchLimit() {
         return execution.arithmeticBatchLimit();
     }
 

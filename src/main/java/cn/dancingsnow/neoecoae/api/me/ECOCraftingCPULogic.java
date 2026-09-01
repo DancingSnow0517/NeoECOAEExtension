@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -118,6 +119,7 @@ public class ECOCraftingCPULogic {
     private int batchProbesUsedThisTick;
     private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
     private int taskDispatchCursor;
+    private final Map<AEKey, Long> dispatchedItemsThisTick = new LinkedHashMap<>();
 
     private static final class BatchProbeKey {
         private final Object scope;
@@ -416,6 +418,7 @@ public class ECOCraftingCPULogic {
         }
 
         var pushedPatterns = 0;
+        dispatchedItemsThisTick.clear();
         // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
         // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
         providerTopologyCache.clear();
@@ -495,7 +498,7 @@ public class ECOCraftingCPULogic {
                             if (batchProbedTasksThisTick.add(taskProbeIdentity)) {
                                 ProbeDispatchOutcome probe = tryPushProbedBatch(job, execution, craftingContainer,
                                     candidateProviders, energyService, extractedCraft.patternPower(), dispatchLimit,
-                                    remainingBatchProbeBudget, task.taskId());
+                                    task.progress().value, remainingBatchProbeBudget, task.taskId());
                                 batchProbesUsedThisTick += probe.probeCount();
                                 batchDispatch = probe.result();
                             }
@@ -643,6 +646,7 @@ public class ECOCraftingCPULogic {
                                 adaptive.onAccepted(provider);
                             }
                             if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
+                            recordDispatchedInputs(attemptContainer, 1L);
                             recordPushedPattern(job, attemptOutputs, attemptContainerItems, 1L);
                             single = new DispatchResult.Accepted(1L);
                             break;
@@ -669,6 +673,7 @@ public class ECOCraftingCPULogic {
             }
         } finally {
             endStatusChangeBatchSafely();
+            logDispatchedItemsForTick();
         }
 
         if (pushedPatterns == 0) {
@@ -899,10 +904,18 @@ public class ECOCraftingCPULogic {
 
     private boolean hasBatchProbeProvider(List<ICraftingProvider> candidateProviders) {
         for (var provider : candidateProviders) {
-            if (provider instanceof ECOBatchProbeCraftingProvider
-                    && !(provider instanceof ECOCraftingPatternBusBlockEntity)) return true;
+            if (isUnknownBatchProbeProvider(provider)) return true;
         }
         return false;
+    }
+
+    static boolean isUnknownBatchProbeProvider(ICraftingProvider provider) {
+        return provider != null && isUnknownBatchProbeProviderType(provider.getClass());
+    }
+
+    static boolean isUnknownBatchProbeProviderType(Class<?> providerType) {
+        return ECOBatchProbeCraftingProvider.class.isAssignableFrom(providerType)
+            && !ECOCraftingPatternBusBlockEntity.class.isAssignableFrom(providerType);
     }
 
     private static Object patternIdentityOrObject(IPatternDetails pattern) {
@@ -966,12 +979,13 @@ public class ECOCraftingCPULogic {
             IEnergyService energyService,
             double patternPower,
             long runtimeDispatchLimit,
+            long taskRemaining,
             int remainingCpuProbeBudget,
             int taskId) {
         ECOBatchProbeCraftingProvider selected = null;
         for (var provider : candidateProviders) {
-            if (provider instanceof ECOBatchProbeCraftingProvider capable
-                    && !(provider instanceof ECOCraftingPatternBusBlockEntity) && !provider.isBusy()) {
+            if (isUnknownBatchProbeProvider(provider) && provider instanceof ECOBatchProbeCraftingProvider capable
+                    && !provider.isBusy()) {
                 selected = capable;
                 break;
             }
@@ -981,12 +995,13 @@ public class ECOCraftingCPULogic {
                 new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), 0);
         }
 
-        long legalUpper = calculateBatchRequestSize(execution, runtimeDispatchLimit);
-        legalUpper = Math.min(legalUpper, maxBatchSizeFromEnergy(
-            energyService, patternPower, (int) Math.min(Integer.MAX_VALUE, legalUpper)));
+        long legalUpper = calculateBatchRequestSize(execution, Math.min(taskRemaining, runtimeDispatchLimit));
+        long energyLimit = maxBatchSizeFromEnergy(energyService, patternPower, legalUpper);
         long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
             inventory, execution.inputItems(), Math.max(0L, legalUpper - 1L));
-        legalUpper = Math.min(legalUpper, availableExtra + 1L);
+        long extractableLimit = availableExtra == Long.MAX_VALUE ? Long.MAX_VALUE : availableExtra + 1L;
+        legalUpper = calculateProbeLegalUpperBound(taskRemaining, runtimeDispatchLimit,
+            execution.arithmeticBatchLimit(), extractableLimit, energyLimit);
         if (legalUpper <= 0L) {
             return new ProbeDispatchOutcome(
                 new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE), 0);
@@ -1114,7 +1129,7 @@ public class ECOCraftingCPULogic {
 
         // Ask providers for the full remaining task. The selected F-series host and worker cap the
         // offer to their live thread capacity; inventory, energy and coolant apply further bounds.
-        int requested = calculateBatchRequestSize(execution, taskRemaining);
+        int requested = (int) Math.min(Integer.MAX_VALUE, calculateBatchRequestSize(execution, taskRemaining));
         if (requested <= 1) {
             return 0;
         }
@@ -1339,10 +1354,17 @@ public class ECOCraftingCPULogic {
      * {@link ECOCraftingPatternBusBlockEntity#findBatchFastPathOffer}, which reports its live thread
      * capability.
      */
-    private int calculateBatchRequestSize(ECOExtractedPatternExecution execution, long taskRemaining) {
-        long requested = Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
+    private long calculateBatchRequestSize(ECOExtractedPatternExecution execution, long taskRemaining) {
+        long requested = Math.max(0L, taskRemaining);
         // The arithmetic ceiling was computed once when the execution context was built.
-        return (int) Math.min(requested, execution.arithmeticBatchLimit());
+        return Math.min(requested, execution.arithmeticBatchLimit());
+    }
+
+    static long calculateProbeLegalUpperBound(long taskRemaining, long runtimeDispatchLimit,
+            long arithmeticLimit, long extractableInputLimit, long energyResourceLimit) {
+        return Math.min(Math.min(Math.max(0L, taskRemaining), Math.max(0L, runtimeDispatchLimit)),
+            Math.min(Math.max(0L, arithmeticLimit),
+                Math.min(Math.max(0L, extractableInputLimit), Math.max(0L, energyResourceLimit))));
     }
 
     private static boolean containsIdentity(List<Object> visited, Object candidate) {
@@ -1405,8 +1427,10 @@ public class ECOCraftingCPULogic {
     private void recordPushedPattern(
             ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
         long multiplier = Math.max(1L, craftCount);
+        recordDispatchedInputs(execution.inputItems(), multiplier);
         for (var expectedOutput : execution.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), Math.multiplyExact(expectedOutput.amount(), multiplier),
+            long dispatchedAmount = Math.multiplyExact(expectedOutput.amount(), multiplier);
+            job.waitingFor.insert(expectedOutput.what(), dispatchedAmount,
                 Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
@@ -1420,11 +1444,22 @@ public class ECOCraftingCPULogic {
         cpu.markDirty();
     }
 
+    private long maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, long requested) {
+        return ECOBatchCraftingHelper.maxAffordableCrafts(
+            patternPower,
+            requested,
+            totalPower -> energyService.extractAEPower(
+                totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG
+            )
+        );
+    }
+
     private void recordPushedPattern(
             ExecutingCraftingJob job, KeyCounter expectedOutputs, KeyCounter expectedContainerItems, long craftCount) {
         long multiplier = Math.max(1L, craftCount);
         for (var expectedOutput : expectedOutputs) {
-            job.waitingFor.insert(expectedOutput.getKey(), Math.multiplyExact(expectedOutput.getLongValue(), multiplier),
+            long dispatchedAmount = Math.multiplyExact(expectedOutput.getLongValue(), multiplier);
+            job.waitingFor.insert(expectedOutput.getKey(), dispatchedAmount,
                 Actionable.MODULATE);
             postChange(expectedOutput.getKey());
         }
@@ -1440,6 +1475,46 @@ public class ECOCraftingCPULogic {
         }
 
         cpu.markDirty();
+    }
+
+    private void recordDispatchedInputs(List<GenericStack> inputs, long multiplier) {
+        for (GenericStack input : inputs) {
+            recordDispatchedItem(input.what(), Math.multiplyExact(input.amount(), multiplier));
+        }
+    }
+
+    private void recordDispatchedInputs(KeyCounter[] inputs, long multiplier) {
+        for (KeyCounter slot : inputs) {
+            if (slot == null) continue;
+            for (var input : slot) {
+                recordDispatchedItem(input.getKey(), Math.multiplyExact(input.getLongValue(), multiplier));
+            }
+        }
+    }
+
+    private void recordDispatchedItem(AEKey what, long amount) {
+        if (what == null || amount <= 0L) return;
+        dispatchedItemsThisTick.merge(what, amount, (left, right) -> {
+            try {
+                return Math.addExact(left, right);
+            } catch (ArithmeticException overflow) {
+                return Long.MAX_VALUE;
+            }
+        });
+    }
+
+    private void logDispatchedItemsForTick() {
+        if (dispatchedItemsThisTick.isEmpty()) return;
+        String summary = dispatchedItemsThisTick.entrySet().stream().map(entry -> {
+            String name;
+            try {
+                name = entry.getKey().getDisplayName().getString();
+            } catch (RuntimeException unavailableName) {
+                name = entry.getKey().toString();
+            }
+            return name + "×" + entry.getValue();
+        }).collect(java.util.stream.Collectors.joining(";"));
+        LOGGER.info("[ECO-DISPATCH-TICK] tick={} sent={}", TickHandler.instance().getCurrentTick(), summary);
     }
 
     /**

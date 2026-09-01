@@ -40,11 +40,11 @@ public final class ECOBatchCraftingHelper {
      * Largest batch multiplier that keeps a single per-craft entry within {@link #MAX_BATCH_STACK_AMOUNT}
      * once it is multiplied out.
      */
-    public static int maxBatchSizeForAmount(long perCraftAmount) {
+    public static long maxBatchSizeForAmount(long perCraftAmount) {
         if (perCraftAmount <= 0L) {
             return 0;
         }
-        return (int) Math.min(Integer.MAX_VALUE, MAX_BATCH_STACK_AMOUNT / perCraftAmount);
+        return MAX_BATCH_STACK_AMOUNT / perCraftAmount;
     }
 
     /**
@@ -52,12 +52,12 @@ public final class ECOBatchCraftingHelper {
      * {@link #MAX_BATCH_STACK_AMOUNT}. This replaces a fixed batch cap: the bound follows from the recipe
      * itself, so a host may batch as many crafts as its own thread capacity allows.
      */
-    public static int maxBatchSizeForPerCraftStacks(
+    public static long maxBatchSizeForPerCraftStacks(
         List<GenericStack> inputsPerCraft,
         List<GenericStack> outputsPerCraft,
         List<GenericStack> remainingPerCraft
     ) {
-        int max = Integer.MAX_VALUE;
+        long max = Long.MAX_VALUE;
         max = Math.min(max, maxBatchSizeForStacks(inputsPerCraft));
         max = Math.min(max, maxBatchSizeForStacks(outputsPerCraft));
         max = Math.min(max, maxBatchSizeForStacks(remainingPerCraft));
@@ -80,8 +80,8 @@ public final class ECOBatchCraftingHelper {
         return max;
     }
 
-    private static int maxBatchSizeForStacks(List<GenericStack> perCraft) {
-        int max = Integer.MAX_VALUE;
+    private static long maxBatchSizeForStacks(List<GenericStack> perCraft) {
+        long max = Long.MAX_VALUE;
         for (GenericStack stack : perCraft) {
             if (stack == null) {
                 continue;
@@ -98,7 +98,7 @@ public final class ECOBatchCraftingHelper {
         return multiply(stacks, (long) multiplier);
     }
 
-    /** Long-count multiplication used only by the explicit virtual-batch path. */
+    /** Long-count multiplication used by explicit virtual batches and opt-in unknown-capacity batch commits. */
     public static List<GenericStack> multiply(List<GenericStack> stacks, long multiplier) {
         if (multiplier <= 0 || stacks.isEmpty()) {
             return List.of();
@@ -150,8 +150,16 @@ public final class ECOBatchCraftingHelper {
         int requested,
         DoubleUnaryOperator simulatedExtraction
     ) {
+        return (int) maxAffordableCrafts(patternPower, (long) requested, simulatedExtraction);
+    }
+
+    public static long maxAffordableCrafts(
+        double patternPower,
+        long requested,
+        DoubleUnaryOperator simulatedExtraction
+    ) {
         Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
-        int boundedRequested = Math.max(0, requested);
+        long boundedRequested = Math.max(0L, requested);
         if (boundedRequested <= 0 || !Double.isFinite(patternPower) || patternPower < 0.0D) {
             return 0;
         }
@@ -162,10 +170,11 @@ public final class ECOBatchCraftingHelper {
             return boundedRequested;
         }
 
-        int low = 0;
-        int high = boundedRequested - 1;
+        long low = 0L;
+        long high = boundedRequested - 1L;
         while (low < high) {
-            int batchSize = low + (int) (((long) high - low + 1L) / 2L);
+            long difference = high - low;
+            long batchSize = low + difference / 2L + difference % 2L;
             if (hasEnoughEnergy(patternPower, batchSize, simulatedExtraction)) {
                 low = batchSize;
             } else {
@@ -211,7 +220,7 @@ public final class ECOBatchCraftingHelper {
 
     private static boolean hasEnoughEnergy(
         double patternPower,
-        int batchSize,
+        long batchSize,
         DoubleUnaryOperator simulatedExtraction
     ) {
         double totalPower = patternPower * batchSize;

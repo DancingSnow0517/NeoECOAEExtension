@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import appeng.api.stacks.GenericStack;
+import appeng.api.config.Actionable;
+import appeng.crafting.inv.ListCraftingInventory;
 
 class ECOBatchCraftingBoundsTest {
     private static final CraftingCapabilitySnapshot.CoolantState NO_COOLING =
@@ -33,7 +35,7 @@ class ECOBatchCraftingBoundsTest {
     @Test
     void perCraftAmountDerivesTheOnlyRemainingCeiling() {
         assertEquals(
-            Integer.MAX_VALUE,
+            1L << 42,
             ECOBatchCraftingHelper.maxBatchSizeForAmount(1L)
         );
         // 2^42 / 2^20 = 2^22, the first quotient small enough to be the binding limit rather than int range.
@@ -52,7 +54,7 @@ class ECOBatchCraftingBoundsTest {
     @Test
     void emptyRecipeAndEmptyTotalsImposeNoCeiling() {
         assertEquals(
-            Integer.MAX_VALUE,
+            Long.MAX_VALUE,
             ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(java.util.List.of(), java.util.List.of(),
                 java.util.List.of())
         );
@@ -77,6 +79,23 @@ class ECOBatchCraftingBoundsTest {
         GenericStack perCraft = new GenericStack(FastPathTestKey.of("virtual-long"), 1L);
         var totals = ECOBatchCraftingHelper.multiply(java.util.List.of(perCraft), craftCount);
         assertEquals(craftCount, totals.getFirst().amount());
+    }
+
+    @Test
+    void energySafetyLimitRetainsLongProbeRange() {
+        assertEquals(10_000_000_000L, ECOBatchCraftingHelper.maxAffordableCrafts(
+            1.0D, 10_000_000_000L, required -> required));
+        assertEquals(2_500_000_000L, ECOBatchCraftingHelper.maxAffordableCrafts(
+            2.0D, 10_000_000_000L, required -> Math.min(required, 5_000_000_000D)));
+    }
+
+    @Test
+    void extractableInputLimitRetainsLongProbeRange() {
+        var key = FastPathTestKey.of("probe-long-input");
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.insert(key, 10_000_000_000L, Actionable.MODULATE);
+        assertEquals(10_000_000_000L, ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, List.of(new GenericStack(key, 1L)), 10_000_000_000L));
     }
 
     @Test

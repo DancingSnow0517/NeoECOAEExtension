@@ -4,7 +4,8 @@ package cn.dancingsnow.neoecoae.api.me;
 public final class BatchCapacityProbeState {
     private long historicalKnownGood;
     private long knownBadExclusive = Long.MAX_VALUE;
-    private long nextUpperBound;
+    /** Non-zero only after a complete N/N2/N4 window failed. Never a learned capacity ceiling. */
+    private long continuationUpperBound;
 
     public long historicalKnownGood() {
         return historicalKnownGood;
@@ -15,18 +16,16 @@ public final class BatchCapacityProbeState {
     }
 
     public long nextUpperBound() {
-        return nextUpperBound;
+        return continuationUpperBound;
+    }
+
+    public long continuationUpperBound() {
+        return continuationUpperBound;
     }
 
     long startingUpperBound(long legalUpperBound) {
         long legal = Math.max(0L, legalUpperBound);
-        if (nextUpperBound > 0L) {
-            return Math.min(nextUpperBound, legal);
-        }
-        if (historicalKnownGood > 0L) {
-            return Math.min(historicalKnownGood, legal);
-        }
-        return legal;
+        return continuationUpperBound > 0L ? Math.min(continuationUpperBound, legal) : legal;
     }
 
     void recordFailedCandidate(long candidate) {
@@ -37,10 +36,10 @@ public final class BatchCapacityProbeState {
 
     void recordSuccess(long candidate) {
         historicalKnownGood = Math.max(historicalKnownGood, candidate);
-        nextUpperBound = 0L;
+        continuationUpperBound = 0L;
     }
 
     void continueBelow(long lastCandidate) {
-        nextUpperBound = Math.max(0L, lastCandidate / 2L);
+        continuationUpperBound = Math.max(0L, lastCandidate / 2L);
     }
 }

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.api.me;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,9 +78,10 @@ class ECOCraftingDispatchStrategyTest {
         assertEquals(256L, state.historicalKnownGood());
 
         attempted.clear();
-        ECOBatchProbeScheduler.probe(state, 10_000_000_000L, 64,
+        ECOBatchProbeScheduler.probe(state, 4096L, 64,
             candidate -> { attempted.add(candidate); return true; });
-        assertEquals(List.of(256L), attempted);
+        assertEquals(List.of(4096L), attempted,
+            "a successful window clears continuation and history must not cap the next fresh N");
     }
 
     @Test
@@ -101,6 +103,8 @@ class ECOCraftingDispatchStrategyTest {
         var result = ECOBatchProbeScheduler.probe(state, 1024L, 64, candidate -> false);
         assertArrayEquals(new long[] { 1024L, 512L, 256L }, result.candidates());
         assertEquals(128L, state.nextUpperBound());
+        var continuation = ECOBatchProbeScheduler.probe(state, 1024L, 64, candidate -> false);
+        assertArrayEquals(new long[] { 128L, 64L, 32L }, continuation.candidates());
         assertArrayEquals(new long[] { 3L, 1L }, ECOBatchProbeScheduler.candidates(3L));
         assertArrayEquals(new long[] { 1L }, ECOBatchProbeScheduler.candidates(1L));
     }
@@ -117,6 +121,50 @@ class ECOCraftingDispatchStrategyTest {
             candidate -> candidate == 128L);
         assertEquals(128L, transientResult.selected());
         assertEquals(512L, state.historicalKnownGood());
+    }
+
+    @Test
+    void continuationRespectsLowerLegalUpperAndSuccessRestartsFresh() {
+        var state = new BatchCapacityProbeState();
+        ECOBatchProbeScheduler.probe(state, 1024L, 64, candidate -> false);
+
+        var lowered = new ArrayList<Long>();
+        ECOBatchProbeScheduler.probe(state, 64L, 64, candidate -> {
+            lowered.add(candidate);
+            return candidate == 16L;
+        });
+        assertEquals(List.of(64L, 32L, 16L), lowered);
+        assertEquals(0L, state.continuationUpperBound());
+        assertEquals(16L, state.historicalKnownGood());
+
+        var fresh = new ArrayList<Long>();
+        ECOBatchProbeScheduler.probe(state, 4096L, 64, candidate -> {
+            fresh.add(candidate);
+            return true;
+        });
+        assertEquals(List.of(4096L), fresh);
+        assertEquals(4096L, state.historicalKnownGood(),
+            "history remains diagnostic and records, rather than replaces, the fresh upper bound");
+    }
+
+    @Test
+    void probeCandidatesAndLegalBoundsRetainLongPrecision() {
+        assertArrayEquals(new long[] { 10_000_000_000L, 5_000_000_000L, 2_500_000_000L },
+            ECOBatchProbeScheduler.candidates(10_000_000_000L));
+        var attempted = new ArrayList<Long>();
+        ECOBatchProbeScheduler.probe(new BatchCapacityProbeState(), 10_000_000_000L, 64, candidate -> {
+            attempted.add(candidate);
+            return true;
+        });
+        assertEquals(List.of(10_000_000_000L), attempted);
+
+        assertEquals(512L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+            10_000_000_000L, 512L, Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE));
+        assertEquals(300L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+            10_000L, 8_000L, 700L, 300L, 500L));
+        assertEquals(10_000_000_000L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+            20_000_000_000L, 15_000_000_000L, 12_000_000_000L, 11_000_000_000L,
+            10_000_000_000L));
     }
 
     @Test
@@ -137,6 +185,15 @@ class ECOCraftingDispatchStrategyTest {
         assertFalse(ECOBatchProbeScheduler.canStartCpuProbeWindow(used, 3));
     }
 
+    @Test
+    void onlyExplicitUnknownBatchProvidersEnterProbeScheduler() {
+        assertTrue(ECOCraftingCPULogic.isUnknownBatchProbeProvider(new StubProbeProvider()));
+        assertFalse(ECOCraftingCPULogic.isUnknownBatchProbeProvider(new StubProvider()));
+        assertFalse(ECOCraftingCPULogic.isUnknownBatchProbeProviderType(
+            cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.class),
+            "F9 remains on its known-capacity offer path");
+    }
+
     /** The strategy only needs a non-null pattern identity; dispatch never invokes this test double. */
     private static final class StubPattern implements appeng.api.crafting.IPatternDetails {
         @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
@@ -144,7 +201,7 @@ class ECOCraftingDispatchStrategyTest {
         @Override public List<appeng.api.stacks.GenericStack> getOutputs() { return List.of(); }
     }
 
-    private static final class StubProvider implements appeng.api.networking.crafting.ICraftingProvider {
+    private static class StubProvider implements appeng.api.networking.crafting.ICraftingProvider {
         @Override public List<appeng.api.crafting.IPatternDetails> getAvailablePatterns() { return List.of(); }
         @Override public boolean pushPattern(appeng.api.crafting.IPatternDetails pattern,
                 appeng.api.stacks.KeyCounter[] inputHolder) { return true; }
@@ -160,5 +217,14 @@ class ECOCraftingDispatchStrategyTest {
         @Override public boolean pushPattern(appeng.api.crafting.IPatternDetails pattern,
                 appeng.api.stacks.KeyCounter[] inputHolder) { return true; }
         @Override public boolean isBusy() { return false; }
+    }
+
+    private static final class StubProbeProvider extends StubProvider implements ECOBatchProbeCraftingProvider {
+        @Override public boolean eco$simulateBatch(
+                cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution execution,
+                long craftCount) { return false; }
+        @Override public boolean eco$commitBatch(
+                cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution execution,
+                long craftCount, java.util.UUID craftingJobId) { return false; }
     }
 }
