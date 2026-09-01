@@ -175,6 +175,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycles present");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning disabled");
+        provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
         provider.add("gui.neoecoae.crafting_graph.toolbar.root", "Root");

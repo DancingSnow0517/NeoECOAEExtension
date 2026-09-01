@@ -488,6 +488,7 @@
   "gui.neoecoae.crafting_report.cycle_unsupported": "检测到当前求解器无法处理的循环配方。",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在循环",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "循环规划未开启",
+  "gui.neoecoae.crafting_report.missing_startup_seed": "缺少启动种子",
   "gui.neoecoae.crafting_graph.open": "规划图",
   "gui.neoecoae.crafting_graph.title": "ECO 合成规划图",
   "gui.neoecoae.crafting_graph.search": "搜索",

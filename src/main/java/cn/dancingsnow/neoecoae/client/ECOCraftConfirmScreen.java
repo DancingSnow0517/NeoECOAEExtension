@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -78,6 +79,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         if (plan != null) {
             String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+                if (mode.neoecoae$getTheoreticalBytes().signum() > 0) {
+                    usedBytes = HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes());
+                }
                 long calculationNanos = mode.neoecoae$getCalculationNanos();
                 if (calculationNanos < 1_000_000L) {
                     var byteSummary = Component.translatable(
@@ -105,8 +109,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             }
         }
         if (unrepresentable) {
-            planSummary = Component.literal("理论计划（不可执行：数量超出范围）")
-                .withColor(0xFFAA3333);
+            String unrepresentableBytes = (Object) menu instanceof ECOCraftConfirmMenuMode mode
+                ? HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes())
+                : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
+            planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
+                .withColor(AE2_TEXT_DARK)
+                .append(Component.literal("（数量超出范围）").withColor(0xFFAA3333));
             cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
                 .withColor(AE2_TEXT_DARK);
         }
@@ -115,7 +123,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        int size = unrepresentable ? exactMaterials().size() : plan != null ? plan.getEntries().size() : 0;
+        boolean ecoPartial = hasEcoCycleDiagnostics();
+        int size = (unrepresentable || ecoPartial) ? exactMaterials().size()
+            : plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             ? mode.neoecoae$getCycleItems().size() : 0;
@@ -153,7 +163,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         CraftingPlanSummary plan = menu.getPlan();
-        if (isUnrepresentablePlan()) {
+        if (isUnrepresentablePlan() || isEcoPartialPlan()) {
             exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
         }
         else if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
@@ -181,7 +191,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
-        if (hovered == null) hovered = isUnrepresentablePlan()
+        if (hovered == null) hovered = (isUnrepresentablePlan() || isEcoPartialPlan())
             ? exactTable.getHoveredStack() : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
@@ -246,11 +256,19 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
     }
 
+    private boolean isEcoPartialPlan() {
+        return hasEcoCycleDiagnostics();
+    }
+
+    private boolean hasEcoCycleDiagnostics() {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && !mode.neoecoae$getCycleItems().isEmpty();
+    }
+
     private boolean isDisabledCycleRequirement(AEKey key) {
-        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode) || mode.neoecoae$isCyclePlanningEnabled()) {
-            return false;
-        }
-        return mode.neoecoae$getCycleItems().stream().anyMatch(entry -> entry.what().equals(key));
+        // Missing startup seeds are ordinary missing materials in the report. They must use AE2's red
+        // missing overlay even when cycle planning is disabled; the old blue cycle overlay hid the deficit.
+        return false;
     }
 
     private static final class CraftingGraphButton extends IconButton {

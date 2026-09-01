@@ -46,7 +46,9 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.SLOT)));
         }
         if (missing.signum() > 0) {
-            lines.add(GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.SLOT)));
+            lines.add(entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE
+                ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.SLOT))
+                : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.SLOT)));
         }
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.SLOT)));
@@ -69,7 +71,9 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.FULL)));
         }
         if (missing.signum() > 0) {
-            lines.add(GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.FULL)));
+            lines.add(entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE
+                ? Component.literal("缺少启动种子数量：" + formatAmount(entry.key(), missing, AmountFormat.FULL))
+                : GuiText.Missing.text(formatAmount(entry.key(), missing, AmountFormat.FULL)));
         }
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.FULL)));
@@ -81,6 +85,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
         if (entry.missingBigInteger().signum() <= 0) return 0;
+        if (entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE) return MISSING_OVERLAY;
         return disabledCycleRequirement.test(entry.key()) ? DISABLED_CYCLE_OVERLAY : MISSING_OVERLAY;
     }
 

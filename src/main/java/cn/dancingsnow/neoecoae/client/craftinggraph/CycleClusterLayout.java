@@ -169,9 +169,13 @@ public final class CycleClusterLayout implements GraphLayoutEngine {
         float startY = start.y();
         float endX = end.x();
         float endY = end.y();
-        float middleX = (startX + endX) / 2 + lane;
+        // Cross-cluster links use an outer horizontal lane. Routing through the midpoint of two rings causes the
+        // bridge line and its amount label to cut across nodes when the rings are vertically aligned.
+        // Use a lower bridge lane so the inter-cycle connection reads as a dependency between rings and never
+        // collides with the cycle titles or the top-most material nodes.
+        float outerY = Math.max(from.y() + from.height(), to.y() + to.height()) + 34f + Math.abs(lane);
         return List.of(new GraphLayoutSnapshot.Point(startX, startY),
-            new GraphLayoutSnapshot.Point(middleX, startY), new GraphLayoutSnapshot.Point(middleX, endY),
+            new GraphLayoutSnapshot.Point(startX, outerY), new GraphLayoutSnapshot.Point(endX, outerY),
             new GraphLayoutSnapshot.Point(endX, endY));
     }
 

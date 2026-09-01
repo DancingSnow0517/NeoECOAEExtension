@@ -65,11 +65,10 @@ final class ECOCycleItemListRenderer {
             (hovered || selected ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
-            List<net.minecraft.network.chat.Component> lines = List.of(
-                net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.single_net_output",
-                    formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.SLOT)),
-                totalNetOutputLine(item, entry, AmountFormat.SLOT));
+            List<Component> lines = new java.util.ArrayList<>();
+            lines.add(Component.translatable("gui.neoecoae.crafting_report.single_net_output",
+                formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.SLOT)));
+            lines.add(totalNetOutputLine(item, entry, AmountFormat.SLOT));
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
@@ -97,6 +96,9 @@ final class ECOCycleItemListRenderer {
                     "gui.neoecoae.crafting_report.single_net_output",
                     formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.FULL)));
                 tooltip.add(totalNetOutputLine(item, entry, AmountFormat.FULL));
+                if (isMissingStartupSeed(entry)) {
+                    tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
+                }
                 hoveredTooltip = tooltip;
                 hoveredMouseX = localMouseX;
                 hoveredMouseY = localMouseY;
@@ -123,6 +125,11 @@ final class ECOCycleItemListRenderer {
                 formatNetOutput(entry.exactTotalNetOutput(), format))
             : Component.translatable("gui.neoecoae.crafting_report.total_net_output",
                 unknownReason(entry.solveStatus()));
+    }
+
+    private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
+        return entry.solveStatus() == cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+            && entry.exactSingleNetOutput().signum() == 0 && entry.exactTotalNetOutput().signum() == 0;
     }
 
     private static String unknownReason(cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus status) {
