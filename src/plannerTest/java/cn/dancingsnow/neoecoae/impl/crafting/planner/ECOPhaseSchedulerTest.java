@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ECOPhaseSchedulerTest {
-    private final PlannerTestKey a = PlannerTestKey.of("a"), b = PlannerTestKey.of("b");
+    private final PlannerTestKey a = PlannerTestKey.of("a"), b = PlannerTestKey.of("b"), goal = PlannerTestKey.of("goal");
     private final PlannerFixtures.Pattern p1 = PlannerFixtures.pattern("p1", a, 1);
     private final PlannerFixtures.Pattern p2 = PlannerFixtures.pattern("p2", b, 1);
     private ECOExecutionSchedule.ComponentExecutionPhase dag() { return new ECOExecutionSchedule.ComponentExecutionPhase(1, ECOExecutionSchedule.Type.DAG, Set.of(p1,p2), List.of()); }
@@ -127,6 +127,27 @@ class ECOPhaseSchedulerTest {
             java.util.Map.of(consumer, 1L, supplier, 1L));
 
         assertEquals(List.of(2, 1), schedule.phases().stream()
+            .map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
+    }
+
+    @Test void solvedCycleFeedbackDoesNotCreateFalseCrossPhaseCycle() {
+        var feedback = new PlannerFixtures.Pattern("feedback_cycle",
+            new appeng.api.crafting.IPatternDetails.IInput[] {new PlannerFixtures.Input(a, 1, true)},
+            List.of(new appeng.api.stacks.GenericStack(a, 2), new appeng.api.stacks.GenericStack(b, 1)));
+        var seedSupplier = PlannerFixtures.pattern("seed_supplier", a, 1);
+        var finalConsumer = PlannerFixtures.pattern("final_consumer", goal, 1, b, 1L);
+
+        var cycle = component(2, ComponentPlanningResult.Type.CYCLIC,
+            java.util.Map.of(a, 1L), Set.of(feedback), Set.of(feedback));
+        var supplier = component(1, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(a, 1L), Set.of(seedSupplier), Set.of(seedSupplier));
+        var consumer = component(3, ComponentPlanningResult.Type.ACYCLIC,
+            java.util.Map.of(goal, 1L), Set.of(finalConsumer), Set.of(finalConsumer));
+
+        var schedule = ECOExecutionSchedule.from(List.of(cycle, supplier, consumer), List.of(1, 2, 3),
+            java.util.Map.of(feedback, 1L, seedSupplier, 1L, finalConsumer, 1L));
+
+        assertEquals(List.of(1, 2, 3), schedule.phases().stream()
             .map(ECOExecutionSchedule.ComponentExecutionPhase::componentId).toList());
     }
     @Test void missingOrderedMetadataIsFailSafeWhilePureDagRemainsNative() {

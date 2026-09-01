@@ -13,6 +13,14 @@ public record CompiledInput(
     AEKey remainderKey,
     PlannerAmount remainderAmountPerPattern
 ) {
+    /** Exact one-item, same-key return that can be held as working stock across a batch. */
+    public boolean reusable() {
+        return remainderKey != null && remainderKey.equals(key)
+            && amountPerPattern.fitsLong() && remainderAmountPerPattern.fitsLong()
+            && amountPerPattern.longValueExact() == 1L
+            && remainderAmountPerPattern.longValueExact() == 1L;
+    }
+
     public CompiledInput(IPatternDetails.IInput source, AEKey key, long amountPerPattern,
             boolean fastSupported, String unsupportedReason) {
         this(source, key, PlannerAmount.of(amountPerPattern), fastSupported, unsupportedReason,

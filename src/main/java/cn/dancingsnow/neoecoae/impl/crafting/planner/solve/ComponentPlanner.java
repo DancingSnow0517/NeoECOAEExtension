@@ -210,6 +210,17 @@ public final class ComponentPlanner {
                     trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
                         external.diagnostic()));
                     if (!external.solved()) {
+                        // Keep the failed cycle explanatory only, but surface its concrete leaf deficits through
+                        // the AE2 plan. Without this propagation a PARTIAL plan contains a large task vector with
+                        // an empty missing-items counter, so confirmation reports a generic "missing materials"
+                        // error and the ECO executor has no actionable schedule.
+                        if (!externalMissingItems.isEmpty()) {
+                            acyclic.state().markMissing(externalMissingItems);
+                        } else if (cycleResult != null && !cycleResult.seedShortfall().isEmpty()) {
+                            acyclic.state().markMissing(cycleResult.seedShortfall());
+                        } else if (!requiredOutputs.isEmpty()) {
+                            acyclic.state().markCycleMissing(requiredOutputs);
+                        }
                         if (external.status() == CycleExternalDemandStatus.UNSUPPORTED) {
                             cycleStatus = CyclePlanningStatus.UNSUPPORTED;
                         } else if (external.status() == CycleExternalDemandStatus.UNREPRESENTABLE) {

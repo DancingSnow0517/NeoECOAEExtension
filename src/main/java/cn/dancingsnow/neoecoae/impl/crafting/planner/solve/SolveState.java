@@ -93,6 +93,22 @@ public final class SolveState {
         }
     }
 
+    /**
+     * Records material deficits discovered while solving a cycle boundary. These are leaf inputs from the
+     * external DAG, so they must be exposed through AE2's normal missing-items counter even though the cycle
+     * transaction itself is not committed.
+     */
+    void markMissing(Map<AEKey, Long> deficits) {
+        for (var entry : deficits.entrySet()) {
+            long amount = entry.getValue() == null ? 0L : entry.getValue();
+            if (amount > 0L) {
+                // External-demand entries are independent deficits; accumulate them when multiple cycle
+                // boundaries require the same leaf material.
+                missing.add(entry.getKey(), PlannerAmount.of(amount));
+            }
+        }
+    }
+
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
     boolean applyCycleTransaction(CycleSolveResult cycle, Map<AEKey, Long> ownedCycleReservations,
             Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAda
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -92,6 +93,7 @@ public final class CraftingNetworkCompiler {
         String contractEvidence = null;
         PatternSemanticAdapter adapter = PatternSemanticAdapters.find(semanticAdapters, details);
         PatternSemantics semantics;
+        ECORecipeClassifier.Classification fastClassification;
         try {
             PatternSemantics analyzed = adapter == null
                 ? PatternSemantics.unsupported(details, null, "NO_PATTERN_SEMANTIC_ADAPTER")
@@ -102,6 +104,7 @@ public final class CraftingNetworkCompiler {
             semantics = PatternSemantics.unsupported(details, null,
                 "SEMANTIC_ANALYSIS_FAILED:" + e.getClass().getSimpleName());
         }
+        fastClassification = ECORecipeClassifier.classify(details);
         try {
             outputs = semantics.producedOutputs().isEmpty() ? safeOutputs(details) : semantics.producedOutputs();
             if (outputs.isEmpty()) {
@@ -132,7 +135,7 @@ public final class CraftingNetworkCompiler {
             }
 
             if (!semantics.consumedInputs().isEmpty()) {
-                inputs = compileInputs(semantics);
+                inputs = compileInputs(semantics, fastClassification);
             } else {
                 inputs = compileRawInputs(details);
             }
@@ -176,7 +179,8 @@ public final class CraftingNetworkCompiler {
         return inputs;
     }
 
-    private static List<CompiledInput> compileInputs(PatternSemantics semantics) {
+    private static List<CompiledInput> compileInputs(PatternSemantics semantics,
+            ECORecipeClassifier.Classification classification) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (PatternSemantics.Input input : semantics.consumedInputs()) {
             String reason = "";
@@ -192,7 +196,11 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "UNSUPPORTED_EXECUTION_RESTRICTION";
             }
-            if (input.returnedKey() != null && !semantics.cycleSafeForStaticPlanning()) {
+            // A reusable component or durability-mutating tool is proven by the FastPath classifier and
+            // represented by the runtime batch model. It must not be rejected as a generic remainder.
+            boolean mutationRemainder = classification.supported()
+                && classification.type() != ECORecipeClassifier.Type.NORMAL;
+            if (input.returnedKey() != null && !semantics.cycleSafeForStaticPlanning() && !mutationRemainder) {
                 fastSupported = false;
                 reason = "UNSUPPORTED_REMAINDER";
             }

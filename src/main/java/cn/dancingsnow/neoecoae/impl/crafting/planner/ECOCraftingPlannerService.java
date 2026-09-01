@@ -86,6 +86,7 @@ public final class ECOCraftingPlannerService {
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
                     solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos));
+                result.setTheoreticalBytes(solved.state().plannerBytes());
                 logPlanningSummary(result, amount, simulation);
                 logPlanningFailure(result, amount, simulation);
                 attach(result);
@@ -150,13 +151,14 @@ public final class ECOCraftingPlannerService {
             // the warning log; an unresolved bounded cycle is the diagnostic the current investigation needs.
             for (var component : result.components()) {
                 CycleSolveResult cycle = component.cycleResult();
-                if (component.type() != ComponentPlanningResult.Type.CYCLIC
-                        || cycle == null || cycle.status() != CycleSolveStatus.UNKNOWN_BUDGET) {
+                if (component.type() != ComponentPlanningResult.Type.CYCLIC || cycle == null
+                        || (cycle.status() != CycleSolveStatus.UNKNOWN_BUDGET
+                            && cycle.status() != CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT)) {
                     continue;
                 }
                 var metrics = cycle.metrics();
                 LOGGER.warn(
-                    "[ECO-PLANNER] cycle solve unknown goal={} amount={} simulation={} componentId={} "
+                    "[ECO-PLANNER] cycle solve unresolved goal={} amount={} simulation={} componentId={} "
                         + "patterns={} requiredOutputs={} cycleStatus={} cycleResultStatus={} "
                         + "requiredSeed={} seedShortfall={} externalDemand={} "
                         + "keys={} transitions={} statesVisited={} statesExpanded={} witnessLength={} "
@@ -172,6 +174,10 @@ public final class ECOCraftingPlannerService {
                 for (var diagnostic : cycle.diagnostics()) {
                     LOGGER.warn("[ECO-PLANNER] cycle diagnostic componentId={} code={} message={}",
                         component.componentId(), diagnostic.code(), diagnostic.message());
+                }
+                if (!component.externalMissingItems().isEmpty()) {
+                    LOGGER.warn("[ECO-PLANNER] cycle external materials missing componentId={} items={}",
+                        component.componentId(), component.externalMissingItems());
                 }
             }
         }
@@ -190,6 +196,19 @@ public final class ECOCraftingPlannerService {
                 result.plan() == null ? 0 : result.plan().patternTimes().size(),
                 result.plan() == null ? 0 : PlanIdentity.executionCount(result.plan().patternTimes()),
                 ECOPlanningResultRegistry.cycleExpected(result), amount, simulation);
+            if (result.plan() != null && !result.plan().missingItems().isEmpty()) {
+                LOGGER.info("[ECO-PLAN-MISSING] planningId={} finalOutput={} missing={}", result.planningId(),
+                    result.plan().finalOutput(), describeCounter(result.plan().missingItems()));
+            }
+        }
+
+        private String describeCounter(KeyCounter counter) {
+            StringBuilder result = new StringBuilder();
+            for (var entry : counter) {
+                if (result.length() > 0) result.append(", ");
+                result.append(entry.getKey()).append(" x").append(entry.getLongValue());
+            }
+            return result.toString();
         }
 
         private void attach(ECOPlanningResult result) {

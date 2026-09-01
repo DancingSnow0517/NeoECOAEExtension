@@ -3,9 +3,11 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
 import java.util.UUID;
+import java.math.BigInteger;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable planning answer. Its execution plan is interpreted exactly once during construction. */
@@ -17,6 +19,7 @@ public final class ECOPlanningResult {
     private final List<ComponentPlanningResult> components;
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
+    private BigInteger theoreticalBytes = BigInteger.ZERO;
     private final UUID planningId;
     private final ECOExecutionRequirement executionRequirement;
     private final @Nullable ECOExecutionPlan executionPlan;
@@ -79,6 +82,10 @@ public final class ECOPlanningResult {
     public List<ComponentPlanningResult> components() { return components; }
     public List<Integer> executionComponentOrder() { return executionComponentOrder; }
     public long calculationNanos() { return calculationNanos; }
+    public BigInteger theoreticalBytes() { return theoreticalBytes; }
+    public void setTheoreticalBytes(PlannerAmount bytes) {
+        theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
+    }
     public UUID planningId() { return planningId; }
     public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
     public @Nullable String executionPlanError() { return executionPlanError; }

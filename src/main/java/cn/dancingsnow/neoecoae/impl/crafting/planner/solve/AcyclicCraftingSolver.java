@@ -224,7 +224,12 @@ public final class AcyclicCraftingSolver {
                 if (available.signum() > 0) addCounter(state.crafted, output.getKey(), available);
             }
             for (CompiledInput input : pattern.inputs()) {
-                PlannerAmount required = input.amountPerPattern().multiply(times);
+                // A verified one-item same-key return is working stock, not a fresh ingredient for every firing.
+                // Keep the input edge in the structural graph so the seed is still required once, but do not
+                // inflate a reusable catalyst into millions of missing items.
+                PlannerAmount required = input.reusable()
+                    ? input.amountPerPattern()
+                    : input.amountPerPattern().multiply(times);
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
                 state.demand.put(input.key(), old.add(required));
                 state.demandProducers.put(input.key(), pattern.details());

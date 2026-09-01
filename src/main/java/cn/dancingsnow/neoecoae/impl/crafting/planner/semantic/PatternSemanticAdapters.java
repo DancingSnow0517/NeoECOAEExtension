@@ -10,7 +10,8 @@ public final class PatternSemanticAdapters {
     }
 
     public static List<PatternSemanticAdapter> defaults() {
-        return List.of(new ThunderPatternSemanticAdapter(), new AE2PatternSemanticAdapter());
+        return List.of(new ThunderPatternSemanticAdapter(), new ExtendedAEPlusPatternSemanticAdapter(),
+            new AE2PatternSemanticAdapter());
     }
 
     public static PatternSemanticAdapter find(List<PatternSemanticAdapter> adapters, IPatternDetails pattern) {

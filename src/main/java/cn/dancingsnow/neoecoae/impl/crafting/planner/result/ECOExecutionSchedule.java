@@ -180,12 +180,17 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                     if (selected != null && selected != consumerPhase) {
                         producers = List.of(selected);
                     } else if (selected != null) {
-                        // A pattern may return/re-emit one of its own inputs. That self-production is not a
-                        // substitute for a different planned producer of the same key; retain the other producer
-                        // edges so a dynamic/catalyst pattern cannot be placed before its actual supplier.
-                        producers = outputProducers.getOrDefault(key, List.of()).stream()
-                            .filter(producer -> producer != consumerPhase)
-                            .toList();
+                        if (phases.get(consumerPhase).type() == Type.CYCLE) {
+                            // The selected producer is this solved cycle phase. Treat the phase as an atomic
+                            // feedback transition: adding another producer edge for the same consumed key can
+                            // create a false cycle (cycle -> DAG -> cycle).
+                            producers = List.of();
+                        } else {
+                            // A DAG pattern may return/re-emit one of its own inputs; retain another planned
+                            // producer so it cannot be placed before its actual supplier.
+                            producers = outputProducers.getOrDefault(key, List.of()).stream()
+                                .filter(producer -> producer != consumerPhase).toList();
+                        }
                     } else {
                         producers = outputProducers.getOrDefault(key, List.of());
                     }
