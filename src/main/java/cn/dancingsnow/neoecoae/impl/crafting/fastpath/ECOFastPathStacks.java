@@ -20,7 +20,12 @@ public final class ECOFastPathStacks {
 
     enum ItemStackValidation {
         PERSISTED(true, true),
-        FAST_PATH(false, false),
+        /**
+         * A deterministic crafting result may carry a component patch. The exact component-bearing AEItemKey is
+         * part of both the execution snapshot and the verified cache result, so batching preserves the complete
+         * output identity. Damage remains excluded here because it requires the mutation model below.
+         */
+        FAST_PATH(true, false),
         FAST_PATH_INPUT(true, true),
         /** A slow-path-verified result may carry component patches and non-zero durability. */
         FAST_PATH_MUTATION(true, true);
