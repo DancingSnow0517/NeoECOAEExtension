@@ -26,6 +26,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.math.BigInteger;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -53,6 +54,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     @GuiSync(100)
     private long neoecoae$calculationNanos;
+
+    @Unique
+    @GuiSync(105)
+    private String neoecoae$theoreticalBytes = "0";
 
     /** Zero means absent; otherwise this is {@code PlanningStatus.ordinal() + 1}. */
     @Unique
@@ -90,6 +95,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private void resetPlannerDiagnostics(AEKey what, int amount, CalculationStrategy strategy,
             CallbackInfoReturnable<Boolean> cir) {
         neoecoae$calculationNanos = 0;
+        neoecoae$theoreticalBytes = "0";
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
@@ -109,6 +115,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     )
     private void capturePlannerDiagnostics(CallbackInfo ci) {
         neoecoae$calculationNanos = 0;
+        neoecoae$theoreticalBytes = "0";
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
@@ -134,6 +141,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (planningResult != null) {
             neoecoae$confirmedPlanningResult = planningResult;
             neoecoae$calculationNanos = planningResult.calculationNanos();
+            neoecoae$theoreticalBytes = planningResult.theoreticalBytes().toString();
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;
@@ -154,6 +162,13 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         exactAmountFor(cycle.exactSingleNetOutputs(), key),
                         exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId()));
+                }
+                // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
+                // the left-hand list so the report remains actionable instead of showing an empty plan.
+                for (var seed : cycle.requiredSeed()) {
+                    cycleItems.putIfAbsent(seed.key(), new ECOCycleItemList.Entry(seed.key(),
+                        java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
+                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId()));
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
@@ -241,6 +256,15 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Override
     public long neoecoae$getCalculationNanos() {
         return neoecoae$calculationNanos;
+    }
+
+    @Override
+    public BigInteger neoecoae$getTheoreticalBytes() {
+        try {
+            return new BigInteger(neoecoae$theoreticalBytes);
+        } catch (NumberFormatException ignored) {
+            return BigInteger.ZERO;
+        }
     }
 
     @Override

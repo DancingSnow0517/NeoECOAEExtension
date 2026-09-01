@@ -18,6 +18,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
@@ -25,6 +26,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
@@ -70,6 +72,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -81,6 +85,8 @@ import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -198,6 +204,17 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return false;
         }
         return worker.pushBatch(verified);
+    }
+
+    /** Compatibility entry point retained for crafting_tracker releases built against the pre-verification API. */
+    @Deprecated(forRemoval = false)
+    public boolean pushBatch(cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest request,
+            @Nullable BatchFastPathOffer offer) {
+        if (request == null || offer == null) return false;
+        // Old requests do not carry the trusted recipe credential required by the current executor. Refuse the
+        // unsafe conversion and let the caller use its normal fallback path; the signature remains available for
+        // legacy Mixin linkage and tracking hooks.
+        return false;
     }
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {
@@ -700,6 +717,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
             // patterns as executable providers, even if their encoded item remains stored for manual removal.
             if (details instanceof IMolecularAssemblerSupportedPattern) {
+                ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
+                LOGGER.debug("[ECO-FASTPATH-CANDIDATE] pattern={} type={} supported={} reason={}",
+                    details, classification.type(), classification.supported(), classification.reason());
                 if (shouldValidateNetGrowthPatterns()) {
                     NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
                 }

@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECODurabilityBatchModel;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
@@ -236,13 +237,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         var outputTotal = ECOBatchCraftingHelper.multiply(verified.outputsPerCraft(), batchSize);
-        var model = verified.recipe().durabilityModel();
-        var inputTotal = model == null
-            ? ECOBatchCraftingHelper.multiply(verified.inputsPerCraft(), batchSize)
-            : model.batchInputs(verified.inputsPerCraft(), batchSize);
-        var remainingTotal = model == null
-            ? ECOBatchCraftingHelper.multiply(verified.remainingPerCraft(), batchSize)
-            : model.batchRemainders(verified.remainingPerCraft(), batchSize);
+        var inputTotal = verified.recipe().batchInputs(batchSize);
+        var remainingTotal = verified.recipe().batchRemainders(batchSize);
         var work = new ECOBatchCraftingWork(
             batchSize,
             inputTotal,
@@ -269,13 +265,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         ECOVirtualCraftingWork work = new ECOVirtualCraftingWork(
             verified.craftCount(),
-            verified.recipe().durabilityModel() == null
-                ? ECOBatchCraftingHelper.multiply(verified.recipe().inputsPerCraft(), verified.craftCount())
-                : verified.recipe().durabilityModel().batchInputs(verified.recipe().inputsPerCraft(), verified.craftCount()),
+            verified.recipe().batchInputs(verified.craftCount()),
             ECOBatchCraftingHelper.multiply(verified.recipe().outputsPerCraft(), verified.craftCount()),
-            verified.recipe().durabilityModel() == null
-                ? ECOBatchCraftingHelper.multiply(verified.recipe().remainingPerCraft(), verified.craftCount())
-                : verified.recipe().durabilityModel().batchRemainders(verified.recipe().remainingPerCraft(), verified.craftCount()),
+            verified.recipe().batchRemainders(verified.craftCount()),
             verified.craftingJobId()
         );
         if (!canRetainGenericStacks(work.outputTotal())
@@ -436,7 +428,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
         var inputEntries = ECOFastPathStacks.fromItemStacks(inputs);
         var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
-        if (outputEntries.isEmpty() || inputEntries.isEmpty() || remainingEntries.isEmpty()) {
+        if (outputEntries.isEmpty() || inputEntries.isEmpty()) {
             cache.putNegative(key, tick);
             return;
         }
@@ -447,7 +439,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return;
         }
         var model = ECODurabilityBatchModel.analyze(beforeSlots, remainingSlots).orElse(null);
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick, model);
+        List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
+            .map(List::of).orElse(List.of());
+        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick, model,
+            execution.fastPathType(),
+            ECOFastPathResult.componentChanges(beforeSlots, remainingSlots),
+            ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
+            ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
+            ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
