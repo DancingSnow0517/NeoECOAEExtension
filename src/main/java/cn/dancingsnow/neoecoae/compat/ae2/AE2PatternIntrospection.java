@@ -5,6 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
+import appeng.crafting.pattern.AESmithingTablePattern;
 import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
@@ -42,9 +43,11 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        // AE2 stores stonecutting recipes as a dedicated pattern implementation rather than an
-        // AECraftingPattern, but it still has deterministic molecular-assembler semantics.
-        return details instanceof AECraftingPattern || details instanceof AEStonecuttingPattern;
+        // AE2 stores smithing and stonecutting recipes as dedicated pattern implementations rather
+        // than AECraftingPattern, but both still have deterministic molecular-assembler semantics.
+        return details instanceof AECraftingPattern
+            || details instanceof AESmithingTablePattern
+            || details instanceof AEStonecuttingPattern;
     }
 
     /**
