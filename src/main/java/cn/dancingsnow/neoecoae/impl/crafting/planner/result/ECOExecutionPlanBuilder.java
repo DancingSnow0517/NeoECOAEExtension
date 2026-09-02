@@ -31,7 +31,6 @@ public final class ECOExecutionPlanBuilder {
         try {
             return buildValidated(signature, mode, components, executionOrder, patternTimes, provenance);
         } catch (IllegalArgumentException | IllegalStateException failure) {
-            logCycleValidationFailure(failure);
             throw failure;
         }
     }
@@ -130,36 +129,6 @@ public final class ECOExecutionPlanBuilder {
                         ? component.cycleResult().requiredSeed() : Map.of()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
-    }
-
-    /** Logs a rejected cycle hand-off without changing the exception or validation outcome. */
-    private static void logCycleValidationFailure(RuntimeException failure) {
-        String reason = cycleValidationReason(failure.getMessage());
-        if (reason == null) return;
-        LOGGER.warn("[ECO-Cycle] execution plan rejected: {}; detail={}", reason, failure.getMessage());
-    }
-
-    private static String cycleValidationReason(String detail) {
-        String message = detail == null ? "" : detail.toLowerCase(Locale.ROOT);
-        if (message.contains("firing vector") || message.contains("cycle trace consumes")) {
-            return "循环 Pattern 次数与 CraftingPlan.patternTimes 不一致";
-        }
-        if (message.contains("dependencies contain a cycle") || message.contains("topological order")) {
-            return "循环执行顺序无法满足物品依赖";
-        }
-        if (message.contains("negative") || message.contains("reservation") || message.contains("useditems")) {
-            return "模拟执行过程中库存出现负数";
-        }
-        if (message.contains("seed") || message.contains("stock_satisfied")) {
-            return "循环启动种子缺失";
-        }
-        if (message.contains("external")) {
-            return "外部 Phase 材料依赖未满足";
-        }
-        if (message.contains("phase") || message.contains("pattern") || message.contains("task")) {
-            return "Pattern 未被正确分配到执行 Phase";
-        }
-        return null;
     }
 
     private static void validateCycleCounts(ComponentPlanningResult component,

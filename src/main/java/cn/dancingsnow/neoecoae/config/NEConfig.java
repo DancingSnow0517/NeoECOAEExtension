@@ -90,12 +90,6 @@ public class NEConfig {
             "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
         .define("ecoAe2FastPathEnabled", true);
 
-    private static final ModConfigSpec.BooleanValue DEBUG_ECO_FAST_PATH = BUILDER
-        .comment(
-            "定期向日志输出 ECO 快速路径缓存统计信息。",
-            "Periodically write ECO fast-path cache statistics to the log.")
-        .define("debugEcoFastPath", false);
-
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
@@ -130,7 +124,6 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
-    public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
 
@@ -151,7 +144,6 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
-        debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }

@@ -487,7 +487,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         List<ItemStack> actualSlots
     ) {
         LOGGER.warn(
-            "[ECO-FASTPATH-STATE-MISMATCH]\nexpectedSlotCount={}\nactualSlotCount={}\nexpectedSlots:\n{}\nactualSlots:\n{}",
+            "Fast path state slot mismatch:\nexpectedSlotCount={}\nactualSlotCount={}\nexpectedSlots:\n{}\nactualSlots:\n{}",
             expectedSlots.size(),
             actualSlots.size(),
             formatFastPathStateSlots(expectedSlots),

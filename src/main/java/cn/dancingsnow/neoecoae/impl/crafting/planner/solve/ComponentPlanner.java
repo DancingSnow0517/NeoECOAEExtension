@@ -416,10 +416,9 @@ public final class ComponentPlanner {
                 for (CompiledInput input : pattern.inputs()) {
                     if (pattern.specialAnalysis().excludesFromCycleGraph(input)
                             || provenance.covers(input.key())) continue;
-                    String message = "[ECO-PROVENANCE] unattributed key=" + input.key()
+                    String message = "Unattributed key=" + input.key()
                         + " consumer=" + pattern.details();
                     if (!reported.add(message)) continue;
-                    LOGGER.warn(message);
                     trace.addDiagnostic(new PlannerDiagnostic(
                         PlannerDiagnostic.Code.PROVENANCE_UNATTRIBUTED, message));
                 }

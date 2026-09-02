@@ -8,12 +8,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import net.minecraft.world.item.ItemStack;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Recognizes remainder/catalyst state transitions before structural graph construction. */
 public final class SpecialPatternAnalyzer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SpecialPatternAnalyzer.class);
     private final Function<CompiledInput, SpecialPatternAnalysis.Requirement> inspector;
 
     public SpecialPatternAnalyzer() {
@@ -39,15 +36,7 @@ public final class SpecialPatternAnalyzer {
         }
         if (requirements.isEmpty()) return SpecialPatternAnalysis.NONE;
 
-        var result = new SpecialPatternAnalysis(requirements);
-        if (LOGGER.isDebugEnabled()) {
-            for (var requirement : requirements) {
-                LOGGER.debug("[ECO-SPECIAL-PATTERN] pattern={} type={} handledBy=SpecialPatternResolver "
-                        + "excludedFromCycleGraph=true", patternId + ":" + pattern,
-                    requirement.type());
-            }
-        }
-        return result;
+        return new SpecialPatternAnalysis(requirements);
     }
 
     private static SpecialPatternAnalysis.Requirement classify(CompiledInput input) {

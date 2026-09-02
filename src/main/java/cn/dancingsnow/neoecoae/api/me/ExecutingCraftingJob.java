@@ -320,7 +320,7 @@ public class ExecutingCraftingJob {
         }
         if (result instanceof DispatchResult.Fatal fatal) {
             permanentExecutionError = PermanentExecutionError.EXECUTION_PLAN_INVALID;
-            LOGGER.error("[ECO-EXEC] fatal dispatch result: {}", fatal.reason());
+            LOGGER.error("Fatal dispatch result: {}", fatal.reason());
         }
         return 0L;
     }
@@ -332,7 +332,7 @@ public class ExecutingCraftingJob {
         }
         if (result instanceof DispatchResult.Fatal fatal) {
             permanentExecutionError = PermanentExecutionError.EXECUTION_PLAN_INVALID;
-            LOGGER.error("[ECO-EXEC] fatal dispatch result: {}", fatal.reason());
+            LOGGER.error("Fatal dispatch result: {}", fatal.reason());
         }
         return 0L;
     }
@@ -528,7 +528,7 @@ public class ExecutingCraftingJob {
                 }
                 syncRuntimeProjection();
             } catch (RuntimeException malformedPlan) {
-                LOGGER.error("[ECO-RECOVERY] persisted execution plan failed validation", malformedPlan);
+                LOGGER.error("Persisted execution plan failed validation", malformedPlan);
                 recoveryFailed = true;
             }
         } else if (persistedMode == ExecutionMode.PHASED_DAG || persistedMode == ExecutionMode.ORDERED_CYCLE

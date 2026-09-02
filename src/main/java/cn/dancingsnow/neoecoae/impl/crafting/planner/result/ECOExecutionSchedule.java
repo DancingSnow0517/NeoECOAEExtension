@@ -108,7 +108,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                     witness.add(executable);
                 }
             }
-            logPhaseGeneration(phases.size(), id, type, patterns);
             phases.add(new ComponentExecutionPhase(id, type, patterns, witness));
         }
 
@@ -123,7 +122,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             int syntheticId = components.stream().mapToInt(ComponentPlanningResult::componentId).max().orElse(-1) + 1;
             for (IPatternDetails pattern : unassigned) {
                 Set<IPatternDetails> patterns = Set.of(pattern);
-                logPhaseGeneration(phases.size(), syntheticId, Type.DAG, patterns);
+                // synthetic phase, no debug log
+                // synthetic phase, no debug log
                 phases.add(new ComponentExecutionPhase(syntheticId++, Type.DAG, patterns, List.of()));
                 assignedPatterns.add(pattern);
             }
@@ -171,8 +171,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 for (var input : semantics.consumedInputs()) {
                     AEKey key = input.key();
                     if (provenance == null || !provenance.covers(key)) {
-                        if (LOGGER.isDebugEnabled()) LOGGER.debug(
-                            "[ECO-DEPENDENCY] fallback key={} consumerPattern={} reason=NO_ATTRIBUTION", key, pattern);
                         Set<Integer> fallbackProducers = primaryProducersByKey.getOrDefault(
                             key, producersByKey.getOrDefault(key, Set.of()));
                         for (int producer : fallbackProducers) {
@@ -219,7 +217,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
         if (ordered.size() != phases.size()) {
             String cycles = describeResidualCycles(phases, outgoing, edgeKeys, orderedIndices);
-            LOGGER.warn("[ECO-DEPENDENCY] rejected final phase graph: {}", cycles);
             throw new IllegalStateException(
                 "Final executable pattern dependencies contain a cycle outside a solved cycle phase: " + cycles);
         }
@@ -318,8 +315,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         if (producer == consumer) return;
         edgeKeys.computeIfAbsent(new PhaseDependency(producer, consumer), ignored -> new LinkedHashSet<>())
             .add(key + " (" + source + ")");
-        logDependency(phases, producer, consumer, consumerPattern, key, semantics,
-            addDependency(outgoing, indegree, producer, consumer));
+        addDependency(outgoing, indegree, producer, consumer);
     }
 
     private static Integer matchingPhase(IPatternDetails pattern, Map<IPatternDetails, Integer> phaseOfPattern) {
@@ -365,30 +361,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             return pattern.getPrimaryOutput();
         } catch (RuntimeException ignored) {
             return null;
-        }
-    }
-
-    private static void logDependency(List<ComponentExecutionPhase> phases, int producer, int consumer,
-            IPatternDetails consumerPattern, AEKey key, PatternSemantics semantics, boolean edgeAdded) {
-        if (!LOGGER.isDebugEnabled()) return;
-        IPatternDetails producerPattern = phases.get(producer).patternSet().stream()
-            .filter(pattern -> producedOutputs(pattern).stream().anyMatch(output -> output != null
-                && key.equals(output.what())))
-            .findFirst()
-            .orElseGet(() -> phases.get(producer).patternSet().stream().findFirst().orElse(null));
-        LOGGER.debug("[ECO-DEPENDENCY] producerPattern={} consumerPattern={} key={} producerPhase={} consumerPhase={} "
-                + "edgeAdded={} matchMode={} definition={}",
-            producerPattern, consumerPattern, key, producer, consumer, edgeAdded, semantics.matchingMode(),
-            semantics.physicalDefinition());
-    }
-
-    private static void logPhaseGeneration(int phaseIndex, int componentId, Type type,
-            Set<IPatternDetails> patterns) {
-        if (!LOGGER.isDebugEnabled()) return;
-        for (IPatternDetails pattern : patterns) {
-            PatternSemantics semantics = semantic(pattern);
-            LOGGER.debug("[ECO-PHASE-GENERATION] phaseIndex={} phaseType={} componentId={} pattern={} inputs={} outputs={}",
-                phaseIndex, type, componentId, pattern, semantics.consumedInputs(), producedOutputs(pattern));
         }
     }
 
