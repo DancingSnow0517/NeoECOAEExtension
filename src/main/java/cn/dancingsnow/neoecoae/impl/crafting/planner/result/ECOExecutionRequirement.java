@@ -9,11 +9,13 @@ import java.util.Map;
 public enum ECOExecutionRequirement {
     NONE,
     ORDERED,
+    DYNAMIC,
     BLOCKED;
 
     public static ECOExecutionRequirement classify(List<ComponentPlanningResult> components,
             Map<IPatternDetails, Long> plannedTasks) {
         boolean ordered = false;
+        boolean dynamic = false;
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
             boolean plannedMember = component.executionPatterns().stream().anyMatch(pattern ->
@@ -30,14 +32,31 @@ public enum ECOExecutionRequirement {
                     }
                     ordered = true;
                 }
+                case DYNAMIC_EXECUTION -> {
+                    if (!plannedMember || component.cycleStatus() != CyclePlanningStatus.SOLVED
+                            || component.cycleResult() == null || !component.cycleResult().status().solved()
+                            || !component.cycleResult().hasExactExecutionCounts()) {
+                        return BLOCKED;
+                    }
+                    dynamic = true;
+                }
             }
         }
-        return ordered ? ORDERED : NONE;
+        return dynamic ? DYNAMIC : ordered ? ORDERED : NONE;
     }
 
     public static boolean componentIsOrdered(ComponentPlanningResult component) {
         return component != null && component.type() == ComponentPlanningResult.Type.CYCLIC
             && component.cycleDisposition() == CycleExecutionDisposition.ORDERED_EXECUTION;
+    }
+
+    public static boolean componentIsDynamic(ComponentPlanningResult component) {
+        return component != null && component.type() == ComponentPlanningResult.Type.CYCLIC
+            && component.cycleDisposition() == CycleExecutionDisposition.DYNAMIC_EXECUTION;
+    }
+
+    public static boolean componentIsExecutableCycle(ComponentPlanningResult component) {
+        return componentIsOrdered(component) || componentIsDynamic(component);
     }
 
     private static long plannedCount(IPatternDetails pattern, Map<IPatternDetails, Long> tasks) {

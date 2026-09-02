@@ -30,7 +30,7 @@ public final class ECOPhaseScheduler {
     /** A compact single-transition cycle has no expanded witness but still needs component phase ordering. */
     public static boolean requiresComponentScheduling(ECOExecutionSchedule schedule) {
         return schedule != null && schedule.phases().stream().anyMatch(phase ->
-            phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.patternSet().isEmpty());
+            phase.type() != ECOExecutionSchedule.Type.DAG && !phase.patternSet().isEmpty());
     }
 
     public static boolean canDispatch(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,

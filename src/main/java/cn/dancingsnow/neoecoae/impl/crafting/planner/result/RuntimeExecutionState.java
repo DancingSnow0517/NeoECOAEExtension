@@ -12,6 +12,8 @@ import java.util.TreeSet;
 public final class RuntimeExecutionState {
     private final ECOExecutionPlan plan;
     private final long[] remaining;
+    private final long[] dynamicRemaining;
+    private final long[] dynamicPhaseRemaining;
     private final int[] stepIndex;
     private final long[] stepRemaining;
     private final int[] unmetDependencies;
@@ -26,6 +28,14 @@ public final class RuntimeExecutionState {
     public RuntimeExecutionState(ECOExecutionPlan plan) {
         this.plan = Objects.requireNonNull(plan, "plan");
         remaining = plan.tasks().stream().mapToLong(ECOExecutionPlan.TaskSpec::totalCount).toArray();
+        dynamicRemaining = new long[remaining.length];
+        dynamicPhaseRemaining = new long[plan.phases().size()];
+        for (var phase : plan.phases()) {
+            phase.dynamicFirings().forEach((taskId, count) -> {
+                dynamicRemaining[taskId] = count;
+                dynamicPhaseRemaining[phase.index()] = Math.addExact(dynamicPhaseRemaining[phase.index()], count);
+            });
+        }
         stepIndex = new int[plan.phases().size()];
         stepRemaining = new long[plan.phases().size()];
         unmetDependencies = new int[plan.phases().size()];
@@ -42,10 +52,16 @@ public final class RuntimeExecutionState {
     public boolean finished() { return allComplete(); }
     public long remaining(int taskId) { return remaining[checked(taskId)]; }
     public long[] remainingSnapshot() { return remaining.clone(); }
+    public long dynamicRemaining(int taskId) { return dynamicRemaining[checked(taskId)]; }
+    public long[] dynamicRemainingSnapshot() { return dynamicRemaining.clone(); }
     public int stepIndex(int phaseId) { return stepIndex[phaseId]; }
     public long stepRemaining(int phaseId) { return stepRemaining[phaseId]; }
     public ECOExecutionPlan.PhaseSpec activePhase() {
         return readyPhases.isEmpty() ? null : plan.phases().get(readyPhases.first());
+    }
+    public boolean activeDynamicCycle() {
+        var phase = activePhase();
+        return phase != null && phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE;
     }
     public List<Integer> eligibleTaskIds() {
         return new ArrayList<>(readyTaskIds);
@@ -55,6 +71,9 @@ public final class RuntimeExecutionState {
         int phase = plan.task(taskId).phaseIndex();
         if (!readyTaskIds.contains(taskId) || complete[phase] || unmetDependencies[phase] != 0) return 0L;
         var spec = plan.phases().get(phase);
+        if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && dynamicPhaseRemaining[phase] > 0L) {
+            return Math.min(remaining[taskId], dynamicRemaining[taskId]);
+        }
         if (stepIndex[phase] < spec.steps().size()) {
             return spec.steps().get(stepIndex[phase]).taskId() == taskId
                 ? Math.min(remaining[taskId], stepRemaining[phase]) : 0L;
@@ -76,7 +95,13 @@ public final class RuntimeExecutionState {
         for (var task : plan.tasks()) {
             if (remaining[task.id()] <= 0L) continue;
             var phase = plan.phases().get(task.phaseIndex());
-            if (phase.type() != ECOExecutionSchedule.Type.CYCLE) continue;
+            if (phase.type() == ECOExecutionSchedule.Type.DAG) continue;
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                if (dynamicPhaseRemaining[phase.index()] > 0L) {
+                    reserve = Math.max(reserve, phase.initialSeed().getOrDefault(key, 0L));
+                }
+                continue;
+            }
             long perCraft = 0L;
             for (var input : task.pattern().getInputs()) {
                 if (input == null || input.getPossibleInputs() == null) continue;
@@ -105,6 +130,16 @@ public final class RuntimeExecutionState {
         remaining[taskId] -= count;
         int phase = plan.task(taskId).phaseIndex();
         var spec = plan.phases().get(phase);
+        boolean dynamicVectorCompleted = false;
+        if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && dynamicPhaseRemaining[phase] > 0L) {
+            if (count > dynamicRemaining[taskId]) {
+                throw new IllegalArgumentException("Dispatch exceeds dynamic cycle firing vector");
+            }
+            dynamicRemaining[taskId] -= count;
+            dynamicPhaseRemaining[phase] -= count;
+            if (dynamicRemaining[taskId] == 0L) readyTaskIds.remove(taskId);
+            dynamicVectorCompleted = dynamicPhaseRemaining[phase] == 0L;
+        }
         if (remaining[taskId] == 0L) {
             readyTaskIds.remove(taskId);
             unfinishedTasks[phase]--;
@@ -118,23 +153,39 @@ public final class RuntimeExecutionState {
                 exposePhaseTasks(phase, newlyReady);
             }
         }
+        if (dynamicVectorCompleted) exposePhaseTasks(phase, newlyReady);
         if (phaseDone(phase)) completePhase(phase, newlyReady);
         updateActivePhaseIndex();
         return newlyReady;
     }
 
-    public void restore(long[] restoredRemaining, int[] restoredSteps, long[] restoredStepRemaining) {
+    public void restore(long[] restoredRemaining, long[] restoredDynamicRemaining,
+            int[] restoredSteps, long[] restoredStepRemaining) {
         if (restoredRemaining == null || restoredRemaining.length != remaining.length) {
             throw new IllegalArgumentException("Persisted task vector length mismatch");
         }
         if (restoredSteps.length != stepIndex.length || restoredStepRemaining.length != stepRemaining.length) {
             throw new IllegalArgumentException("Persisted phase cursor length mismatch");
         }
+        if (restoredDynamicRemaining == null || restoredDynamicRemaining.length != dynamicRemaining.length) {
+            throw new IllegalArgumentException("Persisted dynamic firing vector length mismatch");
+        }
         for (int i = 0; i < remaining.length; i++) {
             if (restoredRemaining[i] < 0 || restoredRemaining[i] > plan.task(i).totalCount()) {
                 throw new IllegalArgumentException("Invalid persisted remaining");
             }
             remaining[i] = restoredRemaining[i];
+            long plannedDynamic = plan.phases().get(plan.task(i).phaseIndex()).dynamicFirings().getOrDefault(i, 0L);
+            if (restoredDynamicRemaining[i] < 0L || restoredDynamicRemaining[i] > plannedDynamic
+                    || restoredDynamicRemaining[i] > remaining[i]) {
+                throw new IllegalArgumentException("Invalid persisted dynamic firing remainder");
+            }
+            dynamicRemaining[i] = restoredDynamicRemaining[i];
+        }
+        Arrays.fill(dynamicPhaseRemaining, 0L);
+        for (int taskId = 0; taskId < dynamicRemaining.length; taskId++) {
+            int phase = plan.task(taskId).phaseIndex();
+            dynamicPhaseRemaining[phase] = Math.addExact(dynamicPhaseRemaining[phase], dynamicRemaining[taskId]);
         }
         for (int phase = 0; phase < stepIndex.length; phase++) {
             var steps = plan.phases().get(phase).steps();
@@ -154,6 +205,14 @@ public final class RuntimeExecutionState {
         rebuildFrontier();
     }
 
+    /** Source-compatible restore for plans created before dynamic cycle phases existed. */
+    public void restore(long[] restoredRemaining, int[] restoredSteps, long[] restoredStepRemaining) {
+        if (plan.phases().stream().anyMatch(phase -> !phase.dynamicFirings().isEmpty())) {
+            throw new IllegalArgumentException("Dynamic cycle restore requires its persisted firing vector");
+        }
+        restore(restoredRemaining, new long[remaining.length], restoredSteps, restoredStepRemaining);
+    }
+
     private void validateCursor(int phase) {
         var spec = plan.phases().get(phase);
         long[] consumed = new long[remaining.length];
@@ -169,6 +228,12 @@ public final class RuntimeExecutionState {
         boolean traceActive = stepIndex[phase] < spec.steps().size();
         for (int taskId : spec.taskIds()) {
             long actual = plan.task(taskId).totalCount() - remaining[taskId];
+            if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                long dynamicConsumed = spec.dynamicFirings().getOrDefault(taskId, 0L) - dynamicRemaining[taskId];
+                if (actual < dynamicConsumed || dynamicPhaseRemaining[phase] > 0L && actual != dynamicConsumed) {
+                    throw new IllegalArgumentException("Persisted dynamic vector does not match task accounting");
+                }
+            }
             if (actual < consumed[taskId] || traceActive && actual != consumed[taskId]) {
                 throw new IllegalArgumentException("Persisted cursor does not match task accounting");
             }
@@ -234,7 +299,11 @@ public final class RuntimeExecutionState {
     private void exposePhaseTasks(int phase, List<Integer> newlyReady) {
         if (complete[phase] || unmetDependencies[phase] != 0) return;
         var spec = plan.phases().get(phase);
-        if (stepIndex[phase] < spec.steps().size()) {
+        if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && dynamicPhaseRemaining[phase] > 0L) {
+            for (int taskId : spec.taskIds()) {
+                if (dynamicRemaining[taskId] > 0L) exposeTask(taskId, newlyReady);
+            }
+        } else if (stepIndex[phase] < spec.steps().size()) {
             exposeTask(spec.steps().get(stepIndex[phase]).taskId(), newlyReady);
         } else {
             for (int taskId : spec.taskIds()) exposeTask(taskId, newlyReady);

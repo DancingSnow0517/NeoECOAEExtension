@@ -111,6 +111,74 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
+        provider.add("gui.neoecoae.crafting.fast_path_reason", "FastPath miss reason: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cache_miss", "No verified result in the cache");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.fast_path_disabled", "FastPath is disabled");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.post_crafting_event_enabled",
+            "Crafting events are enabled, so FastPath is disabled");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.key_build_failed", "Cannot build the cache key");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.ae2_introspection_unavailable",
+            "AE2 pattern information is unavailable");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unsafe_pattern_type", "Unsupported pattern type");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.slow_execution_context", "Slow execution context");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cache_result_mismatch", "Cached result does not match");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.negative_cache", "The recipe is marked as unsupported");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.cached_result_materialization_failed",
+            "Cached result could not be materialized");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verified_output_or_input_conversion_failed",
+            "Verified output or input conversion failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.assembly_contract_mismatch",
+            "Assembly result does not match the pattern contract");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_second_step_proof_failed",
+            "Second state transition proof failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verified_stack_validation_failed",
+            "Verified stack validation failed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.reusable_state_model_missing",
+            "Reusable state model is missing");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_slot_count_mismatch",
+            "State slot count changed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.mixed_reusable_state_models",
+            "Reusable state models are mixed");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.durability_transition_invalid",
+            "Durability transition is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.state_transition_not_provably_linear",
+            "State transition cannot be proven linear");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.verification_rejected", "Recipe verification was rejected");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.pattern_input_inspection_failed",
+            "Pattern inputs could not be inspected");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.pattern_null", "Pattern is missing");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.no_inputs", "Pattern has no inputs");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.no_outputs", "Pattern has no outputs");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.non_item_output", "Pattern output is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_input", "Pattern input is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.non_item_input", "Pattern input is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_item_input", "Pattern input item is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.invalid_remainder", "Pattern remainder is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.remainder_is_not_reusable_item",
+            "Remainder is not a reusable item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.runtime_simulation_required",
+            "Runtime simulation is required");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.one_to_one_reusable_item_or_component",
+            "One-to-one reusable item or component");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.static_item_contract", "Static item contract");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.multiple", "Multiple reasons");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unknown", "Unknown reason");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.unknown_code", "Unknown reason: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.output_count", "Output count is not 1: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.output", "Output validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.remainder", "Remainder validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.input", "Input validation failed: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.null_collection", "collection is null");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.too_many_entries", "too many entries");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.empty_required", "required collection is empty");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.null_stack", "stack is null");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.invalid_amount", "amount is invalid");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.non_item_key", "key is not an item");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.empty_item_stack", "item stack is empty");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.damaged_item", "item is damaged");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.component_patch", "component patch is unsupported");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.validation.unknown_validation", "unknown validation failure");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.classifier_failed", "Pattern classifier failed: %s");
         provider.add("gui.neoecoae.crafting.overclock.on", "Disable Overclock");
         provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
@@ -177,6 +245,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
+        provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
         provider.add("gui.neoecoae.crafting_graph.toolbar.root", "Root");

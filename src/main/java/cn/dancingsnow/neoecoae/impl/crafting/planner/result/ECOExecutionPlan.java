@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import java.util.List;
@@ -59,13 +60,33 @@ public record ECOExecutionPlan(
     }
 
     public record PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
-            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
+            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies,
+            java.util.Map<Integer, Long> dynamicFirings, java.util.Map<AEKey, Long> initialSeed) {
         public PhaseSpec {
             if (index < 0) throw new IllegalArgumentException("Negative phase index");
             Objects.requireNonNull(type, "type");
             taskIds = List.copyOf(taskIds);
             steps = List.copyOf(steps);
             dependencies = List.copyOf(dependencies);
+            dynamicFirings = java.util.Map.copyOf(dynamicFirings);
+            initialSeed = java.util.Map.copyOf(initialSeed);
+            for (var entry : dynamicFirings.entrySet()) {
+                Integer taskId = entry.getKey();
+                Long count = entry.getValue();
+                if (taskId == null || !taskIds.contains(taskId) || count == null || count <= 0L) {
+                    throw new IllegalArgumentException("Invalid dynamic cycle firing vector");
+                }
+            }
+            initialSeed.forEach((key, amount) -> {
+                if (key == null || amount == null || amount <= 0L) {
+                    throw new IllegalArgumentException("Invalid dynamic cycle seed");
+                }
+            });
+        }
+
+        public PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
+                List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
+            this(index, componentId, type, taskIds, steps, dependencies, java.util.Map.of(), java.util.Map.of());
         }
     }
 
@@ -76,7 +97,7 @@ public record ECOExecutionPlan(
         }
     }
 
-    public enum TaskKind { DAG, CYCLE_REMAINDER, CYCLE_ORDERED }
+    public enum TaskKind { DAG, CYCLE_REMAINDER, CYCLE_ORDERED, CYCLE_DYNAMIC }
 
     private static void validateShape(List<TaskSpec> tasks, List<PhaseSpec> phases, ExecutionMode mode) {
         boolean[] taskOwned = new boolean[tasks.size()];
@@ -97,6 +118,23 @@ public record ECOExecutionPlan(
             }
             if (phase.type() == ECOExecutionSchedule.Type.DAG && !phase.steps().isEmpty()) {
                 throw new IllegalArgumentException("A DAG phase cannot contain ordered cycle steps");
+            }
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.steps().isEmpty()) {
+                throw new IllegalArgumentException("A dynamic cycle phase cannot contain ordered steps");
+            }
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && phase.dynamicFirings().isEmpty()) {
+                throw new IllegalArgumentException("A dynamic cycle phase requires an exact firing vector");
+            }
+            if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.dynamicFirings().isEmpty()) {
+                throw new IllegalArgumentException("Only a dynamic cycle phase can contain dynamic firings");
+            }
+            phase.dynamicFirings().forEach((taskId, count) -> {
+                if (count > tasks.get(taskId).totalCount()) {
+                    throw new IllegalArgumentException("Dynamic firing count exceeds its task total");
+                }
+            });
+            if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.initialSeed().isEmpty()) {
+                throw new IllegalArgumentException("Only a dynamic cycle phase can retain startup seed metadata");
             }
             java.util.HashSet<Integer> uniqueDependencies = new java.util.HashSet<>();
             for (int dependency : phase.dependencies()) {
@@ -119,6 +157,10 @@ public record ECOExecutionPlan(
         if (mode == ExecutionMode.ORDERED_CYCLE && phases.stream()
                 .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.CYCLE && !p.steps().isEmpty())) {
             throw new IllegalArgumentException("Ordered-cycle mode requires an ordered cycle trace");
+        }
+        if (mode == ExecutionMode.DYNAMIC_CYCLE && phases.stream()
+                .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !p.taskIds().isEmpty())) {
+            throw new IllegalArgumentException("Dynamic-cycle mode requires a dynamic cycle phase");
         }
     }
 }

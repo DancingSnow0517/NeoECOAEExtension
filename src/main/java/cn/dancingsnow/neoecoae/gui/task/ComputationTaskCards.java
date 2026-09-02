@@ -14,6 +14,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public final class ComputationTaskCards {
@@ -109,6 +110,84 @@ public final class ComputationTaskCards {
                 Tooltips.ofDuration(entry.elapsedTimeNanos(), TimeUnit.NANOSECONDS)));
         }
         return lines;
+    }
+
+    public static Component fastPathReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_reason.unknown");
+        }
+        if (reason.startsWith("OUTPUT_COUNT_")) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_reason.output_count",
+                reason.substring("OUTPUT_COUNT_".length()));
+        }
+        for (String role : new String[] {"OUTPUT", "REMAINDER", "INPUT"}) {
+            String prefix = role + "_";
+            if (reason.startsWith(prefix)) {
+                String failure = reason.substring(prefix.length());
+                String failureKey = validationFailureKey(failure);
+                return Component.translatable("gui.neoecoae.crafting.fast_path_reason." + role.toLowerCase(Locale.ROOT),
+                    Component.translatable("gui.neoecoae.crafting.fast_path_reason.validation." + failureKey));
+            }
+        }
+        if (reason.startsWith("CLASSIFIER_FAILED:")) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_reason.classifier_failed",
+                reason.substring("CLASSIFIER_FAILED:".length()));
+        }
+        String key = switch (reason) {
+            case "CACHE_MISS" -> "cache_miss";
+            case "FAST_PATH_DISABLED" -> "fast_path_disabled";
+            case "POST_CRAFTING_EVENT_ENABLED" -> "post_crafting_event_enabled";
+            case "KEY_BUILD_FAILED" -> "key_build_failed";
+            case "AE2_INTROSPECTION_UNAVAILABLE" -> "ae2_introspection_unavailable";
+            case "UNSAFE_PATTERN_TYPE" -> "unsafe_pattern_type";
+            case "SLOW_EXECUTION_CONTEXT" -> "slow_execution_context";
+            case "CACHE_RESULT_MISMATCH" -> "cache_result_mismatch";
+            case "NEGATIVE_CACHE" -> "negative_cache";
+            case "CACHED_RESULT_MATERIALIZATION_FAILED" -> "cached_result_materialization_failed";
+            case "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED" -> "verified_output_or_input_conversion_failed";
+            case "ASSEMBLY_CONTRACT_MISMATCH" -> "assembly_contract_mismatch";
+            case "STATE_SECOND_STEP_PROOF_FAILED" -> "state_second_step_proof_failed";
+            case "VERIFIED_STACK_VALIDATION_FAILED" -> "verified_stack_validation_failed";
+            case "REUSABLE_STATE_MODEL_MISSING" -> "reusable_state_model_missing";
+            case "STATE_SLOT_COUNT_MISMATCH" -> "state_slot_count_mismatch";
+            case "MIXED_REUSABLE_STATE_MODELS" -> "mixed_reusable_state_models";
+            case "DURABILITY_TRANSITION_INVALID" -> "durability_transition_invalid";
+            case "STATE_TRANSITION_NOT_PROVABLY_LINEAR" -> "state_transition_not_provably_linear";
+            case "VERIFICATION_REJECTED" -> "verification_rejected";
+            case "PATTERN_INPUT_INSPECTION_FAILED" -> "pattern_input_inspection_failed";
+            case "PATTERN_NULL" -> "pattern_null";
+            case "NO_INPUTS" -> "no_inputs";
+            case "NO_OUTPUTS" -> "no_outputs";
+            case "NON_ITEM_OUTPUT" -> "non_item_output";
+            case "INVALID_INPUT" -> "invalid_input";
+            case "NON_ITEM_INPUT" -> "non_item_input";
+            case "INVALID_ITEM_INPUT" -> "invalid_item_input";
+            case "INVALID_REMAINDER" -> "invalid_remainder";
+            case "REMAINDER_IS_NOT_REUSABLE_ITEM" -> "remainder_is_not_reusable_item";
+            case "RUNTIME_SIMULATION_REQUIRED" -> "runtime_simulation_required";
+            case "ONE_TO_ONE_REUSABLE_ITEM_OR_COMPONENT" -> "one_to_one_reusable_item_or_component";
+            case "STATIC_ITEM_CONTRACT" -> "static_item_contract";
+            case "MULTIPLE" -> "multiple";
+            default -> null;
+        };
+        return key == null
+            ? Component.translatable("gui.neoecoae.crafting.fast_path_reason.unknown_code", reason)
+            : Component.translatable("gui.neoecoae.crafting.fast_path_reason." + key);
+    }
+
+    private static String validationFailureKey(String failure) {
+        return switch (failure) {
+            case "NULL_COLLECTION" -> "null_collection";
+            case "TOO_MANY_ENTRIES" -> "too_many_entries";
+            case "EMPTY_REQUIRED" -> "empty_required";
+            case "NULL_STACK" -> "null_stack";
+            case "INVALID_AMOUNT" -> "invalid_amount";
+            case "NON_ITEM_KEY" -> "non_item_key";
+            case "EMPTY_ITEM_STACK" -> "empty_item_stack";
+            case "DAMAGED_ITEM" -> "damaged_item";
+            case "COMPONENT_PATCH" -> "component_patch";
+            default -> "unknown_validation";
+        };
     }
 
     private static Component cpuName(ComputationTaskEntry entry) {

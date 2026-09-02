@@ -37,6 +37,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private static final int CYCLE_STATUS_Y = 7;
     private static final long GIGA_BYTE = 1_000_000_000L;
     private static final MathContext TIME_PRECISION = new MathContext(5, RoundingMode.HALF_UP);
+    private static final long LARGE_CYCLE_INDICATOR_DELAY_NANOS = 500_000_000L;
+    private static final int SOLVE_PROGRESS_X = 28;
+    private static final int SOLVE_PROGRESS_Y = 21;
+    private static final int SOLVE_PROGRESS_WIDTH = 140;
 
     private final ECOCraftConfirmTableRenderer table;
     private final ECOExactMaterialTableRenderer exactTable;
@@ -47,6 +51,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Scrollbar scrollbar;
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
+    private final long openedNanos = System.nanoTime();
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
@@ -76,6 +81,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
             .withColor(AE2_TEXT_DARK);
+        if (plan == null && showLargeCycleIndicator()) {
+            planSummary = Component.translatable("gui.neoecoae.crafting_report.solving_large_cycle")
+                .withColor(AE2_TEXT_DARK);
+        }
         if (plan != null) {
             String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
@@ -163,6 +172,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         CraftingPlanSummary plan = menu.getPlan();
+        if (plan == null && showLargeCycleIndicator()) {
+            long elapsedMillis = (System.nanoTime() - openedNanos) / 1_000_000L;
+            int fill = 1 + (int) (elapsedMillis % 2_000L) * (SOLVE_PROGRESS_WIDTH - 2) / 1_999;
+            graphics.fill(SOLVE_PROGRESS_X, SOLVE_PROGRESS_Y,
+                SOLVE_PROGRESS_X + SOLVE_PROGRESS_WIDTH, SOLVE_PROGRESS_Y + 4, 0xFF6A6A72);
+            graphics.fill(SOLVE_PROGRESS_X + 1, SOLVE_PROGRESS_Y + 1,
+                SOLVE_PROGRESS_X + 1 + fill, SOLVE_PROGRESS_Y + 3, 0xFF3D9B62);
+        }
         if (isUnrepresentablePlan() || isEcoPartialPlan()) {
             exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
         }
@@ -174,6 +191,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         cycleItems.renderTooltip(graphics);
+    }
+
+    private boolean showLargeCycleIndicator() {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$isCyclePlanningEnabled()
+            && System.nanoTime() - openedNanos >= LARGE_CYCLE_INDICATOR_DELAY_NANOS;
     }
 
     private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected) {

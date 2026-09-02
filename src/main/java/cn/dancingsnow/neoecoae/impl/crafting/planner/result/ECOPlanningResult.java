@@ -48,8 +48,10 @@ public final class ECOPlanningResult {
             try {
                 PlanIdentity.Signature signature = PlanIdentity.of(plan);
                 if (signature == null) throw new IllegalStateException("Plan identity unavailable");
-                ExecutionMode mode = requirement == ECOExecutionRequirement.ORDERED
-                    ? ExecutionMode.ORDERED_CYCLE : ExecutionMode.PHASED_DAG;
+                ExecutionMode mode = requirement == ECOExecutionRequirement.DYNAMIC
+                    ? ExecutionMode.DYNAMIC_CYCLE
+                    : requirement == ECOExecutionRequirement.ORDERED
+                        ? ExecutionMode.ORDERED_CYCLE : ExecutionMode.PHASED_DAG;
                 built = ECOExecutionPlanBuilder.build(signature, mode, this.components,
                     this.executionComponentOrder, plan.patternTimes());
                 if (built.phases().isEmpty()) {

@@ -5,5 +5,6 @@ public enum ExecutionMode {
     NATIVE,
     PHASED_DAG,
     ORDERED_CYCLE,
+    DYNAMIC_CYCLE,
     BLOCKED
 }

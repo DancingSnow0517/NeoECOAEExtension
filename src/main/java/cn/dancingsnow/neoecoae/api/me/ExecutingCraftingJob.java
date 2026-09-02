@@ -86,18 +86,22 @@ public class ExecutingCraftingJob {
     private static final String NBT_EXECUTION_MODE = "executionMode";
     private static final String NBT_EXECUTION_CONTRACT_VERSION = "executionContractVersion";
     private static final String NBT_PLAN_SIGNATURE_HASH = "planSignatureHash";
-    private static final int EXECUTION_CONTRACT_VERSION = 5;
-    private static final String NBT_EXECUTION_PLAN = "executionPlanV5";
+    private static final String NBT_PERMANENT_EXECUTION_ERROR = "permanentExecutionError";
+    private static final int EXECUTION_CONTRACT_VERSION = 6;
+    private static final String NBT_EXECUTION_PLAN = "executionPlanV6";
     private static final String NBT_PLAN_TASKS = "planTasks";
     private static final String NBT_PLAN_PHASES = "planPhases";
     private static final String NBT_TASK_ID = "taskId";
     private static final String NBT_TASK_TOTAL = "total";
     private static final String NBT_TASK_REMAINING = "remaining";
+    private static final String NBT_TASK_DYNAMIC_TOTAL = "dynamicTotal";
+    private static final String NBT_TASK_DYNAMIC_REMAINING = "dynamicRemaining";
     private static final String NBT_TASK_PHASE = "phase";
     private static final String NBT_TASK_KIND = "kind";
     private static final String NBT_PHASE_TASK_IDS = "taskIds";
     private static final String NBT_PHASE_STEPS = "steps";
     private static final String NBT_PHASE_DEPENDENCIES = "dependencies";
+    private static final String NBT_PHASE_INITIAL_SEED = "initialSeed";
     private static final String NBT_STEP_COUNT = "count";
     private static final String NBT_STEP_REMAINING = "stepRemaining";
     private static final String NBT_SIGNATURE_USED = "signatureUsed";
@@ -116,6 +120,7 @@ public class ExecutingCraftingJob {
     @Nullable ECOExecutionContract executionContract;
     @Nullable RuntimeExecutionState runtimeExecutionState;
     @Nullable Map<Integer, TaskProgress> runtimeProgressProjection;
+    int dynamicCycleNoProgressTicks;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -151,6 +156,24 @@ public class ExecutingCraftingJob {
     }
 
     boolean orderedCycle() { return executionMode == ExecutionMode.ORDERED_CYCLE; }
+
+    boolean dynamicCycle() { return executionMode == ExecutionMode.DYNAMIC_CYCLE; }
+
+    boolean anyCycleMode() { return orderedCycle() || dynamicCycle(); }
+
+    void recordDynamicCyclePass(boolean progressed, boolean inventoryBlocked) {
+        if (runtimeExecutionState == null || !runtimeExecutionState.activeDynamicCycle()) {
+            dynamicCycleNoProgressTicks = 0;
+            return;
+        }
+        if (progressed || !inventoryBlocked || !waitingFor.list.isEmpty()) {
+            dynamicCycleNoProgressTicks = 0;
+            return;
+        }
+        if (++dynamicCycleNoProgressTicks >= 1_200) {
+            permanentExecutionError = PermanentExecutionError.DYNAMIC_CYCLE_BLOCKED;
+        }
+    }
 
     /** Shared runtime state. It is never reconstructed from the mutable AE2 compatibility map. */
     @Nullable RuntimeExecutionState runtimeExecutionState() {
@@ -467,6 +490,15 @@ public class ExecutingCraftingJob {
             catch (IllegalArgumentException ignored) { persistedMode = ExecutionMode.BLOCKED; }
         }
         if (persistedMode != null) this.executionMode = persistedMode;
+        PermanentExecutionError persistedExecutionError = null;
+        if (data.contains(NBT_PERMANENT_EXECUTION_ERROR, Tag.TAG_STRING)) {
+            try {
+                persistedExecutionError = PermanentExecutionError.valueOf(
+                    data.getString(NBT_PERMANENT_EXECUTION_ERROR));
+            } catch (IllegalArgumentException ignored) {
+                recoveryFailed = true;
+            }
+        }
         if (persistedContractVersion != 0 && persistedContractVersion != EXECUTION_CONTRACT_VERSION
                 && persistedMode != null && persistedMode != ExecutionMode.NATIVE) {
             recoveryFailed = true;
@@ -485,7 +517,7 @@ public class ExecutingCraftingJob {
                     restored.plan().mode(), restored.plan(), null);
                 this.executionSchedule = restored.plan().schedule();
                 this.runtimeExecutionState = new RuntimeExecutionState(restored.plan());
-                this.runtimeExecutionState.restore(restored.remaining(), restored.stepIndexes(),
+                this.runtimeExecutionState.restore(restored.remaining(), restored.dynamicRemaining(), restored.stepIndexes(),
                     restored.stepRemaining());
                 this.executionMode = restored.plan().mode();
                 this.permanentExecutionError = null;
@@ -499,7 +531,8 @@ public class ExecutingCraftingJob {
                 LOGGER.error("[ECO-RECOVERY] persisted execution plan failed validation", malformedPlan);
                 recoveryFailed = true;
             }
-        } else if (persistedMode == ExecutionMode.PHASED_DAG || persistedMode == ExecutionMode.ORDERED_CYCLE) {
+        } else if (persistedMode == ExecutionMode.PHASED_DAG || persistedMode == ExecutionMode.ORDERED_CYCLE
+                || persistedMode == ExecutionMode.DYNAMIC_CYCLE) {
             // Legacy schedule-only saves cannot prove compressed step counts or task ownership. Keep the job
             // visible and cancellable, but never resume it with guessed execution metadata.
             recoveryFailed = true;
@@ -507,6 +540,9 @@ public class ExecutingCraftingJob {
         if (recoveryFailed) {
             this.permanentExecutionError = PermanentExecutionError.RECOVERY_ERROR;
             this.executionMode = ExecutionMode.BLOCKED;
+        }
+        if (!recoveryFailed && persistedExecutionError != null) {
+            this.permanentExecutionError = persistedExecutionError;
         }
         if (persistedMode == ExecutionMode.PHASED_DAG && (executionSchedule == null || executionSchedule.phases().isEmpty())) {
             this.permanentExecutionError = PermanentExecutionError.RECOVERY_ERROR;
@@ -548,16 +584,20 @@ public class ExecutingCraftingJob {
         data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
         data.putInt(NBT_CURRENT_COMPONENT, currentComponentIndex);
         data.putInt(NBT_EXECUTION_STEP, executionStepIndex);
-        data.putBoolean(NBT_CYCLE_EXPECTED, orderedCycle());
+        data.putBoolean(NBT_CYCLE_EXPECTED, anyCycleMode());
         data.putBoolean(NBT_REQUIRES_COMPONENT_SCHEDULING, phased());
         // Retain the legacy safety bit so downgrading does not turn a known cycle into unordered execution.
         data.putBoolean(NBT_REQUIRES_ORDERED_CYCLE, orderedCycle());
         data.putString(NBT_EXECUTION_MODE, executionContract == null
             ? (permanentExecutionError != null ? ExecutionMode.BLOCKED.name()
-                : phased() ? (orderedCycle() ? ExecutionMode.ORDERED_CYCLE.name() : ExecutionMode.PHASED_DAG.name())
+                : phased() ? (dynamicCycle() ? ExecutionMode.DYNAMIC_CYCLE.name()
+                    : orderedCycle() ? ExecutionMode.ORDERED_CYCLE.name() : ExecutionMode.PHASED_DAG.name())
                 : ExecutionMode.NATIVE.name())
             : executionContract.mode().name());
         data.putInt(NBT_EXECUTION_CONTRACT_VERSION, EXECUTION_CONTRACT_VERSION);
+        if (permanentExecutionError != null) {
+            data.putString(NBT_PERMANENT_EXECUTION_ERROR, permanentExecutionError.name());
+        }
         if (runtimeExecutionState != null) {
             data.putInt(NBT_PLAN_SIGNATURE_HASH, runtimeExecutionState.plan().signature().hashCode());
             data.put(NBT_EXECUTION_PLAN, writeExecutionPlan(registries));
@@ -587,6 +627,9 @@ public class ExecutingCraftingJob {
             tag.putInt(NBT_TASK_ID, task.id());
             tag.putLong(NBT_TASK_TOTAL, task.totalCount());
             tag.putLong(NBT_TASK_REMAINING, state.remaining(task.id()));
+            tag.putLong(NBT_TASK_DYNAMIC_TOTAL, plan.phases().get(task.phaseIndex())
+                .dynamicFirings().getOrDefault(task.id(), 0L));
+            tag.putLong(NBT_TASK_DYNAMIC_REMAINING, state.dynamicRemaining(task.id()));
             tag.putInt(NBT_TASK_PHASE, task.phaseIndex());
             tag.putString(NBT_TASK_KIND, task.kind().name());
             taskTags.add(tag);
@@ -600,6 +643,7 @@ public class ExecutingCraftingJob {
             tag.putString(NBT_COMPONENT_TYPE, phase.type().name());
             tag.putIntArray(NBT_PHASE_TASK_IDS, phase.taskIds());
             tag.putIntArray(NBT_PHASE_DEPENDENCIES, phase.dependencies());
+            tag.put(NBT_PHASE_INITIAL_SEED, writeKeyAmounts(phase.initialSeed(), registries));
             tag.putInt(NBT_EXECUTION_STEP, state.stepIndex(phase.index()));
             tag.putLong(NBT_STEP_REMAINING, state.stepRemaining(phase.index()));
             ListTag steps = new ListTag();
@@ -631,11 +675,15 @@ public class ExecutingCraftingJob {
         ListTag taskTags = root.getList(NBT_PLAN_TASKS, Tag.TAG_COMPOUND);
         List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>();
         long[] remaining = new long[taskTags.size()];
+        long[] dynamicRemaining = new long[taskTags.size()];
+        long[] dynamicTotals = new long[taskTags.size()];
         Map<IPatternDetails, Long> totals = new java.util.LinkedHashMap<>();
         for (int i = 0; i < taskTags.size(); i++) {
             CompoundTag tag = taskTags.getCompound(i);
             if (!tag.contains(NBT_TASK_ID, Tag.TAG_INT) || !tag.contains(NBT_TASK_TOTAL, Tag.TAG_LONG)
                     || !tag.contains(NBT_TASK_REMAINING, Tag.TAG_LONG)
+                    || !tag.contains(NBT_TASK_DYNAMIC_TOTAL, Tag.TAG_LONG)
+                    || !tag.contains(NBT_TASK_DYNAMIC_REMAINING, Tag.TAG_LONG)
                     || !tag.contains(NBT_TASK_PHASE, Tag.TAG_INT)
                     || !tag.contains(NBT_TASK_KIND, Tag.TAG_STRING)) {
                 throw new IllegalArgumentException("Persisted task entry is incomplete");
@@ -647,6 +695,8 @@ public class ExecutingCraftingJob {
             if (pattern == null) throw new IllegalArgumentException("Cannot decode persisted execution task " + id);
             long total = tag.getLong(NBT_TASK_TOTAL);
             remaining[id] = tag.getLong(NBT_TASK_REMAINING);
+            dynamicTotals[id] = tag.getLong(NBT_TASK_DYNAMIC_TOTAL);
+            dynamicRemaining[id] = tag.getLong(NBT_TASK_DYNAMIC_REMAINING);
             var identity = PlanIdentity.patternIdentityFor(pattern);
             if (identity == null) throw new IllegalArgumentException("Persisted task has no identity");
             var kind = ECOExecutionPlan.TaskKind.valueOf(tag.getString(NBT_TASK_KIND));
@@ -666,6 +716,7 @@ public class ExecutingCraftingJob {
                     || !tag.contains(NBT_COMPONENT_TYPE, Tag.TAG_STRING)
                     || !tag.contains(NBT_PHASE_TASK_IDS, Tag.TAG_INT_ARRAY)
                     || !tag.contains(NBT_PHASE_DEPENDENCIES, Tag.TAG_INT_ARRAY)
+                    || !tag.contains(NBT_PHASE_INITIAL_SEED, Tag.TAG_LIST)
                     || !tag.contains(NBT_EXECUTION_STEP, Tag.TAG_INT)
                     || !tag.contains(NBT_STEP_REMAINING, Tag.TAG_LONG)
                     || !tag.contains(NBT_PHASE_STEPS, Tag.TAG_LIST)) {
@@ -687,7 +738,12 @@ public class ExecutingCraftingJob {
                     step.getLong(NBT_STEP_COUNT)));
             }
             int componentId = tag.getInt(NBT_COMPONENT_ID);
-            phases.add(new ECOExecutionPlan.PhaseSpec(i, componentId, type, taskIds, steps, dependencies));
+            Map<Integer, Long> dynamicFirings = new java.util.LinkedHashMap<>();
+            for (int taskId : taskIds) if (dynamicTotals[taskId] > 0L) {
+                dynamicFirings.put(taskId, dynamicTotals[taskId]);
+            }
+            phases.add(new ECOExecutionPlan.PhaseSpec(i, componentId, type, taskIds, steps, dependencies,
+                dynamicFirings, readKeyAmounts(tag.getList(NBT_PHASE_INITIAL_SEED, Tag.TAG_COMPOUND), registries)));
             LinkedHashSet<IPatternDetails> patterns = new LinkedHashSet<>();
             for (int taskId : taskIds) patterns.add(tasks.get(taskId).pattern());
             schedulePhases.add(new ECOExecutionSchedule.ComponentExecutionPhase(componentId, type, patterns, List.of()));
@@ -706,7 +762,7 @@ public class ExecutingCraftingJob {
             dependencies.add(new ECOExecutionSchedule.PhaseDependency(producer, phase.index()));
         var plan = new ECOExecutionPlan(signature, mode, tasks, phases,
             new ECOExecutionSchedule(schedulePhases, dependencies));
-        return new RestoredExecution(plan, remaining, stepIndexes, stepRemaining);
+        return new RestoredExecution(plan, remaining, dynamicRemaining, stepIndexes, stepRemaining);
     }
 
     private static ListTag writeKeyAmounts(Map<AEKey, Long> values, HolderLookup.Provider registries) {
@@ -727,7 +783,8 @@ public class ExecutingCraftingJob {
         return Map.copyOf(result);
     }
 
-    private record RestoredExecution(ECOExecutionPlan plan, long[] remaining, int[] stepIndexes,
+    private record RestoredExecution(ECOExecutionPlan plan, long[] remaining, long[] dynamicRemaining,
+            int[] stepIndexes,
             long[] stepRemaining) { }
 
     private @Nullable ListTag writeExecutionSchedule(HolderLookup.Provider registries) {
@@ -806,6 +863,7 @@ public class ExecutingCraftingJob {
 
     enum PermanentExecutionError {
         CYCLE_METADATA_MISSING,
+        DYNAMIC_CYCLE_BLOCKED,
         EXECUTION_PLAN_INVALID,
         RECOVERY_ERROR
     }

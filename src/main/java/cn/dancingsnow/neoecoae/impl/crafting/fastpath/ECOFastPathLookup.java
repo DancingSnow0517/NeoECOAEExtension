@@ -7,7 +7,8 @@ import org.jetbrains.annotations.Nullable;
  * to treat differently (cold miss must verify, negative entry must not re-verify, stale positive entry must be
  * demoted to negative) without forcing a second map lookup or a second value comparison.
  *
- * <p>The three non-verified outcomes are shared singletons, so only a genuine hit allocates.
+ * <p>Miss and mismatch outcomes are shared singletons. Negative outcomes that carry the cached rejection
+ * reason allocate a small result so the caller can expose the actual diagnostic.
  */
 public final class ECOFastPathLookup {
     public enum Status {
@@ -21,18 +22,20 @@ public final class ECOFastPathLookup {
         VERIFIED
     }
 
-    private static final ECOFastPathLookup MISS = new ECOFastPathLookup(Status.MISS, null);
-    private static final ECOFastPathLookup NEGATIVE = new ECOFastPathLookup(Status.NEGATIVE, null);
-    private static final ECOFastPathLookup MISMATCH = new ECOFastPathLookup(Status.MISMATCH, null);
+    private static final ECOFastPathLookup MISS = new ECOFastPathLookup(Status.MISS, null, "CACHE_MISS");
+    private static final ECOFastPathLookup NEGATIVE = new ECOFastPathLookup(Status.NEGATIVE, null, null);
+    private static final ECOFastPathLookup MISMATCH = new ECOFastPathLookup(Status.MISMATCH, null, "CACHE_RESULT_MISMATCH");
 
     private final Status status;
+    private final String reason;
 
     @Nullable
     private final ECOVerifiedFastPathRecipe recipe;
 
-    private ECOFastPathLookup(Status status, @Nullable ECOVerifiedFastPathRecipe recipe) {
+    private ECOFastPathLookup(Status status, @Nullable ECOVerifiedFastPathRecipe recipe, @Nullable String reason) {
         this.status = status;
         this.recipe = recipe;
+        this.reason = reason;
     }
 
     static ECOFastPathLookup miss() {
@@ -43,16 +46,24 @@ public final class ECOFastPathLookup {
         return NEGATIVE;
     }
 
+    static ECOFastPathLookup negative(String reason) {
+        return new ECOFastPathLookup(Status.NEGATIVE, null, reason);
+    }
+
     static ECOFastPathLookup mismatch() {
         return MISMATCH;
     }
 
     static ECOFastPathLookup verified(ECOVerifiedFastPathRecipe recipe) {
-        return new ECOFastPathLookup(Status.VERIFIED, recipe);
+        return new ECOFastPathLookup(Status.VERIFIED, recipe, null);
     }
 
     public Status status() {
         return status;
+    }
+
+    public String reason() {
+        return reason;
     }
 
     public boolean isVerified() {

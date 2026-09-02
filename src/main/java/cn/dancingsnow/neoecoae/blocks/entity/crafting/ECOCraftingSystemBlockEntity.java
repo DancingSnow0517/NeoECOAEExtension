@@ -71,6 +71,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -1223,6 +1224,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         private long totalProgress;
         private long remainingProgress;
         private boolean waitingOutput = true;
+        private final LinkedHashSet<String> fastPathReasons = new LinkedHashSet<>();
 
         private TaskAggregate(ItemStack output) {
             this.output = output;
@@ -1239,6 +1241,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             remainingProgress = NEMath.saturatingAdd(remainingProgress,
                 NEMath.saturatingMultiply(Math.max(0, maxProgress - progress), crafts));
             waitingOutput &= snapshot.outputsReady();
+            if (snapshot.fastPathReason() != null && !"FAST_PATH_HIT".equals(snapshot.fastPathReason())) {
+                fastPathReasons.add(snapshot.fastPathReason());
+            }
         }
 
         private ComputationTaskEntry toEntry(BlockPos controllerPos, int index) {
@@ -1259,7 +1264,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 0,
                 CpuSelectionMode.ANY,
                 progress,
-                0L
+                0L,
+                fastPathReasons.isEmpty() ? null
+                    : fastPathReasons.size() == 1 ? fastPathReasons.iterator().next() : "MULTIPLE"
             );
         }
     }

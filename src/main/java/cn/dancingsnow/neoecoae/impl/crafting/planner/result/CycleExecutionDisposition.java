@@ -8,6 +8,8 @@ public enum CycleExecutionDisposition {
     STOCK_SATISFIED,
     /** The solved component has positive firings and must execute with ordered cycle metadata. */
     ORDERED_EXECUTION,
+    /** The solved component has exact firings, but its patterns are selected from live inventory at runtime. */
+    DYNAMIC_EXECUTION,
     /** Positive demand has neither complete stock coverage nor a valid executable cycle solve. */
     BLOCKED
 }

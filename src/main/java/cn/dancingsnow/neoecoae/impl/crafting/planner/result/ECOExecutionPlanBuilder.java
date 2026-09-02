@@ -1,21 +1,15 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import net.minecraft.core.registries.BuiltInRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +24,7 @@ public final class ECOExecutionPlanBuilder {
         try {
             return buildValidated(signature, mode, components, executionOrder, patternTimes);
         } catch (IllegalArgumentException | IllegalStateException failure) {
-            logCycleValidationFailure(failure, components);
+            logCycleValidationFailure(failure);
             throw failure;
         }
     }
@@ -77,7 +71,9 @@ public final class ECOExecutionPlanBuilder {
                 && component != null && component.cycleResult() != null
                 && !component.cycleResult().executionPlan().isEmpty();
             var kind = phase.type() == ECOExecutionSchedule.Type.DAG ? ECOExecutionPlan.TaskKind.DAG
-                : ordered ? ECOExecutionPlan.TaskKind.CYCLE_ORDERED : ECOExecutionPlan.TaskKind.CYCLE_REMAINDER;
+                : phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                    ? ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC
+                    : ordered ? ECOExecutionPlan.TaskKind.CYCLE_ORDERED : ECOExecutionPlan.TaskKind.CYCLE_REMAINDER;
             int id = tasks.size();
             taskIdByIdentity.put(task.identity(), id);
             tasks.add(new ECOExecutionPlan.TaskSpec(id, task.identity(), task.pattern(),
@@ -92,6 +88,7 @@ public final class ECOExecutionPlanBuilder {
                 .map(ECOExecutionPlanBuilder::requireIdentity).map(taskIdByIdentity::get)
                 .sorted().toList();
             List<ECOExecutionPlan.ExecutionStep> steps = new ArrayList<>();
+            Map<Integer, Long> dynamicFirings = new LinkedHashMap<>();
             ComponentPlanningResult component = componentById.get(schedulePhase.componentId());
             if (schedulePhase.type() == ECOExecutionSchedule.Type.CYCLE && component != null
                     && component.cycleResult() != null) {
@@ -105,20 +102,34 @@ public final class ECOExecutionPlanBuilder {
                 }
                 validateCycleCounts(component, steps, tasks);
             }
+            if (schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && component != null
+                    && component.cycleResult() != null) {
+                for (var firing : component.cycleResult().patternTimes().entrySet()) {
+                    if (firing.getValue() == null || firing.getValue() <= 0L) continue;
+                    Integer taskId = taskIdByIdentity.get(requireIdentity(firing.getKey()));
+                    if (taskId == null || !taskIds.contains(taskId)) {
+                        throw new IllegalStateException("Dynamic firing vector references a task outside its phase");
+                    }
+                    dynamicFirings.merge(taskId, firing.getValue(), Math::addExact);
+                }
+                validateDynamicCycleCounts(component, dynamicFirings, tasks);
+            }
             phases.add(new ECOExecutionPlan.PhaseSpec(phaseIndex, schedulePhase.componentId(),
                 schedulePhase.type(), taskIds, steps, schedule.dependencies().stream()
                     .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
-                    .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
+                    .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList(),
+                dynamicFirings, schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                    && component != null && component.cycleResult() != null
+                        ? component.cycleResult().requiredSeed() : Map.of()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }
 
     /** Logs a rejected cycle hand-off without changing the exception or validation outcome. */
-    private static void logCycleValidationFailure(RuntimeException failure,
-            List<ComponentPlanningResult> components) {
+    private static void logCycleValidationFailure(RuntimeException failure) {
         String reason = cycleValidationReason(failure.getMessage());
         if (reason == null) return;
-        LOGGER.warn("[ECO-Cycle] reason={} items={}", reason, String.join(",", cycleItemIds(components)));
+        LOGGER.warn("[ECO-Cycle] execution plan rejected: {}; detail={}", reason, failure.getMessage());
     }
 
     private static String cycleValidationReason(String detail) {
@@ -142,41 +153,6 @@ public final class ECOExecutionPlanBuilder {
             return "Pattern 未被正确分配到执行 Phase";
         }
         return null;
-    }
-
-    private static Set<String> cycleItemIds(List<ComponentPlanningResult> components) {
-        Set<String> items = new LinkedHashSet<>();
-        for (ComponentPlanningResult component : components) {
-            if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
-            for (IPatternDetails pattern : component.executionPatterns()) addPatternItems(items, pattern);
-            component.requiredOutputs().keySet().forEach(key -> addItemId(items, key));
-            if (component.cycleResult() == null) continue;
-            component.cycleResult().patternTimes().keySet().forEach(pattern -> addPatternItems(items, pattern));
-            component.cycleResult().requiredSeed().keySet().forEach(key -> addItemId(items, key));
-            component.cycleResult().externalDemand().keySet().forEach(key -> addItemId(items, key));
-            component.cycleResult().producedOutputs().keySet().forEach(key -> addItemId(items, key));
-        }
-        return items;
-    }
-
-    private static void addPatternItems(Set<String> items, IPatternDetails pattern) {
-        try {
-            for (IPatternDetails.IInput input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null) continue;
-                for (GenericStack stack : input.getPossibleInputs()) {
-                    if (stack != null) addItemId(items, stack.what());
-                }
-            }
-            for (GenericStack stack : pattern.getOutputs()) if (stack != null) addItemId(items, stack.what());
-        } catch (RuntimeException ignored) {
-            // Validation still reports the original failure even when a malformed pattern cannot be described.
-        }
-    }
-
-    private static void addItemId(Set<String> items, AEKey key) {
-        if (key instanceof AEItemKey item) {
-            items.add(BuiltInRegistries.ITEM.getKey(item.toStack(1).getItem()).toString());
-        }
     }
 
     private static void validateCycleCounts(ComponentPlanningResult component,
@@ -213,6 +189,7 @@ public final class ECOExecutionPlanBuilder {
                 }
                 case STOCK_SATISFIED -> validateStockSatisfied(signature, component);
                 case ORDERED_EXECUTION -> validateOrdered(component);
+                case DYNAMIC_EXECUTION -> validateDynamic(component);
                 case BLOCKED -> throw componentFailure(component,
                     "Planner marked cyclic component BLOCKED: " + component.diagnostic());
             }
@@ -262,6 +239,33 @@ public final class ECOExecutionPlanBuilder {
             throw componentFailure(component,
                 "ORDERED_EXECUTION requires solved positive firings and compact execution metadata");
         }
+    }
+
+    private static void validateDynamic(ComponentPlanningResult component) {
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
+                || !component.cycleResult().hasExactExecutionCounts() || !hasPositiveFirings(component)) {
+            throw componentFailure(component,
+                "DYNAMIC_EXECUTION requires solved positive exact firing metadata");
+        }
+    }
+
+    private static void validateDynamicCycleCounts(ComponentPlanningResult component,
+            Map<Integer, Long> firings, List<ECOExecutionPlan.TaskSpec> tasks) {
+        Map<PlanIdentity.PatternIdentity, Long> expected = PlanIdentity.taskSignature(
+            component.cycleResult().patternTimes());
+        if (expected == null) throw new IllegalStateException("Dynamic cycle firing vector has no stable identity");
+        Map<PlanIdentity.PatternIdentity, Long> actual = new HashMap<>();
+        firings.forEach((taskId, count) -> actual.merge(tasks.get(taskId).identity(), count, Math::addExact));
+        expected = expected.entrySet().stream().filter(entry -> entry.getValue() > 0L).collect(
+            java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        if (!actual.equals(expected)) {
+            throw new IllegalStateException("Dynamic cycle firing vector changed at the execution boundary");
+        }
+        firings.forEach((taskId, count) -> {
+            if (count > tasks.get(taskId).totalCount()) {
+                throw new IllegalStateException("Dynamic cycle firing count exceeds aggregate AE2 task count");
+            }
+        });
     }
 
     private static boolean hasPositiveFirings(ComponentPlanningResult component) {

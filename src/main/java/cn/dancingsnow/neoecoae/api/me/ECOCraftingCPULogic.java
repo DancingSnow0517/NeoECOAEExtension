@@ -704,6 +704,8 @@ public class ECOCraftingCPULogic {
         if (pushedPatterns == 0) {
             logStalledDispatch(job, activePhase, maxPatterns, diagnostics, "dispatch-returned-zero");
         }
+        job.recordDynamicCyclePass(pushedPatterns > 0,
+            diagnostics.runnableTasks > 0 && diagnostics.tasksMissingInputs == diagnostics.runnableTasks);
         return pushedPatterns;
     }
 

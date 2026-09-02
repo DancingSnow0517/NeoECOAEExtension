@@ -32,6 +32,8 @@ public record CycleSolveLimits(
      * solver still remains finite, while callers that need a tighter latency bound can provide explicit limits.
      */
     public static final CycleSolveLimits DEFAULT = new CycleSolveLimits(8, 16, 100_000, 100_000, 12);
+    /** Opt-in budget used only after the planner has identified a large cyclic component. */
+    public static final CycleSolveLimits LARGE = new CycleSolveLimits(64, 64, 1_000_000, 1_000_000, 20);
 
     public CycleSolveLimits {
         if (maxKeys < 1 || maxPatterns < 1 || maxStates < 1 || maxFirings < 1 || maxSeedLadderSteps < 0) {

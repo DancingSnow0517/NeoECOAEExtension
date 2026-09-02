@@ -8,6 +8,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -26,6 +27,7 @@ public final class ComputationTaskEntry {
     private static final String NBT_CPU_SELECTION_MODE = "cpuSelectionMode";
     private static final String NBT_PROGRESS = "progress";
     private static final String NBT_ELAPSED_TIME_NANOS = "elapsedTimeNanos";
+    private static final String NBT_FAST_PATH_REASON = "fastPathReason";
 
     private final String id;
     private final ItemStack output;
@@ -41,6 +43,8 @@ public final class ComputationTaskEntry {
     private final CpuSelectionMode cpuSelectionMode;
     private final float progress;
     private final long elapsedTimeNanos;
+    @Nullable
+    private final String fastPathReason;
 
     public ComputationTaskEntry(
         String id,
@@ -58,6 +62,27 @@ public final class ComputationTaskEntry {
         float progress,
         long elapsedTimeNanos
     ) {
+        this(id, output, outputAmount, craftCount, totalProgress, remainingProgress, status, cpuSerial, cpuName,
+            cpuStorage, cpuCoProcessors, cpuSelectionMode, progress, elapsedTimeNanos, null);
+    }
+
+    public ComputationTaskEntry(
+        String id,
+        ItemStack output,
+        long outputAmount,
+        long craftCount,
+        long totalProgress,
+        long remainingProgress,
+        Status status,
+        int cpuSerial,
+        Component cpuName,
+        long cpuStorage,
+        int cpuCoProcessors,
+        CpuSelectionMode cpuSelectionMode,
+        float progress,
+        long elapsedTimeNanos,
+        @Nullable String fastPathReason
+    ) {
         this.id = id;
         this.output = output;
         this.outputAmount = outputAmount;
@@ -72,6 +97,7 @@ public final class ComputationTaskEntry {
         this.cpuSelectionMode = cpuSelectionMode;
         this.progress = progress;
         this.elapsedTimeNanos = elapsedTimeNanos;
+        this.fastPathReason = fastPathReason;
     }
 
     public String id() {
@@ -118,6 +144,11 @@ public final class ComputationTaskEntry {
         return elapsedTimeNanos;
     }
 
+    @Nullable
+    public String fastPathReason() {
+        return fastPathReason;
+    }
+
     public CompoundTag writeToNBT(HolderLookup.Provider provider) {
         CompoundTag tag = new CompoundTag();
         tag.putString(NBT_ID, id);
@@ -138,6 +169,9 @@ public final class ComputationTaskEntry {
         tag.putString(NBT_CPU_SELECTION_MODE, cpuSelectionMode.name());
         tag.putFloat(NBT_PROGRESS, progress);
         tag.putLong(NBT_ELAPSED_TIME_NANOS, elapsedTimeNanos);
+        if (fastPathReason != null) {
+            tag.putString(NBT_FAST_PATH_REASON, fastPathReason);
+        }
         return tag;
     }
 
@@ -166,7 +200,8 @@ public final class ComputationTaskEntry {
             tag.getInt(NBT_CPU_CO_PROCESSORS),
             readCpuSelectionMode(tag.getString(NBT_CPU_SELECTION_MODE)),
             tag.getFloat(NBT_PROGRESS),
-            tag.getLong(NBT_ELAPSED_TIME_NANOS)
+            tag.getLong(NBT_ELAPSED_TIME_NANOS),
+            tag.contains(NBT_FAST_PATH_REASON, Tag.TAG_STRING) ? tag.getString(NBT_FAST_PATH_REASON) : null
         );
     }
 
@@ -211,7 +246,8 @@ public final class ComputationTaskEntry {
             && ItemStack.matches(output, other.output)
             && status == other.status
             && Objects.equals(cpuName, other.cpuName)
-            && cpuSelectionMode == other.cpuSelectionMode;
+            && cpuSelectionMode == other.cpuSelectionMode
+            && Objects.equals(fastPathReason, other.fastPathReason);
     }
 
     @Override
@@ -230,7 +266,8 @@ public final class ComputationTaskEntry {
             cpuName,
             cpuStorage,
             cpuCoProcessors,
-            cpuSelectionMode
+            cpuSelectionMode,
+            fastPathReason
         );
     }
 }

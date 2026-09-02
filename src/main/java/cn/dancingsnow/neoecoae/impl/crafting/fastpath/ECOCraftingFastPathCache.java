@@ -200,14 +200,14 @@ public final class ECOCraftingFastPathCache {
             key.patternKey(), ignored -> execution.patternEligibility());
         if (!eligibility.supported()) {
             recordRejectReason(eligibility.rejectReason(), execution.expectedOutputs().toString());
-            return ECOFastPathLookup.negative();
+            return ECOFastPathLookup.negative(eligibility.rejectReason());
         }
         ECOFastPathResult result = get(key, tick);
         if (result == null) {
             return ECOFastPathLookup.miss();
         }
         if (result.isNegative()) {
-            return ECOFastPathLookup.negative();
+            return ECOFastPathLookup.negative(result.rejectReason());
         }
         if (!result.matchesExecution(execution)) {
             expectedMismatchCount++;

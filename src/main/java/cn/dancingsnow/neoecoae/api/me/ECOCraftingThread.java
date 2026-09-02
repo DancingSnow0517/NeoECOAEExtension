@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateModel;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingStateSlots;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
@@ -90,6 +91,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Nullable
     private UUID craftingJobId = null;
+
+    @Nullable
+    private String fastPathReason = null;
 
     private int progress = 0;
     private double progressRemainder = 0.0D;
@@ -193,7 +197,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             getOutputAmount(),
             getRemainingItems(),
             outputsReady,
-            craftingJobId
+            craftingJobId,
+            fastPathReason
         );
     }
 
@@ -279,6 +284,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         startVirtualWork(work);
+        fastPathReason = "FAST_PATH_HIT";
         cache.recordFastPathAccepted();
         return true;
     }
@@ -301,6 +307,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             work.craftingJobId(),
             work.batchSize()
         );
+        fastPathReason = "FAST_PATH_HIT";
         worker.getFastPathCache().recordFastPathAccepted();
         return true;
     }
@@ -314,6 +321,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         ECOFastPathKey key = execution.key();
         if (!execution.canUseFastPath()) {
+            fastPathReason = execution.fastPathReason();
             cache.recordDisabled(execution);
             return calcPatternSlow(execution, controller, craftingJobId, false, tick);
         }
@@ -323,10 +331,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOFastPathLookup lookup = cache.lookup(execution, tick, AE2PatternIntrospection.reloadGeneration());
         switch (lookup.status()) {
             case NEGATIVE -> {
+                fastPathReason = lookup.reason() == null ? "NEGATIVE_CACHE" : lookup.reason();
                 cache.recordFallbackSlowPath();
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick);
             }
             case MISMATCH -> {
+                fastPathReason = lookup.reason() == null ? "CACHE_RESULT_MISMATCH" : lookup.reason();
                 cache.putNegative(key, tick);
                 cache.recordFallbackSlowPath();
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick);
@@ -335,6 +345,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ECOVerifiedFastPathRecipe recipe = lookup.recipe();
                 FastPathWork fastPathWork = createFastPathWork(recipe);
                 if (fastPathWork == null) {
+                    fastPathReason = "CACHED_RESULT_MATERIALIZATION_FAILED";
                     cache.putNegative(key, tick, "CACHED_RESULT_MATERIALIZATION_FAILED");
                     cache.recordFallbackSlowPath();
                     return calcPatternSlow(execution, controller, craftingJobId, false, tick);
@@ -344,6 +355,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                     return false;
                 }
                 cache.recordFastPathAccepted();
+                fastPathReason = "FAST_PATH_HIT";
                 startWork(
                     List.of(fastPathWork.output()), fastPathWork.inputs(), fastPathWork.remaining(),
                     craftingJobId, 1
@@ -351,6 +363,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 return true;
             }
             default -> {
+                fastPathReason = lookup.reason() == null ? "CACHE_MISS" : lookup.reason();
                 return calcPatternSlow(execution, controller, craftingJobId, true, tick);
             }
         }
@@ -383,7 +396,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         pattern.fillCraftingGrid(table, craftingInv::setItem);
         List<ItemStack> beforeSlots = new ArrayList<>();
         for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) beforeSlots.add(craftingInv.getItem(slot).copy());
-        ItemStack outputItem = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
+        var positionedInput = craftingInv.asPositionedCraftInput();
+        ItemStack outputItem = pattern.assemble(positionedInput.input(), worker.getLevel());
         if (outputItem.isEmpty()) {
             craftingInv.clearContent();
             return false;
@@ -393,7 +407,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
 
-        List<ItemStack> remainingSlots = pattern.getRemainingItems(craftingInv.asCraftInput());
+        List<ItemStack> remainingSlots = ECOCraftingStateSlots.expandRemainingItems(
+            positionedInput,
+            pattern.getRemainingItems(positionedInput.input()),
+            craftingInv.getWidth(),
+            craftingInv.getHeight()
+        );
         List<ItemStack> list = new ArrayList<>();
         for (ItemStack item : remainingSlots) {
             if (!item.isEmpty()) {
@@ -442,6 +461,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots,
                 execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
         if (stateAnalysis.rejected()) {
+            if ("STATE_SLOT_COUNT_MISMATCH".equals(stateAnalysis.rejectReason())) {
+                logFastPathStateSlotMismatch(beforeSlots, remainingSlots);
+            }
             cache.putNegative(key, tick, stateAnalysis.rejectReason());
             return;
         }
@@ -458,6 +480,36 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
             ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
             ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
+    }
+
+    private static void logFastPathStateSlotMismatch(
+        List<ItemStack> expectedSlots,
+        List<ItemStack> actualSlots
+    ) {
+        LOGGER.warn(
+            "[ECO-FASTPATH-STATE-MISMATCH]\nexpectedSlotCount={}\nactualSlotCount={}\nexpectedSlots:\n{}\nactualSlots:\n{}",
+            expectedSlots.size(),
+            actualSlots.size(),
+            formatFastPathStateSlots(expectedSlots),
+            formatFastPathStateSlots(actualSlots)
+        );
+    }
+
+    private static String formatFastPathStateSlots(List<ItemStack> slots) {
+        StringBuilder result = new StringBuilder("[");
+        for (int index = 0; index < slots.size(); index++) {
+            ItemStack stack = slots.get(index);
+            result.append("\n  {index=").append(index);
+            if (stack == null || stack.isEmpty()) {
+                result.append(", AEKey=null, amount=0, component/state=EMPTY}");
+            } else {
+                result.append(", AEKey=").append(AEItemKey.of(stack))
+                    .append(", amount=").append(stack.getCount())
+                    .append(", component/state={componentsPatch=").append(stack.getComponentsPatch())
+                    .append(", damage=").append(stack.getDamageValue()).append("}}");
+            }
+        }
+        return result.append("\n]").toString();
     }
 
     private boolean verifySecondStateStep(
@@ -480,10 +532,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                         ? firstRemainder.copy()
                         : initial.copy());
             }
-            ItemStack secondOutput = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
+            var secondPositionedInput = craftingInv.asPositionedCraftInput();
+            ItemStack secondOutput = pattern.assemble(secondPositionedInput.input(), worker.getLevel());
             if (secondOutput.isEmpty() || secondOutput.getCount() != firstOutput.getCount()
                     || !ItemStack.isSameItemSameComponents(firstOutput, secondOutput)) return false;
-            List<ItemStack> secondRemaining = pattern.getRemainingItems(craftingInv.asCraftInput());
+            List<ItemStack> secondRemaining = ECOCraftingStateSlots.expandRemainingItems(
+                secondPositionedInput,
+                pattern.getRemainingItems(secondPositionedInput.input()),
+                craftingInv.getWidth(),
+                craftingInv.getHeight()
+            );
             ECOReusableStateAnalyzer.Analysis second = ECOReusableStateAnalyzer.analyze(
                 firstRemainingSlots, secondRemaining,
                 execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
@@ -1011,6 +1069,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         craftingInv.clearContent();
         craftingEventOutput = ItemStack.EMPTY;
         craftingJobId = null;
+        fastPathReason = null;
         isBusy = false;
         reboot = true;
         progress = 0;
@@ -1198,6 +1257,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
+        if (fastPathReason != null) {
+            tag.putString("fastPathReason", fastPathReason);
+        }
         if (!craftingEventOutput.isEmpty()) {
             tag.put("craftingEventOutput", saveSerializableStack(craftingEventOutput, provider));
         }
@@ -1288,6 +1350,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.virtualBatch = nbt.getBoolean("virtualBatch");
         this.outputsReady = nbt.getBoolean("outputsReady");
         this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
+        this.fastPathReason = nbt.contains("fastPathReason", Tag.TAG_STRING)
+            ? nbt.getString("fastPathReason") : null;
         this.recoveryState = this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
         if (nbt.contains("recoveryState", Tag.TAG_STRING)) {
             try {
@@ -1493,6 +1557,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         long outputAmount,
         List<ItemStack> remainingItems,
         boolean outputsReady,
-        @Nullable UUID craftingJobId
+        @Nullable UUID craftingJobId,
+        @Nullable String fastPathReason
     ) {}
 }

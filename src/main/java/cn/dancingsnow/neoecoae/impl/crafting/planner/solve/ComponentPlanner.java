@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveLimits;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolver;
@@ -192,7 +193,7 @@ public final class ComponentPlanner {
                     network.goal());
                 if (!solveTargets.isEmpty()) {
                     cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, representable(solveTargets),
-                        solveTargets, stock, cycle.outgoingDependencies(), new CycleSolveRequest.PlannerOptions()),
+                        solveTargets, stock, cycle.outgoingDependencies(), cycleSolveOptions(cycle)),
                         cancellation);
                     cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                     diagnostic = cycleResult.summary();
@@ -225,7 +226,7 @@ public final class ComponentPlanner {
                         Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
                         CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
                             representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
-                            new CycleSolveRequest.PlannerOptions()), cancellation);
+                            cycleSolveOptions(cycle)), cancellation);
                         if (recovered.status() == CycleSolveStatus.SUCCESS
                                 && demandsCover(recoveryDemands, recovered.positiveExternalDemand())) {
                             plannedCycleInputs = cycleResult.seedShortfall();
@@ -308,7 +309,7 @@ public final class ComponentPlanner {
                             });
                             stockReservations = mergeReservations(stockReservations,
                                 reservationDelta(usedBefore, acyclic.state().usedAmounts()));
-                            disposition = hasFirings ? CycleExecutionDisposition.ORDERED_EXECUTION
+                            disposition = hasFirings ? cycleExecutionDisposition(cycle, cycleResult)
                                 : stockCoversRequiredOutputs(requiredOutputs, stockReservations)
                                     ? CycleExecutionDisposition.STOCK_SATISFIED
                                     : CycleExecutionDisposition.BLOCKED;
@@ -390,6 +391,24 @@ public final class ComponentPlanner {
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
             List.copyOf(componentResults), activeCondensation.executionOrder().stream()
                 .map(c -> c.componentId()).toList());
+    }
+
+    private static CycleSolveRequest.PlannerOptions cycleSolveOptions(CycleComponent cycle) {
+        Set<AEKey> keys = new HashSet<>(cycle.members());
+        for (CompiledPattern pattern : cycle.patterns()) {
+            pattern.inputs().forEach(input -> keys.add(input.key()));
+            pattern.grossOutputs().forEach(output -> keys.add(output.what()));
+        }
+        boolean large = keys.size() > CycleSolveLimits.DEFAULT.maxKeys()
+            || cycle.patterns().size() > CycleSolveLimits.DEFAULT.maxPatterns();
+        return new CycleSolveRequest.PlannerOptions(large ? CycleSolveLimits.LARGE : CycleSolveLimits.DEFAULT);
+    }
+
+    private static CycleExecutionDisposition cycleExecutionDisposition(CycleComponent cycle, CycleSolveResult result) {
+        boolean simple = cycle.patterns().size() <= 2;
+        return simple && !result.executionPlan().isEmpty()
+            ? CycleExecutionDisposition.ORDERED_EXECUTION
+            : CycleExecutionDisposition.DYNAMIC_EXECUTION;
     }
 
     private static Map<AEKey, Long> relevantStock(CycleComponent cycle, java.util.Set<AEKey> requiredOutputs,

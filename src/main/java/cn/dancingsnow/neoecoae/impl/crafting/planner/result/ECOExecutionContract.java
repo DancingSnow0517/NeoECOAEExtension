@@ -15,7 +15,8 @@ public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planS
         if (mode == ExecutionMode.BLOCKED && (error == null || error.isBlank())) {
             throw new IllegalArgumentException("Blocked execution requires an error");
         }
-        if ((mode == ExecutionMode.PHASED_DAG || mode == ExecutionMode.ORDERED_CYCLE)
+        if ((mode == ExecutionMode.PHASED_DAG || mode == ExecutionMode.ORDERED_CYCLE
+                || mode == ExecutionMode.DYNAMIC_CYCLE)
                 && executionPlan == null) {
             throw new IllegalArgumentException("Phased execution requires an immutable execution plan");
         }
@@ -25,7 +26,10 @@ public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planS
         return executionPlan == null ? null : executionPlan.schedule();
     }
     public boolean executable() { return mode != ExecutionMode.BLOCKED; }
-    public boolean phased() { return mode == ExecutionMode.PHASED_DAG || mode == ExecutionMode.ORDERED_CYCLE; }
+    public boolean phased() {
+        return mode == ExecutionMode.PHASED_DAG || mode == ExecutionMode.ORDERED_CYCLE
+            || mode == ExecutionMode.DYNAMIC_CYCLE;
+    }
 
     public static ECOExecutionContract nativeContract(UUID planningId, PlanIdentity.Signature signature) {
         return new ECOExecutionContract(planningId, signature, ExecutionMode.NATIVE, null, null);
