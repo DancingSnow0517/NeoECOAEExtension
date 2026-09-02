@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,12 +31,14 @@ public record CompiledPattern(
     boolean fastSupported,
     String unsupportedReason,
     boolean netGrowthValidated,
-    PatternSemantics semantics
+    PatternSemantics semantics,
+    SpecialPatternAnalysis specialAnalysis
 ) {
     public CompiledPattern {
         inputs = List.copyOf(inputs);
         outputs = List.copyOf(outputs);
         if (semantics == null) semantics = new AE2PatternSemanticAdapter().analyze(details);
+        if (specialAnalysis == null) specialAnalysis = SpecialPatternAnalysis.NONE;
     }
 
     /**
@@ -47,14 +50,21 @@ public record CompiledPattern(
             List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
             String unsupportedReason) {
         this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported, unsupportedReason,
-            false, null);
+            false, null, SpecialPatternAnalysis.NONE);
     }
 
     public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, long outputPerPattern,
             List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
             String unsupportedReason, boolean netGrowthValidated) {
         this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported,
-            unsupportedReason, netGrowthValidated, null);
+            unsupportedReason, netGrowthValidated, null, SpecialPatternAnalysis.NONE);
+    }
+
+    public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, PlannerAmount outputPerPattern,
+            List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
+            String unsupportedReason, boolean netGrowthValidated, PatternSemantics semantics) {
+        this(id, details, producedKey, outputPerPattern, inputs, outputs, fastSupported, unsupportedReason,
+            netGrowthValidated, semantics, SpecialPatternAnalysis.NONE);
     }
 
     /** Gross per-firing outputs used by cycle algebra: normal products plus normalized returned/reusable stock. */

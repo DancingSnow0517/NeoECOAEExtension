@@ -130,6 +130,7 @@ public final class AcyclicCraftingSolver {
             if (selected == null || deferredPatterns.contains(selected.details())) continue;
             Set<AEKey> dependencies = outgoing.computeIfAbsent(key, ignored -> new LinkedHashSet<>());
             for (CompiledInput input : selected.inputs()) {
+                if (selected.specialAnalysis().excludesFromCycleGraph(input)) continue;
                 AEKey dependency = input.key();
                 if (!allowed.contains(dependency) || !dependencies.add(dependency)) continue;
                 indegree.merge(dependency, 1, Integer::sum);
@@ -174,6 +175,8 @@ public final class AcyclicCraftingSolver {
         state.stored.set(network.goal(), PlannerAmount.ZERO); // AE2 ignores stored final output during planning.
         state.demand.put(network.goal(), PlannerAmount.of(amount));
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
+        SpecialPatternResolver specialResolver = new SpecialPatternResolver(
+            network, state, workspace.candidateChoice(), cancellation);
         for (AEKey key : route.keys()) {
             cancellation.checkpoint();
             PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);
@@ -223,10 +226,10 @@ public final class AcyclicCraftingSolver {
                 if (output.getKey().equals(key)) available = available.subtract(requested);
                 if (available.signum() > 0) addCounter(state.crafted, output.getKey(), available);
             }
+            specialResolver.resolve(pattern, times);
             for (CompiledInput input : pattern.inputs()) {
-                // A verified one-item same-key return is working stock, not a fresh ingredient for every firing.
-                // Keep the input edge in the structural graph so the seed is still required once, but do not
-                // inflate a reusable catalyst into millions of missing items.
+                if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
+                // Legacy semantic adapters may still express reusable stock without the special analyzer.
                 PlannerAmount required = input.reusable()
                     ? input.amountPerPattern()
                     : input.amountPerPattern().multiply(times);

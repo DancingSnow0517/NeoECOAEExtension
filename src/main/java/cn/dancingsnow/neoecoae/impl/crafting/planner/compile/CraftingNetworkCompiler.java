@@ -8,6 +8,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
@@ -22,14 +24,21 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternVali
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
     private final List<PatternSemanticAdapter> semanticAdapters;
+    private final SpecialPatternAnalyzer specialPatternAnalyzer;
 
     public CraftingNetworkCompiler() {
-        this(PatternSemanticAdapters.defaults());
+        this(PatternSemanticAdapters.defaults(), new SpecialPatternAnalyzer());
     }
 
     /** Constructor kept injectable so planner tests and integrations can supply an explicit semantic contract. */
     public CraftingNetworkCompiler(List<PatternSemanticAdapter> semanticAdapters) {
+        this(semanticAdapters, new SpecialPatternAnalyzer());
+    }
+
+    public CraftingNetworkCompiler(List<PatternSemanticAdapter> semanticAdapters,
+            SpecialPatternAnalyzer specialPatternAnalyzer) {
         this.semanticAdapters = PatternSemanticAdapters.copy(semanticAdapters);
+        this.specialPatternAnalyzer = java.util.Objects.requireNonNull(specialPatternAnalyzer);
     }
 
     public CompiledNetwork compile(ICraftingService service, AEKey goal, ECOCancellation cancellation)
@@ -94,6 +103,7 @@ public final class CraftingNetworkCompiler {
         PatternSemanticAdapter adapter = PatternSemanticAdapters.find(semanticAdapters, details);
         PatternSemantics semantics;
         ECORecipeClassifier.Classification fastClassification;
+        SpecialPatternAnalysis specialAnalysis = SpecialPatternAnalysis.NONE;
         try {
             PatternSemantics analyzed = adapter == null
                 ? PatternSemantics.unsupported(details, null, "NO_PATTERN_SEMANTIC_ADAPTER")
@@ -139,11 +149,13 @@ public final class CraftingNetworkCompiler {
             } else {
                 inputs = compileRawInputs(details);
             }
+            specialAnalysis = specialPatternAnalyzer.analyze(id, details, semantics, inputs);
             for (CompiledInput compiledInput : inputs) {
                 if (!compiledInput.unsupportedReason().isEmpty() && contractEvidence == null) {
                     contractEvidence = compiledInput.unsupportedReason();
                 }
-                if (!compiledInput.fastSupported() && unsupported == null) {
+                if (!compiledInput.fastSupported() && unsupported == null
+                        && !specialAnalysis.excludesFromCycleGraph(compiledInput)) {
                     unsupported = compiledInput.unsupportedReason();
                 }
             }
@@ -167,7 +179,7 @@ public final class CraftingNetworkCompiler {
             : contractEvidence == null ? "" : contractEvidence;
         return new CompiledPattern(
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
-            recordedReason, netGrowthValidated, semantics
+            recordedReason, netGrowthValidated, semantics, specialAnalysis
         );
     }
 

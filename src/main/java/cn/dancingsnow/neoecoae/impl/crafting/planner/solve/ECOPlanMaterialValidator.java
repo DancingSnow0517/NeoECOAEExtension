@@ -2,11 +2,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.item.ItemStack;
 
 /** Validates the physical material contract of a supposedly successful executable plan. */
 public final class ECOPlanMaterialValidator {
@@ -77,13 +79,18 @@ public final class ECOPlanMaterialValidator {
                         return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "INVALID_PATTERN_INPUT");
                     }
                     GenericStack primary = possible[0];
+                    AEKey remaining = input.getRemainingKey(primary.what());
+                    if (sameItemStateTransition(primary.what(), remaining)) {
+                        // The special resolver reserves/manufactures working stock once. Charging the source and
+                        // returned damage/component keys per firing would recreate the false material cycle.
+                        continue;
+                    }
                     PlannerAmount inputAmount = PlannerAmount.of(primary.amount())
                         .multiply(input.getMultiplier()).multiply(times);
                     add(demand, primary.what(), inputAmount);
 
                     // AE2 retains a remainder/container when the input contract declares one. Include it as physical
                     // supply so a valid closed-loop plan is not rejected by this raw balance check.
-                    AEKey remaining = input.getRemainingKey(primary.what());
                     if (remaining != null) {
                         add(supply, remaining, PlannerAmount.of(input.getMultiplier()).multiply(times));
                     }
@@ -112,6 +119,13 @@ public final class ECOPlanMaterialValidator {
     private static void add(Map<AEKey, PlannerAmount> counter, AEKey key, PlannerAmount amount) {
         if (key == null || amount == null || amount.signum() <= 0) return;
         counter.merge(key, amount, PlannerAmount::add);
+    }
+
+    private static boolean sameItemStateTransition(AEKey source, AEKey returned) {
+        if (!(source instanceof AEItemKey sourceItem) || !(returned instanceof AEItemKey returnedItem)) return false;
+        ItemStack left = sourceItem.toStack(1);
+        ItemStack right = returnedItem.toStack(1);
+        return !left.isEmpty() && !right.isEmpty() && ItemStack.isSameItem(left, right);
     }
 
     public record Issue(@Nullable AEKey key, PlannerAmount required, PlannerAmount supplied, String reason) {

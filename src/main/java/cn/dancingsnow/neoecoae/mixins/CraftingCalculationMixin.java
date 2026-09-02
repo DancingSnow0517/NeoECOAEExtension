@@ -170,14 +170,19 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         ECOPlanningResult attemptResult = attemptResultLocal.get();
         attemptResultLocal.remove();
         CraftingPlan plan = cir.getReturnValue();
-        if (plan != null && attemptResult != null && PlanIdentity.matches(plan, attemptResult.plan())
+        boolean exactPlan = plan != null && attemptResult != null
+            && PlanIdentity.matches(plan, attemptResult.plan());
+        boolean fallbackDiagnostic = plan != null && attemptResult != null
+            && attemptResult.shouldUseNativeFallback();
+        if ((exactPlan || fallbackDiagnostic)
                 && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 && diagnostics.neoecoae$getPlanningResult() == null) {
             // Another RETURN transformer may rebuild/patch the public plan produced by this exact attempt. Carry
-            // the diagnostic only when the complete executable identity still matches that result.
+            // executable metadata only across an exact identity. A failed ECO attempt may still annotate the
+            // native fallback for the confirmation GUI; it is deliberately not registered as execution metadata.
             diagnostics.neoecoae$setPlanningResult(attemptResult);
         }
-        if (plan != null && attemptResult != null && PlanIdentity.matches(plan, attemptResult.plan())) {
+        if (exactPlan) {
             // Register the actual plan leaving this attempt as well as the original ECO plan. RETURN
             // transformers are allowed to rebuild CraftingPlan; metadata is retained only for an exact identity.
             ECOPlanningResultRegistry.register(plan, attemptResult);
@@ -190,12 +195,20 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (plan == null || plan.simulation()) return;
 
         ECOPlanningResult selected = ECOPlanningResultRegistry.find(plan);
+        ECOPlanningResult diagnostic = selected;
+        if (diagnostic == null && neoecoae$lastPlanningResult != null
+                && neoecoae$lastPlanningResult.shouldUseNativeFallback()) {
+            // AE2 may copy the native fallback after runCraftAttempt. Preserve the failed ECO explanation for
+            // the report without treating it as metadata for this different executable task vector.
+            diagnostic = neoecoae$lastPlanningResult;
+        }
 
         Object publicPlan = plan;
-        if (selected != null && PlanIdentity.matches(plan, selected.plan())
+        if (diagnostic != null
+                && (diagnostic.shouldUseNativeFallback() || PlanIdentity.matches(plan, diagnostic.plan()))
                 && publicPlan instanceof ECOCraftingPlanDiagnostics diagnostics
                 && diagnostics.neoecoae$getPlanningResult() == null) {
-            diagnostics.neoecoae$setPlanningResult(selected);
+            diagnostics.neoecoae$setPlanningResult(diagnostic);
         }
         if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
             ECOPlanningResultRegistry.register(plan, selected);

@@ -30,6 +30,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -121,6 +122,7 @@ public final class ComponentPlanner {
         // The acyclic pass has already completed the theoretical arithmetic. A value that cannot be put into an
         // AE2 long-valued execution field is an explicit representability result, not a cycle or missing verdict.
         boolean amountUnrepresentable = acyclic.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+        Set<AEKey> structuralKeys = activeCondensation.source().nodes().keySet();
 
         for (var component : activeCondensation.topologicalOrder()) {
             cancellation.checkpoint();
@@ -135,7 +137,8 @@ public final class ComponentPlanner {
                         : ComponentPlanningResult.Status.NOT_REQUIRED,
                     demand > 0 ? Map.of(acyclicComponent.key(), demand) : Map.of(),
                     acyclicComponent.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
-                    selectedExecutionPattern(acyclic.state(), acyclicComponent.key()),
+                    selectedExecutionPatterns(acyclic.state(), acyclicComponent.key(), structuralKeys,
+                        acyclicComponent.key().equals(network.goal())),
                     null, null, Map.of(), null, null, CycleExecutionDisposition.NOT_REQUIRED, Map.of()));
                 continue;
             }
@@ -475,13 +478,24 @@ public final class ComponentPlanner {
         return byproductOwners.size() == 1 ? byproductOwners.getFirst() : null;
     }
 
-    private static Set<IPatternDetails> selectedExecutionPattern(SolveState state, AEKey key) {
+    private static Set<IPatternDetails> selectedExecutionPatterns(SolveState state, AEKey key,
+            Set<AEKey> structuralKeys, boolean includeLocalSpecialProducers) {
         CompiledPattern selected = state.selected.get(key);
-        if (selected == null || state.patternTimes
-                .getOrDefault(selected.details(), PlannerAmount.ZERO).signum() <= 0) {
-            return Set.of();
+        Set<IPatternDetails> result = new LinkedHashSet<>();
+        if (selected != null && state.patternTimes
+                .getOrDefault(selected.details(), PlannerAmount.ZERO).signum() > 0) {
+            result.add(selected.details());
         }
-        return Set.of(selected.details());
+        if (includeLocalSpecialProducers) {
+            for (var entry : state.selected.entrySet()) {
+                if (structuralKeys.contains(entry.getKey())) continue;
+                CompiledPattern local = entry.getValue();
+                if (state.patternTimes.getOrDefault(local.details(), PlannerAmount.ZERO).signum() > 0) {
+                    result.add(local.details());
+                }
+            }
+        }
+        return Set.copyOf(result);
     }
 
     private static Set<IPatternDetails> selectedCycleExecutionPatterns(@Nullable CycleSolveResult result) {

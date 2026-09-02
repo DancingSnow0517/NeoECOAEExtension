@@ -1,14 +1,18 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.AcyclicComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphBuilder;
@@ -18,6 +22,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ECOAcyclicCraftingSolverTest {
@@ -184,6 +189,48 @@ class ECOAcyclicCraftingSolverTest {
         assertEquals("18446744073709551609", solved.state().missingAmounts().get(leaf).toString());
     }
 
+    @Test void executionScheduleOrdersADagProducerBeforeAReversedConsumer() {
+        AEKey raw = PlannerTestKey.of("schedule_raw");
+        AEKey middle = PlannerTestKey.of("schedule_middle");
+        AEKey goal = PlannerTestKey.of("schedule_goal");
+        var producer = PlannerFixtures.pattern("schedule_producer", middle, 1, raw, 1L);
+        var consumer = PlannerFixtures.pattern("schedule_consumer", goal, 1, middle, 1L);
+
+        var schedule = ECOExecutionSchedule.from(
+            List.of(scheduleComponent(0, middle, producer), scheduleComponent(1, goal, consumer)), List.of(1, 0));
+
+        assertEquals(List.of(producer, consumer), schedule.phases().stream()
+            .map(phase -> phase.patternSet().iterator().next()).toList());
+        assertEquals(List.of(new ECOExecutionSchedule.PhaseDependency(0, 1)), schedule.dependencies());
+    }
+
+    @Test void executionScheduleDoesNotTreatAReturnedInputAsAProducer() {
+        AEKey raw = PlannerTestKey.of("remainder_raw");
+        AEKey tool = PlannerTestKey.of("remainder_tool");
+        AEKey filler = PlannerTestKey.of("remainder_filler");
+        AEKey firstGoal = PlannerTestKey.of("remainder_first_goal");
+        AEKey secondGoal = PlannerTestKey.of("remainder_second_goal");
+        var returningConsumer = new PlannerFixtures.Pattern("returning_consumer",
+            new IPatternDetails.IInput[] { new PlannerFixtures.Input(tool, 1L, true) },
+            List.of(new GenericStack(firstGoal, 1L)));
+        var trueProducer = PlannerFixtures.multiOutput("true_tool_producer",
+            List.of(new GenericStack(filler, 1L), new GenericStack(tool, 1L)), raw, 1L);
+        var secondConsumer = PlannerFixtures.pattern("second_tool_consumer", secondGoal, 1L, tool, 1L);
+
+        var schedule = ECOExecutionSchedule.from(List.of(
+            scheduleComponent(0, firstGoal, returningConsumer),
+            scheduleComponent(1, filler, trueProducer),
+            scheduleComponent(2, secondGoal, secondConsumer)), List.of(0, 1, 2));
+
+        int returningPhase = schedulePhaseOf(schedule, returningConsumer);
+        int producerPhase = schedulePhaseOf(schedule, trueProducer);
+        int secondConsumerPhase = schedulePhaseOf(schedule, secondConsumer);
+        assertEquals(0, producerPhase);
+        assertEquals(2, schedule.dependencies().size());
+        assertFalse(schedule.dependencies().contains(
+            new ECOExecutionSchedule.PhaseDependency(returningPhase, secondConsumerPhase)));
+    }
+
     private static AcyclicCraftingSolver.Outcome solve(CompiledNetwork network, KeyCounter stock, long amount) throws Exception {
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
@@ -197,6 +244,18 @@ class ECOAcyclicCraftingSolverTest {
     }
     private static CompiledPattern cp(int id, PlannerFixtures.Pattern p, AEKey output, boolean fast) {
         return PlannerFixtures.compiled(id, p, output, fast, fast ? "" : "UNSUPPORTED_INPUT");
+    }
+    private static ComponentPlanningResult scheduleComponent(int id, AEKey requiredOutput,
+            IPatternDetails pattern) {
+        return new ComponentPlanningResult(id, ComponentPlanningResult.Type.ACYCLIC,
+            ComponentPlanningResult.Status.PLANNED, Map.of(requiredOutput, 1L), Set.of(pattern),
+            null, null, Map.of(), null, null);
+    }
+    private static int schedulePhaseOf(ECOExecutionSchedule schedule, IPatternDetails pattern) {
+        for (int i = 0; i < schedule.phases().size(); i++) {
+            if (schedule.phases().get(i).patternSet().contains(pattern)) return i;
+        }
+        throw new AssertionError("Pattern has no execution phase: " + pattern);
     }
     private static KeyCounter stock(AEKey key, long amount) { var stock = new KeyCounter(); stock.add(key, amount); return stock; }
 }

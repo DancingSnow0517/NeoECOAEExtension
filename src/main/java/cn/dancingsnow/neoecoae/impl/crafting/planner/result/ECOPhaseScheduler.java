@@ -101,7 +101,7 @@ public final class ECOPhaseScheduler {
         }
     }
 
-    private static PatternSemantics semantic(IPatternDetails pattern) {
+    static PatternSemantics semantic(IPatternDetails pattern) {
         var identity = PlanIdentity.patternIdentityFor(pattern);
         if (identity != null) {
             var cached = SEMANTIC_CACHE.get(identity);

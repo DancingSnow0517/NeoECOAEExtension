@@ -106,12 +106,13 @@ public final class ActiveRouteSelector {
             if (choice >= 0) {
                 CompiledPattern pattern = candidates.get(choice);
                 for (var input : pattern.inputs()) {
+                    if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
                     edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
                 }
-                // Preserve normalized returned-stock feedback when projecting the universe onto the selected
-                // producer route. Dropping this edge turns a reusable seed into ordinary per-firing consumption
-                // and incorrectly demands one copy for every requested craft.
+                // Preserve genuine feedback while keeping analyzer-proven state transitions outside SCC routing.
                 for (var feedback : pattern.semantics().feedbackEdges()) {
+                    if (pattern.specialAnalysis().requirements().stream()
+                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey()))) continue;
                     var edgeInput = pattern.inputs().stream()
                         .filter(input -> feedback.returnedKey().equals(input.remainderKey())
                             || feedback.returnedKey().equals(input.key()))
