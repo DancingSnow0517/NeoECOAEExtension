@@ -62,8 +62,6 @@ public final class ECORecipeClassifier {
                 }
                 ItemStack inputStack = selectedKey.toStack(1);
                 if (inputStack.isEmpty()) return unsupported("INVALID_ITEM_INPUT");
-                if (inputStack.isDamageableItem()) durabilityMutation = true;
-
                 AEItemKey remainingKey = asItemKey(input.getRemainingKey(selected.what()));
                 if (remainingKey == null) {
                     if (input.getRemainingKey(selected.what()) != null) hasRemainder = true;
@@ -72,9 +70,11 @@ public final class ECORecipeClassifier {
                 hasRemainder = true;
                 ItemStack remainingStack = remainingKey.toStack(1);
                 if (remainingStack.isEmpty()) return unsupported("INVALID_REMAINDER");
-                if (remainingStack.isDamageableItem()) durabilityMutation = true;
                 if (ItemStack.isSameItem(inputStack, remainingStack)) {
                     reusableComponent = true;
+                    if (inputStack.isDamageableItem() && remainingStack.isDamageableItem()) {
+                        durabilityMutation = true;
+                    }
                 }
             }
 

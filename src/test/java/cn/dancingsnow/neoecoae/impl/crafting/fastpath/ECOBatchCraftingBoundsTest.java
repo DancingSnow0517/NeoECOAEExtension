@@ -3,18 +3,24 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.config.Actionable;
 import appeng.crafting.inv.ListCraftingInventory;
+import net.minecraft.nbt.CompoundTag;
 
 class ECOBatchCraftingBoundsTest {
+    private static final ECOPatternEligibility TAG_ELIGIBILITY = new ECOPatternEligibility(
+        true, List.of(ECOPatternEligibility.InputType.TAG_OR_SUBSTITUTION), "");
     private static final CraftingCapabilitySnapshot.CoolantState NO_COOLING =
         new CraftingCapabilitySnapshot.CoolantState(false, 0L, 1_000_000L, -1);
 
@@ -124,6 +130,68 @@ class ECOBatchCraftingBoundsTest {
     }
 
     @Test
+    void durabilitySingleAndBatchDamageAreLinear() {
+        assertEquals(11, calculatedDamage(10, 1, 200, 1).orElseThrow());
+        assertEquals(110, calculatedDamage(10, 1, 200, 100).orElseThrow());
+    }
+
+    @Test
+    void durabilityAtAndBeyondBreakBoundaryReturnsNoTool() {
+        assertTrue(calculatedDamage(199, 1, 200, 1).isEmpty());
+        assertTrue(calculatedDamage(198, 1, 200, 2).isEmpty());
+        assertTrue(calculatedDamage(198, 1, 200, 20).isEmpty());
+    }
+
+    @Test
+    void reusableStateSupportsIdentityAndLinearNumericCustomData() {
+        CompoundTag initial = stateWithCharge(10);
+        assertTrue(ECOStateTransitionBatchModel.isUnchangedState(initial, initial.copy()));
+        CompoundTag result = ECOStateTransitionBatchModel.applyCustomDataTransition(
+            initial, stateWithCharge(11), 100).orElseThrow();
+        assertEquals(110, result.getInt("charge"));
+    }
+
+    @Test
+    void reusableStateRejectsNonNumericCustomData() {
+        CompoundTag before = new CompoundTag();
+        before.putString("mode", "a");
+        CompoundTag after = new CompoundTag();
+        after.putString("mode", "b");
+        assertTrue(ECOStateTransitionBatchModel.applyCustomDataTransition(before, after, 2).isEmpty());
+    }
+
+    @Test
+    void sameTagResolutionReusesTheResolvedContract() {
+        ECOCraftingFastPathCache cache = new ECOCraftingFastPathCache(16);
+        ECOExtractedPatternExecution oak = tagExecution("oak", 3L);
+        assertEquals(ECOFastPathLookup.Status.MISS, cache.lookup(oak, 0L, 3L).status());
+        cache.putResolvedForTesting(oak.key(), tagResult(oak));
+
+        ECOFastPathLookup lookup = cache.lookup(tagExecution("oak", 3L), 1L, 3L);
+        assertEquals(ECOFastPathLookup.Status.VERIFIED, lookup.status());
+        assertTrue(lookup.recipe().capabilities().contains(FastPathCapability.TAG_RESOLVED_LINEAR));
+        assertNotNull(cache.getPatternEligibility(oak.key().patternKey()));
+    }
+
+    @Test
+    void differentConcreteTagMemberRequiresItsOwnVerification() {
+        ECOCraftingFastPathCache cache = new ECOCraftingFastPathCache(16);
+        ECOExtractedPatternExecution oak = tagExecution("oak", 3L);
+        cache.lookup(oak, 0L, 3L);
+        cache.putResolvedForTesting(oak.key(), tagResult(oak));
+        assertEquals(ECOFastPathLookup.Status.MISS, cache.lookup(tagExecution("birch", 3L), 1L, 3L).status());
+    }
+
+    @Test
+    void reloadGenerationRequiresTagPatternAndResolvedRevalidation() {
+        ECOCraftingFastPathCache cache = new ECOCraftingFastPathCache(16);
+        ECOExtractedPatternExecution before = tagExecution("oak", 3L);
+        cache.lookup(before, 0L, 3L);
+        cache.putResolvedForTesting(before.key(), tagResult(before));
+        assertEquals(ECOFastPathLookup.Status.MISS, cache.lookup(tagExecution("oak", 4L), 1L, 4L).status());
+    }
+
+    @Test
     void f9CapabilityMatrixUsesOneNetworkMultiplierForEveryFx() {
         assertFinite(snapshot(1, 0, 0, false, false), 32L, 32L);
         assertFinite(snapshot(11, 0, 0, false, false), 32L, 352L);
@@ -183,5 +251,36 @@ class ECOBatchCraftingBoundsTest {
         assertFalse(state.batchPerFx().unlimited());
         assertEquals(perFx, state.batchPerFx().finiteValue());
         assertEquals(total, state.totalBatchCapacity().finiteValue());
+    }
+
+    private static java.util.OptionalInt calculatedDamage(int initial, int delta, int max, long crafts) {
+        return ECODurabilityBatchModel.calculateFinalDamage(
+            initial, delta, max, ECODurabilityBatchModel.BreakBehavior.DISAPPEAR, crafts);
+    }
+
+    private static CompoundTag stateWithCharge(int charge) {
+        CompoundTag state = new CompoundTag();
+        state.putInt("charge", charge);
+        return state;
+    }
+
+    private static ECOExtractedPatternExecution tagExecution(String material, long generation) {
+        KeyCounter slot = new KeyCounter();
+        slot.add(FastPathTestKey.of(material), 1L);
+        ECOFastPathKey key = ECOFastPathKey.of("#planks-pattern", new KeyCounter[] {slot}, null, generation)
+            .orElseThrow();
+        return ECOExtractedPatternExecution.ofNormalizedComponents(
+            key,
+            List.of(new GenericStack(FastPathTestKey.of("output"), 1L)),
+            List.of(),
+            List.of(new GenericStack(FastPathTestKey.of(material), 1L)),
+            TAG_ELIGIBILITY);
+    }
+
+    private static ECOFastPathResult tagResult(ECOExtractedPatternExecution execution) {
+        return ECOFastPathResult.positive(
+            execution.expectedOutputs(), List.of(), execution.inputItems(), 0L, null,
+            Set.of(FastPathCapability.TAG_RESOLVED_LINEAR), ECORecipeClassifier.Type.NORMAL,
+            List.of(), List.of(), List.of(), List.of());
     }
 }

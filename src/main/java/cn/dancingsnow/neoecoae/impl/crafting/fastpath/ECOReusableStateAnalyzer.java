@@ -16,6 +16,14 @@ public final class ECOReusableStateAnalyzer {
     }
 
     public static Analysis analyze(List<ItemStack> before, List<ItemStack> after) {
+        return analyze(before, after, false);
+    }
+
+    public static Analysis analyze(
+        List<ItemStack> before,
+        List<ItemStack> after,
+        boolean allowObservedBrokenTool
+    ) {
         if (before.size() != after.size()) return new Analysis(null, "STATE_SLOT_COUNT_MISMATCH");
         boolean hasDurability = false;
         boolean hasReusableState = false;
@@ -24,7 +32,10 @@ public final class ECOReusableStateAnalyzer {
             ItemStack result = after.get(i);
             if (initial == null || initial.isEmpty()) continue;
             if (initial.isDamageableItem()) {
-                hasDurability = true;
+                if (result != null && !result.isEmpty() && ItemStack.isSameItem(initial, result)
+                        || allowObservedBrokenTool && (result == null || result.isEmpty())) {
+                    hasDurability = true;
+                }
                 continue;
             }
             if (result != null && !result.isEmpty() && ItemStack.isSameItem(initial, result)) {

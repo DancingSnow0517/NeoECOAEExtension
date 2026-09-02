@@ -6,7 +6,6 @@ import appeng.api.stacks.KeyCounter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.core.component.DataComponents;
@@ -48,7 +47,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                 if (customDataDelta == null) return Optional.empty();
             }
             long delta = (long) result.getCount() - initial.getCount();
-            long maxCrafts = delta >= 0L ? Long.MAX_VALUE : (initial.getCount() - 1L) / -delta;
+            long maxCrafts = delta >= 0L ? Long.MAX_VALUE : initial.getCount() / -delta;
             found.add(new Transition(initial.copy(), result.copy(), delta, maxCrafts, customDataDelta));
         }
         return found.isEmpty() ? Optional.empty() : Optional.of(new ECOStateTransitionBatchModel(found));
@@ -95,6 +94,29 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
             }
         }
         return ECOFastPathStacks.copyCounter(counter);
+    }
+
+    @Override
+    public boolean requiresSecondStepProof() {
+        return transitions.stream().anyMatch(transition ->
+            transition.countDelta != 0L || transition.customDataDelta != null);
+    }
+
+    @Override
+    public boolean sameTransition(ECOReusableStateModel other) {
+        if (!(other instanceof ECOStateTransitionBatchModel state)
+                || transitions.size() != state.transitions.size()) return false;
+        for (int i = 0; i < transitions.size(); i++) {
+            Transition left = transitions.get(i);
+            Transition right = state.transitions.get(i);
+            Map<String, NumericDelta> leftDeltas = left.customDataDelta == null
+                ? Map.of() : left.customDataDelta.deltas;
+            Map<String, NumericDelta> rightDeltas = right.customDataDelta == null
+                ? Map.of() : right.customDataDelta.deltas;
+            if (left.countDelta != right.countDelta || !leftDeltas.equals(rightDeltas)
+                    || !ItemStack.isSameItem(left.initial, right.initial)) return false;
+        }
+        return true;
     }
 
     private boolean matchesInitial(AEKey key) {
@@ -155,7 +177,15 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                 Tag right = after.get(key);
                 if (!(left instanceof NumericTag leftNumber) || !(right instanceof NumericTag rightNumber)
                         || left.getId() != right.getId()) return Optional.empty();
-                deltas.put(key, NumericDelta.of(leftNumber, rightNumber));
+                try {
+                    NumericDelta delta = NumericDelta.of(leftNumber, rightNumber);
+                    if (!Double.isFinite(delta.initialDouble()) || !Double.isFinite(delta.deltaDouble())) {
+                        return Optional.empty();
+                    }
+                    deltas.put(key, delta);
+                } catch (ArithmeticException overflow) {
+                    return Optional.empty();
+                }
             }
             return deltas.isEmpty() ? Optional.empty()
                 : Optional.of(new NumericCompoundDelta(before.copy(), Map.copyOf(deltas)));
@@ -182,30 +212,40 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         return NumericCompoundDelta.analyze(before, after).map(delta -> delta.apply(crafts));
     }
 
-    private record NumericDelta(byte type, double initial, double delta) {
+    private record NumericDelta(byte type, long initialLong, long deltaLong, double initialDouble, double deltaDouble) {
         private static NumericDelta of(NumericTag before, NumericTag after) {
-            return new NumericDelta(before.getId(), before.getAsDouble(),
-                after.getAsDouble() - before.getAsDouble());
+            byte type = before.getId();
+            if (type == Tag.TAG_FLOAT || type == Tag.TAG_DOUBLE) {
+                return new NumericDelta(type, 0L, 0L, before.getAsDouble(),
+                    after.getAsDouble() - before.getAsDouble());
+            }
+            long initial = before.getAsLong();
+            return new NumericDelta(type, initial, Math.subtractExact(after.getAsLong(), initial), 0.0D, 0.0D);
         }
 
         private NumericTag apply(long crafts) {
-            double value = initial + delta * crafts;
+            long integral = type == Tag.TAG_FLOAT || type == Tag.TAG_DOUBLE
+                ? 0L : Math.addExact(initialLong, Math.multiplyExact(deltaLong, crafts));
+            double floating = initialDouble + deltaDouble * crafts;
             return switch (type) {
-                case Tag.TAG_BYTE -> ByteTag.valueOf((byte) exactIntegral(value, Byte.MIN_VALUE, Byte.MAX_VALUE));
-                case Tag.TAG_SHORT -> ShortTag.valueOf((short) exactIntegral(value, Short.MIN_VALUE, Short.MAX_VALUE));
-                case Tag.TAG_INT -> IntTag.valueOf((int) exactIntegral(value, Integer.MIN_VALUE, Integer.MAX_VALUE));
-                case Tag.TAG_LONG -> LongTag.valueOf(exactIntegral(value, Long.MIN_VALUE, Long.MAX_VALUE));
-                case Tag.TAG_FLOAT -> FloatTag.valueOf((float) value);
-                case Tag.TAG_DOUBLE -> DoubleTag.valueOf(value);
+                case Tag.TAG_BYTE -> ByteTag.valueOf((byte) checkedRange(integral, Byte.MIN_VALUE, Byte.MAX_VALUE));
+                case Tag.TAG_SHORT -> ShortTag.valueOf((short) checkedRange(integral, Short.MIN_VALUE, Short.MAX_VALUE));
+                case Tag.TAG_INT -> IntTag.valueOf((int) checkedRange(integral, Integer.MIN_VALUE, Integer.MAX_VALUE));
+                case Tag.TAG_LONG -> LongTag.valueOf(integral);
+                case Tag.TAG_FLOAT -> FloatTag.valueOf((float) checkedFinite(floating));
+                case Tag.TAG_DOUBLE -> DoubleTag.valueOf(checkedFinite(floating));
                 default -> throw new IllegalStateException("Unsupported numeric tag type " + type);
             };
         }
 
-        private static long exactIntegral(double value, long min, long max) {
-            if (!Double.isFinite(value) || value < min || value > max || value != Math.rint(value)) {
-                throw new ArithmeticException("Linear NBT transition overflow");
-            }
-            return (long) value;
+        private static long checkedRange(long value, long min, long max) {
+            if (value < min || value > max) throw new ArithmeticException("Linear NBT transition overflow");
+            return value;
+        }
+
+        private static double checkedFinite(double value) {
+            if (!Double.isFinite(value)) throw new ArithmeticException("Linear NBT transition overflow");
+            return value;
         }
     }
 }

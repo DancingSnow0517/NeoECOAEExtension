@@ -132,7 +132,13 @@ public final class ECOVerifiedFastPathRecipe {
 
     /** Component-mutating reusable items need a verified state model before they may be multiplied. */
     public boolean batchSafe() {
-        return !capabilities().isEmpty() && (reusableInputs().isEmpty() || reusableStateModel() != null);
+        boolean resolvedLinear = capabilities().contains(FastPathCapability.PURE_LINEAR)
+            || capabilities().contains(FastPathCapability.TAG_RESOLVED_LINEAR);
+        if (!resolvedLinear) return false;
+        ECOReusableStateModel model = reusableStateModel();
+        return reusableInputs().isEmpty()
+            ? model == null || capabilities().contains(model.capability())
+            : model != null && capabilities().contains(model.capability());
     }
 
     /** True only for the very execution context this credential was verified against. */

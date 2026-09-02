@@ -12,4 +12,8 @@ public interface ECOReusableStateModel {
     List<GenericStack> batchInputs(List<GenericStack> ordinaryInputs, long crafts);
 
     List<GenericStack> batchRemainders(List<GenericStack> ordinaryRemainders, long crafts);
+
+    boolean requiresSecondStepProof();
+
+    boolean sameTransition(ECOReusableStateModel other);
 }

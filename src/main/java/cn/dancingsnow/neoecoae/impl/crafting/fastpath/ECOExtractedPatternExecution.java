@@ -6,8 +6,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -95,14 +95,15 @@ public final class ECOExtractedPatternExecution {
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {
+        ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
         return new ECOExtractedPatternExecution(
             details,
             craftingContainer,
             List.of(),
             List.of(),
             ECOFastPathStacks.copyCounters(craftingContainer),
-            ECORecipeClassifier.classify(details),
-            inspectPatternEligibility(details, ECORecipeClassifier.classify(details)),
+            classification,
+            inspectPatternEligibility(details, classification),
             null,
             "SLOW_EXECUTION_CONTEXT"
         );
@@ -183,9 +184,11 @@ public final class ECOExtractedPatternExecution {
         } catch (RuntimeException failure) {
             return new ECOPatternEligibility(false, inputTypes, "PATTERN_INPUT_INSPECTION_FAILED");
         }
+        boolean structurallySupported = classification.supported()
+            || "REMAINDER_IS_NOT_REUSABLE_ITEM".equals(classification.reason());
         return new ECOPatternEligibility(
-            classification.supported(), inputTypes,
-            classification.supported() ? "" : classification.reason());
+            structurallySupported, inputTypes,
+            structurallySupported ? "" : classification.reason());
     }
 
     @Nullable

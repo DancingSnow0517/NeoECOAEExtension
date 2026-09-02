@@ -110,6 +110,25 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         return ECOFastPathStacks.copyCounter(counter);
     }
 
+    @Override
+    public boolean requiresSecondStepProof() {
+        return transitions.stream().anyMatch(transition ->
+            !transition.observedResult().isEmpty() && transition.damageDelta() != 0);
+    }
+
+    @Override
+    public boolean sameTransition(ECOReusableStateModel other) {
+        if (!(other instanceof ECODurabilityBatchModel durability)
+                || transitions.size() != durability.transitions.size()) return false;
+        for (int i = 0; i < transitions.size(); i++) {
+            Transition left = transitions.get(i);
+            Transition right = durability.transitions.get(i);
+            if (left.damageDelta() != right.damageDelta() || left.maxDamage() != right.maxDamage()
+                    || !ItemStack.isSameItem(left.initialStack(), right.initialStack())) return false;
+        }
+        return true;
+    }
+
     private boolean matchesInitial(AEKey key) {
         return transitions.stream().anyMatch(transition ->
             GenericStack.fromItemStack(transition.initialStack()).what().equals(key));

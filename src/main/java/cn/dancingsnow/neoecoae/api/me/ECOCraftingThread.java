@@ -20,6 +20,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateModel;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
@@ -437,9 +439,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return;
         }
         ECOReusableStateAnalyzer.Analysis stateAnalysis =
-            ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots);
+            ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots,
+                execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
         if (stateAnalysis.rejected()) {
             cache.putNegative(key, tick, stateAnalysis.rejectReason());
+            return;
+        }
+        if (!verifySecondStateStep(execution, outputItem, beforeSlots, remainingSlots, stateAnalysis.model())) {
+            cache.putNegative(key, tick, "STATE_SECOND_STEP_PROOF_FAILED");
             return;
         }
         List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
@@ -451,6 +458,39 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
             ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
             ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
+    }
+
+    private boolean verifySecondStateStep(
+        ECOExtractedPatternExecution execution,
+        ItemStack firstOutput,
+        List<ItemStack> initialSlots,
+        List<ItemStack> firstRemainingSlots,
+        @Nullable ECOReusableStateModel model
+    ) {
+        if (model == null || !model.requiresSecondStepProof()) return true;
+        IMolecularAssemblerSupportedPattern pattern = execution.molecularPattern();
+        if (pattern == null || initialSlots.size() != firstRemainingSlots.size()) return false;
+        try {
+            for (int slot = 0; slot < initialSlots.size(); slot++) {
+                ItemStack initial = initialSlots.get(slot);
+                ItemStack firstRemainder = firstRemainingSlots.get(slot);
+                craftingInv.setItem(slot,
+                    !initial.isEmpty() && !firstRemainder.isEmpty()
+                            && ItemStack.isSameItem(initial, firstRemainder)
+                        ? firstRemainder.copy()
+                        : initial.copy());
+            }
+            ItemStack secondOutput = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
+            if (secondOutput.isEmpty() || secondOutput.getCount() != firstOutput.getCount()
+                    || !ItemStack.isSameItemSameComponents(firstOutput, secondOutput)) return false;
+            List<ItemStack> secondRemaining = pattern.getRemainingItems(craftingInv.asCraftInput());
+            ECOReusableStateAnalyzer.Analysis second = ECOReusableStateAnalyzer.analyze(
+                firstRemainingSlots, secondRemaining,
+                execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
+            return !second.rejected() && second.model() != null && model.sameTransition(second.model());
+        } catch (RuntimeException failure) {
+            return false;
+        }
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
