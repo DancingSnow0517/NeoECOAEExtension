@@ -488,6 +488,37 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         return cluster == null ? 0 : cluster.getPooledTotalStorage();
     }
 
+    /**
+     * Fills empty computation drives from a held flash crystal matrix stack, up to one stack per use.
+     */
+    public int insertComputationCells(ItemStack stack) {
+        if (cluster == null || stack.isEmpty()) {
+            return 0;
+        }
+
+        int maxInsertions = Math.min(8, stack.getCount());
+        int inserted = 0;
+        for (var drive : cluster.getUpperDrives()) {
+            if (inserted >= maxInsertions) {
+                break;
+            }
+            if (drive.getCellStack() == null && drive.isItemValid(stack)) {
+                drive.setCellStack(stack.copyWithCount(1));
+                inserted++;
+            }
+        }
+        for (var drive : cluster.getLowerDrives()) {
+            if (inserted >= maxInsertions) {
+                break;
+            }
+            if (drive.getCellStack() == null && drive.isItemValid(stack)) {
+                drive.setCellStack(stack.copyWithCount(1));
+                inserted++;
+            }
+        }
+        return inserted;
+    }
+
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
         return MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
             holder.player,

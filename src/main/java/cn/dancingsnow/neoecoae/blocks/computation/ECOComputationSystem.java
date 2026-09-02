@@ -4,13 +4,17 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -46,6 +50,36 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     @Override
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.horizontalFacing();
+    }
+
+    @Override
+    protected ItemInteractionResult useItemOn(
+        ItemStack heldItem,
+        BlockState state,
+        Level level,
+        BlockPos pos,
+        Player player,
+        InteractionHand hand,
+        BlockHitResult hit
+    ) {
+        if (!(heldItem.getItem() instanceof ECOComputationCellItem)
+            || !(level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (level.isClientSide) {
+            return ItemInteractionResult.SUCCESS;
+        }
+        int inserted = be.insertComputationCells(heldItem);
+        if (inserted > 0) {
+            if (!player.isCreative()) {
+                heldItem.shrink(inserted);
+                if (heldItem.isEmpty()) {
+                    player.setItemInHand(hand, ItemStack.EMPTY);
+                }
+            }
+            return ItemInteractionResult.sidedSuccess(false);
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override
