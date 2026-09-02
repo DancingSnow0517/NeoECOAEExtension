@@ -50,30 +50,27 @@ class ECOCraftingDispatchStrategyTest {
     }
 
     @Test
-    void plainProviderAdaptivePolicyUsesRemainingWindowCredit() {
+    void ordinaryPolicyDoesNotApplyATaskSizeWindowCeiling() {
         var provider = new StubProvider();
-        var strategy = new ECOAdaptiveDispatchStrategy();
-        var context = new ECOCraftingDispatchStrategy.DispatchContext(
-            new StubPattern(), 1_000_000L, 16_384, List.of(provider), 16_384);
+        var smallTask = new ECOCraftingDispatchStrategy.DispatchContext(
+            new StubPattern(), 999L, 16_384, List.of(provider), 16_384);
+        var largeTask = new ECOCraftingDispatchStrategy.DispatchContext(
+            new StubPattern(), 100_000_000L, 16_384, List.of(provider), 16_384);
 
-        var decision = strategy.choose(context);
-
-        assertEquals(ECOAdaptiveDispatchStrategy.GENERIC_INITIAL_WINDOW, decision.maxAttempts());
-        for (int i = 0; i < ECOAdaptiveDispatchStrategy.GENERIC_INITIAL_WINDOW; i++) strategy.onAccepted(provider);
-        assertEquals(0, strategy.choose(context).maxAttempts(),
-            "accepted work in the current tick must consume the generic provider credit");
+        assertEquals(16_384, ECOParallelDispatchStrategy.INSTANCE.choose(smallTask).maxAttempts());
+        assertEquals(16_384, ECOParallelDispatchStrategy.INSTANCE.choose(largeTask).maxAttempts());
         assertFalse(ECOBatchProbeCraftingProvider.class.isAssignableFrom(StubProvider.class));
         assertFalse(ECOParallelCraftingProvider.class.isAssignableFrom(ECOBatchProbeCraftingProvider.class));
         assertFalse(ECOBatchProbeCraftingProvider.class.isAssignableFrom(ECOParallelCraftingProvider.class));
     }
 
     @Test
-    void adaptivePolicyKeepsParallelSlotsIndependentFromGenericCredit() {
+    void ordinaryPolicyUsesAdvertisedCapacityWithoutGenericCredit() {
         var parallel = new StubParallelProvider(37);
         var context = new ECOCraftingDispatchStrategy.DispatchContext(
-            new StubPattern(), 1_000_000L, 100, List.of(parallel), 100);
+            new StubPattern(), 1_000_000L, 100, List.of(parallel), parallel.eco$getAvailableParallelSlots());
 
-        assertEquals(37, new ECOAdaptiveDispatchStrategy().choose(context).maxAttempts());
+        assertEquals(37, ECOParallelDispatchStrategy.INSTANCE.choose(context).maxAttempts());
     }
 
     @Test

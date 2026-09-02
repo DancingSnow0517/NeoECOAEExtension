@@ -68,7 +68,7 @@ public class ECOCraftingCPULogic {
      * Ordinary dispatch is deliberately policy-driven. The default fills currently visible provider capacity;
      * adaptive policies can be installed without touching extraction, rollback or runtime accounting.
      */
-    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = new ECOAdaptiveDispatchStrategy();
+    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = ECOParallelDispatchStrategy.INSTANCE;
     private final Map<BatchProbeKey, BatchCapacityProbeState> batchProbeStates = new HashMap<>();
     enum BatchMode { FINITE, VIRTUAL }
 
@@ -626,8 +626,6 @@ public class ECOCraftingCPULogic {
                         DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
                         boolean sawAvailable = false;
                         for (ICraftingProvider provider : dispatchProviders) {
-                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive
-                                    && !adaptive.hasRemainingCredit(provider)) continue;
                             if (provider.isBusy()) continue;
                             sawAvailable = true;
                             boolean flatRateProvider = paysFlatRateCraftingPower(provider);
@@ -650,23 +648,14 @@ public class ECOCraftingCPULogic {
                                     : provider.pushPattern(details, attemptContainer);
                             } catch (RuntimeException failure) {
                                 diagnostics.providerRejections++;
-                                if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
-                                    adaptive.onException(provider);
-                                }
                                 LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
                                     failure);
                                 continue;
                             }
                             if (!accepted) {
                                 diagnostics.providerRejections++;
-                                if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
-                                    adaptive.onRejected(provider);
-                                }
                                 single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
                                 continue;
-                            }
-                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
-                                adaptive.onAccepted(provider);
                             }
                             if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
                             recordDispatchedInputs(attemptContainer, 1L);
@@ -677,9 +666,6 @@ public class ECOCraftingCPULogic {
                         if (!sawAvailable) {
                             diagnostics.tasksWithBusyProviders++;
                             single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
-                            if (ordinaryDispatchStrategy instanceof ECOAdaptiveDispatchStrategy adaptive) {
-                                for (var provider : dispatchProviders) adaptive.onBusy(provider, false);
-                            }
                         }
                         if (single instanceof DispatchResult.Accepted) {
                             pushedPatterns++;
