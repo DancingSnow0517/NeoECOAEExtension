@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -66,6 +67,7 @@ public final class SpecialPatternResolver {
             if (tools.signum() <= 0) continue;
             state.stored.remove(entry.getKey(), tools);
             state.used.add(entry.getKey(), tools);
+            state.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE, tools);
             uses = uses.subtract(tools.multiply(capacity)).max(PlannerAmount.ZERO);
         }
         if (uses.isZero()) return;
@@ -90,16 +92,18 @@ public final class SpecialPatternResolver {
         if (stored.signum() > 0) {
             state.stored.remove(key, stored);
             state.used.add(key, stored);
+            state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, stored);
             requested = requested.subtract(stored);
         }
-        PlannerAmount crafted = requested.min(state.crafted.get(key));
+        PlannerAmount crafted = requested.min(state.craftedAmount(key));
         if (crafted.signum() > 0) {
-            state.crafted.remove(key, crafted);
+            state.consumeCrafted(key, crafted);
             requested = requested.subtract(crafted);
         }
         if (requested.isZero()) return;
         if (network.emittable().contains(key)) {
             state.emitted.add(key, requested);
+            state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
             return;
         }
         if (!resolving.add(key)) {
@@ -114,13 +118,14 @@ public final class SpecialPatternResolver {
                 return;
             }
             state.selected.put(key, producer);
+            state.provenance.supplied(key, new MaterialSource.PatternOutput(producer.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(producer.outputPerPattern());
             state.patternTimes.merge(producer.details(), times, PlannerAmount::add);
             state.bytes = state.bytes.add(times);
             for (var output : producer.outputs()) {
                 PlannerAmount produced = PlannerAmount.of(output.amount()).multiply(times);
                 if (output.what().equals(key)) produced = produced.subtract(requested);
-                if (produced.signum() > 0) state.crafted.add(output.what(), produced);
+                if (produced.signum() > 0) state.creditCrafted(output.what(), producer.details(), produced);
             }
             resolve(producer, times);
             for (CompiledInput input : producer.inputs()) {

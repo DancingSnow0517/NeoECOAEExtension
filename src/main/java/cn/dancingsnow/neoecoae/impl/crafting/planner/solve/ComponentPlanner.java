@@ -293,7 +293,8 @@ public final class ComponentPlanner {
                             cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
                             diagnostic = "Zero-firing cycle solve did not reserve its required outputs";
                             unresolvedCycle = true;
-                        } else if (!acyclic.state().applyCycleTransaction(cycleResult, initialReservations,
+                        } else if (!acyclic.state().applyCycleTransaction(cycle.componentId(), requiredOutputs,
+                            cycleResult, initialReservations,
                             plannedCycleInputs, additionalReservations, inventory, external.directReservations(),
                             external.states())) {
                             cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
@@ -309,6 +310,9 @@ public final class ComponentPlanner {
                                 delegatedCycleDemands
                                     .computeIfAbsent(supplier.componentId(), ignored -> new LinkedHashMap<>())
                                     .merge(key, PlannerAmount.of(demand), PlannerAmount::add);
+                                acyclic.state().provenance.supplied(key,
+                                    new cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource.CycleOutput(
+                                        supplier.componentId()), PlannerAmount.of(demand));
                             });
                             stockReservations = mergeReservations(stockReservations,
                                 reservationDelta(usedBefore, acyclic.state().usedAmounts()));
@@ -391,9 +395,36 @@ public final class ComponentPlanner {
             status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
                 ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
         }
+        validateProvenanceCoverage(network, acyclic.state(), componentResults, trace);
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
             List.copyOf(componentResults), activeCondensation.executionOrder().stream()
                 .map(c -> c.componentId()).toList());
+    }
+
+    private static void validateProvenanceCoverage(CompiledNetwork network, SolveState state,
+            List<ComponentPlanningResult> components, ECOPlanTrace trace) {
+        Set<String> reported = new LinkedHashSet<>();
+        Set<IPatternDetails> cyclePatterns = components.stream()
+            .filter(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)
+            .flatMap(component -> component.executionPatterns().stream())
+            .collect(java.util.stream.Collectors.toSet());
+        var provenance = state.executionProvenance();
+        for (List<CompiledPattern> candidates : network.producers().values()) {
+            for (CompiledPattern pattern : candidates) {
+                if (state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO).signum() <= 0
+                        || cyclePatterns.contains(pattern.details())) continue;
+                for (CompiledInput input : pattern.inputs()) {
+                    if (pattern.specialAnalysis().excludesFromCycleGraph(input)
+                            || provenance.covers(input.key())) continue;
+                    String message = "[ECO-PROVENANCE] unattributed key=" + input.key()
+                        + " consumer=" + pattern.details();
+                    if (!reported.add(message)) continue;
+                    LOGGER.warn(message);
+                    trace.addDiagnostic(new PlannerDiagnostic(
+                        PlannerDiagnostic.Code.PROVENANCE_UNATTRIBUTED, message));
+                }
+            }
+        }
     }
 
     private static CycleSolveRequest.PlannerOptions cycleSolveOptions(CycleComponent cycle) {

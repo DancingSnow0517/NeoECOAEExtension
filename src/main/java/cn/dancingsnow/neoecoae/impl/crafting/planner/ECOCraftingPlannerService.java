@@ -85,7 +85,7 @@ public final class ECOCraftingPlannerService {
                 };
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
                     solved.components(), solved.executionComponentOrder(),
-                    elapsedSince(startedNanos));
+                    elapsedSince(startedNanos), solved.state().executionProvenance());
                 result.setTheoreticalBytes(solved.state().plannerBytes());
                 if (result.status() == PlanningStatus.SUCCESS
                         && ECOPlanningResultRegistry.cycleExpected(result)

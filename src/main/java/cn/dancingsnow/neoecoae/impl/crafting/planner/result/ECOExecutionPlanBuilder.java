@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -21,8 +22,14 @@ public final class ECOExecutionPlanBuilder {
     public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
             List<ComponentPlanningResult> components, List<Integer> executionOrder,
             Map<IPatternDetails, Long> patternTimes) {
+        return build(signature, mode, components, executionOrder, patternTimes, null);
+    }
+
+    public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
+            List<ComponentPlanningResult> components, List<Integer> executionOrder,
+            Map<IPatternDetails, Long> patternTimes, ExecutionProvenance provenance) {
         try {
-            return buildValidated(signature, mode, components, executionOrder, patternTimes);
+            return buildValidated(signature, mode, components, executionOrder, patternTimes, provenance);
         } catch (IllegalArgumentException | IllegalStateException failure) {
             logCycleValidationFailure(failure);
             throw failure;
@@ -31,9 +38,9 @@ public final class ECOExecutionPlanBuilder {
 
     private static ECOExecutionPlan buildValidated(PlanIdentity.Signature signature, ExecutionMode mode,
             List<ComponentPlanningResult> components, List<Integer> executionOrder,
-            Map<IPatternDetails, Long> patternTimes) {
+            Map<IPatternDetails, Long> patternTimes, ExecutionProvenance provenance) {
         validateCycleDispositions(signature, components);
-        ECOExecutionSchedule schedule = ECOExecutionSchedule.from(components, executionOrder, patternTimes);
+        ECOExecutionSchedule schedule = ECOExecutionSchedule.from(components, executionOrder, patternTimes, provenance);
         Map<Integer, ComponentPlanningResult> componentById = new HashMap<>();
         components.forEach(component -> componentById.put(component.componentId(), component));
 

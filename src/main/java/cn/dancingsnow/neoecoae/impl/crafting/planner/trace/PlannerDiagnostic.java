@@ -30,6 +30,8 @@ public record PlannerDiagnostic(Code code, String message) {
         EXECUTION_AMOUNT_UNREPRESENTABLE,
         /** The raw AE2 task vector consumes more material than the plan can physically supply. */
         PLAN_MATERIAL_CLOSURE_INVALID,
+        /** A consumed input had no numeric material attribution and will use conservative schedule fallback. */
+        PROVENANCE_UNATTRIBUTED,
         CANCELLED,
         INTERNAL_ERROR
     }

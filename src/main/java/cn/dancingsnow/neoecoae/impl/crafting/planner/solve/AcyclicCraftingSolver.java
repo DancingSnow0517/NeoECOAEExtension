@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge;
@@ -186,16 +187,18 @@ public final class AcyclicCraftingSolver {
             if (stored.signum() > 0) {
                 state.stored.remove(key, stored);
                 addCounter(state.used, key, stored);
+                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, stored);
                 requested = requested.subtract(stored);
             }
-            PlannerAmount crafted = requested.min(state.crafted.get(key));
+            PlannerAmount crafted = requested.min(state.craftedAmount(key));
             if (crafted.signum() > 0) {
-                state.crafted.remove(key, crafted);
+                state.consumeCrafted(key, crafted);
                 requested = requested.subtract(crafted);
             }
             if (requested.isZero()) continue;
             if (network.emittable().contains(key)) {
                 addCounter(state.emitted, key, requested);
+                state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
                 continue;
             }
             List<CompiledPattern> fast = network.producersOf(key).stream().filter(CompiledPattern::fastSupported).toList();
@@ -210,8 +213,11 @@ public final class AcyclicCraftingSolver {
             state.selected.put(key, pattern);
             if (deferredPatterns.contains(pattern.details())) {
                 // The untouched demand becomes a required output of the owning cycle component.
+                state.provenance.supplied(key,
+                    new MaterialSource.PatternOutput(pattern.details(), true), requested);
                 continue;
             }
+            state.provenance.supplied(key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
             PlannerAmount oldTimes = state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
             state.patternTimes.put(pattern.details(), oldTimes.add(times));
@@ -224,7 +230,7 @@ public final class AcyclicCraftingSolver {
             for (var output : produced.entrySet()) {
                 PlannerAmount available = output.getValue();
                 if (output.getKey().equals(key)) available = available.subtract(requested);
-                if (available.signum() > 0) addCounter(state.crafted, output.getKey(), available);
+                if (available.signum() > 0) state.creditCrafted(output.getKey(), pattern.details(), available);
             }
             specialResolver.resolve(pattern, times);
             for (CompiledInput input : pattern.inputs()) {

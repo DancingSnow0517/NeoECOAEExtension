@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
@@ -24,10 +25,12 @@ public final class ECOPlanningResult {
     private final ECOExecutionRequirement executionRequirement;
     private final @Nullable ECOExecutionPlan executionPlan;
     private final @Nullable String executionPlanError;
+    private final @Nullable ExecutionProvenance provenance;
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId) {
+            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId,
+            @Nullable ExecutionProvenance provenance) {
         this.status = status;
         this.plan = plan;
         this.trace = trace;
@@ -36,6 +39,7 @@ public final class ECOPlanningResult {
         this.executionComponentOrder = List.copyOf(executionComponentOrder);
         this.calculationNanos = Math.max(0L, calculationNanos);
         this.planningId = planningId == null ? UUID.randomUUID() : planningId;
+        this.provenance = provenance;
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
         }
@@ -53,7 +57,7 @@ public final class ECOPlanningResult {
                     : requirement == ECOExecutionRequirement.ORDERED
                         ? ExecutionMode.ORDERED_CYCLE : ExecutionMode.PHASED_DAG;
                 built = ECOExecutionPlanBuilder.build(signature, mode, this.components,
-                    this.executionComponentOrder, plan.patternTimes());
+                    this.executionComponentOrder, plan.patternTimes(), provenance);
                 if (built.phases().isEmpty()) {
                     // An empty phase list is never a valid cycle metadata answer. Surface it explicitly:
                     // for a cycle-expected plan this must end as an explicit FAILED state, not as a
@@ -76,8 +80,22 @@ public final class ECOPlanningResult {
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId) {
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, planningId, null);
+    }
+
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
             List<Integer> executionComponentOrder, long calculationNanos) {
         this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, UUID.randomUUID());
+    }
+
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos,
+            @Nullable ExecutionProvenance provenance) {
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos,
+            UUID.randomUUID(), provenance);
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
@@ -99,6 +117,7 @@ public final class ECOPlanningResult {
     public UUID planningId() { return planningId; }
     public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
     public @Nullable String executionPlanError() { return executionPlanError; }
+    public @Nullable ExecutionProvenance provenance() { return provenance; }
 
     public boolean shouldUseNativeFallback() {
         return status == PlanningStatus.PARTIAL_UNSUPPORTED || status == PlanningStatus.UNSUPPORTED

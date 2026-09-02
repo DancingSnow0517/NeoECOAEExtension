@@ -4,6 +4,9 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialProvenance;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,7 +19,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 
 public final class SolveState {
     final PlannerCounter stored = new PlannerCounter();
-    final PlannerCounter crafted = new PlannerCounter();
+    private final PlannerCounter crafted = new PlannerCounter();
+    final MaterialProvenance provenance = new MaterialProvenance();
     final PlannerCounter used = new PlannerCounter();
     final PlannerCounter emitted = new PlannerCounter();
     final PlannerCounter missing = new PlannerCounter();
@@ -63,6 +67,19 @@ public final class SolveState {
     /** AE2-facing storage size; exact only after representability has been established. */
     public long bytes() { return bytes.longValueExact(); }
     public PlannerAmount plannerBytes() { return bytes; }
+    public ExecutionProvenance executionProvenance() { return provenance.freeze(); }
+
+    PlannerAmount craftedAmount(AEKey key) { return crafted.get(key); }
+
+    void creditCrafted(AEKey key, IPatternDetails pattern, PlannerAmount amount) {
+        crafted.add(key, amount);
+        provenance.credit(key, pattern, amount);
+    }
+
+    void consumeCrafted(AEKey key, PlannerAmount amount) {
+        provenance.consumeCredit(key, amount);
+        crafted.remove(key, amount);
+    }
 
     /**
      * Finds quantities that are eventually passed through AE2's long-valued CraftingPlan fields.
@@ -110,7 +127,8 @@ public final class SolveState {
     }
 
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
-    boolean applyCycleTransaction(CycleSolveResult cycle, Map<AEKey, Long> ownedCycleReservations,
+    boolean applyCycleTransaction(int componentId, Map<AEKey, Long> requiredOutputs, CycleSolveResult cycle,
+            Map<AEKey, Long> ownedCycleReservations,
             Map<AEKey, Long> plannedCycleInputs, Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,
             KeyCounter directExternalReservations, List<SolveState> externalStates) {
         if (cycle == null || cycle.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
@@ -126,12 +144,24 @@ public final class SolveState {
             for (var entry : additionalCycleReservations.entrySet()) {
                 if (entry.getValue() < 0) return false;
                 candidate.used.add(entry.getKey(), entry.getValue());
+                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
+                    PlannerAmount.of(entry.getValue()));
             }
-            for (var entry : directExternalReservations) candidate.used.add(entry.getKey(), entry.getLongValue());
+            for (var entry : directExternalReservations) {
+                candidate.used.add(entry.getKey(), entry.getLongValue());
+                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
+                    PlannerAmount.of(entry.getLongValue()));
+            }
             for (SolveState external : externalStates) candidate.mergeExternal(external);
             for (var entry : cycle.patternTimes().entrySet()) {
                 if (entry.getValue() < 0) return false;
                 candidate.patternTimes.merge(entry.getKey(), PlannerAmount.of(entry.getValue()), PlannerAmount::add);
+            }
+            if (cycle.plannerTotalFirings().signum() > 0) {
+                for (var entry : requiredOutputs.entrySet()) {
+                    if (entry.getValue() > 0L) candidate.provenance.supplied(entry.getKey(),
+                        new MaterialSource.CycleOutput(componentId), PlannerAmount.of(entry.getValue()));
+                }
             }
             for (var entry : candidate.used) {
                 if (entry.getValue().compareTo(PlannerAmount.of(inventory.get(entry.getKey()))) > 0) return false;
@@ -152,6 +182,7 @@ public final class SolveState {
         copy.selected.putAll(selected);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
         copy.unsupported.addAll(unsupported); copy.bytes = bytes;
+        copy.provenance.replaceWith(provenance);
         return copy;
     }
 
@@ -164,6 +195,8 @@ public final class SolveState {
         demandProducers.putAll(external.demandProducers);
         selected.putAll(external.selected);
         external.parents.forEach((key, value) -> parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
+        // External surplus is not imported into crafted, so only its consumed-source attribution is mergeable.
+        provenance.mergeSuppliersFrom(external.provenance);
         bytes = bytes.add(external.bytes);
     }
 
@@ -175,6 +208,7 @@ public final class SolveState {
         selected.clear(); selected.putAll(source.selected); parents.clear();
         source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
         unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;
+        provenance.replaceWith(source.provenance);
     }
 
     private void collectExecutionIssues(List<ExecutionAmountIssue> issues, PlannerCounter counter, String stage) {
