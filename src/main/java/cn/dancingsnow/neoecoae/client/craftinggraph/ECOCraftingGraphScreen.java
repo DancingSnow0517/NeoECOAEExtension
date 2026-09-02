@@ -105,6 +105,8 @@ public final class ECOCraftingGraphScreen extends Screen {
         var frame = renderer.render(graphics, graph, layout, cameraX, cameraY, zoom, width, height, mouseX, mouseY,
             selectedId, profiler);
         hovered = frame.hovered();
+        // Item icons are batched. Flush them while the graph scissor is still active so later UI overlays stay on top.
+        graphics.flush();
         graphics.disableScissor();
         super.render(graphics, mouseX, mouseY, partialTick);
         drawSearchSuggestions(graphics, mouseX, mouseY);
@@ -564,6 +566,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             .findFirst();
         if (match.isPresent()) {
             selectedId = match.get().id();
+            zoom = 1.0f;
             center(selectedId);
             return;
         }
@@ -580,7 +583,7 @@ public final class ECOCraftingGraphScreen extends Screen {
                     rebuildGraph(false);
                     graph.compactTreeNodes().values().stream()
                         .filter(node -> node.sourceId() == sourceMatch.get().id()).findFirst()
-                        .ifPresent(node -> { selectedId = node.id(); center(node.id()); });
+                        .ifPresent(node -> { selectedId = node.id(); zoom = 1.0f; center(node.id()); });
                 }
             }
         }
@@ -589,8 +592,11 @@ public final class ECOCraftingGraphScreen extends Screen {
     private void center(int id) {
         var box = layout.box(id);
         if (box == null) return;
-        cameraX = width / 2.0f - box.centerX() * zoom;
-        cameraY = (height + TOOLBAR_HEIGHT) / 2.0f - box.centerY() * zoom;
+        float detailsReserve = graph.isCompactTree() || graph.view() != ClientCraftingGraph.View.MAIN ? 258 : 0;
+        float usableWidth = Math.max(1, width - detailsReserve);
+        float usableHeight = Math.max(1, height - TOOLBAR_HEIGHT);
+        cameraX = usableWidth / 2.0f - box.centerX() * zoom;
+        cameraY = TOOLBAR_HEIGHT + usableHeight / 2.0f - box.centerY() * zoom;
     }
 
     private @Nullable ClientCraftingGraph.Node hit(double mouseX, double mouseY) {
@@ -724,7 +730,10 @@ public final class ECOCraftingGraphScreen extends Screen {
             rebuildGraph(false);
             graph.compactTreeNodes().values().stream().filter(node -> node.sourceId() == match.id())
                 .findFirst().ifPresent(node -> { selectedId = node.id(); center(node.id()); });
-        } else center(selectedId);
+        } else {
+            zoom = 1.0f;
+            center(selectedId);
+        }
         searchSuggestions.clear();
         return true;
     }
