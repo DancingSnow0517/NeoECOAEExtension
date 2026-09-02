@@ -130,6 +130,21 @@ class ECOBatchCraftingBoundsTest {
     }
 
     @Test
+    void reusableFirstCraftInputDoesNotLimitAdditionalBatchCrafts() {
+        var material = FastPathTestKey.of("reusable-material");
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.insert(material, 99L, Actionable.MODULATE);
+
+        int batchSize = ECOBatchCraftingHelper.maxBatchSizeFromAdditionalInputs(
+            inventory,
+            100,
+            (int crafts) -> List.of(new GenericStack(material, crafts - 1L))
+        );
+
+        assertEquals(100, batchSize);
+    }
+
+    @Test
     void durabilitySingleAndBatchDamageAreLinear() {
         assertEquals(11, calculatedDamage(10, 1, 200, 1).orElseThrow());
         assertEquals(110, calculatedDamage(10, 1, 200, 100).orElseThrow());
@@ -140,6 +155,13 @@ class ECOBatchCraftingBoundsTest {
         assertTrue(calculatedDamage(199, 1, 200, 1).isEmpty());
         assertTrue(calculatedDamage(198, 1, 200, 2).isEmpty());
         assertTrue(calculatedDamage(198, 1, 200, 20).isEmpty());
+    }
+
+    @Test
+    void durabilityBatchStopsAtTheCraftThatBreaksTheTool() {
+        assertEquals(1L, ECODurabilityBatchModel.maxCraftsBeforeBreak(199, 1, 200));
+        assertEquals(2L, ECODurabilityBatchModel.maxCraftsBeforeBreak(198, 1, 200));
+        assertEquals(2L, ECODurabilityBatchModel.maxCraftsBeforeBreak(195, 3, 200));
     }
 
     @Test

@@ -315,6 +315,10 @@ public class ECOCraftingCPULogic {
         long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
         long reserve = currentJob.finalOutputFeedbackReserve(key);
         long surplus = Math.max(0L, stored - Math.min(stored, reserve));
+        if (surplus <= 0L && stored > 0L) {
+            LOGGER.debug("[ECO-CYCLE-RESOURCE] blocked external consumption cycle output item={} stored={} reserve={} reason=kept_cycle_reserve",
+                key, stored, reserve);
+        }
         if (surplus <= 0L) return;
         long transferable = currentJob.bufferedFinalOutput.accept(surplus, Actionable.SIMULATE);
         if (transferable <= 0L) return;
@@ -1307,8 +1311,9 @@ public class ECOCraftingCPULogic {
         if (selectedPatternBus == null || selectedOffer == null) {
             return 0;
         }
+        var verifiedRecipe = selectedOffer.recipe();
         // The credential must have been minted for this very execution context, never for an earlier one.
-        if (!selectedOffer.recipe().isVerifiedFor(execution)) {
+        if (!verifiedRecipe.isVerifiedFor(execution)) {
             return 0;
         }
 
@@ -1330,15 +1335,20 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int extraCrafts = batchSize - 1;
-        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
-                extraCrafts);
-        batchSize = Math.min(batchSize, availableExtraCrafts + 1);
+        if (verifiedRecipe.reusableStateModel() == null) {
+            int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+                inventory, execution.inputItems(), batchSize - 1);
+            batchSize = Math.min(batchSize, availableExtraCrafts + 1);
+        } else {
+            batchSize = (int) ECOBatchCraftingHelper.maxBatchSizeFromAdditionalInputs(
+                inventory, (long) batchSize,
+                (java.util.function.LongFunction<List<GenericStack>>) verifiedRecipe::additionalInputs);
+        }
         if (batchSize <= 1) {
             return 0;
         }
 
-        var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
+        var extraInputs = verifiedRecipe.additionalInputs(batchSize);
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
@@ -1350,7 +1360,7 @@ public class ECOCraftingCPULogic {
             extraInputsExtracted = true;
             // Bind the already-verified recipe credential to this batch size. No stack list is re-copied and no
             // stack list is compared again from here on.
-            var verified = selectedOffer.recipe().withBatch(batchSize, job.link.getCraftingID());
+            var verified = verifiedRecipe.withBatch(batchSize, job.link.getCraftingID());
             if (verified == null || !selectedPatternBus.pushBatch(verified, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
@@ -1443,17 +1453,25 @@ public class ECOCraftingCPULogic {
         if (selectedBus == null || selectedOffer == null || !selectedOffer.recipe().isVerifiedFor(execution)) {
             return 0L;
         }
+        var verifiedRecipe = selectedOffer.recipe();
 
-        long extraRequested = taskRemaining - 1L;
-        long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
-            inventory, execution.inputItems(), extraRequested);
-        long craftCount = Math.min(taskRemaining, availableExtra + 1L);
+        long requestedBatchSize = Math.min(taskRemaining, verifiedRecipe.arithmeticBatchLimit());
+        long craftCount;
+        if (verifiedRecipe.reusableStateModel() == null) {
+            long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
+                inventory, execution.inputItems(), requestedBatchSize - 1L);
+            craftCount = Math.min(requestedBatchSize, availableExtra + 1L);
+        } else {
+            craftCount = ECOBatchCraftingHelper.maxBatchSizeFromAdditionalInputs(
+                inventory, requestedBatchSize,
+                (java.util.function.LongFunction<List<GenericStack>>) verifiedRecipe::additionalInputs);
+        }
         if (craftCount <= 0L) {
             return 0L;
         }
         List<GenericStack> extraInputs;
         try {
-            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), craftCount - 1L);
+            extraInputs = verifiedRecipe.additionalInputs(craftCount);
         } catch (RuntimeException e) {
             return 0L;
         }
@@ -1462,7 +1480,7 @@ public class ECOCraftingCPULogic {
         try {
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
             extracted = true;
-            var verified = selectedOffer.recipe().withVirtualBatch(craftCount, job.link.getCraftingID());
+            var verified = verifiedRecipe.withVirtualBatch(craftCount, job.link.getCraftingID());
             if (verified == null || !selectedBus.pushVirtualBatch(verified, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1L;

@@ -124,7 +124,7 @@ public final class ECOExecutionPlanBuilder {
                 schedulePhase.type(), taskIds, steps, schedule.dependencies().stream()
                     .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
                     .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList(),
-                dynamicFirings, schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                dynamicFirings, schedulePhase.type() != ECOExecutionSchedule.Type.DAG
                     && component != null && component.cycleResult() != null
                         ? component.cycleResult().requiredSeed() : Map.of()));
         }

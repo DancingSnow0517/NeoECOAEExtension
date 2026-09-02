@@ -23,8 +23,8 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         long max = Long.MAX_VALUE;
         for (Transition transition : transitions) {
             if (transition.damageDelta() > 0) {
-                max = Math.min(max,
-                    (Long.MAX_VALUE - transition.initialDamage()) / transition.damageDelta());
+                max = Math.min(max, maxCraftsBeforeBreak(
+                    transition.initialDamage(), transition.damageDelta(), transition.maxDamage()));
             }
         }
         this.maxBatchSize = max;
@@ -177,5 +177,11 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         long finalDamage = Math.addExact(initialDamage, Math.multiplyExact((long) damageDelta, crafts));
         if (finalDamage >= maxDamage && breakBehavior == BreakBehavior.DISAPPEAR) return OptionalInt.empty();
         return OptionalInt.of(Math.toIntExact(finalDamage));
+    }
+
+    static long maxCraftsBeforeBreak(int initialDamage, int damageDelta, int maxDamage) {
+        if (initialDamage < 0 || damageDelta <= 0 || maxDamage <= initialDamage) return 0L;
+        long remaining = (long) maxDamage - initialDamage;
+        return (remaining + damageDelta - 1L) / damageDelta;
     }
 }

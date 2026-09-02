@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
+import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 
 public final class ECOBatchCraftingHelper {
     /** Maximum number of distinct item entries in one batch. */
@@ -157,6 +159,68 @@ public final class ECOBatchCraftingHelper {
             }
         }
         return max;
+    }
+
+    /**
+     * Finds the largest total batch whose inputs beyond the already-extracted first craft are available.
+     * Stateful recipes cannot use a per-craft division here: a reusable tool is owned by the first craft and
+     * contributes no additional input until a later batch starts with another concrete tool state.
+     */
+    public static int maxBatchSizeFromAdditionalInputs(
+        ListCraftingInventory inventory,
+        int requestedBatchSize,
+        IntFunction<List<GenericStack>> additionalInputs
+    ) {
+        Objects.requireNonNull(inventory, "inventory");
+        Objects.requireNonNull(additionalInputs, "additionalInputs");
+        if (requestedBatchSize <= 1) return Math.max(0, requestedBatchSize);
+        if (containsAll(inventory, additionalInputs.apply(requestedBatchSize))) return requestedBatchSize;
+
+        int low = 1;
+        int high = requestedBatchSize - 1;
+        while (low < high) {
+            int difference = high - low;
+            int candidate = low + difference / 2 + difference % 2;
+            if (containsAll(inventory, additionalInputs.apply(candidate))) {
+                low = candidate;
+            } else {
+                high = candidate - 1;
+            }
+        }
+        return low;
+    }
+
+    public static long maxBatchSizeFromAdditionalInputs(
+        ListCraftingInventory inventory,
+        long requestedBatchSize,
+        LongFunction<List<GenericStack>> additionalInputs
+    ) {
+        Objects.requireNonNull(inventory, "inventory");
+        Objects.requireNonNull(additionalInputs, "additionalInputs");
+        if (requestedBatchSize <= 1L) return Math.max(0L, requestedBatchSize);
+        if (containsAll(inventory, additionalInputs.apply(requestedBatchSize))) return requestedBatchSize;
+
+        long low = 1L;
+        long high = requestedBatchSize - 1L;
+        while (low < high) {
+            long difference = high - low;
+            long candidate = low + difference / 2L + difference % 2L;
+            if (containsAll(inventory, additionalInputs.apply(candidate))) {
+                low = candidate;
+            } else {
+                high = candidate - 1L;
+            }
+        }
+        return low;
+    }
+
+    private static boolean containsAll(ListCraftingInventory inventory, List<GenericStack> required) {
+        for (GenericStack stack : required) {
+            if (stack == null || stack.amount() <= 0L || inventory.list.get(stack.what()) < stack.amount()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static int maxAffordableCrafts(

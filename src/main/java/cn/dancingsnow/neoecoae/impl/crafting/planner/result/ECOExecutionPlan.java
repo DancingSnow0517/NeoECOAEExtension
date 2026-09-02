@@ -133,8 +133,8 @@ public record ECOExecutionPlan(
                     throw new IllegalArgumentException("Dynamic firing count exceeds its task total");
                 }
             });
-            if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.initialSeed().isEmpty()) {
-                throw new IllegalArgumentException("Only a dynamic cycle phase can retain startup seed metadata");
+            if (phase.type() == ECOExecutionSchedule.Type.DAG && !phase.initialSeed().isEmpty()) {
+                throw new IllegalArgumentException("Only a cycle phase can retain startup seed metadata");
             }
             java.util.HashSet<Integer> uniqueDependencies = new java.util.HashSet<>();
             for (int dependency : phase.dependencies()) {

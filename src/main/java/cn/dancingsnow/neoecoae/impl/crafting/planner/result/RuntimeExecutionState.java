@@ -11,6 +11,7 @@ import java.util.TreeSet;
 /** Mutable task accounting with dependency-aware multi-ready phases. */
 public final class RuntimeExecutionState {
     private final ECOExecutionPlan plan;
+    private final java.util.Map<Integer, CycleResourceLedger> cycleLedgers = new java.util.LinkedHashMap<>();
     private final long[] remaining;
     private final long[] dynamicRemaining;
     private final long[] dynamicPhaseRemaining;
@@ -27,6 +28,11 @@ public final class RuntimeExecutionState {
 
     public RuntimeExecutionState(ECOExecutionPlan plan) {
         this.plan = Objects.requireNonNull(plan, "plan");
+        for (var phase : plan.phases()) {
+            if (phase.type() != ECOExecutionSchedule.Type.DAG) {
+                cycleLedgers.put(phase.componentId(), new CycleResourceLedger(phase.componentId(), phase.initialSeed()));
+            }
+        }
         remaining = plan.tasks().stream().mapToLong(ECOExecutionPlan.TaskSpec::totalCount).toArray();
         dynamicRemaining = new long[remaining.length];
         dynamicPhaseRemaining = new long[plan.phases().size()];
@@ -46,6 +52,8 @@ public final class RuntimeExecutionState {
         rebuildFrontier();
     }
     public ECOExecutionPlan plan() { return plan; }
+    public CycleResourceLedger cycleLedger(int componentId) { return cycleLedgers.get(componentId); }
+    public java.util.Map<Integer, CycleResourceLedger> cycleLedgers() { return java.util.Map.copyOf(cycleLedgers); }
     public int phaseIndex() { return phaseIndex; }
     public int stepIndex() { return activePhase() == null ? 0 : stepIndex[phaseIndex]; }
     public long stepRemaining() { return activePhase() == null ? 0L : stepRemaining[phaseIndex]; }
@@ -98,7 +106,9 @@ public final class RuntimeExecutionState {
             if (phase.type() == ECOExecutionSchedule.Type.DAG) continue;
             if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
                 if (dynamicPhaseRemaining[phase.index()] > 0L) {
-                    reserve = Math.max(reserve, phase.initialSeed().getOrDefault(key, 0L));
+                    var ledger = cycleLedgers.get(phase.componentId());
+                    reserve = Math.max(reserve, ledger == null ? phase.initialSeed().getOrDefault(key, 0L)
+                        : Math.max(phase.initialSeed().getOrDefault(key, 0L), ledger.reserve(key)));
                 }
                 continue;
             }
@@ -126,6 +136,7 @@ public final class RuntimeExecutionState {
         if (count <= 0 || count > permitted) {
             throw new IllegalArgumentException("Dispatch count exceeds runtime gate");
         }
+        accountCycleResources(taskId, count);
         List<Integer> newlyReady = new ArrayList<>();
         remaining[taskId] -= count;
         int phase = plan.task(taskId).phaseIndex();
@@ -157,6 +168,29 @@ public final class RuntimeExecutionState {
         if (phaseDone(phase)) completePhase(phase, newlyReady);
         updateActivePhaseIndex();
         return newlyReady;
+    }
+
+    private void accountCycleResources(int taskId, long count) {
+        var task = plan.task(taskId);
+        var ledger = cycleLedgers.get(plan.phases().get(task.phaseIndex()).componentId());
+        if (ledger == null) return;
+        var semantics = ECOPhaseScheduler.semantic(task.pattern());
+        for (var input : semantics.consumedInputs()) {
+            try { ledger.consume(input.key(), Math.multiplyExact(input.amountPerPattern().longValueExact(), count)); }
+            catch (ArithmeticException ignored) { ledger.consume(input.key(), Long.MAX_VALUE); }
+        }
+        for (var output : semantics.producedOutputs()) {
+            if (output != null && output.what() != null && output.amount() > 0) {
+                try { ledger.recordGenerated(output.what(), Math.multiplyExact(output.amount(), count)); }
+                catch (ArithmeticException ignored) { ledger.recordGenerated(output.what(), Long.MAX_VALUE); }
+            }
+        }
+        for (var output : semantics.returnedOutputs()) {
+            if (output != null && output.what() != null && output.amount() > 0) {
+                try { ledger.recordGenerated(output.what(), Math.multiplyExact(output.amount(), count)); }
+                catch (ArithmeticException ignored) { ledger.recordGenerated(output.what(), Long.MAX_VALUE); }
+            }
+        }
     }
 
     public void restore(long[] restoredRemaining, long[] restoredDynamicRemaining,
