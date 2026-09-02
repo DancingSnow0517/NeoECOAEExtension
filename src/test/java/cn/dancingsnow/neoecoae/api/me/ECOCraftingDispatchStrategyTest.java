@@ -74,6 +74,26 @@ class ECOCraftingDispatchStrategyTest {
     }
 
     @Test
+    void finiteDispatchQueueIsSeededOncePerTaskAndCanRefillBeyondTwoRounds() {
+        var logic = new ECOCraftingCPULogic(null);
+        var first = new ExecutingCraftingJob.DispatchTask(1, new StubPattern(), new ExecutingCraftingJob.TaskProgress());
+        var second = new ExecutingCraftingJob.DispatchTask(2, new StubPattern(), new ExecutingCraftingJob.TaskProgress());
+        var queue = new ArrayList<>(logic.fairTaskOrder(List.of(first, second)));
+
+        assertEquals(List.of(first, second), queue);
+
+        int dispatches = 0;
+        while (dispatches < 22) {
+            var task = queue.removeFirst();
+            dispatches++;
+            queue.add(task);
+        }
+
+        assertEquals(22, dispatches);
+        assertEquals(List.of(first, second), queue);
+    }
+
+    @Test
     void unknownBatchCapacityUsesThreeDescendingProbesAndShortCircuits() {
         var attempted = new ArrayList<Long>();
         var state = new BatchCapacityProbeState();

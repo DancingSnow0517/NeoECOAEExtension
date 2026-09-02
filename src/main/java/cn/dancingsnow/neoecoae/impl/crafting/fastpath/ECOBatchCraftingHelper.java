@@ -171,17 +171,38 @@ public final class ECOBatchCraftingHelper {
         int requestedBatchSize,
         IntFunction<List<GenericStack>> additionalInputs
     ) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, additionalInputs);
+    }
+
+    /**
+     * Finds the largest complete batch whose full physical inputs are currently available. This is used after
+     * the first craft of a logical task has already been dispatched; unlike additionalInputs, the function must
+     * include reusable state inputs and every ordinary input for the whole next batch.
+     */
+    public static long maxBatchSizeFromBatchInputs(
+        ListCraftingInventory inventory,
+        long requestedBatchSize,
+        LongFunction<List<GenericStack>> batchInputs
+    ) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, batchInputs);
+    }
+
+    private static int maxBatchSizeFromInputFunction(
+        ListCraftingInventory inventory,
+        int requestedBatchSize,
+        IntFunction<List<GenericStack>> inputFunction
+    ) {
         Objects.requireNonNull(inventory, "inventory");
-        Objects.requireNonNull(additionalInputs, "additionalInputs");
+        Objects.requireNonNull(inputFunction, "inputFunction");
         if (requestedBatchSize <= 1) return Math.max(0, requestedBatchSize);
-        if (containsAll(inventory, additionalInputs.apply(requestedBatchSize))) return requestedBatchSize;
+        if (containsAll(inventory, inputFunction.apply(requestedBatchSize))) return requestedBatchSize;
 
         int low = 1;
         int high = requestedBatchSize - 1;
         while (low < high) {
             int difference = high - low;
             int candidate = low + difference / 2 + difference % 2;
-            if (containsAll(inventory, additionalInputs.apply(candidate))) {
+            if (containsAll(inventory, inputFunction.apply(candidate))) {
                 low = candidate;
             } else {
                 high = candidate - 1;
@@ -195,17 +216,25 @@ public final class ECOBatchCraftingHelper {
         long requestedBatchSize,
         LongFunction<List<GenericStack>> additionalInputs
     ) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, additionalInputs);
+    }
+
+    private static long maxBatchSizeFromInputFunction(
+        ListCraftingInventory inventory,
+        long requestedBatchSize,
+        LongFunction<List<GenericStack>> inputFunction
+    ) {
         Objects.requireNonNull(inventory, "inventory");
-        Objects.requireNonNull(additionalInputs, "additionalInputs");
+        Objects.requireNonNull(inputFunction, "inputFunction");
         if (requestedBatchSize <= 1L) return Math.max(0L, requestedBatchSize);
-        if (containsAll(inventory, additionalInputs.apply(requestedBatchSize))) return requestedBatchSize;
+        if (containsAll(inventory, inputFunction.apply(requestedBatchSize))) return requestedBatchSize;
 
         long low = 1L;
         long high = requestedBatchSize - 1L;
         while (low < high) {
             long difference = high - low;
             long candidate = low + difference / 2L + difference % 2L;
-            if (containsAll(inventory, additionalInputs.apply(candidate))) {
+            if (containsAll(inventory, inputFunction.apply(candidate))) {
                 low = candidate;
             } else {
                 high = candidate - 1L;

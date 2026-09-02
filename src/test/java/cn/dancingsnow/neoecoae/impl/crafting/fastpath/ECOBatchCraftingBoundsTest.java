@@ -145,6 +145,16 @@ class ECOBatchCraftingBoundsTest {
     }
 
     @Test
+    void fullBatchInputLimitIncludesEveryInputAfterTheProbeCraftIsReturned() {
+        var material = FastPathTestKey.of("full-batch-material");
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.insert(material, 7L, Actionable.MODULATE);
+
+        assertEquals(7L, ECOBatchCraftingHelper.maxBatchSizeFromBatchInputs(
+            inventory, 100L, crafts -> List.of(new GenericStack(material, crafts))));
+    }
+
+    @Test
     void durabilitySingleAndBatchDamageAreLinear() {
         assertEquals(11, calculatedDamage(10, 1, 200, 1).orElseThrow());
         assertEquals(110, calculatedDamage(10, 1, 200, 100).orElseThrow());
