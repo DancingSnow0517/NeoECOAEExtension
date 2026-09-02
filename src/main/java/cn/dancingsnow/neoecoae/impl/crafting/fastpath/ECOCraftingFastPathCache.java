@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +39,7 @@ public final class ECOCraftingFastPathCache {
 
     private final int limit;
     private final Map<ECOFastPathKey, ECOFastPathResult> entries;
+    private final Map<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
     private final Map<String, Long> ineligibleReasonCounts = new LinkedHashMap<>();
     private final Map<String, String> ineligibleReasonExamples = new LinkedHashMap<>();
 
@@ -56,7 +58,6 @@ public final class ECOCraftingFastPathCache {
     private long nonItemKeyCount;
     private long keyBuildFailedCount;
     private long exceptionCount;
-    private long lastStatsLogTick = Long.MIN_VALUE;
     private long credentialEpoch;
 
     public ECOCraftingFastPathCache() {
@@ -69,6 +70,12 @@ public final class ECOCraftingFastPathCache {
         this.entries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<ECOFastPathKey, ECOFastPathResult> eldest) {
+                return size() > ECOCraftingFastPathCache.this.limit;
+            }
+        };
+        this.patternEntries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<ECOFastPathPatternKey, ECOPatternEligibility> eldest) {
                 return size() > ECOCraftingFastPathCache.this.limit;
             }
         };
@@ -113,9 +120,9 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> remaining,
         List<GenericStack> inputs,
         long tick,
-        @Nullable ECODurabilityBatchModel durabilityModel
+        @Nullable ECOReusableStateModel reusableStateModel
     ) {
-        putPositive(key, outputs, remaining, inputs, tick, durabilityModel,
+        putPositive(key, outputs, remaining, inputs, tick, reusableStateModel,
             ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
     }
 
@@ -125,7 +132,7 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> remaining,
         List<GenericStack> inputs,
         long tick,
-        @Nullable ECODurabilityBatchModel durabilityModel,
+        @Nullable ECOReusableStateModel reusableStateModel,
         ECORecipeClassifier.Type type,
         List<ECOFastPathComponentChange> inputComponentChanges,
         List<ECOFastPathComponentChange> outputComponentChanges,
@@ -143,17 +150,33 @@ public final class ECOCraftingFastPathCache {
                 remaining, Integer.MAX_VALUE, false, resultValidation)
             || !ECOFastPathStacks.areValidItemStacks(
                 inputs, Integer.MAX_VALUE, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT)) {
-            putNegative(key, tick);
+            putNegative(key, tick, "VERIFIED_STACK_VALIDATION_FAILED");
             return;
         }
-        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, durabilityModel, type,
+        if (!reusableInputs.isEmpty() && reusableStateModel == null) {
+            putNegative(key, tick, "REUSABLE_STATE_MODEL_MISSING");
+            return;
+        }
+        ECOPatternEligibility eligibility = patternEntries.get(key.patternKey());
+        EnumSet<FastPathCapability> capabilities = EnumSet.of(
+            eligibility != null && eligibility.hasSubstitutionInput()
+                ? FastPathCapability.TAG_RESOLVED_LINEAR
+                : FastPathCapability.PURE_LINEAR);
+        if (reusableStateModel != null) capabilities.add(reusableStateModel.capability());
+        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel,
+            capabilities, type,
             inputComponentChanges, outputComponentChanges, durabilityDeltas, reusableInputs));
         verifySuccessCount++;
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {
-        entries.put(key, ECOFastPathResult.negative(tick));
+        putNegative(key, tick, "VERIFICATION_REJECTED");
+    }
+
+    public void putNegative(ECOFastPathKey key, long tick, String reason) {
+        entries.put(key, ECOFastPathResult.negative(tick, reason));
         verifyRejectCount++;
+        recordRejectReason(reason, key.toString());
     }
 
     /**
@@ -173,6 +196,12 @@ public final class ECOCraftingFastPathCache {
             expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }
+        ECOPatternEligibility eligibility = patternEntries.computeIfAbsent(
+            key.patternKey(), ignored -> execution.patternEligibility());
+        if (!eligibility.supported()) {
+            recordRejectReason(eligibility.rejectReason(), execution.expectedOutputs().toString());
+            return ECOFastPathLookup.negative();
+        }
         ECOFastPathResult result = get(key, tick);
         if (result == null) {
             return ECOFastPathLookup.miss();
@@ -191,6 +220,7 @@ public final class ECOCraftingFastPathCache {
 
     public void clear() {
         entries.clear();
+        patternEntries.clear();
         credentialEpoch++;
     }
 
@@ -217,7 +247,7 @@ public final class ECOCraftingFastPathCache {
 
     public void recordDisabled(String reason) {
         recordDisabled();
-        ineligibleReasonCounts.merge(reason == null || reason.isBlank() ? "UNKNOWN" : reason, 1L, Long::sum);
+        recordRejectReason(reason, null);
     }
 
     public void recordDisabled(ECOExtractedPatternExecution execution) {
@@ -264,52 +294,24 @@ public final class ECOCraftingFastPathCache {
         exceptionCount++;
     }
 
-    public void maybeLogStats(String owner, long tick) {
-        if (!NEConfig.debugEcoFastPath) {
-            return;
-        }
-        if (!isStatsLogDue(lastStatsLogTick, tick)) {
-            return;
-        }
-        lastStatsLogTick = tick;
-        long positiveLookups = hitCount + missCount + negativeHitCount;
-        double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
-        LOGGER.debug(
-            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={}% negativeHit={} verified={} rejected={} fallback[disabled={} reasons={} examples={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
-            owner,
-            entries.size(),
-            limit,
-            hitCount,
-            missCount,
-            String.format(java.util.Locale.ROOT, "%.1f", hitRate),
-            negativeHitCount,
-            verifySuccessCount,
-            verifyRejectCount,
-            disabledCount,
-            ineligibleReasonCounts,
-            ineligibleReasonExamples,
-            fallbackSlowPathCount,
-            expectedMismatchCount,
-            nonItemKeyCount,
-            keyBuildFailedCount,
-            exceptionCount,
-            fastPathAcceptedCount,
-            slowPathAcceptedCount,
-            coolantRejectCount,
-            noThreadRejectCount
-        );
+    @Nullable
+    ECOPatternEligibility getPatternEligibility(ECOFastPathPatternKey key) {
+        return patternEntries.get(key);
+    }
+
+    /** Package-private test seam for registry-independent AEKey fixtures. */
+    void putResolvedForTesting(ECOFastPathKey key, ECOFastPathResult result) {
+        entries.put(key, result);
+    }
+
+    private void recordRejectReason(@Nullable String reason, @Nullable String example) {
+        String normalized = reason == null || reason.isBlank() ? "UNKNOWN" : reason;
+        ineligibleReasonCounts.merge(normalized, 1L, Long::sum);
+        if (example != null) ineligibleReasonExamples.putIfAbsent(normalized, example);
     }
 
     private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {
         long age = tick - result.getCreatedTick();
         return age < 0L || age >= NEGATIVE_CACHE_TTL_TICKS;
-    }
-
-    private boolean isStatsLogDue(long previousTick, long tick) {
-        if (previousTick == Long.MIN_VALUE) {
-            return true;
-        }
-        long elapsed = tick - previousTick;
-        return elapsed < 0L || elapsed >= 100L;
     }
 }

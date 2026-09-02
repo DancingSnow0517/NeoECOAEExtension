@@ -7,6 +7,7 @@ import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -33,6 +34,7 @@ public final class ECOExtractedPatternExecution {
     private final List<GenericStack> expectedContainerItems;
     private final List<GenericStack> inputItems;
     private final ECORecipeClassifier.Classification classification;
+    private final ECOPatternEligibility patternEligibility;
 
     @Nullable
     private final ECOFastPathKey key;
@@ -48,6 +50,7 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> expectedContainerItems,
         List<GenericStack> inputItems,
         ECORecipeClassifier.Classification classification,
+        ECOPatternEligibility patternEligibility,
         @Nullable ECOFastPathKey key,
         @Nullable String fastPathRejectionReason
     ) {
@@ -59,6 +62,7 @@ public final class ECOExtractedPatternExecution {
         this.expectedContainerItems = List.copyOf(expectedContainerItems);
         this.inputItems = List.copyOf(inputItems);
         this.classification = classification;
+        this.patternEligibility = patternEligibility;
         this.key = key;
         this.fastPathRejectionReason = fastPathRejectionReason;
         this.arithmeticBatchLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
@@ -77,14 +81,16 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
         List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
         ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
+        ECOPatternEligibility patternEligibility = inspectPatternEligibility(details, classification);
         Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
         ECOFastPathStacks.ItemStackValidation resultValidation = classification.type() == ECORecipeClassifier.Type.NORMAL
             ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
             : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
         String rejectionReason = findFastPathRejectionReason(
-            details, key, outputs, containers, inputs, resultValidation);
+            details, key, outputs, containers, inputs, resultValidation, patternEligibility);
         return new ECOExtractedPatternExecution(
-            details, craftingContainer, outputs, containers, inputs, classification, key.orElse(null), rejectionReason
+            details, craftingContainer, outputs, containers, inputs, classification, patternEligibility,
+            key.orElse(null), rejectionReason
         );
     }
 
@@ -96,6 +102,7 @@ public final class ECOExtractedPatternExecution {
             List.of(),
             ECOFastPathStacks.copyCounters(craftingContainer),
             ECORecipeClassifier.classify(details),
+            inspectPatternEligibility(details, ECORecipeClassifier.classify(details)),
             null,
             "SLOW_EXECUTION_CONTEXT"
         );
@@ -112,9 +119,21 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> expectedContainerItems,
         List<GenericStack> inputItems
     ) {
+        return ofNormalizedComponents(key, expectedOutputs, expectedContainerItems, inputItems,
+            new ECOPatternEligibility(true, List.of(ECOPatternEligibility.InputType.EXACT), ""));
+    }
+
+    static ECOExtractedPatternExecution ofNormalizedComponents(
+        @Nullable ECOFastPathKey key,
+        List<GenericStack> expectedOutputs,
+        List<GenericStack> expectedContainerItems,
+        List<GenericStack> inputItems,
+        ECOPatternEligibility patternEligibility
+    ) {
         return new ECOExtractedPatternExecution(
             null, new KeyCounter[0], expectedOutputs, expectedContainerItems, inputItems,
             new ECORecipeClassifier.Classification(ECORecipeClassifier.Type.NORMAL, true, "TEST_NORMALIZED"),
+            patternEligibility,
             key, key == null ? "KEY_BUILD_FAILED" : null
         );
     }
@@ -126,13 +145,15 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> outputs,
         List<GenericStack> containers,
         List<GenericStack> inputs,
-        ECOFastPathStacks.ItemStackValidation resultValidation
+        ECOFastPathStacks.ItemStackValidation resultValidation,
+        ECOPatternEligibility patternEligibility
     ) {
         if (key.isEmpty()) return "KEY_BUILD_FAILED";
         if (!NEConfig.ecoAe2FastPathEnabled) return "FAST_PATH_DISABLED";
         if (NEConfig.postCraftingEvent) return "POST_CRAFTING_EVENT_ENABLED";
         if (!AE2PatternIntrospection.isAvailable()) return "AE2_INTROSPECTION_UNAVAILABLE";
         if (!AE2PatternIntrospection.isKnownSafePatternType(details)) return "UNSAFE_PATTERN_TYPE";
+        if (!patternEligibility.supported()) return patternEligibility.rejectReason();
         if (outputs.size() != 1) return "OUTPUT_COUNT_" + outputs.size();
 
         String outputFailure = validationFailure(
@@ -143,6 +164,28 @@ public final class ECOExtractedPatternExecution {
         if (remainderFailure != null) return remainderFailure;
         return validationFailure(
             "INPUT", inputs, false, ECOFastPathStacks.ItemStackValidation.FAST_PATH_INPUT);
+    }
+
+    private static ECOPatternEligibility inspectPatternEligibility(
+        IPatternDetails details,
+        ECORecipeClassifier.Classification classification
+    ) {
+        List<ECOPatternEligibility.InputType> inputTypes = new ArrayList<>();
+        try {
+            if (details != null && details.getInputs() != null) {
+                for (IPatternDetails.IInput input : details.getInputs()) {
+                    GenericStack[] candidates = input == null ? null : input.getPossibleInputs();
+                    inputTypes.add(candidates != null && candidates.length > 1
+                        ? ECOPatternEligibility.InputType.TAG_OR_SUBSTITUTION
+                        : ECOPatternEligibility.InputType.EXACT);
+                }
+            }
+        } catch (RuntimeException failure) {
+            return new ECOPatternEligibility(false, inputTypes, "PATTERN_INPUT_INSPECTION_FAILED");
+        }
+        return new ECOPatternEligibility(
+            classification.supported(), inputTypes,
+            classification.supported() ? "" : classification.reason());
     }
 
     @Nullable
@@ -181,6 +224,10 @@ public final class ECOExtractedPatternExecution {
 
     public ECORecipeClassifier.Classification classification() {
         return classification;
+    }
+
+    public ECOPatternEligibility patternEligibility() {
+        return patternEligibility;
     }
 
     public ECORecipeClassifier.Type fastPathType() {

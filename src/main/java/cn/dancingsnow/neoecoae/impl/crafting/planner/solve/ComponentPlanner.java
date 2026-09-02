@@ -79,12 +79,6 @@ public final class ComponentPlanner {
             KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
-        LOGGER.debug(
-            "[ECO-CYCLE-DEBUG] enabled={} acyclic={} components={} cyclicComponents={} deferredCandidates={} "
-                + "cycleMembers={}",
-            cyclePlanningEnabled, activeSelection.acyclic(), activeSelection.condensation().components().size(),
-            activeSelection.cyclicComponents().size(), activeSelection.deferredCyclicCandidates().size(),
-            activeSelection.cyclicComponents().stream().map(CycleComponent::members).toList());
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
             .filter(AcyclicComponent.class::isInstance)
@@ -264,11 +258,6 @@ public final class ComponentPlanner {
                             external.diagnostic()));
                     }
                     if (!external.solved()) {
-                        LOGGER.warn("[ECO-CYCLE-BOUNDARY] componentId={} members={} requiredOutputs={} "
-                                + "externalDemand={} status={} missingLeaves={} diagnostic={}",
-                            cycle.componentId(), cycle.members(), exactRequiredOutputs,
-                            cycleResult.positiveExternalDemand(), external.status(), externalMissingItems,
-                            external.diagnostic());
                         // Keep the failed cycle explanatory only, but surface its concrete leaf deficits through
                         // the AE2 plan. Without this propagation a PARTIAL plan contains a large task vector with
                         // an empty missing-items counter, so confirmation reports a generic "missing materials"
@@ -307,10 +296,6 @@ public final class ComponentPlanner {
                             diagnostic = "Cycle/external-DAG transaction validation failed";
                             unresolvedCycle = true;
                         } else {
-                            if (!external.delegatedCycleDemands().isEmpty()) {
-                                LOGGER.info("[ECO-CYCLE-BOUNDARY] componentId={} delegatedDemands={}",
-                                    cycle.componentId(), external.delegatedCycleDemands());
-                            }
                             external.delegatedCycleDemands().forEach((key, demand) -> {
                                 CycleComponent supplier = cyclicSupplier(network, activeCondensation,
                                     activeSelection.choices(), key, cycle.componentId());
@@ -364,23 +349,8 @@ public final class ComponentPlanner {
                             }
                             diagnostic = external.diagnostic();
                         }
-                        LOGGER.warn("[ECO-CYCLE-BOUNDARY] componentId={} members={} requiredOutputs={} "
-                                + "externalDemand={} seedShortfall={} status={} missingLeaves={} diagnostic={}",
-                            cycle.componentId(), cycle.members(), exactRequiredOutputs,
-                            cycleResult.positiveExternalDemand(), cycleResult.seedShortfall(), external.status(),
-                            external.missingLeaves(), external.diagnostic());
                     }
                 }
-            }
-            if (cyclePlanningEnabled) {
-                LOGGER.debug(
-                    "[ECO-CYCLE-DEBUG] componentId={} members={} requiredOutputs={} cycleStatus={} "
-                        + "cycleResultStatus={} cyclePatternTimes={} externalDemandStatus={} disposition={} "
-                        + "stockReservations={} ",
-                    cycle.componentId(), cycle.members(), exactRequiredOutputs, cycleStatus,
-                    cycleResult == null ? null : cycleResult.status(),
-                    cycleResult == null ? Map.of() : cycleResult.patternTimes(), externalDemandStatus,
-                    disposition, stockReservations);
             }
             List<cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphEdge> externalEdges = cycle
                 .outgoingDependencies().stream().flatMap(dependency -> dependency.relationships().stream()).toList();
@@ -416,13 +386,6 @@ public final class ComponentPlanner {
         if (unresolvedCycle && (status == PlanningStatus.SUCCESS || status == PlanningStatus.MISSING_ITEMS)) {
             status = acyclic.state().hasPlannedCrafting() || status == PlanningStatus.MISSING_ITEMS
                 ? PlanningStatus.PARTIAL : PlanningStatus.CYCLE_UNRESOLVED;
-        }
-        if (cyclePlanningEnabled) {
-            LOGGER.debug(
-                "[ECO-CYCLE-DEBUG] final status={} unresolvedCycle={} amountUnrepresentable={} "
-                    + "statePatternTimes={} stateUsed={} stateEmitted={} stateMissing={}",
-                status, unresolvedCycle, amountUnrepresentable, acyclic.state().plannerPatternTimes(),
-                acyclic.state().usedAmounts(), acyclic.state().emittedAmounts(), acyclic.state().missingAmounts());
         }
         return new Outcome(status, acyclic.state(), trace, List.copyOf(cycleDiagnostics),
             List.copyOf(componentResults), activeCondensation.executionOrder().stream()

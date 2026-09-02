@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -87,6 +88,11 @@ public final class ECOVerifiedFastPathRecipe {
     @Nullable
     public ECODurabilityBatchModel durabilityModel() { return result.durabilityModel(); }
 
+    @Nullable
+    public ECOReusableStateModel reusableStateModel() { return result.reusableStateModel(); }
+
+    public Set<FastPathCapability> capabilities() { return result.capabilities(); }
+
     public ECORecipeClassifier.Type type() { return result.type(); }
 
     public List<ECOFastPathComponentChange> inputComponentChanges() {
@@ -106,17 +112,17 @@ public final class ECOVerifiedFastPathRecipe {
     /** Physical inputs owned by one worker for an entire verified batch. */
     public List<GenericStack> batchInputs(long craftCount) {
         if (craftCount <= 0L) return List.of();
-        return durabilityModel() == null
+        return reusableStateModel() == null
             ? ECOBatchCraftingHelper.multiply(inputsPerCraft(), craftCount)
-            : durabilityModel().batchInputs(inputsPerCraft(), craftCount);
+            : reusableStateModel().batchInputs(inputsPerCraft(), craftCount);
     }
 
     /** Physical remainders emitted by one worker after an entire verified batch. */
     public List<GenericStack> batchRemainders(long craftCount) {
         if (craftCount <= 0L) return List.of();
-        return durabilityModel() == null
+        return reusableStateModel() == null
             ? ECOBatchCraftingHelper.multiply(remainingPerCraft(), craftCount)
-            : durabilityModel().batchRemainders(remainingPerCraft(), craftCount);
+            : reusableStateModel().batchRemainders(remainingPerCraft(), craftCount);
     }
 
     /** Inputs beyond the first craft, which are still owned by the CPU at dispatch time. */
@@ -126,7 +132,7 @@ public final class ECOVerifiedFastPathRecipe {
 
     /** Component-mutating reusable items need a verified state model before they may be multiplied. */
     public boolean batchSafe() {
-        return reusableInputs().isEmpty() || durabilityModel() != null;
+        return !capabilities().isEmpty() && (reusableInputs().isEmpty() || reusableStateModel() != null);
     }
 
     /** True only for the very execution context this credential was verified against. */
@@ -147,7 +153,7 @@ public final class ECOVerifiedFastPathRecipe {
     /** Largest batch the per-craft amounts of the verified execution can still represent. */
     public long arithmeticBatchLimit() {
         long limit = execution.arithmeticBatchLimit();
-        return durabilityModel() == null ? limit : Math.min(limit, durabilityModel().maxBatchSize());
+        return reusableStateModel() == null ? limit : Math.min(limit, reusableStateModel().maxBatchSize());
     }
 
     /**

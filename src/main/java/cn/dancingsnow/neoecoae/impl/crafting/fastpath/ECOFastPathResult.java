@@ -2,15 +2,20 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathResult {
     private final boolean negative;
     private final List<GenericStack> outputEntries;
     private final List<GenericStack> remainingEntries;
     private final List<GenericStack> inputEntries;
-    private final ECODurabilityBatchModel durabilityModel;
+    private final ECOReusableStateModel reusableStateModel;
+    private final Set<FastPathCapability> capabilities;
+    private final String rejectReason;
     private final ECORecipeClassifier.Type type;
     private final List<ECOFastPathComponentChange> inputComponentChanges;
     private final List<ECOFastPathComponentChange> outputComponentChanges;
@@ -24,7 +29,9 @@ public final class ECOFastPathResult {
         List<GenericStack> remainingEntries,
         List<GenericStack> inputEntries,
         long lastAccessTick,
-        ECODurabilityBatchModel durabilityModel,
+        @Nullable ECOReusableStateModel reusableStateModel,
+        Set<FastPathCapability> capabilities,
+        String rejectReason,
         ECORecipeClassifier.Type type,
         List<ECOFastPathComponentChange> inputComponentChanges,
         List<ECOFastPathComponentChange> outputComponentChanges,
@@ -35,7 +42,9 @@ public final class ECOFastPathResult {
         this.outputEntries = List.copyOf(outputEntries);
         this.remainingEntries = List.copyOf(remainingEntries);
         this.inputEntries = List.copyOf(inputEntries);
-        this.durabilityModel = durabilityModel;
+        this.reusableStateModel = reusableStateModel;
+        this.capabilities = Set.copyOf(capabilities);
+        this.rejectReason = rejectReason == null ? "" : rejectReason;
         this.type = type == null ? ECORecipeClassifier.Type.NORMAL : type;
         this.inputComponentChanges = List.copyOf(inputComponentChanges);
         this.outputComponentChanges = List.copyOf(outputComponentChanges);
@@ -50,7 +59,7 @@ public final class ECOFastPathResult {
         List<GenericStack> inputEntries,
         long tick
     ) {
-        return positive(outputEntries, remainingEntries, inputEntries, tick, null,
+        return positive(outputEntries, remainingEntries, inputEntries, tick, null, Set.of(FastPathCapability.PURE_LINEAR),
             ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
     }
 
@@ -59,9 +68,10 @@ public final class ECOFastPathResult {
         List<GenericStack> remainingEntries,
         List<GenericStack> inputEntries,
         long tick,
-        ECODurabilityBatchModel durabilityModel
+        ECOReusableStateModel reusableStateModel
     ) {
-        return positive(outputEntries, remainingEntries, inputEntries, tick, durabilityModel,
+        return positive(outputEntries, remainingEntries, inputEntries, tick, reusableStateModel,
+            reusableStateModel == null ? Set.of(FastPathCapability.PURE_LINEAR) : Set.of(reusableStateModel.capability()),
             ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
     }
 
@@ -70,19 +80,25 @@ public final class ECOFastPathResult {
         List<GenericStack> remainingEntries,
         List<GenericStack> inputEntries,
         long tick,
-        ECODurabilityBatchModel durabilityModel,
+        @Nullable ECOReusableStateModel reusableStateModel,
+        Set<FastPathCapability> capabilities,
         ECORecipeClassifier.Type type,
         List<ECOFastPathComponentChange> inputComponentChanges,
         List<ECOFastPathComponentChange> outputComponentChanges,
         List<ECOFastPathDurabilityDelta> durabilityDeltas,
         List<GenericStack> reusableInputs
     ) {
-        return new ECOFastPathResult(false, outputEntries, remainingEntries, inputEntries, tick, durabilityModel,
+        return new ECOFastPathResult(false, outputEntries, remainingEntries, inputEntries, tick, reusableStateModel,
+            capabilities, "",
             type, inputComponentChanges, outputComponentChanges, durabilityDeltas, reusableInputs);
     }
 
     public static ECOFastPathResult negative(long tick) {
-        return new ECOFastPathResult(true, List.of(), List.of(), List.of(), tick, null,
+        return negative(tick, "VERIFICATION_REJECTED");
+    }
+
+    public static ECOFastPathResult negative(long tick, String rejectReason) {
+        return new ECOFastPathResult(true, List.of(), List.of(), List.of(), tick, null, Set.of(), rejectReason,
             ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
     }
 
@@ -102,7 +118,19 @@ public final class ECOFastPathResult {
         return inputEntries;
     }
 
-    public ECODurabilityBatchModel durabilityModel() { return durabilityModel; }
+    @Nullable
+    public ECOReusableStateModel reusableStateModel() { return reusableStateModel; }
+
+    @Nullable
+    public ECODurabilityBatchModel durabilityModel() {
+        return reusableStateModel instanceof ECODurabilityBatchModel durability ? durability : null;
+    }
+
+    public Set<FastPathCapability> capabilities() { return capabilities; }
+
+    public boolean hasCapability(FastPathCapability capability) { return capabilities.contains(capability); }
+
+    public String rejectReason() { return rejectReason; }
 
     public ECORecipeClassifier.Type type() { return type; }
 

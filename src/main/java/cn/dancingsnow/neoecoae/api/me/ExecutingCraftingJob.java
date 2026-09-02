@@ -111,7 +111,6 @@ public class ExecutingCraftingJob {
     int currentComponentIndex;
     int executionStepIndex;
     ExecutionMode executionMode = ExecutionMode.NATIVE;
-    boolean cycleMetadataErrorLogged;
     @Nullable PermanentExecutionError permanentExecutionError;
     ECOExecutionSchedule executionSchedule;
     @Nullable ECOExecutionContract executionContract;
@@ -365,8 +364,7 @@ public class ExecutingCraftingJob {
             try {
                 executionSchedule = planningResult.executionPlan().schedule();
             } catch (RuntimeException scheduleFailure) {
-                LOGGER.error("[ECO-EXEC] failed to build execution schedule from attached planning result; "
-                    + "preserving cycle expectation for fail-safe dispatch", scheduleFailure);
+                // Keep fail-safe dispatch semantics: a schedule that cannot be rebuilt stays absent.
             }
         }
         if (executionSchedule == null || executionSchedule.phases().isEmpty()
@@ -382,36 +380,6 @@ public class ExecutingCraftingJob {
                     recoveredMetadata.executionPlan(), null);
             }
         }
-        if (recoveredMetadata != null
-                && recoveredMetadata.state() == ECOPlanningResultRegistry.RecoveryState.VALID_SCHEDULE) {
-            LOGGER.info(
-                "[ECO-EXEC] recovered execution schedule finalOutput={} phases={} matchMode={} planningId={}",
-                plan.finalOutput(), executionSchedule.phases().size(), recoveredMetadata.matchMode(),
-                recoveredMetadata.planningId());
-        } else if (recoveredMetadata != null && recoveredMetadata.cycleExpected()) {
-            LOGGER.error(
-                "[ECO-EXEC] recovered fail-closed cycle expectation finalOutput={} state={} reason={} "
-                    + "matchMode={} planningId={}",
-                plan.finalOutput(), recoveredMetadata.state(), recoveredMetadata.rejectionReason(),
-                recoveredMetadata.matchMode(), recoveredMetadata.planningId());
-        } else if (executionSchedule == null || executionSchedule.phases().isEmpty()) {
-            LOGGER.warn(
-                "[ECO-EXEC] no registered execution schedule matched submitted plan finalOutput={} "
-                    + "patternKinds={} emittedKinds={} registeredCycleSchedules={} registeredMetadata={} mismatch={}",
-                plan.finalOutput(), plan.patternTimes().size(), plan.emittedItems().size(),
-                ECOPlanningResultRegistry.registeredScheduleCount(),
-                ECOPlanningResultRegistry.registeredMetadataCount(),
-                ECOPlanningResultRegistry.mismatchDiagnostic(plan));
-        }
-        LOGGER.info("[ECO-SUBMISSION] selectedPlanner={} submittedSignature={} submittedExecutions={} "
-                + "metadataPlanningId={} metadataMatch={} planReplaced=false cpuExecutions={}",
-            submissionMetadata == null ? planningResult == null ? "unknown" : "ECO"
-                : submissionMetadata.selectedPlanner(), PlanIdentity.describe(PlanIdentity.of(plan)),
-            PlanIdentity.executionCount(plan.patternTimes()),
-            submissionMetadata == null ? recoveredMetadata == null ? null : recoveredMetadata.planningId()
-                : submissionMetadata.planningId(),
-            submissionMetadata != null || recoveredMetadata != null,
-            PlanIdentity.executionCount(plan.patternTimes()));
         if (executionContract == null) {
             var signature = PlanIdentity.of(plan);
             if (signature != null) {
@@ -429,13 +397,6 @@ public class ExecutingCraftingJob {
         permanentExecutionError = cycleWitnessMissing
             ? PermanentExecutionError.CYCLE_METADATA_MISSING
             : null;
-        if (cycleWitnessMissing) {
-            LOGGER.error(
-                "[ECO-EXEC] solved cycle metadata is missing; job will remain fail-safe finalOutput={} "
-                    + "submissionBound={} planningResultPresent={} schedulePresent={} phaseCount={}",
-                plan.finalOutput(), submissionMetadata != null, planningResult != null, executionSchedule != null,
-                executionSchedule == null ? 0 : executionSchedule.phases().size());
-        }
         if (executionContract != null && executionContract.mode() == ExecutionMode.BLOCKED) {
             permanentExecutionError = executionContract.error() != null
                     && executionContract.error().contains("CYCLE")

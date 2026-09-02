@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Stage-one cyclic SCC solver: bounded state search over an explicit, inventory-aware marking.
@@ -44,6 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * cached: every answer belongs to the one stock snapshot it was computed from.
  */
 public final class BoundedCycleSolver implements CycleSolver {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BoundedCycleSolver.class);
     /** Keep the legacy per-firing witness only while it remains cheap to materialize. */
     private static final long MAX_EXPANDED_WITNESS = 100_000L;
     /** The greedy walk is only a fast probe; the bounded search remains responsible for difficult interleavings. */
@@ -80,14 +83,23 @@ public final class BoundedCycleSolver implements CycleSolver {
     public CycleSolveResult solve(CycleSolveRequest request, ECOCancellation cancellation)
             throws InterruptedException {
         cancellation.checkpoint();
-        return run(request, cancellation);
+        try {
+            return run(request, cancellation);
+        } catch (RuntimeException failure) {
+            LOGGER.error("BoundedCycleSolver failed for componentId={} memberKeys={} patternCount={}",
+                request.component().componentId(), request.component().members(),
+                request.component().patterns().size(), failure);
+            throw failure;
+        }
     }
 
     private CycleSolveResult run(CycleSolveRequest request, ECOCancellation cancellation)
             throws InterruptedException {
         CycleSolveLimits limits = request.options().limits();
         Object prepared = prepare(request, limits);
-        if (prepared instanceof CycleSolveResult rejected) return rejected;
+        if (prepared instanceof CycleSolveResult rejected) {
+            return rejected;
+        }
         Model model = (Model) prepared;
 
         List<CycleSolveDiagnostic> diagnostics = new ArrayList<>();

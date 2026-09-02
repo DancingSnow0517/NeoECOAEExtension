@@ -732,10 +732,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 patternDetails.add(details);
             }
         }
-        if (fastPathCandidateSummary != null && !fastPathCandidateSummary.isEmpty()) {
-            LOGGER.debug("[ECO-FASTPATH-CANDIDATES] bus={} total={} classifications={}",
-                getBlockPos().toShortString(), patternDetails.size(), fastPathCandidateSummary);
-        }
         ICraftingProvider.requestUpdate(this.getMainNode());
         notifyPatternInterfaceHosts();
     }

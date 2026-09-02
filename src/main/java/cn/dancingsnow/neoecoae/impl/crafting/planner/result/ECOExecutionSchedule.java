@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
+import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -167,6 +168,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         List<Set<Integer>> outgoing = new ArrayList<>(phases.size());
+        List<DependencyEdgeDiagnostic> edgeDiagnostics = new ArrayList<>();
         int[] indegree = new int[phases.size()];
         for (int i = 0; i < phases.size(); i++) outgoing.add(new LinkedHashSet<>());
         for (int consumer = 0; consumer < phases.size(); consumer++) {
@@ -195,6 +197,9 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                         producers = outputProducers.getOrDefault(key, List.of());
                     }
                     for (int producer : producers) {
+                        edgeDiagnostics.add(new DependencyEdgeDiagnostic(
+                            producerPatternFor(phases, producer, key), pattern, key,
+                            dependencyReason(phases.get(producer).patternSet(), key)));
                         logDependency(phases, producer, consumerPhase, pattern, key, semantics,
                             addDependency(outgoing, indegree, producer, consumerPhase));
                     }
@@ -215,6 +220,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             }
         }
         if (ordered.size() != phases.size()) {
+            logTopologyFailure(phases, outgoing, edgeDiagnostics, orderedIndices);
             throw new IllegalStateException(
                 "Final executable pattern dependencies contain a cycle outside a solved cycle phase");
         }
@@ -233,6 +239,95 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
 
     private record OrderedSchedule(List<ComponentExecutionPhase> phases,
             List<PhaseDependency> dependencies) { }
+
+    private record DependencyEdgeDiagnostic(IPatternDetails fromPattern, IPatternDetails toPattern,
+            AEKey key, String reason) { }
+
+    private static IPatternDetails producerPatternFor(List<ComponentExecutionPhase> phases, int phase, AEKey key) {
+        return phases.get(phase).patternSet().stream()
+            .filter(pattern -> producedAndReturned(pattern).stream().anyMatch(output -> output != null
+                && key.equals(output.what())))
+            .findFirst().orElseGet(() -> phases.get(phase).patternSet().stream().findFirst().orElse(null));
+    }
+
+    private static String dependencyReason(Set<IPatternDetails> producerPatterns, AEKey key) {
+        boolean semanticProduced = false, semanticReturned = false, rawProduced = false;
+        for (IPatternDetails producer : producerPatterns) {
+            PatternSemantics ps = semantic(producer);
+            semanticProduced |= ps.producedOutputs().stream().anyMatch(s -> s != null && key.equals(s.what()));
+            semanticReturned |= ps.returnedOutputs().stream().anyMatch(s -> s != null && key.equals(s.what()));
+            try { rawProduced |= producer.getOutputs().stream().anyMatch(s -> s != null && key.equals(s.what())); }
+            catch (RuntimeException ignored) { }
+        }
+        if (semanticReturned) return "RETURNED_OUTPUT";
+        if (semanticProduced && !rawProduced) return "SEMANTIC_ADAPTER";
+        if (semanticProduced) return "NORMAL_OUTPUT";
+        if (rawProduced) return "FALLBACK_OUTPUT";
+        return "FALLBACK_OUTPUT";
+    }
+
+    private static void logTopologyFailure(List<ComponentExecutionPhase> phases, List<Set<Integer>> outgoing,
+            List<DependencyEdgeDiagnostic> edges, List<Integer> orderedIndices) {
+        if (!LOGGER.isWarnEnabled()) return;
+        Set<Integer> remaining = new LinkedHashSet<>();
+        for (int i = 0; i < phases.size(); i++) if (!orderedIndices.contains(i)) remaining.add(i);
+        LOGGER.warn("[ECO-DEPENDENCY-DIAGNOSTIC] topology failure; remainingNodes={}", remaining.size());
+        for (int phase : remaining) {
+            ComponentExecutionPhase p = phases.get(phase);
+            for (IPatternDetails pattern : p.patternSet()) {
+                PatternSemantics s = semantic(pattern);
+                LOGGER.warn("[ECO-DEPENDENCY-DIAGNOSTIC] remainder phase={} type={} patternId={} patternKey={} inputs={} outputs={} returnedOutputs={} consumedInputs={}",
+                    phase, p.type(), System.identityHashCode(pattern), patternKey(pattern),
+                    patternInputs(pattern), s.producedOutputs(), s.returnedOutputs(), s.consumedInputs());
+            }
+        }
+        List<List<Integer>> sccs = stronglyConnectedComponents(remaining, outgoing);
+        LOGGER.warn("[ECO-DEPENDENCY-DIAGNOSTIC] SCC count={}", sccs.size());
+        for (List<Integer> scc : sccs) {
+            Set<Integer> members = new HashSet<>(scc);
+            List<DependencyEdgeDiagnostic> cycleEdges = edges.stream()
+                .filter(e -> {
+                    int from = phaseOf(phases, e.fromPattern()), to = phaseOf(phases, e.toPattern());
+                    return members.contains(from) && members.contains(to);
+                }).toList();
+            LOGGER.warn("[ECO-DEPENDENCY-DIAGNOSTIC] SCC members={} edges={}",
+                scc.stream().map(i -> phases.get(i).patternSet().toString()).toList(), cycleEdges);
+        }
+    }
+
+    private static String patternInputs(IPatternDetails pattern) {
+        try { return String.valueOf(pattern.getInputs()); } catch (RuntimeException e) { return "<unavailable>"; }
+    }
+
+    private static String patternKey(IPatternDetails pattern) {
+        try { return String.valueOf(pattern.getDefinition()); } catch (RuntimeException e) { return "<unavailable>"; }
+    }
+
+    private static int phaseOf(List<ComponentExecutionPhase> phases, IPatternDetails pattern) {
+        for (int i = 0; i < phases.size(); i++) if (containsPhysicalPattern(phases.get(i).patternSet(), pattern)) return i;
+        return -1;
+    }
+
+    private static List<List<Integer>> stronglyConnectedComponents(Set<Integer> nodes, List<Set<Integer>> outgoing) {
+        List<List<Integer>> result = new ArrayList<>();
+        Map<Integer, Integer> index = new HashMap<>(), low = new HashMap<>();
+        Set<Integer> onStack = new HashSet<>();
+        java.util.ArrayDeque<Integer> stack = new java.util.ArrayDeque<>();
+        int[] next = {0};
+        for (int node : nodes) if (!index.containsKey(node)) tarjan(node, nodes, outgoing, index, low, onStack, stack, next, result);
+        return result;
+    }
+
+    private static void tarjan(int v, Set<Integer> nodes, List<Set<Integer>> outgoing, Map<Integer,Integer> index,
+            Map<Integer,Integer> low, Set<Integer> onStack, java.util.ArrayDeque<Integer> stack, int[] next,
+            List<List<Integer>> result) {
+        index.put(v, next[0]); low.put(v, next[0]++); stack.push(v); onStack.add(v);
+        for (int w : outgoing.get(v)) if (nodes.contains(w)) {
+            if (!index.containsKey(w)) { tarjan(w,nodes,outgoing,index,low,onStack,stack,next,result); low.put(v, Math.min(low.get(v), low.get(w))); }
+            else if (onStack.contains(w)) low.put(v, Math.min(low.get(v), index.get(w)));
+        }
+        if (low.get(v).equals(index.get(v))) { List<Integer> scc = new ArrayList<>(); int w; do { w=stack.pop(); onStack.remove(w); scc.add(w); } while (w!=v); result.add(scc); }
+    }
 
     private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
             int producer, int consumer) {

@@ -170,18 +170,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         ECOPlanningResult attemptResult = attemptResultLocal.get();
         attemptResultLocal.remove();
         CraftingPlan plan = cir.getReturnValue();
-        Object publicPlan = plan;
-        if (!simulate && (neoecoae$plannerSession != null || attemptResult != null)) {
-            NEOECOAE_LOGGER.info(
-                "[ECO-PLANNING-RETURN] amount={} planPresent={} attemptResultPresent={} status={} "
-                    + "cycleExpected={} diagnosticsPresent={} diagnosticsAttached={}",
-                amount, plan != null, attemptResult != null,
-                attemptResult == null ? null : attemptResult.status(),
-                ECOPlanningResultRegistry.cycleExpected(attemptResult),
-                publicPlan instanceof ECOCraftingPlanDiagnostics,
-                publicPlan instanceof ECOCraftingPlanDiagnostics diagnostics
-                    && diagnostics.neoecoae$getPlanningResult() != null);
-        }
         if (plan != null && attemptResult != null && PlanIdentity.matches(plan, attemptResult.plan())
                 && (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
                 && diagnostics.neoecoae$getPlanningResult() == null) {
@@ -202,8 +190,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (plan == null || plan.simulation()) return;
 
         ECOPlanningResult selected = ECOPlanningResultRegistry.find(plan);
-        ECOPlanningResultRegistry.logCandidateSelection(plan, selected);
-        String source = selected == null ? "none" : "registry-exact";
 
         Object publicPlan = plan;
         if (selected != null && PlanIdentity.matches(plan, selected.plan())
@@ -214,12 +200,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
             ECOPlanningResultRegistry.register(plan, selected);
         }
-        NEOECOAE_LOGGER.info(
-            "[ECO-PLANNING-FINAL] finalOutput={} planClass={} diagnosticsPresent={} selectedResultPresent={} "
-                + "source={} strictCandidate={} registrySchedules={} registryMetadata={}",
-            plan.finalOutput(), plan.getClass().getName(), publicPlan instanceof ECOCraftingPlanDiagnostics,
-            selected != null, source, selected != null,
-            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
     }
 
     @Override

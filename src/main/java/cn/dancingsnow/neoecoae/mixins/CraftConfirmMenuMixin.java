@@ -122,22 +122,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
             ? diagnostics.neoecoae$getPlanningResult()
             : null;
-        String source = "plan-field";
         if (planningResult == null) {
             planningResult = ECOPlanningResultRegistry.find(result);
-            source = planningResult == null ? "none" : "registry-exact";
         }
-        NEOECOAE_LOGGER.info(
-            "[ECO-CONFIRM] capture finalOutput={} planClass={} diagnosticsPresent={} planningResultPresent={} "
-                + "source={} status={} solvedCycleExpected={} cycleSafetyRequired={} components={} "
-                + "registrySchedules={} registryMetadata={}",
-            result == null ? null : result.finalOutput(), result == null ? null : result.getClass().getName(),
-            result instanceof ECOCraftingPlanDiagnostics, planningResult != null, source,
-            planningResult == null ? null : planningResult.status(),
-            ECOPlanningResultRegistry.cycleExpected(planningResult),
-            ECOPlanningResultRegistry.cycleSafetyRequired(result, planningResult),
-            ECOPlanningResultRegistry.describePlanningResult(planningResult),
-            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
         if (planningResult != null) {
             neoecoae$confirmedPlanningResult = planningResult;
             neoecoae$calculationNanos = planningResult.calculationNanos();
@@ -205,21 +192,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             : null;
         if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
         if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
-        NEOECOAE_LOGGER.info(
-            "[ECO-CONFIRM] submit finalOutput={} planningResultPresent={} status={} solvedCycleExpected={} "
-                + "cycleSafetyRequired={} resultSignature={} submittedSignature={} strictPlanMatch={} "
-                + "components={} registrySchedules={} registryMetadata={}",
-            result == null ? null : result.finalOutput(), planningResult != null,
-            planningResult == null ? null : planningResult.status(),
-            ECOPlanningResultRegistry.cycleExpected(planningResult),
-            ECOPlanningResultRegistry.cycleSafetyRequired(result, planningResult),
-            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.describe(
-                cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.of(result)),
-            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.describe(
-                cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.of(submittedPlan)),
-            cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.matches(result, submittedPlan),
-            ECOPlanningResultRegistry.describePlanningResult(planningResult),
-            ECOPlanningResultRegistry.registeredScheduleCount(), ECOPlanningResultRegistry.registeredMetadataCount());
         ECOPlanningResult boundResult = planningResult;
         return ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));

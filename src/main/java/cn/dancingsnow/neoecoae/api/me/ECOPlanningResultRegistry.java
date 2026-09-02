@@ -64,12 +64,10 @@ public final class ECOPlanningResultRegistry {
         boolean validSchedule = inspection.reason() == null;
         boolean failClosedMetadata = inspection.canStoreFailClosedMetadata();
         if (!validSchedule && !failClosedMetadata) {
-            logRegistration(false, inspection, plan, result, null, null);
             return;
         }
         Signature signature = PlanIdentity.of(plan);
         if (signature == null) {
-            logRegistration(false, inspection.withReason("SIGNATURE_UNAVAILABLE"), plan, result, null, null);
             return;
         }
 
@@ -89,7 +87,6 @@ public final class ECOPlanningResultRegistry {
                 recoveryState, inspection.reason(), planningId, now));
             trimEntries();
         }
-        logRegistration(validSchedule, inspection, plan, result, planningId, recoveryState);
     }
 
     /** True independently of whether schedule construction/propagation succeeded. */
@@ -117,39 +114,6 @@ public final class ECOPlanningResultRegistry {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
             return uniqueEntry(RESULTS.get(signature));
-        }
-    }
-
-    /**
-     * Emits one low-frequency candidate decision report for the final plan. The output-only comparison here is
-     * diagnostic text only; it is never used to attach metadata or choose a plan.
-     */
-    public static void logCandidateSelection(@Nullable ICraftingPlan submittedPlan,
-            @Nullable ECOPlanningResult selected) {
-        Signature submittedSignature = PlanIdentity.of(submittedPlan);
-        if (submittedSignature == null) return;
-        synchronized (RESULTS) {
-            removeExpired(System.nanoTime());
-            boolean emitted = false;
-            for (List<Entry> entries : RESULTS.values()) {
-                for (Entry entry : entries) {
-                    if (!entry.signature().sameFinalOutput(submittedSignature)) continue;
-                    boolean strict = entry.signature().equals(submittedSignature);
-                    boolean isSelected = selected != null && entry.result() == selected && strict;
-                    LOGGER.debug("[ECO-CANDIDATE] planningId={} finalOutput={} signature={} executions={} "
-                            + "selected={} rejected={} reason={}", entry.planningId(), submittedPlan.finalOutput(),
-                        PlanIdentity.describe(entry.signature()), entry.signature().executionCount(), isSelected,
-                        !isSelected, strict ? isSelected ? "" : "strict-candidate-not-selected" : "strict-plan-mismatch");
-                    emitted = true;
-                }
-            }
-            if (!emitted) {
-                LOGGER.debug("[ECO-CANDIDATE] planningId={} finalOutput={} signature={} executions={} selected={} "
-                        + "rejected={} reason={}", selected == null ? null : selected.planningId(),
-                    submittedPlan.finalOutput(), PlanIdentity.describe(submittedSignature),
-                    submittedSignature.executionCount(), selected != null, selected == null,
-                    selected == null ? "no-registered-candidate" : "selected-result-not-registered");
-            }
         }
     }
 
@@ -183,8 +147,6 @@ public final class ECOPlanningResultRegistry {
         try {
             executionPlan = result.executionPlan();
         } catch (RuntimeException scheduleFailure) {
-            LOGGER.error("[ECO-SUBMISSION] failed to build confirmed metadata schedule; "
-                + "preserving cycleExpected for fail-closed dispatch", scheduleFailure);
             executionPlan = null;
         }
         boolean expected = cycleExpected(result);
@@ -210,12 +172,7 @@ public final class ECOPlanningResultRegistry {
      */
     public static boolean shouldPreserveSubmissionPlan(@Nullable ICraftingPlan plan) {
         SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
-        boolean preserve = alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan);
-        if (preserve) {
-            LOGGER.debug("[ECO-SUBMISSION] preserving strictly bound plan from external task-vector rewrite "
-                    + "planningId={} signature={}", alias.planningId(), PlanIdentity.describe(alias.confirmedSignature()));
-        }
-        return preserve;
+        return alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan);
     }
 
     /**
@@ -223,15 +180,6 @@ public final class ECOPlanningResultRegistry {
      * integrations, but it deliberately returns the input object on every path.
      */
     public static ICraftingPlan resolveSubmissionPlan(ICraftingPlan submittedPlan) {
-        Signature submittedSignature = PlanIdentity.of(submittedPlan);
-        SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
-        boolean metadataMatch = alias != null && PlanIdentity.matches(alias.confirmedSignature(), submittedPlan);
-        long submittedExecutions = PlanIdentity.executionCount(
-            submittedPlan == null ? null : submittedPlan.patternTimes());
-        LOGGER.info("[ECO-SUBMISSION] selectedPlanner={} submittedSignature={} submittedExecutions={} "
-                + "metadataPlanningId={} metadataMatch={} planReplaced=false cpuExecutions={}",
-            alias == null ? "unknown" : alias.selectedPlanner(), PlanIdentity.describe(submittedSignature),
-            submittedExecutions, alias == null ? null : alias.planningId(), metadataMatch, submittedExecutions);
         return submittedPlan;
     }
 
@@ -423,27 +371,6 @@ public final class ECOPlanningResultRegistry {
         }
         return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
             executionPlan, cycleExpected, reason);
-    }
-
-    private static void logRegistration(boolean registered, RegistrationInspection inspection,
-            @Nullable ICraftingPlan plan, @Nullable ECOPlanningResult result,
-            @Nullable UUID planningId, @Nullable RecoveryState recoveryState) {
-        ECOExecutionSchedule schedule = inspection.executionPlan() == null ? null : inspection.executionPlan().schedule();
-        int phaseCount = schedule == null ? 0 : schedule.phases().size();
-        long cyclePhaseCount = schedule == null ? 0 : schedule.phases().stream()
-            .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE).count();
-        String message = "[ECO-METADATA] status={} strictPlanMatch={} cycleExpected={} phaseCount={} "
-            + "cyclePhaseCount={} registered={} recoveryState={} reason={} planningId={} signature={}";
-        Signature signature = PlanIdentity.of(plan);
-        if (registered || inspection.cycleExpected()) {
-            LOGGER.info(message, inspection.status(), inspection.strictPlanMatch(), inspection.cycleExpected(),
-                phaseCount, cyclePhaseCount, registered, recoveryState,
-                registered ? "REGISTERED" : inspection.reason(), planningId, PlanIdentity.describe(signature));
-        } else {
-            LOGGER.debug(message, inspection.status(), inspection.strictPlanMatch(), inspection.cycleExpected(),
-                phaseCount, cyclePhaseCount, false, recoveryState, inspection.reason(), planningId,
-                PlanIdentity.describe(signature));
-        }
     }
 
     private static List<String> componentSummary(@Nullable ECOPlanningResult result) {

@@ -52,7 +52,15 @@ public final class ECOPlanningResult {
                     ? ExecutionMode.ORDERED_CYCLE : ExecutionMode.PHASED_DAG;
                 built = ECOExecutionPlanBuilder.build(signature, mode, this.components,
                     this.executionComponentOrder, plan.patternTimes());
-                if (built.phases().isEmpty()) built = null;
+                if (built.phases().isEmpty()) {
+                    // An empty phase list is never a valid cycle metadata answer. Surface it explicitly:
+                    // for a cycle-expected plan this must end as an explicit FAILED state, not as a
+                    // silently stripped schedule that later looks like phaseCount=0 while cycleExpected=true.
+                    if (requirement != ECOExecutionRequirement.NONE) {
+                        error = "EXECUTION_PLAN_EMPTY";
+                    }
+                    built = null;
+                }
             } catch (RuntimeException failure) {
                 error = "EXECUTION_PLAN_BUILD_FAILED:" + failure.getClass().getSimpleName()
                     + (failure.getMessage() == null ? "" : ":" + failure.getMessage());

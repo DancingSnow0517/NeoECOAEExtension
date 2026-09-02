@@ -173,8 +173,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.single_net_output", "Single change: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
-        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycles present");
-        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning disabled");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycles detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");

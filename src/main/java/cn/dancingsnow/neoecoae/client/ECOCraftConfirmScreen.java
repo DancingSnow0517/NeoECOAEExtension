@@ -169,21 +169,25 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         else if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
-            drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled());
+            drawCyclePlanningStatus(graphics, mode.neoecoae$isCyclePlanningEnabled(),
+                !mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty());
         }
 
         cycleItems.renderTooltip(graphics);
     }
 
-    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled) {
+    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected) {
         var texture = AppEng.makeId("textures/guis/states.png");
-        int sourceX = enabled ? 16 : 32;
+        int sourceX = cycleDetected && enabled ? 16 : 32;
         // states.png is a 16px cell atlas; the requested icons are row 16, columns 2/3.
         graphics.blit(texture, CYCLE_STATUS_X, CYCLE_STATUS_Y,
             0, sourceX, 15 * 16, 16, 16, 256, 256);
-        Component label = Component.translatable(enabled
+        String labelKey = !cycleDetected
+            ? "gui.neoecoae.crafting_report.cycle_not_detected"
+            : enabled
                 ? "gui.neoecoae.crafting_report.cycle_planning_enabled"
-                : "gui.neoecoae.crafting_report.cycle_planning_disabled")
+                : "gui.neoecoae.crafting_report.cycle_planning_disabled";
+        Component label = Component.translatable(labelKey)
             .withColor(AE2_TEXT_DARK);
         graphics.drawString(font, label, CYCLE_STATUS_X + 18, CYCLE_STATUS_Y + 4,
             AE2_TEXT_DARK, false);

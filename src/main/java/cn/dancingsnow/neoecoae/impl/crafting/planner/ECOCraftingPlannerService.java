@@ -87,31 +87,28 @@ public final class ECOCraftingPlannerService {
                     solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos));
                 result.setTheoreticalBytes(solved.state().plannerBytes());
-                logPlanningSummary(result, amount, simulation);
-                logPlanningFailure(result, amount, simulation);
+                if (result.status() == PlanningStatus.SUCCESS
+                        && ECOPlanningResultRegistry.cycleExpected(result)
+                        && result.executionPlanError() != null) {
+                    // Phase generation failed or produced an empty schedule while the plan is cycle-expected.
+                    // Publishing this would create the illegal combination cycleExpected=true + phaseCount=0.
+                    // Convert to an explicit FAILED result instead and let the native fallback take over.
+                    return rejectExecutionPlanFailure(result, amount, simulation, startedNanos);
+                }
                 attach(result);
                 return result;
             } catch (InterruptedException e) {
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANCELLED,
                     "Crafting candidate calculation was cancelled"));
-                var result = new ECOPlanningResult(PlanningStatus.CANCELLED, null, trace, List.of(), List.of(),
+                return new ECOPlanningResult(PlanningStatus.CANCELLED, null, trace, List.of(), List.of(),
                     List.of(), elapsedSince(startedNanos));
-                logPlanningSummary(result, amount, simulation);
-                return result;
             } catch (RuntimeException e) {
-                LOGGER.error(
-                    "[ECO-PLANNER] reason=INTERNAL_ERROR description=planner 内部异常 goal={} amount={} "
-                        + "cyclePlanningEnabled={} simulation={}",
-                    goal, amount, cyclePlanningEnabled, simulation, e);
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     e.getClass().getSimpleName() + ": " + e.getMessage()));
-                var result = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(),
+                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(),
                     List.of(), elapsedSince(startedNanos));
-                logPlanningSummary(result, amount, simulation);
-                logPlanningFailure(result, amount, simulation);
-                return result;
             }
         }
 
@@ -127,6 +124,21 @@ public final class ECOCraftingPlannerService {
             }
         }
 
+        /**
+         * A SUCCESS result that claims cycle expectation but has no executable plan must never reach
+         * submission: it would publish the illegal combination cycleExpected=true + phaseCount=0. Convert it
+         * to an explicit FAILED (INTERNAL_ERROR) result so the runner selects the native fallback instead.
+         */
+        private ECOPlanningResult rejectExecutionPlanFailure(ECOPlanningResult result, long amount,
+                boolean simulation, long startedNanos) {
+            String reason = result.executionPlanError();
+            ECOPlanTrace trace = result.trace();
+            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
+                "EXECUTION_PLAN_FAILED:" + reason));
+            return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, result.cycles(),
+                result.components(), result.executionComponentOrder(), elapsedSince(startedNanos));
+        }
+
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS) return solved;
             var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory);
@@ -138,77 +150,8 @@ public final class ECOCraftingPlannerService {
                 + " reason=" + issue.reason();
             solved.trace().addDiagnostic(new PlannerDiagnostic(
                 PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID, message));
-            LOGGER.warn("[ECO-PLANNER] declining false SUCCESS goal={} amount={} {}",
-                goal, amount, message);
             return new ComponentPlanner.Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, solved.state(), solved.trace(),
                 solved.cycles(), solved.components(), solved.executionComponentOrder());
-        }
-
-        private void logPlanningFailure(ECOPlanningResult result, long amount, boolean simulation) {
-            if (result.status() == PlanningStatus.SUCCESS) return;
-
-            // Ordinary missing-item / alternate-route results are expected during AE2 probing. Keep them out of
-            // the warning log; an unresolved bounded cycle is the diagnostic the current investigation needs.
-            for (var component : result.components()) {
-                CycleSolveResult cycle = component.cycleResult();
-                if (component.type() != ComponentPlanningResult.Type.CYCLIC || cycle == null
-                        || (cycle.status() != CycleSolveStatus.UNKNOWN_BUDGET
-                            && cycle.status() != CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT)) {
-                    continue;
-                }
-                var metrics = cycle.metrics();
-                LOGGER.warn(
-                    "[ECO-PLANNER] cycle solve unresolved goal={} amount={} simulation={} componentId={} "
-                        + "patterns={} requiredOutputs={} cycleStatus={} cycleResultStatus={} "
-                        + "requiredSeed={} seedShortfall={} externalDemand={} "
-                        + "keys={} transitions={} statesVisited={} statesExpanded={} witnessLength={} "
-                        + "seedLadderSteps={} stateBudgetExhausted={} firingDepthTruncated={} "
-                        + "amountOverflowTruncated={} elapsedNanos={}",
-                    goal, amount, simulation, component.componentId(),
-                    component.patterns(),
-                    component.requiredOutputs(), component.cycleStatus(), cycle.status(), cycle.requiredSeed(),
-                    cycle.seedShortfall(), cycle.externalDemand(), metrics.relevantKeys(), metrics.transitions(),
-                    metrics.statesVisited(), metrics.statesExpanded(), metrics.witnessLength(),
-                    metrics.seedLadderSteps(), metrics.stateBudgetExhausted(), metrics.firingDepthTruncated(),
-                    metrics.amountOverflowTruncated(), result.calculationNanos());
-                for (var diagnostic : cycle.diagnostics()) {
-                    LOGGER.warn("[ECO-PLANNER] cycle diagnostic componentId={} code={} message={}",
-                        component.componentId(), diagnostic.code(), diagnostic.message());
-                }
-                if (!component.externalMissingItems().isEmpty()) {
-                    LOGGER.warn("[ECO-PLANNER] cycle external materials missing componentId={} items={}",
-                        component.componentId(), component.externalMissingItems());
-                }
-            }
-        }
-
-        private void logPlanningSummary(ECOPlanningResult result, long amount, boolean simulation) {
-            if (simulation && result.status() == PlanningStatus.SUCCESS) {
-                LOGGER.debug("[ECO-PLAN] planningId={} planner=ECO status={} patternKinds={} taskExecutions={} "
-                        + "cycleExpected={} amount={} simulation={}", result.planningId(), result.status(),
-                    result.plan() == null ? 0 : result.plan().patternTimes().size(),
-                    result.plan() == null ? 0 : PlanIdentity.executionCount(result.plan().patternTimes()),
-                    ECOPlanningResultRegistry.cycleExpected(result), amount, true);
-                return;
-            }
-            LOGGER.info("[ECO-PLAN] planningId={} planner=ECO status={} patternKinds={} taskExecutions={} "
-                    + "cycleExpected={} amount={} simulation={}", result.planningId(), result.status(),
-                result.plan() == null ? 0 : result.plan().patternTimes().size(),
-                result.plan() == null ? 0 : PlanIdentity.executionCount(result.plan().patternTimes()),
-                ECOPlanningResultRegistry.cycleExpected(result), amount, simulation);
-            if (result.plan() != null && !result.plan().missingItems().isEmpty()) {
-                LOGGER.info("[ECO-PLAN-MISSING] planningId={} finalOutput={} missing={}", result.planningId(),
-                    result.plan().finalOutput(), describeCounter(result.plan().missingItems()));
-            }
-        }
-
-        private String describeCounter(KeyCounter counter) {
-            StringBuilder result = new StringBuilder();
-            for (var entry : counter) {
-                if (result.length() > 0) result.append(", ");
-                result.append(entry.getKey()).append(" x").append(entry.getLongValue());
-            }
-            return result.toString();
         }
 
         private void attach(ECOPlanningResult result) {

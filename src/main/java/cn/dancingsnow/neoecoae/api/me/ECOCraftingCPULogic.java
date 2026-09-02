@@ -138,7 +138,7 @@ public class ECOCraftingCPULogic {
     private long externalBatchRequestedSinceLog;
     private long externalBatchAcceptedSinceLog;
     private long externalBatchLeftoverSinceLog;
-    private int lastLoggedCycleInitialInventoryPhase = -1;
+
 
     private static final class BatchProbeKey {
         private final Object scope;
@@ -223,8 +223,6 @@ public class ECOCraftingCPULogic {
         providerTopologyCache.clear();
         resetBatchProbeBudgetForCurrentTick();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
-        this.lastLoggedCycleInitialInventoryPhase = -1;
-        logSubmittedJob(craftId, this.job);
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -287,9 +285,8 @@ public class ECOCraftingCPULogic {
         }
 
         // Missing metadata for a planner-confirmed cycle is permanent for this job. Do not repeatedly enter the
-        // dispatch path on every tick; retain the job for inspection/cancellation and report the reason once.
+        // dispatch path on every tick; retain the job for inspection/cancellation.
         if (job.hasPermanentExecutionError()) {
-            logCycleMetadataFailureOnce(job);
             return;
         }
 
@@ -421,7 +418,6 @@ public class ECOCraftingCPULogic {
         if (job == null)
             return 0;
         if (job.hasPermanentExecutionError()) {
-            logCycleMetadataFailureOnce(job);
             return 0;
         }
         // Materialize the shared runtime cursor once the immutable execution metadata is available.
@@ -430,7 +426,6 @@ public class ECOCraftingCPULogic {
         releaseSurplusFinalOutput(job);
         if (this.job != job) return 0;
         var activePhase = job.activePhase();
-        logCycleInitialInventory(job, activePhase);
         boolean componentScheduled = job.phased();
         var diagnostics = new DispatchDiagnostics();
         if (componentScheduled && activePhase == null) {
@@ -712,49 +707,6 @@ public class ECOCraftingCPULogic {
         return pushedPatterns;
     }
 
-    private void logCycleMetadataFailureOnce(ExecutingCraftingJob job) {
-        if (job.cycleMetadataErrorLogged) return;
-        LOGGER.error("Ordered cycle metadata is missing; refusing cycle dispatch permanently (fail-safe) "
-            + "error={} finalOutput={} craftId={} executionMode={} "
-            + "componentScheduled={} schedulePresent={} phaseCount={} cyclePhaseCount={}",
-            job.permanentExecutionError, job.finalOutput, job.link == null ? null : job.link.getCraftingID(),
-            job.executionMode, job.phased(),
-            job.executionSchedule != null,
-            job.executionSchedule == null ? 0 : job.executionSchedule.phases().size(),
-            job.executionSchedule == null ? 0 : job.executionSchedule.phases().stream()
-            .filter(phase -> phase.type()
-                == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE).count());
-        job.cycleMetadataErrorLogged = true;
-    }
-
-    private void logSubmittedJob(UUID craftId, ExecutingCraftingJob submittedJob) {
-        var schedule = submittedJob.executionSchedule;
-        var phases = schedule == null ? List.of() : schedule.phases().stream()
-            .map(phase -> phase.componentId() + ":" + phase.type()
-                + "(patterns=" + phase.patternSet().size() + ",witness=" + phase.cycleWitness().size() + ")")
-            .toList();
-        int phaseCount = schedule == null ? 0 : schedule.phases().size();
-        long cyclePhaseCount = schedule == null ? 0L : schedule.phases().stream()
-            .filter(phase -> phase.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE)
-            .count();
-        long remainingTasks = remainingTaskCount(submittedJob);
-        LOGGER.info(
-            "[ECO-EXEC] submitted job={} finalOutput={} remainingOutput={} tasks={} taskExecutions={} "
-                + "componentScheduled={} cycleExpected={} metadataMissing={} phaseCount={} cyclePhaseCount={} phases={}",
-            craftId,
-            submittedJob.finalOutput,
-            submittedJob.remainingAmount,
-            submittedJob.tasks.size(),
-            remainingTasks,
-            submittedJob.phased(),
-            submittedJob.orderedCycle(),
-            submittedJob.permanentExecutionError != null,
-            phaseCount,
-            cyclePhaseCount,
-            phases
-        );
-    }
-
     private void logStalledDispatch(ExecutingCraftingJob stalledJob,
             @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase,
             int maxPatterns, DispatchDiagnostics diagnostics, String reason) {
@@ -974,61 +926,6 @@ public class ECOCraftingCPULogic {
         externalBatchRequestedSinceLog = 0L;
         externalBatchAcceptedSinceLog = 0L;
         externalBatchLeftoverSinceLog = 0L;
-    }
-
-    private void logCycleInitialInventory(ExecutingCraftingJob currentJob,
-            @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase) {
-        if (phase == null || phase.type()
-                != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.Type.CYCLE
-                || currentJob.currentComponentIndex == lastLoggedCycleInitialInventoryPhase) return;
-        lastLoggedCycleInitialInventoryPhase = currentJob.currentComponentIndex;
-
-        Map<AEKey, Long> initial = new LinkedHashMap<>();
-        for (var entry : inventory.list) {
-            if (entry.getLongValue() > 0L) initial.put(entry.getKey(), entry.getLongValue());
-        }
-        IPatternDetails first = null;
-        if (currentJob.runtimeExecutionState != null) {
-            var runtimePhase = currentJob.runtimeExecutionState.activePhase();
-            if (runtimePhase != null && currentJob.runtimeExecutionState.stepIndex() < runtimePhase.steps().size()) {
-                first = currentJob.runtimeExecutionState.plan().task(
-                    runtimePhase.steps().get(currentJob.runtimeExecutionState.stepIndex()).taskId()).pattern();
-            }
-        } else if (!phase.cycleWitness().isEmpty()) {
-            first = phase.cycleWitness().getFirst();
-        }
-        String source = cycleSeedSource(currentJob, first);
-        LOGGER.info("[ECO-EXEC] cycle seed source: {} componentId={} phaseIndex={} cycle initial inventory: {}",
-            source, phase.componentId(), currentJob.currentComponentIndex, initial);
-    }
-
-    private String cycleSeedSource(ExecutingCraftingJob currentJob, @Nullable IPatternDetails firstPattern) {
-        if (firstPattern == null) return "NONE";
-        boolean available = false;
-        boolean networkReserved = false;
-        AEKey preferredSeed = currentJob.finalOutput == null ? null : currentJob.finalOutput.what();
-        boolean firstPatternConsumesPreferredSeed = false;
-        for (var input : firstPattern.getInputs()) {
-            if (input == null || input.getPossibleInputs() == null) continue;
-            for (var possible : input.getPossibleInputs()) {
-                if (possible != null && preferredSeed != null && preferredSeed.equals(possible.what())) {
-                    firstPatternConsumesPreferredSeed = true;
-                }
-            }
-        }
-        Map<AEKey, Long> plannedInitial = currentJob.executionContract == null
-            ? Map.of() : currentJob.executionContract.planSignature().usedItems();
-        for (var input : firstPattern.getInputs()) {
-            if (input == null || input.getPossibleInputs() == null) continue;
-            for (var possible : input.getPossibleInputs()) {
-                if (possible == null || possible.what() == null) continue;
-                if (firstPatternConsumesPreferredSeed && !preferredSeed.equals(possible.what())) continue;
-                if (inventory.extract(possible.what(), Long.MAX_VALUE, Actionable.SIMULATE) > 0L) available = true;
-                if (plannedInitial.getOrDefault(possible.what(), 0L) > 0L) networkReserved = true;
-            }
-        }
-        if (!available) return "NONE";
-        return networkReserved ? "NETWORK_INVENTORY" : "PREVIOUS_PHASE_OUTPUT";
     }
 
     /** Live availability check over the reusable candidate set; it does not mutate provider state. */

@@ -19,7 +19,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECODurabilityBatchModel;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
@@ -333,7 +333,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ECOVerifiedFastPathRecipe recipe = lookup.recipe();
                 FastPathWork fastPathWork = createFastPathWork(recipe);
                 if (fastPathWork == null) {
-                    cache.putNegative(key, tick);
+                    cache.putNegative(key, tick, "CACHED_RESULT_MATERIALIZATION_FAILED");
                     cache.recordFallbackSlowPath();
                     return calcPatternSlow(execution, controller, craftingJobId, false, tick);
                 }
@@ -342,7 +342,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                     return false;
                 }
                 cache.recordFastPathAccepted();
-                cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
                 startWork(
                     List.of(fastPathWork.output()), fastPathWork.inputs(), fastPathWork.remaining(),
                     craftingJobId, 1
@@ -406,7 +405,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         cache.recordSlowPathAccepted();
-        cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
         startWork(List.of(outputItem.copy()), inputs, list, craftingJobId, 1);
         return true;
     }
@@ -429,19 +427,25 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var inputEntries = ECOFastPathStacks.fromItemStacks(inputs);
         var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
         if (outputEntries.isEmpty() || inputEntries.isEmpty()) {
-            cache.putNegative(key, tick);
+            cache.putNegative(key, tick, "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED");
             return;
         }
         if (!outputEntries.get().equals(execution.expectedOutputs())
             || !remainingEntries.get().equals(execution.expectedContainerItems())
             || !inputEntries.get().equals(execution.inputItems())) {
-            cache.putNegative(key, tick);
+            cache.putNegative(key, tick, "ASSEMBLY_CONTRACT_MISMATCH");
             return;
         }
-        var model = ECODurabilityBatchModel.analyze(beforeSlots, remainingSlots).orElse(null);
+        ECOReusableStateAnalyzer.Analysis stateAnalysis =
+            ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots);
+        if (stateAnalysis.rejected()) {
+            cache.putNegative(key, tick, stateAnalysis.rejectReason());
+            return;
+        }
         List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
             .map(List::of).orElse(List.of());
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick, model,
+        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick,
+            stateAnalysis.model(),
             execution.fastPathType(),
             ECOFastPathResult.componentChanges(beforeSlots, remainingSlots),
             ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),

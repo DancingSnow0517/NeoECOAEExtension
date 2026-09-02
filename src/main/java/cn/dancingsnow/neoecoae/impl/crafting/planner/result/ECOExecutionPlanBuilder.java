@@ -92,7 +92,6 @@ public final class ECOExecutionPlanBuilder {
                     .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
                     .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
         }
-        logCycleDispositionResults(components, schedule);
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }
 
@@ -190,23 +189,6 @@ public final class ECOExecutionPlanBuilder {
         return new IllegalStateException("cycleComponent=" + component.componentId() + " disposition="
             + component.cycleDisposition() + " requiredOutputs=" + component.requiredOutputs().size()
             + " stockReservations=" + component.stockReservations().size() + " detail=" + detail);
-    }
-
-    private static void logCycleDispositionResults(List<ComponentPlanningResult> components,
-            ECOExecutionSchedule schedule) {
-        if (!LOGGER.isDebugEnabled()) return;
-        for (ComponentPlanningResult component : components) {
-            if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
-            long firings = component.cycleResult() == null ? 0L
-                : component.cycleResult().patternTimes().values().stream().filter(java.util.Objects::nonNull)
-                    .filter(count -> count > 0L).reduce(0L, Math::addExact);
-            boolean emitted = schedule.phases().stream().anyMatch(phase -> phase.componentId() == component.componentId());
-            LOGGER.debug("[ECO-CYCLE-DISPOSITION] componentId={} disposition={} requiredOutputs={} "
-                    + "stockReservations={} cyclePatternKinds={} cycleFirings={} runtimePhaseEmitted={}",
-                component.componentId(), component.cycleDisposition(), component.requiredOutputs().size(),
-                component.stockReservations().size(), component.cycleResult() == null ? 0
-                    : component.cycleResult().patternTimes().size(), firings, emitted);
-        }
     }
 
     private static PlanIdentity.PatternIdentity requireIdentity(IPatternDetails pattern) {

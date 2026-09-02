@@ -12,7 +12,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathKey {
-    private final Object patternIdentity;
+    private final ECOFastPathPatternKey patternKey;
 
     @Nullable
     private final ResourceLocation dimension;
@@ -27,11 +27,11 @@ public final class ECOFastPathKey {
         long reloadGeneration,
         List<SlotSignature> slots
     ) {
-        this.patternIdentity = patternIdentity;
+        this.patternKey = new ECOFastPathPatternKey(patternIdentity, reloadGeneration);
         this.dimension = dimension;
         this.reloadGeneration = reloadGeneration;
         this.slots = List.copyOf(slots);
-        this.hash = Objects.hash(patternIdentity, dimension, reloadGeneration, this.slots);
+        this.hash = Objects.hash(patternKey, dimension, this.slots);
     }
 
     public static Optional<ECOFastPathKey> of(
@@ -73,7 +73,7 @@ public final class ECOFastPathKey {
             return false;
         }
         return reloadGeneration == other.reloadGeneration
-            && Objects.equals(patternIdentity, other.patternIdentity)
+            && patternKey.equals(other.patternKey)
             && Objects.equals(dimension, other.dimension)
             && slots.equals(other.slots);
     }
@@ -85,6 +85,10 @@ public final class ECOFastPathKey {
 
     boolean isForReloadGeneration(long candidate) {
         return reloadGeneration == candidate;
+    }
+
+    public ECOFastPathPatternKey patternKey() {
+        return patternKey;
     }
 
     private record SlotSignature(List<EntrySignature> entries) {
