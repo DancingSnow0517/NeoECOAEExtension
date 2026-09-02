@@ -1,14 +1,21 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +25,17 @@ public final class ECOExecutionPlanBuilder {
     private ECOExecutionPlanBuilder() { }
 
     public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
+            List<ComponentPlanningResult> components, List<Integer> executionOrder,
+            Map<IPatternDetails, Long> patternTimes) {
+        try {
+            return buildValidated(signature, mode, components, executionOrder, patternTimes);
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            logCycleValidationFailure(failure, components);
+            throw failure;
+        }
+    }
+
+    private static ECOExecutionPlan buildValidated(PlanIdentity.Signature signature, ExecutionMode mode,
             List<ComponentPlanningResult> components, List<Integer> executionOrder,
             Map<IPatternDetails, Long> patternTimes) {
         validateCycleDispositions(signature, components);
@@ -93,6 +111,72 @@ public final class ECOExecutionPlanBuilder {
                     .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
+    }
+
+    /** Logs a rejected cycle hand-off without changing the exception or validation outcome. */
+    private static void logCycleValidationFailure(RuntimeException failure,
+            List<ComponentPlanningResult> components) {
+        String reason = cycleValidationReason(failure.getMessage());
+        if (reason == null) return;
+        LOGGER.warn("[ECO-Cycle] reason={} items={}", reason, String.join(",", cycleItemIds(components)));
+    }
+
+    private static String cycleValidationReason(String detail) {
+        String message = detail == null ? "" : detail.toLowerCase(Locale.ROOT);
+        if (message.contains("firing vector") || message.contains("cycle trace consumes")) {
+            return "循环 Pattern 次数与 CraftingPlan.patternTimes 不一致";
+        }
+        if (message.contains("dependencies contain a cycle") || message.contains("topological order")) {
+            return "循环执行顺序无法满足物品依赖";
+        }
+        if (message.contains("negative") || message.contains("reservation") || message.contains("useditems")) {
+            return "模拟执行过程中库存出现负数";
+        }
+        if (message.contains("seed") || message.contains("stock_satisfied")) {
+            return "循环启动种子缺失";
+        }
+        if (message.contains("external")) {
+            return "外部 Phase 材料依赖未满足";
+        }
+        if (message.contains("phase") || message.contains("pattern") || message.contains("task")) {
+            return "Pattern 未被正确分配到执行 Phase";
+        }
+        return null;
+    }
+
+    private static Set<String> cycleItemIds(List<ComponentPlanningResult> components) {
+        Set<String> items = new LinkedHashSet<>();
+        for (ComponentPlanningResult component : components) {
+            if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
+            for (IPatternDetails pattern : component.executionPatterns()) addPatternItems(items, pattern);
+            component.requiredOutputs().keySet().forEach(key -> addItemId(items, key));
+            if (component.cycleResult() == null) continue;
+            component.cycleResult().patternTimes().keySet().forEach(pattern -> addPatternItems(items, pattern));
+            component.cycleResult().requiredSeed().keySet().forEach(key -> addItemId(items, key));
+            component.cycleResult().externalDemand().keySet().forEach(key -> addItemId(items, key));
+            component.cycleResult().producedOutputs().keySet().forEach(key -> addItemId(items, key));
+        }
+        return items;
+    }
+
+    private static void addPatternItems(Set<String> items, IPatternDetails pattern) {
+        try {
+            for (IPatternDetails.IInput input : pattern.getInputs()) {
+                if (input == null || input.getPossibleInputs() == null) continue;
+                for (GenericStack stack : input.getPossibleInputs()) {
+                    if (stack != null) addItemId(items, stack.what());
+                }
+            }
+            for (GenericStack stack : pattern.getOutputs()) if (stack != null) addItemId(items, stack.what());
+        } catch (RuntimeException ignored) {
+            // Validation still reports the original failure even when a malformed pattern cannot be described.
+        }
+    }
+
+    private static void addItemId(Set<String> items, AEKey key) {
+        if (key instanceof AEItemKey item) {
+            items.add(BuiltInRegistries.ITEM.getKey(item.toStack(1).getItem()).toString());
+        }
     }
 
     private static void validateCycleCounts(ComponentPlanningResult component,

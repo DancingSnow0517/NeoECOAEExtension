@@ -13,6 +13,11 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
+// AppBot depends on a matching Botania development build. Keep that integration
+// out of normal builds until compatible releases are available.
+def enableAppBotIntegration = providers.gradleProperty('enableAppBotIntegration')
+    .map { it.toBoolean() }
+    .getOrElse(false)
 
 base {
     archivesName = mod_id
@@ -204,7 +209,9 @@ neoForge {
 }
 
 sourceSets.main.java {
-    exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    if (!enableAppBotIntegration) {
+        exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    }
     // KubeJS is an optional integration and is not present in the dev runtime.
     // Keep its sources out of the base mod classpath so NeoForge can launch
     // without KubeJS installed.
