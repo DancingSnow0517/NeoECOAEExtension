@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOExternalBatchContracts;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -34,11 +35,18 @@ class ECOCraftingDispatchStrategyTest {
     }
 
     @Test
-    void operationLimitHasTemporarySixteenThousandCeiling() {
-        assertEquals(16_384, ECOCraftingCPULogic.calculateOperationLimit(
+    void operationLimitHonorsTemporaryCeilingConfiguredByMaxPushTickLimit() {
+        int expected = NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT;
+        assertEquals(expected, ECOCraftingCPULogic.calculateOperationLimit(
             Integer.MAX_VALUE, Integer.MAX_VALUE));
-        assertEquals(16_384, ECOCraftingCPULogic.calculateOperationLimit(
+        assertEquals(expected, ECOCraftingCPULogic.calculateOperationLimit(
+            Integer.MAX_VALUE, expected));
+        // Configured limit below the ceiling wins.
+        assertEquals(100_000, ECOCraftingCPULogic.calculateOperationLimit(
             Integer.MAX_VALUE, 100_000));
+        // Coprocessor count is the lower bound when the configured limit exceeds it.
+        assertEquals(4, ECOCraftingCPULogic.calculateOperationLimit(
+            3, Integer.MAX_VALUE));
     }
 
     @Test
@@ -177,7 +185,8 @@ class ECOCraftingDispatchStrategyTest {
         assertEquals(3, result.probeCount());
         assertEquals(3, ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_TASK_PER_TICK);
         assertEquals(64, ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_CPU_PER_TICK);
-        assertEquals(16_384, ECOCraftingCPULogic.calculateOperationLimit(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        assertEquals(NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
+            ECOCraftingCPULogic.calculateOperationLimit(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         int used = 0;
         for (int task = 0; task < 100; task++) {
