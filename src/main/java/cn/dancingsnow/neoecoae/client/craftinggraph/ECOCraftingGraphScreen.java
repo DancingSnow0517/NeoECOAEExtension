@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -39,12 +40,14 @@ public final class ECOCraftingGraphScreen extends Screen {
     private ClientCraftingGraph graph;
     private GraphLayoutSnapshot layout;
     private EditBox search;
+    private final List<ClientCraftingGraph.Node> searchSuggestions = new ArrayList<>();
     private @Nullable Integer selectedId;
     private @Nullable ClientCraftingGraph.Node hovered;
     private float cameraX;
     private float cameraY = TOOLBAR_HEIGHT;
     private float zoom = 1;
     private int depth = CompactTreeProjection.DEFAULT_DEPTH;
+    private boolean missingOnly;
     private GraphLayout.Mode layoutMode;
     private boolean advanced;
     private boolean panning;
@@ -77,20 +80,14 @@ public final class ECOCraftingGraphScreen extends Screen {
         clearWidgets();
         int x = 5;
         x = addButton(x, 48, tr("toolbar.fit_all"), this::fitAll);
-        x = addButton(x, 46, tr("toolbar.root"), this::goRoot);
-        x = addButton(x, 58, tr("toolbar.expand"), this::expandSelected);
-        x = addButton(x, 58, tr("toolbar.collapse"), this::collapseSelected);
-        x = addButton(x, 50, tr("toolbar.expand_all"), this::expandAllSelected);
-        x = addButton(x, 58, depthLabel(), this::cycleDepth);
-        x = addButton(x, 42, tr("toolbar.depth_four"), this::expandToFour);
-        x = addButton(x, 54, tr("toolbar.fold_four"), this::foldToFour);
-        x = addButton(x, 76, viewLabel(), this::cycleLayoutMode);
-        x = addButton(x, 70, tr(advanced ? "toolbar.debug_on" : "toolbar.debug_off"), this::toggleAdvanced);
+        x = addButton(x, 66, depthLabel(), this::cycleDepth);
+        x = addButton(x, 74, tr(missingOnly ? "toolbar.missing_on" : "toolbar.missing_off"), this::toggleMissingOnly);
         search = new EditBox(font, x + 4, 6, Math.min(180, Math.max(80, width - x - 250)), 18,
             Component.translatable("gui.neoecoae.crafting_graph.search"));
         search.setHint(tr("search_hint"));
-        search.setResponder(ignored -> {});
+        search.setResponder(ignored -> updateSearchSuggestions());
         addRenderableWidget(search);
+        updateSearchSuggestions();
         rebuildGraph(initialCycleComponentId != null);
     }
 
@@ -110,6 +107,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         hovered = frame.hovered();
         graphics.disableScissor();
         super.render(graphics, mouseX, mouseY, partialTick);
+        drawSearchSuggestions(graphics, mouseX, mouseY);
         drawBreadcrumb(graphics);
         drawStats(graphics);
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) drawCycleDetails(graphics);
@@ -294,6 +292,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && selectSearchSuggestion(mouseX, mouseY)) return true;
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseY >= height - 20
                 && graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
             goRoot();
@@ -482,6 +481,21 @@ public final class ECOCraftingGraphScreen extends Screen {
         refreshControls();
     }
 
+    private void toggleMissingOnly() {
+        missingOnly = !missingOnly;
+        expandedTreePaths.clear();
+        fullyExpandedTreePaths.clear();
+        collapsedTreePaths.clear();
+        if (missingOnly && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
+            baseGraph.nodes().values().stream()
+                .filter(node -> node.material() != null
+                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING)
+                .forEach(node -> expandedTreePaths.addAll(CompactTreeProjection.pathTo(baseGraph, node.id())));
+        }
+        rebuildGraph(true);
+        refreshControls();
+    }
+
     private void cycleLayoutMode() {
         layoutMode = switch (layoutMode) {
             case COMPACT_TREE -> GraphLayout.Mode.LEGACY;
@@ -665,6 +679,54 @@ public final class ECOCraftingGraphScreen extends Screen {
         } catch (RuntimeException ignored) {
             return Component.literal(exact);
         }
+    }
+
+    private void updateSearchSuggestions() {
+        searchSuggestions.clear();
+        if (search == null) return;
+        String query = search.getValue().trim().toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) return;
+        baseGraph.nodes().values().stream()
+            .filter(node -> node.label().toLowerCase(Locale.ROOT).contains(query)
+                || node.key() != null && node.key().toString().toLowerCase(Locale.ROOT).contains(query))
+            .sorted((a, b) -> a.label().compareToIgnoreCase(b.label()))
+            .limit(6).forEach(searchSuggestions::add);
+    }
+
+    private void drawSearchSuggestions(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (search == null || searchSuggestions.isEmpty() || !search.isFocused()) return;
+        int left = search.getX();
+        int top = search.getY() + search.getHeight();
+        int right = left + search.getWidth();
+        graphics.fill(left, top, right, top + searchSuggestions.size() * 18 + 2, 0xf020252b);
+        for (int i = 0; i < searchSuggestions.size(); i++) {
+            ClientCraftingGraph.Node node = searchSuggestions.get(i);
+            int rowTop = top + 1 + i * 18;
+            if (mouseX >= left && mouseX < right && mouseY >= rowTop && mouseY < rowTop + 18)
+                graphics.fill(left, rowTop, right, rowTop + 18, 0xff3a4650);
+            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
+        }
+    }
+
+    private boolean selectSearchSuggestion(double mouseX, double mouseY) {
+        if (search == null || searchSuggestions.isEmpty() || !search.isFocused()) return false;
+        int top = search.getY() + search.getHeight();
+        if (mouseX < search.getX() || mouseX >= search.getX() + search.getWidth()
+                || mouseY < top || mouseY >= top + searchSuggestions.size() * 18 + 2) return false;
+        int index = (int) ((mouseY - top - 1) / 18);
+        if (index < 0 || index >= searchSuggestions.size()) return false;
+        ClientCraftingGraph.Node match = searchSuggestions.get(index);
+        search.setValue(match.label());
+        selectedId = match.id();
+        if (layoutMode == GraphLayout.Mode.COMPACT_TREE) {
+            expandedTreePaths.addAll(CompactTreeProjection.pathTo(baseGraph, match.id()));
+            collapsedTreePaths.removeAll(expandedTreePaths);
+            rebuildGraph(false);
+            graph.compactTreeNodes().values().stream().filter(node -> node.sourceId() == match.id())
+                .findFirst().ifPresent(node -> { selectedId = node.id(); center(node.id()); });
+        } else center(selectedId);
+        searchSuggestions.clear();
+        return true;
     }
 
     private @Nullable Integer componentForClusterNode(ClientCraftingGraph.Node node) {
