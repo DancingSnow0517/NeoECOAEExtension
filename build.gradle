@@ -117,7 +117,8 @@ dependencies {
 
     implementation("curse.maven:omni-cells-1359517:8050965")
 
-    implementation("curse.maven:ae2-lightning-tech-1527395:8422767") { transitive = false }
+    implementation("curse.maven:ae2-lightning-tech-1527395:8567287") { transitive = false }
+    implementation("curse.maven:thunderbolt-core-1631756:8566512") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
     runtimeOnly("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1")
