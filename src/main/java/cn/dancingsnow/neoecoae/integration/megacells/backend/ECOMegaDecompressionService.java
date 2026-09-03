@@ -46,6 +46,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     private final Map<AEKey, Long> pendingOutputs = new LinkedHashMap<>();
     private final IGrid grid;
     private int installedModules;
+    private int patternPriority;
 
     public ECOMegaDecompressionService(IGrid grid, ICraftingService craftingService) {
         this.grid = grid;
@@ -94,6 +95,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public void onServerEndTick() {
+        syncPatternPriority();
         patterns.clear();
         if (installedModules <= 0) {
             grid.getCraftingService().refreshGlobalCraftingProvider(this);
@@ -120,8 +122,19 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public int getPatternPriority() {
-        DecompressionService megaService = grid.getService(DecompressionService.class);
-        return megaService != null ? megaService.getPatternPriority() : 0;
+        // AE2 snapshots the provider during addGlobalCraftingProvider(), which is called while Grid is still
+        // constructing its service container. Do not touch grid.getService() from this early callback.
+        return patternPriority;
+    }
+
+    private void syncPatternPriority() {
+        try {
+            DecompressionService megaService = grid.getService(DecompressionService.class);
+            patternPriority = megaService == null ? 0 : megaService.getPatternPriority();
+        } catch (IllegalArgumentException | NullPointerException notReady) {
+            // The native MEGA service may not be visible during an early grid transition. Keep the last
+            // usable value and retry on the next server-end tick.
+        }
     }
 
     @Override
