@@ -20,6 +20,7 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashMap;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.List;
@@ -513,6 +514,13 @@ public class ExecutingCraftingJob {
             try {
                 RestoredExecution restored = readExecutionPlan(data.getCompound(NBT_EXECUTION_PLAN), registries, level,
                     finalOutput, data.getInt(NBT_PLAN_SIGNATURE_HASH));
+                Map<IPatternDetails, Long> restoredRemaining = restoredRemainingTasks(restored);
+                Map<IPatternDetails, Long> currentRemaining = currentRemainingTasks();
+                if (!PlanIdentity.sameTaskCounts(currentRemaining, restoredRemaining)) {
+                    throw new IllegalArgumentException(
+                        "Persisted execution plan task vector does not match the restored job: current="
+                            + describeTaskVector(currentRemaining) + ", persisted=" + describeTaskVector(restoredRemaining));
+                }
                 this.executionContract = new ECOExecutionContract(UUID.randomUUID(), restored.plan().signature(),
                     restored.plan().mode(), restored.plan(), null);
                 this.executionSchedule = restored.plan().schedule();
@@ -763,6 +771,30 @@ public class ExecutingCraftingJob {
         var plan = new ECOExecutionPlan(signature, mode, tasks, phases,
             new ECOExecutionSchedule(schedulePhases, dependencies));
         return new RestoredExecution(plan, remaining, dynamicRemaining, stepIndexes, stepRemaining);
+    }
+
+    private static Map<IPatternDetails, Long> restoredRemainingTasks(RestoredExecution restored) {
+        Map<IPatternDetails, Long> result = new LinkedHashMap<>();
+        for (var task : restored.plan().tasks()) {
+            long remaining = restored.remaining()[task.id()];
+            if (remaining > 0L) result.merge(task.pattern(), remaining, Math::addExact);
+        }
+        return result;
+    }
+
+    private Map<IPatternDetails, Long> currentRemainingTasks() {
+        Map<IPatternDetails, Long> result = new LinkedHashMap<>();
+        for (var task : tasks.entrySet()) {
+            long remaining = task.getValue().value;
+            if (remaining > 0L || remaining < 0L) result.merge(task.getKey(), remaining, Math::addExact);
+        }
+        return result;
+    }
+
+    private static String describeTaskVector(Map<IPatternDetails, Long> taskVector) {
+        Map<PlanIdentity.PatternIdentity, Long> signature = PlanIdentity.taskSignature(taskVector);
+        return signature == null ? "invalid" : "kinds=" + signature.size()
+            + ",executions=" + PlanIdentity.executionCount(taskVector);
     }
 
     private static ListTag writeKeyAmounts(Map<AEKey, Long> values, HolderLookup.Provider registries) {

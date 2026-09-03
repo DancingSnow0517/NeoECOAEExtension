@@ -5,6 +5,7 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -63,6 +64,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     public static final int MAX_PROGRESS = 100;
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
     private static final int MAX_PERSISTED_ITEM_STACK_ENTRIES = 256;
+    private static final long BLOCKED_PROGRESS_LOG_INTERVAL_TICKS = 100L;
+    private static final long BLOCKED_OUTPUT_LOG_INTERVAL_TICKS = 100L;
 
     private enum RecoveryState {
         ACTIVE,
@@ -104,6 +107,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private RecoveryState recoveryState = RecoveryState.CLEARED;
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
+    private long lastBlockedProgressLogTick = Long.MIN_VALUE;
+    private long lastBlockedOutputLogTick = Long.MIN_VALUE;
 
     private final TransientCraftingContainer craftingInv;
 
@@ -160,9 +165,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             MAX_PROGRESS - progress
         );
         if (!controller.tryConsumeTickBasedCoolant(finiteBatchCraftCount, attemptedProgress, overlockTimes)) {
+            logBlockedProgress(controller, "coolant-unavailable", attemptedProgress, overlockTimes, powerMultiply);
             return TickRateModulation.SLOWER;
         }
-        progress += userPower(controller, ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
+        int progressed = userPower(controller, ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
+        if (attemptedProgress > 0 && progressed <= 0) {
+            String reason = worker.getMainNode().getGrid() == null
+                ? "grid-unavailable" : "energy-unavailable";
+            logBlockedProgress(controller, reason, attemptedProgress, overlockTimes, powerMultiply);
+        }
+        progress += progressed;
 
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
@@ -278,7 +290,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             verified.craftingJobId()
         );
         if (!canRetainGenericStacks(work.outputTotal())
-            || !canRetainGenericStacks(work.inputTotal())
+            || !canRetainGenericStacks(work.inputTotal(), true)
             || !canRetainGenericStacks(work.remainingTotal())) {
             cache.recordNonItemKey();
             return false;
@@ -291,7 +303,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean acceptBatch(ECOBatchCraftingWork work, ECOCraftingSystemBlockEntity controller) {
         if (!canRetainGenericStacks(work.outputTotal())
-            || !canRetainGenericStacks(work.inputTotal())
+            || !canRetainGenericStacks(work.inputTotal(), true)
             || !canRetainGenericStacks(work.remainingTotal())) {
             worker.getFastPathCache().recordNonItemKey();
             return false;
@@ -343,6 +355,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
             case VERIFIED -> {
                 ECOVerifiedFastPathRecipe recipe = lookup.recipe();
+                if (recipe.hasFluidInput()) {
+                    // Single-craft work stores physical ItemStacks for recovery, while batch work can retain
+                    // the raw fluid key. Keep the verified cache positive for batch dispatches and verify this
+                    // one craft through AE2's normal container-aware assembler path.
+                    fastPathReason = "FLUID_INPUT_SINGLE_CRAFT";
+                    cache.recordFallbackSlowPath();
+                    return calcPatternSlow(execution, controller, craftingJobId, false, tick);
+                }
                 FastPathWork fastPathWork = createFastPathWork(recipe);
                 if (fastPathWork == null) {
                     fastPathReason = "CACHED_RESULT_MATERIALIZATION_FAILED";
@@ -445,15 +465,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
-        var inputEntries = ECOFastPathStacks.fromItemStacks(inputs);
+        var materializedInputEntries = ECOFastPathStacks.fromItemStacks(inputs);
         var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
+        boolean hasFluidInput = execution.inputItems().stream()
+            .anyMatch(stack -> stack.what() instanceof AEFluidKey);
+        List<GenericStack> inputEntries = hasFluidInput
+            ? execution.inputItems()
+            : materializedInputEntries.orElse(List.of());
         if (outputEntries.isEmpty() || inputEntries.isEmpty()) {
             cache.putNegative(key, tick, "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED");
             return;
         }
         if (!outputEntries.get().equals(execution.expectedOutputs())
             || !remainingEntries.get().equals(execution.expectedContainerItems())
-            || !inputEntries.get().equals(execution.inputItems())) {
+            || (!hasFluidInput && !inputEntries.equals(execution.inputItems()))) {
             cache.putNegative(key, tick, "ASSEMBLY_CONTRACT_MISMATCH");
             return;
         }
@@ -473,7 +498,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
             .map(List::of).orElse(List.of());
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick,
+        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries, tick,
             stateAnalysis.model(),
             execution.fastPathType(),
             ECOFastPathResult.componentChanges(beforeSlots, remainingSlots),
@@ -772,6 +797,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private boolean ejectOutputs() {
         IGrid grid = worker.getMainNode().getGrid();
         if (grid == null) {
+            logBlockedOutput("network-unavailable", null);
             return false;
         }
 
@@ -785,6 +811,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
         if (!isEmpty(remainder)) {
             retainRemainderForRetry(remainder, RecoveryState.ACTIVE);
+            logBlockedOutput("network-capacity", remainder);
             return false;
         }
 
@@ -813,6 +840,64 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
+    private void logBlockedProgress(
+        ECOCraftingSystemBlockEntity controller,
+        String reason,
+        int attemptedProgress,
+        int overclockTimes,
+        int powerMultiply
+    ) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastBlockedProgressLogTick;
+        if (lastBlockedProgressLogTick != Long.MIN_VALUE && elapsed >= 0L
+            && elapsed < BLOCKED_PROGRESS_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        lastBlockedProgressLogTick = tick;
+        LOGGER.warn(
+            "ECO crafting progress blocked: worker={} reason={} job={} progress={}/{} attemptedProgress={} "
+                + "batchCrafts={} craftCount={} virtualBatch={} overclockTimes={} powerMultiply={} "
+                + "activeCooling={} coolant={}/{}",
+            worker.getBlockPos(),
+            reason,
+            craftingJobId,
+            progress,
+            MAX_PROGRESS,
+            attemptedProgress,
+            finiteBatchCraftCount,
+            craftCount,
+            virtualBatch,
+            overclockTimes,
+            powerMultiply,
+            controller.isActiveCooling(),
+            controller.getDisplayedCoolantAmount(),
+            controller.getDisplayedCoolantCapacity()
+        );
+    }
+
+    private void logBlockedOutput(String reason, @Nullable KeyCounter pending) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastBlockedOutputLogTick;
+        if (lastBlockedOutputLogTick != Long.MIN_VALUE && elapsed >= 0L
+            && elapsed < BLOCKED_OUTPUT_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        lastBlockedOutputLogTick = tick;
+        LOGGER.warn(
+            "ECO crafting output delivery blocked: worker={} reason={} job={} progress={}/{} "
+                + "pending={} batchCrafts={} craftCount={} virtualBatch={}",
+            worker.getBlockPos(),
+            reason,
+            craftingJobId,
+            progress,
+            MAX_PROGRESS,
+            pending == null ? "unknown" : pending,
+            finiteBatchCraftCount,
+            craftCount,
+            virtualBatch
+        );
+    }
+
     private KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
         for (ItemStack outputItem : outputItems) {
@@ -828,9 +913,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private static void addStack(KeyCounter counter, ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {
-            AEItemKey key = AEItemKey.of(stack);
-            if (key != null) {
-                counter.add(key, stack.getCount());
+            GenericStack genericStack = GenericStack.fromItemStack(stack);
+            if (genericStack != null && genericStack.amount() > 0L) {
+                counter.add(genericStack.what(), genericStack.amount());
             }
         }
     }
@@ -901,7 +986,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         KeyCounter stacks,
         boolean recoverOutputs
     ) {
-        List<GenericStack> pendingEntries = keyCounterToGenericStacks(stacks);
+        List<GenericStack> pendingEntries = keyCounterToGenericStacks(stacks, !recoverOutputs);
         if (pendingEntries.isEmpty() && !isEmpty(stacks)) {
             throw new IllegalStateException("Cannot retain non-item crafting recovery stacks");
         }
@@ -1079,6 +1164,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         virtualBatch = false;
         outputsReady = false;
         recoveryState = RecoveryState.CLEARED;
+        lastBlockedProgressLogTick = Long.MIN_VALUE;
+        lastBlockedOutputLogTick = Long.MIN_VALUE;
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
@@ -1107,7 +1194,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void retainInputRemainderForRetry(KeyCounter remainder) {
-        List<GenericStack> stacks = keyCounterToGenericStacks(remainder);
+        List<GenericStack> stacks = keyCounterToGenericStacks(remainder, true);
         if (stacks.isEmpty() && !isEmpty(remainder)) {
             LOGGER.error(
                 "ECO crafting thread cannot retain non-item input remainder for retry: worker={}",
@@ -1132,12 +1219,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private static List<GenericStack> keyCounterToGenericStacks(KeyCounter counter) {
+        return keyCounterToGenericStacks(counter, false);
+    }
+
+    private static List<GenericStack> keyCounterToGenericStacks(KeyCounter counter, boolean allowFluid) {
         List<GenericStack> stacks = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : counter) {
             if (entry.getLongValue() <= 0) {
                 continue;
             }
-            if (!(entry.getKey() instanceof AEItemKey)) {
+            if (!(entry.getKey() instanceof AEItemKey)
+                && !(allowFluid && entry.getKey() instanceof AEFluidKey)) {
                 return List.of();
             }
             stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
@@ -1162,8 +1254,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private static boolean canRetainGenericStacks(List<GenericStack> stacks) {
+        return canRetainGenericStacks(stacks, false);
+    }
+
+    private static boolean canRetainGenericStacks(List<GenericStack> stacks, boolean allowFluid) {
         for (GenericStack stack : stacks) {
-            if (stack == null || stack.amount() <= 0 || !(stack.what() instanceof AEItemKey)) {
+            if (stack == null || stack.amount() <= 0
+                || (!(stack.what() instanceof AEItemKey)
+                    && !(allowFluid && stack.what() instanceof AEFluidKey))) {
                 return false;
             }
         }
@@ -1440,7 +1538,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             var batchOutputs = ECOFastPathStacks.readValidatedBatchItemStacks(
                 provider, nbt.getList("batchOutputItems", Tag.TAG_COMPOUND), !recoveringInputs, persistedAmountLimit
             );
-            var batchInputs = ECOFastPathStacks.readValidatedBatchItemStacks(
+            var batchInputs = ECOFastPathStacks.readValidatedBatchInputStacks(
                 provider, nbt.getList("batchInputItems", Tag.TAG_COMPOUND), recoveringInputs, persistedAmountLimit
             );
             var batchRemaining = ECOFastPathStacks.readValidatedBatchItemStacks(

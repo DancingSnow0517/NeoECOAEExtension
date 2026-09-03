@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -19,23 +20,27 @@ public final class ECOFastPathStacks {
     private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
 
     enum ItemStackValidation {
-        PERSISTED(true, true),
+        PERSISTED(true, true, false),
+        // AE2 fluid-substitution batches persist raw fluid keys as consumed inputs.
+        PERSISTED_INPUT(true, true, true),
         /**
          * A deterministic crafting result may carry a component patch. The exact component-bearing AEItemKey is
          * part of both the execution snapshot and the verified cache result, so batching preserves the complete
          * output identity. Damage remains excluded here because it requires the mutation model below.
          */
-        FAST_PATH(true, false),
-        FAST_PATH_INPUT(true, true),
+        FAST_PATH(true, false, false),
+        FAST_PATH_INPUT(true, true, true),
         /** A slow-path-verified result may carry component patches and non-zero durability. */
-        FAST_PATH_MUTATION(true, true);
+        FAST_PATH_MUTATION(true, true, false);
 
         private final boolean componentPatchAllowed;
         private final boolean damagedAllowed;
+        private final boolean fluidKeyAllowed;
 
-        ItemStackValidation(boolean componentPatchAllowed, boolean damagedAllowed) {
+        ItemStackValidation(boolean componentPatchAllowed, boolean damagedAllowed, boolean fluidKeyAllowed) {
             this.componentPatchAllowed = componentPatchAllowed;
             this.damagedAllowed = damagedAllowed;
+            this.fluidKeyAllowed = fluidKeyAllowed;
         }
 
         boolean isComponentPatchAllowed() {
@@ -44,6 +49,10 @@ public final class ECOFastPathStacks {
 
         boolean isDamagedAllowed() {
             return damagedAllowed;
+        }
+
+        boolean isFluidKeyAllowed() {
+            return fluidKeyAllowed;
         }
     }
 
@@ -161,10 +170,15 @@ public final class ECOFastPathStacks {
         if (stack.amount() <= 0 || stack.amount() > maxAmount) {
             return ItemStackValidationFailure.INVALID_AMOUNT;
         }
+        if (stack.what() instanceof AEFluidKey) {
+            return validation.isFluidKeyAllowed()
+                ? ItemStackValidationFailure.NONE
+                : ItemStackValidationFailure.NON_ITEM_KEY;
+        }
         if (!(stack.what() instanceof AEItemKey itemKey)) {
             return ItemStackValidationFailure.NON_ITEM_KEY;
         }
-        if (validation == ItemStackValidation.PERSISTED) {
+        if (validation == ItemStackValidation.PERSISTED || validation == ItemStackValidation.PERSISTED_INPUT) {
             return ItemStackValidationFailure.NONE;
         }
         ItemStack itemStack = itemKey.toStack(1);
@@ -229,11 +243,41 @@ public final class ECOFastPathStacks {
             registries, tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
     }
 
+    public static Optional<List<GenericStack>> readValidatedBatchInputStacks(
+        HolderLookup.Provider registries,
+        ListTag tag,
+        boolean requireNonEmpty,
+        long maxAmount
+    ) {
+        return readValidatedBatchStacks(
+            registries, tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED_INPUT);
+    }
+
+    public static Optional<List<GenericStack>> readValidatedBatchInputStacks(
+        HolderLookup.Provider registries,
+        ListTag tag,
+        boolean requireNonEmpty
+    ) {
+        return readValidatedBatchInputStacks(
+            registries, tag, requireNonEmpty, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT);
+    }
+
     public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
         HolderLookup.Provider registries,
         ListTag tag,
         boolean requireNonEmpty,
         long maxAmount
+    ) {
+        return readValidatedBatchStacks(
+            registries, tag, requireNonEmpty, maxAmount, ItemStackValidation.PERSISTED);
+    }
+
+    private static Optional<List<GenericStack>> readValidatedBatchStacks(
+        HolderLookup.Provider registries,
+        ListTag tag,
+        boolean requireNonEmpty,
+        long maxAmount,
+        ItemStackValidation validation
     ) {
         if (tag.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
             || requireNonEmpty && tag.isEmpty()) {
@@ -252,7 +296,7 @@ public final class ECOFastPathStacks {
                     stacks,
                     maxAmount,
                     requireNonEmpty,
-                    ItemStackValidation.PERSISTED)) {
+                    validation)) {
                 return Optional.empty();
             }
             return Optional.of(List.copyOf(stacks));

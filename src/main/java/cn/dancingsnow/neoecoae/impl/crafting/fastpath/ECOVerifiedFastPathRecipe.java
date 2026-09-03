@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import java.util.List;
 import java.util.Set;
@@ -83,6 +84,10 @@ public final class ECOVerifiedFastPathRecipe {
 
     public List<GenericStack> inputsPerCraft() {
         return result.inputEntries();
+    }
+
+    public boolean hasFluidInput() {
+        return inputsPerCraft().stream().anyMatch(stack -> stack.what() instanceof AEFluidKey);
     }
 
     @Nullable

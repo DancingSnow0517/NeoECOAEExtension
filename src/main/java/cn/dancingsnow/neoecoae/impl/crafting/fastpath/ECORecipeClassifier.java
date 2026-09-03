@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import java.util.Locale;
@@ -56,8 +57,16 @@ public final class ECORecipeClassifier {
                 // Mirror AE2PatternSemanticAdapter: prefer a concrete one-to-one reusable candidate over a
                 // damageable substitution such as an ordinary infusion crystal.
                 GenericStack selected = selectReusableCandidate(input, possible);
-                if (selected == null || !(selected.what() instanceof AEItemKey selectedKey)
-                        || selected.amount() <= 0L) {
+                if (selected == null || selected.what() == null || selected.amount() <= 0L) {
+                    return unsupported("NON_ITEM_INPUT");
+                }
+                // AE2 may expose a bucket recipe as its contained fluid when fluid substitution is enabled.
+                // The fluid is the actual consumed key. AE2 deliberately suppresses the empty container
+                // remainder in this mode because no container was consumed.
+                if (selected.what() instanceof AEFluidKey) {
+                    continue;
+                }
+                if (!(selected.what() instanceof AEItemKey selectedKey)) {
                     return unsupported("NON_ITEM_INPUT");
                 }
                 ItemStack inputStack = selectedKey.toStack(1);
@@ -98,6 +107,9 @@ public final class ECORecipeClassifier {
 
     private static GenericStack selectReusableCandidate(IPatternDetails.IInput input, GenericStack[] possible) {
         GenericStack primary = possible[0];
+        if (primary != null && primary.what() instanceof AEFluidKey) {
+            return primary;
+        }
         GenericStack mutatingCandidate = null;
         for (GenericStack candidate : possible) {
             if (candidate == null || !(candidate.what() instanceof AEItemKey)) continue;
