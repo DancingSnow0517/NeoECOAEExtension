@@ -24,7 +24,6 @@ public final class ECOCraftingGraphScreen extends Screen {
     private static final float MIN_ZOOM = 0.15f;
     private static final float MAX_ZOOM = 2.5f;
     private static final int TOOLBAR_HEIGHT = 30;
-    private static final int MAIN_OVERLAY_BOTTOM = 160;
 
     private final Screen previous;
     private final CraftingGraphSnapshot snapshot;
@@ -584,8 +583,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private int graphContentTop() {
-        return graph != null && graph.view() == ClientCraftingGraph.View.MAIN && graph.isCompactTree()
-            ? Math.min(MAIN_OVERLAY_BOTTOM, Math.max(TOOLBAR_HEIGHT, height - 40)) : TOOLBAR_HEIGHT;
+        return TOOLBAR_HEIGHT;
     }
 
     private @Nullable ClientCraftingGraph.Node hit(double mouseX, double mouseY) {

@@ -191,6 +191,18 @@ class CompactTreeGraphLayoutTest {
     }
 
     @Test
+    void zeroNetCraftingMaterialUsesPendingCraftLabel() {
+        var key = new TestKey("pending-craft");
+        var pending = new CraftingGraphSnapshot.MaterialNode(0, key, 64, 0, 64, 0,
+            CraftingGraphSnapshot.MaterialStatus.CRAFTING, "64", "0", "64", "0", "64", "64");
+        var completed = new CraftingGraphSnapshot.MaterialNode(1, key, 64, 64, 0, 0,
+            CraftingGraphSnapshot.MaterialStatus.SATISFIED, "64", "64", "0", "0", "64", "64");
+
+        assertTrue(CompactTreeRenderer.showsPendingCraftLabel(pending));
+        assertFalse(CompactTreeRenderer.showsPendingCraftLabel(completed));
+    }
+
+    @Test
     void cycleFocusStillUsesCircularLayoutWhenMainModeIsCompactTree() {
         var keys = List.of(new TestKey("cycle-focus-a"), new TestKey("cycle-focus-b"),
             new TestKey("cycle-focus-c"));

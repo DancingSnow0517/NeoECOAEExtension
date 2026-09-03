@@ -310,12 +310,21 @@ public final class CompactTreeRenderer {
     }
 
     private static String flowText(CraftingGraphSnapshot.MaterialNode material) {
+        if (showsPendingCraftLabel(material)) {
+            return Component.translatable("gui.neoecoae.crafting_graph.node.pending_craft").getString();
+        }
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
             return compactAmount(material.exactRequested());
         }
         java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
         String amount = compactAmount(delta.abs().toString());
         return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
+    }
+
+    static boolean showsPendingCraftLabel(CraftingGraphSnapshot.MaterialNode material) {
+        return material.status() == CraftingGraphSnapshot.MaterialStatus.CRAFTING
+            && material.toCraftBigInteger().signum() > 0
+            && material.producedBigInteger().equals(material.consumedBigInteger());
     }
 
     private static int screen(float camera, float world, float zoom) { return Math.round(camera + world * zoom); }
