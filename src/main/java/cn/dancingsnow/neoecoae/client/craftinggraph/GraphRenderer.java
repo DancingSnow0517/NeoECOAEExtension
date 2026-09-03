@@ -105,6 +105,11 @@ public final class GraphRenderer {
 
     private static void drawCycleOutputArrow(GuiGraphics graphics, ClientCraftingGraph graph,
             GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom) {
+        var cycle = graph.source().cycleGroups().stream()
+            .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
+        // Unsolved cycles are diagnostic structure, not executable output flow.
+        if (cycle == null || (cycle.patternTimes().stream().noneMatch(value -> value.amount() > 0)
+                && cycle.executionWitness().isEmpty())) return;
         Integer outputId = cycleOutputNodeId(graph);
         var output = outputId == null ? null : layout.box(outputId);
         if (output == null) return;
@@ -276,10 +281,8 @@ public final class GraphRenderer {
                         x + 7, y + 38, pixelWidth - 14, MUTED);
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
-                            "合成 " + compactAmount(material.exactToCraft()) + "  缺少 "
-                                + compactAmount(material.exactMissing()),
-                            x + 7, y + 53, pixelWidth - 14,
-                            material.missingBigInteger().signum() > 0 ? 0xffff7777 : MUTED);
+                            "变化 " + signedTaskChange(material),
+                            x + 7, y + 53, pixelWidth - 14, MUTED);
                     }
                 } else if (zoom >= 0.42f && pixelWidth >= 48 && pixelHeight >= 22) {
                     AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, x + 4, y + 4, material.key());
@@ -359,9 +362,7 @@ public final class GraphRenderer {
         }
 
         CompactCycleValue value = compactCycleValue(graph, node);
-        int textY = numberTop + Math.max(0, (bottom - numberTop - font.lineHeight) / 2);
-        graphics.drawCenteredString(font, fit(font, value.text(), Math.max(1, pixelWidth - 2)),
-            (x + right) / 2, textY, value.color());
+        drawScaledAmount(graphics, font, value.text(), x, numberTop, right, bottom, value.color());
     }
 
     private record CompactCycleValue(String text, int color) {}
@@ -377,26 +378,34 @@ public final class GraphRenderer {
                 : value.memberNodeIds().contains(node.material().nodeId()))
             .findFirst().orElse(null);
         if (cycle == null) return new CompactCycleValue("-", MUTED);
-        AEKey key = node.material().key();
-        BigInteger amount;
-        boolean signed;
-        if (graph.isExternalInput(node.id())) {
-            amount = BigInteger.valueOf(amountFor(cycle.externalInputs(), key));
-            signed = false;
-        } else if (graph.isBoundaryOutput(node.id())) {
-            amount = BigInteger.valueOf(graph.links().stream().filter(link -> link.toId() == node.id())
-                .mapToLong(ClientCraftingGraph.Link::amount).sum());
-            signed = true;
-        } else {
-            amount = exactAmountFor(cycle.exactSingleNetOutputs(), cycle.singleNetOutputs(), key);
-            signed = true;
-        }
-        String magnitude = compactAmount(amount.abs().toString());
-        String text = signed && amount.signum() > 0 ? "+" + magnitude
-            : signed && amount.signum() < 0 ? "-" + magnitude : magnitude;
-        int color = amount.signum() == 0 ? MUTED : signed && amount.signum() < 0 ? 0xffe07a7a
-            : signed && amount.signum() > 0 ? 0xff75c48b : TEXT;
+        BigInteger consumed = node.material().consumedBigInteger();
+        BigInteger produced = node.material().producedBigInteger();
+        BigInteger delta = produced.subtract(consumed);
+        String text = signedTaskChange(node.material());
+        int color = delta.signum() > 0 ? 0xff75c48b : delta.signum() < 0 ? 0xffe07a7a : MUTED;
         return new CompactCycleValue(text, color);
+    }
+
+    private static void drawScaledAmount(GuiGraphics graphics, Font font, String amount, int left, int top,
+            int right, int bottom, int color) {
+        int availableWidth = Math.max(1, right - left - 2);
+        int availableHeight = Math.max(1, bottom - top);
+        float scale = Math.min(0.5f, Math.min((float) availableWidth / Math.max(1, font.width(amount)),
+            (float) availableHeight / font.lineHeight));
+        float centerX = (left + right) / 2.0f;
+        float textY = top + (availableHeight - font.lineHeight * scale) / 2.0f;
+        var pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(centerX, textY, 0);
+        pose.scale(scale, scale, 1.0f);
+        graphics.drawString(font, amount, -font.width(amount) / 2, 0, color, false);
+        pose.popPose();
+    }
+
+    private static String signedTaskChange(CraftingGraphSnapshot.MaterialNode material) {
+        BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
+        String magnitude = compactAmount(delta.abs().toString());
+        return delta.signum() > 0 ? "+" + magnitude : delta.signum() < 0 ? "-" + magnitude : "0";
     }
 
     private static int screen(float camera, float world, float zoom) {
@@ -466,6 +475,8 @@ public final class GraphRenderer {
                 lines.add(Component.literal("所需种子：" + amountText(cycle.requiredSeed(), node.key())));
                 lines.add(Component.literal("所需产物：" + amountText(cycle.requiredOutputs(), node.key())));
                 lines.add(Component.literal("外部输入：" + amountText(cycle.externalInputs(), node.key())));
+                lines.add(Component.literal("任务消耗：" + compactAmount(node.material().exactConsumed())));
+                lines.add(Component.literal("任务产出：" + compactAmount(node.material().exactProduced())));
             }
         }
         return lines;

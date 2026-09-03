@@ -183,8 +183,10 @@ public final class CompactTreeRenderer {
                 int iconY = y + (Math.min(20, bottom - y) - 16) / 2;
                 AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
-            if (material != null && material.key() != null && material.requestedBigInteger().signum() > 0 && bottom - y >= 24) {
-                drawAmount(graphics, font, compactAmount(material.exactRequested()),
+            if (material != null && material.key() != null && bottom - y >= 24
+                    && (material.consumedBigInteger().signum() > 0 || material.producedBigInteger().signum() > 0
+                        || material.requestedBigInteger().signum() > 0)) {
+                drawAmount(graphics, font, flowText(material),
                     x, y + 20, right, bottom);
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
@@ -269,6 +271,8 @@ public final class CompactTreeRenderer {
             return List.of(Component.literal(node.label()), Component.literal("requested: " + material.exactRequested()),
                 Component.literal("inventory: " + material.exactFromInventory()),
                 Component.literal("to craft: " + material.exactToCraft()), Component.literal("missing: " + material.exactMissing()),
+                Component.literal("consumed: " + material.exactConsumed()),
+                Component.literal("produced: " + material.exactProduced()),
                 Component.literal("status: " + material.status()));
         }
         return List.of(Component.literal(node.label()));
@@ -303,6 +307,15 @@ public final class CompactTreeRenderer {
             case UNSUPPORTED -> "?";
             case CYCLE -> "↻";
         };
+    }
+
+    private static String flowText(CraftingGraphSnapshot.MaterialNode material) {
+        if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
+            return compactAmount(material.exactRequested());
+        }
+        java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
+        String amount = compactAmount(delta.abs().toString());
+        return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
     }
 
     private static int screen(float camera, float world, float zoom) { return Math.round(camera + world * zoom); }

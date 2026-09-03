@@ -138,14 +138,27 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 cycle.exactSingleNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.exactTotalNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.availableAmounts().forEach(value -> keys.add(value.key()));
+                cycle.externalInputs().forEach(value -> keys.add(value.key()));
+                cycle.requiredOutputs().forEach(value -> keys.add(value.key()));
                 for (int memberId : cycle.memberNodeIds()) {
                     snapshot.nodes().stream().filter(node -> node.nodeId() == memberId).findFirst().ifPresent(node ->
                         keys.add(node.key()));
                 }
+                snapshot.patterns().stream().filter(pattern -> pattern.componentId() == cycle.componentId()
+                        && pattern.firingCount() > 0L)
+                    .flatMap(pattern -> java.util.stream.Stream.concat(pattern.inputs().stream(),
+                        pattern.outputs().stream()))
+                    .map(CraftingGraphSnapshot.Relationship::materialNodeId)
+                    .forEach(materialId -> snapshot.nodes().stream()
+                        .filter(node -> node.nodeId() == materialId).findFirst().ifPresent(node -> keys.add(node.key())));
                 // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
                 // still needs a selectable row so every unresolved SCC remains openable from the report.
                 for (AEKey key : keys) {
+                    CraftingGraphSnapshot.MaterialNode material = snapshot.nodes().stream()
+                        .filter(node -> node.key().equals(key)).findFirst().orElse(null);
                     cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
+                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
+                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         exactAmountFor(cycle.exactSingleNetOutputs(), key),
                         exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId()));
@@ -153,7 +166,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
                 // the left-hand list so the report remains actionable instead of showing an empty plan.
                 for (var seed : cycle.requiredSeed()) {
+                    CraftingGraphSnapshot.MaterialNode material = snapshot.nodes().stream()
+                        .filter(node -> node.key().equals(seed.key())).findFirst().orElse(null);
                     cycleItems.putIfAbsent(seed.key(), new ECOCycleItemList.Entry(seed.key(),
+                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
+                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
                         cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId()));
                 }

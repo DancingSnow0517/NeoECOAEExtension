@@ -66,9 +66,10 @@ final class ECOCycleItemListRenderer {
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<Component> lines = new java.util.ArrayList<>();
-            lines.add(Component.translatable("gui.neoecoae.crafting_report.single_net_output",
-                formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.SLOT)));
-            lines.add(totalNetOutputLine(item, entry, AmountFormat.SLOT));
+            lines.add(Component.translatable("gui.neoecoae.crafting_report.total_consumed",
+                formatAmount(entry.exactConsumed(), AmountFormat.SLOT)));
+            lines.add(Component.translatable("gui.neoecoae.crafting_report.total_produced",
+                formatAmount(entry.exactProduced(), AmountFormat.SLOT)));
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
@@ -92,10 +93,10 @@ final class ECOCycleItemListRenderer {
                 if (entry.componentId() >= 0) {
                     tooltip.add(net.minecraft.network.chat.Component.literal("Cycle #" + entry.componentId()));
                 }
-                tooltip.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.crafting_report.single_net_output",
-                    formatNetOutput(entry.exactSingleNetOutput(), AmountFormat.FULL)));
-                tooltip.add(totalNetOutputLine(item, entry, AmountFormat.FULL));
+                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_consumed",
+                    formatAmount(entry.exactConsumed(), AmountFormat.FULL)));
+                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_produced",
+                    formatAmount(entry.exactProduced(), AmountFormat.FULL)));
                 if (isMissingStartupSeed(entry)) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
                 }
@@ -112,34 +113,13 @@ final class ECOCycleItemListRenderer {
         }
     }
 
-    private static String formatNetOutput(BigInteger amount, AmountFormat format) {
-        if (amount.signum() == 0) return "0";
-        BigInteger absolute = amount.abs();
-        String formatted = format == AmountFormat.FULL ? absolute.toString() : HostText.ae2Amount(absolute);
-        return amount.signum() > 0 ? "+" + formatted : "-" + formatted;
-    }
-
-    private static Component totalNetOutputLine(AEKey item, ECOCycleItemList.Entry entry, AmountFormat format) {
-        return entry.totalNetOutputKnown()
-            ? Component.translatable("gui.neoecoae.crafting_report.total_net_output",
-                formatNetOutput(entry.exactTotalNetOutput(), format))
-            : Component.translatable("gui.neoecoae.crafting_report.total_net_output",
-                unknownReason(entry.solveStatus()));
+    private static String formatAmount(BigInteger amount, AmountFormat format) {
+        return format == AmountFormat.FULL ? amount.toString() : HostText.ae2Amount(amount);
     }
 
     private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
         return entry.solveStatus() == cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
             && entry.exactSingleNetOutput().signum() == 0 && entry.exactTotalNetOutput().signum() == 0;
-    }
-
-    private static String unknownReason(cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus status) {
-        return switch (status) {
-            case UNKNOWN_BUDGET -> "未知（预算不足）";
-            case TOO_COMPLEX -> "未知（超出求解范围）";
-            case UNSUPPORTED_PATTERN -> "未知（配方不支持）";
-            case CANCELLED -> "未知（计算被取消）";
-            default -> "未知";
-        };
     }
 
     int getScrollableRows(int size) {

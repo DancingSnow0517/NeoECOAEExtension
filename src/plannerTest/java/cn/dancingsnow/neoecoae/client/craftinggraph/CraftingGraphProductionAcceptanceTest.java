@@ -100,6 +100,32 @@ class CraftingGraphProductionAcceptanceTest {
         assertTrue(decodedList.items().getFirst().totalNetOutputKnown());
     }
 
+    @Test void arbitraryPrecisionTaskFlowSurvivesSnapshotAndMenuPacketRoundTrips() {
+        var key = BenchmarkKey.of("wide_task_flow");
+        BigInteger consumed = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(3));
+        BigInteger produced = consumed.add(BigInteger.valueOf(64));
+        var material = new CraftingGraphSnapshot.MaterialNode(0, key, 1, 0, 1, 0,
+            CraftingGraphSnapshot.MaterialStatus.CYCLE, "1", "0", "1", "0",
+            consumed.toString(), produced.toString());
+        var snapshot = new CraftingGraphSnapshot(0, List.of(material), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 1, 0, 0, 0, 0));
+        var snapshotPacket = buffer();
+        snapshot.writeToPacket(snapshotPacket);
+        var decodedSnapshot = new CraftingGraphSnapshot(
+            new RegistryFriendlyByteBuf(snapshotPacket.copy(), RegistryAccess.EMPTY));
+        assertEquals(consumed, decodedSnapshot.nodes().getFirst().consumedBigInteger());
+        assertEquals(produced, decodedSnapshot.nodes().getFirst().producedBigInteger());
+
+        var list = new ECOCycleItemList(List.of(new ECOCycleItemList.Entry(key, consumed, produced,
+            BigInteger.ZERO, BigInteger.valueOf(64), ExecutionCountKnowledge.EXACT,
+            CycleSolveStatus.SUCCESS, 7)));
+        var menuPacket = buffer();
+        list.writeToPacket(menuPacket);
+        var decodedList = new ECOCycleItemList(new RegistryFriendlyByteBuf(menuPacket.copy(), RegistryAccess.EMPTY));
+        assertEquals(consumed, decodedList.items().getFirst().exactConsumed());
+        assertEquals(produced, decodedList.items().getFirst().exactProduced());
+    }
+
     @Test void cycleListValuesMatchCycleSnapshotValues() {
         var a = BenchmarkKey.of("consistent_a");
         var cycle = new CraftingGraphSnapshot.CycleGroup(4, List.of(0), List.of(), "SOLVED", List.of(), List.of(),

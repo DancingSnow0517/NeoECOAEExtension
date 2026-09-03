@@ -17,6 +17,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -73,6 +75,8 @@ public final class CraftingGraphSnapshotFactory {
                 collectPatternMaterials(internalEdge.pattern(), materials);
             }
         }
+
+        collectTaskMaterialFlow(result, materials);
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
         List<MaterialNode> nodes = new ArrayList<>(materials.size());
@@ -288,6 +292,44 @@ public final class CraftingGraphSnapshotFactory {
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
+    /** Gross material flow is derived from the final executable firing vector, not from cycle net deltas. */
+    private static void collectTaskMaterialFlow(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
+        if (result.plan() == null) return;
+        var adapters = PatternSemanticAdapters.defaults();
+        for (var firing : result.plan().patternTimes().entrySet()) {
+            if (firing.getValue() <= 0L) continue;
+            var adapter = PatternSemanticAdapters.find(adapters, firing.getKey());
+            if (adapter == null) continue;
+            PatternSemantics semantics;
+            try {
+                semantics = adapter.analyze(firing.getKey());
+            } catch (RuntimeException | LinkageError ignored) {
+                continue;
+            }
+            if (!semantics.supported()) continue;
+            PlannerAmount times = PlannerAmount.of(firing.getValue());
+            for (var input : semantics.consumedInputs()) {
+                var material = materials.computeIfAbsent(input.key(), MutableMaterial::new);
+                material.exactConsumed = material.exactConsumed.add(input.amountPerPattern().multiply(times));
+            }
+            for (GenericStack output : semantics.producedOutputs()) {
+                if (output != null && output.what() != null && output.amount() > 0L) {
+                    var material = materials.computeIfAbsent(output.what(), MutableMaterial::new);
+                    material.exactProduced = material.exactProduced.add(
+                        PlannerAmount.of(output.amount()).multiply(times));
+                }
+            }
+            for (GenericStack output : semantics.returnedOutputs()) {
+                if (output != null && output.what() != null && output.amount() > 0L) {
+                    var material = materials.computeIfAbsent(output.what(), MutableMaterial::new);
+                    material.exactProduced = material.exactProduced.add(
+                        PlannerAmount.of(output.amount()).multiply(times));
+                }
+            }
+        }
+    }
+
     private static List<ExactKeyAmount> exactKeyAmounts(
             Map<AEKey, cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount> values) {
         return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
@@ -304,6 +346,8 @@ public final class CraftingGraphSnapshotFactory {
         private PlannerAmount exactFromInventory = PlannerAmount.ZERO;
         private PlannerAmount exactToCraft = PlannerAmount.ZERO;
         private PlannerAmount exactMissing = PlannerAmount.ZERO;
+        private PlannerAmount exactConsumed = PlannerAmount.ZERO;
+        private PlannerAmount exactProduced = PlannerAmount.ZERO;
         private boolean unsupported;
         private boolean cycle;
 
@@ -327,7 +371,8 @@ public final class CraftingGraphSnapshotFactory {
                 : missing > 0 ? MaterialStatus.MISSING
                 : toCraft > 0 ? MaterialStatus.CRAFTING : MaterialStatus.SATISFIED;
             return new MaterialNode(id, key, requested, fromInventory, toCraft, missing, status,
-                exactRequested.toString(), exactFromInventory.toString(), exactToCraft.toString(), exactMissing.toString());
+                exactRequested.toString(), exactFromInventory.toString(), exactToCraft.toString(), exactMissing.toString(),
+                exactConsumed.toString(), exactProduced.toString());
         }
     }
 }

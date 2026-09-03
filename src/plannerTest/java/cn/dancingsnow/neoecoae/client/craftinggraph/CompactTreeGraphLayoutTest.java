@@ -229,7 +229,11 @@ class CompactTreeGraphLayoutTest {
     @Test
     void searchPathIncludesAncestorsForAutomaticExpansion() {
         var source = chain(8);
-        assertEquals(6, CompactTreeProjection.pathTo(source, 5).size());
+        List<String> path = CompactTreeProjection.pathTo(source, 5);
+        assertEquals(6, path.size());
+        var projected = CompactTreeProjection.project(source, 2, Set.copyOf(path), Set.of());
+        assertTrue(projected.compactTreeNodes().values().stream()
+            .anyMatch(node -> node.sourceId() == 5 && !node.folder()));
         assertEquals(List.of(), CompactTreeProjection.pathTo(source, 99));
     }
 

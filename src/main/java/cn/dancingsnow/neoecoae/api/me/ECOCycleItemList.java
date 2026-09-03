@@ -26,6 +26,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
+                readBigInteger(data), readBigInteger(data),
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt()));
         }
         return items;
@@ -36,6 +37,8 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         data.writeVarInt(items.size());
         for (Entry item : items) {
             AEKey.writeKey(data, item.what());
+            writeBigInteger(data, item.exactConsumed());
+            writeBigInteger(data, item.exactProduced());
             writeBigInteger(data, item.exactSingleNetOutput());
             writeBigInteger(data, item.exactTotalNetOutput());
             data.writeEnum(item.executionCountKnowledge());
@@ -44,10 +47,17 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         }
     }
 
-    public record Entry(AEKey what, BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
+    public record Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
+            BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
             ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+        public Entry(AEKey what, BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
+                ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+            this(what, BigInteger.ZERO, BigInteger.ZERO, exactSingleNetOutput, exactTotalNetOutput,
+                executionCountKnowledge, solveStatus, componentId);
+        }
         public Entry(AEKey what, long singleNetOutput, long totalNetOutput, int componentId) {
-            this(what, BigInteger.valueOf(singleNetOutput), BigInteger.valueOf(totalNetOutput),
+            this(what, BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(singleNetOutput),
+                BigInteger.valueOf(totalNetOutput),
                 ExecutionCountKnowledge.EXACT, CycleSolveStatus.SUCCESS, componentId);
         }
 

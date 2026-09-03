@@ -4,15 +4,40 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class CraftingGraphPatternIdentityTest {
+    @Test void snapshotAggregatesGrossTaskConsumptionAndProduction() {
+        var output = PlannerTestKey.of("flow_output");
+        var catalyst = PlannerTestKey.of("flow_catalyst");
+        var pattern = new PlannerFixtures.Pattern("flow",
+            new appeng.api.crafting.IPatternDetails.IInput[] {new PlannerFixtures.Input(catalyst, 1, true)},
+            List.of(new GenericStack(output, 2)));
+        var plan = new CraftingPlan(new GenericStack(output, 12), 0, false, false,
+            new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of(pattern, 6L));
+        ECOPlanTrace trace = new ECOPlanTrace();
+        trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.GOAL, output, null, 12, 0, 12, 0, 0,
+            PlanTraceNode.Selection.NOT_APPLICABLE, null));
+        var result = new ECOPlanningResult(PlanningStatus.SUCCESS, plan, trace, List.of(), List.of(), List.of(), 0);
+
+        var snapshot = CraftingGraphSnapshotFactory.create(result);
+        var consumed = snapshot.nodes().stream().filter(node -> catalyst.equals(node.key())).findFirst().orElseThrow();
+        var produced = snapshot.nodes().stream().filter(node -> output.equals(node.key())).findFirst().orElseThrow();
+        assertEquals("6", consumed.exactConsumed());
+        assertEquals("6", consumed.exactProduced(), "returned catalyst must remain visible despite zero net change");
+        assertEquals("12", produced.exactProduced());
+    }
+
     @Test void sameClassAndPrimaryOutputWithDifferentInputsHaveDistinctNodeIds() {
         var output = PlannerTestKey.of("same_output");
         var inputA = PlannerTestKey.of("input_a");

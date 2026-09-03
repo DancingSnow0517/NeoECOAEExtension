@@ -256,24 +256,18 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
                 ports.attach(to, control.x(), control.y(), false, null));
         }
 
-        // As in circular-layout exterior routing, chords that skip ring neighbors travel outside the circle.
+        // Long exterior arcs make one highlighted edge look like a second, huge cycle around the
+        // whole screen. Keep a compact bowed chord for non-neighbor links instead.
+        float dx = to.centerX() - from.centerX();
+        float dy = to.centerY() - from.centerY();
+        float length = Math.max(1, (float) Math.hypot(dx, dy));
         int signedSteps = forward <= count / 2 ? forward : forward - count;
-        int segments = Math.max(16, Math.abs(signedSteps) * 8);
-        float fromRadius = (float) Math.hypot(from.centerX() - centerX, from.centerY() - centerY);
-        float toRadius = (float) Math.hypot(to.centerX() - centerX, to.centerY() - centerY);
-        float outerRadius = Math.max(fromRadius, toRadius)
-            + Math.max(Math.max(from.width(), from.height()), Math.max(to.width(), to.height())) / 2 + 34;
-        List<GraphLayoutSnapshot.Point> route = new ArrayList<>();
-        double startAngle = ringAngle(fromIndex, count);
-        double angleStep = signedSteps * 2 * Math.PI / count / segments;
-        var firstOuter = radialPoint(centerX, centerY, outerRadius, startAngle);
-        append(route, ports.attach(from, firstOuter.x(), firstOuter.y(), true, null));
-        for (int i = 0; i <= segments; i++) {
-            append(route, radialPoint(centerX, centerY, outerRadius, startAngle + angleStep * i));
-        }
-        var lastOuter = route.getLast();
-        append(route, ports.attach(to, lastOuter.x(), lastOuter.y(), false, null));
-        return List.copyOf(route);
+        float bend = Math.min(54, Math.max(18, length * 0.16f)) * (signedSteps >= 0 ? 1 : -1);
+        var control = new GraphLayoutSnapshot.Point(
+            (from.centerX() + to.centerX()) / 2 - dy / length * bend,
+            (from.centerY() + to.centerY()) / 2 + dx / length * bend);
+        return quadraticRoute(ports.attach(from, control.x(), control.y(), true, null), control,
+            ports.attach(to, control.x(), control.y(), false, null));
     }
 
     private static List<GraphLayoutSnapshot.Point> boundaryRoute(ClientCraftingGraph.Link link,
