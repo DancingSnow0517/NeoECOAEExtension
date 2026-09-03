@@ -77,6 +77,15 @@ public final class CraftingNetworkCompiler {
                     if (queued.add(input.key())) {
                         work.addLast(input.key());
                     }
+                    // The solver may select a reusable substitute from stock, or fall back from it to a
+                    // durability-mutating member. Compile those producer chains now; inventory is intentionally
+                    // unavailable at this stage.
+                    for (AEKey alternative : remainderAlternatives(input)) {
+                        if (queued.add(alternative)) {
+                            edgeCount++;
+                            work.addLast(alternative);
+                        }
+                    }
                 }
                 for (AEKey returned : pattern.semantics().returnedKeys()) {
                     edgeCount++;
@@ -189,6 +198,20 @@ public final class CraftingNetworkCompiler {
         if (rawInputs == null) throw new IllegalArgumentException("null input array");
         for (IPatternDetails.IInput input : rawInputs) inputs.addAll(compileInputs(input));
         return inputs;
+    }
+
+    private static List<AEKey> remainderAlternatives(CompiledInput input) {
+        if (input.remainderKey() == null || input.source() == null) return List.of();
+        try {
+            List<AEKey> alternatives = new ArrayList<>();
+            for (GenericStack possible : input.source().getPossibleInputs()) {
+                if (possible == null || possible.what() == null || possible.what().equals(input.key())) continue;
+                if (input.source().getRemainingKey(possible.what()) != null) alternatives.add(possible.what());
+            }
+            return List.copyOf(alternatives);
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 
     private static List<CompiledInput> compileInputs(PatternSemantics semantics,

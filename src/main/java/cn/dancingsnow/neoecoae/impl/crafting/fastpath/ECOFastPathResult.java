@@ -165,7 +165,7 @@ public final class ECOFastPathResult {
             ItemStack right = after.get(i);
             if (left == null || left.isEmpty() || !left.isDamageableItem()) continue;
             int delta = right == null || right.isEmpty() ? -1 : right.getDamageValue() - left.getDamageValue();
-            if (delta != 0 || (right != null && !right.isEmpty() && right.isDamageableItem())) {
+            if (delta != 0) {
                 result.add(new ECOFastPathDurabilityDelta(left, right, delta));
             }
         }

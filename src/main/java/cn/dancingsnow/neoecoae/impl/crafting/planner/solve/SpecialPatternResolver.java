@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
@@ -39,8 +40,18 @@ public final class SpecialPatternResolver {
     void resolve(CompiledPattern pattern, PlannerAmount times) throws InterruptedException {
         for (var requirement : pattern.specialAnalysis().requirements()) {
             cancellation.checkpoint();
+            if (consumeStoredExactReusableAlternative(requirement)) {
+                continue;
+            }
             if (requirement.type() == SpecialPatternAnalysis.Type.DURABILITY) {
                 resolveDurability(pattern, requirement, times);
+            } else if (requirement.type() == SpecialPatternAnalysis.Type.REUSABLE) {
+                DurabilityChoice fallback = findDurabilityAlternative(requirement.input());
+                if (fallback != null) {
+                    resolveDurability(pattern, fallback, times);
+                } else {
+                    resolveSpecialKey(pattern, requirement.input().key(), requirement.input().amountPerPattern());
+                }
             } else {
                 PlannerAmount count = requirement.type() == SpecialPatternAnalysis.Type.CONTAINER
                     ? requirement.input().amountPerPattern().multiply(times)
@@ -52,8 +63,14 @@ public final class SpecialPatternResolver {
 
     private void resolveDurability(CompiledPattern owner, SpecialPatternAnalysis.Requirement requirement,
             PlannerAmount times) throws InterruptedException {
-        PlannerAmount uses = requirement.input().amountPerPattern().multiply(times);
-        ItemStack template = ((AEItemKey) requirement.input().key()).toStack(1);
+        resolveDurability(owner, new DurabilityChoice(requirement.input().key(),
+            requirement.input().amountPerPattern(), requirement.damagePerUse(), requirement.maxDamage()), times);
+    }
+
+    private void resolveDurability(CompiledPattern owner, DurabilityChoice choice,
+            PlannerAmount times) throws InterruptedException {
+        PlannerAmount uses = choice.amountPerPattern().multiply(times);
+        ItemStack template = ((AEItemKey) choice.key()).toStack(1);
         List<Map.Entry<AEKey, PlannerAmount>> available = new ArrayList<>(state.stored.asMap().entrySet());
         for (var entry : available) {
             if (uses.isZero()) break;
@@ -61,7 +78,7 @@ public final class SpecialPatternResolver {
             ItemStack candidate = itemKey.toStack(1);
             if (candidate.isEmpty() || !candidate.isDamageableItem()
                     || !ItemStack.isSameItem(template, candidate)) continue;
-            int capacity = (candidate.getMaxDamage() - candidate.getDamageValue()) / requirement.damagePerUse();
+            int capacity = (candidate.getMaxDamage() - candidate.getDamageValue()) / choice.damagePerUse();
             if (capacity <= 0) continue;
             PlannerAmount tools = requiredTools(uses, capacity).min(entry.getValue());
             if (tools.signum() <= 0) continue;
@@ -72,14 +89,62 @@ public final class SpecialPatternResolver {
         }
         if (uses.isZero()) return;
 
-        int freshCapacity = (requirement.maxDamage() - template.getDamageValue()) / requirement.damagePerUse();
+        int freshCapacity = (choice.maxDamage() - template.getDamageValue()) / choice.damagePerUse();
         if (freshCapacity <= 0) {
-            state.unsupported.add(requirement.input().key());
+            state.unsupported.add(choice.key());
             return;
         }
-        resolveSpecialKey(owner, requirement.input().key(),
+        resolveSpecialKey(owner, choice.key(),
             requiredTools(uses, freshCapacity));
     }
+
+    /** Prefer any accepted ingredient that the recipe returns byte-for-byte unchanged. */
+    private boolean consumeStoredExactReusableAlternative(SpecialPatternAnalysis.Requirement requirement) {
+        CompiledInput input = requirement.input();
+        IPatternDetails.IInput source = input.source();
+        if (source == null) return false;
+        try {
+            for (var possible : source.getPossibleInputs()) {
+                if (possible == null || possible.what() == null || possible.amount() <= 0L) continue;
+                AEKey returned = source.getRemainingKey(possible.what());
+                if (returned == null || !returned.equals(possible.what())) continue;
+                PlannerAmount needed = PlannerAmount.of(possible.amount()).multiply(source.getMultiplier());
+                if (needed.signum() <= 0 || state.stored.get(possible.what()).compareTo(needed) < 0) continue;
+                state.stored.remove(possible.what(), needed);
+                state.used.add(possible.what(), needed);
+                state.provenance.supplied(possible.what(), MaterialSource.Stock.INSTANCE, needed);
+                return true;
+            }
+        } catch (RuntimeException ignored) {
+            // Keep the compiled requirement as the conservative fallback.
+        }
+        return false;
+    }
+
+    private DurabilityChoice findDurabilityAlternative(CompiledInput input) {
+        IPatternDetails.IInput source = input.source();
+        if (source == null) return null;
+        try {
+            for (var possible : source.getPossibleInputs()) {
+                if (!(possible.what() instanceof AEItemKey candidateKey) || possible.amount() <= 0L) continue;
+                AEKey returnedKey = source.getRemainingKey(candidateKey);
+                if (!(returnedKey instanceof AEItemKey returned)) continue;
+                ItemStack candidate = candidateKey.toStack(1);
+                ItemStack remainder = returned.toStack(1);
+                if (!candidate.isDamageableItem() || !remainder.isDamageableItem()
+                        || !ItemStack.isSameItem(candidate, remainder)) continue;
+                int damagePerUse = remainder.getDamageValue() - candidate.getDamageValue();
+                if (damagePerUse <= 0) continue;
+                PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(source.getMultiplier());
+                return new DurabilityChoice(candidateKey, amount, damagePerUse, candidate.getMaxDamage());
+            }
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    private record DurabilityChoice(AEKey key, PlannerAmount amountPerPattern, int damagePerUse, int maxDamage) {}
 
     private void resolveSpecialKey(CompiledPattern owner, AEKey key, PlannerAmount requested)
             throws InterruptedException {

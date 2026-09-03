@@ -56,6 +56,55 @@ class SpecialPatternPlanningTest {
     }
 
     @Test
+    void exactReusableAlternativeInStockIsPreferredOverMutatingPrimary() throws Exception {
+        AEKey goal = PlannerTestKey.of("preferred_reusable_goal");
+        AEKey ordinary = PlannerTestKey.of("ordinary_crystal");
+        AEKey damaged = PlannerTestKey.of("damaged_crystal");
+        AEKey master = PlannerTestKey.of("master_crystal");
+        var pattern = new AlternativeReturningPattern(goal, ordinary, damaged, master);
+        var analyzer = new SpecialPatternAnalyzer(input -> new SpecialPatternAnalysis.Requirement(
+            input, input.remainderKey(), SpecialPatternAnalysis.Type.REUSABLE, 0, 0));
+        var network = new CraftingNetworkCompiler(
+            List.of(new AE2PatternSemanticAdapter(master::equals)), analyzer).compile(
+                service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+        KeyCounter inventory = stock(ordinary, 5);
+        inventory.add(master, 1);
+
+        assertEquals(ordinary, network.producersOf(goal).getFirst().inputs().getFirst().key());
+        var outcome = solve(network, inventory, 5_000);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(1L, outcome.state().usedItems().get(master));
+        assertEquals(0L, outcome.state().usedItems().get(ordinary));
+        assertEquals(5_000L, outcome.state().patternTimes().get(pattern));
+    }
+
+    @Test
+    void missingReusableAlternativeFallsBackToCraftablePrimary() throws Exception {
+        AEKey goal = PlannerTestKey.of("fallback_primary_goal");
+        AEKey ordinary = PlannerTestKey.of("fallback_ordinary_crystal");
+        AEKey damaged = PlannerTestKey.of("fallback_damaged_crystal");
+        AEKey master = PlannerTestKey.of("fallback_master_crystal");
+        AEKey raw = PlannerTestKey.of("fallback_crystal_material");
+        var consumer = new AlternativeReturningPattern(goal, ordinary, damaged, master);
+        var ordinaryProducer = PlannerFixtures.pattern("ordinary-crystal-producer", ordinary, 1, raw, 1L);
+        var analyzer = new SpecialPatternAnalyzer(input -> new SpecialPatternAnalysis.Requirement(
+            input, input.remainderKey(), SpecialPatternAnalysis.Type.REUSABLE, 0, 0));
+        var network = new CraftingNetworkCompiler(
+            List.of(new AE2PatternSemanticAdapter(master::equals)), analyzer).compile(service(Map.of(
+                goal, List.of(consumer), ordinary, List.of(ordinaryProducer))),
+                goal, true, ECOCancellation.NONE);
+
+        assertEquals(ordinary, network.producersOf(goal).getFirst().inputs().getFirst().key());
+        var outcome = solve(network, stock(raw, 1), 5_000);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(1L, outcome.state().patternTimes().get(ordinaryProducer));
+        assertEquals(5_000L, outcome.state().patternTimes().get(consumer));
+        assertEquals(0L, outcome.state().usedItems().get(master));
+    }
+
+    @Test
     void durabilityCapacityRoundsUpOnlyWhenAnotherToolIsRequired() {
         assertEquals(PlannerAmount.of(1),
             SpecialPatternResolver.requiredTools(PlannerAmount.of(100), 100));
@@ -137,5 +186,25 @@ class SpecialPatternPlanningTest {
         }
         @Override public List<GenericStack> getOutputs() { return List.of(new GenericStack(output, 1)); }
         @Override public String toString() { return name; }
+    }
+
+    private record AlternativeReturningPattern(AEKey output, AEKey ordinary, AEKey damaged, AEKey master)
+            implements IPatternDetails {
+        @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
+        @Override public IInput[] getInputs() {
+            return new IInput[] {new IInput() {
+                @Override public GenericStack[] getPossibleInputs() {
+                    return new GenericStack[] {new GenericStack(ordinary, 1), new GenericStack(master, 1)};
+                }
+                @Override public long getMultiplier() { return 1; }
+                @Override public boolean isValid(AEKey candidate, Level level) {
+                    return ordinary.equals(candidate) || master.equals(candidate);
+                }
+                @Override public AEKey getRemainingKey(AEKey template) {
+                    return ordinary.equals(template) ? damaged : master.equals(template) ? master : null;
+                }
+            }};
+        }
+        @Override public List<GenericStack> getOutputs() { return List.of(new GenericStack(output, 1)); }
     }
 }

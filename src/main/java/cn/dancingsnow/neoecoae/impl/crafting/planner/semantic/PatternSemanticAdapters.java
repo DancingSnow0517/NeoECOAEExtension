@@ -13,8 +13,14 @@ public final class PatternSemanticAdapters {
     }
 
     public static List<PatternSemanticAdapter> defaults() {
-        return List.of(new ThunderPatternSemanticAdapter(), new UselessPatternSemanticAdapter(),
-            new ExtendedAEPlusPatternSemanticAdapter(), new AE2PatternSemanticAdapter());
+        List<PatternSemanticAdapter> adapters = new ArrayList<>();
+        if (classPresent("com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails")) {
+            adapters.add(new ThunderPatternSemanticAdapter());
+        }
+        adapters.add(new UselessPatternSemanticAdapter());
+        adapters.add(new ExtendedAEPlusPatternSemanticAdapter());
+        adapters.add(new AE2PatternSemanticAdapter());
+        return List.copyOf(adapters);
     }
 
     public static PatternSemanticAdapter find(List<PatternSemanticAdapter> adapters, IPatternDetails pattern) {
@@ -26,5 +32,14 @@ public final class PatternSemanticAdapters {
         List<PatternSemanticAdapter> result = new ArrayList<>(adapters);
         if (result.isEmpty()) throw new IllegalArgumentException("At least one pattern semantic adapter is required");
         return List.copyOf(result);
+    }
+
+    private static boolean classPresent(String name) {
+        try {
+            Class.forName(name, false, PatternSemanticAdapters.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 }

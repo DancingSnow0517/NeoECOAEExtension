@@ -72,7 +72,8 @@ public final class ECORecipeClassifier {
                 if (remainingStack.isEmpty()) return unsupported("INVALID_REMAINDER");
                 if (ItemStack.isSameItem(inputStack, remainingStack)) {
                     reusableComponent = true;
-                    if (inputStack.isDamageableItem() && remainingStack.isDamageableItem()) {
+                    if (!selected.what().equals(remainingKey)
+                            && inputStack.isDamageableItem() && remainingStack.isDamageableItem()) {
                         durabilityMutation = true;
                     }
                 }
@@ -97,21 +98,23 @@ public final class ECORecipeClassifier {
 
     private static GenericStack selectReusableCandidate(IPatternDetails.IInput input, GenericStack[] possible) {
         GenericStack primary = possible[0];
+        GenericStack mutatingCandidate = null;
         for (GenericStack candidate : possible) {
             if (candidate == null || !(candidate.what() instanceof AEItemKey)) continue;
             try {
                 AEItemKey remaining = asItemKey(input.getRemainingKey(candidate.what()));
                 if (remaining == null || candidate.amount() != 1L) continue;
+                if (remaining.equals(candidate.what())) return candidate;
                 ItemStack source = ((AEItemKey) candidate.what()).toStack(1);
                 ItemStack returned = remaining.toStack(1);
                 if (!source.isEmpty() && !returned.isEmpty() && ItemStack.isSameItem(source, returned)) {
-                    return candidate;
+                    if (mutatingCandidate == null) mutatingCandidate = candidate;
                 }
             } catch (RuntimeException ignored) {
                 // The primary candidate is validated below and will produce a stable rejection reason.
             }
         }
-        return primary;
+        return mutatingCandidate == null ? primary : mutatingCandidate;
     }
 
     private static AEItemKey asItemKey(Object key) {

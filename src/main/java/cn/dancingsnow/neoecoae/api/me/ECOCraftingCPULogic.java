@@ -455,7 +455,7 @@ public class ECOCraftingCPULogic {
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
-                List<ICraftingProvider> candidateProviders = collectCandidateProviders(craftingService, details);
+                List<ICraftingProvider> candidateProviders = collectAvailableProviders(craftingService, details);
                 if (candidateProviders.isEmpty()) {
                     diagnostics.tasksWithoutProviders++;
                     continue;
@@ -833,7 +833,7 @@ public class ECOCraftingCPULogic {
      * <p>Availability is intentionally excluded. A provider's busy state and free capacity change with every
      * dispatch, so they are re-read from the provider on each attempt.
      */
-    private List<ICraftingProvider> collectCandidateProviders(CraftingService craftingService,
+    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
             IPatternDetails details) {
         var identity = cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity.patternIdentityFor(details);
         if (identity != null) {

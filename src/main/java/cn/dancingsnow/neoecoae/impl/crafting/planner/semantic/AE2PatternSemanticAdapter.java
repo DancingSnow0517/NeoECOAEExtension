@@ -15,7 +15,9 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
     private final Predicate<AEKey> reusableStockKeyVerifier;
 
     public AE2PatternSemanticAdapter() {
-        this(key -> key instanceof AEItemKey item && !item.toStack(1).isDamageableItem());
+        // Equality with the returned AEKey is the proof that this concrete input is unchanged. Some reusable
+        // ingredients are technically damageable items even though a particular recipe does not damage them.
+        this(key -> key instanceof AEItemKey);
     }
 
     /** Injectable verifier for isolated planner tests and integrations with an equivalent immutable-key proof. */
@@ -52,10 +54,9 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
                     return PatternSemantics.unsupported(pattern, definition, "INVALID_INPUT_AMOUNT");
                 }
 
-                // AE2 lists the primary ingredient first, followed by substitutes. For a reusable-stock slot,
-                // commit to an exact, non-damageable 1:1 alternative when one exists (for example Mystical
-                // Agriculture's master infusion crystal). This is deliberately a proof, not an item-id allow-list:
-                // ordinary infusion crystals are damageable and therefore cannot satisfy it.
+                // Keep AE2's primary ingredient as the compiled demand. Substitutes are inventory choices, not
+                // unconditional route choices: the solver may prefer an unchanged reusable candidate when it is
+                // stored, but must retain the primary producer chain when that candidate is absent.
                 InputChoice choice = chooseInput(input, possible, multiplier);
                 GenericStack selected = choice.stack();
                 AEKey remaining = choice.remaining();
@@ -82,13 +83,7 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
     }
 
     private InputChoice chooseInput(IPatternDetails.IInput input, GenericStack[] possible, long multiplier) {
-        InputChoice primary = inspectChoice(input, possible[0], multiplier);
-        if (primary.exactReusableStock()) return primary;
-        for (int i = 1; i < possible.length; i++) {
-            InputChoice alternative = inspectChoice(input, possible[i], multiplier);
-            if (alternative.exactReusableStock()) return alternative;
-        }
-        return primary;
+        return inspectChoice(input, possible[0], multiplier);
     }
 
     private InputChoice inspectChoice(IPatternDetails.IInput input, GenericStack stack, long multiplier) {

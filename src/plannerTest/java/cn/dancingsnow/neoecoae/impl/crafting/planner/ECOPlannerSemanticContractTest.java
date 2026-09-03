@@ -33,10 +33,14 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemantic
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.mixins.useless.UselessDynamicPatternAccessor;
+import com.moakiee.thunderbolt.ae2.overload.model.MatchMode;
+import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadPatternDetails;
+import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails;
+import com.moakiee.thunderbolt.ae2.overload.pattern.PatternExecutionHostKind;
+import com.moakiee.thunderbolt.ae2.overload.pattern.WrappedPatternDetails;
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -77,41 +81,16 @@ class ECOPlannerSemanticContractTest {
     }
 
     @Test
-    void exactNonDamageableReusableAlternativeProducesAggregatedPlan() throws Exception {
+    void reusableAlternativeDoesNotReplaceTheCompiledPrimaryDemand() {
         AEKey goal = PlannerTestKey.of("reusable_stock_goal");
         AEKey damageableCrystal = PlannerTestKey.of("damageable_crystal");
         AEKey masterCrystal = PlannerTestKey.of("master_crystal");
         var pattern = new AE2ReusablePattern("master-crystal", goal, damageableCrystal, masterCrystal);
 
-        CompiledNetwork network = new CraftingNetworkCompiler(List.of(
-            new AE2PatternSemanticAdapter(masterCrystal::equals))).compile(
-            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
-        var compiled = network.producersOf(goal).getFirst();
-        assertTrue(compiled.fastSupported());
-        assertTrue(compiled.semantics().cycleSafeForStaticPlanning());
-        assertEquals(masterCrystal, compiled.inputs().getFirst().key());
-        assertEquals(masterCrystal, compiled.inputs().getFirst().remainderKey());
+        PatternSemantics semantics = new AE2PatternSemanticAdapter(masterCrystal::equals).analyze(pattern);
 
-        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
-        var condensation = CondensationGraph.build(graph,
-            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(),
-            SinglePatternGrowthCycleSolver.overBoundedSolver())
-            .plan(network, condensation, counter(masterCrystal, 1), 50_000, true, ECOCancellation.NONE);
-
-        assertEquals(PlanningStatus.SUCCESS, outcome.status(), () -> "trace=" + outcome.trace().diagnostics()
-            + " components=" + outcome.components() + " missing=" + outcome.state().missingAmounts()
-            + " used=" + outcome.state().usedAmounts() + " patterns=" + outcome.state().patternTimes());
-        assertEquals(50_000L, outcome.state().patternTimes().get(pattern));
-        assertTrue(outcome.components().stream().anyMatch(component ->
-            component.type() == ComponentPlanningResult.Type.CYCLIC
-                && component.cycleStatus() == CyclePlanningStatus.SOLVED));
-
-        var plan = new AE2CraftingPlanBridge().success(goal, 50_000, false, false, outcome.state());
-        var result = new ECOPlanningResult(outcome.status(), plan, outcome.trace(), outcome.cycles(),
-            outcome.components(), outcome.executionComponentOrder(), 1L);
-        assertTrue(result.executionSchedule().phases().stream().anyMatch(phase ->
-            phase.type() == ECOExecutionSchedule.Type.CYCLE && phase.patternSet().contains(pattern)));
+        assertFalse(semantics.cycleSafeForStaticPlanning());
+        assertEquals(damageableCrystal, semantics.consumedInputs().getFirst().key());
     }
 
     @Test
@@ -153,55 +132,57 @@ class ECOPlannerSemanticContractTest {
     }
 
     @Test
-    void thunderContractWithoutCompleteSemanticsDeclinesInsteadOfReturningSuccess() throws Exception {
-        AEKey goal = PlannerTestKey.of("thunder_unsupported_goal");
-        AEKey input = PlannerTestKey.of("thunder_unsupported_input");
-        IPatternDetails pattern = new ThunderUnsupportedPattern(goal, input);
+    void thunderIdOnlySlotsCommitToStaticTemplatesAndRemainPlannable() throws Exception {
+        AEKey goal = PlannerTestKey.of("thunder_id_only_goal");
+        AEKey input = PlannerTestKey.of("thunder_id_only_input");
+        IPatternDetails pattern = overloadPattern("thunder-id-only", goal, input,
+            MatchMode.ID_ONLY, MatchMode.ID_ONLY);
         CompiledNetwork network = new CraftingNetworkCompiler().compile(
             service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
-        assertFalse(network.producersOf(goal).getFirst().fastSupported());
-        assertEquals("THUNDER_UNSUPPORTED_SEMANTICS", network.producersOf(goal).getFirst().unsupportedReason());
+        CompiledPattern compiled = network.producersOf(goal).getFirst();
 
+        assertTrue(compiled.fastSupported(), compiled::unsupportedReason);
+        assertEquals(PatternSemantics.MatchingMode.SUBSTITUTION, compiled.semantics().matchingMode());
+        assertEquals(input, compiled.inputs().getFirst().key());
+        assertFalse(compiled.semantics().cycleSafeForStaticPlanning());
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
-            .plan(network, condensation, new KeyCounter(), 1, true, ECOCancellation.NONE);
-        assertNotEquals(PlanningStatus.SUCCESS, outcome.status());
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(),
+            SinglePatternGrowthCycleSolver.overBoundedSolver())
+            .plan(network, condensation, counter(input, 1), 1, true, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
     }
 
     @Test
-    void completeThunderFeedbackSemanticsReachSccAndFinalPatternTimes() throws Exception {
-        AEKey a = PlannerTestKey.of("thunder_feedback_a");
-        AEKey b = PlannerTestKey.of("thunder_feedback_b");
-        var p1 = new ThunderSemanticPattern("feedback_p1", b, a, a);
-        var p2 = new ThunderSemanticPattern("feedback_p2", a, b, b);
-        CompiledNetwork network = new CraftingNetworkCompiler().compile(service(Map.of(
-            a, List.of(p2), b, List.of(p1))), a, true, ECOCancellation.NONE);
-        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
-        List<SccComponent> sccs = new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE);
-        assertTrue(sccs.stream().anyMatch(SccComponent::cyclic));
-        var condensation = CondensationGraph.build(graph, sccs, ECOCancellation.NONE);
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
-            .plan(network, condensation, counter(a, 1), 1, true, ECOCancellation.NONE);
+    void thunderStrictPatternUsesExactStaticSemantics() throws Exception {
+        AEKey goal = PlannerTestKey.of("thunder_strict_goal");
+        AEKey input = PlannerTestKey.of("thunder_strict_input");
+        IPatternDetails pattern = overloadPattern("thunder-strict", goal, input,
+            MatchMode.STRICT, MatchMode.STRICT);
 
-        assertEquals(PlanningStatus.SUCCESS, outcome.status());
-        var cycle = outcome.components().stream()
-            .filter(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)
-            .findFirst().orElseThrow();
-        assertEquals(CyclePlanningStatus.SOLVED, cycle.cycleStatus());
-        assertNotNull(cycle.cycleResult());
-        assertTrue(cycle.cycleResult().patternTimes().values().stream().anyMatch(value -> value > 0));
-        assertTrue(outcome.state().patternTimes().keySet().containsAll(List.of(p1, p2)));
+        CompiledPattern compiled = new CraftingNetworkCompiler().compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE)
+            .producersOf(goal).getFirst();
 
-        var plan = new AE2CraftingPlanBridge().success(a, 1, false, false, outcome.state());
-        var result = new ECOPlanningResult(outcome.status(), plan, outcome.trace(), outcome.cycles(),
-            outcome.components(), outcome.executionComponentOrder(), 1L);
-        assertTrue(ECOPlanningResultRegistry.cycleExpected(result));
-        ECOExecutionSchedule schedule = result.executionSchedule();
-        assertTrue(schedule.phases().stream().anyMatch(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE));
-        assertTrue(schedule.phases().stream().flatMap(phase -> phase.patternSet().stream())
-            .anyMatch(pattern -> pattern == p1));
+        assertTrue(compiled.fastSupported(), compiled::unsupportedReason);
+        assertEquals(PatternSemantics.MatchingMode.EXACT, compiled.semantics().matchingMode());
+        assertEquals(PatternSemantics.ExecutionRestriction.NONE,
+            compiled.semantics().executionRestriction());
+    }
+
+    @Test
+    void unknownThunderContractStillCannotFallThroughToPlainAe2Semantics() throws Exception {
+        AEKey goal = PlannerTestKey.of("thunder_unknown_goal");
+        AEKey input = PlannerTestKey.of("thunder_unknown_input");
+        IPatternDetails pattern = new ThunderUnknownPattern(goal, input);
+
+        CompiledPattern compiled = new CraftingNetworkCompiler().compile(
+            service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE)
+            .producersOf(goal).getFirst();
+
+        assertFalse(compiled.fastSupported());
+        assertEquals("THUNDER_UNSUPPORTED_SEMANTICS", compiled.unsupportedReason());
     }
 
     @Test
@@ -291,18 +272,6 @@ class ECOPlannerSemanticContractTest {
             });
     }
 
-    private static final class ThunderUnsupportedPattern implements IPatternDetails {
-        private final PlannerFixtures.Pattern delegate;
-
-        private ThunderUnsupportedPattern(AEKey output, AEKey input) {
-            delegate = PlannerFixtures.pattern("thunder-unsupported", output, 1, input, 1L);
-        }
-
-        @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
-        @Override public IInput[] getInputs() { return delegate.getInputs(); }
-        @Override public List<GenericStack> getOutputs() { return delegate.getOutputs(); }
-    }
-
     private static final class AE2ReusablePattern implements IPatternDetails {
         private final String name;
         private final AEKey output;
@@ -332,30 +301,46 @@ class ECOPlannerSemanticContractTest {
         @Override public String toString() { return name; }
     }
 
-    /** Public so ThunderPatternSemanticAdapter can invoke the optional bridge method reflectively. */
-    public static final class ThunderSemanticPattern implements IPatternDetails {
-        private final PlannerFixtures.Pattern delegate;
-        private final PatternSemantics semantics;
+    private static final class ThunderUnknownPattern implements IPatternDetails {
+        private final IPatternDetails source;
 
-        private ThunderSemanticPattern(String name, AEKey output, AEKey input, AEKey returned) {
-            delegate = PlannerFixtures.pattern(name, output, 1, input, 1L);
-            var source = delegate.getInputs()[0];
-            var inputSemantics = new PatternSemantics.Input(source, input, PlannerAmount.of(1), returned,
-                PlannerAmount.of(1));
-            semantics = new PatternSemantics(this, null, List.of(inputSemantics), delegate.getOutputs(),
-                List.of(new GenericStack(returned, 1)),
-                List.of(new PatternSemantics.FeedbackEdge(returned, output, PlannerAmount.of(1))),
-                PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        }
-
-        public PatternSemantics getPatternSemantics() {
-            return semantics;
+        private ThunderUnknownPattern(AEKey output, AEKey input) {
+            source = PlannerFixtures.pattern("thunder-unknown", output, 1, input, 1L);
         }
 
         @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
-        @Override public IInput[] getInputs() { return delegate.getInputs(); }
-        @Override public List<GenericStack> getOutputs() { return delegate.getOutputs(); }
-        @Override public String toString() { return delegate.toString(); }
+        @Override public IInput[] getInputs() { return source.getInputs(); }
+        @Override public List<GenericStack> getOutputs() { return source.getOutputs(); }
+    }
+
+    private static IPatternDetails overloadPattern(String name, AEKey output, AEKey input,
+            MatchMode inputMode, MatchMode outputMode) {
+        return new DirectThunderPattern(PlannerFixtures.pattern(name, output, 1, input, 1L),
+            inputMode, outputMode);
+    }
+
+    private static final class DirectThunderPattern implements IPatternDetails,
+            OverloadedProviderOnlyPatternDetails, WrappedPatternDetails {
+        private final IPatternDetails source;
+        private final MatchMode inputMode;
+        private final MatchMode outputMode;
+
+        private DirectThunderPattern(IPatternDetails source, MatchMode inputMode, MatchMode outputMode) {
+            this.source = source;
+            this.inputMode = inputMode;
+            this.outputMode = outputMode;
+        }
+
+        @Override public appeng.api.stacks.AEItemKey getDefinition() { return null; }
+        @Override public IInput[] getInputs() { return source.getInputs(); }
+        @Override public List<GenericStack> getOutputs() { return source.getOutputs(); }
+        @Override public PatternExecutionHostKind requiredHostKind() { return null; }
+        @Override public String overloadPatternIdentity() { return "planner-test-overload"; }
+        @Override public OverloadPatternDetails overloadPatternDetailsView() { return null; }
+        @Override public boolean hasFuzzyInputs() { return inputMode == MatchMode.ID_ONLY; }
+        @Override public boolean isFuzzyInput(int slot) { return inputMode == MatchMode.ID_ONLY; }
+        @Override public boolean isFuzzyOutput(int slot) { return outputMode == MatchMode.ID_ONLY; }
+        @Override public IPatternDetails wrappedPatternDetails() { return source; }
     }
 
     public static final class UselessDynamicPattern implements IPatternDetails, UselessDynamicPatternAccessor {

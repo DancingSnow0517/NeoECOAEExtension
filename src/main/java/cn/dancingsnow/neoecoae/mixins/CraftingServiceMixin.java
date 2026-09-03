@@ -15,7 +15,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AECraftingPattern;
-import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
@@ -409,15 +408,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             if (cluster != null) {
                 updateList = true;
                 cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
-            } else if (cpuCluster == null) {
-                // If no CPUs were unsuitable, but we couldn't find one, that means there aren't any
-                UnsuitableCpus unsuitableCpus = unsuitableCpusResult.getValue();
-                if (unsuitableCpus == null) {
-                    cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
-                } else {
-                    cir.setReturnValue(CraftingSubmitResult.noSuitableCpu(unsuitableCpus));
-                }
             }
+            // Deliberately fall through when ECO has no candidate. Another CPU provider may inject at this
+            // selection point, and AE2 already owns the final no-CPU/unsuitable-CPU result if none does.
         }
     }
 

@@ -21,7 +21,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
-/** Linear count/identity state for reusable, non-damageable container items. */
+/** Linear count/identity state for reusable items whose observed state is not a durability mutation. */
 public final class ECOStateTransitionBatchModel implements ECOReusableStateModel {
     private final List<Transition> transitions;
     private final long maxBatchSize;
@@ -40,9 +40,11 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
             ItemStack initial = before.get(i);
             ItemStack result = after.get(i);
             if (initial == null || result == null || initial.isEmpty() || result.isEmpty()
-                    || initial.isDamageableItem() || !ItemStack.isSameItem(initial, result)) continue;
+                    || !ItemStack.isSameItem(initial, result)) continue;
+            boolean unchanged = ItemStack.isSameItemSameComponents(initial, result);
+            if (initial.isDamageableItem() && !unchanged) continue;
             NumericCompoundDelta customDataDelta = null;
-            if (!ItemStack.isSameItemSameComponents(initial, result)) {
+            if (!unchanged) {
                 customDataDelta = NumericCompoundDelta.analyze(initial, result).orElse(null);
                 if (customDataDelta == null) return Optional.empty();
             }
