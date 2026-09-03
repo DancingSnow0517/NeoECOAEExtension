@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathKey {
@@ -85,6 +86,67 @@ public final class ECOFastPathKey {
 
     boolean isForReloadGeneration(long candidate) {
         return reloadGeneration == candidate;
+    }
+
+    long reloadGeneration() {
+        return reloadGeneration;
+    }
+
+    /**
+     * Scope shared by concrete-state entries that may describe the same deterministic pattern. Concrete slot
+     * contents remain deliberately excluded here; durability-aware lookup rebases those contents only after a
+     * proved linear transition has matched every ordinary input and remainder.
+     */
+    boolean hasSamePatternScope(ECOFastPathKey other) {
+        return other != null
+            && reloadGeneration == other.reloadGeneration
+            && patternKey.equals(other.patternKey)
+            && Objects.equals(dimension, other.dimension);
+    }
+
+    /**
+     * Preserves the original slot/layout discrimination while permitting only damage changes on an item key.
+     * This is deliberately stricter than the pattern scope check because structurally equivalent provider
+     * patterns can still arrange their inputs differently.
+     */
+    boolean hasSameSlotShapeIgnoringDamage(ECOFastPathKey other) {
+        try {
+            if (other == null || slots.size() != other.slots.size()) return false;
+            for (int slot = 0; slot < slots.size(); slot++) {
+                List<EntrySignature> left = slots.get(slot).entries;
+                List<EntrySignature> right = other.slots.get(slot).entries;
+                if (left.size() != right.size()) return false;
+                boolean[] matched = new boolean[right.size()];
+                for (EntrySignature candidate : left) {
+                    boolean found = false;
+                    for (int index = 0; index < right.size(); index++) {
+                        if (matched[index] || candidate.amount != right.get(index).amount) continue;
+                        if (sameKeyOrDamageState(candidate.key, right.get(index).key)) {
+                            matched[index] = true;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) return false;
+                }
+            }
+            return true;
+        } catch (RuntimeException rejected) {
+            return false;
+        }
+    }
+
+    private static boolean sameKeyOrDamageState(AEKey left, AEKey right) {
+        if (left.equals(right)) return true;
+        if (!(left instanceof appeng.api.stacks.AEItemKey leftItem)
+                || !(right instanceof appeng.api.stacks.AEItemKey rightItem)) return false;
+        ItemStack leftStack = leftItem.toStack(1);
+        ItemStack rightStack = rightItem.toStack(1);
+        if (leftStack.isEmpty() || rightStack.isEmpty()
+                || !leftStack.isDamageableItem() || !rightStack.isDamageableItem()) return false;
+        leftStack.setDamageValue(0);
+        rightStack.setDamageValue(0);
+        return ItemStack.isSameItemSameComponents(leftStack, rightStack);
     }
 
     public ECOFastPathPatternKey patternKey() {

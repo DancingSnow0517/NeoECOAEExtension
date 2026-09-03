@@ -50,6 +50,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedCraft;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedBridge;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOExternalBatchContracts;
@@ -1443,7 +1444,7 @@ public class ECOCraftingCPULogic {
             }
             try {
                 if (this.job == job) {
-                    recordPushedPattern(job, execution, batchSize);
+                    recordPushedBatchPattern(job, verifiedRecipe, batchSize);
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
@@ -1557,7 +1558,7 @@ public class ECOCraftingCPULogic {
             }
             ownershipTransferred = true;
             if (this.job == job) {
-                recordPushedPattern(job, execution, craftCount);
+                recordPushedBatchPattern(job, verifiedRecipe, craftCount);
             }
             return craftCount;
         } catch (RuntimeException e) {
@@ -1677,6 +1678,27 @@ public class ECOCraftingCPULogic {
                 expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());
+        cpu.markDirty();
+    }
+
+    /**
+     * Records a verified batch using its actual aggregate remainder contract. A durability tool is returned once
+     * after the whole batch (or not at all when it breaks), so multiplying the one-craft remainder would reserve
+     * the wrong key and leave the CPU waiting forever for items the worker can never emit.
+     */
+    private void recordPushedBatchPattern(
+            ExecutingCraftingJob job, ECOVerifiedFastPathRecipe recipe, long craftCount) {
+        long multiplier = Math.max(1L, craftCount);
+        for (var output : recipe.outputsPerCraft()) {
+            long dispatchedAmount = Math.multiplyExact(output.amount(), multiplier);
+            job.waitingFor.insert(output.what(), dispatchedAmount, Actionable.MODULATE);
+            postGenericStackKeysChange(List.of(output));
+        }
+        for (var remainder : recipe.batchRemainders(multiplier)) {
+            job.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
+            job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
+            postGenericStackKeysChange(List.of(remainder));
+        }
         cpu.markDirty();
     }
 

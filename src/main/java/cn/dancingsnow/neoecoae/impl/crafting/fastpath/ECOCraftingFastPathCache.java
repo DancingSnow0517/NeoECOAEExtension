@@ -4,10 +4,11 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -204,6 +205,8 @@ public final class ECOCraftingFastPathCache {
         }
         ECOFastPathResult result = get(key, tick);
         if (result == null) {
+            ECOFastPathLookup rebased = lookupDurabilityState(execution, key, tick);
+            if (rebased != null) return rebased;
             return ECOFastPathLookup.miss();
         }
         if (result.isNegative()) {
@@ -215,6 +218,66 @@ public final class ECOCraftingFastPathCache {
         }
         return ECOFastPathLookup.verified(
             ECOVerifiedFastPathRecipe.trusted(this, execution, key, result, reloadGeneration)
+        );
+    }
+
+    /**
+     * A durability tool deliberately changes its concrete AEKey after every craft. Reuse only a positive
+     * durability proof from the same pattern/dimension/reload scope, and only after rebasing every transition
+     * plus the exact ordinary input/remainder counters. Any ambiguity simply remains a cold miss.
+     */
+    @Nullable
+    private ECOFastPathLookup lookupDurabilityState(
+        ECOExtractedPatternExecution execution,
+        ECOFastPathKey currentKey,
+        long tick
+    ) {
+        ECOFastPathResult rebasedResult = null;
+        for (Map.Entry<ECOFastPathKey, ECOFastPathResult> entry : entries.entrySet()) {
+            ECOFastPathKey cachedKey = entry.getKey();
+            ECOFastPathResult cached = entry.getValue();
+            if (!cachedKey.hasSamePatternScope(currentKey)
+                    || !cachedKey.hasSameSlotShapeIgnoringDamage(currentKey)
+                    || cached.isNegative()
+                    || cached.durabilityModel() == null) {
+                continue;
+            }
+            ECODurabilityBatchModel model = cached.durabilityModel();
+            if (!cached.outputEntries().equals(execution.expectedOutputs())) continue;
+            Optional<ECODurabilityBatchModel> rebased;
+            try {
+                rebased = model.rebase(
+                    cached.inputEntries(), cached.remainingEntries(),
+                    execution.inputItems(), execution.expectedContainerItems());
+            } catch (RuntimeException rejected) {
+                continue;
+            }
+            if (rebased.isEmpty()) continue;
+
+            EnumSet<FastPathCapability> capabilities = EnumSet.noneOf(FastPathCapability.class);
+            capabilities.addAll(cached.capabilities());
+            capabilities.add(FastPathCapability.DURABILITY_LINEAR);
+            rebasedResult = ECOFastPathResult.positive(
+                execution.expectedOutputs(),
+                execution.expectedContainerItems(),
+                execution.inputItems(),
+                tick,
+                rebased.get(),
+                capabilities,
+                cached.type(),
+                List.of(),
+                List.of(),
+                List.of(),
+                rebased.get().initialEntries()
+            );
+            break;
+        }
+        if (rebasedResult == null) return null;
+        entries.put(currentKey, rebasedResult);
+        hitCount++;
+        return ECOFastPathLookup.verified(
+            ECOVerifiedFastPathRecipe.trusted(this, execution, currentKey, rebasedResult,
+                currentKey.reloadGeneration())
         );
     }
 

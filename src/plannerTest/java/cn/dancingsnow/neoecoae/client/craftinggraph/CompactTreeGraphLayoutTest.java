@@ -250,6 +250,23 @@ class CompactTreeGraphLayoutTest {
     }
 
     @Test
+    void graphSearchOnlyMatchesMaterialNodes() {
+        var key = TestKey.of("extradisk:262144b_ch");
+        var material = new CraftingGraphSnapshot.MaterialNode(1, key, 1, 0, 1, 0,
+            CraftingGraphSnapshot.MaterialStatus.CRAFTING);
+        var item = new ClientCraftingGraph.Node(1, ClientCraftingGraph.Kind.MATERIAL,
+            "262kB 化学品存储元件", key, material, null, null);
+        var patternData = new CraftingGraphSnapshot.PatternNode(2,
+            "AECraftingPattern:extradisk:262144b_ch", List.of(), List.of(), 1,
+            CraftingGraphSnapshot.CandidateStatus.SELECTED, null, -1);
+        var pattern = new ClientCraftingGraph.Node(2, ClientCraftingGraph.Kind.PATTERN,
+            patternData.displayIdentity(), null, null, patternData, null);
+
+        assertTrue(ECOCraftingGraphScreen.matchesItemSearch(item, "化学品"));
+        assertFalse(ECOCraftingGraphScreen.matchesItemSearch(pattern, "262144b"));
+    }
+
+    @Test
     void defaultGraphLayoutAutomaticallyAdaptsUnprojectedGraph() {
         var source = chain(10);
         var layout = new GraphLayout().layout(source, 1);

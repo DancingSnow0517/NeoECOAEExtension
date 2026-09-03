@@ -566,8 +566,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         String query = search.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return;
         baseGraph.nodes().values().stream()
-            .filter(node -> node.label().toLowerCase(Locale.ROOT).contains(query)
-                || node.key() != null && node.key().toString().toLowerCase(Locale.ROOT).contains(query))
+            .filter(node -> matchesItemSearch(node, query))
             .findFirst().ifPresent(this::focusSearchMatch);
     }
 
@@ -682,10 +681,18 @@ public final class ECOCraftingGraphScreen extends Screen {
         String query = search.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return;
         baseGraph.nodes().values().stream()
-            .filter(node -> node.label().toLowerCase(Locale.ROOT).contains(query)
-                || node.key() != null && node.key().toString().toLowerCase(Locale.ROOT).contains(query))
+            .filter(node -> matchesItemSearch(node, query))
             .sorted((a, b) -> a.label().compareToIgnoreCase(b.label()))
             .limit(6).forEach(searchSuggestions::add);
+    }
+
+    /** The graph search locates material occurrences; recipe/pattern nodes are not item search results. */
+    static boolean matchesItemSearch(ClientCraftingGraph.Node node, String query) {
+        if (node.kind() != ClientCraftingGraph.Kind.MATERIAL || node.material() == null || node.key() == null) {
+            return false;
+        }
+        return node.label().toLowerCase(Locale.ROOT).contains(query)
+            || node.key().toString().toLowerCase(Locale.ROOT).contains(query);
     }
 
     private void drawSearchSuggestions(GuiGraphics graphics, int mouseX, int mouseY) {
