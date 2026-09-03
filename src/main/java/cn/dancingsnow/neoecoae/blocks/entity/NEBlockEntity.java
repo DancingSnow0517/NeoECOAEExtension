@@ -12,6 +12,7 @@ import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
@@ -139,6 +140,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         BlockState newState = state;
         if (state.hasProperty(NEBlock.FORMED)) {
             newState = state.setValue(NEBlock.FORMED, formed);
+        } else if (state.hasProperty(NENetworkSwitchBlock.FORMED)) {
+            newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
         }
         if (newState != state) {
             level.setBlock(
