@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.megacells.backend;
 
 import appeng.api.config.Actionable;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -82,7 +83,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     public long getStoredItemCount() {
         long total = 0L;
         for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
-            long factor = unitFactor(entry.getKey(), entry.getKey());
+            AEItemKey storageForm = storageFormFor(entry.getKey());
+            long factor = unitFactor(entry.getKey(), storageForm);
             total = NEMath.saturatingAdd(total, entry.getValue() / factor);
         }
         return total;
@@ -90,12 +92,25 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     public long getRemainingItemCount() {
-        for (long units : storedUnits.values()) {
-            if (units < MAX_UNITS) {
+        for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
+            if (entry.getValue() < MAX_UNITS && hasConfiguredChain(entry.getKey())) {
                 return MAX_UNITS;
             }
         }
-        return storedUnits.size() < filters.size() ? MAX_UNITS : 0L;
+
+        for (AEItemKey filter : filters) {
+            boolean occupied = false;
+            for (AEItemKey stored : storedUnits.keySet()) {
+                if (sameCompressionChain(filter, stored)) {
+                    occupied = true;
+                    break;
+                }
+            }
+            if (!occupied) {
+                return MAX_UNITS;
+            }
+        }
+        return 0L;
     }
 
     @Override
@@ -203,7 +218,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             CompressionChain chain = chainFor(storedKey);
             if (!chain.isEmpty() && COMPRESSION_ENABLED) {
                 // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
-                chain.initStacks(BigInteger.valueOf(units), chain.size() - 1, storedKey)
+                AEItemKey storageForm = storageFormFor(storedKey);
+                chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain, storageForm), storageForm)
                     .forEach(out::add);
             } else if (!chain.isEmpty()) {
                 out.add(storedKey, units / unitFactor(storedKey, storedKey));
@@ -213,9 +229,26 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
     }
 
+    /**
+     * Exposes the decompression path selected by the first configured variant of each chain.
+     * For example, an iron-block filter exposes iron block -> ingot and ingot -> nugget.
+     */
+    public List<IPatternDetails> getDecompressionPatterns() {
+        List<IPatternDetails> result = new ArrayList<>();
+        for (AEItemKey filter : filters) {
+            CompressionChain chain = chainFor(filter);
+            if (!chain.isEmpty()) {
+                result.addAll(chain.getDecompressionPatterns(cutoffFor(chain, filter)));
+            }
+        }
+        return List.copyOf(result);
+    }
+
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        return what instanceof AEItemKey item && (findSlot(item, false) != null || findSlot(item, true) != null);
+        // A removed filter may still own old contents, but it must not attract new inserts. The
+        // allow-empty lookup applies the same configured-chain gate as insertInternal.
+        return what instanceof AEItemKey item && findSlot(item, true) != null;
     }
 
     @Override
@@ -264,11 +297,24 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         List<AEItemKey> result = new ArrayList<>();
         var config = getConfigInventory();
         for (int i = 0; i < config.size(); i++) {
-            if (config.getKey(i) instanceof AEItemKey item && !result.contains(item)) {
+            if (config.getKey(i) instanceof AEItemKey item && !hasFilterForChain(result, item)) {
                 result.add(item);
             }
         }
         return result;
+    }
+
+    /**
+     * Keeps the first configured variant as the representative of its compression chain. A later
+     * variant from the same chain must not consume another type slot or create a second storage entry.
+     */
+    private boolean hasFilterForChain(List<AEItemKey> configured, AEItemKey candidate) {
+        for (AEItemKey existing : configured) {
+            if (sameCompressionChain(existing, candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void loadStoredUnits() {
@@ -280,7 +326,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             AEItemKey key = readKey(entry);
             long units = entry.getLong(UNITS_TAG);
             if (key != null && units > 0L) {
-                storedUnits.merge(key, units, NEMath::saturatingAdd);
+                // Older versions could create one entry per configured variant in the same
+                // compression chain. Collapse those entries onto the current representative.
+                storedUnits.merge(storageFormFor(key), units, NEMath::saturatingAdd);
             }
         }
     }
@@ -308,7 +356,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Nullable
     private AEItemKey findSlot(AEItemKey item, boolean allowEmpty) {
         for (AEItemKey stored : storedUnits.keySet()) {
-            if (matches(stored, item)) {
+            // Existing contents remain extractable after reconfiguration, but a removed filter
+            // must not keep accepting new items into that old entry.
+            if (matches(stored, item) && (!allowEmpty || hasConfiguredChain(stored))) {
                 return stored;
             }
         }
@@ -320,8 +370,53 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return null;
     }
 
+    private boolean hasConfiguredChain(AEItemKey candidate) {
+        for (AEItemKey filter : filters) {
+            if (sameCompressionChain(filter, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean matches(AEItemKey configured, AEItemKey item) {
         return configured.equals(item) || COMPRESSION_ENABLED && chainFor(configured).containsVariant(item);
+    }
+
+    /**
+     * Returns the first configured variant for the stored chain. If the configuration was cleared
+     * or changed to another chain while the cell was non-empty, the persisted key remains the
+     * fallback so that the old contents can still be recovered.
+     */
+    private AEItemKey storageFormFor(AEItemKey storedKey) {
+        for (AEItemKey filter : filters) {
+            if (sameCompressionChain(filter, storedKey)) {
+                return filter;
+            }
+        }
+        return storedKey;
+    }
+
+    private boolean sameCompressionChain(AEItemKey first, AEItemKey second) {
+        if (first.equals(second)) {
+            return true;
+        }
+
+        CompressionChain firstChain = chainFor(first);
+        return !firstChain.isEmpty() && firstChain.equals(chainFor(second));
+    }
+
+    /**
+     * The configured form is the highest form exposed by this cell. Lower forms are still emitted
+     * when needed for a remainder, which keeps quantities such as a single nugget lossless.
+     */
+    private static int cutoffFor(CompressionChain chain, AEItemKey storageForm) {
+        for (int i = 0; i < chain.size(); i++) {
+            if (ItemStack.isSameItemSameComponents(storageForm.getReadOnlyStack(), chain.getItem(i))) {
+                return i;
+            }
+        }
+        return chain.size() - 1;
     }
 
     private CompressionChain chainFor(AEItemKey key) {
