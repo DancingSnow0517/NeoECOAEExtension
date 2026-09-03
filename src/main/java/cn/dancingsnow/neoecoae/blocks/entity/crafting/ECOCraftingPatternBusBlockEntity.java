@@ -148,7 +148,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
-        return pushPattern(ECOExtractedPatternExecution.slow(patternDetails, inputHolder), craftingJobId);
+        Level level = getLevel();
+        ECOExtractedPatternExecution execution = level == null
+            ? ECOExtractedPatternExecution.slow(patternDetails, inputHolder)
+            : ECOExtractedPatternExecution.fromProviderPush(patternDetails, inputHolder, level);
+        return pushPattern(execution, craftingJobId);
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {

@@ -1,14 +1,18 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -138,6 +142,82 @@ public final class ECOExtractedPatternExecution {
             key, key == null ? "KEY_BUILD_FAILED" : null
         );
     }
+
+    /** Rebuilds the expected contract omitted by ICraftingProvider's generic push API. */
+    public static ECOExtractedPatternExecution fromProviderPush(
+        IPatternDetails details,
+        KeyCounter[] craftingContainer,
+        Level level
+    ) {
+        Optional<ProviderPushContract> contract = reconstructProviderPushContract(details, craftingContainer, level);
+        if (contract.isEmpty()) return slow(details, craftingContainer);
+        try {
+            ProviderPushContract value = contract.get();
+            return create(details, craftingContainer, value.outputs(), value.remainders(), level);
+        } catch (RuntimeException rejected) {
+            return slow(details, craftingContainer);
+        }
+    }
+
+    static Optional<ProviderPushContract> reconstructProviderPushContract(
+        IPatternDetails details,
+        KeyCounter[] craftingContainer,
+        Level level
+    ) {
+        if (details == null || craftingContainer == null) return Optional.empty();
+        try {
+            IPatternDetails.IInput[] inputs = details.getInputs();
+            if (inputs == null || inputs.length != craftingContainer.length) return Optional.empty();
+            KeyCounter outputs = new KeyCounter();
+            for (GenericStack output : details.getOutputs()) {
+                if (output == null || output.what() == null || output.amount() <= 0L) return Optional.empty();
+                outputs.add(output.what(), output.amount());
+            }
+
+            KeyCounter remainders = new KeyCounter();
+            for (int slot = 0; slot < inputs.length; slot++) {
+                IPatternDetails.IInput input = inputs[slot];
+                KeyCounter extracted = craftingContainer[slot];
+                if (input == null || extracted == null || input.getMultiplier() <= 0L) return Optional.empty();
+                long extractedMultipliers = 0L;
+                for (var entry : extracted) {
+                    if (entry.getKey() == null || entry.getLongValue() <= 0L) return Optional.empty();
+                    OptionalLong templateAmount = templateAmount(input, entry.getKey(), level);
+                    if (templateAmount.isEmpty() || entry.getLongValue() % templateAmount.getAsLong() != 0L) {
+                        return Optional.empty();
+                    }
+                    long multiplier = entry.getLongValue() / templateAmount.getAsLong();
+                    extractedMultipliers = Math.addExact(extractedMultipliers, multiplier);
+                    AEKey remainder = input.getRemainingKey(entry.getKey());
+                    if (remainder != null) remainders.add(remainder, multiplier);
+                }
+                if (extractedMultipliers != input.getMultiplier()) return Optional.empty();
+            }
+            return Optional.of(new ProviderPushContract(outputs, remainders));
+        } catch (RuntimeException rejected) {
+            return Optional.empty();
+        }
+    }
+
+    private static OptionalLong templateAmount(IPatternDetails.IInput input, AEKey actual, Level level) {
+        if (!input.isValid(actual, level)) return OptionalLong.empty();
+        GenericStack[] possible = input.getPossibleInputs();
+        if (possible == null || possible.length == 0) return OptionalLong.empty();
+
+        Set<Long> exactAmounts = new LinkedHashSet<>();
+        Set<Long> fuzzyAmounts = new LinkedHashSet<>();
+        for (GenericStack candidate : possible) {
+            if (candidate == null || candidate.what() == null || candidate.amount() <= 0L) continue;
+            if (candidate.what().equals(actual)) exactAmounts.add(candidate.amount());
+            if (java.util.Objects.equals(candidate.what().getPrimaryKey(), actual.getPrimaryKey())) {
+                fuzzyAmounts.add(candidate.amount());
+            }
+        }
+        Set<Long> matching = exactAmounts.isEmpty() ? fuzzyAmounts : exactAmounts;
+        return matching.size() == 1 ? OptionalLong.of(matching.iterator().next()) : OptionalLong.empty();
+    }
+
+    record ProviderPushContract(KeyCounter outputs, KeyCounter remainders) {}
 
     @Nullable
     private static String findFastPathRejectionReason(
