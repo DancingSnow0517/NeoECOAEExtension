@@ -25,9 +25,9 @@ public final class NEMegaItems {
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.storage_type"), "MEGA storage type: %s");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.4g"), "4 GiB storage capacity");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.configure_item"),
-            "Configure up to 10 items in a Cell Workbench before use");
-        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_card"),
-            "Install the MEGA compression card to enable compression variants");
+            "Configure up to 25 items in a Cell Workbench before use");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_builtin"),
+            "Compression variants are enabled by default; no upgrade card required");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.empty_only"),
             "Only an empty storage matrix can be disassembled");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.housing"),

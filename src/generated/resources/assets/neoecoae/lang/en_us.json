@@ -432,7 +432,7 @@
   "tooltip.neoecoae.max_thread_count": "Max thread count +%d",
   "tooltip.neoecoae.megacells.4g": "Capacity: 4 GiB",
   "tooltip.neoecoae.megacells.configure_item": "Configure items in a Cell Workbench before use",
-  "tooltip.neoecoae.megacells.compression_card": "Install the MEGA compression card to enable compression variants",
+  "tooltip.neoecoae.megacells.compression_builtin": "Compression variants are enabled by default; no upgrade card required",
   "tooltip.neoecoae.megacells.empty_only": "Only an empty storage matrix can be disassembled",
   "tooltip.neoecoae.megacells.housing": "MEGA Cells housing for %s storage matrices",
   "tooltip.neoecoae.megacells.storage_type": "MEGA storage type: %s",

@@ -358,7 +358,7 @@
   "tooltip.neoecoae.max_thread_count": "極緒之數 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
   "tooltip.neoecoae.megacells.configure_item": "用前須於儲件工臺設定物品",
-  "tooltip.neoecoae.megacells.compression_card": "安裝 MEGA 壓縮卡後啟用壓縮變體",
+  "tooltip.neoecoae.megacells.compression_builtin": "預啟壓變，不須裝卡",
   "tooltip.neoecoae.megacells.empty_only": "惟空儲方可拆",
   "tooltip.neoecoae.megacells.housing": "所以容 %s 儲方之 MEGA Cells 殼",
   "tooltip.neoecoae.megacells.storage_type": "MEGA 所藏之類：%s",

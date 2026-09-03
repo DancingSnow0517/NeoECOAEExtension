@@ -9,7 +9,7 @@
   "inputItems": [
     {
       "count": 10,
-      "item": "megacells:cell_component_256m"
+      "item": "megacells:bulk_cell_component"
     },
     {
       "count": 8,
@@ -21,7 +21,7 @@
     },
     {
       "count": 1,
-      "item": "megacells:bulk_cell_component"
+      "item": "megacells:cell_component_256m"
     },
     {
       "count": 1,

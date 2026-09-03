@@ -358,7 +358,7 @@
   "tooltip.neoecoae.max_thread_count": "最大線程數量 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
   "tooltip.neoecoae.megacells.configure_item": "使用前請喺儲存元件工作台設定物品",
-  "tooltip.neoecoae.megacells.compression_card": "安裝 MEGA 壓縮卡後啟用壓縮變體",
+  "tooltip.neoecoae.megacells.compression_builtin": "預設啟用壓縮變體，唔使安裝升級卡",
   "tooltip.neoecoae.megacells.empty_only": "只有空儲存矩陣先可以拆解",
   "tooltip.neoecoae.megacells.housing": "用於 %s 儲存矩陣嘅 MEGA Cells 外殼",
   "tooltip.neoecoae.megacells.storage_type": "MEGA 儲存類型：%s",

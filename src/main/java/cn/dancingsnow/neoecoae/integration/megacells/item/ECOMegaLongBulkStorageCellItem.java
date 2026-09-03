@@ -44,7 +44,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, lines, flag);
         MegaCellTooltips.append(this, lines);
-        lines.add(Component.translatable("tooltip.neoecoae.megacells.compression_card")
+        lines.add(Component.translatable("tooltip.neoecoae.megacells.compression_builtin")
             .withStyle(ChatFormatting.GRAY));
     }
 }

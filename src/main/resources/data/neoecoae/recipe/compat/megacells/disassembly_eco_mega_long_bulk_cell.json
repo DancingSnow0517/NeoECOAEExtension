@@ -14,11 +14,11 @@
     },
     {
       "count": 1,
-      "id": "megacells:bulk_cell_component"
+      "id": "megacells:cell_component_256m"
     },
     {
       "count": 10,
-      "id": "megacells:cell_component_256m"
+      "id": "megacells:bulk_cell_component"
     }
   ]
 }

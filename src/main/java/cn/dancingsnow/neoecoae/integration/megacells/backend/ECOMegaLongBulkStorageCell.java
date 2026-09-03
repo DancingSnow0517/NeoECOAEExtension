@@ -9,7 +9,6 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.util.NEMath;
-import gripe._90.megacells.definition.MEGAItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
 import net.minecraft.core.component.DataComponents;
@@ -49,7 +48,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Nullable
     private final ISaveProvider container;
     private final List<AEItemKey> filters;
-    private final boolean compressionEnabled;
+    /**
+     * Compression variants are always enabled for the long-range bulk matrix; the MEGA
+     * compression card is no longer required to unlock them.
+     */
+    private static final boolean COMPRESSION_ENABLED = true;
     private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
     private final Map<AEItemKey, CompressionChain> chains = new HashMap<>();
     private boolean persisted = true;
@@ -58,7 +61,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         super(stack, container);
         this.stack = stack;
         this.container = container;
-        this.compressionEnabled = getUpgradesInventory().isInstalled(MEGAItems.COMPRESSION_CARD);
         this.filters = readFilters();
         loadStoredUnits();
     }
@@ -199,14 +201,12 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
             AEItemKey storedKey = entry.getKey();
             CompressionChain chain = chainFor(storedKey);
-            if (!chain.isEmpty()) {
-                if (compressionEnabled) {
-                    // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
-                    chain.initStacks(BigInteger.valueOf(units), chain.size() - 1, storedKey)
-                        .forEach(out::add);
-                } else {
-                    out.add(storedKey, units / unitFactor(storedKey, storedKey));
-                }
+            if (!chain.isEmpty() && COMPRESSION_ENABLED) {
+                // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
+                chain.initStacks(BigInteger.valueOf(units), chain.size() - 1, storedKey)
+                    .forEach(out::add);
+            } else if (!chain.isEmpty()) {
+                out.add(storedKey, units / unitFactor(storedKey, storedKey));
             } else {
                 out.add(storedKey, units);
             }
@@ -321,7 +321,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private boolean matches(AEItemKey configured, AEItemKey item) {
-        return configured.equals(item) || compressionEnabled && chainFor(configured).containsVariant(item);
+        return configured.equals(item) || COMPRESSION_ENABLED && chainFor(configured).containsVariant(item);
     }
 
     private CompressionChain chainFor(AEItemKey key) {
