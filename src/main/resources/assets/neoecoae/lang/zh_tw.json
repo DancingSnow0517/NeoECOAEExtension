@@ -357,7 +357,7 @@
   "tooltip.neoecoae.max_parallel_count": "最大並行數量 +%d",
   "tooltip.neoecoae.max_thread_count": "最大線程數量 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
-  "tooltip.neoecoae.megacells.configure_item": "使用前請在存儲元件工作台中設定一種物品",
+  "tooltip.neoecoae.megacells.configure_item": "最多設定 25 條壓縮鏈；每條鏈的第一個變體決定儲存形態",
   "tooltip.neoecoae.megacells.compression_builtin": "預設啟用壓縮變體，無需安裝升級卡",
   "tooltip.neoecoae.megacells.empty_only": "只有空存儲矩陣才能拆解",
   "tooltip.neoecoae.megacells.housing": "用於 %s 存儲矩陣的 MEGA Cells 外殼",
@@ -428,5 +428,6 @@
   "gui.neoecoae.crafting_report.total_net_output": "總淨產出：%s",
   "gui.neoecoae.crafting_report.total_consumed": "總消耗：%s",
   "gui.neoecoae.crafting_report.total_produced": "總產出：%s",
-  "gui.neoecoae.crafting_report.requested_exact": "請求總量：%s"
+  "gui.neoecoae.crafting_report.requested_exact": "請求總量：%s",
+  "gui.neoecoae.crafting_graph.node.pending_craft": "待合成"
 }

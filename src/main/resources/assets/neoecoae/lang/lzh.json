@@ -357,7 +357,7 @@
   "tooltip.neoecoae.max_parallel_count": "極並之數 +%d",
   "tooltip.neoecoae.max_thread_count": "極緒之數 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
-  "tooltip.neoecoae.megacells.configure_item": "用前須於儲件工臺設定物品",
+  "tooltip.neoecoae.megacells.configure_item": "最多配置 25 條壓縮鏈；每鏈首變體決定所藏形態",
   "tooltip.neoecoae.megacells.compression_builtin": "預啟壓變，不須裝卡",
   "tooltip.neoecoae.megacells.empty_only": "惟空儲方可拆",
   "tooltip.neoecoae.megacells.housing": "所以容 %s 儲方之 MEGA Cells 殼",
@@ -428,5 +428,6 @@
   "gui.neoecoae.crafting_report.total_net_output": "總淨產出：%s",
   "gui.neoecoae.crafting_report.total_consumed": "總耗：%s",
   "gui.neoecoae.crafting_report.total_produced": "總出：%s",
-  "gui.neoecoae.crafting_report.requested_exact": "請求總量：%s"
+  "gui.neoecoae.crafting_report.requested_exact": "請求總量：%s",
+  "gui.neoecoae.crafting_graph.node.pending_craft": "待合成"
 }

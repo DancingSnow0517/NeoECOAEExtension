@@ -247,6 +247,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
+        provider.add("gui.neoecoae.crafting_graph.node.pending_craft", "Pending craft");
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
         provider.add("gui.neoecoae.crafting_graph.toolbar.missing_on", "Missing only: On");
         provider.add("gui.neoecoae.crafting_graph.toolbar.missing_off", "Missing only: Off");
