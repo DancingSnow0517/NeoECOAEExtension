@@ -1224,6 +1224,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         private long totalProgress;
         private long remainingProgress;
         private boolean waitingOutput = true;
+        private boolean fastPathHit;
         private final LinkedHashSet<String> fastPathReasons = new LinkedHashSet<>();
 
         private TaskAggregate(ItemStack output) {
@@ -1241,7 +1242,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             remainingProgress = NEMath.saturatingAdd(remainingProgress,
                 NEMath.saturatingMultiply(Math.max(0, maxProgress - progress), crafts));
             waitingOutput &= snapshot.outputsReady();
-            if (snapshot.fastPathReason() != null && !"FAST_PATH_HIT".equals(snapshot.fastPathReason())) {
+            if ("FAST_PATH_HIT".equals(snapshot.fastPathReason())) {
+                fastPathHit = true;
+            } else if (snapshot.fastPathReason() != null) {
                 fastPathReasons.add(snapshot.fastPathReason());
             }
         }
@@ -1265,7 +1268,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 CpuSelectionMode.ANY,
                 progress,
                 0L,
-                fastPathReasons.isEmpty() ? null
+                fastPathHit || fastPathReasons.isEmpty() ? null
                     : fastPathReasons.size() == 1 ? fastPathReasons.iterator().next() : "MULTIPLE"
             );
         }

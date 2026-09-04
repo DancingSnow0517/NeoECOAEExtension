@@ -442,7 +442,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         List<ItemStack> inputs = snapshotCraftingInputs();
         if (verifyFastPath) {
-            verifyAndCacheFastPath(execution, outputItem, inputs, list, beforeSlots, remainingSlots, tick);
+            fastPathReason = verifyAndCacheFastPath(
+                execution, outputItem, inputs, list, beforeSlots, remainingSlots, tick);
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         cache.recordSlowPathAccepted();
@@ -450,7 +451,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return true;
     }
 
-    private void verifyAndCacheFastPath(
+    private String verifyAndCacheFastPath(
         ECOExtractedPatternExecution execution,
         ItemStack outputItem,
         List<ItemStack> inputs,
@@ -461,7 +462,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     ) {
         ECOFastPathKey key = execution.key();
         if (key == null) {
-            return;
+            return "KEY_BUILD_FAILED";
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
@@ -473,14 +474,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ? execution.inputItems()
             : materializedInputEntries.orElse(List.of());
         if (outputEntries.isEmpty() || inputEntries.isEmpty()) {
-            cache.putNegative(key, tick, "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED");
-            return;
+            String reason = "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED";
+            cache.putNegative(key, tick, reason);
+            return reason;
         }
         if (!outputEntries.get().equals(execution.expectedOutputs())
             || !remainingEntries.get().equals(execution.expectedContainerItems())
             || (!hasFluidInput && !inputEntries.equals(execution.inputItems()))) {
-            cache.putNegative(key, tick, "ASSEMBLY_CONTRACT_MISMATCH");
-            return;
+            String reason = "ASSEMBLY_CONTRACT_MISMATCH";
+            cache.putNegative(key, tick, reason);
+            return reason;
         }
         ECOReusableStateAnalyzer.Analysis stateAnalysis =
             ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots,
@@ -490,11 +493,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 logFastPathStateSlotMismatch(beforeSlots, remainingSlots);
             }
             cache.putNegative(key, tick, stateAnalysis.rejectReason());
-            return;
+            return stateAnalysis.rejectReason();
         }
         if (!verifySecondStateStep(execution, outputItem, beforeSlots, remainingSlots, stateAnalysis.model())) {
-            cache.putNegative(key, tick, "STATE_SECOND_STEP_PROOF_FAILED");
-            return;
+            String reason = "STATE_SECOND_STEP_PROOF_FAILED";
+            cache.putNegative(key, tick, reason);
+            return reason;
         }
         List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
             .map(List::of).orElse(List.of());
@@ -505,6 +509,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
             ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
             ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
+        return "FAST_PATH_HIT";
     }
 
     private static void logFastPathStateSlotMismatch(
