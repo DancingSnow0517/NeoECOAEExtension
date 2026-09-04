@@ -245,6 +245,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
+        provider.add("gui.neoecoae.crafting_report.requested_exact", "Total requested: %s");
         provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.node.pending_craft", "Pending craft");

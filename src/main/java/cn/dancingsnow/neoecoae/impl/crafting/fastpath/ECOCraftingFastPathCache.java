@@ -69,12 +69,16 @@ public final class ECOCraftingFastPathCache {
         this.limit = Math.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
         int initialCapacity = Math.min(this.limit, 1_024);
         this.entries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
             @Override
             protected boolean removeEldestEntry(Map.Entry<ECOFastPathKey, ECOFastPathResult> eldest) {
                 return size() > ECOCraftingFastPathCache.this.limit;
             }
         };
         this.patternEntries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
             @Override
             protected boolean removeEldestEntry(Map.Entry<ECOFastPathPatternKey, ECOPatternEligibility> eldest) {
                 return size() > ECOCraftingFastPathCache.this.limit;

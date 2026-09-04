@@ -159,8 +159,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
                         material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
-                        exactAmountFor(cycle.exactSingleNetOutputs(), key),
-                        exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
+                        neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
+                        neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId()));
                 }
                 // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
@@ -215,18 +215,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique
-    private static long amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
+    private static long neoecoae$amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).mapToLong(
             CraftingGraphSnapshot.KeyAmount::amount).findFirst().orElse(0L);
     }
 
     @Unique
-    private static boolean hasAmountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
+    private static boolean neoecoae$hasAmountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().anyMatch(value -> value.key().equals(key));
     }
 
     @Unique
-    private static java.math.BigInteger exactAmountFor(
+    private static java.math.BigInteger neoecoae$exactAmountFor(
             List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).map(value -> value.amount().value())
             .findFirst().orElse(java.math.BigInteger.ZERO);

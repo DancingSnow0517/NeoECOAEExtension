@@ -608,5 +608,6 @@
   "gui.neoecoae.crafting_graph.status.insufficient_external_input": "外部输入不足",
   "gui.neoecoae.crafting_graph.status.unknown_budget": "求解预算不足",
   "gui.neoecoae.crafting_graph.status.too_complex": "过于复杂",
-  "gui.neoecoae.crafting_graph.status.cancelled": "已取消"
+  "gui.neoecoae.crafting_graph.status.cancelled": "已取消",
+  "neoecoae.unknow_cell_type": "未知存储元件类型"
 }

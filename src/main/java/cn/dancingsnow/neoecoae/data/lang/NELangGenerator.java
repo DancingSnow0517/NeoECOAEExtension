@@ -83,6 +83,14 @@ public class NELangGenerator {
         );
         provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
         provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
+        provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage: Activation Requirements");
+        provider.add("tooltip.neoecoae.infinite_component.components",
+            "Component slots: 64 infinite storage components in the storage host");
+        provider.add("tooltip.neoecoae.infinite_component.matrices",
+            "Drives: any 12 L9 storage matrices in the same storage host");
+        provider.add("gui.neoecoae.storage.status.degraded", "Infinite storage data needs repair");
+        provider.add("gui.neoecoae.storage.status.recovery", "Infinite storage is temporarily read-only");
+        provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");
@@ -138,6 +146,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
+        provider.add("neoecoae.unknow_cell_type", "Unknown cell type");
 
         provider.add("tooltip.neoecoae.budding_energized_crystal_block", "Obtained by striking Budding Certus Quartz with lightning");
     }

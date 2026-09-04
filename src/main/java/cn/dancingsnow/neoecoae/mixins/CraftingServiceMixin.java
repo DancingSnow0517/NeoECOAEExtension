@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
@@ -51,7 +52,8 @@ import java.util.Set;
 import java.util.UUID;
 
 @Mixin(CraftingService.class)
-public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter {
+public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
+        IGridServiceProvider {
     @Unique
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
         "neoecoaeIgnorePatternSubstitutions";
@@ -215,6 +217,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         }
     }
 
+    @Override
     public void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
         savedData.putBoolean(
             NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
