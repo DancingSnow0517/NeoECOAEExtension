@@ -4,6 +4,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -140,6 +141,8 @@ public class NEComputationNetworkCluster {
                 if (result.successful()) {
                     return result;
                 }
+                // Members share this ME grid. A material deficit cannot be fixed by choosing another member.
+                if (result.errorCode() == CraftingSubmitErrorCode.MISSING_INGREDIENT) return result;
                 lastResult = result;
             }
         }

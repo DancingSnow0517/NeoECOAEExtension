@@ -4,8 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
-import cn.dancingsnow.neoecoae.mixins.useless.UselessDynamicPatternAccessor;
-import cn.dancingsnow.neoecoae.mixins.useless.UselessScaledPatternAccessor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,7 +24,7 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
 
     @Override
     public PatternSemantics analyze(IPatternDetails pattern) {
-        UselessDynamicPatternAccessor dynamic = dynamicView(pattern);
+        UselessDynamicPatternView dynamic = dynamicView(pattern);
         if (dynamic == null) {
             return PatternSemantics.unsupported(pattern, safeDefinition(pattern), "USELESS_DYNAMIC_CONTRACT_MISSING");
         }
@@ -62,12 +60,12 @@ public final class UselessPatternSemanticAdapter implements PatternSemanticAdapt
     }
 
     @Nullable
-    private static UselessDynamicPatternAccessor dynamicView(IPatternDetails pattern) {
+    private static UselessDynamicPatternView dynamicView(IPatternDetails pattern) {
         if (pattern == null) return null;
         IPatternDetails candidate = pattern;
         for (int depth = 0; depth < 4; depth++) {
-            if (candidate instanceof UselessDynamicPatternAccessor dynamic) return dynamic;
-            if (!(candidate instanceof UselessScaledPatternAccessor scaled)) return null;
+            if (candidate instanceof UselessDynamicPatternView dynamic) return dynamic;
+            if (!(candidate instanceof UselessScaledPatternView scaled)) return null;
             IPatternDetails next = scaled.neoecoae$getOriginal();
             if (next == null || next == candidate) return null;
             candidate = next;

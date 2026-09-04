@@ -23,8 +23,8 @@
     "extendedae.ContainerExIOPortMixin",
     "extendedae.TileExIOPortMixin",
     "useless.CraftingServiceSmartDoublingMixin",
-    "useless.UselessDynamicPatternAccessor",
-    "useless.UselessScaledPatternAccessor"
+    "useless.UselessDynamicPatternMixin",
+    "useless.UselessScaledPatternMixin"
   ],
   "client": [
     "client.CraftingCPUScreenMixin",

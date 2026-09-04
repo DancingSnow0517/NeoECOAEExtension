@@ -35,7 +35,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
-import cn.dancingsnow.neoecoae.mixins.useless.UselessDynamicPatternAccessor;
+import cn.dancingsnow.neoecoae.compat.useless.UselessDynamicPatternView;
 import com.moakiee.thunderbolt.ae2.overload.model.MatchMode;
 import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadPatternDetails;
 import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails;
@@ -343,7 +343,7 @@ class ECOPlannerSemanticContractTest {
         @Override public IPatternDetails wrappedPatternDetails() { return source; }
     }
 
-    public static final class UselessDynamicPattern implements IPatternDetails, UselessDynamicPatternAccessor {
+    public static final class UselessDynamicPattern implements IPatternDetails, UselessDynamicPatternView {
         private final PlannerFixtures.Pattern delegate;
         private final boolean relaxedInput;
         private final boolean dynamicOutput;

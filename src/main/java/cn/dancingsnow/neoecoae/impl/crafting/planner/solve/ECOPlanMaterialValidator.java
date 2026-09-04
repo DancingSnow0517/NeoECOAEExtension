@@ -17,8 +17,8 @@ public final class ECOPlanMaterialValidator {
 
     /**
      * Returns the first material deficit, or {@code null} when every primary pattern input can be supplied by the
-     * plan's initial/emitted items and physical pattern outputs. This check intentionally uses the raw AE2 pattern
-     * contract: it is the contract the CPU will execute after all planner metadata has been discarded.
+     * plan's reserved initial items, emitted items, and physical pattern outputs. This check intentionally uses the
+     * raw AE2 pattern contract: it is the contract the CPU will execute after all planner metadata has been discarded.
      */
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             KeyCounter initialInventory) {
@@ -28,19 +28,9 @@ public final class ECOPlanMaterialValidator {
 
         Map<AEKey, PlannerAmount> supply = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> demand = new LinkedHashMap<>();
-        // `used` already accounts for the portion of the initial inventory reserved by the planner. Add only the
-        // unreserved remainder here; adding the complete inventory on top of `used` would double-count seeds and
-        // could turn an actually open material balance into a false SUCCESS.
+        // Only usedItems are transferred into the crafting CPU when the plan is submitted. Unreserved network
+        // inventory is therefore not executable supply and must not be allowed to close this material balance.
         state.usedAmounts().forEach((key, amount) -> add(supply, key, amount));
-        if (initialInventory != null) {
-            for (var entry : initialInventory) {
-                if (entry.getLongValue() <= 0) continue;
-                PlannerAmount available = PlannerAmount.of(entry.getLongValue());
-                PlannerAmount reserved = state.usedAmounts().getOrDefault(entry.getKey(), PlannerAmount.ZERO);
-                PlannerAmount remainder = available.subtract(reserved).max(PlannerAmount.ZERO);
-                add(supply, entry.getKey(), remainder);
-            }
-        }
         state.emittedAmounts().forEach((key, amount) -> add(supply, key, amount));
 
         try {

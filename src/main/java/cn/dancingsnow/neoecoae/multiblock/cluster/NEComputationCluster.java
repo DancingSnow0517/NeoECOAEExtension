@@ -6,6 +6,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.events.GridCraftingCpuChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
@@ -305,6 +306,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 return CraftingSubmitResult.CPU_TOO_SMALL;
             }
             threadingCore.deactivate(cpu);
+            // Every local CPU sees the same grid inventory. Retrying a confirmed material deficit only repeats the
+            // complete extraction/rollback transaction and can multiply external-inventory persistence work.
+            if (result.errorCode() == CraftingSubmitErrorCode.MISSING_INGREDIENT) return result;
             lastResult = result;
         }
         return lastResult;

@@ -127,10 +127,17 @@ public class ECOCraftingCPULogic {
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
     private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
     private static final long STALLED_DISPATCH_LOG_INTERVAL_TICKS = 100L;
-    /** 4 列表格分隔线，长度与单元格总宽严格对齐（133 个 '-'）。 */
-    private static final String DISPATCH_TABLE_SEPARATOR = "-".repeat(133);
     private long lastBatchRejectionLogTick = Long.MIN_VALUE;
     private long lastStalledDispatchLogTick = Long.MIN_VALUE;
+    private long lastDispatchTraceLogTick = Long.MIN_VALUE;
+    private long pendingDispatchTraceEvents;
+    private long pendingDispatchTraceCrafts;
+    private UUID pendingDispatchTraceJob;
+    private static final long DISPATCH_TRACE_LOG_INTERVAL_TICKS = 100L;
+    private long lastReturnTraceLogTick = Long.MIN_VALUE;
+    private UUID pendingReturnTraceJob;
+    private final Map<ReturnTraceKey, ReturnTraceCount> pendingReturnTraces = new LinkedHashMap<>();
+    private static final long RETURN_TRACE_LOG_INTERVAL_TICKS = 100L;
     private long batchProbeBudgetTick = Long.MIN_VALUE;
     private int batchProbesUsedThisTick;
     private final Set<Object> batchProbedTasksThisTick = new HashSet<>();
@@ -175,6 +182,7 @@ public class ECOCraftingCPULogic {
         int energyBlockedProviders;
         int providerRejections;
         @Nullable IPatternDetails firstMissingInputPattern;
+        final List<String> missingInputReasons = new ArrayList<>();
     }
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
@@ -206,7 +214,7 @@ public class ECOCraftingCPULogic {
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // 尝试提取所需物品。
-        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
+        var missingIngredient = ECOInitialItemExtractor.tryExtract(plan, grid, inventory, src);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
 
@@ -492,6 +500,8 @@ public class ECOCraftingCPULogic {
                         if (diagnostics.firstMissingInputPattern == null) {
                             diagnostics.firstMissingInputPattern = details;
                         }
+                        recordMissingInputDiagnostic(diagnostics, details,
+                            "fast-path pre-extraction at ECOCraftingCPULogic.dispatch");
                         continue taskLoop;
                     }
 
@@ -602,7 +612,7 @@ public class ECOCraftingCPULogic {
                         Math.min(task.progress().value, runtimeLimit));
                     List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
                     if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                        reinjectPatternInputsLogged(craftingContainer, "ordinary strategy rejected before dispatch");
                         continue taskLoop;
                     }
 
@@ -638,6 +648,8 @@ public class ECOCraftingCPULogic {
                             if (diagnostics.firstMissingInputPattern == null) {
                                 diagnostics.firstMissingInputPattern = details;
                             }
+                            recordMissingInputDiagnostic(diagnostics, details,
+                                "ordinary provider extraction at ECOCraftingCPULogic.dispatch");
                             break;
                         }
 
@@ -692,7 +704,7 @@ public class ECOCraftingCPULogic {
                             if (pushedPatterns == maxPatterns) break taskLoop;
                             continue;
                         }
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, attemptContainer);
+                        reinjectPatternInputsLogged(attemptContainer, "ordinary provider dispatch returned waiting/rejected");
                         break ordinaryDispatch;
                     }
                     if (this.job == job && pushedPatterns > ordinaryPushedBefore
@@ -745,43 +757,144 @@ public class ECOCraftingCPULogic {
             : diagnostics.firstMissingInputPattern.getDefinition();
         Object requiredInputs = diagnostics.firstMissingInputPattern == null ? List.of()
             : describePatternInputs(diagnostics.firstMissingInputPattern);
-        // 以 4 列表格形式输出停滞发配诊断，便于观测
-        // 列布局：name1 | value1 | name2 | value2（每个单元格 30 字符，整行宽 133 字符）
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
         LOGGER.warn("Stalled crafting job=" + stalledJob.link.getCraftingID() + "  reason=" + reason);
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
-        LOGGER.warn(formatStalledDispatchRow("tick", tick, "maxPatterns", maxPatterns));
-        LOGGER.warn(formatStalledDispatchRow("suspended", stalledJob.suspended, "phaseIndex", stalledJob.currentComponentIndex));
-        LOGGER.warn(formatStalledDispatchRow("phase", truncate(phaseDescription, 60), "witnessIndex", stalledJob.cycleWitnessIndex));
-        LOGGER.warn(formatStalledDispatchRow("expectedWitness", truncate(expectedWitness, 60), "taskKinds", stalledJob.tasks.size()));
-        LOGGER.warn(formatStalledDispatchRow("taskExecutions", remainingTaskCount(stalledJob), "inventoryKinds", inventory.list.size()));
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
-        LOGGER.warn("[ crafting diagnostics ]");
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
-        LOGGER.warn(formatStalledDispatchRow("runnableTasks", diagnostics.runnableTasks, "phaseRejected", diagnostics.phaseRejectedTasks));
-        LOGGER.warn(formatStalledDispatchRow("noProviders", diagnostics.tasksWithoutProviders, "providersBusy", diagnostics.tasksWithBusyProviders));
-        LOGGER.warn(formatStalledDispatchRow("missingInputs", diagnostics.tasksMissingInputs, "energyBlocked", diagnostics.energyBlockedProviders));
-        LOGGER.warn(formatStalledDispatchRow("providerRejected", diagnostics.providerRejections, "waitingKinds", stalledJob.waitingFor.list.size()));
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
-        LOGGER.warn("[ missing inputs ]");
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
-        LOGGER.warn(formatStalledDispatchRow("missingInputPattern", truncate(missingInputPattern, 60), "requiredInputs", truncate(requiredInputs, 60)));
-        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn("Crafting dispatch context: tick=" + tick + ", maxPatterns=" + maxPatterns
+            + ", suspended=" + stalledJob.suspended + ", phaseIndex=" + stalledJob.currentComponentIndex
+            + ", phase=" + phaseDescription + ", witnessIndex=" + stalledJob.cycleWitnessIndex
+            + ", expectedWitness=" + expectedWitness + ", taskKinds=" + stalledJob.tasks.size()
+            + ", taskExecutions=" + remainingTaskCount(stalledJob) + ", inventoryKinds=" + inventory.list.size());
+        LOGGER.warn("Crafting diagnostics: runnableTasks=" + diagnostics.runnableTasks
+            + ", phaseRejected=" + diagnostics.phaseRejectedTasks + ", noProviders="
+            + diagnostics.tasksWithoutProviders + ", providersBusy=" + diagnostics.tasksWithBusyProviders
+            + ", missingInputs=" + diagnostics.tasksMissingInputs + ", energyBlocked="
+            + diagnostics.energyBlockedProviders + ", providerRejected=" + diagnostics.providerRejections
+            + ", waitingKinds=" + stalledJob.waitingFor.list.size());
+        LOGGER.warn("Missing input pattern: " + missingInputPattern);
+        LOGGER.warn("Required inputs: " + requiredInputs);
+        if (diagnostics.missingInputReasons.isEmpty()) {
+            LOGGER.warn("Missing input diagnosis: no per-input snapshot was captured; the extraction call returned zero without exposing its internal reason.");
+        } else {
+            for (String reasonLine : diagnostics.missingInputReasons) LOGGER.warn(reasonLine);
+        }
     }
 
-    /** 将两个 name/value 对格式化为同一行："| name1 | value1 | name2 | value2 |"，每个单元格宽 30 字符。 */
-    private static String formatStalledDispatchRow(String name1, Object value1, String name2, Object value2) {
-        return String.format("| %-30s | %-30s | %-30s | %-30s |",
-            truncate(name1, 30), truncate(String.valueOf(value1), 30),
-            truncate(name2, 30), truncate(String.valueOf(value2), 30));
+    private void recordMissingInputDiagnostic(DispatchDiagnostics diagnostics, IPatternDetails pattern,
+            String callSite) {
+        diagnostics.missingInputReasons.add("Missing input extraction failed at " + callSite + ".");
+        boolean foundShortfall = false;
+        for (var input : pattern.getInputs()) {
+            if (input == null || input.getPossibleInputs() == null) continue;
+            for (var possible : input.getPossibleInputs()) {
+                if (possible == null || possible.what() == null) continue;
+                long required;
+                try {
+                    required = Math.multiplyExact(possible.amount(), input.getMultiplier());
+                } catch (ArithmeticException overflow) {
+                    required = Long.MAX_VALUE;
+                }
+                AEKey requested = possible.what();
+                long available = inventory.extract(requested, Long.MAX_VALUE, Actionable.SIMULATE);
+                if (available < required) {
+                    foundShortfall = true;
+                    boolean sameIdDifferentVariant = false;
+                    for (var entry : inventory.list) {
+                        AEKey present = entry.getKey();
+                        if (present != null && present.getId().equals(requested.getId()) && !present.equals(requested)) {
+                            sameIdDifferentVariant = true;
+                            break;
+                        }
+                    }
+                    if (available == 0 && sameIdDifferentVariant) {
+                        diagnostics.missingInputReasons.add("Input " + requested + " requires " + required
+                            + ", exact available in the CPU crafting inventory=0. The CPU contains the same registry ID with different NBT/components/tags, so it cannot match this pattern.");
+                    } else if (available < required) {
+                        diagnostics.missingInputReasons.add("Input " + requested + " requires " + required
+                            + ", exact available in the CPU crafting inventory=" + available + ". The CPU does not currently hold enough matching stock reserved from the network.");
+                    }
+                    recordMissingInputLedger(diagnostics, requested, available);
+                }
+            }
+        }
+        if (!foundShortfall) {
+            diagnostics.missingInputReasons.add("Every exact input probe was sufficient immediately before extraction, but extraction returned zero. Another crafting task may have consumed the items concurrently, or a provider/storage inventory view may be stale or out of sync.");
+        } else {
+            diagnostics.missingInputReasons.add("If the exact stock changed between this probe and extraction, another crafting task may have taken the remaining items; retry after the inventory change is observed.");
+        }
     }
 
-    /** 截断过长的值，避免表格行宽失控。值为 null 时显示 "null"。 */
-    private static String truncate(Object value, int maxLen) {
-        if (value == null) return "null";
-        String s = String.valueOf(value);
-        if (s.length() <= maxLen) return s;
-        return s.substring(0, Math.max(0, maxLen - 3)) + "...";
+    private void recordMissingInputLedger(DispatchDiagnostics diagnostics, AEKey requested, long physicalAvailable) {
+        ExecutingCraftingJob currentJob = job;
+        if (currentJob == null) return;
+        RuntimeExecutionState runtime = currentJob.runtimeExecutionState();
+        long waiting = currentJob.waitingFor.extract(requested, Long.MAX_VALUE, Actionable.SIMULATE);
+        diagnostics.missingInputReasons.add("Missing input ledger for " + requested + ": physical="
+            + physicalAvailable + ", runtimeOnHand=" + (runtime == null ? "unavailable" : runtime.onHand(requested))
+            + ", runtimeFutureNeed=" + (runtime == null ? "unavailable" : runtime.futureNeed(requested))
+            + ", waitingFor=" + waiting + ".");
+        if (runtime == null) return;
+
+        List<String> producers = new ArrayList<>();
+        for (var task : runtime.plan().tasks()) {
+            long outputPerCraft = 0L;
+            for (var output : task.runtimeInfo().outputs()) {
+                if (output != null && requested.equals(output.what())) {
+                    outputPerCraft = saturatedAdd(outputPerCraft, output.amount());
+                }
+            }
+            if (outputPerCraft <= 0L) continue;
+            producers.add("taskId=" + task.id() + ", phase=" + task.phaseIndex() + ", pattern="
+                + task.runtimeInfo().definition() + ", outputPerCraft=" + outputPerCraft + ", total="
+                + task.totalCount() + ", remaining=" + runtime.remaining(task.id()));
+            if (producers.size() >= 8) {
+                producers.add("additional producers omitted");
+                break;
+            }
+        }
+        diagnostics.missingInputReasons.add("Planned producers for " + requested + ": "
+            + (producers.isEmpty() ? "none" : producers) + ".");
+    }
+
+    private record ReturnTraceKey(String callSite, AEKey key) {}
+
+    private static final class ReturnTraceCount {
+        long events;
+        long amount;
+    }
+
+    private void reinjectPatternInputsLogged(KeyCounter[] container, String callSite) {
+        if (container == null) return;
+        for (var counter : container) {
+            if (counter == null) continue;
+            for (var entry : counter) {
+                recordReturnTrace(callSite, entry.getKey(), entry.getLongValue());
+            }
+        }
+        CraftingCpuHelper.reinjectPatternInputs(inventory, container);
+    }
+
+    private void recordReturnTrace(String callSite, AEKey key, long amount) {
+        long tick = TickHandler.instance().getCurrentTick();
+        UUID jobId = job == null ? null : job.link.getCraftingID();
+        if (!Objects.equals(pendingReturnTraceJob, jobId) && !pendingReturnTraces.isEmpty()) flushReturnTraces(tick);
+        pendingReturnTraceJob = jobId;
+        ReturnTraceCount count = pendingReturnTraces.computeIfAbsent(new ReturnTraceKey(callSite, key),
+            ignored -> new ReturnTraceCount());
+        count.events = saturatedAdd(count.events, 1L);
+        count.amount = saturatedAdd(count.amount, Math.max(0L, amount));
+        if (lastReturnTraceLogTick == Long.MIN_VALUE || tick - lastReturnTraceLogTick >= RETURN_TRACE_LOG_INTERVAL_TICKS) {
+            flushReturnTraces(tick);
+        }
+    }
+
+    private void flushReturnTraces(long tick) {
+        for (var entry : pendingReturnTraces.entrySet()) {
+            LOGGER.warn("ECO crafting input return summary: job={} callSite={} item={} returnEvents={} returnedAmount={} windowTicks={}",
+                pendingReturnTraceJob == null ? "none" : pendingReturnTraceJob, entry.getKey().callSite(),
+                entry.getKey().key(), entry.getValue().events, entry.getValue().amount,
+                lastReturnTraceLogTick == Long.MIN_VALUE ? 0L : tick - lastReturnTraceLogTick);
+        }
+        pendingReturnTraces.clear();
+        lastReturnTraceLogTick = tick;
     }
 
     private List<String> describePatternInputs(IPatternDetails pattern) {
@@ -1224,7 +1337,7 @@ public class ECOCraftingCPULogic {
             scope = Objects.requireNonNull(selected.eco$getBatchProbeScope(),
                 "batch probe provider returned a null scope");
         } catch (RuntimeException contractViolation) {
-            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            reinjectPatternInputsLogged(firstCraftingContainer, "batch rollback after ownership failure");
             LOGGER.error("Batch probe provider returned an invalid dispatch scope", contractViolation);
             return new ProbeDispatchOutcome(
                 new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), 0);
@@ -1249,7 +1362,7 @@ public class ECOCraftingCPULogic {
                     return provider.eco$simulateBatch(execution, candidate);
                 });
         } catch (RuntimeException contractViolation) {
-            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            reinjectPatternInputsLogged(firstCraftingContainer, "batch probe invalid dispatch scope");
             LOGGER.error("Batch probe side-effect-free simulation failed", contractViolation);
             return new ProbeDispatchOutcome(
                 new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), attemptedProbes[0]);
@@ -1264,7 +1377,7 @@ public class ECOCraftingCPULogic {
         try {
             extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), craftCount - 1L);
         } catch (RuntimeException invalidBatch) {
-            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            reinjectPatternInputsLogged(firstCraftingContainer, "batch probe simulation failure");
             return new ProbeDispatchOutcome(
                 new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), probe.probeCount());
         }
@@ -1379,7 +1492,7 @@ public class ECOCraftingCPULogic {
         if (!firstBatch) {
             // The probe craft was extracted before the offer search. Put it back before sizing a complete
             // subsequent batch, otherwise the first input would be counted twice or falsely appear unavailable.
-            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            reinjectPatternInputsLogged(firstCraftingContainer, "finite fast-path second-visit probe reinjection");
         }
 
         int batchSize = 0;
@@ -1440,7 +1553,6 @@ public class ECOCraftingCPULogic {
                     rollbackBatchInputs(inventory, firstCraftingContainer, batchInputs, true, true);
                 } else if (batchInputsExtracted) {
                     ECOBatchCraftingHelper.insertAll(inventory, batchInputs);
-                    reclaimProbeCraftingInputs(firstCraftingContainer);
                 }
                 return -1;
             }
@@ -1485,7 +1597,6 @@ public class ECOCraftingCPULogic {
                 if (batchInputsExtracted) {
                     ECOBatchCraftingHelper.insertAll(inventory, batchInputs);
                 }
-                reclaimProbeCraftingInputs(firstCraftingContainer);
             }
             logBatchRejection(batchSize, taskRemaining, e);
             return -1;
@@ -1499,7 +1610,6 @@ public class ECOCraftingCPULogic {
                     if (batchInputsExtracted) {
                         ECOBatchCraftingHelper.insertAll(inventory, batchInputs);
                     }
-                    reclaimProbeCraftingInputs(firstCraftingContainer);
                 }
             }
             throw e;
@@ -1656,10 +1766,13 @@ public class ECOCraftingCPULogic {
             boolean firstInputsOwned,
             boolean extraInputsExtracted) {
         if (firstInputsOwned) {
-            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            reinjectPatternInputsLogged(firstCraftingContainer, "batch dispatch exception rollback");
         }
 
         if (extraInputsExtracted) {
+            for (var extraInput : extraInputs) {
+                recordReturnTrace("batch rollback extra inputs", extraInput.what(), extraInput.amount());
+            }
             ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
         }
     }
@@ -1687,19 +1800,20 @@ public class ECOCraftingCPULogic {
     private void recordPushedPattern(
             ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
         long multiplier = Math.max(1L, craftCount);
+        recordDispatchTrace(job, craftCount);
         for (var expectedOutput : execution.expectedOutputs()) {
             long dispatchedAmount = Math.multiplyExact(expectedOutput.amount(), multiplier);
             job.waitingFor.insert(expectedOutput.what(), dispatchedAmount,
                 Actionable.MODULATE);
+            postChange(expectedOutput.what());
         }
-        postGenericStackKeysChange(execution.expectedOutputs());
         for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(expectedContainerItem.what(),
                 Math.multiplyExact(expectedContainerItem.amount(), multiplier), Actionable.MODULATE);
             job.timeTracker.addMaxItems(Math.multiplyExact(expectedContainerItem.amount(), multiplier),
                 expectedContainerItem.what().getType());
+            postChange(expectedContainerItem.what());
         }
-        postGenericStackKeysChange(execution.expectedContainerItems());
         markCpuDirty();
     }
 
@@ -1714,12 +1828,12 @@ public class ECOCraftingCPULogic {
         for (var output : recipe.outputsPerCraft()) {
             long dispatchedAmount = Math.multiplyExact(output.amount(), multiplier);
             job.waitingFor.insert(output.what(), dispatchedAmount, Actionable.MODULATE);
-            postGenericStackKeysChange(List.of(output));
+            postChange(output.what());
         }
         for (var remainder : recipe.batchRemainders(multiplier)) {
             job.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
             job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
-            postGenericStackKeysChange(List.of(remainder));
+            postChange(remainder.what());
         }
         markCpuDirty();
     }
@@ -1737,6 +1851,7 @@ public class ECOCraftingCPULogic {
     private void recordPushedPattern(
             ExecutingCraftingJob job, KeyCounter expectedOutputs, KeyCounter expectedContainerItems, long craftCount) {
         long multiplier = Math.max(1L, craftCount);
+        recordDispatchTrace(job, craftCount);
         for (var expectedOutput : expectedOutputs) {
             long dispatchedAmount = Math.multiplyExact(expectedOutput.getLongValue(), multiplier);
             job.waitingFor.insert(expectedOutput.getKey(), dispatchedAmount,
@@ -1755,6 +1870,29 @@ public class ECOCraftingCPULogic {
         }
 
         markCpuDirty();
+    }
+
+    private void recordDispatchTrace(ExecutingCraftingJob job, long craftCount) {
+        long tick = TickHandler.instance().getCurrentTick();
+        UUID jobId = job.link.getCraftingID();
+        if (pendingDispatchTraceJob != null && !pendingDispatchTraceJob.equals(jobId)) flushDispatchTrace(tick);
+        if (pendingDispatchTraceJob == null) pendingDispatchTraceJob = jobId;
+        pendingDispatchTraceEvents++;
+        pendingDispatchTraceCrafts = Math.addExact(pendingDispatchTraceCrafts, Math.max(1L, craftCount));
+        if (lastDispatchTraceLogTick == Long.MIN_VALUE || tick - lastDispatchTraceLogTick >= DISPATCH_TRACE_LOG_INTERVAL_TICKS) {
+            flushDispatchTrace(tick);
+        }
+    }
+
+    private void flushDispatchTrace(long tick) {
+        if (pendingDispatchTraceJob == null || pendingDispatchTraceEvents == 0) return;
+        LOGGER.debug("ECO crafting dispatch summary: job={} acceptedEvents={} acceptedCrafts={} windowTicks={}",
+            pendingDispatchTraceJob, pendingDispatchTraceEvents, pendingDispatchTraceCrafts,
+            lastDispatchTraceLogTick == Long.MIN_VALUE ? 0 : tick - lastDispatchTraceLogTick);
+        lastDispatchTraceLogTick = tick;
+        pendingDispatchTraceJob = null;
+        pendingDispatchTraceEvents = 0L;
+        pendingDispatchTraceCrafts = 0L;
     }
 
     private static boolean isPeriodicLogDue(long previousTick, long tick, long intervalTicks) {
@@ -2138,12 +2276,6 @@ public class ECOCraftingCPULogic {
             cpuDirtyRequested = true;
         } else {
             cpu.markDirty();
-        }
-    }
-
-    private void postGenericStackKeysChange(List<GenericStack> stacks) {
-        for (var stack : stacks) {
-            postChange(stack.what());
         }
     }
 

@@ -560,10 +560,7 @@ public final class ComponentPlanner {
         return Map.copyOf(result);
     }
 
-    /**
-     * Computes the inventory that must be owned before the cycle transaction starts. A key that is both startup
-     * seed and stock-backed output is reserved once, at the larger requirement.
-     */
+    /** Computes the inventory that must be owned before the cycle transaction starts. */
     private static Map<AEKey, Long> cycleInitialReservations(Map<AEKey, PlannerAmount> requiredOutputs,
             Map<AEKey, Long> startingStock, CycleSolveResult result) {
         Map<AEKey, Long> reservations = new LinkedHashMap<>();
@@ -578,8 +575,10 @@ public final class ComponentPlanner {
             long demand = exactDemand.longValueExact();
             long initial = Math.max(0L, startingStock.getOrDefault(key, 0L));
             long deliverable = Math.max(0L, result.deliverableOutputs().getOrDefault(key, 0L));
-            long netNew = deliverable > initial ? deliverable - initial : 0L;
-            long stockBacked = demand - Math.min(demand, netNew);
+            // deliverable is the ending balance after the verified witness runs from initial stock. Preserve enough
+            // of that starting stock to cover both any net cycle consumption and the balance owed to downstream.
+            long endingSurplus = deliverable > demand ? deliverable - demand : 0L;
+            long stockBacked = initial - Math.min(initial, endingSurplus);
             if (stockBacked > 0L) reservations.merge(key, stockBacked, Math::max);
         });
         return Map.copyOf(reservations);
