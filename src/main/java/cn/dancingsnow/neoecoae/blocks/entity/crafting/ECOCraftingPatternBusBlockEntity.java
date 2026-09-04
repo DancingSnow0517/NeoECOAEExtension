@@ -269,17 +269,26 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (!lookup.isVerified()) {
             return null;
         }
+        ECOVerifiedFastPathRecipe verifiedRecipe = lookup.recipe();
+        if (verifiedRecipe == null) {
+            return null;
+        }
         RankedWorker best = findBestDispatchCandidate();
         if (best == null) {
             return null;
         }
         // calculateBatchOfferSize is monotone in the worker's free slots, so the highest-ranked candidate also
         // has the largest offer. Taking it keeps a batch concentrated on one worker instead of splitting it.
-        int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, best.availableSlots(), globalAvailableSlots);
+        int maxBatchSize = calculateBatchOfferSize(
+            requestedBatchSize,
+            best.availableSlots(),
+            globalAvailableSlots,
+            verifiedRecipe.arithmeticBatchLimit()
+        );
         if (maxBatchSize <= 0) {
             return null;
         }
-        return new BatchFastPathOffer(best.worker(), lookup.recipe(), maxBatchSize);
+        return new BatchFastPathOffer(best.worker(), verifiedRecipe, maxBatchSize);
     }
 
     /**
@@ -361,6 +370,24 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      */
     static int calculateBatchOfferSize(int requestedBatchSize, int workerAvailableSlots, int hostAvailableSlots) {
         return Math.max(0, Math.min(requestedBatchSize, Math.min(workerAvailableSlots, hostAvailableSlots)));
+    }
+
+    /**
+     * Applies the recipe's own arithmetic/state limit after the live host-capacity calculation. A durability
+     * recipe may have fewer remaining uses than one F-series machine batch can hold, and that final partial batch
+     * must be offered at its actual safe size so the verified execution can accept it.
+     */
+    static int calculateBatchOfferSize(
+            int requestedBatchSize,
+            int workerAvailableSlots,
+            int hostAvailableSlots,
+            long recipeBatchLimit
+    ) {
+        long boundedRecipeLimit = Math.max(0L, Math.min((long) Integer.MAX_VALUE, recipeBatchLimit));
+        return (int) Math.min(
+            (long) calculateBatchOfferSize(requestedBatchSize, workerAvailableSlots, hostAvailableSlots),
+            boundedRecipeLimit
+        );
     }
 
     @Override
