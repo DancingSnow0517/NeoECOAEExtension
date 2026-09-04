@@ -942,14 +942,33 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (GenericStack entry : pendingEntries) {
             AEKey key = entry.what();
             long remaining = entry.amount();
-            long insertedIntoCpus = validateInsertionAmount(
-                craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
-                remaining,
-                "crafting CPUs"
-            );
+            long insertedIntoCpus;
+            boolean routedToOwningJob = craftingJobId != null
+                && craftingService instanceof ECOCraftingOutputRouter;
+            if (routedToOwningJob) {
+                insertedIntoCpus = validateInsertionAmount(
+                    ((ECOCraftingOutputRouter) craftingService).neoecoae$insertIntoCpuForJob(
+                        craftingJobId, key, remaining, Actionable.MODULATE),
+                    remaining,
+                    "owning crafting CPU"
+                );
+            } else {
+                insertedIntoCpus = validateInsertionAmount(
+                    craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
+                    remaining,
+                    "crafting CPUs"
+                );
+            }
             if (insertedIntoCpus > 0L) {
                 remaining -= insertedIntoCpus;
                 removePendingOutput(stacks, key, insertedIntoCpus);
+            }
+
+            // An ECO worker knows which CPU owns its output. Never fall through to another CPU or network storage
+            // when that owner has not accepted it yet; doing so loses the job's dependency edge permanently.
+            if (routedToOwningJob && remaining > 0L) {
+                logBlockedOutput("owning-cpu-unavailable", stacks);
+                continue;
             }
 
             if (remaining > 0L) {

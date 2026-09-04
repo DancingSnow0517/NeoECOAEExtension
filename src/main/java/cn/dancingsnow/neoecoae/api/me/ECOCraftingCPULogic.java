@@ -1834,6 +1834,24 @@ public class ECOCraftingCPULogic {
         return amount;
     }
 
+    /**
+     * Accepts a worker output only when this CPU still owns the supplied crafting job.
+     *
+     * <p>Worker outputs carry the job id, but AE2's legacy {@code insertIntoCpus} API does not. Keeping this
+     * guard at the CPU boundary prevents an output from being assigned to another CPU that happens to wait for
+     * the same key.</p>
+     */
+    public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        if (craftingJobId == null || job == null || !craftingJobId.equals(job.link.getCraftingID())) {
+            return 0L;
+        }
+        return insert(what, amount, type);
+    }
+
+    public boolean hasCraftingJob(UUID craftingJobId) {
+        return craftingJobId != null && job != null && craftingJobId.equals(job.link.getCraftingID());
+    }
+
     private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
         if (job == null || amount <= 0L) {
             return 0L;

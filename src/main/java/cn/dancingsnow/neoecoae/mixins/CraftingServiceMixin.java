@@ -19,6 +19,7 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
@@ -47,9 +48,10 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @Mixin(CraftingService.class)
-public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings {
+public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter {
     @Unique
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
         "neoecoaeIgnorePatternSubstitutions";
@@ -380,6 +382,54 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 }
             }
         }
+    }
+
+    /**
+     * Routes an ECO worker's output to the CPU that owns its job. The normal AE2 insertion API is intentionally
+     * key-only and can therefore assign a shared intermediate output to the wrong CPU when several jobs wait for
+     * the same key.
+     */
+    @Override
+    public long neoecoae$insertIntoCpuForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        if (craftingJobId == null || what == null || amount <= 0L) {
+            return 0L;
+        }
+        long inserted = neoecoae$insertIntoCachedCpuForJob(craftingJobId, what, amount, type);
+        if (inserted > 0L) {
+            return inserted;
+        }
+
+        // A newly submitted CPU can finish a virtual batch before CraftingService has run updateCPUClusters.
+        // Consult the live grid as a fallback so the output is retained for the right job during that window.
+        Set<NEComputationCluster> liveClusters = new HashSet<>();
+        for (ECOComputationSystemBlockEntity host : this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            if (host.getCluster() != null) {
+                liveClusters.add(host.getCluster());
+            }
+        }
+        for (NEComputationCluster cluster : liveClusters) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
+                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
+                }
+            }
+        }
+        return 0L;
+    }
+
+    @Unique
+    private long neoecoae$insertIntoCachedCpuForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
+            if (cluster == null) {
+                continue;
+            }
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
+                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
+                }
+            }
+        }
+        return 0L;
     }
 
     @Definition(id = "findSuitableCraftingCPU", method = "appeng/me/service/CraftingService.findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;")
