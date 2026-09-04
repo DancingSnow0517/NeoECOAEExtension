@@ -111,6 +111,9 @@ dependencies {
 
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
+    // Optional transfer fast path. Never place this on the default runtime classpath.
+    compileOnly("maven.modrinth:sophisticated-core:1.21.1-1.4.90.2299")
+
     // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
     compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
     runtimeOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }

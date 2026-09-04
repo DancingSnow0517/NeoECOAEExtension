@@ -23,6 +23,11 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOTransferScheduler.class);
     private static final int RECONCILE_INTERVAL = 200;
     private static final int MAX_BACKOFF = 200;
+    static final int INITIAL_CHUNK_SIZE = 4_096;
+    static final int MIN_CHUNK_SIZE = 64;
+    static final int MAX_CHUNK_SIZE = 65_536;
+    static final long SLOW_EXTRACT_NANOS = 1_000_000L;
+    static final long FAST_EXTRACT_NANOS = 250_000L;
 
     private final ECOFiniteStorageDomain domain;
     private final IGrid grid;
@@ -35,8 +40,11 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     private final ArrayDeque<AEKey> dirtyQueue = new ArrayDeque<>();
     private final Set<AEKey> queued = new HashSet<>();
     private final Set<AEKey> halted = new HashSet<>();
+    private final Set<AEKey> transferHalted = new HashSet<>();
+    private final Set<AEKey> flushHalted = new HashSet<>();
     private final Map<AEKey, Long> nextRetryTick = new HashMap<>();
     private final Map<AEKey, Integer> backoff = new HashMap<>();
+    private final Map<AEKey, AdaptiveChunk> adaptiveChunks = new HashMap<>();
     private final Object2LongMap<AEKey> snapshot = new Object2LongOpenHashMap<>();
     private long lastReconcileTick = Long.MIN_VALUE;
     private long lastAdapterFailureLogTick = Long.MIN_VALUE;
@@ -47,6 +55,23 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     private long reservations;
     private long rollbacks;
     private long reconciliations;
+    private long maxSingleExtractNanos;
+    private long currentGameTick;
+    private long lastFlushFailureLogTick = Long.MIN_VALUE;
+    private final ECOSophisticatedMutationBatch.FlushFailureSink flushSink =
+        new ECOSophisticatedMutationBatch.FlushFailureSink() {
+            @Override
+            public void onFlushFailure(Set<AEKey> keys, Throwable failure) {
+                ECOTransferScheduler.this.onFlushFailure(keys, failure);
+            }
+
+            @Override
+            public void onFlushSuccess(Set<AEKey> keys) {
+                flushHalted.removeAll(keys);
+                keys.stream().filter(key -> !transferHalted.contains(key)).forEach(halted::remove);
+                keys.forEach(ECOTransferScheduler.this::markDirty);
+            }
+        };
 
     public ECOTransferScheduler(
         ECOFiniteStorageDomain domain,
@@ -71,9 +96,9 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     public void start(long gameTick) {
         if (running) return;
         running = true;
-        reconcile(gameTick);
         try {
             adapter.subscribe(this);
+            reconcile(gameTick);
             adapter.refreshSnapshot(this);
         } catch (RuntimeException e) {
             logAdapterFailure(gameTick, e);
@@ -94,49 +119,59 @@ public final class ECOTransferScheduler implements SourceChangeSink {
 
     public long tick(long gameTick) {
         if (!running) return 0L;
+        currentGameTick = gameTick;
         if (lastReconcileTick == Long.MIN_VALUE || gameTick - lastReconcileTick >= RECONCILE_INTERVAL) {
             reconcile(gameTick);
         }
-        long start = System.nanoTime();
-        long moved = 0L;
-        int processed = 0;
-        int initialSize = dirtyQueue.size();
-        while (processed < keyBudget && initialSize-- > 0 && !dirtyQueue.isEmpty()) {
-            if (processed > 0 && System.nanoTime() - start >= nanosBudget) break;
-            AEKey key = dirtyQueue.removeFirst();
-            queued.remove(key);
-            if (halted.contains(key)) continue;
-            long retry = nextRetryTick.getOrDefault(key, Long.MIN_VALUE);
-            if (gameTick < retry) {
-                enqueue(key);
-                continue;
+        try (var batch = adapter.mutationBatch(flushSink)) {
+            long start = System.nanoTime();
+            long moved = 0L;
+            int processed = 0;
+            int initialSize = dirtyQueue.size();
+            while (processed < keyBudget && initialSize-- > 0 && !dirtyQueue.isEmpty()) {
+                if (processed > 0 && System.nanoTime() - start >= nanosBudget) break;
+                AEKey key = dirtyQueue.removeFirst();
+                queued.remove(key);
+                if (halted.contains(key)) continue;
+                long retry = nextRetryTick.getOrDefault(key, Long.MIN_VALUE);
+                if (gameTick < retry) {
+                    enqueue(key);
+                    continue;
+                }
+                ECOSophisticatedMutationBatch.setCurrentKey(key);
+                processed++;
+                long amount = domain.mode() == ECOStorageInterfaceMode.INPUT
+                    ? transferInput(key)
+                    : transferOutput(key);
+                moved = NEMath.saturatingAdd(moved, amount);
+                if (amount > 0L) {
+                    clearBackoff(key);
+                    mutationListener.run();
+                } else if (adapter.status() != ECOStorageSourceAdapter.Status.ACTIVE) {
+                    scheduleRetry(key, gameTick);
+                }
             }
-            processed++;
-            long amount = domain.mode() == ECOStorageInterfaceMode.INPUT
-                ? transferInput(key)
-                : transferOutput(key);
-            moved = NEMath.saturatingAdd(moved, amount);
-            if (amount > 0L) {
-                clearBackoff(key);
-                mutationListener.run();
-            } else {
-                scheduleRetry(key, gameTick);
-            }
+            ECOSophisticatedMutationBatch.setCurrentKey(null);
+            return moved;
         }
-        return moved;
     }
 
     private long transferInput(AEKey key) {
         long conventionalInfinite = NEMath.saturatingMultiply(Integer.MAX_VALUE, Math.max(1L, key.getAmountPerUnit()));
         // This bounded probe returns the exact amount for ordinary keys and can also discover a newly-dirty key that
         // was absent from the last full snapshot. Long.MAX_VALUE is reserved for threshold-sized candidates only.
+        boolean chunked = adapter.status() == ECOStorageSourceAdapter.Status.ACTIVE;
+        AdaptiveChunk adaptive = adaptiveChunks.computeIfAbsent(key, ignored -> new AdaptiveChunk());
+        long requestAmount = chunked
+            ? Math.min(conventionalInfinite, NEMath.saturatingMultiply(adaptive.size(), Math.max(1L, key.getAmountPerUnit())))
+            : conventionalInfinite;
         sourceSimulates++;
-        long extractable = network.extract(key, conventionalInfinite, Actionable.SIMULATE, source);
+        long extractable = observedExtract(key, requestAmount, Actionable.SIMULATE, adaptive);
         if (extractable <= 0L) return 0L;
-        if (extractable >= conventionalInfinite) {
+        if (!chunked && extractable >= conventionalInfinite) {
             longMaxProbes++;
             sourceSimulates++;
-            if (network.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE) {
+            if (observedExtract(key, Long.MAX_VALUE, Actionable.SIMULATE, adaptive) == Long.MAX_VALUE) {
                 return 0L;
             }
         }
@@ -148,7 +183,7 @@ public final class ECOTransferScheduler implements SourceChangeSink {
             return 0L;
         }
         sourceModulates++;
-        long extracted = network.extract(key, planned, Actionable.MODULATE, source);
+        long extracted = observedExtract(key, planned, Actionable.MODULATE, adaptive);
         if (extracted <= 0L) {
             reservation.rollback();
             return 0L;
@@ -163,9 +198,10 @@ public final class ECOTransferScheduler implements SourceChangeSink {
             }
         }
         long remaining = Math.max(0L, extractable - extracted);
-        if (remaining == 0L && extractable < conventionalInfinite) snapshot.removeLong(key);
+        boolean mayHaveMore = chunked && extractable >= requestAmount;
+        if (remaining == 0L && extractable < conventionalInfinite && !mayHaveMore) snapshot.removeLong(key);
         else {
-            snapshot.put(key, Math.max(remaining, 1L));
+            snapshot.put(key, Math.max(remaining, mayHaveMore ? 1L : 0L));
             enqueue(key);
         }
         return accepted;
@@ -207,9 +243,19 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     }
 
     private void reconcile(long gameTick) {
+        boolean periodicReconcile = lastReconcileTick != Long.MIN_VALUE;
         KeyCounter current = new KeyCounter();
         MEStorage observed = domain.mode() == ECOStorageInterfaceMode.INPUT ? network : domain;
-        observed.getAvailableStacks(current);
+        if (observed == network) {
+            try (var ignored = adapter.observationScope(this)) {
+                observed.getAvailableStacks(current);
+            } catch (Exception e) {
+                logAdapterFailure(gameTick, e instanceof RuntimeException runtime ? runtime : new RuntimeException(e));
+                observed.getAvailableStacks(current);
+            }
+        } else {
+            observed.getAvailableStacks(current);
+        }
         Set<AEKey> seen = new HashSet<>();
         for (Object2LongMap.Entry<AEKey> entry : current) {
             seen.add(entry.getKey());
@@ -224,6 +270,9 @@ public final class ECOTransferScheduler implements SourceChangeSink {
                 snapshot.removeLong(key);
                 markDirty(key);
             }
+        }
+        if (periodicReconcile && adapter.status() == ECOStorageSourceAdapter.Status.ACTIVE) {
+            for (AEKey key : snapshot.keySet()) markDirty(key);
         }
         lastReconcileTick = gameTick;
         reconciliations++;
@@ -242,7 +291,9 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     }
 
     public void wakeAll() {
+        transferHalted.clear();
         halted.clear();
+        halted.addAll(flushHalted);
         markAllDirty();
     }
 
@@ -267,8 +318,31 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     }
 
     private void halt(AEKey key, String reason) {
+        transferHalted.add(key);
         halted.add(key);
         LOGGER.error("ECO finite storage transfer halted for {}: {}", key, reason);
+    }
+
+    private long observedExtract(AEKey key, long amount, Actionable mode, AdaptiveChunk adaptive) {
+        long start = System.nanoTime();
+        try (var ignored = adapter.observationScope(this)) {
+            return network.extract(key, amount, mode, source);
+        } catch (Exception e) {
+            throw e instanceof RuntimeException runtime ? runtime : new RuntimeException(e);
+        } finally {
+            long elapsed = System.nanoTime() - start;
+            maxSingleExtractNanos = Math.max(maxSingleExtractNanos, elapsed);
+            adaptive.record(elapsed);
+        }
+    }
+
+    private void onFlushFailure(Set<AEKey> keys, Throwable failure) {
+        flushHalted.addAll(keys);
+        halted.addAll(keys);
+        if (lastFlushFailureLogTick == Long.MIN_VALUE || currentGameTick - lastFlushFailureLogTick >= 200L) {
+            lastFlushFailureLogTick = currentGameTick;
+            LOGGER.error("ECO Sophisticated batch flush failed; {} related keys were halted", keys.size(), failure);
+        }
     }
 
     private void logAdapterFailure(long gameTick, RuntimeException exception) {
@@ -279,8 +353,14 @@ public final class ECOTransferScheduler implements SourceChangeSink {
     }
 
     public Metrics metrics() {
+        var sophisticated = ECOSophisticatedMetrics.snapshot();
+        int adaptiveChunkSize = adaptiveChunks.values().stream().mapToInt(AdaptiveChunk::size)
+            .max().orElse(INITIAL_CHUNK_SIZE);
         return new Metrics(sourceSimulates, sourceModulates, longMaxProbes, reservations, rollbacks,
-            reconciliations, dirtyQueue.size(), halted.size());
+            reconciliations, dirtyQueue.size(), halted.size(), sophisticated.indexedExtracts(),
+            sophisticated.fallbackExtracts(), sophisticated.matchingSlots(), sophisticated.avoidedSlotScans(),
+            sophisticated.dirtySlotEvents(), sophisticated.deferredSaves(), sophisticated.batchFlushes(),
+            sophisticated.domainFlushFailures(), maxSingleExtractNanos, adaptiveChunkSize);
     }
 
     public record Metrics(
@@ -291,7 +371,40 @@ public final class ECOTransferScheduler implements SourceChangeSink {
         long rollbacks,
         long reconciliations,
         int dirtyQueueLength,
-        int haltedKeys
+        int haltedKeys,
+        long sophisticatedIndexedExtracts,
+        long sophisticatedFallbackExtracts,
+        long sophisticatedMatchingSlots,
+        long sophisticatedAvoidedSlotScans,
+        long sophisticatedDirtySlotEvents,
+        long sophisticatedDeferredSaves,
+        long sophisticatedBatchFlushes,
+        long domainFlushFailures,
+        long maxSingleExtractNanos,
+        int adaptiveChunkSize
     ) {
+    }
+
+    static final class AdaptiveChunk {
+        private int size = INITIAL_CHUNK_SIZE;
+        private int consecutiveFast;
+
+        int size() {
+            return size;
+        }
+
+        void record(long nanos) {
+            if (nanos > SLOW_EXTRACT_NANOS) {
+                size = Math.max(MIN_CHUNK_SIZE, size / 2);
+                consecutiveFast = 0;
+            } else if (nanos < FAST_EXTRACT_NANOS) {
+                if (++consecutiveFast >= 8) {
+                    size = Math.min(MAX_CHUNK_SIZE, size * 2);
+                    consecutiveFast = 0;
+                }
+            } else {
+                consecutiveFast = 0;
+            }
+        }
     }
 }

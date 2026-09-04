@@ -112,6 +112,14 @@ public class NEConfig {
             ECOCraftingFastPathCache.MAX_CACHE_SIZE
         );
 
+    private static final ModConfigSpec.BooleanValue ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION = BUILDER
+        .comment(
+            "启用 Sophisticated Storage 的可选 ECO 持续传输优化。",
+            "遇到整合包兼容冲突时可关闭；关闭后使用 AE2 通用路径和 200 tick 对账。",
+            "Enable the optional Sophisticated Storage ECO transfer optimization.",
+            "Disable this if a modpack encounters a compatibility conflict; AE2's generic path remains available.")
+        .define("enableSophisticatedTransferOptimization", true);
+
     static {
         BUILDER.pop();
     }
@@ -126,6 +134,7 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
+    public static boolean enableSophisticatedTransferOptimization = true;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -146,6 +155,7 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+        enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
     }
 
     public static int getCraftingPatternBusPages() {

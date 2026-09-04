@@ -840,9 +840,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private void onFiniteDomainMutation() {
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         setChanged();
-        if (finiteTransferScheduler != null) {
-            finiteTransferScheduler.wakeAll();
-        }
     }
 
     @Nullable
@@ -1409,9 +1406,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     protected void onMainNodeGridChanged() {
-        if (finiteTransferScheduler != null) {
-            finiteTransferScheduler.wakeAll();
-        }
+        // The scheduler captures the grid inventory and optional source bindings; rebuild both for a new epoch.
+        resetFiniteTransferScheduler();
     }
 
     @Override

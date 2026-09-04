@@ -1,0 +1,18 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.sophisticated",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AE2ItemHandlerFacadeMixin",
+    "CachedFailedInsertInventoryHandlerMixin",
+    "FilteredItemHandlerMixin",
+    "InventoryHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  }
+}

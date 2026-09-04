@@ -8,6 +8,10 @@ import java.util.List;
 public final class ECOStorageSourceAdapterRegistry {
     private final List<ECOStorageSourceAdapter> adapters = new ArrayList<>();
 
+    public ECOStorageSourceAdapterRegistry() {
+        register(new SophisticatedStorageSourceAdapter());
+    }
+
     public void register(ECOStorageSourceAdapter adapter) {
         adapters.add(adapter);
     }
