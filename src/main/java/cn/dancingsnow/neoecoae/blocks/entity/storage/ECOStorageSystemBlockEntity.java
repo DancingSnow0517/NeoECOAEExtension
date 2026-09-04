@@ -449,7 +449,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             }
 
             long usedTypes = inv.getStoredItemTypes();
-            long totalTypes = inv.getTotalItemTypes();
+            long totalTypes = inv.hasInfiniteTypeCapacity() ? -1L : inv.getTotalItemTypes();
             long usedBytes = inv.getUsedBytes();
             long totalBytes = inv.getTotalBytes();
             if (usedBytes <= 0L && usedTypes <= 0L) {

@@ -63,7 +63,7 @@ public final class HostText {
     }
 
     public static UsedTotal typeProgress(long used, long max) {
-        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
+        return new UsedTotal(ae2Amount(used), max < 0L ? "\u221E" : ae2Amount(max), Component.empty());
     }
 
     public static UsedTotal byteProgress(long used, long max) {
@@ -201,7 +201,11 @@ public final class HostText {
     }
 
     public static UsedTotal fullTypeProgress(long used, long max) {
-        return new UsedTotal(number(Math.max(0L, used)), number(Math.max(0L, max)), Component.empty());
+        return new UsedTotal(
+            number(Math.max(0L, used)),
+            max < 0L ? "\u221E" : number(max),
+            Component.empty()
+        );
     }
 
     public static UsedTotal fullByteProgressValues(long used, long max) {
