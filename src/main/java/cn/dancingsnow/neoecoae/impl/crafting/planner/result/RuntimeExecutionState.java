@@ -26,6 +26,7 @@ public final class RuntimeExecutionState {
     private final LinkedHashSet<Integer> readyTaskIds = new LinkedHashSet<>();
     private final TreeSet<Integer> readyPhases = new TreeSet<>();
     private final LinkedHashMap<AEKey, Integer> resourceIds = new LinkedHashMap<>();
+    private final AEKey[] resourceKeys;
     private final long[] onHand;
     private final long[] futureNeed;
     private final int[] consumedOffset;
@@ -67,6 +68,7 @@ public final class RuntimeExecutionState {
             semantics.producedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
             semantics.returnedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
         }
+        resourceKeys = resourceIds.keySet().toArray(AEKey[]::new);
         onHand = new long[resourceIds.size()];
         futureNeed = new long[resourceIds.size()];
         List<Integer> consumedResources = new ArrayList<>();
@@ -103,6 +105,14 @@ public final class RuntimeExecutionState {
     public long[] remainingSnapshot() { return remaining.clone(); }
     public long dynamicRemaining(int taskId) { return dynamicRemaining[checked(taskId)]; }
     public long[] dynamicRemainingSnapshot() { return dynamicRemaining.clone(); }
+    public int resourceCount() { return resourceKeys.length; }
+    public int resourceIdIfKnown(AEKey key) { return key == null ? -1 : resourceIds.getOrDefault(key, -1); }
+    public AEKey keyByResourceId(int resourceId) {
+        if (resourceId < 0 || resourceId >= resourceKeys.length) {
+            throw new IllegalArgumentException("Unknown resource " + resourceId);
+        }
+        return resourceKeys[resourceId];
+    }
     public long onHand(AEKey key) { int id = resourceIds.getOrDefault(key, -1); return id < 0 ? 0L : onHand[id]; }
     public long futureNeed(AEKey key) { int id = resourceIds.getOrDefault(key, -1); return id < 0 ? 0L : futureNeed[id]; }
     public long reserve(AEKey key) { return futureNeed(key); }

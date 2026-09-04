@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.Map;
 import java.util.LinkedHashMap;
@@ -114,9 +115,14 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
 
     private boolean batchingStatusChanges = false;
-    private final Set<AEKey> batchedStatusChanges = new HashSet<>();
+    private final Set<AEKey> fallbackStatusChanges = new HashSet<>();
+    private RuntimeExecutionState dirtyResourceState;
+    private int[] dirtyResourceQueue = new int[0];
+    private boolean[] dirtyResourcePresent = new boolean[0];
+    private int dirtyResourceCount;
     private boolean batchedAnyStatusChange = false;
     private boolean batchedFullStatusChange = false;
+    private boolean cpuDirtyRequested = false;
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
     private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
@@ -212,6 +218,7 @@ public class ECOCraftingCPULogic {
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
         initializeRuntimeOwnershipFromPhysicalState(this.job, false);
+        initializeDirtyResourceQueue(this.job.runtimeExecutionState());
         providerTopologyCache.clear();
         resetBatchProbeBudgetForCurrentTick();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
@@ -224,7 +231,7 @@ public class ECOCraftingCPULogic {
 
         // 合成监视器暂不支持
         // cpu.updateOutput(plan.finalOutput());
-        cpu.markDirty();
+        markCpuDirty();
 
         // TODO: 发送监视器差异？
 
@@ -300,6 +307,7 @@ public class ECOCraftingCPULogic {
             // One engine pass is one tick. The pass snapshots eligible task ids; the ordinary dispatch strategy
             // decides how many one-craft provider calls may fill the currently available parallel lanes.
             executeCrafting(remainingOperations, cc, eg, level);
+            // Dispatch normally flushed this projection together with status changes. This covers pre-batch exits.
             if (job != null) job.flushRuntimeTick();
         } else {
             logStalledDispatch(job, job.activePhase(), remainingOperations, new DispatchDiagnostics(),
@@ -333,7 +341,7 @@ public class ECOCraftingCPULogic {
         long accepted = currentJob.bufferedFinalOutput.accept(extracted, Actionable.MODULATE);
         if (accepted != extracted) throw new IllegalStateException("Final-output buffer rejected CPU-owned surplus");
         postChange(key);
-        cpu.markDirty();
+        markCpuDirty();
         drainBufferedFinalOutput(currentJob);
     }
 
@@ -383,7 +391,7 @@ public class ECOCraftingCPULogic {
         }
         currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
-        cpu.markDirty();
+        markCpuDirty();
         if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
             finishJob(true);
         }
@@ -439,7 +447,7 @@ public class ECOCraftingCPULogic {
         providerTopologyCache.clear();
         resetBatchProbeBudgetForCurrentTick();
 
-        beginStatusChangeBatch();
+        beginStatusChangeBatch(job);
         try {
             List<ExecutingCraftingJob.DispatchTask> readyTasks = job.eligibleDispatchTasks();
             int fairQuantum = readyTasks.isEmpty() ? 0 : Math.max(1, maxPatterns / readyTasks.size());
@@ -450,7 +458,6 @@ public class ECOCraftingCPULogic {
             taskLoop: while (taskIndex < eligibleTasks.size()) {
                 var task = eligibleTasks.get(taskIndex++);
                 if (task.progress().value <= 0) {
-                    postPatternOutputsChange(task.pattern());
                     continue;
                 }
 
@@ -544,7 +551,6 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, batchDispatch));
-                        postPatternOutputsChange(details);
                         if (task.progress().value <= 0) {
                             continue taskLoop;
                         }
@@ -682,7 +688,6 @@ public class ECOCraftingCPULogic {
                             pushedPatterns++;
                             if (this.job != job) break taskLoop;
                             eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, single));
-                            postPatternOutputsChange(details);
                             if (task.progress().value <= 0) continue taskLoop;
                             if (pushedPatterns == maxPatterns) break taskLoop;
                             continue;
@@ -699,7 +704,7 @@ public class ECOCraftingCPULogic {
                 }
             }
         } finally {
-            endStatusChangeBatchSafely();
+            endStatusChangeBatchSafely(job);
         }
 
         if (pushedPatterns == 0) {
@@ -1695,7 +1700,7 @@ public class ECOCraftingCPULogic {
                 expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());
-        cpu.markDirty();
+        markCpuDirty();
     }
 
     /**
@@ -1716,7 +1721,7 @@ public class ECOCraftingCPULogic {
             job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
             postGenericStackKeysChange(List.of(remainder));
         }
-        cpu.markDirty();
+        markCpuDirty();
     }
 
     private long maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, long requested) {
@@ -1749,7 +1754,7 @@ public class ECOCraftingCPULogic {
             postChange(expectedContainerItem.getKey());
         }
 
-        cpu.markDirty();
+        markCpuDirty();
     }
 
     private static boolean isPeriodicLogDue(long previousTick, long tick, long intervalTicks) {
@@ -1794,7 +1799,7 @@ public class ECOCraftingCPULogic {
         if (type == Actionable.MODULATE && !what.matches(job.finalOutput)) {
             job.timeTracker.decrementItems(amount, what.getType());
             job.waitingFor.extract(what, amount, Actionable.MODULATE);
-            cpu.markDirty();
+            markCpuDirty();
         }
 
         if (what.matches(job.finalOutput)) {
@@ -1816,7 +1821,7 @@ public class ECOCraftingCPULogic {
                     currentJob.runtimeExecutionState().acceptOutput(what, acceptedOwnership);
                 }
                 postChange(what);
-                cpu.markDirty();
+                markCpuDirty();
                 drainBufferedFinalOutput(currentJob);
             }
             return acceptedOwnership;
@@ -1937,6 +1942,7 @@ public class ECOCraftingCPULogic {
         // 结束任务。
         this.job = null;
         providerTopologyCache.clear();
+        if (!batchingStatusChanges) initializeDirtyResourceQueue(null);
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -1953,7 +1959,7 @@ public class ECOCraftingCPULogic {
                 buffered
             );
             job.bufferedFinalOutput.removeDelivered(buffered);
-            cpu.markDirty();
+            markCpuDirty();
             return;
         }
         AEKey key = job.finalOutput.what();
@@ -1965,7 +1971,7 @@ public class ECOCraftingCPULogic {
         inventory.list.add(key, buffered);
         job.bufferedFinalOutput.removeDelivered(buffered);
         postChange(key);
-        cpu.markDirty();
+        markCpuDirty();
     }
 
     /**
@@ -2020,7 +2026,7 @@ public class ECOCraftingCPULogic {
         }
         this.inventory.list.removeZeros();
 
-        cpu.markDirty();
+        markCpuDirty();
     }
 
     private void postChange(@Nullable AEKey what) {
@@ -2028,8 +2034,17 @@ public class ECOCraftingCPULogic {
             batchedAnyStatusChange = true;
             if (what == null) {
                 batchedFullStatusChange = true;
-            } else {
-                batchedStatusChanges.add(what);
+                clearQueuedStatusChanges();
+            } else if (!batchedFullStatusChange) {
+                int resourceId = dirtyResourceState == null ? -1 : dirtyResourceState.resourceIdIfKnown(what);
+                if (resourceId >= 0 && resourceId < dirtyResourcePresent.length) {
+                    if (!dirtyResourcePresent[resourceId]) {
+                        dirtyResourcePresent[resourceId] = true;
+                        dirtyResourceQueue[dirtyResourceCount++] = resourceId;
+                    }
+                } else {
+                    fallbackStatusChanges.add(what);
+                }
             }
             return;
         }
@@ -2040,67 +2055,89 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    private void beginStatusChangeBatch() {
+    private void beginStatusChangeBatch(ExecutingCraftingJob dispatchJob) {
+        RuntimeExecutionState runtimeState = dispatchJob.runtimeExecutionState();
+        if (dirtyResourceState != runtimeState) initializeDirtyResourceQueue(runtimeState);
+        clearStatusBatchState();
         batchingStatusChanges = true;
-        batchedStatusChanges.clear();
-        batchedAnyStatusChange = false;
-        batchedFullStatusChange = false;
     }
 
-    private void endStatusChangeBatch() {
+    private void endStatusChangeBatch(ExecutingCraftingJob dispatchJob) {
         batchingStatusChanges = false;
+        boolean anyStatusChange = batchedAnyStatusChange;
+        boolean fullStatusChange = batchedFullStatusChange;
+        boolean markDirty = cpuDirtyRequested;
+        RuntimeExecutionState resourceState = dirtyResourceState;
+        int[] changedResourceIds = fullStatusChange
+            ? new int[0] : Arrays.copyOf(dirtyResourceQueue, dirtyResourceCount);
+        AEKey[] fallbackKeys = fullStatusChange
+            ? new AEKey[0] : fallbackStatusChanges.toArray(AEKey[]::new);
 
-        if (!batchedAnyStatusChange) {
-            return;
-        }
+        clearStatusBatchState();
+        if (this.job != dispatchJob) initializeDirtyResourceQueue(null);
+
+        if (this.job == dispatchJob) dispatchJob.flushRuntimeTick();
+        if (markDirty) cpu.markDirty();
+        if (!anyStatusChange) return;
 
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
-
-        if (batchedFullStatusChange) {
-            batchedStatusChanges.clear();
-            batchedAnyStatusChange = false;
-            batchedFullStatusChange = false;
-
-            for (var listener : listeners) {
-                listener.accept(null);
-            }
+        if (fullStatusChange) {
+            for (var listener : listeners) listener.accept(null);
             return;
         }
-
-        var changedKeys = List.copyOf(batchedStatusChanges);
-        batchedStatusChanges.clear();
-        batchedAnyStatusChange = false;
-        batchedFullStatusChange = false;
-
-        for (AEKey key : changedKeys) {
-            for (var listener : listeners) {
-                listener.accept(key);
-            }
+        for (int resourceId : changedResourceIds) {
+            AEKey key = resourceState.keyByResourceId(resourceId);
+            for (var listener : listeners) listener.accept(key);
+        }
+        for (AEKey key : fallbackKeys) {
+            for (var listener : listeners) listener.accept(key);
         }
     }
 
-    private void endStatusChangeBatchSafely() {
+    private void endStatusChangeBatchSafely(ExecutingCraftingJob dispatchJob) {
         try {
-            endStatusChangeBatch();
+            endStatusChangeBatch(dispatchJob);
         } catch (RuntimeException e) {
             batchingStatusChanges = false;
-            batchedStatusChanges.clear();
-            batchedAnyStatusChange = false;
-            batchedFullStatusChange = false;
+            clearStatusBatchState();
             throw e;
         } catch (Error e) {
             // Error is included so status-batching bookkeeping is reset before the failure escapes.
             batchingStatusChanges = false;
-            batchedStatusChanges.clear();
-            batchedAnyStatusChange = false;
-            batchedFullStatusChange = false;
+            clearStatusBatchState();
             throw e;
         }
     }
 
-    private void postPatternOutputsChange(IPatternDetails details) {
-        for (var output : details.getOutputs()) {
-            postChange(output.what());
+    private void initializeDirtyResourceQueue(@Nullable RuntimeExecutionState runtimeState) {
+        clearStatusBatchState();
+        dirtyResourceState = runtimeState;
+        int resourceCount = runtimeState == null ? 0 : runtimeState.resourceCount();
+        dirtyResourceQueue = new int[resourceCount];
+        dirtyResourcePresent = new boolean[resourceCount];
+        dirtyResourceCount = 0;
+    }
+
+    private void clearQueuedStatusChanges() {
+        for (int i = 0; i < dirtyResourceCount; i++) {
+            dirtyResourcePresent[dirtyResourceQueue[i]] = false;
+        }
+        dirtyResourceCount = 0;
+        fallbackStatusChanges.clear();
+    }
+
+    private void clearStatusBatchState() {
+        clearQueuedStatusChanges();
+        batchedAnyStatusChange = false;
+        batchedFullStatusChange = false;
+        cpuDirtyRequested = false;
+    }
+
+    private void markCpuDirty() {
+        if (batchingStatusChanges) {
+            cpuDirtyRequested = true;
+        } else {
+            cpu.markDirty();
         }
     }
 
@@ -2137,6 +2174,7 @@ public class ECOCraftingCPULogic {
             providerTopologyCache.clear();
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             initializeRuntimeOwnershipFromPhysicalState(this.job, true);
+            initializeDirtyResourceQueue(this.job.runtimeExecutionState());
             if (this.job.finalOutput == null) {
                 finishJob(false);
             }
