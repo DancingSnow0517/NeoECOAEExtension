@@ -7,11 +7,14 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -57,11 +60,21 @@ public class CPUSelectionListMixin {
         cancellable = true
     )
     private void onFormatStorage(CraftingStatusMenu.CraftingCpuListEntry cpu, CallbackInfoReturnable<String> cir) {
-        long storage = cpu.storage();
-        if (storage >= 1024 * 1024 * 1024) {
-            Tooltips.Amount amount = Tooltips.getByteAmount(storage);
-            cir.setReturnValue(amount.digit() + amount.unit());
+        cir.setReturnValue(NEByteFormatter.formatCpuStorage(cpu.storage()));
+    }
+
+    @WrapOperation(
+        method = "getTooltip",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
+        )
+    )
+    private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original) {
+        if (storage >= 1L << 30) {
+            return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
         }
+        return original.call(storage);
     }
 
     @WrapOperation(
