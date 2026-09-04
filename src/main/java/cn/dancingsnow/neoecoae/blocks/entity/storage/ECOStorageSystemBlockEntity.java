@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -819,6 +820,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     sourceAdapterRegistry,
                     STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK,
                     STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK,
+                    NEConfig.storageTransferRate,
                     this::onFiniteDomainMutation
                 );
                 finiteTransferScheduler.start(level.getGameTime());

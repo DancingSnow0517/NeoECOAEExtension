@@ -9,6 +9,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
+    public static final long MAX_STORAGE_TRANSFER_RATE = Long.MAX_VALUE;
     public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
@@ -120,6 +121,14 @@ public class NEConfig {
             "Disable this if a modpack encounters a compatibility conflict; AE2's generic path remains available.")
         .define("enableSophisticatedTransferOptimization", true);
 
+    private static final ModConfigSpec.LongValue STORAGE_TRANSFER_RATE = BUILDER
+        .comment(
+            "有限存储域每 tick 的最大转移数量。",
+            "默认值为 Long.MAX_VALUE；可设置为 1 到 Long.MAX_VALUE。",
+            "Maximum amount transferred by a finite storage domain per tick.",
+            "Defaults to Long.MAX_VALUE; valid range is 1 to Long.MAX_VALUE.")
+        .defineInRange("storageTransferRate", Integer.MAX_VALUE, 1L, MAX_STORAGE_TRANSFER_RATE);
+
     static {
         BUILDER.pop();
     }
@@ -135,6 +144,7 @@ public class NEConfig {
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
     public static boolean enableSophisticatedTransferOptimization = true;
+    public static long storageTransferRate = Integer.MAX_VALUE;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -156,6 +166,7 @@ public class NEConfig {
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
+        storageTransferRate = Math.clamp(STORAGE_TRANSFER_RATE.get(), 1L, MAX_STORAGE_TRANSFER_RATE);
     }
 
     public static int getCraftingPatternBusPages() {

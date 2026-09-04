@@ -38,10 +38,19 @@ public final class ECOSophisticatedSourceRegistry {
         SourceChangeSink sink = observation.sink();
         Object base = findBaseHandler(outerHandler);
         if (!(base instanceof ECOSophisticatedHandlerBridge bridge) || bridge.neoecoae$getSlots() <= 0) return;
+        boolean newlyBound = false;
         synchronized (BINDINGS) {
-            Binding binding = BINDINGS.computeIfAbsent(base, ignored -> new Binding(bridge));
+            Binding binding = BINDINGS.get(base);
+            if (binding == null) {
+                binding = new Binding(bridge);
+                BINDINGS.put(base, binding);
+                newlyBound = true;
+            }
             binding.add(sink);
             binding.refreshBaseline(bridge);
+            if (newlyBound) {
+                for (AEKey key : binding.slotKeys.values()) sink.markDirty(key);
+            }
         }
         observation.handlerObserved().run();
     }

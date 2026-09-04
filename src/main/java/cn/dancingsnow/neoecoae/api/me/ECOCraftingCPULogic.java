@@ -338,10 +338,6 @@ public class ECOCraftingCPULogic {
         long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
         long reserve = currentJob.finalOutputFeedbackReserve(key);
         long surplus = Math.max(0L, stored - Math.min(stored, reserve));
-        if (surplus <= 0L && stored > 0L) {
-            LOGGER.debug("[ECO-CYCLE-RESOURCE] blocked external consumption cycle output item={} stored={} reserve={} reason=kept_cycle_reserve",
-                key, stored, reserve);
-        }
         if (surplus <= 0L) return;
         long transferable = currentJob.bufferedFinalOutput.accept(surplus, Actionable.SIMULATE);
         if (transferable <= 0L) return;
@@ -730,6 +726,7 @@ public class ECOCraftingCPULogic {
     private void logStalledDispatch(ExecutingCraftingJob stalledJob,
             @Nullable cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule.ComponentExecutionPhase phase,
             int maxPatterns, DispatchDiagnostics diagnostics, String reason) {
+        if (Boolean.FALSE.booleanValue()) {
         long tick = TickHandler.instance().getCurrentTick();
         long elapsed = tick - lastStalledDispatchLogTick;
         if (lastStalledDispatchLogTick != Long.MIN_VALUE && elapsed >= 0L
@@ -778,6 +775,7 @@ public class ECOCraftingCPULogic {
         }
     }
 
+        }
     private void recordMissingInputDiagnostic(DispatchDiagnostics diagnostics, IPatternDetails pattern,
             String callSite) {
         diagnostics.missingInputReasons.add("Missing input extraction failed at " + callSite + ".");
@@ -887,6 +885,10 @@ public class ECOCraftingCPULogic {
     }
 
     private void flushReturnTraces(long tick) {
+        pendingReturnTraces.clear();
+        lastReturnTraceLogTick = tick;
+        return;
+        /*
         for (var entry : pendingReturnTraces.entrySet()) {
             LOGGER.warn("ECO crafting input return summary: job={} callSite={} item={} returnEvents={} returnedAmount={} windowTicks={}",
                 pendingReturnTraceJob == null ? "none" : pendingReturnTraceJob, entry.getKey().callSite(),
@@ -895,6 +897,7 @@ public class ECOCraftingCPULogic {
         }
         pendingReturnTraces.clear();
         lastReturnTraceLogTick = tick;
+        */
     }
 
     private List<String> describePatternInputs(IPatternDetails pattern) {
@@ -1885,6 +1888,12 @@ public class ECOCraftingCPULogic {
     }
 
     private void flushDispatchTrace(long tick) {
+        pendingDispatchTraceJob = null;
+        pendingDispatchTraceEvents = 0L;
+        pendingDispatchTraceCrafts = 0L;
+        lastDispatchTraceLogTick = tick;
+        return;
+        /*
         if (pendingDispatchTraceJob == null || pendingDispatchTraceEvents == 0) return;
         LOGGER.debug("ECO crafting dispatch summary: job={} acceptedEvents={} acceptedCrafts={} windowTicks={}",
             pendingDispatchTraceJob, pendingDispatchTraceEvents, pendingDispatchTraceCrafts,
@@ -1893,6 +1902,7 @@ public class ECOCraftingCPULogic {
         pendingDispatchTraceJob = null;
         pendingDispatchTraceEvents = 0L;
         pendingDispatchTraceCrafts = 0L;
+        */
     }
 
     private static boolean isPeriodicLogDue(long previousTick, long tick, long intervalTicks) {

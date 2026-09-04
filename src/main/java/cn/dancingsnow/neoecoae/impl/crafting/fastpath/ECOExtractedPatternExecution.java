@@ -329,7 +329,7 @@ public final class ECOExtractedPatternExecution {
     }
 
     public boolean fastPathEligible() {
-        return fastPathRejectionReason == null;
+        return false;
     }
 
     /**
@@ -341,10 +341,7 @@ public final class ECOExtractedPatternExecution {
     }
 
     public boolean canUseFastPath() {
-        return key != null
-            && fastPathRejectionReason == null
-            && NEConfig.ecoAe2FastPathEnabled
-            && !NEConfig.postCraftingEvent;
+        return false;
     }
 
     @Nullable
