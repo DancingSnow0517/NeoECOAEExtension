@@ -50,6 +50,7 @@ class RuntimeExecutionStateTest {
         assertEquals(List.of(2), state.applyAccepted(1, 1L));
         assertEquals(1, state.phaseIndex(), "phase completion depends only on dispatched task counts");
         assertEquals(List.of(2), state.eligibleTaskIds());
+        state.acceptOutput(a, 1L);
         state.applyAccepted(2, 1L);
         assertTrue(state.finished());
     }
@@ -156,13 +157,45 @@ class RuntimeExecutionStateTest {
         var state = new RuntimeExecutionState(new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE,
             tasks, phases, schedule));
 
+        state.restoreOwnership(Map.of(material, 99L, seed, 99L));
         assertEquals(List.of(0), state.eligibleTaskIds(), "the cycle must still be blocked by its DAG input");
         assertEquals(99L, state.pendingCycleFeedbackReserve(seed),
             "network seed must remain CPU-owned before the cycle phase becomes eligible");
         state.applyAccepted(0, 99L);
         assertEquals(List.of(1), state.eligibleTaskIds());
+        state.acceptOutput(prepared, 99L);
         state.applyAccepted(1, 99L);
         assertEquals(0L, state.pendingCycleFeedbackReserve(seed));
+    }
+
+    @Test
+    void cycleKeepsBootstrapSeedAfterItsLastDispatch() {
+        var seed = PlannerTestKey.of("runtime_bootstrap_seed");
+        var grow = PlannerFixtures.pattern("grow_seed", seed, 2, seed, 1L);
+        var identity = PlanIdentity.patternIdentityFor(grow);
+        var task = new ECOExecutionPlan.TaskSpec(0, identity, grow,
+            ECOExecutionPlan.PatternRuntimeInfo.from(grow), 1L, 0,
+            ECOExecutionPlan.TaskKind.CYCLE_ORDERED);
+        var phase = new ECOExecutionPlan.PhaseSpec(0, 12, ECOExecutionSchedule.Type.CYCLE,
+            List.of(0), List.of(new ECOExecutionPlan.ExecutionStep(0, 1L)), List.of(),
+            Map.of(), Map.of(seed, 1L));
+        var signature = new PlanIdentity.Signature(seed, 1L, Map.of(identity, 1L),
+            Map.of(seed, 1L), Map.of(seed, 2L), Map.of());
+        var schedule = new ECOExecutionSchedule(List.of(
+            new ECOExecutionSchedule.ComponentExecutionPhase(12, ECOExecutionSchedule.Type.CYCLE,
+                Set.of(grow), List.of())));
+        var state = new RuntimeExecutionState(new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE,
+            List.of(task), List.of(phase), schedule));
+
+        state.restoreOwnership(Map.of(seed, 1L));
+        state.applyAccepted(0, 1L);
+
+        assertEquals(2L, state.cycleLedger(12).generated(seed));
+        assertEquals(1L, state.pendingCycleFeedbackReserve(seed),
+            "the bootstrap seed must stay reserved after the final cycle dispatch");
+        state.acceptOutput(seed, 2L);
+        assertEquals(1L, state.pendingCycleFeedbackReserve(seed),
+            "receiving the final output must not release the bootstrap seed");
     }
 
     private ECOExecutionPlan plan() {

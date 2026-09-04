@@ -163,46 +163,68 @@ public final class RuntimeExecutionState {
     }
 
     /**
-     * Amount of a feedback key that must remain CPU-owned while any ordered cycle still needs it.
+     * Amount of a feedback key that must remain CPU-owned while cycle work is part of this job.
      *
-     * <p>This deliberately includes cycle phases whose DAG dependencies have not completed yet. Looking only at
-     * {@link #eligibleTaskIds()} loses a network-provided startup seed before the cycle becomes runnable: the final
-     * output release path sees it as surplus and delivers it to the requester. The conservative upper bound mirrors
-     * the established active-cycle policy and naturally drops to zero as cycle task counts are accepted.</p>
+     * <p>The ordered-cycle estimate keeps enough feedback for the remaining compact runs. The cycle ledger adds the
+     * startup seed independently of the remaining task count, so the last output of a self-growing cycle cannot be
+     * released as requester output before the job is finished.</p>
      */
     public long pendingCycleFeedbackReserve(AEKey key) {
         if (key == null) return 0L;
         long reserve = 0L;
-        for (var task : plan.tasks()) {
-            if (remaining[task.id()] <= 0L) continue;
-            var phase = plan.phases().get(task.phaseIndex());
+        for (var phase : plan.phases()) {
             if (phase.type() == ECOExecutionSchedule.Type.DAG) continue;
-            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
-                if (dynamicPhaseRemaining[phase.index()] > 0L) {
-                    var ledger = cycleLedgers.get(phase.componentId());
-                    reserve = Math.max(reserve, ledger == null ? phase.initialSeed().getOrDefault(key, 0L)
-                        : Math.max(phase.initialSeed().getOrDefault(key, 0L), ledger.reserve(key)));
-                }
-                continue;
+
+            long phaseReserve = 0L;
+            var ledger = cycleLedgers.get(phase.componentId());
+            if (ledger != null) phaseReserve = ledger.reserve(key);
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE) {
+                phaseReserve = Math.max(phaseReserve, orderedCycleFeedbackReserve(phase, key));
             }
+            reserve = saturatedAdd(reserve, phaseReserve);
+        }
+        return reserve;
+    }
+
+    private long orderedCycleFeedbackReserve(ECOExecutionPlan.PhaseSpec phase, AEKey key) {
+        long reserve = 0L;
+        for (int taskId : phase.taskIds()) {
+            long taskRemaining = remaining[taskId];
+            if (taskRemaining <= 0L) continue;
             long perCraft = 0L;
-            for (var input : task.pattern().getInputs()) {
+            var inputs = plan.task(taskId).pattern().getInputs();
+            if (inputs == null) continue;
+            for (var input : inputs) {
                 if (input == null || input.getPossibleInputs() == null) continue;
                 for (var possible : input.getPossibleInputs()) {
                     if (possible != null && key.equals(possible.what())) {
-                        perCraft = Math.addExact(perCraft,
-                            Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                        perCraft = saturatedMultiplyAdd(perCraft, possible.amount(), input.getMultiplier());
                         break;
                     }
                 }
             }
-            try {
-                reserve = Math.addExact(reserve, Math.multiplyExact(perCraft, remaining[task.id()]));
-            } catch (ArithmeticException overflow) {
-                return Long.MAX_VALUE;
-            }
+            reserve = saturatedMultiplyAdd(reserve, perCraft, taskRemaining);
+            if (reserve == Long.MAX_VALUE) return reserve;
         }
         return reserve;
+    }
+
+    private static long saturatedMultiplyAdd(long base, long left, long right) {
+        if (base == Long.MAX_VALUE || left <= 0L || right <= 0L) return base;
+        try {
+            return Math.addExact(base, Math.multiplyExact(left, right));
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (left == Long.MAX_VALUE || right <= 0L) return left;
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
     }
     public List<Integer> applyAccepted(int taskId, long count) {
         commitAccepted(taskId, count);
@@ -213,7 +235,7 @@ public final class RuntimeExecutionState {
         return result;
     }
 
-    /** Commits dispatch consumption. Outputs are intentionally accounted only by acceptOutput. */
+    /** Commits dispatch consumption and the expected output needed to keep cycle startup stock reserved. */
     public void commitAccepted(int taskId, long count) {
         long permitted = dispatchLimit(taskId);
         if (count <= 0 || count > permitted) {
@@ -225,6 +247,7 @@ public final class RuntimeExecutionState {
                 throw new IllegalArgumentException("Dispatch consumption exceeds CPU ownership");
             }
         }
+        accountCycleResources(taskId, count);
         for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
             long amount = Math.multiplyExact(consumedAmount[row], count);
             int id = consumedResource[row];
@@ -262,6 +285,39 @@ public final class RuntimeExecutionState {
         if (phaseDone(phase)) completePhase(phase, null);
         updateActivePhaseIndex();
         collectCommittedReady = false;
+    }
+
+    private void accountCycleResources(int taskId, long count) {
+        var task = plan.task(taskId);
+        var ledger = cycleLedgers.get(plan.phases().get(task.phaseIndex()).componentId());
+        if (ledger == null) return;
+        var semantics = ECOPhaseScheduler.semantic(task.pattern());
+        for (var input : semantics.consumedInputs()) {
+            long amount;
+            try {
+                amount = Math.multiplyExact(input.amountPerPattern().longValueExact(), count);
+            } catch (ArithmeticException overflow) {
+                amount = Long.MAX_VALUE;
+            }
+            ledger.consume(input.key(), amount);
+        }
+        for (var output : semantics.producedOutputs()) {
+            if (output == null || output.what() == null || output.amount() <= 0L) continue;
+            ledger.recordGenerated(output.what(), saturatedMultiply(output.amount(), count));
+        }
+        for (var output : semantics.returnedOutputs()) {
+            if (output == null || output.what() == null || output.amount() <= 0L) continue;
+            ledger.recordGenerated(output.what(), saturatedMultiply(output.amount(), count));
+        }
+    }
+
+    private static long saturatedMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) return 0L;
+        try {
+            return Math.multiplyExact(left, right);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
     }
 
 

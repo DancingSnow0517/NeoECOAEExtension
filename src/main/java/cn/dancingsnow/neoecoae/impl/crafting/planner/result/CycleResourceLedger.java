@@ -37,16 +37,15 @@ public final class CycleResourceLedger {
         long before = reserve(key);
         long consumed = Math.min(before, amount);
         if (consumed > 0) bootstrapReserve.put(key, before - consumed);
-        internalConsumed.merge(key, amount, Math::addExact);
+        internalConsumed.merge(key, amount, CycleResourceLedger::saturatedAdd);
         log(key, before, reserve(key), 0, 0, "internal_consumed");
     }
 
     /** Records cycle output and replenishes reserve before exposing any surplus. */
     public long recordGenerated(AEKey key, long amount) {
         if (key == null || amount <= 0) return 0;
-        generated.merge(key, amount, Math::addExact);
+        generated.merge(key, amount, CycleResourceLedger::saturatedAdd);
         long before = reserve(key);
-        long target = Math.max(0L, before);
         long replenish = Math.min(amount, Math.max(0L, requiredReserve(key) - before));
         if (replenish > 0) bootstrapReserve.put(key, before + replenish);
         long surplus = amount - replenish;
@@ -63,12 +62,21 @@ public final class CycleResourceLedger {
 
     public long releaseSurplus(AEKey key, long amount) {
         long released = Math.min(Math.max(0L, amount), availableForOutside(key));
-        if (released > 0) releasedSurplus.merge(key, released, Math::addExact);
+        if (released > 0) releasedSurplus.merge(key, released, CycleResourceLedger::saturatedAdd);
         return released;
     }
 
     public void restoreReserve(AEKey key, long amount) {
-        if (key != null && amount > 0) bootstrapReserve.merge(key, amount, Math::addExact);
+        if (key != null && amount > 0) bootstrapReserve.merge(key, amount, CycleResourceLedger::saturatedAdd);
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (left == Long.MAX_VALUE || right <= 0L) return left;
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private void log(AEKey key, long before, long after, long produced, long released, String reason) {

@@ -117,6 +117,7 @@ class DynamicCyclePlanningTest {
         var plan = new ECOExecutionPlan(signature, ExecutionMode.DYNAMIC_CYCLE, tasks, List.of(phase), schedule);
 
         var state = new RuntimeExecutionState(plan);
+        state.restoreOwnership(Map.of(a, 1L));
         assertEquals(Set.of(0, 1), Set.copyOf(state.eligibleTaskIds()));
         assertEquals(2L, state.dispatchLimit(0));
         assertEquals(1L, state.pendingCycleFeedbackReserve(a));
@@ -126,14 +127,19 @@ class DynamicCyclePlanningTest {
         var restored = new RuntimeExecutionState(plan);
         restored.restore(state.remainingSnapshot(), state.dynamicRemainingSnapshot(),
             new int[] { state.stepIndex(0) }, new long[] { state.stepRemaining(0) });
+        restored.restoreOwnership(Map.of(a, 1L));
         assertEquals(1L, restored.dynamicRemaining(0));
         restored.applyAccepted(0, 1);
         assertEquals(List.of(1), restored.eligibleTaskIds());
+        restored.acceptOutput(b, 1L);
         restored.applyAccepted(1, 1);
         assertEquals(List.of(0), restored.eligibleTaskIds());
-        assertEquals(0L, restored.pendingCycleFeedbackReserve(a));
+        assertEquals(1L, restored.pendingCycleFeedbackReserve(a),
+            "the bootstrap seed remains reserved while aggregate cycle remainder is still runnable");
         assertEquals(1L, restored.dispatchLimit(0));
+        restored.acceptOutput(a, 1L);
         restored.applyAccepted(0, 1);
+        assertEquals(0L, restored.pendingCycleFeedbackReserve(a));
         assertTrue(restored.finished());
     }
 

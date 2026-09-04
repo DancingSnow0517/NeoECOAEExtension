@@ -245,7 +245,7 @@ public class ExecutingCraftingJob {
         if (runtimeExecutionState == null) {
             return ECOPhaseScheduler.compactCycleFeedbackReserve(activePhase(), this::remainingTasksFor, key);
         }
-        return runtimeExecutionState.reserve(key);
+        return Math.max(runtimeExecutionState.reserve(key), runtimeExecutionState.pendingCycleFeedbackReserve(key));
     }
 
     List<DispatchTask> eligibleDispatchTasks() {
