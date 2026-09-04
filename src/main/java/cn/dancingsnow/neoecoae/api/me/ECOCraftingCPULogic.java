@@ -51,6 +51,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedCraft;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.RuntimeExecutionState;
 import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedBridge;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOExternalBatchContracts;
@@ -120,6 +121,8 @@ public class ECOCraftingCPULogic {
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
     private static final long BATCH_REJECTION_LOG_INTERVAL_TICKS = 100L;
     private static final long STALLED_DISPATCH_LOG_INTERVAL_TICKS = 100L;
+    /** 4 列表格分隔线，长度与单元格总宽严格对齐（133 个 '-'）。 */
+    private static final String DISPATCH_TABLE_SEPARATOR = "-".repeat(133);
     private long lastBatchRejectionLogTick = Long.MIN_VALUE;
     private long lastStalledDispatchLogTick = Long.MIN_VALUE;
     private long batchProbeBudgetTick = Long.MIN_VALUE;
@@ -208,6 +211,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        initializeRuntimeOwnershipFromPhysicalState(this.job, false);
         providerTopologyCache.clear();
         resetBatchProbeBudgetForCurrentTick();
         this.lastStalledDispatchLogTick = Long.MIN_VALUE;
@@ -296,6 +300,7 @@ public class ECOCraftingCPULogic {
             // One engine pass is one tick. The pass snapshots eligible task ids; the ordinary dispatch strategy
             // decides how many one-craft provider calls may fill the currently available parallel lanes.
             executeCrafting(remainingOperations, cc, eg, level);
+            if (job != null) job.flushRuntimeTick();
         } else {
             logStalledDispatch(job, job.activePhase(), remainingOperations, new DispatchDiagnostics(),
                 "operation-limit-zero");
@@ -373,6 +378,9 @@ public class ECOCraftingCPULogic {
             return;
         }
         currentJob.bufferedFinalOutput.removeDelivered(accepted);
+        if (currentJob.runtimeExecutionState() != null) {
+            currentJob.runtimeExecutionState().releaseExternal(key, accepted);
+        }
         currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
         cpu.markDirty();
@@ -732,34 +740,43 @@ public class ECOCraftingCPULogic {
             : diagnostics.firstMissingInputPattern.getDefinition();
         Object requiredInputs = diagnostics.firstMissingInputPattern == null ? List.of()
             : describePatternInputs(diagnostics.firstMissingInputPattern);
-        LOGGER.warn(
-            "Stalled crafting job={} reason={} tick={} maxPatterns={} suspended={} phaseIndex={} phase={} "
-                + "witnessIndex={} expectedWitness={} taskKinds={} taskExecutions={} runnableTasks={} "
-                + "phaseRejected={} noProviders={} providersBusy={} missingInputs={} energyBlocked={} "
-                + "providerRejected={} missingInputPattern={} requiredInputs={} inventoryKinds={} waitingKinds={}",
-            stalledJob.link.getCraftingID(),
-            reason,
-            tick,
-            maxPatterns,
-            stalledJob.suspended,
-            stalledJob.currentComponentIndex,
-            phaseDescription,
-            stalledJob.cycleWitnessIndex,
-            expectedWitness,
-            stalledJob.tasks.size(),
-            remainingTaskCount(stalledJob),
-            diagnostics.runnableTasks,
-            diagnostics.phaseRejectedTasks,
-            diagnostics.tasksWithoutProviders,
-            diagnostics.tasksWithBusyProviders,
-            diagnostics.tasksMissingInputs,
-            diagnostics.energyBlockedProviders,
-            diagnostics.providerRejections,
-            missingInputPattern,
-            requiredInputs,
-            inventory.list.size(),
-            stalledJob.waitingFor.list.size()
-        );
+        // 以 4 列表格形式输出停滞发配诊断，便于观测
+        // 列布局：name1 | value1 | name2 | value2（每个单元格 30 字符，整行宽 133 字符）
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn("Stalled crafting job=" + stalledJob.link.getCraftingID() + "  reason=" + reason);
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn(formatStalledDispatchRow("tick", tick, "maxPatterns", maxPatterns));
+        LOGGER.warn(formatStalledDispatchRow("suspended", stalledJob.suspended, "phaseIndex", stalledJob.currentComponentIndex));
+        LOGGER.warn(formatStalledDispatchRow("phase", truncate(phaseDescription, 60), "witnessIndex", stalledJob.cycleWitnessIndex));
+        LOGGER.warn(formatStalledDispatchRow("expectedWitness", truncate(expectedWitness, 60), "taskKinds", stalledJob.tasks.size()));
+        LOGGER.warn(formatStalledDispatchRow("taskExecutions", remainingTaskCount(stalledJob), "inventoryKinds", inventory.list.size()));
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn("[ crafting diagnostics ]");
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn(formatStalledDispatchRow("runnableTasks", diagnostics.runnableTasks, "phaseRejected", diagnostics.phaseRejectedTasks));
+        LOGGER.warn(formatStalledDispatchRow("noProviders", diagnostics.tasksWithoutProviders, "providersBusy", diagnostics.tasksWithBusyProviders));
+        LOGGER.warn(formatStalledDispatchRow("missingInputs", diagnostics.tasksMissingInputs, "energyBlocked", diagnostics.energyBlockedProviders));
+        LOGGER.warn(formatStalledDispatchRow("providerRejected", diagnostics.providerRejections, "waitingKinds", stalledJob.waitingFor.list.size()));
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn("[ missing inputs ]");
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+        LOGGER.warn(formatStalledDispatchRow("missingInputPattern", truncate(missingInputPattern, 60), "requiredInputs", truncate(requiredInputs, 60)));
+        LOGGER.warn(DISPATCH_TABLE_SEPARATOR);
+    }
+
+    /** 将两个 name/value 对格式化为同一行："| name1 | value1 | name2 | value2 |"，每个单元格宽 30 字符。 */
+    private static String formatStalledDispatchRow(String name1, Object value1, String name2, Object value2) {
+        return String.format("| %-30s | %-30s | %-30s | %-30s |",
+            truncate(name1, 30), truncate(String.valueOf(value1), 30),
+            truncate(name2, 30), truncate(String.valueOf(value2), 30));
+    }
+
+    /** 截断过长的值，避免表格行宽失控。值为 null 时显示 "null"。 */
+    private static String truncate(Object value, int maxLen) {
+        if (value == null) return "null";
+        String s = String.valueOf(value);
+        if (s.length() <= maxLen) return s;
+        return s.substring(0, Math.max(0, maxLen - 3)) + "...";
     }
 
     private List<String> describePatternInputs(IPatternDetails pattern) {
@@ -1794,6 +1811,10 @@ public class ECOCraftingCPULogic {
                 // retry or make this CPU accept the same physical output again.
                 currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
                 currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
+                // A CPU ownership event is emitted only after the inventory/buffer accepted the physical stack.
+                if (currentJob.runtimeExecutionState() != null) {
+                    currentJob.runtimeExecutionState().acceptOutput(what, acceptedOwnership);
+                }
                 postChange(what);
                 cpu.markDirty();
                 drainBufferedFinalOutput(currentJob);
@@ -1802,6 +1823,11 @@ public class ECOCraftingCPULogic {
         } else {
             if (type == Actionable.MODULATE) {
                 inventory.insert(what, amount, Actionable.MODULATE);
+                long accepted = amount;
+                if (job.runtimeExecutionState() != null) {
+                    job.runtimeExecutionState().acceptOutput(what, accepted);
+                }
+                return accepted;
             }
         }
 
@@ -1829,6 +1855,22 @@ public class ECOCraftingCPULogic {
             );
         }
         return inserted;
+    }
+
+    private void initializeRuntimeOwnershipFromPhysicalState(ExecutingCraftingJob currentJob, boolean recovering) {
+        RuntimeExecutionState state = currentJob.runtimeExecutionState();
+        if (state == null) return;
+        Map<AEKey, Long> physical = new LinkedHashMap<>();
+        for (var entry : inventory.list) physical.merge(entry.getKey(), entry.getLongValue(), Math::addExact);
+        if (currentJob.finalOutput != null && currentJob.bufferedFinalOutput.amount() > 0L) {
+            physical.merge(currentJob.finalOutput.what(), currentJob.bufferedFinalOutput.amount(), Math::addExact);
+        }
+        if (recovering && !state.ownershipSnapshot().equals(physical)) {
+            LOGGER.error("Persisted ownership does not match CPU inventory and final-output buffer; blocking recovery");
+            currentJob.blockRecovery();
+            return;
+        }
+        state.restoreOwnership(physical);
     }
 
     private void logFinalOutputDeliveryFailure(RuntimeException e) {
@@ -1866,6 +1908,13 @@ public class ECOCraftingCPULogic {
 
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
+
+        RuntimeExecutionState runtimeState = job.runtimeExecutionState();
+        if (runtimeState != null) {
+            for (var owned : runtimeState.ownershipSnapshot().entrySet()) {
+                if (owned.getValue() > 0L) runtimeState.releaseExternal(owned.getKey(), owned.getValue());
+            }
+        }
 
         // 结束任务。
         this.job = null;
@@ -2069,6 +2118,7 @@ public class ECOCraftingCPULogic {
         if (data.contains("job")) {
             providerTopologyCache.clear();
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+            initializeRuntimeOwnershipFromPhysicalState(this.job, true);
             if (this.job.finalOutput == null) {
                 finishJob(false);
             }

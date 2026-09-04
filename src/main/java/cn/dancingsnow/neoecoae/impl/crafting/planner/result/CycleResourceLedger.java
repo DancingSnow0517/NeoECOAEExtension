@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 /** Runtime-only ownership ledger for one cycle component. */
 public final class CycleResourceLedger {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
+    private static final boolean TRACE_EVENTS = false;
     private final int componentId;
     private final Map<AEKey, Long> bootstrapReserve = new LinkedHashMap<>();
     private final Map<AEKey, Long> bootstrapRequirement = new LinkedHashMap<>();
@@ -71,7 +72,9 @@ public final class CycleResourceLedger {
     }
 
     private void log(AEKey key, long before, long after, long produced, long released, String reason) {
-        LOGGER.info("[ECO-CYCLE-RESOURCE] cycle={} item={} bootstrapReserve={} reserveAfter={} produced={} released={} reason={}",
-            componentId, key, before, after, produced, released, reason);
+        if (TRACE_EVENTS) {
+            LOGGER.trace("[ECO-CYCLE-RESOURCE] cycle={} item={} bootstrapReserve={} reserveAfter={} produced={} released={} reason={}",
+                componentId, key, before, after, produced, released, reason);
+        }
     }
 }

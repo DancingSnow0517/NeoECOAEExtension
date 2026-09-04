@@ -92,6 +92,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_EXECUTION_PLAN = "executionPlanV6";
     private static final String NBT_PLAN_TASKS = "planTasks";
     private static final String NBT_PLAN_PHASES = "planPhases";
+    private static final String NBT_OWNED_RESOURCES = "ownedResourceSnapshot";
     private static final String NBT_TASK_ID = "taskId";
     private static final String NBT_TASK_TOTAL = "total";
     private static final String NBT_TASK_REMAINING = "remaining";
@@ -120,7 +121,8 @@ public class ExecutingCraftingJob {
     ECOExecutionSchedule executionSchedule;
     @Nullable ECOExecutionContract executionContract;
     @Nullable RuntimeExecutionState runtimeExecutionState;
-    @Nullable Map<Integer, TaskProgress> runtimeProgressProjection;
+    @Nullable TaskProgress[] runtimeProgressProjection;
+    private boolean runtimeProjectionDirty;
     int dynamicCycleNoProgressTicks;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
@@ -181,6 +183,11 @@ public class ExecutingCraftingJob {
         return runtimeExecutionState;
     }
 
+    void blockRecovery() {
+        permanentExecutionError = PermanentExecutionError.RECOVERY_ERROR;
+        executionMode = ExecutionMode.BLOCKED;
+    }
+
     long remainingTasksFor(IPatternDetails pattern) {
         if (runtimeExecutionState != null) {
             for (var task : runtimeExecutionState.plan().tasks()) {
@@ -205,7 +212,7 @@ public class ExecutingCraftingJob {
 
     void advanceCompletedPhases() {
         if (runtimeExecutionState != null) {
-            syncRuntimeProjection();
+            runtimeProjectionDirty = true;
             return;
         }
         while (activePhase() != null && phaseComplete(activePhase())) {
@@ -217,7 +224,7 @@ public class ExecutingCraftingJob {
 
     void advanceRuntimeWitness() {
         if (runtimeExecutionState != null) {
-            syncRuntimeProjection();
+            runtimeProjectionDirty = true;
             return;
         }
         cycleWitnessIndex = ECOPhaseScheduler.witnessAfterDispatch(cycleWitnessIndex, true);
@@ -238,7 +245,7 @@ public class ExecutingCraftingJob {
         if (runtimeExecutionState == null) {
             return ECOPhaseScheduler.compactCycleFeedbackReserve(activePhase(), this::remainingTasksFor, key);
         }
-        return runtimeExecutionState.pendingCycleFeedbackReserve(key);
+        return runtimeExecutionState.reserve(key);
     }
 
     List<DispatchTask> eligibleDispatchTasks() {
@@ -253,7 +260,7 @@ public class ExecutingCraftingJob {
 
     private void ensureRuntimeProgressProjection() {
         if (runtimeProgressProjection == null) {
-            Map<Integer, TaskProgress> projection = new HashMap<>();
+            TaskProgress[] projection = new TaskProgress[runtimeExecutionState.plan().tasks().size()];
             for (var spec : runtimeExecutionState.plan().tasks()) {
                 var compatibility = tasks.get(spec.pattern());
                 if (compatibility == null) {
@@ -263,7 +270,7 @@ public class ExecutingCraftingJob {
                 if (compatibility.value == 0) {
                     compatibility.value = runtimeExecutionState.remaining(spec.id());
                 }
-                projection.put(spec.id(), compatibility);
+                projection[spec.id()] = compatibility;
             }
             runtimeProgressProjection = projection;
         }
@@ -271,7 +278,7 @@ public class ExecutingCraftingJob {
 
     private DispatchTask runtimeDispatchTask(int taskId) {
         var spec = runtimeExecutionState.plan().task(taskId);
-        return new DispatchTask(taskId, spec.pattern(), runtimeProgressProjection.get(taskId));
+        return new DispatchTask(taskId, spec.pattern(), runtimeProgressProjection[taskId]);
     }
 
     void applyAccepted(DispatchTask task, long count) {
@@ -284,7 +291,6 @@ public class ExecutingCraftingJob {
         }
         applyAccepted(task.taskId(), count);
         task.progress().value = runtimeExecutionState.remaining(task.taskId());
-        syncRuntimeProjection();
     }
 
     void applyAccepted(int taskId, long count) {
@@ -292,7 +298,7 @@ public class ExecutingCraftingJob {
             throw new IllegalStateException("Task ids are unavailable for native execution");
         }
         runtimeExecutionState.applyAccepted(taskId, count);
-        syncRuntimeProjection();
+        runtimeProjectionDirty = true;
     }
 
     List<DispatchTask> applyDispatchResultAndGetNewlyReady(DispatchTask task, DispatchResult result) {
@@ -305,13 +311,11 @@ public class ExecutingCraftingJob {
             return List.of();
         }
         ensureRuntimeProgressProjection();
-        List<Integer> newlyReadyIds = runtimeExecutionState.applyAccepted(task.taskId(), accepted.count());
+        runtimeExecutionState.commitAccepted(task.taskId(), accepted.count());
         task.progress().value = runtimeExecutionState.remaining(task.taskId());
-        syncRuntimeProjection();
-        if (newlyReadyIds.isEmpty()) return List.of();
-        List<DispatchTask> resultTasks = new ArrayList<>(newlyReadyIds.size());
-        for (int taskId : newlyReadyIds) resultTasks.add(runtimeDispatchTask(taskId));
-        return resultTasks;
+        runtimeProjectionDirty = true;
+        // The next tick snapshots the newly-ready frontier after the single compatibility flush.
+        return List.of();
     }
 
     long applyDispatchResult(DispatchTask task, DispatchResult result) {
@@ -343,6 +347,17 @@ public class ExecutingCraftingJob {
         currentComponentIndex = runtimeExecutionState.phaseIndex();
         executionStepIndex = runtimeExecutionState.stepIndex();
         cycleWitnessIndex = executionStepIndex;
+        runtimeProjectionDirty = false;
+    }
+
+    void flushRuntimeTick() {
+        if (runtimeExecutionState == null || !runtimeProjectionDirty) return;
+        ensureRuntimeProgressProjection();
+        for (var task : runtimeExecutionState.plan().tasks()) {
+            runtimeProgressProjection[task.id()].value = runtimeExecutionState.remaining(task.id());
+        }
+        runtimeExecutionState.flushTick();
+        syncRuntimeProjection();
     }
 
     @FunctionalInterface
@@ -527,6 +542,7 @@ public class ExecutingCraftingJob {
                 this.runtimeExecutionState = new RuntimeExecutionState(restored.plan());
                 this.runtimeExecutionState.restore(restored.remaining(), restored.dynamicRemaining(), restored.stepIndexes(),
                     restored.stepRemaining());
+                this.runtimeExecutionState.restoreOwnership(restored.ownedResources());
                 this.executionMode = restored.plan().mode();
                 this.permanentExecutionError = null;
                 this.tasks.clear();
@@ -628,6 +644,8 @@ public class ExecutingCraftingJob {
         root.put(NBT_SIGNATURE_USED, writeKeyAmounts(plan.signature().usedItems(), registries));
         root.put(NBT_SIGNATURE_EMITTED, writeKeyAmounts(plan.signature().emittedItems(), registries));
         root.put(NBT_SIGNATURE_MISSING, writeKeyAmounts(plan.signature().missingItems(), registries));
+        // Semantic ownership is persisted separately from the compiled task/CSR representation.
+        root.put(NBT_OWNED_RESOURCES, writeKeyAmounts(state.ownershipSnapshot(), registries));
 
         ListTag taskTags = new ListTag();
         for (var task : plan.tasks()) {
@@ -770,7 +788,9 @@ public class ExecutingCraftingJob {
             dependencies.add(new ECOExecutionSchedule.PhaseDependency(producer, phase.index()));
         var plan = new ECOExecutionPlan(signature, mode, tasks, phases,
             new ECOExecutionSchedule(schedulePhases, dependencies));
-        return new RestoredExecution(plan, remaining, dynamicRemaining, stepIndexes, stepRemaining);
+        Map<AEKey, Long> ownedResources = readKeyAmounts(
+            root.getList(NBT_OWNED_RESOURCES, Tag.TAG_COMPOUND), registries);
+        return new RestoredExecution(plan, remaining, dynamicRemaining, stepIndexes, stepRemaining, ownedResources);
     }
 
     private static Map<IPatternDetails, Long> restoredRemainingTasks(RestoredExecution restored) {
@@ -817,7 +837,7 @@ public class ExecutingCraftingJob {
 
     private record RestoredExecution(ECOExecutionPlan plan, long[] remaining, long[] dynamicRemaining,
             int[] stepIndexes,
-            long[] stepRemaining) { }
+            long[] stepRemaining, Map<AEKey, Long> ownedResources) { }
 
     private @Nullable ListTag writeExecutionSchedule(HolderLookup.Provider registries) {
         if (executionSchedule == null) return null;

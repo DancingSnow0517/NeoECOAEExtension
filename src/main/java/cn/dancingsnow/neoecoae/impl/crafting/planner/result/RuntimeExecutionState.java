@@ -7,6 +7,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Mutable task accounting with dependency-aware multi-ready phases. */
 public final class RuntimeExecutionState {
@@ -23,6 +25,16 @@ public final class RuntimeExecutionState {
     private final boolean[] complete;
     private final LinkedHashSet<Integer> readyTaskIds = new LinkedHashSet<>();
     private final TreeSet<Integer> readyPhases = new TreeSet<>();
+    private final LinkedHashMap<AEKey, Integer> resourceIds = new LinkedHashMap<>();
+    private final long[] onHand;
+    private final long[] futureNeed;
+    private final int[] consumedOffset;
+    private final int[] consumedResource;
+    private final long[] consumedAmount;
+    private final int[] committedReadyTasks;
+    private final boolean[] committedReady;
+    private int committedReadyCount;
+    private boolean collectCommittedReady;
     private int completedPhases;
     private int phaseIndex;
 
@@ -48,6 +60,35 @@ public final class RuntimeExecutionState {
         unfinishedTasks = new int[plan.phases().size()];
         dependentPhases = buildDependentPhases(plan);
         complete = new boolean[plan.phases().size()];
+        for (var phase : plan.phases()) phase.initialSeed().keySet().forEach(this::resourceId);
+        for (var task : plan.tasks()) {
+            var semantics = ECOPhaseScheduler.semantic(task.pattern());
+            semantics.consumedInputs().forEach(input -> resourceId(input.key()));
+            semantics.producedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
+            semantics.returnedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
+        }
+        onHand = new long[resourceIds.size()];
+        futureNeed = new long[resourceIds.size()];
+        List<Integer> consumedResources = new ArrayList<>();
+        List<Long> consumedAmounts = new ArrayList<>();
+        consumedOffset = new int[remaining.length + 1];
+        for (var task : plan.tasks()) {
+            var semantics = ECOPhaseScheduler.semantic(task.pattern());
+            Map<Integer, Long> taskConsumed = new LinkedHashMap<>();
+            for (var input : semantics.consumedInputs()) {
+                taskConsumed.merge(resourceId(input.key()), input.amountPerPattern().longValueExact(), Math::addExact);
+            }
+            taskConsumed.forEach((resource, amount) -> {
+                consumedResources.add(resource);
+                consumedAmounts.add(amount);
+                futureNeed[resource] = Math.addExact(futureNeed[resource], Math.multiplyExact(amount, task.totalCount()));
+            });
+            consumedOffset[task.id() + 1] = consumedResources.size();
+        }
+        consumedResource = consumedResources.stream().mapToInt(Integer::intValue).toArray();
+        consumedAmount = consumedAmounts.stream().mapToLong(Long::longValue).toArray();
+        committedReadyTasks = new int[remaining.length];
+        committedReady = new boolean[remaining.length];
         for (int phase = 0; phase < plan.phases().size(); phase++) loadStep(phase);
         rebuildFrontier();
     }
@@ -62,6 +103,28 @@ public final class RuntimeExecutionState {
     public long[] remainingSnapshot() { return remaining.clone(); }
     public long dynamicRemaining(int taskId) { return dynamicRemaining[checked(taskId)]; }
     public long[] dynamicRemainingSnapshot() { return dynamicRemaining.clone(); }
+    public long onHand(AEKey key) { int id = resourceIds.getOrDefault(key, -1); return id < 0 ? 0L : onHand[id]; }
+    public long futureNeed(AEKey key) { int id = resourceIds.getOrDefault(key, -1); return id < 0 ? 0L : futureNeed[id]; }
+    public long reserve(AEKey key) { return futureNeed(key); }
+    public long releasable(AEKey key) { return Math.max(0L, onHand(key) - reserve(key)); }
+    public Map<AEKey, Long> ownershipSnapshot() { Map<AEKey, Long> result = new LinkedHashMap<>(); resourceIds.forEach((k,v) -> { if (onHand[v] != 0) result.put(k, onHand[v]); }); return Map.copyOf(result); }
+    private int resourceId(AEKey key) { if (key == null) return -1; return resourceIds.computeIfAbsent(key, ignored -> resourceIds.size()); }
+    public void acceptOutput(AEKey key, long amount) { if (amount <= 0 || key == null) return; int id = resourceIds.getOrDefault(key, -1); ensureCapacity(id); onHand[id] = Math.addExact(onHand[id], amount); }
+    public void releaseExternal(AEKey key, long amount) { if (amount <= 0 || key == null) return; int id = resourceIds.getOrDefault(key, -1); if (id < 0 || amount > onHand[id]) throw new IllegalArgumentException("Ownership release exceeds on-hand"); onHand[id] -= amount; }
+    public void restoreOwnership(Map<AEKey, Long> restored) {
+        Arrays.fill(onHand, 0L);
+        restored.forEach((key, amount) -> {
+            int id = resourceIds.getOrDefault(key, -1);
+            ensureCapacity(id);
+            if (amount == null || amount < 0L) throw new IllegalArgumentException("Invalid persisted ownership");
+            onHand[id] = amount;
+        });
+    }
+    public void flushTick() {
+        for (int i = 0; i < committedReadyCount; i++) committedReady[committedReadyTasks[i]] = false;
+        committedReadyCount = 0;
+    }
+    private void ensureCapacity(int id) { if (id < 0 || id >= onHand.length) throw new IllegalStateException("Resource was not compiled into kernel"); }
     public int stepIndex(int phaseId) { return stepIndex[phaseId]; }
     public long stepRemaining(int phaseId) { return stepRemaining[phaseId]; }
     public ECOExecutionPlan.PhaseSpec activePhase() {
@@ -132,12 +195,33 @@ public final class RuntimeExecutionState {
         return reserve;
     }
     public List<Integer> applyAccepted(int taskId, long count) {
+        commitAccepted(taskId, count);
+        List<Integer> result = new ArrayList<>(committedReadyCount);
+        for (int i = 0; i < committedReadyCount; i++) result.add(committedReadyTasks[i]);
+        for (int i = 0; i < committedReadyCount; i++) committedReady[committedReadyTasks[i]] = false;
+        committedReadyCount = 0;
+        return result;
+    }
+
+    /** Commits dispatch consumption. Outputs are intentionally accounted only by acceptOutput. */
+    public void commitAccepted(int taskId, long count) {
         long permitted = dispatchLimit(taskId);
         if (count <= 0 || count > permitted) {
             throw new IllegalArgumentException("Dispatch count exceeds runtime gate");
         }
-        accountCycleResources(taskId, count);
-        List<Integer> newlyReady = new ArrayList<>();
+        for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
+            long amount = Math.multiplyExact(consumedAmount[row], count);
+            if (amount > onHand[consumedResource[row]]) {
+                throw new IllegalArgumentException("Dispatch consumption exceeds CPU ownership");
+            }
+        }
+        for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
+            long amount = Math.multiplyExact(consumedAmount[row], count);
+            int id = consumedResource[row];
+            onHand[id] -= amount;
+            futureNeed[id] = Math.max(0L, futureNeed[id] - amount);
+        }
+        collectCommittedReady = true;
         remaining[taskId] -= count;
         int phase = plan.task(taskId).phaseIndex();
         var spec = plan.phases().get(phase);
@@ -161,37 +245,15 @@ public final class RuntimeExecutionState {
                 readyTaskIds.remove(taskId);
                 stepIndex[phase]++;
                 loadStep(phase);
-                exposePhaseTasks(phase, newlyReady);
+                exposePhaseTasks(phase, null);
             }
         }
-        if (dynamicVectorCompleted) exposePhaseTasks(phase, newlyReady);
-        if (phaseDone(phase)) completePhase(phase, newlyReady);
+        if (dynamicVectorCompleted) exposePhaseTasks(phase, null);
+        if (phaseDone(phase)) completePhase(phase, null);
         updateActivePhaseIndex();
-        return newlyReady;
+        collectCommittedReady = false;
     }
 
-    private void accountCycleResources(int taskId, long count) {
-        var task = plan.task(taskId);
-        var ledger = cycleLedgers.get(plan.phases().get(task.phaseIndex()).componentId());
-        if (ledger == null) return;
-        var semantics = ECOPhaseScheduler.semantic(task.pattern());
-        for (var input : semantics.consumedInputs()) {
-            try { ledger.consume(input.key(), Math.multiplyExact(input.amountPerPattern().longValueExact(), count)); }
-            catch (ArithmeticException ignored) { ledger.consume(input.key(), Long.MAX_VALUE); }
-        }
-        for (var output : semantics.producedOutputs()) {
-            if (output != null && output.what() != null && output.amount() > 0) {
-                try { ledger.recordGenerated(output.what(), Math.multiplyExact(output.amount(), count)); }
-                catch (ArithmeticException ignored) { ledger.recordGenerated(output.what(), Long.MAX_VALUE); }
-            }
-        }
-        for (var output : semantics.returnedOutputs()) {
-            if (output != null && output.what() != null && output.amount() > 0) {
-                try { ledger.recordGenerated(output.what(), Math.multiplyExact(output.amount(), count)); }
-                catch (ArithmeticException ignored) { ledger.recordGenerated(output.what(), Long.MAX_VALUE); }
-            }
-        }
-    }
 
     public void restore(long[] restoredRemaining, long[] restoredDynamicRemaining,
             int[] restoredSteps, long[] restoredStepRemaining) {
@@ -350,6 +412,14 @@ public final class RuntimeExecutionState {
         // A new ordered step may deliberately expose the same task again after its previous queue entry ran.
         if (newlyReady != null && (added || plan.task(taskId).kind() == ECOExecutionPlan.TaskKind.CYCLE_ORDERED)) {
             newlyReady.add(taskId);
+        } else if (collectCommittedReady && (added
+                || plan.task(taskId).kind() == ECOExecutionPlan.TaskKind.CYCLE_ORDERED)) {
+            if (committedReady[taskId]) return;
+            if (committedReadyCount >= committedReadyTasks.length) {
+                throw new IllegalStateException("Ready task queue overflow");
+            }
+            committedReady[taskId] = true;
+            committedReadyTasks[committedReadyCount++] = taskId;
         }
     }
 
