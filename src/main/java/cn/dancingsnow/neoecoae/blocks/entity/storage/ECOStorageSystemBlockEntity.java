@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceSafety;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -918,7 +919,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
             if (skipInfiniteSourceEntries
-                && isEffectivelyInfiniteSource(from, entry.getKey(), entry.getLongValue(), source)) {
+                && ECOStorageSourceSafety.isEffectivelyInfiniteSource(from, entry.getKey(), entry.getLongValue(), source)) {
                 continue;
             }
             if (visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
@@ -934,21 +935,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             total = total > Long.MAX_VALUE - inserted ? Long.MAX_VALUE : total + inserted;
         }
         return total;
-    }
-
-    private static boolean isEffectivelyInfiniteSource(
-        MEStorage storage,
-        AEKey key,
-        long visibleAmount,
-        IActionSource source
-    ) {
-        long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
-        long conventionalInfiniteAmount = NEMath.saturatingMultiply(Integer.MAX_VALUE, amountPerUnit);
-        if (visibleAmount < conventionalInfiniteAmount) {
-            return false;
-        }
-        // MEStorage is aggregated. Probe only keys already at the conventional infinity threshold.
-        return storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE;
     }
 
     private void updateInfiniteStorageMode() {

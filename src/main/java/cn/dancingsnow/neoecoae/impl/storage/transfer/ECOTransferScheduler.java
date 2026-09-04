@@ -164,6 +164,9 @@ public final class ECOTransferScheduler implements SourceChangeSink {
         long conventionalInfinite = NEMath.saturatingMultiply(Integer.MAX_VALUE, Math.max(1L, key.getAmountPerUnit()));
         // This bounded probe returns the exact amount for ordinary keys and can also discover a newly-dirty key that
         // was absent from the last full snapshot. Long.MAX_VALUE is reserved for threshold-sized candidates only.
+        if (ECOStorageSourceSafety.isEffectivelyInfiniteSource(network, key, snapshot.getLong(key), source)) {
+            return 0L;
+        }
         boolean chunked = adapter.status() == ECOStorageSourceAdapter.Status.ACTIVE;
         AdaptiveChunk adaptive = adaptiveChunks.computeIfAbsent(key, ignored -> new AdaptiveChunk());
         long requestAmount = chunked
