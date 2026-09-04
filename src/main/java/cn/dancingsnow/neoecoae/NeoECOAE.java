@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
@@ -90,6 +91,7 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
+        NeoForge.EVENT_BUS.addListener(NECommands::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
     }

@@ -27,8 +27,13 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
+import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +42,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     implements IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
+    private static final Set<ECOCraftingWorkerBlockEntity> LOADED_SERVER_WORKERS =
+        Collections.newSetFromMap(new WeakHashMap<>());
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
 
@@ -65,8 +72,37 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     public void onReady() {
         super.onReady();
+        if (level instanceof ServerLevel) {
+            synchronized (LOADED_SERVER_WORKERS) {
+                LOADED_SERVER_WORKERS.add(this);
+            }
+        }
         getMainNode().setIdlePowerUsage(64);
         refreshDisplayedJob();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        unregisterLoadedWorker();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        unregisterLoadedWorker();
+        super.setRemoved();
+    }
+
+    private void unregisterLoadedWorker() {
+        synchronized (LOADED_SERVER_WORKERS) {
+            LOADED_SERVER_WORKERS.remove(this);
+        }
+    }
+
+    public static List<ECOCraftingWorkerBlockEntity> getLoadedServerWorkers() {
+        synchronized (LOADED_SERVER_WORKERS) {
+            return List.copyOf(LOADED_SERVER_WORKERS);
+        }
     }
 
     @Override
@@ -400,6 +436,39 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
         return recoveredAll;
     }
+
+    /** Discards every in-flight stack without creating item entities. Intended for the administrative repair command. */
+    public ClearResult discardAllCraftingContents() {
+        Set<UUID> jobIds = new HashSet<>();
+        int busyThreads = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+            if (!snapshot.busy()) {
+                continue;
+            }
+            busyThreads++;
+            if (snapshot.craftingJobId() != null) {
+                jobIds.add(snapshot.craftingJobId());
+            }
+        }
+        if (craftingThreads.isEmpty()) {
+            return new ClearResult(0, Set.of());
+        }
+
+        craftingThreads.clear();
+        runningThreads = 0;
+        nextFreeThreadIndex = 0;
+        displayedJob = null;
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
+        }
+        setChanged();
+        markForUpdate();
+        wakeTickingDevice();
+        return new ClearResult(busyThreads, Set.copyOf(jobIds));
+    }
+
+    public record ClearResult(int threadCount, Set<UUID> jobIds) {}
 
     private void wakeTickingDevice() {
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));

@@ -214,7 +214,7 @@ public class ECOCraftingCPULogic {
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // 尝试提取所需物品。
-        var missingIngredient = ECOInitialItemExtractor.tryExtract(plan, grid, inventory, src);
+        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
 

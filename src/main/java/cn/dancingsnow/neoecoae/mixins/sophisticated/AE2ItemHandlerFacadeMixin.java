@@ -37,7 +37,7 @@ public abstract class AE2ItemHandlerFacadeMixin {
         try {
             ItemStack extracted = ECOSophisticatedSourceRegistry.indexedExtract(
                 handler, itemKey.toStack(amount), mode == Actionable.SIMULATE);
-            if (extracted != null) {
+            if (extracted != null && !extracted.isEmpty()) {
                 int count = itemKey.matches(extracted) ? Math.min(amount, extracted.getCount()) : 0;
                 cir.setReturnValue(count);
             }
