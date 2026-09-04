@@ -76,6 +76,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
+        if (isLockedByFiniteTransferDomain()) {
+            return;
+        }
         if (cellStack != null
             && cluster instanceof NEStorageCluster storageCluster
             && storageCluster.getController() != null
@@ -111,7 +114,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public boolean canExtractCell() {
-        return !isLockedByInfiniteMode();
+        return !isLockedByInfiniteMode() && !isLockedByFiniteTransferDomain();
+    }
+
+    public boolean isLockedByFiniteTransferDomain() {
+        return cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isFiniteTransferDomainLocked();
     }
 
     public boolean isLockedByInfiniteMode() {
@@ -146,6 +155,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null
+            && !storageCluster.getController().materializeFiniteTransferDomain()) {
+            return;
+        }
         super.addAdditionalDrops(level, pos, drops);
         if (cellStack != null) {
             drops.add(cellStack);

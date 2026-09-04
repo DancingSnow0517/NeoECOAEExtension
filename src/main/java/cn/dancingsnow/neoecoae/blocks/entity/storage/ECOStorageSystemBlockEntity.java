@@ -19,6 +19,9 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -91,6 +94,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 12;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
+    private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
+    private static final String FINITE_TRANSFER_DOMAIN_TAG = "finiteTransferDomain";
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
@@ -137,6 +142,15 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private long performanceAverageNanos = 0L;
     private long performanceWindowStartTick = Long.MIN_VALUE;
     private long performanceWindowNanos = 0L;
+    @Nullable
+    private transient ECOFiniteStorageDomain finiteTransferDomain;
+    @Nullable
+    private transient ECOTransferScheduler finiteTransferScheduler;
+    @Nullable
+    private transient CompoundTag pendingFiniteTransferDomain;
+    private transient boolean finiteDomainRestoreFailed;
+    private final transient ECOStorageSourceAdapterRegistry sourceAdapterRegistry =
+        new ECOStorageSourceAdapterRegistry();
     // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
     private boolean mirrored;
@@ -209,7 +223,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             updateInfiniteStorageMode();
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
+                updateFiniteTransferDomain(storageInterface);
                 storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
+            } else if (finiteTransferDomain != null) {
+                materializeFiniteTransferDomain();
             }
             buildController.tick(level);
         } finally {
@@ -663,6 +680,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        if (storageInterface != null) {
+            updateFiniteTransferDomain(storageInterface);
+        }
         refreshDriveStorageProviders();
         setChanged();
         markForUpdate();
@@ -671,6 +692,106 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public boolean isStorageInterfaceTransferMode() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         return formed && storageInterface != null && storageInterface.isStorageTransferMode();
+    }
+
+    public boolean isFiniteTransferDomainLocked() {
+        return finiteTransferDomain != null;
+    }
+
+    public boolean materializeFiniteTransferDomain() {
+        if (finiteTransferDomain == null) return true;
+        if (finiteDomainRestoreFailed) {
+            LOGGER.error("Finite storage transfer domain at {} cannot materialize because restore failed", worldPosition);
+            return false;
+        }
+        resetFiniteTransferScheduler();
+        boolean materialized = finiteTransferDomain.materialize(IActionSource.ofMachine(this));
+        if (!materialized) {
+            LOGGER.error("Unable to materialize finite storage transfer domain at {}; drives remain locked", worldPosition);
+            setChanged();
+            return false;
+        }
+        finiteTransferDomain = null;
+        pendingFiniteTransferDomain = null;
+        finiteDomainRestoreFailed = false;
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        refreshDriveStorageProviders();
+        setChanged();
+        markForUpdate();
+        return true;
+    }
+
+    private void updateFiniteTransferDomain(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
+        if (isInfiniteMode() || !formed) {
+            materializeFiniteTransferDomain();
+            return;
+        }
+        boolean transferRequested = storageInterface.isStorageTransferMode();
+        if (!transferRequested && pendingFiniteTransferDomain == null) {
+            materializeFiniteTransferDomain();
+            return;
+        }
+        if (cluster == null) return;
+        IActionSource actionSource = IActionSource.ofMachine(storageInterface);
+        if (finiteTransferDomain == null) {
+            finiteTransferDomain = ECOFiniteStorageDomain.create(
+                cluster.getDrives().stream()
+                    .filter(drive -> !isInfiniteMemberCell(drive.getCellStack()))
+                    .toList(),
+                tier, storageInterface.getStorageInterfaceMode(),
+                getBlockState().getBlock().getName(), actionSource);
+            long eligibleCells = cluster.getDrives().stream()
+                .filter(drive -> !isInfiniteMemberCell(drive.getCellStack()))
+                .map(ECODriveBlockEntity::getCellInventory)
+                .filter(java.util.Objects::nonNull)
+                .filter(cell -> tier.compareTo(cell.getTier()) >= 0)
+                .count();
+            if (finiteTransferDomain.shardCount() != eligibleCells) {
+                // Optional/external cell handlers keep using their standard MEStorage path until they expose the
+                // controller-domain mutation contract. Mixing both ownership models would make materialization unsafe.
+                if (pendingFiniteTransferDomain != null) {
+                    finiteDomainRestoreFailed = true;
+                    LOGGER.error("Finite storage transfer domain at {} cannot restore because its cell handler set changed",
+                        worldPosition);
+                    return;
+                }
+                materializeFiniteTransferDomain();
+                return;
+            }
+            if (pendingFiniteTransferDomain != null) {
+                try {
+                    finiteTransferDomain.restore(pendingFiniteTransferDomain, level.registryAccess(), actionSource);
+                    pendingFiniteTransferDomain = null;
+                } catch (RuntimeException e) {
+                    finiteDomainRestoreFailed = true;
+                    LOGGER.error("Unable to restore finite storage transfer domain at {}; drives remain locked",
+                        worldPosition, e);
+                    return;
+                }
+            }
+            storageUiSnapshotGameTime = Long.MIN_VALUE;
+            refreshDriveStorageProviders();
+            setChanged();
+        }
+        if (finiteTransferDomain.state() == ECOFiniteStorageDomain.State.MATERIALIZING) {
+            materializeFiniteTransferDomain();
+            return;
+        }
+        if (!transferRequested) {
+            materializeFiniteTransferDomain();
+            return;
+        }
+        if (finiteTransferDomain.mode() != storageInterface.getStorageInterfaceMode()) {
+            finiteTransferDomain.setMode(storageInterface.getStorageInterfaceMode());
+            resetFiniteTransferScheduler();
+        }
+    }
+
+    private void resetFiniteTransferScheduler() {
+        if (finiteTransferScheduler != null) {
+            finiteTransferScheduler.stop();
+            finiteTransferScheduler = null;
+        }
     }
 
     @Nullable
@@ -687,9 +808,27 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         MEStorage hostStorage = getStorageInterfaceHostStorage();
         if (hostStorage == null) return 0L;
         IActionSource source = IActionSource.ofMachine(storageInterface);
-        long moved = storageInterface.isStorageInputMode()
-            ? transferLimited(network, hostStorage, source, true)
-            : transferLimited(hostStorage, network, source, false);
+        long moved;
+        if (!isInfiniteMode() && finiteTransferDomain != null && !finiteDomainRestoreFailed) {
+            if (finiteTransferScheduler == null) {
+                finiteTransferScheduler = new ECOTransferScheduler(
+                    finiteTransferDomain,
+                    grid,
+                    network,
+                    source,
+                    sourceAdapterRegistry,
+                    STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK,
+                    STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK,
+                    this::onFiniteDomainMutation
+                );
+                finiteTransferScheduler.start(level.getGameTime());
+            }
+            moved = finiteTransferScheduler.tick(level.getGameTime());
+        } else {
+            moved = storageInterface.isStorageInputMode()
+                ? transferLimited(network, hostStorage, source, true)
+                : transferLimited(hostStorage, network, source, false);
+        }
         if (moved > 0L) {
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             setChanged();
@@ -698,11 +837,22 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return moved;
     }
 
+    private void onFiniteDomainMutation() {
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        setChanged();
+        if (finiteTransferScheduler != null) {
+            finiteTransferScheduler.wakeAll();
+        }
+    }
+
     @Nullable
     private MEStorage getStorageInterfaceHostStorage() {
         if (isFormedInfiniteMode()) {
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             return engine == null ? null : new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+        }
+        if (finiteTransferDomain != null && !finiteDomainRestoreFailed) {
+            return finiteTransferDomain;
         }
         if (cluster == null) return null;
 
@@ -793,15 +943,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         long visibleAmount,
         IActionSource source
     ) {
-        // MEStorage is aggregated. If any backing storage makes this key effectively infinite,
-        // conservatively skip the whole key instead of trying to split its physical sources.
-        if (storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE) {
-            return true;
-        }
-
         long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
         long conventionalInfiniteAmount = NEMath.saturatingMultiply(Integer.MAX_VALUE, amountPerUnit);
-        return visibleAmount >= conventionalInfiniteAmount;
+        if (visibleAmount < conventionalInfiniteAmount) {
+            return false;
+        }
+        // MEStorage is aggregated. Probe only keys already at the conventional infinity threshold.
+        return storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE;
     }
 
     private void updateInfiniteStorageMode() {
@@ -1259,6 +1407,33 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return infiniteDomainId;
     }
 
+    @Override
+    protected void onMainNodeGridChanged() {
+        if (finiteTransferScheduler != null) {
+            finiteTransferScheduler.wakeAll();
+        }
+    }
+
+    @Override
+    public void updateCluster(@Nullable NEStorageCluster nextCluster) {
+        if (nextCluster == null && finiteTransferDomain != null) {
+            materializeFiniteTransferDomain();
+        }
+        super.updateCluster(nextCluster);
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        materializeFiniteTransferDomain();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        materializeFiniteTransferDomain();
+        super.setRemoved();
+    }
+
     @Nullable
     private ECOInfiniteStorageEngine getInfiniteEngine() {
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
@@ -1278,6 +1453,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
         }
+        if (finiteTransferDomain != null) {
+            data.put(FINITE_TRANSFER_DOMAIN_TAG, finiteTransferDomain.save(registries));
+        } else if (pendingFiniteTransferDomain != null) {
+            data.put(FINITE_TRANSFER_DOMAIN_TAG, pendingFiniteTransferDomain.copy());
+        }
     }
 
     @Override
@@ -1286,6 +1466,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         loadLegacyInfiniteComponentInventory(data, registries);
         hostMode = ECOStorageHostMode.fromId(data.getString("infiniteHostMode"));
         infiniteDomainId = data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null;
+        pendingFiniteTransferDomain = data.contains(FINITE_TRANSFER_DOMAIN_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
+            ? data.getCompound(FINITE_TRANSFER_DOMAIN_TAG).copy()
+            : null;
+        finiteDomainRestoreFailed = false;
     }
 
     private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {

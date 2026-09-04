@@ -59,6 +59,7 @@ public class ECOStorageCell implements IECOStorageCell {
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
     private boolean isPersisted = true;
+    private boolean persistenceDeferred;
     @Getter
     private final IECOTier tier;
 
@@ -240,12 +241,33 @@ public class ECOStorageCell implements IECOStorageCell {
 
     protected void saveChanges() {
         this.isPersisted = false;
+        if (persistenceDeferred) {
+            return;
+        }
         // The host only marks its block entity dirty; it does not serialize this
         // transient inventory instance back into the cell stack for us.
         this.persist();
         if (this.container != null) {
             this.container.saveChanges();
         }
+    }
+
+    /**
+     * Keeps logical mutations in memory while a controller finite-storage domain is active. The caller must invoke
+     * {@link #materializeDeferredChanges()} before the cell stack can leave the controller.
+     */
+    public void deferPersistence() {
+        persistenceDeferred = true;
+    }
+
+    protected boolean isPersistenceDeferred() {
+        return persistenceDeferred;
+    }
+
+    /** Writes all deferred mutations to {@code STORAGE_CELL_INV} exactly once. */
+    public void materializeDeferredChanges() {
+        persistenceDeferred = false;
+        persist();
     }
 
     @Override

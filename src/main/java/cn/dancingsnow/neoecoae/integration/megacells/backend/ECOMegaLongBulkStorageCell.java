@@ -437,6 +437,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Override
     protected void saveChanges() {
         persisted = false;
+        if (isPersistenceDeferred()) {
+            return;
+        }
         persist();
         if (container != null) {
             container.saveChanges();
