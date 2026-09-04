@@ -10,8 +10,9 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
-import cn.dancingsnow.neoecoae.util.NEMath;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -96,10 +97,116 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         }
 
         long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
-        long freeBytes = Math.max(0L, getTotalBytes() - getUsedBytes());
-        long capacityBound = NEMath.saturatingMultiply(freeBytes, amountPerByte);
+        StorageSnapshot current = snapshot();
+        long capacityBound = calculateRemainingAmount(
+            getTotalBytes(), current.usedBytes(), current.bucketSums().get(amountPerByte), amountPerByte);
         return delegate.insert(what, Math.min(amount, capacityBound), mode, source);
     }
+
+    /**
+     * Computes restore capacity against a caller-owned snapshot. The copied ItemStack used for a restore target may
+     * still point at OmniCells' SavedData, so using {@code MODULATE} here would write into the live matrix during the
+     * preflight and the real restore would write the same amount again.
+     */
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+        if (amount <= 0L || simulatedContents == null) {
+            return 0L;
+        }
+
+        StorageSnapshot current = snapshot(simulatedContents);
+        long currentAmount = simulatedContents.get(what);
+        if (currentAmount <= 0L && item.getTotalTypes() > 0
+            && current.storedTypes() >= item.getTotalTypes()) {
+            return 0L;
+        }
+        // Preserve partition and nested-cell rules enforced by the actual OmniCells delegate. This is a read-only
+        // probe and does not touch the caller-owned snapshot or the backing SavedData.
+        if (delegate.insert(what, 1L, Actionable.SIMULATE, IActionSource.empty()) <= 0L) {
+            return 0L;
+        }
+
+        long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
+        long capacity = calculateRemainingAmount(
+            getTotalBytes(), current.usedBytes(), current.bucketSums().get(amountPerByte), amountPerByte);
+        return Math.min(amount, capacity);
+    }
+
+    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
+        return simulatedContents == null ? 0L : snapshot(simulatedContents).usedBytes();
+    }
+
+    static long calculateUsedBytes(Long2LongMap bucketSums) {
+        long usedBytes = 0L;
+        for (Long2LongMap.Entry entry : bucketSums.long2LongEntrySet()) {
+            long amountPerByte = Math.max(1L, entry.getLongKey());
+            long amount = Math.max(0L, entry.getLongValue());
+            usedBytes = saturatingAdd(usedBytes, ceilDivide(amount, amountPerByte));
+        }
+        return usedBytes;
+    }
+
+    static long calculateRemainingAmount(long totalBytes, long usedBytes, long targetBucketAmount, long amountPerByte) {
+        if (totalBytes <= 0L || usedBytes > totalBytes) {
+            return 0L;
+        }
+
+        amountPerByte = Math.max(1L, amountPerByte);
+        long unitsToCompleteBucket = targetBucketAmount <= 0L
+            ? 0L
+            : (amountPerByte - targetBucketAmount % amountPerByte) % amountPerByte;
+        long freeBytes = totalBytes - usedBytes;
+        return saturatingAdd(unitsToCompleteBucket, saturatingMultiply(freeBytes, amountPerByte));
+    }
+
+    private static long ceilDivide(long dividend, long divisor) {
+        if (dividend <= 0L) {
+            return 0L;
+        }
+        long quotient = dividend / divisor;
+        return dividend % divisor == 0L ? quotient : saturatingAdd(quotient, 1L);
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right > 0L && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
+    }
+
+    private StorageSnapshot snapshot() {
+        KeyCounter available = new KeyCounter();
+        delegate.getAvailableStacks(available);
+        return snapshot(available);
+    }
+
+    private static StorageSnapshot snapshot(KeyCounter available) {
+        Long2LongOpenHashMap bucketSums = new Long2LongOpenHashMap();
+        bucketSums.defaultReturnValue(0L);
+        long storedTypes = 0L;
+        for (var entry : available) {
+            long amount = entry.getLongValue();
+            if (amount <= 0L) {
+                continue;
+            }
+            storedTypes = saturatingAdd(storedTypes, 1L);
+            long amountPerByte = Math.max(1L, entry.getKey().getType().getAmountPerByte());
+            bucketSums.put(amountPerByte, saturatingAdd(bucketSums.get(amountPerByte), amount));
+        }
+        return new StorageSnapshot(bucketSums, storedTypes, calculateUsedBytes(bucketSums));
+    }
+
+    private record StorageSnapshot(
+        Long2LongOpenHashMap bucketSums,
+        long storedTypes,
+        long usedBytes
+    ) {}
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {

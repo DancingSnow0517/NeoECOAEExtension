@@ -1173,7 +1173,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 if (remaining <= 0L) {
                     break;
                 }
-                long inserted = insertForRestore(target.simulatedCell(), key, remaining, Actionable.MODULATE, source);
+                long inserted = simulateInsertForRestore(target, key, remaining, source);
+                if (inserted > 0L) {
+                    target.simulatedContents().add(key, inserted);
+                }
                 remaining -= inserted;
                 if (remaining <= 0L) {
                     break;
@@ -1208,7 +1211,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
             if (simulatedCell != null && simulatedCell.getTier() == ECOTier.L9
                 && simulatedCell.isInfiniteStorageEligible()) {
-                targets.add(new RestoreTarget(drive, simulatedCell));
+                KeyCounter simulatedContents = new KeyCounter();
+                simulatedCell.getAvailableStacks(simulatedContents);
+                targets.add(new RestoreTarget(drive, simulatedCell, simulatedContents));
             }
         }
         return targets;
@@ -1218,9 +1223,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         long used = 0L;
         long total = 0L;
         for (RestoreTarget target : targets) {
-            IECOStorageCell cell = target.simulatedCell();
-            used = NEMath.saturatingAdd(used, cell.getUsedBytes());
-            total = NEMath.saturatingAdd(total, cell.getTotalBytes());
+            used = NEMath.saturatingAdd(used, getUsedBytesForRestore(target));
+            total = NEMath.saturatingAdd(total, target.simulatedCell().getTotalBytes());
         }
         if (total <= 0L) {
             return false;
@@ -1231,6 +1235,35 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 * (INFINITE_RESTORE_MARGIN_DENOMINATOR - INFINITE_RESTORE_MARGIN_NUMERATOR)
         );
         return used <= total - reserved;
+    }
+
+    private long simulateInsertForRestore(
+        RestoreTarget target,
+        AEKey key,
+        long amount,
+        IActionSource source
+    ) {
+        IECOStorageCell cell = target.simulatedCell();
+        if (cell instanceof ECOStorageCell storageCell) {
+            return storageCell.simulateInsertForMigration(key, amount, target.simulatedContents());
+        }
+        if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universalCell) {
+            return universalCell.simulateInsertForMigration(key, amount, target.simulatedContents());
+        }
+        // Unknown handlers must still be probed without mutation. Such handlers are allowed to return a conservative
+        // capacity; the real restore below remains authoritative and verifies the final aggregate.
+        return insertForRestore(cell, key, amount, Actionable.SIMULATE, source);
+    }
+
+    private long getUsedBytesForRestore(RestoreTarget target) {
+        IECOStorageCell cell = target.simulatedCell();
+        if (cell instanceof ECOStorageCell storageCell) {
+            return storageCell.getUsedBytesForMigration(target.simulatedContents());
+        }
+        if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universalCell) {
+            return universalCell.getUsedBytesForMigration(target.simulatedContents());
+        }
+        return cell.getUsedBytes();
     }
 
     private void restoreInfiniteDomainToNormalStorage(RestorePlan plan) {
@@ -1485,7 +1518,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return plan.canRestore() ? null : plan.reason();
     }
 
-    private record RestoreTarget(ECODriveBlockEntity drive, IECOStorageCell simulatedCell) {
+    private record RestoreTarget(
+        ECODriveBlockEntity drive,
+        IECOStorageCell simulatedCell,
+        KeyCounter simulatedContents
+    ) {
     }
 
     private record RestorePlan(boolean canRestore, List<RestoreTarget> targets, String reason) {

@@ -306,6 +306,80 @@ public class ECOStorageCell implements IECOStorageCell {
         return innerInsert(what, amount, mode);
     }
 
+    /**
+     * Computes migration capacity against a caller-owned inventory snapshot. A restore preflight must not mutate a
+     * real cell because some cell implementations back copied ItemStacks with world-level storage.
+     */
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+        if (amount <= 0L
+            || simulatedContents == null
+            || !keyType.contains(what)
+            || !partitionList.matchesFilter(what, partitionListMode)
+            || cellType.isBlackListed(cellStack, what)
+            || !canStoreKeyInsideStorageCell(what)) {
+            return 0L;
+        }
+
+        long currentAmount = simulatedContents.get(what);
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (Object2LongMap.Entry<AEKey> entry : simulatedContents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
+                storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
+            }
+        }
+
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+            ? 0L
+            : amountPerByte - storedItemCount % amountPerByte;
+        long bytesForItems = NEMath.saturatingAdd(storedItemCount, unusedItemCount) / amountPerByte;
+        long typeBytes = NEMath.saturatingMultiply(storedTypes, getBytesPerType());
+        long usedBytes = NEMath.saturatingAdd(typeBytes, bytesForItems);
+        long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
+        long remainingItemCount = NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(freeBytes, amountPerByte), unusedItemCount);
+        long remainingTypes = Math.min(
+            Math.max(0L, getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes)),
+            getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
+
+        if (currentAmount <= 0L) {
+            boolean canHoldNewType = (freeBytes > getBytesPerType()
+                || freeBytes == getBytesPerType() && unusedItemCount > 0L)
+                && remainingTypes > 0L;
+            if (!canHoldNewType) {
+                return 0L;
+            }
+            remainingItemCount = Math.max(
+                0L,
+                remainingItemCount - NEMath.saturatingMultiply(getBytesPerType(), amountPerByte));
+        }
+
+        return Math.min(amount, remainingItemCount);
+    }
+
+    public long getUsedBytesForMigration(KeyCounter simulatedContents) {
+        if (simulatedContents == null) {
+            return 0L;
+        }
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (Object2LongMap.Entry<AEKey> entry : simulatedContents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = NEMath.saturatingAdd(storedTypes, 1L);
+                storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
+            }
+        }
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+            ? 0L
+            : amountPerByte - storedItemCount % amountPerByte;
+        long bytesForItems = NEMath.saturatingAdd(storedItemCount, unusedItemCount) / amountPerByte;
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(storedTypes, getBytesPerType()), bytesForItems);
+    }
+
     private long innerInsert(AEKey what, long amount, Actionable mode) {
         if (!canStoreKeyInsideStorageCell(what)) {
             return 0;

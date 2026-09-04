@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.AEUniversalCellData;
 import com.wintercogs.ae2omnicells.common.me.AEUniversalCellHandler;
+import com.wintercogs.ae2omnicells.common.init.OCDataComponents;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -71,15 +72,24 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             claim(currentId, host);
             return false;
         }
+        UUID originalComponentId = stack.get(OCDataComponents.CELL_UUID.get());
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        String originalId = tag.getString(UUID_TAG);
-        tag.remove(UUID_TAG);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        String originalLegacyId = tag.getString(UUID_TAG);
+        if (originalComponentId != null) {
+            stack.remove(OCDataComponents.CELL_UUID.get());
+        } else {
+            tag.remove(UUID_TAG);
+            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        }
         AEUniversalCellData replacement = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
         UUID replacementId = getStorageId(stack);
         if (replacement == null || replacementId == null || replacementId.equals(currentId)) {
-            tag.putString(UUID_TAG, originalId);
-            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            if (originalComponentId != null) {
+                stack.set(OCDataComponents.CELL_UUID.get(), originalComponentId);
+            } else {
+                tag.putString(UUID_TAG, originalLegacyId);
+                stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            }
             throw new IllegalStateException("Unable to detach duplicated Omni storage UUID " + currentId);
         }
         replacement.getOriginalStorage().clear();
@@ -97,7 +107,16 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
 
     @Nullable private static UUID getStorageId(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return null;
+        UUID componentId = stack.get(OCDataComponents.CELL_UUID.get());
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return resolveStorageId(componentId, tag);
+    }
+
+    @Nullable
+    static UUID resolveStorageId(@Nullable UUID componentId, CompoundTag tag) {
+        if (componentId != null) {
+            return componentId;
+        }
         if (!tag.contains(UUID_TAG)) return null;
         try { return UUID.fromString(tag.getString(UUID_TAG)); }
         catch (IllegalArgumentException ignored) { return null; }
