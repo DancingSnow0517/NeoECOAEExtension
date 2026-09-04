@@ -6,7 +6,6 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOSophisticatedMutationBatch;
@@ -36,29 +35,13 @@ final class ECOInitialItemExtractor {
     private ECOInitialItemExtractor() {
     }
 
-    /**
-     * Uses one network snapshot as the read phase, then performs the minimum one real extraction per required key.
-     * Sophisticated handlers coalesce all resulting inventory saves into one save per physical handler.
-     */
+    /** Performs one real extraction per required key while coalescing Sophisticated inventory saves. */
     static @Nullable GenericStack tryExtract(
             ICraftingPlan plan, IGrid grid, ListCraftingInventory cpuInventory, IActionSource source) {
-        KeyCounter required = plan.usedItems();
+        var required = plan.usedItems();
         if (required.isEmpty()) return null;
 
         MEStorage storage = grid.getStorageService().getInventory();
-        if (cpuInventory.list.isEmpty()) {
-            KeyCounter available = new KeyCounter();
-            storage.getAvailableStacks(available);
-            for (var entry : required) {
-                long requested = entry.getLongValue();
-                if (requested <= 0L) continue;
-                long present = Math.max(0L, available.get(entry.getKey()));
-                if (present < requested) {
-                    return new GenericStack(entry.getKey(), requested - present);
-                }
-            }
-        }
-
         var adapter = ADAPTERS.select(grid, storage);
         try (var batch = adapter.mutationBatch(FLUSH_FAILURES)) {
             try {

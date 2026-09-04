@@ -353,7 +353,7 @@ public class ECOCraftingCPULogic {
         if (job != currentJob || currentJob.finalOutput == null) {
             return;
         }
-        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
+        if (isFinalOutputSatisfied(currentJob)) {
             finishJob(true);
             return;
         }
@@ -396,14 +396,14 @@ public class ECOCraftingCPULogic {
         currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
         markCpuDirty();
-        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
+        if (isFinalOutputSatisfied(currentJob)) {
             finishJob(true);
         }
     }
 
-    private boolean isFinalOutputSatisfied(long remainingAmount) {
+    private boolean isFinalOutputSatisfied(ExecutingCraftingJob currentJob) {
         // The buffer may still own recipe-rounding surplus. finishJob preserves that surplus and stores it normally.
-        return remainingAmount <= 0L;
+        return currentJob.remainingAmount <= 0L && currentJob.waitingFor.list.isEmpty();
     }
 
     private int getOperationLimit() {
@@ -1975,10 +1975,14 @@ public class ECOCraftingCPULogic {
             return acceptedOwnership;
         } else {
             if (type == Actionable.MODULATE) {
+                ExecutingCraftingJob currentJob = job;
                 inventory.insert(what, amount, Actionable.MODULATE);
                 long accepted = amount;
-                if (job.runtimeExecutionState() != null) {
-                    job.runtimeExecutionState().acceptOutput(what, accepted);
+                if (currentJob.runtimeExecutionState() != null) {
+                    currentJob.runtimeExecutionState().acceptOutput(what, accepted);
+                }
+                if (job == currentJob && isFinalOutputSatisfied(currentJob)) {
+                    finishJob(true);
                 }
                 return accepted;
             }
