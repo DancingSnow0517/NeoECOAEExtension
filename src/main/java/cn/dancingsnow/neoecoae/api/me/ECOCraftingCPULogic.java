@@ -33,6 +33,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.IGrid;
@@ -333,6 +334,17 @@ public class ECOCraftingCPULogic {
         return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
     }
 
+    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
+            IPatternDetails details) {
+        // Binary Mixin contract: Thunderbolt 1.0.6 wraps this exact invocation in this method.
+        // Keep exactly one getProviders call here; a forwarding stub in the CPU is not sufficient.
+        List<ICraftingProvider> result = new ArrayList<>();
+        for (ICraftingProvider provider : craftingService.getProviders(details)) {
+            result.add(provider);
+        }
+        return result;
+    }
+
     /**
      * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
      *
@@ -388,7 +400,8 @@ public class ECOCraftingCPULogic {
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
-                List<ICraftingProvider> candidateProviders = providers.collectAvailableProviders(craftingService, details);
+                List<ICraftingProvider> candidateProviders = providers.collectAvailableProviders(details,
+                    () -> collectAvailableProviders(craftingService, details));
                 if (candidateProviders.isEmpty()) {
                     continue;
                 }

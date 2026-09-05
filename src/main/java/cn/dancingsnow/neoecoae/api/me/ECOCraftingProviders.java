@@ -6,10 +6,10 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
-import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedBridge;
@@ -45,18 +45,14 @@ final class ECOCraftingProviders {
      * <p>Availability is intentionally excluded. A provider's busy state and free capacity change with every
      * dispatch, so they are re-read from the provider on each attempt.
      */
-    List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
-            IPatternDetails details) {
+    List<ICraftingProvider> collectAvailableProviders(IPatternDetails details,
+            Supplier<List<ICraftingProvider>> loader) {
         var identity = PlanIdentity.patternIdentityFor(details);
         if (identity != null) {
             var cached = providerTopologyCache.get(identity);
             if (cached != null) return cached;
         }
-        List<ICraftingProvider> providers = new ArrayList<>();
-        for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            providers.add(provider);
-        }
-        List<ICraftingProvider> result = List.copyOf(providers);
+        List<ICraftingProvider> result = List.copyOf(loader.get());
         if (identity != null && !result.isEmpty()) providerTopologyCache.put(identity, result);
         return result;
     }
