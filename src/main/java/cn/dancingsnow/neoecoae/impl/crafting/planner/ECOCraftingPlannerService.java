@@ -44,17 +44,19 @@ public final class ECOCraftingPlannerService {
         private final AEKey goal;
         private final KeyCounter inventory;
         private final boolean cyclePlanningEnabled;
+        private final boolean ignorePatternSubstitutions;
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
-                boolean cyclePlanningEnabled) {
+                boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions) {
             this.craftingService = craftingService;
             this.goal = goal;
             this.inventory = copy(inventory);
             this.cyclePlanningEnabled = cyclePlanningEnabled;
+            this.ignorePatternSubstitutions = ignorePatternSubstitutions;
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
@@ -67,9 +69,11 @@ public final class ECOCraftingPlannerService {
                     if (activeSelection == null) synchronized (initializationLock) {
                         if (activeSelection == null) activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
                     }
-                    solved = componentPlanner.plan(compiled, activeSelection, inventory, amount, true, cancellation);
+                    solved = componentPlanner.plan(compiled, activeSelection, inventory, amount, true,
+                        ignorePatternSubstitutions, cancellation);
                 } else {
-                    solved = componentPlanner.plan(compiled, condensation, inventory, amount, false, cancellation);
+                    solved = componentPlanner.plan(compiled, condensation, inventory, amount, false,
+                        ignorePatternSubstitutions, cancellation);
                 }
                 solved = rejectUnclosedSuccess(solved, amount);
                 boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
@@ -170,12 +174,17 @@ public final class ECOCraftingPlannerService {
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory) {
-        return new Session(service, goal, inventory, false);
+        return new Session(service, goal, inventory, false, false);
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
             boolean cyclePlanningEnabled) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled);
+        return new Session(service, goal, inventory, cyclePlanningEnabled, false);
+    }
+
+    public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
+            boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions) {
+        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions);
     }
 
     private static KeyCounter copy(KeyCounter source) {

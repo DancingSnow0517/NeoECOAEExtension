@@ -80,13 +80,51 @@ public class ECOCraftingCPULogic {
     private DispatchResult dispatchBatch(ExecutingCraftingJob job, ECOExtractedPatternExecution execution,
             KeyCounter[] container, List<ICraftingProvider> providers, IEnergyService energy, double power,
             long remaining, BatchMode mode, boolean firstBatch) {
-        long accepted = mode == BatchMode.VIRTUAL
+        return mode == BatchMode.VIRTUAL
             ? tryPushVerifiedVirtualBatch(job, execution, container, providers, remaining)
             : tryPushVerifiedFastPathBatch(job, execution, container, providers, energy, power, remaining, firstBatch);
-        if (accepted > 0) return new DispatchResult.Accepted(accepted);
-        if (accepted < 0) return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
-        return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
     }
+
+    private static Map<AEKey, Long> consumedInputs(KeyCounter[] counters) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        if (counters != null) {
+            for (KeyCounter counter : counters) {
+                if (counter == null) continue;
+                for (var entry : counter) {
+                    addConsumedInput(result, entry.getKey(), entry.getLongValue());
+                }
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static Map<AEKey, Long> consumedInputs(List<GenericStack> stacks) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        if (stacks != null) {
+            for (GenericStack stack : stacks) {
+                if (stack == null) continue;
+                addConsumedInput(result, stack.what(), stack.amount());
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static Map<AEKey, Long> mergeConsumedInputs(KeyCounter[] first, List<GenericStack> additional) {
+        Map<AEKey, Long> result = new LinkedHashMap<>(consumedInputs(first));
+        if (additional != null) {
+            for (GenericStack stack : additional) {
+                if (stack == null) continue;
+                addConsumedInput(result, stack.what(), stack.amount());
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static void addConsumedInput(Map<AEKey, Long> target, AEKey key, long amount) {
+        if (key == null || amount <= 0L) return;
+        target.merge(key, amount, Math::addExact);
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     final ECOCraftingCPU cpu;
@@ -685,7 +723,7 @@ public class ECOCraftingCPULogic {
                             }
                             if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
                             recordPushedPattern(job, attemptOutputs, attemptContainerItems, 1L);
-                            single = new DispatchResult.Accepted(1L);
+                            single = new DispatchResult.Accepted(1L, consumedInputs(attemptContainer));
                             break;
                         }
                         if (!sawAvailable) {
@@ -1224,7 +1262,10 @@ public class ECOCraftingCPULogic {
         }
         chargeCountedBatchEnergy(energyService, patternPower, accepted);
         if (this.job == job) recordPushedPattern(job, execution, accepted);
-        return new DispatchResult.Accepted(accepted);
+        Map<AEKey, Long> actualConsumed = mergeConsumedInputs(
+            firstCraftingContainer,
+            ECOBatchCraftingHelper.multiply(execution.inputItems(), accepted - 1L));
+        return new DispatchResult.Accepted(accepted, actualConsumed);
     }
 
     private DispatchResult tryCommitDataEnergisticsAdmission(
@@ -1291,7 +1332,10 @@ public class ECOCraftingCPULogic {
         }
         chargeCountedBatchEnergy(energyService, patternPower, count);
         if (this.job == job) recordPushedPattern(job, execution, count);
-        return new DispatchResult.Accepted(count);
+        Map<AEKey, Long> actualConsumed = mergeConsumedInputs(
+            firstCraftingContainer,
+            ECOBatchCraftingHelper.multiply(execution.inputItems(), count - 1L));
+        return new DispatchResult.Accepted(count, actualConsumed);
     }
 
     private void chargeCountedBatchEnergy(IEnergyService energyService, double patternPower, long count) {
@@ -1384,6 +1428,7 @@ public class ECOCraftingCPULogic {
             return new ProbeDispatchOutcome(
                 new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED), probe.probeCount());
         }
+        Map<AEKey, Long> actualConsumed = mergeConsumedInputs(firstCraftingContainer, extraInputs);
         boolean extraExtracted = false;
         boolean ownershipTransferred = false;
         try {
@@ -1398,11 +1443,13 @@ public class ECOCraftingCPULogic {
             double requiredPower = patternPower * craftCount;
             if (Double.isFinite(requiredPower)) chargeAcceptedPatternEnergy(energyService, requiredPower);
             if (this.job == job) recordPushedPattern(job, execution, craftCount);
-            return new ProbeDispatchOutcome(new DispatchResult.Accepted(craftCount), probe.probeCount());
+            return new ProbeDispatchOutcome(
+                new DispatchResult.Accepted(craftCount, actualConsumed), probe.probeCount());
         } catch (RuntimeException failure) {
             if (ownershipTransferred) {
                 LOGGER.error("Batch probe commit failed after ownership transfer; accounting as accepted", failure);
-                return new ProbeDispatchOutcome(new DispatchResult.Accepted(craftCount), probe.probeCount());
+                return new ProbeDispatchOutcome(
+                    new DispatchResult.Accepted(craftCount, actualConsumed), probe.probeCount());
             }
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraExtracted);
             LOGGER.error("Batch probe commit failed before ownership transfer; inputs were rolled back", failure);
@@ -1428,7 +1475,7 @@ public class ECOCraftingCPULogic {
         batchProbedTasksThisTick.clear();
     }
 
-    private int tryPushVerifiedFastPathBatch(
+    private DispatchResult tryPushVerifiedFastPathBatch(
             ExecutingCraftingJob job,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
@@ -1438,14 +1485,14 @@ public class ECOCraftingCPULogic {
             long taskRemaining,
             boolean firstBatch) {
         if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1) {
-            return 0;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
 
         // Ask providers for the full remaining task. The selected F-series host and worker cap the
         // offer to their live thread capacity; inventory, energy and coolant apply further bounds.
         int requested = (int) Math.min(Integer.MAX_VALUE, calculateBatchRequestSize(execution, taskRemaining));
         if (requested <= 1) {
-            return 0;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
@@ -1476,17 +1523,17 @@ public class ECOCraftingCPULogic {
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
-            return 0;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
         var verifiedRecipe = selectedOffer.recipe();
         // The credential must have been minted for this very execution context, never for an earlier one.
         if (!verifiedRecipe.isVerifiedFor(execution)) {
-            return 0;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
 
         ECOCraftingSystemBlockEntity controller = selectedPatternBus.getCraftingController();
         if (controller == null) {
-            return 0;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
 
         // A fully virtualized host pays one flat group-wide draw per tick instead of a per-craft charge, so the
@@ -1500,6 +1547,7 @@ public class ECOCraftingCPULogic {
 
         int batchSize = 0;
         List<GenericStack> batchInputs = List.of();
+        Map<AEKey, Long> actualConsumed = Map.of();
         boolean batchInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
@@ -1510,7 +1558,7 @@ public class ECOCraftingCPULogic {
             batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
             if (batchSize <= 1) {
                 if (!firstBatch) reclaimProbeCraftingInputs(firstCraftingContainer);
-                return 0;
+                return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
             }
 
             if (verifiedRecipe.reusableStateModel() == null) {
@@ -1529,13 +1577,13 @@ public class ECOCraftingCPULogic {
             }
             if (batchSize <= 1) {
                 if (!firstBatch) reclaimProbeCraftingInputs(firstCraftingContainer);
-                return 0;
+                return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
             }
 
             double requiredPower = flatRatePower ? 0.0D : patternPower * batchSize;
             if (!Double.isFinite(requiredPower)) {
                 if (!firstBatch) reclaimProbeCraftingInputs(firstCraftingContainer);
-                return 0;
+                return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
             }
             if (firstBatch) {
                 // The first craft was extracted before the offer search. Only the remainder of this batch is
@@ -1548,6 +1596,9 @@ public class ECOCraftingCPULogic {
             }
             ECOBatchCraftingHelper.extractExact(inventory, batchInputs);
             batchInputsExtracted = true;
+            actualConsumed = firstBatch
+                ? mergeConsumedInputs(firstCraftingContainer, batchInputs)
+                : consumedInputs(batchInputs);
             // Bind the already-verified recipe credential to this batch size. No stack list is re-copied and no
             // stack list is compared again from here on.
             var verified = verifiedRecipe.withBatch(batchSize, job.link.getCraftingID());
@@ -1557,7 +1608,7 @@ public class ECOCraftingCPULogic {
                 } else if (batchInputsExtracted) {
                     ECOBatchCraftingHelper.insertAll(inventory, batchInputs);
                 }
-                return -1;
+                return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
             }
             // The worker owns every input from this point onward. Never reinject them into the CPU.
             ownershipTransferred = true;
@@ -1587,12 +1638,12 @@ public class ECOCraftingCPULogic {
                 selectedOffer.worker().getFastPathCache().recordException();
                 LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
             }
-            return batchSize;
+            return new DispatchResult.Accepted(batchSize, actualConsumed);
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
             if (ownershipTransferred) {
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
-                return batchSize;
+                return new DispatchResult.Accepted(batchSize, actualConsumed);
             }
             if (firstBatch) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, batchInputs, true, batchInputsExtracted);
@@ -1602,7 +1653,7 @@ public class ECOCraftingCPULogic {
                 }
             }
             logBatchRejection(batchSize, taskRemaining, e);
-            return -1;
+            return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
         } catch (Error e) {
             // Error is included so extracted inputs are returned before the failure escapes.
             selectedOffer.worker().getFastPathCache().recordException();
@@ -1624,14 +1675,14 @@ public class ECOCraftingCPULogic {
      * the complete remaining long task and materializes long-valued GenericStack totals without creating one
      * thread object per craft.
      */
-    private long tryPushVerifiedVirtualBatch(
+    private DispatchResult tryPushVerifiedVirtualBatch(
             ExecutingCraftingJob job,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
             List<ICraftingProvider> candidateProviders,
             long taskRemaining) {
         if (!canAttemptBatchFastPath(execution) || taskRemaining <= 0L) {
-            return 0L;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
         ECOCraftingPatternBusBlockEntity selectedBus = null;
         ECOCraftingPatternBusBlockEntity.VirtualFastPathOffer selectedOffer = null;
@@ -1657,7 +1708,7 @@ public class ECOCraftingCPULogic {
             }
         }
         if (selectedBus == null || selectedOffer == null || !selectedOffer.recipe().isVerifiedFor(execution)) {
-            return 0L;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
         var verifiedRecipe = selectedOffer.recipe();
 
@@ -1673,14 +1724,15 @@ public class ECOCraftingCPULogic {
                 (java.util.function.LongFunction<List<GenericStack>>) verifiedRecipe::additionalInputs);
         }
         if (craftCount <= 0L) {
-            return 0L;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
         List<GenericStack> extraInputs;
         try {
             extraInputs = verifiedRecipe.additionalInputs(craftCount);
         } catch (RuntimeException e) {
-            return 0L;
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         }
+        Map<AEKey, Long> actualConsumed = mergeConsumedInputs(firstCraftingContainer, extraInputs);
         boolean extracted = false;
         boolean ownershipTransferred = false;
         try {
@@ -1689,22 +1741,22 @@ public class ECOCraftingCPULogic {
             var verified = verifiedRecipe.withVirtualBatch(craftCount, job.link.getCraftingID());
             if (verified == null || !selectedBus.pushVirtualBatch(verified, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
-                return -1L;
+                return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
             }
             ownershipTransferred = true;
             if (this.job == job) {
                 recordPushedBatchPattern(job, verifiedRecipe, craftCount);
             }
-            return craftCount;
+            return new DispatchResult.Accepted(craftCount, actualConsumed);
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
             if (ownershipTransferred) {
                 LOGGER.error("Virtual ECO batch failed after ownership transfer; accounting it as accepted", e);
-                return craftCount;
+                return new DispatchResult.Accepted(craftCount, actualConsumed);
             }
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extracted);
             logBatchRejection(craftCount, taskRemaining, e);
-            return -1L;
+            return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
         } catch (Error e) {
             selectedOffer.worker().getFastPathCache().recordException();
             if (!ownershipTransferred) {

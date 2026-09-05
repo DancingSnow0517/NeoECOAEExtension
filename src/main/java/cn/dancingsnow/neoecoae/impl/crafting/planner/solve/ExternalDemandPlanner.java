@@ -39,13 +39,29 @@ final class ExternalDemandPlanner {
     Outcome solve(CompiledNetwork network, CycleComponent cycle, CycleSolveResult cycleResult,
             KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
             Set<AEKey> delegatedCycleInputs, ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, cycle, cycleResult, inventory, base, additionalCycleReservations,
+            delegatedCycleInputs, false, cancellation);
+    }
+
+    Outcome solve(CompiledNetwork network, CycleComponent cycle, CycleSolveResult cycleResult,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
         return solveDemands(network, cycle, cycleResult.positiveExternalDemand(), inventory, base,
-            additionalCycleReservations, delegatedCycleInputs, cancellation);
+            additionalCycleReservations, delegatedCycleInputs, ignorePatternSubstitutions, cancellation);
     }
 
     Outcome solveDemands(CompiledNetwork network, CycleComponent cycle, Map<AEKey, Long> demands,
             KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
             Set<AEKey> delegatedCycleInputs, ECOCancellation cancellation) throws InterruptedException {
+        return solveDemands(network, cycle, demands, inventory, base, additionalCycleReservations,
+            delegatedCycleInputs, false, cancellation);
+    }
+
+    Outcome solveDemands(CompiledNetwork network, CycleComponent cycle, Map<AEKey, Long> demands,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
         KeyCounter available = remainingInventory(inventory, base);
         for (var reservation : additionalCycleReservations.entrySet()) {
             long amount = reservation.getValue();
@@ -80,7 +96,8 @@ final class ExternalDemandPlanner {
             long deficit = demand.getValue() - fromStock;
             if (deficit <= 0) continue;
 
-            Outcome one = solveDeficit(network, cycle, demand.getKey(), deficit, available, cancellation);
+            Outcome one = solveDeficit(network, cycle, demand.getKey(), deficit, available,
+                ignorePatternSubstitutions, cancellation);
             if (!one.solved()) return one;
             SolveState state = one.states().getFirst();
             states.add(state);
@@ -106,7 +123,8 @@ final class ExternalDemandPlanner {
     }
 
     private Outcome solveDeficit(CompiledNetwork network, CycleComponent cycle, AEKey goal, long amount,
-            KeyCounter inventory, ECOCancellation cancellation) throws InterruptedException {
+            KeyCounter inventory, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
         Set<IPatternDetails> forbiddenPatterns = cycle.patterns().stream()
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
         Set<AEKey> forbiddenMembers = Set.copyOf(cycle.members());
@@ -136,7 +154,7 @@ final class ExternalDemandPlanner {
             : selection.condensation().topologicalOrder().stream()
                 .flatMap(component -> component.members().stream()).toList();
         var solved = acyclicSolver.solve(filtered, new AcyclicRoutePlan(route), inventory, amount,
-            selection.choices(), deferredCyclePatterns, cancellation);
+            selection.choices(), deferredCyclePatterns, ignorePatternSubstitutions, cancellation);
         if (solved.status() == PlanningStatus.SUCCESS) {
             return new Outcome(CycleExternalDemandStatus.SOLVED, new KeyCounter(), List.of(solved.state()), Map.of(),
                 solved.state().selected.values().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),

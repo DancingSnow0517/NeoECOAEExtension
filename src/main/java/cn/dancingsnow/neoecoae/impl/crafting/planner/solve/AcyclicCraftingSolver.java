@@ -45,6 +45,13 @@ public final class AcyclicCraftingSolver {
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
             ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, route, inventory, amount, initialChoices, deferredPatterns,
+            false, cancellation);
+    }
+
+    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
+            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
@@ -66,7 +73,7 @@ public final class AcyclicCraftingSolver {
             }
             state = runOnce(network, new AcyclicRoutePlan(currentRoute),
                 new SolveWorkspace(inventory, choices), amount,
-                deferredPatterns, cancellation);
+                deferredPatterns, ignorePatternSubstitutions, cancellation);
             if (!state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
@@ -170,14 +177,15 @@ public final class AcyclicCraftingSolver {
     }
 
     private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
-            long amount, Set<IPatternDetails> deferredPatterns, ECOCancellation cancellation)
+            long amount, Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
             throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
         state.stored.set(network.goal(), PlannerAmount.ZERO); // AE2 ignores stored final output during planning.
         state.demand.put(network.goal(), PlannerAmount.of(amount));
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
-            network, state, workspace.candidateChoice(), cancellation);
+            network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
         for (AEKey key : route.keys()) {
             cancellation.checkpoint();
             PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);

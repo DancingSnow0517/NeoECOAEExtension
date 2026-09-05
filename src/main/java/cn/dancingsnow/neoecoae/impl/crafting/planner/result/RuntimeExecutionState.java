@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.TreeSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 
 /** Mutable task accounting with dependency-aware multi-ready phases. */
 public final class RuntimeExecutionState {
@@ -67,6 +68,7 @@ public final class RuntimeExecutionState {
             semantics.consumedInputs().forEach(input -> resourceId(input.key()));
             semantics.producedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
             semantics.returnedOutputs().forEach(output -> { if (output != null) resourceId(output.what()); });
+            collectCandidateResources(task.pattern());
         }
         resourceKeys = resourceIds.keySet().toArray(AEKey[]::new);
         onHand = new long[resourceIds.size()];
@@ -78,6 +80,9 @@ public final class RuntimeExecutionState {
             var semantics = ECOPhaseScheduler.semantic(task.pattern());
             Map<Integer, Long> taskConsumed = new LinkedHashMap<>();
             for (var input : semantics.consumedInputs()) {
+                // A substitution or returned-input slot is resolved by the CPU at dispatch time. Its compiled
+                // primary key is useful for diagnostics, but it is not a safe ownership reservation.
+                if (isRuntimeSelectedInput(semantics, input)) continue;
                 taskConsumed.merge(resourceId(input.key()), input.amountPerPattern().longValueExact(), Math::addExact);
             }
             taskConsumed.forEach((resource, amount) -> {
@@ -194,8 +199,11 @@ public final class RuntimeExecutionState {
             long perCraft = 0L;
             var inputs = plan.task(taskId).pattern().getInputs();
             if (inputs == null) continue;
+            var semantics = ECOPhaseScheduler.semantic(plan.task(taskId).pattern());
             for (var input : inputs) {
                 if (input == null || input.getPossibleInputs() == null) continue;
+                if (semantics.consumedInputs().stream().anyMatch(compiled -> compiled.source() == input
+                        && isRuntimeSelectedInput(semantics, compiled))) continue;
                 for (var possible : input.getPossibleInputs()) {
                     if (possible != null && key.equals(possible.what())) {
                         perCraft = saturatedMultiplyAdd(perCraft, possible.amount(), input.getMultiplier());
@@ -226,8 +234,30 @@ public final class RuntimeExecutionState {
             return Long.MAX_VALUE;
         }
     }
+
+    private void collectCandidateResources(appeng.api.crafting.IPatternDetails pattern) {
+        try {
+            var inputs = pattern.getInputs();
+            if (inputs == null) return;
+            for (var input : inputs) {
+                if (input == null || input.getPossibleInputs() == null) continue;
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible == null || possible.what() == null) continue;
+                    resourceId(possible.what());
+                    resourceId(input.getRemainingKey(possible.what()));
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // The semantic compiler remains authoritative for malformed patterns.
+        }
+    }
+
+    private static boolean isRuntimeSelectedInput(PatternSemantics semantics, PatternSemantics.Input input) {
+        return semantics.matchingMode() != PatternSemantics.MatchingMode.EXACT || input.returnedKey() != null;
+    }
+
     public List<Integer> applyAccepted(int taskId, long count) {
-        commitAccepted(taskId, count);
+        commitAccepted(taskId, count, null);
         List<Integer> result = new ArrayList<>(committedReadyCount);
         for (int i = 0; i < committedReadyCount; i++) result.add(committedReadyTasks[i]);
         for (int i = 0; i < committedReadyCount; i++) committedReady[committedReadyTasks[i]] = false;
@@ -237,20 +267,30 @@ public final class RuntimeExecutionState {
 
     /** Commits dispatch consumption and the expected output needed to keep cycle startup stock reserved. */
     public void commitAccepted(int taskId, long count) {
+        commitAccepted(taskId, count, null);
+    }
+
+    /**
+     * Commits one accepted dispatch. When supplied, {@code actualConsumed} is the exact physical input transfer
+     * performed by the CPU for this dispatch. This is required for substitutions and batch-safe reusable inputs,
+     * whose compiled primary input is not necessarily the quantity/key transferred for every firing.
+     */
+    public void commitAccepted(int taskId, long count, Map<AEKey, Long> actualConsumed) {
         long permitted = dispatchLimit(taskId);
         if (count <= 0 || count > permitted) {
             throw new IllegalArgumentException("Dispatch count exceeds runtime gate");
         }
-        for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
-            long amount = Math.multiplyExact(consumedAmount[row], count);
-            if (amount > onHand[consumedResource[row]]) {
+        Map<Integer, Long> consumed = actualConsumed == null
+            ? compiledConsumption(taskId, count) : resolveActualConsumption(actualConsumed);
+        for (var entry : consumed.entrySet()) {
+            if (entry.getValue() > onHand[entry.getKey()]) {
                 throw new IllegalArgumentException("Dispatch consumption exceeds CPU ownership");
             }
         }
-        accountCycleResources(taskId, count);
-        for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
-            long amount = Math.multiplyExact(consumedAmount[row], count);
-            int id = consumedResource[row];
+        accountCycleResources(taskId, count, actualConsumed);
+        for (var entry : consumed.entrySet()) {
+            long amount = entry.getValue();
+            int id = entry.getKey();
             onHand[id] -= amount;
             futureNeed[id] = Math.max(0L, futureNeed[id] - amount);
         }
@@ -287,10 +327,37 @@ public final class RuntimeExecutionState {
         collectCommittedReady = false;
     }
 
-    private void accountCycleResources(int taskId, long count) {
+    private Map<Integer, Long> compiledConsumption(int taskId, long count) {
+        Map<Integer, Long> result = new LinkedHashMap<>();
+        for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
+            result.merge(consumedResource[row], Math.multiplyExact(consumedAmount[row], count), Math::addExact);
+        }
+        return result;
+    }
+
+    private Map<Integer, Long> resolveActualConsumption(Map<AEKey, Long> actualConsumed) {
+        Map<Integer, Long> result = new LinkedHashMap<>();
+        actualConsumed.forEach((key, amount) -> {
+            if (key == null || amount == null || amount < 0L) {
+                throw new IllegalArgumentException("Invalid actual dispatch consumption");
+            }
+            if (amount == 0L) return;
+            int id = resourceIds.getOrDefault(key, -1);
+            if (id < 0) throw new IllegalArgumentException("Dispatch consumed an uncompiled resource: " + key);
+            result.merge(id, amount, Math::addExact);
+        });
+        return result;
+    }
+
+    private void accountCycleResources(int taskId, long count, Map<AEKey, Long> actualConsumed) {
         var task = plan.task(taskId);
         var ledger = cycleLedgers.get(plan.phases().get(task.phaseIndex()).componentId());
         if (ledger == null) return;
+        if (actualConsumed != null) {
+            actualConsumed.forEach((key, amount) -> ledger.consume(key, amount));
+            accountCycleOutputs(task, count, ledger);
+            return;
+        }
         var semantics = ECOPhaseScheduler.semantic(task.pattern());
         for (var input : semantics.consumedInputs()) {
             long amount;
@@ -301,6 +368,11 @@ public final class RuntimeExecutionState {
             }
             ledger.consume(input.key(), amount);
         }
+        accountCycleOutputs(task, count, ledger);
+    }
+
+    private void accountCycleOutputs(ECOExecutionPlan.TaskSpec task, long count, CycleResourceLedger ledger) {
+        var semantics = ECOPhaseScheduler.semantic(task.pattern());
         for (var output : semantics.producedOutputs()) {
             if (output == null || output.what() == null || output.amount() <= 0L) continue;
             ledger.recordGenerated(output.what(), saturatedMultiply(output.amount(), count));

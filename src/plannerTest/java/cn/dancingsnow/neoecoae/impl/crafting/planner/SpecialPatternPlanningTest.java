@@ -80,6 +80,29 @@ class SpecialPatternPlanningTest {
     }
 
     @Test
+    void ignoringPatternSubstitutionsKeepsTheCompiledPrimaryCandidate() throws Exception {
+        AEKey goal = PlannerTestKey.of("ignore_substitution_goal");
+        AEKey ordinary = PlannerTestKey.of("ignore_substitution_ordinary");
+        AEKey damaged = PlannerTestKey.of("ignore_substitution_damaged");
+        AEKey master = PlannerTestKey.of("ignore_substitution_master");
+        var pattern = new AlternativeReturningPattern(goal, ordinary, damaged, master);
+        var analyzer = new SpecialPatternAnalyzer(input -> new SpecialPatternAnalysis.Requirement(
+            input, input.remainderKey(), SpecialPatternAnalysis.Type.REUSABLE, 0, 0));
+        var network = new CraftingNetworkCompiler(
+            List.of(new AE2PatternSemanticAdapter(master::equals)), analyzer).compile(
+                service(Map.of(goal, List.of(pattern))), goal, true, ECOCancellation.NONE);
+
+        KeyCounter inventory = stock(ordinary, 1);
+        inventory.add(master, 1);
+        var outcome = solve(network, inventory, 5_000, true);
+
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        assertEquals(1L, outcome.state().usedItems().get(ordinary));
+        assertEquals(0L, outcome.state().usedItems().get(master));
+        assertEquals(5_000L, outcome.state().patternTimes().get(pattern));
+    }
+
+    @Test
     void missingReusableAlternativeFallsBackToCraftablePrimary() throws Exception {
         AEKey goal = PlannerTestKey.of("fallback_primary_goal");
         AEKey ordinary = PlannerTestKey.of("fallback_ordinary_crystal");
@@ -142,12 +165,19 @@ class SpecialPatternPlanningTest {
     private static ComponentPlanner.Outcome solve(
             cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork network,
             KeyCounter inventory, long amount) throws Exception {
+        return solve(network, inventory, amount, false);
+    }
+
+    private static ComponentPlanner.Outcome solve(
+            cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork network,
+            KeyCounter inventory, long amount, boolean ignorePatternSubstitutions) throws Exception {
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
         return new ComponentPlanner(new AcyclicCraftingSolver(),
             SinglePatternGrowthCycleSolver.overBoundedSolver())
-            .plan(network, condensation, inventory, amount, true, ECOCancellation.NONE);
+            .plan(network, condensation, inventory, amount, true, ignorePatternSubstitutions,
+                ECOCancellation.NONE);
     }
 
     private static KeyCounter stock(AEKey key, long amount) {

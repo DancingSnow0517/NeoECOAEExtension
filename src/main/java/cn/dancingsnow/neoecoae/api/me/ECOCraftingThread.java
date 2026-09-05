@@ -972,6 +972,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             // An ECO worker knows which CPU owns its output. Never fall through to another CPU or network storage
             // when that owner has not accepted it yet; doing so loses the job's dependency edge permanently.
             if (routedToOwningJob && remaining > 0L) {
+                // The owner may have been cancelled or unloaded after the batch was accepted. Keep the
+                // output durable and move the lane into the normal recovery path so it cannot remain busy
+                // forever while retrying an owner that no longer exists.
+                markRecoveryPending(true);
                 logBlockedOutput("owning-cpu-unavailable", stacks);
                 continue;
             }

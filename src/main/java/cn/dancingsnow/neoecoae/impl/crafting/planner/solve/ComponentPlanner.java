@@ -67,7 +67,16 @@ public final class ComponentPlanner {
             long amount, boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
         ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
             cancellation);
-        return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled, cancellation);
+        return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled, false, cancellation);
+    }
+
+    public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
+            long amount, boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
+        ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
+            cancellation);
+        return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled,
+            ignorePatternSubstitutions, cancellation);
     }
 
     public ActiveRouteSelector.Selection selectRoutes(CondensationGraph condensation,
@@ -80,6 +89,12 @@ public final class ComponentPlanner {
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
             KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
+        return plan(network, activeSelection, inventory, amount, cyclePlanningEnabled, false, cancellation);
+    }
+
+    public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
+            KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
@@ -92,7 +107,7 @@ public final class ComponentPlanner {
             .map(CompiledPattern::details)
             .collect(java.util.stream.Collectors.toSet());
         var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount,
-            activeSelection.choices(), cycleOwnedPatterns, cancellation);
+            activeSelection.choices(), cycleOwnedPatterns, ignorePatternSubstitutions, cancellation);
         ECOPlanTrace trace = acyclic.trace();
         for (var deferred : activeSelection.deferredCyclicCandidates()) {
             trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, deferred.producedKey(), deferred.details(),
@@ -220,7 +235,8 @@ public final class ComponentPlanner {
                     Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
                         activeSelection.choices(), cycle, recoveryDemands.keySet());
                     external = externalDemandPlanner.solveDemands(network, cycle, recoveryDemands, inventory,
-                        acyclic.state(), recoveryAdditionalReservations, delegatedInputs, cancellation);
+                        acyclic.state(), recoveryAdditionalReservations, delegatedInputs,
+                        ignorePatternSubstitutions, cancellation);
                     externalDemandStatus = external.status();
                     externalMissingItems = external.missingLeaves();
                     trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
@@ -255,7 +271,8 @@ public final class ComponentPlanner {
                         Set<AEKey> delegatedInputs = delegatedCycleInputs(network, activeCondensation,
                             activeSelection.choices(), cycle, cycleResult.positiveExternalDemand().keySet());
                         external = externalDemandPlanner.solve(network, cycle, cycleResult, inventory,
-                            acyclic.state(), additionalReservations, delegatedInputs, cancellation);
+                            acyclic.state(), additionalReservations, delegatedInputs,
+                            ignorePatternSubstitutions, cancellation);
                         externalDemandStatus = external.status();
                         externalMissingItems = external.missingLeaves();
                         trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
@@ -22,14 +23,16 @@ public final class SpecialPatternResolver {
     private final SolveState state;
     private final Map<AEKey, Integer> choices;
     private final ECOCancellation cancellation;
+    private final boolean ignorePatternSubstitutions;
     private final Set<AEKey> resolving = new LinkedHashSet<>();
 
     SpecialPatternResolver(CompiledNetwork network, SolveState state, Map<AEKey, Integer> choices,
-            ECOCancellation cancellation) {
+            ECOCancellation cancellation, boolean ignorePatternSubstitutions) {
         this.network = network;
         this.state = state;
         this.choices = choices;
         this.cancellation = cancellation;
+        this.ignorePatternSubstitutions = ignorePatternSubstitutions;
     }
 
     public static PlannerAmount requiredTools(PlannerAmount uses, int capacityPerTool) {
@@ -104,7 +107,10 @@ public final class SpecialPatternResolver {
         IPatternDetails.IInput source = input.source();
         if (source == null) return false;
         try {
-            for (var possible : source.getPossibleInputs()) {
+            GenericStack[] possibleInputs = source.getPossibleInputs();
+            int limit = ignorePatternSubstitutions ? Math.min(1, possibleInputs.length) : possibleInputs.length;
+            for (int i = 0; i < limit; i++) {
+                var possible = possibleInputs[i];
                 if (possible == null || possible.what() == null || possible.amount() <= 0L) continue;
                 AEKey returned = source.getRemainingKey(possible.what());
                 if (returned == null || !returned.equals(possible.what())) continue;
@@ -125,7 +131,10 @@ public final class SpecialPatternResolver {
         IPatternDetails.IInput source = input.source();
         if (source == null) return null;
         try {
-            for (var possible : source.getPossibleInputs()) {
+            GenericStack[] possibleInputs = source.getPossibleInputs();
+            int limit = ignorePatternSubstitutions ? Math.min(1, possibleInputs.length) : possibleInputs.length;
+            for (int i = 0; i < limit; i++) {
+                var possible = possibleInputs[i];
                 if (!(possible.what() instanceof AEItemKey candidateKey) || possible.amount() <= 0L) continue;
                 AEKey returnedKey = source.getRemainingKey(candidateKey);
                 if (!(returnedKey instanceof AEItemKey returned)) continue;

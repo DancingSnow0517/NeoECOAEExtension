@@ -106,7 +106,8 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
             grid.getCraftingService(), output.what(), inventory,
-            settings.neoecoae$isCyclePlanningEnabled());
+            settings.neoecoae$isCyclePlanningEnabled(),
+            this.neoecoae$ignorePatternSubstitutions);
     }
 
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)

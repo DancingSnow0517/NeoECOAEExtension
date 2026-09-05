@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveMetrics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
@@ -196,6 +199,88 @@ class RuntimeExecutionStateTest {
         state.acceptOutput(seed, 2L);
         assertEquals(1L, state.pendingCycleFeedbackReserve(seed),
             "receiving the final output must not release the bootstrap seed");
+    }
+
+    @Test
+    void reusableInputUsesThePhysicalBatchTransferInsteadOfMultiplyingStaticDemand() {
+        AEKey tool = PlannerTestKey.of("runtime_reusable_tool");
+        var pattern = new PlannerFixtures.Pattern("runtime-reusable",
+            new IPatternDetails.IInput[] {new PlannerFixtures.Input(tool, 1L, true)},
+            List.of(new GenericStack(c, 1L)));
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(pattern, 100L));
+        state.restoreOwnership(Map.of(tool, 1L));
+
+        assertDoesNotThrow(() -> state.commitAccepted(0, 100L, Map.of(tool, 1L)));
+        assertEquals(0L, state.onHand(tool));
+        assertEquals(0L, state.remaining(0));
+    }
+
+    @Test
+    void actualSubstitutionKeyIsRegisteredAndDebited() {
+        AEKey primary = PlannerTestKey.of("runtime_primary_input");
+        AEKey substitute = PlannerTestKey.of("runtime_substitute_input");
+        IPatternDetails.IInput input = new IPatternDetails.IInput() {
+            @Override public GenericStack[] getPossibleInputs() {
+                return new GenericStack[] {new GenericStack(primary, 1L), new GenericStack(substitute, 1L)};
+            }
+
+            @Override public long getMultiplier() { return 1L; }
+
+            @Override public boolean isValid(AEKey candidate, net.minecraft.world.level.Level level) {
+                return primary.equals(candidate) || substitute.equals(candidate);
+            }
+
+            @Override public AEKey getRemainingKey(AEKey template) { return template; }
+        };
+        var pattern = new PlannerFixtures.Pattern("runtime-substitution",
+            new IPatternDetails.IInput[] {input}, List.of(new GenericStack(c, 1L)));
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(pattern, 100L));
+        state.restoreOwnership(Map.of(substitute, 1L));
+
+        assertTrue(state.resourceIdIfKnown(substitute) >= 0);
+        assertDoesNotThrow(() -> state.commitAccepted(0, 100L, Map.of(substitute, 1L)));
+        assertEquals(0L, state.onHand(substitute));
+        assertEquals(0L, state.onHand(primary));
+    }
+
+    @Test
+    void staticInputsStillUseTheCompiledPerCraftFallback() {
+        AEKey input = PlannerTestKey.of("runtime_static_input");
+        var pattern = PlannerFixtures.pattern("runtime-static", c, 1L, input, 1L);
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(pattern, 3L));
+        state.restoreOwnership(Map.of(input, 3L));
+
+        assertDoesNotThrow(() -> state.commitAccepted(0, 3L));
+        assertEquals(0L, state.onHand(input));
+    }
+
+    @Test
+    void unknownActualInputIsRejectedBeforeMutatingOwnership() {
+        AEKey input = PlannerTestKey.of("runtime_known_input");
+        AEKey unknown = PlannerTestKey.of("runtime_unknown_input");
+        var pattern = PlannerFixtures.pattern("runtime-unknown", c, 1L, input, 1L);
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(pattern, 1L));
+        state.restoreOwnership(Map.of(input, 1L));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> state.commitAccepted(0, 1L, Map.of(unknown, 1L)));
+        assertEquals(1L, state.onHand(input));
+        assertEquals(1L, state.remaining(0));
+    }
+
+    private static ECOExecutionPlan singleTaskPlan(PlannerFixtures.Pattern pattern, long count) {
+        var identity = PlanIdentity.patternIdentityFor(pattern);
+        var task = new ECOExecutionPlan.TaskSpec(0, identity, pattern,
+            ECOExecutionPlan.PatternRuntimeInfo.from(pattern), count, 0, ECOExecutionPlan.TaskKind.DAG);
+        var phase = new ECOExecutionPlan.PhaseSpec(0, 1, ECOExecutionSchedule.Type.DAG,
+            List.of(0), List.of(), List.of());
+        var schedule = new ECOExecutionSchedule(List.of(
+            new ECOExecutionSchedule.ComponentExecutionPhase(1, ECOExecutionSchedule.Type.DAG,
+                Set.of(pattern), List.of())));
+        var signature = new PlanIdentity.Signature(pattern.getOutputs().getFirst().what(), count,
+            Map.of(identity, count), Map.of(), Map.of(), Map.of());
+        return new ECOExecutionPlan(signature, ExecutionMode.PHASED_DAG,
+            List.of(task), List.of(phase), schedule);
     }
 
     private ECOExecutionPlan plan() {

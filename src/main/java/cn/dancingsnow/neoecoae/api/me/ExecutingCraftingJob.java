@@ -311,7 +311,9 @@ public class ExecutingCraftingJob {
             return List.of();
         }
         ensureRuntimeProgressProjection();
-        runtimeExecutionState.commitAccepted(task.taskId(), accepted.count());
+        Map<AEKey, Long> consumedInputs = accepted.consumedInputs().isEmpty()
+            ? null : accepted.consumedInputs();
+        runtimeExecutionState.commitAccepted(task.taskId(), accepted.count(), consumedInputs);
         task.progress().value = runtimeExecutionState.remaining(task.taskId());
         runtimeProjectionDirty = true;
         // The next tick snapshots the newly-ready frontier after the single compatibility flush.
@@ -320,7 +322,11 @@ public class ExecutingCraftingJob {
 
     long applyDispatchResult(DispatchTask task, DispatchResult result) {
         if (result instanceof DispatchResult.Accepted accepted) {
-            applyAccepted(task, accepted.count());
+            if (runtimeExecutionState == null) {
+                applyAccepted(task, accepted.count());
+            } else {
+                applyDispatchResultAndGetNewlyReady(task, result);
+            }
             return accepted.count();
         }
         if (result instanceof DispatchResult.Fatal fatal) {
@@ -332,7 +338,14 @@ public class ExecutingCraftingJob {
 
     long applyDispatchResult(int taskId, DispatchResult result) {
         if (result instanceof DispatchResult.Accepted accepted) {
-            applyAccepted(taskId, accepted.count());
+            if (runtimeExecutionState == null) {
+                applyAccepted(taskId, accepted.count());
+            } else {
+                Map<AEKey, Long> consumedInputs = accepted.consumedInputs().isEmpty()
+                    ? null : accepted.consumedInputs();
+                runtimeExecutionState.commitAccepted(taskId, accepted.count(), consumedInputs);
+                runtimeProjectionDirty = true;
+            }
             return accepted.count();
         }
         if (result instanceof DispatchResult.Fatal fatal) {
