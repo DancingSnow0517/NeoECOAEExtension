@@ -75,10 +75,10 @@ class ECOCraftingDispatchStrategyTest {
 
     @Test
     void finiteDispatchQueueIsSeededOncePerTaskAndCanRefillBeyondTwoRounds() {
-        var logic = new ECOCraftingCPULogic(null);
+        var providers = new ECOCraftingProviders();
         var first = new ExecutingCraftingJob.DispatchTask(1, new StubPattern(), new ExecutingCraftingJob.TaskProgress());
         var second = new ExecutingCraftingJob.DispatchTask(2, new StubPattern(), new ExecutingCraftingJob.TaskProgress());
-        var queue = new ArrayList<>(logic.fairTaskOrder(List.of(first, second)));
+        var queue = new ArrayList<>(providers.fairTaskOrder(List.of(first, second)));
 
         assertEquals(List.of(first, second), queue);
 
@@ -186,11 +186,11 @@ class ECOCraftingDispatchStrategyTest {
         });
         assertEquals(List.of(10_000_000_000L), attempted);
 
-        assertEquals(512L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+        assertEquals(512L, ECOCraftingBatchDispatcher.calculateProbeLegalUpperBound(
             10_000_000_000L, 512L, Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE));
-        assertEquals(300L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+        assertEquals(300L, ECOCraftingBatchDispatcher.calculateProbeLegalUpperBound(
             10_000L, 8_000L, 700L, 300L, 500L));
-        assertEquals(10_000_000_000L, ECOCraftingCPULogic.calculateProbeLegalUpperBound(
+        assertEquals(10_000_000_000L, ECOCraftingBatchDispatcher.calculateProbeLegalUpperBound(
             20_000_000_000L, 15_000_000_000L, 12_000_000_000L, 11_000_000_000L,
             10_000_000_000L));
     }
@@ -216,9 +216,9 @@ class ECOCraftingDispatchStrategyTest {
 
     @Test
     void onlyExplicitUnknownBatchProvidersEnterProbeScheduler() {
-        assertTrue(ECOCraftingCPULogic.isUnknownBatchProbeProvider(new StubProbeProvider()));
-        assertFalse(ECOCraftingCPULogic.isUnknownBatchProbeProvider(new StubProvider()));
-        assertFalse(ECOCraftingCPULogic.isUnknownBatchProbeProviderType(
+        assertTrue(ECOCraftingProviders.isUnknownBatchProbeProvider(new StubProbeProvider()));
+        assertFalse(ECOCraftingProviders.isUnknownBatchProbeProvider(new StubProvider()));
+        assertFalse(ECOCraftingProviders.isUnknownBatchProbeProviderType(
             cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.class),
             "F9 remains on its known-capacity offer path");
     }

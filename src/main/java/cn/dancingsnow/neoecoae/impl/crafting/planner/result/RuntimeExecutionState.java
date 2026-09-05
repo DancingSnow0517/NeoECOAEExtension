@@ -27,9 +27,9 @@ public final class RuntimeExecutionState {
     private final LinkedHashSet<Integer> readyTaskIds = new LinkedHashSet<>();
     private final TreeSet<Integer> readyPhases = new TreeSet<>();
     private final LinkedHashMap<AEKey, Integer> resourceIds = new LinkedHashMap<>();
-    private final AEKey[] resourceKeys;
-    private final long[] onHand;
-    private final long[] futureNeed;
+    private AEKey[] resourceKeys;
+    private long[] onHand;
+    private long[] futureNeed;
     private final int[] consumedOffset;
     private final int[] consumedResource;
     private final long[] consumedAmount;
@@ -110,10 +110,10 @@ public final class RuntimeExecutionState {
     public long[] remainingSnapshot() { return remaining.clone(); }
     public long dynamicRemaining(int taskId) { return dynamicRemaining[checked(taskId)]; }
     public long[] dynamicRemainingSnapshot() { return dynamicRemaining.clone(); }
-    public int resourceCount() { return resourceKeys.length; }
+    public int resourceCount() { return resourceIds.size(); }
     public int resourceIdIfKnown(AEKey key) { return key == null ? -1 : resourceIds.getOrDefault(key, -1); }
     public AEKey keyByResourceId(int resourceId) {
-        if (resourceId < 0 || resourceId >= resourceKeys.length) {
+        if (resourceId < 0 || resourceId >= resourceCount()) {
             throw new IllegalArgumentException("Unknown resource " + resourceId);
         }
         return resourceKeys[resourceId];
@@ -124,22 +124,49 @@ public final class RuntimeExecutionState {
     public long releasable(AEKey key) { return Math.max(0L, onHand(key) - reserve(key)); }
     public Map<AEKey, Long> ownershipSnapshot() { Map<AEKey, Long> result = new LinkedHashMap<>(); resourceIds.forEach((k,v) -> { if (onHand[v] != 0) result.put(k, onHand[v]); }); return Map.copyOf(result); }
     private int resourceId(AEKey key) { if (key == null) return -1; return resourceIds.computeIfAbsent(key, ignored -> resourceIds.size()); }
-    public void acceptOutput(AEKey key, long amount) { if (amount <= 0 || key == null) return; int id = resourceIds.getOrDefault(key, -1); ensureCapacity(id); onHand[id] = Math.addExact(onHand[id], amount); }
+    /** Called only after the CPU accepts a physical output that it was waiting for. */
+    public void acceptOutput(AEKey key, long amount) {
+        if (amount <= 0 || key == null) return;
+        int id = ownedResourceId(key);
+        onHand[id] = Math.addExact(onHand[id], amount);
+    }
     public void releaseExternal(AEKey key, long amount) { if (amount <= 0 || key == null) return; int id = resourceIds.getOrDefault(key, -1); if (id < 0 || amount > onHand[id]) throw new IllegalArgumentException("Ownership release exceeds on-hand"); onHand[id] -= amount; }
     public void restoreOwnership(Map<AEKey, Long> restored) {
+        restored.forEach((key, amount) -> {
+            if (key == null || amount == null || amount < 0L) {
+                throw new IllegalArgumentException("Invalid persisted ownership");
+            }
+        });
         Arrays.fill(onHand, 0L);
         restored.forEach((key, amount) -> {
-            int id = resourceIds.getOrDefault(key, -1);
-            ensureCapacity(id);
-            if (amount == null || amount < 0L) throw new IllegalArgumentException("Invalid persisted ownership");
-            onHand[id] = amount;
+            if (amount > 0L) {
+                int id = ownedResourceId(key);
+                onHand[id] = amount;
+            }
         });
     }
     public void flushTick() {
         for (int i = 0; i < committedReadyCount; i++) committedReady[committedReadyTasks[i]] = false;
         committedReadyCount = 0;
     }
-    private void ensureCapacity(int id) { if (id < 0 || id >= onHand.length) throw new IllegalStateException("Resource was not compiled into kernel"); }
+    private int ownedResourceId(AEKey key) {
+        // Recipe remainders and fuzzy inputs can introduce keys absent from the static plan. Only physical
+        // ownership events may register them; consumption validation must never manufacture ownership.
+        int id = resourceId(key);
+        if (id >= onHand.length) {
+            int capacity = Math.max(id + 1, Math.max(8, onHand.length + onHand.length / 2));
+            resourceKeys = Arrays.copyOf(resourceKeys, capacity);
+            onHand = Arrays.copyOf(onHand, capacity);
+            futureNeed = Arrays.copyOf(futureNeed, capacity);
+        }
+        resourceKeys[id] = key;
+        return id;
+    }
+
+    /** Side-effect-free ownership check before handing the captured inputs to a provider. */
+    public void validateActualConsumption(Map<AEKey, Long> actualConsumed) {
+        validateConsumption(resolveActualConsumption(Objects.requireNonNull(actualConsumed, "actualConsumed")));
+    }
     public int stepIndex(int phaseId) { return stepIndex[phaseId]; }
     public long stepRemaining(int phaseId) { return stepRemaining[phaseId]; }
     public ECOExecutionPlan.PhaseSpec activePhase() {
@@ -282,27 +309,22 @@ public final class RuntimeExecutionState {
         }
         Map<Integer, Long> consumed = actualConsumed == null
             ? compiledConsumption(taskId, count) : resolveActualConsumption(actualConsumed);
-        for (var entry : consumed.entrySet()) {
-            if (entry.getValue() > onHand[entry.getKey()]) {
-                throw new IllegalArgumentException("Dispatch consumption exceeds CPU ownership");
-            }
-        }
+        int phase = plan.task(taskId).phaseIndex();
+        var spec = plan.phases().get(phase);
+        // Validate every vector before mutating any accounting domain. A rejected dispatch must be atomic:
+        // cycle ledgers, ownership, task progress, and the phase frontier must remain unchanged together.
+        validateConsumption(consumed);
+        validateDispatchVector(taskId, count, phase, spec);
+        validateStepCursor(count, phase, spec);
         accountCycleResources(taskId, count, actualConsumed);
         for (var entry : consumed.entrySet()) {
-            long amount = entry.getValue();
-            int id = entry.getKey();
-            onHand[id] -= amount;
-            futureNeed[id] = Math.max(0L, futureNeed[id] - amount);
+            onHand[entry.getKey()] -= entry.getValue();
+            futureNeed[entry.getKey()] = Math.max(0L, futureNeed[entry.getKey()] - entry.getValue());
         }
         collectCommittedReady = true;
         remaining[taskId] -= count;
-        int phase = plan.task(taskId).phaseIndex();
-        var spec = plan.phases().get(phase);
         boolean dynamicVectorCompleted = false;
         if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && dynamicPhaseRemaining[phase] > 0L) {
-            if (count > dynamicRemaining[taskId]) {
-                throw new IllegalArgumentException("Dispatch exceeds dynamic cycle firing vector");
-            }
             dynamicRemaining[taskId] -= count;
             dynamicPhaseRemaining[phase] -= count;
             if (dynamicRemaining[taskId] == 0L) readyTaskIds.remove(taskId);
@@ -325,6 +347,28 @@ public final class RuntimeExecutionState {
         if (phaseDone(phase)) completePhase(phase, null);
         updateActivePhaseIndex();
         collectCommittedReady = false;
+    }
+
+    private void validateConsumption(Map<Integer, Long> consumed) {
+        for (var entry : consumed.entrySet()) {
+            if (entry.getValue() < 0L || entry.getValue() > onHand[entry.getKey()]) {
+                throw new IllegalArgumentException("Dispatch consumption exceeds CPU ownership");
+            }
+        }
+    }
+
+    private void validateDispatchVector(int taskId, long count, int phase,
+            ECOExecutionPlan.PhaseSpec spec) {
+        if (spec.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && dynamicPhaseRemaining[phase] > 0L
+                && count > dynamicRemaining[taskId]) {
+            throw new IllegalArgumentException("Dispatch exceeds dynamic cycle firing vector");
+        }
+    }
+
+    private void validateStepCursor(long count, int phase, ECOExecutionPlan.PhaseSpec spec) {
+        if (stepIndex[phase] < spec.steps().size() && count > stepRemaining[phase]) {
+            throw new IllegalArgumentException("Dispatch exceeds ordered step remainder");
+        }
     }
 
     private Map<Integer, Long> compiledConsumption(int taskId, long count) {
@@ -435,6 +479,14 @@ public final class RuntimeExecutionState {
             stepIndex[phase] = index;
             stepRemaining[phase] = cursorRemaining;
             validateCursor(phase);
+        }
+        Arrays.fill(futureNeed, 0L);
+        for (int taskId = 0; taskId < remaining.length; taskId++) {
+            for (int row = consumedOffset[taskId]; row < consumedOffset[taskId + 1]; row++) {
+                int resource = consumedResource[row];
+                futureNeed[resource] = Math.addExact(futureNeed[resource],
+                    Math.multiplyExact(consumedAmount[row], remaining[taskId]));
+            }
         }
         rebuildFrontier();
     }

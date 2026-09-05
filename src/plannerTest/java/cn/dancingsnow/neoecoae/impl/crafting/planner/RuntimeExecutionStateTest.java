@@ -263,9 +263,123 @@ class RuntimeExecutionStateTest {
         state.restoreOwnership(Map.of(input, 1L));
 
         assertThrows(IllegalArgumentException.class,
+            () -> state.validateActualConsumption(Map.of(unknown, 1L)));
+        assertThrows(IllegalArgumentException.class,
             () -> state.commitAccepted(0, 1L, Map.of(unknown, 1L)));
+        assertEquals(-1, state.resourceIdIfKnown(unknown));
         assertEquals(1L, state.onHand(input));
         assertEquals(1L, state.remaining(0));
+    }
+
+    @Test
+    void runtimeSelectedStockOutsideTheCandidateListIsOwnedAndDebitedExactly() {
+        AEKey template = PlannerTestKey.of("runtime_tool_template");
+        AEKey damaged = PlannerTestKey.of("runtime_tool_damage_17");
+        var pattern = statefulPattern(List.of(template, PlannerTestKey.of("runtime_tool_damage_1"), damaged));
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(pattern, 100L));
+        assertEquals(-1, state.resourceIdIfKnown(damaged));
+
+        state.restoreOwnership(Map.of(damaged, 1L, a, 100L));
+        int damagedId = state.resourceIdIfKnown(damaged);
+        var consumed = Map.of(damaged, 1L, a, 100L);
+        var owned = state.ownershipSnapshot();
+        state.validateActualConsumption(consumed);
+        assertEquals(owned, state.ownershipSnapshot(), "preflight must not transfer physical ownership");
+        assertEquals(100L, state.remaining(0));
+
+        state.commitAccepted(0, 100L, consumed);
+        assertEquals(Map.of(), state.ownershipSnapshot());
+        assertEquals(0L, state.futureNeed(a));
+        assertEquals(damaged, state.keyByResourceId(damagedId));
+        assertEquals(0L, state.onHand(template), "variants must never be charged to the template key");
+    }
+
+    @Test
+    void repeatedRemainderStateChangesSurviveGrowthAndOwnershipRestore() {
+        List<AEKey> states = java.util.stream.IntStream.rangeClosed(0, 40)
+            .mapToObj(i -> (AEKey) PlannerTestKey.of("runtime_changing_tool_" + i)).toList();
+        AEKey template = states.getFirst();
+        var pattern = statefulPattern(states);
+        var plan = singleTaskPlan(pattern, 40L);
+        RuntimeExecutionState state = new RuntimeExecutionState(plan);
+        state.restoreOwnership(Map.of(template, 1L, a, 40L));
+        int materialId = state.resourceIdIfKnown(a);
+        AEKey current = template;
+        for (int use = 1; use <= 40; use++) {
+            var consumed = Map.of(current, 1L, a, 1L);
+            state.validateActualConsumption(consumed);
+            state.commitAccepted(0, 1L, consumed);
+            assertEquals(0L, state.onHand(current));
+            AEKey returned = states.get(use);
+            state.acceptOutput(returned, 1L);
+            state.acceptOutput(c, 1L);
+            assertEquals(1L, state.onHand(returned));
+            assertEquals(40L - use, state.onHand(a));
+            assertEquals(40L - use, state.futureNeed(a));
+            assertEquals(materialId, state.resourceIdIfKnown(a));
+            assertEquals(a, state.keyByResourceId(materialId));
+            int returnedId = state.resourceIdIfKnown(returned);
+            assertEquals(returned, state.keyByResourceId(returnedId));
+            current = returned;
+            if (use == 20) {
+                RuntimeExecutionState restored = new RuntimeExecutionState(plan);
+                restored.restore(state.remainingSnapshot(), state.dynamicRemainingSnapshot(),
+                    new int[] {state.stepIndex(0)}, new long[] {state.stepRemaining(0)});
+                restored.restoreOwnership(state.ownershipSnapshot());
+                assertEquals(state.ownershipSnapshot(), restored.ownershipSnapshot());
+                state = restored;
+            }
+        }
+        assertTrue(state.finished());
+        RuntimeExecutionState finished = state;
+        assertThrows(IllegalArgumentException.class, () -> finished.keyByResourceId(finished.resourceCount()));
+        assertEquals(Map.of(current, 1L, c, 40L), state.ownershipSnapshot());
+        state.releaseExternal(current, 1L);
+        assertEquals(Map.of(c, 40L), state.ownershipSnapshot());
+    }
+
+    @Test
+    void registeredVariantCannotBeOverdrawnAndInvalidRestoreIsAtomic() {
+        AEKey variant = PlannerTestKey.of("runtime_owned_variant");
+        RuntimeExecutionState state = new RuntimeExecutionState(singleTaskPlan(consumer, 2L));
+        state.restoreOwnership(Map.of(a, 2L));
+        state.acceptOutput(variant, 1L);
+        var owned = state.ownershipSnapshot();
+        assertThrows(IllegalArgumentException.class,
+            () -> state.validateActualConsumption(Map.of(a, 1L, variant, 2L)));
+        assertThrows(IllegalArgumentException.class,
+            () -> state.commitAccepted(0, 1L, Map.of(a, 1L, variant, 2L)));
+        assertEquals(owned, state.ownershipSnapshot());
+        assertEquals(2L, state.remaining(0));
+        assertEquals(2L, state.futureNeed(a));
+        assertEquals(List.of(0), state.eligibleTaskIds());
+
+        var malformed = new java.util.LinkedHashMap<AEKey, Long>();
+        malformed.put(PlannerTestKey.of("runtime_unregistered_restore"), 1L);
+        malformed.put(a, -1L);
+        int resourceCount = state.resourceCount();
+        assertThrows(IllegalArgumentException.class, () -> state.restoreOwnership(malformed));
+        assertEquals(owned, state.ownershipSnapshot());
+        assertEquals(resourceCount, state.resourceCount());
+    }
+
+    private PlannerFixtures.Pattern statefulPattern(List<AEKey> states) {
+        IPatternDetails.IInput tool = new IPatternDetails.IInput() {
+            @Override public GenericStack[] getPossibleInputs() {
+                return new GenericStack[] {new GenericStack(states.getFirst(), 1L)};
+            }
+            @Override public long getMultiplier() { return 1L; }
+            @Override public boolean isValid(AEKey candidate, net.minecraft.world.level.Level level) {
+                return states.contains(candidate);
+            }
+            @Override public AEKey getRemainingKey(AEKey input) {
+                int index = states.indexOf(input);
+                return index < 0 ? null : states.get(Math.min(index + 1, states.size() - 1));
+            }
+        };
+        return new PlannerFixtures.Pattern("runtime-stateful", new IPatternDetails.IInput[] {
+            tool, new PlannerFixtures.Input(a, 1L, false)
+        }, List.of(new GenericStack(c, 1L)));
     }
 
     private static ECOExecutionPlan singleTaskPlan(PlannerFixtures.Pattern pattern, long count) {
