@@ -23,6 +23,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Surfaces the server's planner-path choice in AE2's existing Crafting Plan title slot. */
 @Mixin(value = CraftConfirmScreen.class, remap = false)
 public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmMenu> {
+    @Inject(method = "updateBeforeRender", at = @At("TAIL"))
+    private void neoecoae$routePlannerReport(CallbackInfo ci) {
+        if (minecraft != null
+                && minecraft.screen == this
+                && (Object) getMenu() instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$shouldShowFastPlannerReport()) {
+            switchToScreen(new cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen(
+                    getMenu(),
+                    minecraft.player.getInventory(),
+                    getTitle(),
+                    appeng.client.gui.style.StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json")));
+        }
+    }
+
     protected CraftConfirmScreenMixin(
             CraftConfirmMenu menu, Inventory playerInventory, Component title, ScreenStyle style) {
         super(menu, playerInventory, title, style);

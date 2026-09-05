@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
@@ -12,7 +14,15 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
+import appeng.crafting.CraftingPlan;
 import appeng.crafting.execution.CraftingCpuHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionMode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.RuntimeExecutionState;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +37,183 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class ECOCraftingCPULogicTest {
+    @Test
+    void batchThenOrdinaryAcceptanceDebitsEachCraftOnce() throws Exception {
+        var job = jobWithRemainingAmount(1L);
+        var progress = new ExecutingCraftingJob.TaskProgress();
+        progress.value = 10L;
+        var task = new ExecutingCraftingJob.DispatchTask(-1, pattern(), progress);
+        job.applyAccepted(task, 8L);
+        job.applyAccepted(task, 1L);
+        job.flushRuntimeTick();
+        assertEquals(1L, progress.value);
+        assertThrows(IllegalArgumentException.class, () -> job.applyAccepted(task, 2L));
+        assertEquals(1L, progress.value);
+    }
+
+    @Test
+    void phasedAcceptanceAndFlushDoNotDebitCompatibilityProjectionTwice() throws Exception {
+        var job = jobWithRemainingAmount(1L);
+        var plan = executionPlan();
+        job.runtimeExecutionState = new RuntimeExecutionState(plan);
+        job.executionSchedule = plan.schedule();
+        var task = job.eligibleDispatchTasks().get(0);
+        job.applyAccepted(task, 8L);
+        job.applyAccepted(task, 1L);
+        job.flushRuntimeTick();
+        job.flushRuntimeTick();
+        assertEquals(1L, task.progress().value);
+        assertEquals(1L, job.runtimeExecutionState.remaining(0));
+    }
+
+    @Test
+    void restoredCursorMustExactlyMatchRemainingTasks() {
+        var state = new RuntimeExecutionState(executionPlan());
+        state.restore(new long[] {3}, new int[] {0}, new long[] {3});
+        assertEquals(3L, state.dispatchLimit(0));
+        assertThrows(
+                IllegalArgumentException.class, () -> state.restore(new long[] {3}, new int[] {0}, new long[] {4}));
+        assertThrows(
+                IllegalArgumentException.class, () -> state.restore(new long[] {3}, new int[] {1}, new long[] {0}));
+    }
+
+    @Test
+    void recoveryIdentityRejectsChangedCountsAndInputs() {
+        var pattern = pattern();
+        var left = new CraftingPlan(
+                new GenericStack(TestKey.INSTANCE, 1),
+                0,
+                false,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of(pattern, 10L));
+        var changedCount = new CraftingPlan(
+                left.finalOutput(),
+                0,
+                false,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of(pattern, 9L));
+        var used = new KeyCounter();
+        used.add(TestKey.INSTANCE, 1L);
+        var changedInputs = new CraftingPlan(
+                left.finalOutput(), 0, false, false, used, new KeyCounter(), new KeyCounter(), left.patternTimes());
+        assertFalse(PlanIdentity.matches(left, changedCount));
+        assertFalse(PlanIdentity.matches(left, changedInputs));
+    }
+
+    @Test
+    void unsuccessfulResultsNeverProduceExecutableContracts() {
+        var plan = new CraftingPlan(
+                new GenericStack(TestKey.INSTANCE, 1),
+                0,
+                false,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of());
+        for (var status : PlanningStatus.values()) {
+            var result = new ECOPlanningResult(status, plan, null, List.of(), 0L);
+            assertEquals(
+                    status != PlanningStatus.SUCCESS,
+                    result.executionContract().mode() == ExecutionMode.BLOCKED,
+                    status.name());
+        }
+    }
+
+    @Test
+    void simulatedSubmissionStopsBeforeAccessingGridOrCpu() {
+        var plan = new CraftingPlan(
+                new GenericStack(TestKey.INSTANCE, 1),
+                0,
+                true,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of());
+        var logic = testLogic();
+        assertEquals(
+                appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN,
+                logic.trySubmitJob(null, plan, null, null));
+        assertNull(logic.getJob());
+    }
+
+    @Test
+    void copiedFailedPlanRemainsBlockedAfterMetadataRecovery() {
+        var plan = new CraftingPlan(
+                new GenericStack(TestKey.INSTANCE, 73),
+                0,
+                false,
+                false,
+                new KeyCounter(),
+                new KeyCounter(),
+                new KeyCounter(),
+                Map.of());
+        var failed = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, plan, null, List.of(), 0L);
+        ECOPlanningResultRegistry.register(plan, failed);
+        var copy = new CraftingPlan(
+                plan.finalOutput(), 0, false, false, new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+        var job = new ExecutingCraftingJob(copy, ignored -> {}, null, null);
+        assertTrue(job.hasPermanentExecutionError());
+        assertEquals(ExecutionMode.BLOCKED, job.executionMode);
+    }
+
+    @Test
+    void recoveredPermanentErrorStopsBeforeAccessingProviders() throws Exception {
+        var logic = testLogic();
+        var job = jobWithRemainingAmount(1L);
+        job.applyDispatchResult(-1, new DispatchResult.Fatal("recovery mismatch"));
+        setJob(logic, job);
+        assertEquals(0, logic.executeCrafting(10, null, null, null));
+    }
+
+    private static IPatternDetails pattern() {
+        return (IPatternDetails) java.lang.reflect.Proxy.newProxyInstance(
+                IPatternDetails.class.getClassLoader(),
+                new Class<?>[] {IPatternDetails.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getDefinition" -> null;
+                    case "getInputs" -> new IPatternDetails.IInput[0];
+                    case "getOutputs" -> new GenericStack[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> null;
+                });
+    }
+
+    private static ECOExecutionPlan executionPlan() {
+        var pattern = pattern();
+        var signature = new PlanIdentity.Signature(
+                TestKey.INSTANCE, 1L, PlanIdentity.taskSignature(Map.of(pattern, 10L)), Map.of(), Map.of(), Map.of());
+        var task = new ECOExecutionPlan.TaskSpec(
+                0,
+                PlanIdentity.patternIdentityFor(pattern),
+                pattern,
+                ECOExecutionPlan.PatternRuntimeInfo.from(pattern),
+                10L,
+                0,
+                ECOExecutionPlan.TaskKind.CYCLE_ORDERED);
+        var phase = new ECOExecutionPlan.PhaseSpec(
+                0,
+                0,
+                ECOExecutionSchedule.Type.CYCLE,
+                List.of(0),
+                List.of(new ECOExecutionPlan.ExecutionStep(0, 10)),
+                List.of());
+        return new ECOExecutionPlan(
+                signature,
+                ExecutionMode.ORDERED_CYCLE,
+                List.of(task),
+                List.of(phase),
+                new ECOExecutionSchedule(List.of()));
+    }
+
     @Test
     void batchRequestPreservesTheRemainingTaskAmount() {
         assertEquals(512L, ECOCraftingCPULogic.calculateBatchRequestSize(512L));

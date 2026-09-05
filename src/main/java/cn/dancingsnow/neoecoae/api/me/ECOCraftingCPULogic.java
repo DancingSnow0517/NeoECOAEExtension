@@ -114,12 +114,21 @@ public class ECOCraftingCPULogic {
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
+        if (plan.simulation()) return CraftingSubmitResult.INCOMPLETE_PLAN;
         // 已有任务在运行。
         if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
         // 检查节点是否活跃。
         if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
         // 检查存储字节数。
         if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
+
+        var playerId = src.player()
+                .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
+                .orElse(null);
+        var craftId = UUID.randomUUID();
+        var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
+        var candidate = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId, false);
+        if (candidate.hasPermanentExecutionError()) return CraftingSubmitResult.INCOMPLETE_PLAN;
 
         if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
@@ -135,12 +144,8 @@ public class ECOCraftingCPULogic {
                 TickHandler.instance().getCurrentTick());
 
         // 设置 CPU 链接与任务。
-        var playerId = src.player()
-                .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
-                .orElse(null);
-        var craftId = UUID.randomUUID();
-        var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        candidate.takePlannedInputs(plan);
+        this.job = candidate;
         registerJobOutputRoute();
 
         // 合成监视器暂不支持
@@ -293,6 +298,7 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        if (this.job == null || this.job.hasPermanentExecutionError() || maxPatterns <= 0) return 0;
         SlowPathPushBudget slowPathPushBudget =
                 tickSlowPathPushBudget != null ? tickSlowPathPushBudget : new SlowPathPushBudget(craftingService);
         var job = this.job;
@@ -304,17 +310,16 @@ public class ECOCraftingCPULogic {
 
         beginStatusChangeBatch();
         try {
-            var it = job.tasks.entrySet().iterator();
+            job.advanceCompletedPhases();
+            var eligibleTasks = new ArrayList<>(job.eligibleDispatchTasks());
             taskLoop:
-            while (it.hasNext()) {
-                var task = it.next();
-                if (task.getValue().value <= 0) {
-                    postPatternOutputsChange(task.getKey());
-                    it.remove();
+            for (var task : eligibleTasks) {
+                if (task.progress().value <= 0) {
+                    postPatternOutputsChange(task.pattern());
                     continue;
                 }
 
-                var details = task.getKey();
+                var details = task.pattern();
                 // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
                 List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
                 if (providers.isEmpty()) {
@@ -325,7 +330,7 @@ public class ECOCraftingCPULogic {
                     long gtlBatch = GTLCorePatternBufferDispatcher.dispatch(
                             providers,
                             details,
-                            task.getValue().value,
+                            Math.min(task.progress().value, job.dispatchLimit(task)),
                             level,
                             energyService,
                             new GTLCorePatternBufferDispatcher.BatchTarget() {
@@ -341,10 +346,7 @@ public class ECOCraftingCPULogic {
 
                                 @Override
                                 public void consume(long operations) {
-                                    task.getValue().value -= operations;
-                                    if (task.getValue().value <= 0L) {
-                                        it.remove();
-                                    }
+                                    job.applyAccepted(task, operations);
                                 }
 
                                 @Override
@@ -365,7 +367,7 @@ public class ECOCraftingCPULogic {
                     if (gtlBatch > 0L) {
                         pushedPatterns++;
                         postPatternOutputsChange(details);
-                        if (task.getValue().value <= 0L) {
+                        if (task.progress().value <= 0L) {
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -377,7 +379,7 @@ public class ECOCraftingCPULogic {
                 // FastPath 元数据只有 ECO 智能样板总线能够消费；纯第三方提供者不应支付其构建成本。
                 boolean fastPathCandidate = !patternBuses.isEmpty();
 
-                while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
+                while (task.progress().value > 0 && job.dispatchLimit(task) > 0 && pushedPatterns < maxPatterns) {
                     if (!hasReadyProvider(providers, details)) {
                         continue taskLoop;
                     }
@@ -388,16 +390,17 @@ public class ECOCraftingCPULogic {
                     // Planned selections are planner bookkeeping and may describe an exact key
                     // that is no longer identical to the reserved stack's components.
                     boolean usePlannedInputs = shouldUsePlannedInputsForDispatch(
-                            fastPathCandidate, plannedInputs != null, task.getValue().value, plannedInputCount);
+                            fastPathCandidate, plannedInputs != null, task.progress().value, plannedInputCount);
                     @Nullable ECOSelectedInputPatternDetails selectedDetails =
                             usePlannedInputs ? new ECOSelectedInputPatternDetails(details, plannedInputs) : null;
                     boolean runtimeInputFallback = plannedInputs != null && !usePlannedInputs;
                     IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
                     long batchTaskRemaining = fastPathCandidate || plannedInputs == null
-                            ? task.getValue().value
+                            ? Math.min(task.progress().value, job.dispatchLimit(task))
                             : usePlannedInputs
-                                    ? Math.min(task.getValue().value, plannedInputCount)
-                                    : task.getValue().value;
+                                    ? Math.min(
+                                            Math.min(task.progress().value, plannedInputCount), job.dispatchLimit(task))
+                                    : Math.min(task.progress().value, job.dispatchLimit(task));
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
@@ -410,7 +413,7 @@ public class ECOCraftingCPULogic {
                                             ? net.minecraft.core.BlockPos.ZERO
                                             : cpu.getOwner().getBlockPos(),
                                     currentTick,
-                                    task.getValue().value,
+                                    task.progress().value,
                                     plannedInputs != null,
                                     plannedInputCount);
                         }
@@ -446,14 +449,13 @@ public class ECOCraftingCPULogic {
                         if (this.job != job) {
                             break taskLoop;
                         }
-                        task.getValue().value -= batchResult;
+                        job.applyAccepted(task, batchResult);
                         if (runtimeInputFallback) {
                             job.discardPlannedInputs(details);
                         }
                         job.consumePlannedInputs(details, batchResult);
                         postPatternOutputsChange(details);
-                        if (task.getValue().value <= 0) {
-                            it.remove();
+                        if (task.progress().value <= 0) {
                             continue taskLoop;
                         }
                         if (pushedPatterns == maxPatterns) {
@@ -513,10 +515,9 @@ public class ECOCraftingCPULogic {
                         }
                         job.consumePlannedInputs(details);
 
-                        task.getValue().value--;
+                        job.applyAccepted(task, 1L);
                         postPatternOutputsChange(details);
-                        if (task.getValue().value <= 0) {
-                            it.remove();
+                        if (task.progress().value <= 0) {
                             continue taskLoop;
                         }
 
@@ -534,6 +535,7 @@ public class ECOCraftingCPULogic {
                 }
             }
         } finally {
+            job.flushRuntimeTick();
             endStatusChangeBatchSafely();
         }
 

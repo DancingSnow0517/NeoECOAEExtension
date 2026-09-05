@@ -19,10 +19,9 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -37,6 +36,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CraftingService.class, remap = false)
 public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingControl {
+    private static final ECOCraftingPlannerService NEOECOAE_PLANNER = new ECOCraftingPlannerService();
+
     @Shadow
     @Final
     private IGrid grid;
@@ -107,12 +108,6 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
             return;
         }
 
-        var snapshot = ECOAE2SnapshotFactory.capture(this.grid, simRequester, what, amount, strategy);
-        if (snapshot.isEmpty()) {
-            lease.get().close();
-            return;
-        }
-
         CraftingCalculation fallback;
         try {
             fallback =
@@ -122,12 +117,35 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
             return;
         }
 
-        cir.setReturnValue(ECOPlanningService.submit(
-                snapshot.get(),
-                strategy,
-                lease.get(),
-                ECOPlannerNoticeDispatcher.targetFor(simRequester),
-                fallback::run));
+        var inventory = this.grid.getStorageService().getInventory().getAvailableStacks();
+        var session = NEOECOAE_PLANNER.createSession(this.grid.getCraftingService(), what, inventory, true, false);
+        lease.get().close();
+        java.util.concurrent.FutureTask<ICraftingPlan> task = new java.util.concurrent.FutureTask<>(() -> {
+            try {
+                ECOPlanningResult result =
+                        session.plan(amount, strategy != CalculationStrategy.REPORT_MISSING_ITEMS, () -> {
+                            if (Thread.currentThread().isInterrupted())
+                                throw new InterruptedException("ECO planning cancelled");
+                        });
+                if (result.plan() != null
+                        && switch (result.status()) {
+                            case SUCCESS,
+                                    MISSING_ITEMS,
+                                    PARTIAL,
+                                    CYCLE_UNRESOLVED,
+                                    CYCLE_UNSUPPORTED,
+                                    AMOUNT_OVERFLOW,
+                                    PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> true;
+                            default -> false;
+                        }) return result.plan();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new java.util.concurrent.CancellationException("ECO planning cancelled");
+            }
+            return fallback.run();
+        });
+        java.util.concurrent.ForkJoinPool.commonPool().execute(task);
+        cir.setReturnValue(task);
     }
 
     @Inject(method = "addNode", at = @At("TAIL"))
