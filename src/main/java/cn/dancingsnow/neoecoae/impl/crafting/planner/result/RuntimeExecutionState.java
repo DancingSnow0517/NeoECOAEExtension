@@ -213,7 +213,7 @@ public final class RuntimeExecutionState {
             // Compact single-pattern growth cycles are accounted for by their ledger. The ledger keeps
             // the bootstrap seed while generated feedback is allowed to flow back into the next FastPath
             // batch; reserving every remaining recipe input here would freeze the first growth wave.
-            if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.cycleWitness().isEmpty()) {
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
                 phaseReserve = Math.max(phaseReserve, orderedCycleFeedbackReserve(phase, key));
             }
             reserve = saturatedAdd(reserve, phaseReserve);

@@ -20,7 +20,37 @@ public final class NECommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(literal("neoecoae")
             .requires(source -> source.hasPermission(2))
-            .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource()))));
+            .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
+            .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
+                .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                    .executes(context -> storageReport(context.getSource(),
+                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(context, "pos"))))));
+    }
+
+    private static int storageReport(net.minecraft.commands.CommandSourceStack source, net.minecraft.core.BlockPos pos) {
+        try {
+            var report = cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains.diagnosticReport(source.getServer());
+            if (pos != null && source.getLevel().getBlockEntity(pos)
+                instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity controller) {
+                report.addProperty("controller", pos.toShortString());
+                report.addProperty("averageNanos", controller.getPerformanceAverageNanos());
+                report.addProperty("p95Nanos", controller.getPerformanceP95Nanos());
+                report.addProperty("maxNanos", controller.getPerformanceMaxNanos());
+                report.addProperty("details", controller.storageDiagnosticText());
+                report.add("controllerFailures", new com.google.gson.Gson().toJsonTree(controller.storageFailures()));
+            }
+            var directory = source.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                .resolve("eco-storage-reports");
+            java.nio.file.Files.createDirectories(directory);
+            var file = directory.resolve("storage-" + UUID.randomUUID() + ".json");
+            java.nio.file.Files.writeString(file, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(report),
+                java.nio.file.StandardOpenOption.CREATE_NEW);
+            source.sendSuccess(() -> Component.literal("ECO storage report: " + file.toAbsolutePath()), false);
+            return 1;
+        } catch (java.io.IOException | RuntimeException e) {
+            source.sendFailure(Component.literal("Could not write storage report: " + e));
+            return 0;
+        }
     }
 
     private static int clearFxWorkers(net.minecraft.commands.CommandSourceStack source) {

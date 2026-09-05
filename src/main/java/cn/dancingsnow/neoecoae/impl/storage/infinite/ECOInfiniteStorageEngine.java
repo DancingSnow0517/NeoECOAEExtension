@@ -59,15 +59,47 @@ public interface ECOInfiniteStorageEngine {
 
     Collection<HugeStack> getHugeStacks();
 
+    default boolean hasHugeStacks() { return !getHugeStacks().isEmpty(); }
+
+    default Collection<HugeStack> getLargestStacks(int limit) {
+        return getHugeStacks().stream().limit(Math.max(0, limit)).toList();
+    }
+
+    default boolean hasMigrationReceipt(UUID transactionId) { return false; }
+
     /**
      * Writes the domain to disk right away. Ordinary inserts and extracts only mark the world data dirty and are
      * saved with the world; this is reserved for the boundaries of a migration, where the same items briefly exist
      * in both the domain and a storage cell.
      */
-    void commit();
+    record CommitResult(boolean successful, long durableRevision, String failure) {}
+
+    CommitResult commit();
+
+    default long revision() { return 0L; }
+
+    default void tick(long gameTime) {}
+
+    default boolean reserveRestore(AEKey key, UUID transaction) { return false; }
+
+    default boolean reserveRestore(AEKey key, UUID transaction, java.util.Set<UUID> targets) { return false; }
+
+    default java.util.Set<UUID> restoreTargetIds(AEKey key) { return java.util.Set.of(); }
+
+    default UUID restoreTransaction(AEKey key) { return null; }
+
+    default boolean hasPendingRestore() { return false; }
+
+    default void failRestore(AEKey key, String reason) {}
+
+    default boolean finishRestore(AEKey key, UUID transaction) { return false; }
+
+    default HugeAmount getRestoreAmount(AEKey key) { return getAmount(key); }
+
+    default void getRestoreStacks(KeyCounter out) { getAvailableStacks(out); }
 
     /**
-     * Drops the migration receipts of a finished transition, so they cannot accumulate across repeated switches.
+     * Legacy cleanup hook. Journal-backed domains retain ownership receipts to reject stale source copies.
      */
     void clearMigrationReceipts();
 }

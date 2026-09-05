@@ -58,6 +58,9 @@ public class ECOStorageCell implements IECOStorageCell {
     @Getter
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
+    private long contentRevision;
+
+    public long contentRevision() { return contentRevision; }
     private boolean isPersisted = true;
     private boolean persistenceDeferred;
     @Getter
@@ -212,7 +215,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
         for (var entry : this.storedAmounts.object2LongEntrySet()) {
             long amount = entry.getLongValue();
-            itemCount += amount;
+            itemCount = NEMath.saturatingAdd(itemCount, amount);
 
             if (amount > 0) {
                 stacks.add(new GenericStack(entry.getKey(), amount));
@@ -240,10 +243,16 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     protected void saveChanges() {
+        contentRevision++;
         this.isPersisted = false;
         if (persistenceDeferred) {
             return;
         }
+        if (ECOCellMutationBatch.defer(this)) return;
+        flushBatchedChanges();
+    }
+
+    void flushBatchedChanges() {
         // The host only marks its block entity dirty; it does not serialize this
         // transient inventory instance back into the cell stack for us.
         this.persist();
@@ -272,6 +281,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         if (amount == 0 || !keyType.contains(what)) {
             return 0;
         }
@@ -311,14 +321,7 @@ public class ECOStorageCell implements IECOStorageCell {
      * real cell because some cell implementations back copied ItemStacks with world-level storage.
      */
     public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
-        if (amount <= 0L
-            || simulatedContents == null
-            || !keyType.contains(what)
-            || !partitionList.matchesFilter(what, partitionListMode)
-            || cellType.isBlackListed(cellStack, what)
-            || !canStoreKeyInsideStorageCell(what)) {
-            return 0L;
-        }
+        if (simulatedContents == null) return 0L;
 
         long currentAmount = simulatedContents.get(what);
         long storedTypes = 0L;
@@ -329,6 +332,13 @@ public class ECOStorageCell implements IECOStorageCell {
                 storedItemCount = NEMath.saturatingAdd(storedItemCount, entry.getLongValue());
             }
         }
+
+        return simulateInsertForMigration(what, amount, currentAmount, storedTypes, storedItemCount);
+    }
+
+    public long simulateInsertForMigration(AEKey what, long amount, long currentAmount, long storedTypes, long storedItemCount) {
+        if (amount <= 0L || !keyType.contains(what) || !partitionList.matchesFilter(what, partitionListMode)
+            || cellType.isBlackListed(cellStack, what) || !canStoreKeyInsideStorageCell(what)) return 0L;
 
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
         long unusedItemCount = storedItemCount % amountPerByte == 0L
@@ -424,6 +434,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (amount <= 0L || cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         var currentAmount = getCellItems().getLong(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
@@ -451,14 +462,24 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return getAvailableStacks().isEmpty();
+        return !cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            && getAvailableStacks().isEmpty();
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        getMigrationStacks(out);
+    }
+
+    public void getMigrationStacks(KeyCounter out) {
         for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
             out.add(entry.getKey(), entry.getLongValue());
         }
+    }
+
+    public java.util.Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
+        return getCellItems().object2LongEntrySet().iterator();
     }
 
     @Override

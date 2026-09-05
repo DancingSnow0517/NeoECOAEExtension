@@ -129,7 +129,8 @@ public final class StorageHostPanelUI {
         IItemHandlerModifiable infiniteComponentInventory,
         Supplier<HolderLookup.Provider> registries,
         Supplier<List<StorageHostHugeStackList.Entry>> hugeStacks,
-        Supplier<ECOInfiniteStorageData.DomainStatus> infiniteDomainStatus
+        Supplier<ECOInfiniteStorageData.DomainStatus> infiniteDomainStatus,
+        Supplier<Component> storageDiagnostics
     ) {
     }
 
@@ -265,12 +266,12 @@ public final class StorageHostPanelUI {
                 RIGHT_DETAIL_LINE_HEIGHT
             ));
             view.addChild(HostElements.absolute(
-                storageLoadLine(
+                new TooltippedElement(config.storageDiagnostics()).addChild(storageLoadLine(
                     () -> Component.translatable("gui.neoecoae.storage.status")
                         .append(": ")
                         .append(storageStatus(config)),
                     () -> isInfiniteDisplay(config) ? infiniteStatusColor(config) : storageStatusColor(config)
-                ),
+                )),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 2,
                 RIGHT_DETAIL_WIDTH,

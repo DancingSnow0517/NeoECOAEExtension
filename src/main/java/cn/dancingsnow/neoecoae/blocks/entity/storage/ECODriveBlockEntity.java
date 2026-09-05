@@ -114,7 +114,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public boolean canExtractCell() {
-        return !isLockedByInfiniteMode() && !isLockedByFiniteTransferDomain();
+        return !ECOInfiniteStorageMember.isMigrating(cellStack) && !isLockedByInfiniteMode() && !isLockedByFiniteTransferDomain();
     }
 
     public boolean isLockedByFiniteTransferDomain() {
@@ -203,6 +203,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             if (cellInventory != null
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
                 && !storageCluster.getController().isStorageInterfaceTransferMode()
+                && !ECOInfiniteStorageMember.isMigrating(cellStack)
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;

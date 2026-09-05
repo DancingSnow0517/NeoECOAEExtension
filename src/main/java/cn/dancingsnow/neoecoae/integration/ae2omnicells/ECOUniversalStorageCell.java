@@ -77,7 +77,8 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return delegate.canFitInsideCell();
+        return !cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)
+            && delegate.canFitInsideCell();
     }
 
     @Override
@@ -92,6 +93,12 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return 0L;
+        return insertForMigration(what, amount, mode, source);
+    }
+
+    public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (amount <= 0L) return 0L;
         if (!item.isExternallyUnlimited()) {
             return delegate.insert(what, amount, mode, source);
         }
@@ -210,12 +217,26 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return 0L;
         return delegate.extract(what, amount, mode, source);
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return;
         delegate.getAvailableStacks(out);
+    }
+
+    public void getMigrationStacks(KeyCounter out) { delegate.getAvailableStacks(out); }
+
+    public void clearMigrationStacks() {
+        KeyCounter contents = new KeyCounter();
+        delegate.getAvailableStacks(contents);
+        for (var entry : contents) {
+            long extracted = delegate.extract(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, IActionSource.empty());
+            if (extracted != entry.getLongValue()) throw new IllegalStateException("Incomplete universal cell migration cleanup");
+        }
+        delegate.persist();
     }
 
     @Override

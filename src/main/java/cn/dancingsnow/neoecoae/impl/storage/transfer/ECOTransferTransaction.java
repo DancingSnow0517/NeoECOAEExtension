@@ -28,7 +28,7 @@ public final class ECOTransferTransaction {
         state = State.ROLLED_BACK;
     }
 
-    private void requireReserved() {
+    void requireReserved() {
         if (state != State.RESERVED) {
             throw new IllegalStateException("Transaction is already " + state);
         }

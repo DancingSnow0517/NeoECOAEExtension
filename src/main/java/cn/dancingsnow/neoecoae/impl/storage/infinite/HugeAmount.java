@@ -139,7 +139,10 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (!isBig() && !other.isBig()) {
             return Long.compare(longValue, other.longValue);
         }
-        return toBigInteger().compareTo(other.toBigInteger());
+        if (isBig() != other.isBig()) {
+            return isBig() ? 1 : -1;
+        }
+        return bigValue.compareTo(other.bigValue);
     }
 
     @Override

@@ -236,8 +236,23 @@ sourceSets.main.resources {
 }
 
 sourceSets.test {
+    java.srcDir 'src/storageTest/java'
     compileClasspath += sourceSets.main.compileClasspath
     runtimeClasspath += sourceSets.main.runtimeClasspath
+}
+
+tasks.register('storageBenchmark', Test) {
+    group = 'verification'
+    description = 'Runs the ECO storage throughput smoke benchmark.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/StorageThroughputBenchmark.class'
+    useJUnitPlatform()
+    outputs.upToDateWhen { false }
+}
+
+tasks.named('test', Test) {
+    exclude '**/StorageThroughputBenchmark.class'
 }
 
 // The repository also contains forward-looking tests for unrelated, not-yet-landed APIs. Keep the

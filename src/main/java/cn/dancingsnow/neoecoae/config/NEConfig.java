@@ -129,6 +129,23 @@ public class NEConfig {
             "Defaults to Long.MAX_VALUE; valid range is 1 to Long.MAX_VALUE.")
         .defineInRange("storageTransferRate", Integer.MAX_VALUE, 1L, MAX_STORAGE_TRANSFER_RATE);
 
+    private static final ModConfigSpec.IntValue STORAGE_TRANSFER_KEYS = BUILDER
+        .comment("Maximum distinct keys visited per controller tick; also bounded by the time budget.")
+        .defineInRange("storageTransferKeysPerTick", 256, 1, 4096);
+    private static final ModConfigSpec.LongValue STORAGE_TRANSFER_NANOS = BUILDER
+        .comment("Cooperative time budget per storage controller, in nanoseconds. Third-party calls cannot be preempted.")
+        .defineInRange("storageTransferNanosPerTick", 2_000_000L, 100_000L, 20_000_000L);
+    private static final ModConfigSpec.LongValue STORAGE_SERVER_NANOS = BUILDER
+        .comment("Shared storage controller time budget per server tick, in nanoseconds.")
+        .defineInRange("storageServerNanosPerTick", 4_000_000L, 100_000L, 40_000_000L);
+    private static final ModConfigSpec.IntValue INFINITE_FLUSH_TICKS = BUILDER
+        .comment("Interval between asynchronous infinite-storage journal batches. Unflushed changes may roll back on a process crash.",
+            "World saves and migration boundaries wait for a durable journal commit.")
+        .defineInRange("infiniteStorageFlushIntervalTicks", 20, 1, 1200);
+    private static final ModConfigSpec.IntValue INFINITE_DIRTY_KEYS = BUILDER
+        .comment("Backpressure limit for distinct unsaved keys in one infinite domain.")
+        .defineInRange("infiniteStorageMaxDirtyKeys", 65_536, 256, 1_048_576);
+
     static {
         BUILDER.pop();
     }
@@ -145,6 +162,11 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
     public static boolean enableSophisticatedTransferOptimization = true;
     public static long storageTransferRate = Integer.MAX_VALUE;
+    public static int storageTransferKeysPerTick = 256;
+    public static long storageTransferNanosPerTick = 2_000_000L;
+    public static long storageServerNanosPerTick = 4_000_000L;
+    public static int infiniteStorageFlushIntervalTicks = 20;
+    public static int infiniteStorageMaxDirtyKeys = 65_536;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -167,6 +189,11 @@ public class NEConfig {
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
         storageTransferRate = Math.clamp(STORAGE_TRANSFER_RATE.get(), 1L, MAX_STORAGE_TRANSFER_RATE);
+        storageTransferKeysPerTick = STORAGE_TRANSFER_KEYS.get();
+        storageTransferNanosPerTick = STORAGE_TRANSFER_NANOS.get();
+        storageServerNanosPerTick = STORAGE_SERVER_NANOS.get();
+        infiniteStorageFlushIntervalTicks = INFINITE_FLUSH_TICKS.get();
+        infiniteStorageMaxDirtyKeys = INFINITE_DIRTY_KEYS.get();
     }
 
     public static int getCraftingPatternBusPages() {

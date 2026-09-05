@@ -185,6 +185,7 @@ public final class ECOFiniteStorageDomain implements MEStorage {
     }
 
     public long commitInsert(ECOTransferTransaction transaction, long amount, IActionSource source) {
+        transaction.requireReserved();
         ECOTransferPlan plan = transaction.plan();
         long remaining = Math.min(amount, plan.amount());
         long accepted = 0L;
@@ -225,6 +226,7 @@ public final class ECOFiniteStorageDomain implements MEStorage {
     }
 
     public long commitExtract(ECOTransferTransaction transaction, long amount, IActionSource source) {
+        transaction.requireReserved();
         ECOTransferPlan plan = transaction.plan();
         long remaining = Math.min(amount, plan.amount());
         long extracted = 0L;
