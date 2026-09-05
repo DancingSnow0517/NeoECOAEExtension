@@ -17,6 +17,7 @@ public record ECOBatchCraftingWork(
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);
         remainingTotal = List.copyOf(remainingTotal);
+        // Match the verified mutation model: a batch remainder can legitimately carry non-zero damage.
         if (!ECOFastPathStacks.areValidItemStacks(
                 inputTotal,
                 ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
@@ -31,7 +32,7 @@ public record ECOBatchCraftingWork(
                 remainingTotal,
                 ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT,
                 false,
-                ECOFastPathStacks.ItemStackValidation.FAST_PATH)) {
+                ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION)) {
             throw new IllegalArgumentException("Fast-path batch work contains invalid item stacks");
         }
     }
