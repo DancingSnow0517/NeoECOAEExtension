@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins;
+package cn.dancingsnow.neoecoae.mixins.client;
 
 import appeng.client.Point;
 import appeng.client.gui.style.Blitter;

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.rendering;
+package cn.dancingsnow.neoecoae.client.rendering;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectSortedMaps;

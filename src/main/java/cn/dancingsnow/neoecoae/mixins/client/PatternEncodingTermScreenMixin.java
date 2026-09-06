@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins;
+package cn.dancingsnow.neoecoae.mixins.client;
 
 import appeng.client.gui.me.common.MEStorageScreen;
 import appeng.client.gui.me.items.PatternEncodingTermScreen;

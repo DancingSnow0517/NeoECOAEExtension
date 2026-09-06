@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 import appeng.api.storage.cells.CellState;
 import appeng.client.render.tesr.CellLedRenderer;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
-import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
+import cn.dancingsnow.neoecoae.client.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;

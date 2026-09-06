@@ -863,22 +863,37 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!isPatternInterfacePlayer(player, serverLevel)) {
             return;
         }
-        ItemStack stack = player.getInventory().getItem(inventorySlot);
-        if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
-            return;
-        }
+        tryInsertPatternFromPlayer(player, inventorySlot);
+    }
 
+    /** Server-authoritative single-slot quick move shared by RPC and menu integrations. */
+    public boolean tryInsertPatternFromPlayer(ServerPlayer player, int inventorySlot) {
+        if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide
+                || !formed || !supportsCraftingInterfaceUi() || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
+            return false;
+        }
+        ItemStack source = player.getInventory().getItem(inventorySlot);
+        if (source.isEmpty() || !PatternDetailsHelper.isEncodedPattern(source)
+                || !(PatternDetailsHelper.decodePattern(source, level) instanceof IMolecularAssemblerSupportedPattern)) {
+            return false;
+        }
         ensurePatternInterfaceMapping();
         for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
-            if (!getPatternStack(slot).isEmpty()) {
+            PatternSlotRef ref = patternSlotRefs.get(slot);
+            if (!getPatternStack(slot).isEmpty() || hasDuplicatePattern(ref, source)) {
                 continue;
             }
-            ItemStack remaining = insertPatternSlot(slot, stack.copy(), false);
-            if (remaining.getCount() != stack.getCount()) {
-                player.getInventory().setItem(inventorySlot, remaining);
-                return;
+            InternalInventory target = ref.bus().getTerminalPatternInventory();
+            if (!target.isItemValid(ref.slot(), source)) {
+                continue;
+            }
+            ItemStack remainder = target.insertItem(ref.slot(), source.copy(), false);
+            if (remainder.getCount() < source.getCount()) {
+                player.getInventory().setItem(inventorySlot, remainder);
+                return true;
             }
         }
+        return false;
     }
 
     public void tick() {

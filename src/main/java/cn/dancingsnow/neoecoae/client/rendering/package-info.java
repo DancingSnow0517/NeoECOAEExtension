@@ -1,7 +1,7 @@
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-package cn.dancingsnow.neoecoae.api.rendering;
+package cn.dancingsnow.neoecoae.client.rendering;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 

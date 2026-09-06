@@ -817,7 +817,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
         if (!isEmpty(remainder)) {
-            retainRemainderForRetry(remainder, RecoveryState.ACTIVE);
+            RecoveryState retryState = recoveryState == RecoveryState.WAITING_FOR_OWNER
+                ? RecoveryState.WAITING_FOR_OWNER
+                : RecoveryState.ACTIVE;
+            retainRemainderForRetry(remainder, retryState);
             logBlockedOutput("network-capacity", remainder);
             return false;
         }

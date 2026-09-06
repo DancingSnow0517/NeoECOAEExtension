@@ -3,19 +3,14 @@ package cn.dancingsnow.neoecoae.api;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import lombok.Getter;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ModelEvent;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-@EventBusSubscriber
 public class ECOCellModels {
     private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter
@@ -53,12 +48,8 @@ public class ECOCellModels {
         });
     }
 
-    @SubscribeEvent
-    public static void on(ModelEvent.RegisterAdditional e) {
-        registry.forEach((__, location) -> {
-            e.register(ModelResourceLocation.standalone(location));
-        });
-        e.register(ModelResourceLocation.standalone(DEFAULT_MODEL));
+    public static Map<Item, ResourceLocation> getDeferredModels() {
+        runDeferredRegistration();
+        return Map.copyOf(registry);
     }
-
 }

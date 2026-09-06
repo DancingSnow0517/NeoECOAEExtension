@@ -11,8 +11,6 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -33,11 +31,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -48,7 +43,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -58,12 +52,10 @@ import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.TickTask;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -126,6 +118,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private boolean patternDetailsUpdateQueued;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
+    private int highestOccupiedSlot = -1;
     private final String[] patternSearchKeywords = new String[NEConfig.getMaxCraftingPatternBusSlotCount()];
     private final BitSet emptyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
     private int patternCapacitySlotCount;
@@ -677,6 +670,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             rebuildPatternCapacityIndex();
         } else {
             updatePatternCapacitySlot(slot);
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
+            } else if (slot == highestOccupiedSlot) {
+                highestOccupiedSlot = slot - 1;
+                while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
+                    highestOccupiedSlot--;
+                }
+            }
         }
         if (slot >= 0 && slot < decodedPatternDetails.length) {
             dirtyPatternSlots.set(slot);
@@ -692,6 +693,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         super.onReady();
         rebuildAllPatternDetails = true;
         rebuildPatternCapacityIndex();
+        highestOccupiedSlot = -1;
+        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                highestOccupiedSlot = slot;
+                break;
+            }
+        }
         updatePatternDetails();
     }
 
@@ -863,17 +871,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return;
         }
         patternDetailsUpdateQueued = true;
-        schedulePatternDetailsUpdate(serverLevel, patternDetailsUpdateTick);
-    }
-
-    private void schedulePatternDetailsUpdate(ServerLevel serverLevel, int tick) {
-        serverLevel.getServer().tell(new TickTask(tick, () -> {
+        serverLevel.getServer().tell(new TickTask(patternDetailsUpdateTick, () -> {
             if (isRemoved() || level != serverLevel) {
                 patternDetailsUpdateQueued = false;
                 return;
             }
             if (serverLevel.getServer().getTickCount() < patternDetailsUpdateTick) {
-                schedulePatternDetailsUpdate(serverLevel, patternDetailsUpdateTick);
+                patternDetailsUpdateQueued = false;
+                queuePatternDetailsUpdate();
                 return;
             }
             patternDetailsUpdateQueued = false;
@@ -916,8 +921,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new VerifiedPatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
-                    .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
+                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
+                    .addClass("eco-pattern-slot");
                 rowInv.addChild(slot);
             }
             patternInv.addChild(rowInv);
@@ -966,7 +971,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             layout.width(PAGE_BUTTON_SIZE);
             layout.height(PAGE_BUTTON_SIZE);
         }));
-        controls.addChild(new PageNumberElement().layout(layout -> {
+        TextElement pageNumber = new TextElement()
+            .setText(Component.literal((currentPage + 1) + "/" + getPageCount()));
+        controls.addChild(pageNumber.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
             layout.top(0);
@@ -989,36 +996,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return button;
     }
 
-    private final class PageNumberElement extends UIElement implements IBindable<Integer> {
-        private int syncedPageCount = getPageCount();
-
-        private PageNumberElement() {
-            bind(DataBindingBuilder.intValS2C(ECOCraftingPatternBusBlockEntity.this::getPageCount).build());
-        }
-
-        @Override
-        public IDataSource<Integer> setValue(@Nullable Integer value) {
-            syncedPageCount = value == null ? getPageCount() : Math.max(1, value);
-            return this;
-        }
-
-        @Override
-        public Integer getValue() {
-            return syncedPageCount;
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            Font font = Minecraft.getInstance().font;
-            Component text = Component.literal((currentPage + 1) + "/" + syncedPageCount);
-            int x = (int)getPositionX() + Math.round((getSizeWidth() - font.width(text)) / 2.0F);
-            int y = (int)getPositionY() + Math.round((getSizeHeight() - font.lineHeight) / 2.0F);
-            guiContext.graphics.drawString(font, text, x, y, 0x3F3D52, false);
-        }
-    }
-
     public int getPageCount() {
-        activePages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), getHighestOccupiedPage()));
+        activePages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1));
         currentPage = Math.clamp(currentPage, 0, activePages - 1);
         return activePages;
     }
@@ -1036,15 +1015,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         currentPage = clamped;
         setChanged();
         markForUpdate();
-    }
-
-    private int getHighestOccupiedPage() {
-        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                return slot / SLOTS_PER_PAGE + 1;
-            }
-        }
-        return 1;
     }
 
     private static int clampPages(int pages) {
@@ -1119,9 +1089,18 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         @Override
         public void setStackInSlot(int slot, ItemStack stack) {
             int actualSlot = toActualSlot(slot);
-            if (actualSlot >= 0) {
-                itemHandler.setStackInSlot(actualSlot, stack);
+            if (actualSlot < 0) {
+                return;
             }
+            ItemStack next = stack == null ? ItemStack.EMPTY : stack;
+            if (!next.isEmpty() && !inventory.isItemValid(actualSlot, next)) {
+                return;
+            }
+            ItemStack previous = inventory.getStackInSlot(actualSlot);
+            if (ItemStack.matches(previous, next)) {
+                return;
+            }
+            inventory.setItemDirect(actualSlot, next);
         }
 
         private int toActualSlot(int visibleSlot) {
@@ -1134,39 +1113,4 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
     }
 
-    /**
-     * Appends the pattern's verification classification to its tooltip. Computed fresh from the slot's own
-     * ItemStack on every hover - not cached, not written onto the pattern - so it can never go stale and never
-     * affects pattern identity.
-     */
-    private static final class VerifiedPatternItemSlot extends PatternItemSlot {
-        private VerifiedPatternItemSlot(Slot slot) {
-            super(slot);
-            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
-        }
-
-        @Override
-        public List<Component> getFullTooltipTexts() {
-            List<Component> tooltip = new ArrayList<>(super.getFullTooltipTexts());
-            ItemStack stack = getValue();
-            Level clientLevel = Minecraft.getInstance().level;
-            if (!stack.isEmpty() && clientLevel != null) {
-                IPatternDetails details = PatternDetailsHelper.decodePattern(stack, clientLevel);
-                if (details instanceof IMolecularAssemblerSupportedPattern) {
-                    tooltip.add(Component.translatable(
-                        details instanceof AESmithingTablePattern || details instanceof AEStonecuttingPattern
-                            ? "tooltip.neoecoae.pattern.verified_smithing_stonecutting"
-                            : NetGrowthPatternValidationRegistry.isSelfGrowingPattern(details)
-                            ? "tooltip.neoecoae.pattern.verified_self_growing"
-                            : isDurabilityPattern(details)
-                            ? "tooltip.neoecoae.pattern.verified_durability"
-                            : AE2PatternIntrospection.isSpecialNbtPattern(details)
-                            ? "tooltip.neoecoae.pattern.verified_special_nbt"
-                            : "tooltip.neoecoae.pattern.verified_normal"
-                    ).withStyle(style -> style.withColor(0xFFAA00)));
-                }
-            }
-            return tooltip;
-        }
-    }
 }

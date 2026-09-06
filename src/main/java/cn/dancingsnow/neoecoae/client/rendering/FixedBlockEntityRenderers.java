@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.rendering;
+package cn.dancingsnow.neoecoae.client.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins;
+package cn.dancingsnow.neoecoae.mixins.client;
 
 import cn.dancingsnow.neoecoae.client.all.NEBuiltinModels;
 import net.minecraft.client.resources.model.ModelBakery;
