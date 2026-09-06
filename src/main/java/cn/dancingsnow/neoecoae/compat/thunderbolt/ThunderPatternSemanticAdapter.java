@@ -83,6 +83,13 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
     }
 
     @Override
+    public boolean ignoresComponents(IPatternDetails pattern, int inputSlot) {
+        return pattern instanceof OverloadedProviderOnlyPatternDetails overload
+            && inputSlot >= 0
+            && overload.isFuzzyInput(inputSlot);
+    }
+
+    @Override
     public String name() {
         return "Thunder";
     }

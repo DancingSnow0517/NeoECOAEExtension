@@ -144,6 +144,7 @@ class ECOPlannerSemanticContractTest {
         assertTrue(compiled.fastSupported(), compiled::unsupportedReason);
         assertEquals(PatternSemantics.MatchingMode.SUBSTITUTION, compiled.semantics().matchingMode());
         assertEquals(input, compiled.inputs().getFirst().key());
+        assertTrue(compiled.inputs().getFirst().ignoresComponents());
         assertFalse(compiled.semantics().cycleSafeForStaticPlanning());
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
@@ -167,6 +168,7 @@ class ECOPlannerSemanticContractTest {
 
         assertTrue(compiled.fastSupported(), compiled::unsupportedReason);
         assertEquals(PatternSemantics.MatchingMode.EXACT, compiled.semantics().matchingMode());
+        assertFalse(compiled.inputs().getFirst().ignoresComponents());
         assertEquals(PatternSemantics.ExecutionRestriction.NONE,
             compiled.semantics().executionRestriction());
     }

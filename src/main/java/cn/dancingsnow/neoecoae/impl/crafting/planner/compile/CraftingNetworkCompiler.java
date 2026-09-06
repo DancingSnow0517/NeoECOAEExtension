@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
@@ -158,7 +157,7 @@ public final class CraftingNetworkCompiler {
             }
 
             if (!semantics.consumedInputs().isEmpty()) {
-                inputs = compileInputs(semantics, fastClassification);
+                inputs = compileInputs(semantics, fastClassification, adapter);
             } else {
                 inputs = compileRawInputs(details);
             }
@@ -219,7 +218,7 @@ public final class CraftingNetworkCompiler {
     }
 
     private static List<CompiledInput> compileInputs(PatternSemantics semantics,
-            ECORecipeClassifier.Classification classification) {
+            ECORecipeClassifier.Classification classification, PatternSemanticAdapter adapter) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (PatternSemantics.Input input : semantics.consumedInputs()) {
             String reason = "";
@@ -247,9 +246,9 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "INVALID_INPUT_AMOUNT";
             }
-            boolean ignoresComponents = semantics.physicalPattern() instanceof OverloadedProviderOnlyPatternDetails overload
-                && input.source() != null
-                && overload.isFuzzyInput(indexOfInput(semantics, input));
+            boolean ignoresComponents = input.source() != null
+                && adapter != null
+                && adapter.ignoresComponents(semantics.physicalPattern(), indexOfInput(semantics, input));
             inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
                 input.returnedKey(), input.returnedAmountPerPattern(), ignoresComponents));
         }
