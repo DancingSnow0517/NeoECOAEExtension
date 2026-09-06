@@ -4,15 +4,11 @@ import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.chargeAccepte
 import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.consumedInputs;
 import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.reinjectPatternInputs;
 import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.validateRuntimeConsumption;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.estimateOrdinaryDispatchSlots;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.hasAvailableProvider;
 import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.ordinaryProviders;
 import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.paysFlatRateCraftingPower;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,8 +63,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.RuntimeExecutionStat
 
 public class ECOCraftingCPULogic {
     /**
-     * Ordinary dispatch is deliberately policy-driven. The default fills currently visible provider capacity;
-     * adaptive policies can be installed without touching extraction, rollback or runtime accounting.
+     * Retained for compatibility with integrations that inspect the ordinary dispatch policy. The built-in ordinary
+     * loop currently follows AdvancedAE's one-pass-per-provider baseline; FastPath and accounting remain owned by
+     * this CPU logic.
      */
     private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = ECOParallelDispatchStrategy.INSTANCE;
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
@@ -100,7 +97,6 @@ public class ECOCraftingCPULogic {
 
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
-    private final ECOCraftingProviders providers = new ECOCraftingProviders();
     private final ECOCraftingAccounting accounting;
     private final ECOCraftingBatchDispatcher batchDispatcher;
     private final ECOCraftingStatusChanges statusChanges;
@@ -151,7 +147,6 @@ public class ECOCraftingCPULogic {
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
         initializeRuntimeOwnershipFromPhysicalState(this.job, false);
         statusChanges.initialize(this.job.runtimeExecutionState());
-        providers.clearTopologyCache();
         batchDispatcher.resetBatchProbeBudgetForCurrentTick();
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -230,9 +225,17 @@ public class ECOCraftingCPULogic {
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
-            // One engine pass is one tick. The pass snapshots eligible task ids; the ordinary dispatch strategy
-            // decides how many one-craft provider calls may fill the currently available parallel lanes.
-            executeCrafting(remainingOperations, cc, eg, level);
+            // Match AE2/AdvancedAE's scheduler cadence: one pass visits each task once and each provider at most
+            // once, then another pass starts from the first task while the CPU operation budget remains. This keeps
+            // provider order observable and lets a provider's live busy state decide whether it can receive another
+            // craft on the next pass.
+            do {
+                int pushedPatterns = executeCrafting(remainingOperations, cc, eg, level);
+                if (pushedPatterns <= 0) {
+                    break;
+                }
+                remainingOperations -= pushedPatterns;
+            } while (remainingOperations > 0 && job != null);
             // Dispatch normally flushed this projection together with status changes. This covers pre-batch exits.
             if (job != null) job.flushRuntimeTick();
         }
@@ -372,18 +375,15 @@ public class ECOCraftingCPULogic {
         }
 
         var pushedPatterns = 0;
-        // Provider membership is a topology property, but AE2 exposes no stable generation here. Scope the cache to
-        // one engine pass so grid changes can never leave stale providers attached to a long-lived job.
-        providers.clearTopologyCache();
         batchDispatcher.resetBatchProbeBudgetForCurrentTick();
 
         statusChanges.beginBatch(job.runtimeExecutionState());
         try {
             List<ExecutingCraftingJob.DispatchTask> readyTasks = job.eligibleDispatchTasks();
-            int fairQuantum = readyTasks.isEmpty() ? 0 : Math.max(1, maxPatterns / readyTasks.size());
-            List<ExecutingCraftingJob.DispatchTask> eligibleTasks = new ArrayList<>(providers.fairTaskOrder(readyTasks));
-            Set<ExecutingCraftingJob.DispatchTask> finiteFastPathStartedTasks =
-                Collections.newSetFromMap(new IdentityHashMap<>());
+            // Keep the task order supplied by the job. Native jobs therefore retain the same HashMap iteration
+            // order as AdvancedAE, while runtime plans retain their compiled ready-task order without an extra
+            // rotating queue or task requeue policy.
+            List<ExecutingCraftingJob.DispatchTask> eligibleTasks = new ArrayList<>(readyTasks);
             int taskIndex = 0;
             taskLoop: while (taskIndex < eligibleTasks.size()) {
                 var task = eligibleTasks.get(taskIndex++);
@@ -397,19 +397,13 @@ public class ECOCraftingCPULogic {
                         .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
                     continue;
                 }
-                // Topology is collected once per task: which providers advertise this pattern at all cannot
-                // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
-                // deliberately NOT part of this list and is re-measured on every attempt below.
-                List<ICraftingProvider> candidateProviders = providers.collectAvailableProviders(details,
-                    () -> collectAvailableProviders(craftingService, details));
+                // AdvancedAE obtains the provider list for every task pass and traverses it in the service order.
+                // Do the same here; live busy state is still read immediately before every provider call.
+                List<ICraftingProvider> candidateProviders = collectAvailableProviders(craftingService, details);
                 if (candidateProviders.isEmpty()) {
                     continue;
                 }
                 if (task.progress().value > 0 && pushedPatterns < maxPatterns) {
-                    if (!hasAvailableProvider(candidateProviders)) {
-                        continue taskLoop;
-                    }
-
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     @Nullable
@@ -424,7 +418,7 @@ public class ECOCraftingCPULogic {
                         expectedContainerItems, CraftingCpuHelper.calculatePatternPower(craftingContainer));
                     var batch = batchDispatcher.dispatch(job, task, extractedCraft, candidateProviders,
                         energyService, job.dispatchLimit(task), Math.max(0, maxPatterns - pushedPatterns),
-                        level, !finiteFastPathStartedTasks.contains(task));
+                        level, true);
                     var execution = batch.execution();
                     var batchDispatch = batch.result();
                     if (batchDispatch instanceof DispatchResult.Accepted) {
@@ -441,32 +435,36 @@ public class ECOCraftingCPULogic {
                         if (pushedPatterns == maxPatterns) {
                             break taskLoop;
                         }
-                        // A finite FastPath batch consumes one CPU operation, but it does not consume the
-                        // whole task. Put the task back at the tail so the next pass can acquire another live FX
-                        // lane. With one ready task this fills every idle worker; with multiple tasks this is a
-                        // real round-robin queue instead of the old fixed two-copy task list. Virtual dispatch is
-                        // deliberately excluded: its existing one-lane, long-count semantics stay unchanged.
-                        if (batch.finiteAccepted()) {
-                            finiteFastPathStartedTasks.add(task);
-                        }
-                        if (!batch.virtualAccepted() && this.job == job) {
-                            eligibleTasks.add(task);
-                        }
                         continue;
-                    } else if (batchDispatch instanceof DispatchResult.Rejected) {
-                        continue taskLoop;
+                    }
+                    if (batchDispatch instanceof DispatchResult.Rejected) {
+                        // Batch dispatchers return the first craft to the CPU before reporting rejection. Re-extract
+                        // a fresh ordinary-path container so the fallback cannot double-inject the same inputs.
+                        expectedOutputs = new KeyCounter();
+                        expectedContainerItems = new KeyCounter();
+                        craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                            details, inventory, level, expectedOutputs, expectedContainerItems);
+                        if (craftingContainer == null) {
+                            tasksMissingInputs++;
+                            continue taskLoop;
+                        }
+                        extractedCraft = new ECOExtractedCraft(craftingContainer, expectedOutputs,
+                            expectedContainerItems, CraftingCpuHelper.calculatePatternPower(craftingContainer));
+                        execution = ECOExtractedPatternExecution.create(details, craftingContainer,
+                            expectedOutputs, expectedContainerItems, level);
                     }
 
                     // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
                     // (notably useless_mod's dynamic-output bridge) wrap this exact call site by descriptor.
-                    // The strategy only chooses order and attempt budget; this loop retains the transaction.
-                    List<ICraftingProvider> ordinaryProviders = ordinaryProviders(candidateProviders);
+                    // Match AdvancedAE: traverse providers once, and let each provider accept at most one craft in
+                    // this pass. The outer tick loop starts the next pass from the first task.
+                    List<ICraftingProvider> ordinaryCandidates = ordinaryProviders(candidateProviders);
                     var strategyContext = new ECOCraftingDispatchStrategy.DispatchContext(
                         details,
                         task.progress().value,
-                        Math.min(fairQuantum, Math.max(0, maxPatterns - pushedPatterns)),
-                        ordinaryProviders,
-                        estimateOrdinaryDispatchSlots(ordinaryProviders, Math.max(0, maxPatterns - pushedPatterns))
+                        Math.max(0, maxPatterns - pushedPatterns),
+                        ordinaryCandidates,
+                        ordinaryCandidates.size()
                     );
                     ECOCraftingDispatchStrategy.DispatchDecision strategyDecision;
                     try {
@@ -475,112 +473,103 @@ public class ECOCraftingCPULogic {
                             throw new IllegalStateException("ordinary dispatch strategy returned null");
                         }
                     } catch (RuntimeException strategyFailure) {
-                        // A policy failure must not strand a crafting job. Fall back to the conservative built-in
-                        // policy while retaining the failure in the log for the policy implementation author.
-                        LOGGER.error("Ordinary crafting dispatch strategy failed; using parallel fallback", strategyFailure);
-                        strategyDecision = ECOParallelDispatchStrategy.INSTANCE.choose(strategyContext);
+                        LOGGER.error("Ordinary crafting dispatch strategy failed; using provider-order fallback",
+                            strategyFailure);
+                        strategyDecision = new ECOCraftingDispatchStrategy.DispatchDecision(
+                            ordinaryCandidates, ordinaryCandidates.size());
                     }
+                    List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
                     long runtimeLimit = job.dispatchLimit(task);
                     int ordinaryAttemptLimit = (int) Math.min(
-                        Math.min((long) strategyDecision.maxAttempts(), strategyContext.dispatchBudget()),
-                        Math.min(task.progress().value, runtimeLimit));
-                    List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
+                        Math.min((long) strategyDecision.maxAttempts(), (long) dispatchProviders.size()),
+                        Math.min((long) Math.max(0, maxPatterns - pushedPatterns),
+                            Math.min(task.progress().value, runtimeLimit)));
                     if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
                         reinjectPatternInputs(inventory, craftingContainer);
                         continue taskLoop;
                     }
-
-                    int ordinaryPushedBefore = pushedPatterns;
-                    ordinaryDispatch: for (int attempt = 0; attempt < ordinaryAttemptLimit; attempt++) {
+                    @Nullable KeyCounter[] pendingContainer = craftingContainer;
+                    KeyCounter pendingOutputs = extractedCraft.expectedOutputs();
+                    KeyCounter pendingContainerItems = extractedCraft.expectedContainerItems();
+                    double pendingPower = extractedCraft.patternPower();
+                    boolean acceptedAny = false;
+                    for (int providerIndex = 0; providerIndex < ordinaryAttemptLimit; providerIndex++) {
+                        ICraftingProvider provider = dispatchProviders.get(providerIndex);
+                        if (task.progress().value <= 0 || pushedPatterns >= maxPatterns || pendingContainer == null) {
+                            break;
+                        }
+                        final Map<AEKey, Long> pendingConsumed;
+                        try {
+                            pendingConsumed = consumedInputs(pendingContainer);
+                            validateRuntimeConsumption(job, pendingConsumed);
+                        } catch (RuntimeException invalidConsumption) {
+                            reinjectPatternInputs(inventory, pendingContainer);
+                            pendingContainer = null;
+                            batchDispatcher.logBatchRejection(1L, task.progress().value, invalidConsumption);
+                            break;
+                        }
+                        if (provider.isBusy()) {
+                            continue;
+                        }
+                        boolean flatRateProvider = paysFlatRateCraftingPower(provider);
+                        if (!flatRateProvider && energyService.extractAEPower(pendingPower, Actionable.SIMULATE,
+                                PowerMultiplier.CONFIG) < pendingPower - 0.01) {
+                            break;
+                        }
+                        // Reuse the extraction only while it is still the first craft. Every later provider gets a
+                        // freshly extracted container; reusing the first execution would hand a provider stale
+                        // inputs after the previous provider accepted its craft.
+                        @Nullable ECOExtractedPatternExecution pendingExecution = acceptedAny ? null : execution;
+                        final boolean accepted;
+                        try {
+                            // This exact call site is part of the integration contract with dynamic-output provider
+                            // mixins. Do not move it into a helper without updating those mixins.
+                            if (provider instanceof ECOCraftingPatternBusBlockEntity && pendingExecution == null) {
+                                pendingExecution = ECOExtractedPatternExecution.create(details, pendingContainer,
+                                    pendingOutputs, pendingContainerItems, level);
+                            }
+                            accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                ? patternBus.pushPattern(pendingExecution, job.link.getCraftingID())
+                                : provider.pushPattern(details, pendingContainer);
+                        } catch (RuntimeException failure) {
+                            LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
+                                failure);
+                            continue;
+                        }
+                        if (!accepted) {
+                            continue;
+                        }
+                        // The provider owns this exact extraction from the successful call onward. Clear the
+                        // CPU-owned reference before any task bookkeeping can finish the job or exhaust the pass;
+                        // otherwise the final fallback below would inject already-transferred inputs a second time.
+                        pendingContainer = null;
+                        if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, pendingPower);
+                        accounting.recordPushedPattern(job, pendingOutputs, pendingContainerItems);
+                        DispatchResult single = new DispatchResult.Accepted(1L, pendingConsumed);
+                        pushedPatterns++;
+                        acceptedAny = true;
+                        if (this.job != job) break taskLoop;
+                        job.applyDispatchResultAndGetNewlyReady(task, single);
                         if (task.progress().value <= 0 || pushedPatterns >= maxPatterns) {
                             break;
                         }
 
-                        KeyCounter attemptOutputs;
-                        KeyCounter attemptContainerItems;
-                        @Nullable KeyCounter[] attemptContainer;
-                        @Nullable ECOExtractedPatternExecution attemptExecution = null;
-                        double attemptPower;
-                        if (attempt == 0) {
-                            // The first craft was already extracted for the shared fast-path offer search. Reuse
-                            // that exact container; extracting it a second time would leak one craft on fallback.
-                            attemptOutputs = extractedCraft.expectedOutputs();
-                            attemptContainerItems = extractedCraft.expectedContainerItems();
-                            attemptContainer = extractedCraft.craftingContainer();
-                            attemptExecution = execution;
-                            attemptPower = extractedCraft.patternPower();
-                        } else {
-                            attemptOutputs = new KeyCounter();
-                            attemptContainerItems = new KeyCounter();
-                            attemptContainer = CraftingCpuHelper.extractPatternInputs(
-                                details, inventory, level, attemptOutputs, attemptContainerItems);
-                            attemptPower = attemptContainer == null
-                                ? 0.0D : CraftingCpuHelper.calculatePatternPower(attemptContainer);
-                        }
-                        if (attemptContainer == null) {
-                            tasksMissingInputs++;
-                            break;
-                        }
-
-                        final Map<AEKey, Long> actualConsumed;
-                        try {
-                            actualConsumed = consumedInputs(attemptContainer);
-                            validateRuntimeConsumption(job, actualConsumed);
-                        } catch (RuntimeException invalidConsumption) {
-                            reinjectPatternInputs(inventory, attemptContainer);
-                            batchDispatcher.logBatchRejection(1L, task.progress().value, invalidConsumption);
-                            break ordinaryDispatch;
-                        }
-                        DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
-                        for (ICraftingProvider provider : dispatchProviders) {
-                            if (provider.isBusy()) continue;
-                            boolean flatRateProvider = paysFlatRateCraftingPower(provider);
-                            if (!flatRateProvider && energyService.extractAEPower(attemptPower, Actionable.SIMULATE,
-                                    PowerMultiplier.CONFIG) < attemptPower - 0.01) {
-                                single = new DispatchResult.Waiting(DispatchResult.WaitReason.ENERGY_UNAVAILABLE);
-                                break;
-                            }
-                            final boolean accepted;
-                            try {
-                                // This exact call site is part of the integration contract with dynamic-output
-                                // provider mixins. Do not move it into a helper without updating those mixins.
-                                if (provider instanceof ECOCraftingPatternBusBlockEntity && attemptExecution == null) {
-                                    attemptExecution = ECOExtractedPatternExecution.create(details, attemptContainer,
-                                        attemptOutputs, attemptContainerItems, level);
-                                }
-                                accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                    ? patternBus.pushPattern(attemptExecution, job.link.getCraftingID())
-                                    : provider.pushPattern(details, attemptContainer);
-                            } catch (RuntimeException failure) {
-                                LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
-                                    failure);
-                                continue;
-                            }
-                            if (!accepted) {
-                                single = new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
-                                continue;
-                            }
-                            if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, attemptPower);
-                            accounting.recordPushedPattern(job, attemptOutputs, attemptContainerItems);
-                            single = new DispatchResult.Accepted(1L, actualConsumed);
-                            break;
-                        }
-                        if (single instanceof DispatchResult.Accepted) {
-                            pushedPatterns++;
-                            if (this.job != job) break taskLoop;
-                            eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, single));
-                            if (task.progress().value <= 0) continue taskLoop;
-                            if (pushedPatterns == maxPatterns) break taskLoop;
-                            continue;
-                        }
-                        reinjectPatternInputs(inventory, attemptContainer);
-                        break ordinaryDispatch;
+                        // A provider call owns this craft now. Prepare the next craft only for the next provider in
+                        // this pass, exactly like AdvancedAE's provider loop.
+                        KeyCounter nextOutputs = new KeyCounter();
+                        KeyCounter nextContainerItems = new KeyCounter();
+                        pendingContainer = CraftingCpuHelper.extractPatternInputs(
+                            details, inventory, level, nextOutputs, nextContainerItems);
+                        pendingOutputs = nextOutputs;
+                        pendingContainerItems = nextContainerItems;
+                        pendingPower = pendingContainer == null
+                            ? 0.0D : CraftingCpuHelper.calculatePatternPower(pendingContainer);
                     }
-                    if (this.job == job && pushedPatterns > ordinaryPushedBefore
-                            && task.progress().value > 0 && pushedPatterns < maxPatterns) {
-                        // The strategy may have used its fair quantum in this visit. Requeue the task so the
-                        // remaining CPU budget can be used without relying on a hard-coded number of rounds.
-                        eligibleTasks.add(task);
+                    if (this.job == job && pendingContainer != null) {
+                        // The final unaccepted craft remains CPU-owned after the last provider was tried. If the
+                        // accepted craft finished or replaced the job, the provider already owns this container and
+                        // it must never be re-injected here.
+                        reinjectPatternInputs(inventory, pendingContainer);
                     }
                 }
             }
@@ -768,7 +757,6 @@ public class ECOCraftingCPULogic {
 
         // 结束任务。
         this.job = null;
-        providers.clearTopologyCache();
         if (!statusChanges.isBatching()) statusChanges.initialize(null);
 
         // 存储所有剩余物品。
@@ -892,7 +880,6 @@ public class ECOCraftingCPULogic {
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
-            providers.clearTopologyCache();
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             initializeRuntimeOwnershipFromPhysicalState(this.job, true);
             statusChanges.initialize(this.job.runtimeExecutionState());

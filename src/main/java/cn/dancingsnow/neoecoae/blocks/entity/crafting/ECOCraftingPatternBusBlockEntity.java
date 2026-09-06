@@ -129,6 +129,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private transient boolean craftingProviderRefreshQueued;
     /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
     private transient ECOPreparedPattern activePreparedPattern;
+    /** Ordinary one-craft dispatch follows AdvancedAE's successful-target round-robin. */
+    private int dispatchRoundRobinIndex;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -152,32 +154,22 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (execution.molecularPattern() == null || cluster == null) {
             return false;
         }
-        // Deterministic, concentrating order over every worker this host can reach - the whole Network Switch
-        // group when one is formed. Select the current best worker in one scan. The fallback list is built and
-        // sorted only when that first provider rejects, which keeps the common successful path allocation-light
-        // without turning repeated provider rejection into an O(n^2) rescan.
+        // Match AdvancedAE's ordinary provider routing: visit reachable workers from a rotating cursor and advance
+        // only after a successful push. Batch offers use the capacity-ranked path below, but a single craft should
+        // not keep concentrating on the worker with the most free slots.
         List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
-        RankedWorker best = findBestDispatchCandidate(candidates);
-        if (best == null) {
+        if (candidates.isEmpty()) {
             return false;
         }
-        if (best.worker().pushPattern(execution, craftingJobId)) {
-            return true;
-        }
-
-        List<RankedWorker> fallback = new ArrayList<>(candidates.size());
-        for (ECOCraftingWorkerBlockEntity worker : candidates) {
-            if (worker == best.worker()) {
+        int start = Math.floorMod(dispatchRoundRobinIndex, candidates.size());
+        for (int offset = 0; offset < candidates.size(); offset++) {
+            int candidateIndex = (start + offset) % candidates.size();
+            ECOCraftingWorkerBlockEntity worker = candidates.get(candidateIndex);
+            if (worker.getAvailableThreadSlots() <= 0) {
                 continue;
             }
-            int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots > 0) {
-                fallback.add(new RankedWorker(worker, availableSlots));
-            }
-        }
-        fallback.sort(DISPATCH_ORDER);
-        for (RankedWorker candidate : fallback) {
-            if (candidate.worker().pushPattern(execution, craftingJobId)) {
+            if (worker.pushPattern(execution, craftingJobId)) {
+                dispatchRoundRobinIndex = (candidateIndex + 1) % candidates.size();
                 return true;
             }
         }

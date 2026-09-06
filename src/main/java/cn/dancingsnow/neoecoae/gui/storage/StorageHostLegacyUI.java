@@ -43,10 +43,17 @@ public final class StorageHostLegacyUI {
     private static final int GRAPH_HEIGHT = 16;
     private static final int GRAPH_LABEL_HEIGHT = 10;
     private static final int GRAPH_TEXT_SCALE = 6;
+    private static final int GRAPH_OFFSET_LEFT = -55;
+    private static final int GRAPH_OFFSET_TOP = -26;
+    private static final int GRAPH_FOCUSED_COLOR = 0xFFFFFFFF;
+    private static final int GRAPH_UNFOCUSED_COLOR = 0x66FFFFFF;
     private static final int CELL_LIST_LEFT = 178;
     private static final int CELL_LIST_TOP = 22;
     private static final int CELL_LIST_WIDTH = 67;
     private static final int CELL_LIST_HEIGHT = 172;
+    private static final int CELL_TEXT_LEFT = 10;
+    private static final int CELL_TEXT_TOP = 1;
+    private static final int CELL_TEXT_LINE_STEP = 13;
     private static final int INVENTORY_LEFT = 7;
     private static final int INVENTORY_TOP = 124;
     private static final int INVENTORY_WIDTH = 9 * 18;
@@ -164,7 +171,7 @@ public final class StorageHostLegacyUI {
                 metric -> percentText("gui.neoecoae.storage.legacy.graph.gas", metric),
                 true));
         }
-        root.addChild(graph(
+        LegacyGraphElement totalGraph = graph(
             graphBar,
             8,
             hasOtherType ? 89 : 70,
@@ -172,7 +179,9 @@ public final class StorageHostLegacyUI {
             TEXTURES.totalPercent,
             () -> totalMetric(config),
             metric -> percentText("gui.neoecoae.storage.legacy.graph.total", metric),
-            true));
+            true);
+        root.addChild(totalGraph);
+        graphBar.focus(totalGraph);
         root.addChild(graph(
             graphBar,
             85,
@@ -235,8 +244,8 @@ public final class StorageHostLegacyUI {
         LegacyGraphElement graph = new LegacyGraphElement(graphBar, background, metric, text, leftAlign);
         graph.layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
-            .left(CHART_LEFT + left)
-            .top(CHART_TOP + top)
+            .left(CHART_LEFT + GRAPH_OFFSET_LEFT + left)
+            .top(CHART_TOP + GRAPH_OFFSET_TOP + top)
             .width(width)
             .height(GRAPH_HEIGHT));
         return graph;
@@ -393,7 +402,8 @@ public final class StorageHostLegacyUI {
         @Override
         public void drawContents(GUIContext guiContext) {
             super.drawContents(guiContext);
-            guiContext.drawTexture(background.copy().setColor(0x66FFFFFF),
+            int color = graphBar.isFocused(this) ? GRAPH_FOCUSED_COLOR : GRAPH_UNFOCUSED_COLOR;
+            guiContext.drawTexture(background.copy().setColor(color),
                 getPositionX(), getPositionY() + GRAPH_LABEL_HEIGHT, getSizeWidth(), getSizeHeight() - GRAPH_LABEL_HEIGHT);
             drawText(guiContext, textSupplier.apply(metric));
         }
@@ -452,6 +462,10 @@ public final class StorageHostLegacyUI {
 
         private void focus(LegacyGraphElement graph) {
             focused = graph;
+        }
+
+        private boolean isFocused(LegacyGraphElement graph) {
+            return focused == graph;
         }
 
         @Override
@@ -586,11 +600,11 @@ public final class StorageHostLegacyUI {
             Component bytes = Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
                 HostText.ae2Amount(entry.usedBytes()), formatCapacity(entry.totalBytes()));
             guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(x + 10.0F, y + 1.0F, 0.0F);
+            guiContext.graphics.pose().translate(x + CELL_TEXT_LEFT, y + CELL_TEXT_TOP, 0.0F);
             guiContext.graphics.pose().scale(TEXT_SCALE, TEXT_SCALE, 1.0F);
             guiContext.graphics.drawString(font, type, 0, 0, HostText.PRIMARY, false);
-            guiContext.graphics.drawString(font, types, 0, 8, HostText.PRIMARY, false);
-            guiContext.graphics.drawString(font, bytes, 0, 16, HostText.PRIMARY, false);
+            guiContext.graphics.drawString(font, types, 0, CELL_TEXT_LINE_STEP, HostText.PRIMARY, false);
+            guiContext.graphics.drawString(font, bytes, 0, CELL_TEXT_LINE_STEP * 2, HostText.PRIMARY, false);
             guiContext.graphics.pose().popPose();
         }
 
@@ -718,7 +732,7 @@ public final class StorageHostLegacyUI {
     private static final class ResourceLocations {
         private final SpriteTexture background = sprite("estorage_controller.png", 0, 0, 256, 207);
         private final SpriteTexture itemPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
-        private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
+        private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 2, 225, 60, 6);
         private final SpriteTexture gasPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
         private final SpriteTexture totalPercent = sprite("estorage_controller_elements.png", 2, 239, 64, 6);
         private final SpriteTexture itemType = sprite("estorage_controller_elements.png", 1, 197, 59, 6);

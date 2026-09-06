@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 /**
- * Default ordinary dispatch policy. It fills the currently advertised provider capacity for the task, allowing
- * one task to occupy several independent ECO workers in the same tick while remaining bounded by the CPU budget.
+ * Default ordinary dispatch policy. The CPU supplies one visit slot per candidate provider, so this policy preserves
+ * the provider order while bounding the pass by the remaining CPU operation budget.
  */
 public final class ECOParallelDispatchStrategy implements ECOCraftingDispatchStrategy {
     public static final ECOParallelDispatchStrategy INSTANCE = new ECOParallelDispatchStrategy();

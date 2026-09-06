@@ -2,11 +2,8 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -16,14 +13,9 @@ import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedB
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 
-/** Caches provider membership per pass while reading live capacity on each attempt. */
+/** Small provider predicates shared by the ordinary and batch dispatch paths. */
 final class ECOCraftingProviders {
-    private final Map<PlanIdentity.PatternIdentity, List<ICraftingProvider>> providerTopologyCache = new HashMap<>();
     private int taskDispatchCursor;
-
-    void clearTopologyCache() {
-        providerTopologyCache.clear();
-    }
 
     /**
      * Whether this provider's crafting energy is already covered by the flat per-tick draw of a fully
@@ -35,26 +27,6 @@ final class ECOCraftingProviders {
         }
         ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
         return controller != null && controller.isFullVirtualCraftingMode();
-    }
-
-    /**
-     * Topological candidates for one pattern: every provider that advertises it. Collected once per task so the
-     * inner dispatch loop stops rebuilding the same {@link ArrayList} and rescanning a fixed topology, and
-     * copied because the grid may add or remove providers while a dispatch runs.
-     *
-     * <p>Availability is intentionally excluded. A provider's busy state and free capacity change with every
-     * dispatch, so they are re-read from the provider on each attempt.
-     */
-    List<ICraftingProvider> collectAvailableProviders(IPatternDetails details,
-            Supplier<List<ICraftingProvider>> loader) {
-        var identity = PlanIdentity.patternIdentityFor(details);
-        if (identity != null) {
-            var cached = providerTopologyCache.get(identity);
-            if (cached != null) return cached;
-        }
-        List<ICraftingProvider> result = List.copyOf(loader.get());
-        if (identity != null && !result.isEmpty()) providerTopologyCache.put(identity, result);
-        return result;
     }
 
     /** Live availability check over the reusable candidate set; it does not mutate provider state. */
