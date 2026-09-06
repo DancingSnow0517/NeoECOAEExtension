@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
@@ -36,6 +37,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.dataenergistics.ECODataEnergisticsCountedBridge;
+import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOExternalBatchContracts;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
@@ -102,7 +104,9 @@ final class ECOCraftingBatchDispatcher {
         DispatchResult result = new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
         boolean nativeProvider = hasFastPathProvider(providers);
         boolean externalProvider = hasExternalCountedProvider(providers);
-        if (!nativeProvider && !externalProvider && !hasBatchProbeProvider(providers)) {
+        boolean extendedAEPlusMatrix = providers.stream()
+            .anyMatch(provider -> ECOExtendedAEPlusMatrixBridge.supports(provider, task.pattern()));
+        if (!nativeProvider && !externalProvider && !extendedAEPlusMatrix && !hasBatchProbeProvider(providers)) {
             return new Attempt(null, result, false, false);
         }
 
@@ -123,6 +127,10 @@ final class ECOCraftingBatchDispatcher {
             result = tryPushExternalCountedBatch(job, execution, craft.craftingContainer(), providers,
                 energy, craft.patternPower(), dispatchLimit, task.progress().value, remainingOperations, level);
         }
+        if (result instanceof DispatchResult.Waiting && extendedAEPlusMatrix) {
+            result = tryPushExtendedAEPlusMatrixBatch(job, execution, craft.craftingContainer(), providers,
+                energy, craft.patternPower(), dispatchLimit, task.progress().value);
+        }
         int remainingProbeBudget = Math.max(0,
             ECOBatchProbeScheduler.MAX_BATCH_PROBES_PER_CPU_PER_TICK - batchProbesUsedThisTick);
         if (result instanceof DispatchResult.Waiting && remainingProbeBudget > 0) {
@@ -136,6 +144,93 @@ final class ECOCraftingBatchDispatcher {
             }
         }
         return new Attempt(execution, result, virtualAccepted, finiteAccepted);
+    }
+
+    /**
+     * EAP's matrix has no NeoECO-specific batch interface, but it accepts its scaled molecular pattern wrapper.
+     * C-series plans bypass EAP's native CraftingSimulationState scaler, so bridge that one contract here.
+     */
+    private DispatchResult tryPushExtendedAEPlusMatrixBatch(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            List<ICraftingProvider> candidateProviders,
+            IEnergyService energyService,
+            double patternPower,
+            long runtimeDispatchLimit,
+            long taskRemaining) {
+        long legalUpper = Math.min(Math.max(0L, taskRemaining), Math.max(0L, runtimeDispatchLimit));
+        legalUpper = Math.min(legalUpper, execution.arithmeticBatchLimit());
+        if (legalUpper <= 1L) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        long energyLimit = maxBatchSizeFromEnergy(energyService, patternPower, legalUpper);
+        legalUpper = Math.min(legalUpper, energyLimit);
+        if (legalUpper <= 1L) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.ENERGY_UNAVAILABLE);
+        }
+
+        long availableExtra = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, execution.inputItems(), legalUpper - 1L);
+        long craftCount = Math.min(legalUpper, availableExtra + 1L);
+        if (craftCount <= 1L) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.INPUTS_UNAVAILABLE);
+        }
+
+        IPatternDetails scaledPattern = ECOExtendedAEPlusMatrixBridge.scale(execution.details(), craftCount);
+        KeyCounter[] scaledInputs = ECOExtendedAEPlusMatrixBridge.multiplyInputHolder(
+            firstCraftingContainer, craftCount);
+        if (scaledPattern == null || scaledInputs == null) {
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
+        }
+
+        List<GenericStack> extraInputs;
+        Map<AEKey, Long> actualConsumed;
+        try {
+            extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), craftCount - 1L);
+            actualConsumed = mergeConsumedInputs(consumedInputs(firstCraftingContainer), extraInputs);
+            validateRuntimeConsumption(job, actualConsumed);
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+        } catch (RuntimeException extractionFailure) {
+            LOGGER.debug("EAP matrix batch inputs are unavailable", extractionFailure);
+            return new DispatchResult.Waiting(DispatchResult.WaitReason.INPUTS_UNAVAILABLE);
+        }
+
+        for (ICraftingProvider provider : candidateProviders) {
+            if (provider.isBusy() || !ECOExtendedAEPlusMatrixBridge.supports(provider, execution.details())) {
+                continue;
+            }
+
+            boolean accepted;
+            try {
+                // Give each provider its own copy. A conforming provider must not mutate a rejected holder, but the
+                // copy also isolates a provider that clears its table while validating a failed request.
+                KeyCounter[] providerInputs = ECOExtendedAEPlusMatrixBridge.multiplyInputHolder(
+                    firstCraftingContainer, craftCount);
+                accepted = providerInputs != null && provider.pushPattern(scaledPattern, providerInputs);
+            } catch (RuntimeException failure) {
+                LOGGER.debug("EAP matrix batch provider rejected a request", failure);
+                continue;
+            }
+            if (!accepted) {
+                continue;
+            }
+
+            chargeCountedBatchEnergy(energyService, patternPower, craftCount);
+            if (logic.getJob() == job) {
+                try {
+                    accounting.recordPushedPattern(job, execution, craftCount);
+                } catch (RuntimeException accountingFailure) {
+                    job.failExecution(ExecutingCraftingJob.PermanentExecutionError.RUNTIME_ACCOUNTING_FAILURE);
+                    LOGGER.error("EAP matrix batch was accepted; CPU accounting failed", accountingFailure);
+                }
+            }
+            return new DispatchResult.Accepted(craftCount, actualConsumed);
+        }
+
+        ECOBatchCraftingHelper.insertAll(inventory, extraInputs);
+        return new DispatchResult.Waiting(DispatchResult.WaitReason.CAPACITY_UNAVAILABLE);
     }
 
     /**
