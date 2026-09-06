@@ -9,6 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+
 class NEClusterCasingVisibilityTest {
     private static final BlockPos MIN = BlockPos.ZERO;
     private static final BlockPos MAX = new BlockPos(1, 2, 1);
@@ -44,6 +47,18 @@ class NEClusterCasingVisibilityTest {
         assertEquals(202_752, network.getTotalParallelism());
         ECOCraftingCPU advertisedCpu = new ECOCraftingCPU(first, (IECOTier) null);
         assertEquals(network.getTotalParallelism(), advertisedCpu.getCoProcessors());
+    }
+
+    @Test
+    void endgameRequiresEveryHostToHaveAllDriveSlotsFilled() {
+        List<NEComputationNetworkCluster.EndgameHost> topology = new ArrayList<>();
+        for (int host = 0; host < 8; host++) {
+            topology.add(new NEComputationNetworkCluster.EndgameHost(true, true, true, true));
+        }
+        assertTrue(NEComputationNetworkCluster.isEndgameTopologyEligible(topology));
+
+        topology.set(3, new NEComputationNetworkCluster.EndgameHost(true, true, true, false));
+        assertFalse(NEComputationNetworkCluster.isEndgameTopologyEligible(topology));
     }
 
     private static NEComputationNetworkCluster configure(TestComputationCluster... members) {

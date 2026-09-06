@@ -9,8 +9,11 @@ import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.NEMath;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,23 +58,65 @@ public class NEComputationNetworkCluster {
         if (members.size() != 8) {
             return false;
         }
+        List<EndgameHost> topology = new ArrayList<>(members.size());
         for (NEComputationCluster member : members) {
             ECOComputationSystemBlockEntity controller = member.getController();
             if (controller == null) {
                 return false;
             }
-            if (controller.getTier().getTier() != ECOTier.L9.getTier()) {
-                return false;
-            }
-            if (controller.getSelectedBuildLength() != controller.getMaxBuildLength()) {
-                return false;
-            }
-            if (!controller.hasHighEnergyNetworkSwitch()) {
+            topology.add(new EndgameHost(
+                controller.getTier().getTier() == ECOTier.L9.getTier(),
+                controller.getSelectedBuildLength() == controller.getMaxBuildLength(),
+                controller.hasHighEnergyNetworkSwitch(),
+                hasAllDriveSlotsFilled(member)
+            ));
+        }
+        return isEndgameTopologyEligible(topology);
+    }
+
+    static boolean isEndgameTopologyEligible(List<EndgameHost> topology) {
+        if (topology == null || topology.size() != 8) {
+            return false;
+        }
+        for (EndgameHost host : topology) {
+            if (host == null || !host.maxTier() || !host.maxBuildLength()
+                || !host.highEnergyNetworkSwitch() || !host.allDriveSlotsFilled()) {
                 return false;
             }
         }
         return true;
     }
+
+    static boolean areAllDriveSlotsFilled(List<ItemStack> driveStacks) {
+        if (driveStacks == null || driveStacks.isEmpty()) {
+            return false;
+        }
+        for (ItemStack stack : driveStacks) {
+            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof ECOComputationCellItem)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasAllDriveSlotsFilled(NEComputationCluster member) {
+        List<ItemStack> driveStacks = new ArrayList<>(
+            member.getUpperDrives().size() + member.getLowerDrives().size());
+        for (ECOComputationDriveBlockEntity drive : member.getUpperDrives()) {
+            driveStacks.add(drive.getCellStack());
+        }
+        for (ECOComputationDriveBlockEntity drive : member.getLowerDrives()) {
+            driveStacks.add(drive.getCellStack());
+        }
+        return areAllDriveSlotsFilled(driveStacks);
+    }
+
+    record EndgameHost(
+        boolean maxTier,
+        boolean maxBuildLength,
+        boolean highEnergyNetworkSwitch,
+        boolean allDriveSlotsFilled
+    ) {}
 
     public int getTotalThreads() {
         if (isEndgameEligible()) {
