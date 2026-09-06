@@ -162,6 +162,8 @@
   "gui.neoecoae.storage.legacy.cell_info.item": "物品儲存矩陣",
   "gui.neoecoae.storage.legacy.cell_info.fluid": "流體儲存矩陣",
   "gui.neoecoae.storage.legacy.cell_info.gas": "氣體儲存矩陣",
+  "gui.neoecoae.storage.legacy.cell_info.custom": "%s儲存矩陣",
+  "gui.neoecoae.storage.legacy.cell_info.other": "其他儲存矩陣",
   "gui.neoecoae.storage.legacy.cell_info.empty": "未知",
   "gui.neoecoae.storage.legacy.cell_types": "類型使用: %s / %s",
   "gui.neoecoae.storage.legacy.cell_bytes": "位元組使用: %s / %s",

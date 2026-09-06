@@ -20,6 +20,7 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -416,6 +417,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                     return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
                 }
             }
+        }
+        if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
+            return advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
         }
         return 0L;
     }

@@ -1,0 +1,21 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.advanced_ae",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NeoECOAEAdvCraftingServiceMixin",
+    "NeoECOAEAdvCraftingCPULogicMixin",
+    "NeoECOAEAdvCraftingJobAccessor",
+    "NeoECOAEAdvTaskProgressAccessor",
+    "NeoECOAEElapsedTimeTrackerInvoker"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  }
+}

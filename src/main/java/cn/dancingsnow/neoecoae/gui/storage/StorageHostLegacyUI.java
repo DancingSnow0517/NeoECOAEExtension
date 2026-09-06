@@ -1,15 +1,19 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
@@ -22,6 +26,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -34,10 +40,12 @@ import java.util.function.Supplier;
 /** The 1.12.2-style storage controller surface, backed by the current storage implementation. */
 public final class StorageHostLegacyUI {
     public static final int ROOT_WIDTH = 256;
-    public static final int ROOT_HEIGHT = 207;
+    public static final int ROOT_HEIGHT = 210;
 
     private static final int CHART_LEFT = 63;
     private static final int CHART_TOP = 22;
+    private static final int GRAPH_BAR_OFFSET_LEFT = 9;
+    private static final int GRAPH_BAR_OFFSET_TOP = 0;
     private static final int BAR_WIDTH = 32;
     private static final int BAR_HEIGHT = 92;
     private static final int GRAPH_HEIGHT = 16;
@@ -45,6 +53,7 @@ public final class StorageHostLegacyUI {
     private static final int GRAPH_TEXT_SCALE = 6;
     private static final int GRAPH_OFFSET_LEFT = -55;
     private static final int GRAPH_OFFSET_TOP = -26;
+    private static final int ITEM_TYPE_GRAPH_OFFSET_LEFT = 5;
     private static final int GRAPH_FOCUSED_COLOR = 0xFFFFFFFF;
     private static final int GRAPH_UNFOCUSED_COLOR = 0x66FFFFFF;
     private static final int CELL_LIST_LEFT = 178;
@@ -54,6 +63,9 @@ public final class StorageHostLegacyUI {
     private static final int CELL_TEXT_LEFT = 10;
     private static final int CELL_TEXT_TOP = 1;
     private static final int CELL_TEXT_LINE_STEP = 13;
+    private static final int INFINITE_COMPONENT_SLOT_LEFT = 146;
+    private static final int INFINITE_COMPONENT_SLOT_TOP = 100;
+    private static final int INFINITE_COMPONENT_SLOT_SIZE = 18;
     private static final int INVENTORY_LEFT = 7;
     private static final int INVENTORY_TOP = 124;
     private static final int INVENTORY_WIDTH = 9 * 18;
@@ -62,7 +74,7 @@ public final class StorageHostLegacyUI {
     private static final int KIND_EMPTY = 0;
     private static final int KIND_ITEM = 1;
     private static final int KIND_FLUID = 2;
-    private static final int KIND_GAS = 3;
+    private static final int KIND_OTHER = 3;
 
     private static final ResourceLocations TEXTURES = new ResourceLocations();
 
@@ -76,7 +88,9 @@ public final class StorageHostLegacyUI {
         LongSupplier energyConsumePerTick,
         Supplier<List<CellEntry>> cellEntries,
         BooleanSupplier infiniteStorage,
-        BooleanSupplier migratingToInfinite
+        BooleanSupplier migratingToInfinite,
+        BooleanSupplier canExtractInfiniteComponents,
+        IItemHandlerModifiable infiniteComponentInventory
     ) {
     }
 
@@ -93,7 +107,10 @@ public final class StorageHostLegacyUI {
         public static final int KIND_EMPTY = StorageHostLegacyUI.KIND_EMPTY;
         public static final int KIND_ITEM = StorageHostLegacyUI.KIND_ITEM;
         public static final int KIND_FLUID = StorageHostLegacyUI.KIND_FLUID;
-        public static final int KIND_GAS = StorageHostLegacyUI.KIND_GAS;
+        public static final int KIND_OTHER = StorageHostLegacyUI.KIND_OTHER;
+        /** @deprecated Use {@link #KIND_OTHER}; the legacy fallback covers all non-item/non-fluid key types. */
+        @Deprecated
+        public static final int KIND_GAS = KIND_OTHER;
     }
 
     public static UIElement create(Config config) {
@@ -120,8 +137,8 @@ public final class StorageHostLegacyUI {
         LegacyGraphBar graphBar = new LegacyGraphBar(() -> totalMetric(config));
         graphBar.layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
-            .left(CHART_LEFT)
-            .top(CHART_TOP)
+            .left(CHART_LEFT + GRAPH_BAR_OFFSET_LEFT)
+            .top(CHART_TOP + GRAPH_BAR_OFFSET_TOP)
             .width(BAR_WIDTH)
             .height(BAR_HEIGHT));
         root.addChild(graphBar);
@@ -136,8 +153,44 @@ public final class StorageHostLegacyUI {
             .width(CELL_LIST_WIDTH)
             .height(CELL_LIST_HEIGHT));
         root.addChild(cellList);
+        root.addChild(infiniteComponentSlot(
+            config.canExtractInfiniteComponents(),
+            config.infiniteComponentInventory()
+        ).layout(layout -> layout
+            .positionType(TaffyPosition.ABSOLUTE)
+            .left(INFINITE_COMPONENT_SLOT_LEFT)
+            .top(INFINITE_COMPONENT_SLOT_TOP)
+            .width(INFINITE_COMPONENT_SLOT_SIZE)
+            .height(INFINITE_COMPONENT_SLOT_SIZE)));
         root.addChild(playerInventory());
         return root;
+    }
+
+    private static UIElement infiniteComponentSlot(
+        BooleanSupplier canExtractInfiniteComponents,
+        IItemHandlerModifiable infiniteComponentInventory
+    ) {
+        UIElement wrapper = new UIElement();
+        ItemHandlerSlot slot = new ItemHandlerSlot(infiniteComponentInventory, 0)
+            .setCanTake(player -> canTakeInfiniteComponent(player, canExtractInfiniteComponents));
+        wrapper.addChild(new ItemSlot(slot));
+        return wrapper;
+    }
+
+    private static boolean canTakeInfiniteComponent(
+        @Nullable Player player,
+        BooleanSupplier canExtractInfiniteComponents
+    ) {
+        if (canExtractInfiniteComponents.getAsBoolean()) {
+            return true;
+        }
+        if (player != null) {
+            player.displayClientMessage(
+                Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"),
+                true
+            );
+        }
+        return false;
     }
 
     private static void addGraphs(UIElement root, LegacyGraphBar graphBar, Config config) {
@@ -159,7 +212,7 @@ public final class StorageHostLegacyUI {
             () -> kindMetric(config, KIND_FLUID),
             metric -> percentText("gui.neoecoae.storage.legacy.graph.fluid", metric),
             true));
-        boolean hasOtherType = hasKind(config, KIND_GAS);
+        boolean hasOtherType = hasKind(config, KIND_OTHER);
         if (hasOtherType) {
             root.addChild(graph(
                 graphBar,
@@ -167,7 +220,7 @@ public final class StorageHostLegacyUI {
                 70,
                 60,
                 TEXTURES.gasPercent,
-                () -> kindMetric(config, KIND_GAS),
+                () -> kindMetric(config, KIND_OTHER),
                 metric -> percentText("gui.neoecoae.storage.legacy.graph.gas", metric),
                 true));
         }
@@ -193,7 +246,7 @@ public final class StorageHostLegacyUI {
             false));
         root.addChild(graph(
             graphBar,
-            82,
+            82 + ITEM_TYPE_GRAPH_OFFSET_LEFT,
             29,
             59,
             TEXTURES.itemType,
@@ -225,7 +278,7 @@ public final class StorageHostLegacyUI {
                 63,
                 59,
                 TEXTURES.gasType,
-                () -> kindTypeMetric(config, KIND_GAS),
+            () -> kindTypeMetric(config, KIND_OTHER),
                 metric -> typeText("gui.neoecoae.storage.legacy.graph.gas_type", metric),
                 false));
         }
@@ -350,9 +403,25 @@ public final class StorageHostLegacyUI {
     }
 
     private static Component typeText(String key, Metric metric) {
-        String used = HostText.ae2Amount(metric.used());
-        String total = metric.total() < 0L ? "\u221E" : HostText.ae2Amount(metric.total());
+        String used = compactTypeAmount(metric.used());
+        String total = metric.total() < 0L ? "\u221E" : compactTypeAmount(metric.total());
         return Component.translatable(key, used, total).withColor(HostText.PRIMARY);
+    }
+
+    private static String compactTypeAmount(long value) {
+        long safe = Math.max(0L, value);
+        if (safe < 1_000L) {
+            return Long.toString(safe);
+        }
+        double scaled = safe;
+        String[] suffixes = {"k", "M", "G", "T", "P", "E"};
+        int suffixIndex = -1;
+        while (scaled >= 1_000.0D && suffixIndex + 1 < suffixes.length) {
+            scaled /= 1_000.0D;
+            suffixIndex++;
+        }
+        return String.format(java.util.Locale.ROOT, "%.1f", scaled)
+            .replaceFirst("\\.0$", "") + suffixes[suffixIndex];
     }
 
     private static Component energyUsageText(Metric metric) {
@@ -586,7 +655,7 @@ public final class StorageHostLegacyUI {
             SpriteTexture cellKind = switch (entry.kind()) {
                 case KIND_ITEM -> TEXTURES.cellItem;
                 case KIND_FLUID -> TEXTURES.cellFluid;
-                case KIND_GAS -> TEXTURES.cellGas;
+                case KIND_OTHER -> TEXTURES.cellGas;
                 default -> TEXTURES.cellEmpty;
             };
             guiContext.drawTexture(cellBackground, x, y, CELL_LIST_WIDTH, ROW_HEIGHT);
@@ -594,7 +663,7 @@ public final class StorageHostLegacyUI {
 
             Font font = Minecraft.getInstance().font;
             Component type = Component.translatable("gui.neoecoae.storage.legacy.cell_info",
-                cellKindName(entry.kind()), tierName(entry.tier()));
+                cellKindName(entry), tierName(entry.tier()));
             Component types = Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                 HostText.ae2Amount(entry.usedTypes()), formatCapacity(entry.totalTypes()));
             Component bytes = Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
@@ -610,7 +679,7 @@ public final class StorageHostLegacyUI {
 
         private Component cellTooltip(CellEntry entry) {
             return Component.translatable("gui.neoecoae.storage.legacy.cell_tooltip",
-                cellKindName(entry.kind()), tierName(entry.tier()),
+                cellKindName(entry), tierName(entry.tier()),
                 HostText.ae2Amount(entry.usedBytes()), formatCapacity(entry.totalBytes()));
         }
 
@@ -683,7 +752,7 @@ public final class StorageHostLegacyUI {
                 result.add(new CellEntry(
                     cell.getInt(NBT_TYPE),
                     Math.clamp(cell.getInt(NBT_TIER), 1, 3),
-                    Math.clamp(cell.getInt(NBT_KIND), KIND_EMPTY, KIND_GAS),
+                    Math.clamp(cell.getInt(NBT_KIND), KIND_EMPTY, KIND_OTHER),
                     Math.max(0L, cell.getLong(NBT_USED_TYPES)),
                     cell.getLong(NBT_TOTAL_TYPES),
                     Math.max(0L, cell.getLong(NBT_USED_BYTES)),
@@ -720,19 +789,24 @@ public final class StorageHostLegacyUI {
         };
     }
 
-    private static Component cellKindName(int kind) {
-        return switch (kind) {
+    private static Component cellKindName(CellEntry entry) {
+        ECOCellType registeredType = entry.typeId() < 0 ? null : NERegistries.CELL_TYPE.byId(entry.typeId());
+        if (registeredType != null) {
+            return Component.translatable("gui.neoecoae.storage.legacy.cell_info.custom", registeredType.desc());
+        }
+        return switch (entry.kind()) {
             case KIND_ITEM -> Component.translatable("gui.neoecoae.storage.legacy.cell_info.item");
             case KIND_FLUID -> Component.translatable("gui.neoecoae.storage.legacy.cell_info.fluid");
-            case KIND_GAS -> Component.translatable("gui.neoecoae.storage.legacy.cell_info.gas");
+            case KIND_OTHER -> Component.translatable("gui.neoecoae.storage.legacy.cell_info.other");
             default -> Component.translatable("gui.neoecoae.storage.legacy.cell_info.empty");
         };
     }
 
     private static final class ResourceLocations {
-        private final SpriteTexture background = sprite("estorage_controller.png", 0, 0, 256, 207);
+        private final SpriteTexture background = sprite(
+            "estorage_controller.png", 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
         private final SpriteTexture itemPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
-        private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 2, 225, 60, 6);
+        private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
         private final SpriteTexture gasPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
         private final SpriteTexture totalPercent = sprite("estorage_controller_elements.png", 2, 239, 64, 6);
         private final SpriteTexture itemType = sprite("estorage_controller_elements.png", 1, 197, 59, 6);

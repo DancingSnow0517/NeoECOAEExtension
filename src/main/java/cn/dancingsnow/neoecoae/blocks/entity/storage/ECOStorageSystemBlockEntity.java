@@ -349,7 +349,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 this::getEnergyConsumePerTick,
                 () -> getStorageUiSnapshot().cellEntries(),
                 this::isFormedInfiniteMode,
-                this::isMigratingToInfinite
+                this::isMigratingToInfinite,
+                this::canExtractInfiniteComponents,
+                infiniteComponentItemHandler
             ));
             actionUI.addTo(root);
             return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -657,7 +659,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (keyTypes.contains(AEKeyType.fluids())) {
             return StorageHostLegacyUI.CellEntry.KIND_FLUID;
         }
-        return keyTypes.isEmpty() ? StorageHostLegacyUI.CellEntry.KIND_EMPTY : StorageHostLegacyUI.CellEntry.KIND_GAS;
+        return keyTypes.isEmpty() ? StorageHostLegacyUI.CellEntry.KIND_EMPTY : StorageHostLegacyUI.CellEntry.KIND_OTHER;
     }
 
     private DriveUiSnapshot driveUiSnapshot(ECODriveBlockEntity drive) {
@@ -1890,6 +1892,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         @Override
         public void setStackInSlot(int slot, ItemStack stack) {
+            if (slot != 0 || (!stack.isEmpty() && !isInfiniteComponent(stack))) {
+                return;
+            }
             if (slot == 0) {
                 ItemStack current = delegate.getStackInSlot(slot);
                 if (hostMode.isInfiniteState()
@@ -1912,6 +1917,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (slot != 0 || stack.isEmpty() || !isInfiniteComponent(stack)) {
+                return stack;
+            }
             return delegate.insertItem(slot, stack, simulate);
         }
 
@@ -1950,7 +1958,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return delegate.isItemValid(slot, stack);
+            return slot == 0 && isInfiniteComponent(stack) && delegate.isItemValid(slot, stack);
         }
     }
 

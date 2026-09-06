@@ -162,6 +162,8 @@
   "gui.neoecoae.storage.legacy.cell_info.item": "物品藏矩",
   "gui.neoecoae.storage.legacy.cell_info.fluid": "流體藏矩",
   "gui.neoecoae.storage.legacy.cell_info.gas": "氣體藏矩",
+  "gui.neoecoae.storage.legacy.cell_info.custom": "%s藏矩",
+  "gui.neoecoae.storage.legacy.cell_info.other": "他藏矩",
   "gui.neoecoae.storage.legacy.cell_info.empty": "未知",
   "gui.neoecoae.storage.legacy.cell_types": "類使用：%s / %s",
   "gui.neoecoae.storage.legacy.cell_bytes": "位元組使用：%s / %s",

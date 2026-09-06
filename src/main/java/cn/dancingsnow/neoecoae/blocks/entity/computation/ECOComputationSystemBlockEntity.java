@@ -422,16 +422,22 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         if (finalOutput == null && cpu.getPlan() != null) {
             finalOutput = cpu.getPlan().finalOutput();
         }
-        long requestedAmount = finalOutput != null ? finalOutput.amount() : 0L;
-        long remainingAmount = logic.getRemainingJobOutputAmount();
-        if (remainingAmount <= 0L && finalOutput != null) {
-            remainingAmount = requestedAmount;
+        if (finalOutput == null) {
+            return null;
         }
-        if (finalOutput == null || remainingAmount <= 0L || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+        if (!(finalOutput.what() instanceof AEItemKey itemKey)) {
             return null;
         }
         ItemStack output = itemKey.toStack(1);
         if (output.isEmpty()) {
+            return null;
+        }
+        // The task card amount must reflect the *remaining* job output so the number visibly decreases while
+        // the vCPU delivers crafted items. A finished CPU (job already null but still returning leftover items,
+        // so it lingers in getActiveCPUs()) now has nothing left to display and is correctly hidden instead of
+        // showing a stale full total.
+        long remainingAmount = logic.getRemainingJobOutputAmount();
+        if (remainingAmount <= 0L) {
             return null;
         }
         ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
@@ -443,7 +449,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         return new ComputationTaskEntry(
             computationTaskId(cpu, finalOutput, index),
             output,
-            requestedAmount,
+            remainingAmount,
             1L,
             total,
             remaining,
