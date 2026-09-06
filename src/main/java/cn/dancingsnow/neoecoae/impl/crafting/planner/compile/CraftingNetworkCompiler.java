@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
+import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
@@ -129,14 +130,17 @@ public final class CraftingNetworkCompiler {
             if (outputs.isEmpty()) {
                 unsupported = "NO_OUTPUTS";
             }
+            GenericStack primaryOutput = details.getPrimaryOutput();
             for (GenericStack output : outputs) {
                 if (output == null || output.what() == null || output.amount() <= 0) {
                     unsupported = "INVALID_OUTPUT";
-                    continue;
                 }
-                if (producedKey.equals(output.what())) {
-                    outputPerPattern = outputPerPattern.add(output.amount());
-                }
+            }
+            // AE2 indexes a pattern by getPrimaryOutput(); all remaining entries in getOutputs() are
+            // byproducts and must not change the firing ratio or make a byproduct look craftable on its own.
+            if (primaryOutput != null && primaryOutput.what() != null && primaryOutput.amount() > 0L
+                    && producedKey.equals(primaryOutput.what())) {
+                outputPerPattern = PlannerAmount.of(primaryOutput.amount());
             }
             if (outputPerPattern.signum() <= 0) {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
@@ -243,10 +247,17 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "INVALID_INPUT_AMOUNT";
             }
+            boolean ignoresComponents = semantics.physicalPattern() instanceof OverloadedProviderOnlyPatternDetails overload
+                && input.source() != null
+                && overload.isFuzzyInput(indexOfInput(semantics, input));
             inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
-                input.returnedKey(), input.returnedAmountPerPattern()));
+                input.returnedKey(), input.returnedAmountPerPattern(), ignoresComponents));
         }
         return List.copyOf(inputs);
+    }
+
+    private static int indexOfInput(PatternSemantics semantics, PatternSemantics.Input target) {
+        return semantics.consumedInputs().indexOf(target);
     }
 
     private static List<CompiledInput> compileInputs(IPatternDetails.IInput input) {

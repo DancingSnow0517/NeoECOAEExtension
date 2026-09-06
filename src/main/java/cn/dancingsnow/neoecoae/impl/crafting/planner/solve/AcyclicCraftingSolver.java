@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
@@ -191,11 +192,19 @@ public final class AcyclicCraftingSolver {
             PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);
             if (requested.signum() <= 0) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
-            PlannerAmount stored = requested.min(state.stored.get(key));
+            boolean ignoreComponents = false;
+            IPatternDetails demandProducer = state.demandProducers.get(key);
+            if (demandProducer != null) {
+                for (CompiledPattern candidate : network.producersOf(demandProducer.getOutputs().isEmpty()
+                        ? key : demandProducer.getOutputs().getFirst().what())) {
+                    if (candidate.details() != demandProducer) continue;
+                    ignoreComponents = candidate.inputs().stream().anyMatch(input ->
+                        input.key().equals(key) && input.ignoresComponents());
+                    break;
+                }
+            }
+            PlannerAmount stored = consumeStoredForInput(state, key, requested, ignoreComponents);
             if (stored.signum() > 0) {
-                state.stored.remove(key, stored);
-                addCounter(state.used, key, stored);
-                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, stored);
                 requested = requested.subtract(stored);
             }
             PlannerAmount crafted = requested.min(state.craftedAmount(key));
@@ -247,6 +256,10 @@ public final class AcyclicCraftingSolver {
                 PlannerAmount required = input.reusable()
                     ? input.amountPerPattern()
                     : input.amountPerPattern().multiply(times);
+                if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
+                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true);
+                    required = required.subtract(available);
+                }
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
                 state.demand.put(input.key(), old.add(required));
                 state.demandProducers.put(input.key(), pattern.details());
@@ -254,6 +267,34 @@ public final class AcyclicCraftingSolver {
             }
         }
         return state;
+    }
+
+    private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
+            boolean ignoreComponents) {
+        if (requested.signum() <= 0) return PlannerAmount.ZERO;
+        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
+            PlannerAmount exact = requested.min(state.stored.get(key));
+            if (exact.signum() > 0) {
+                state.stored.remove(key, exact);
+                addCounter(state.used, key, exact);
+                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, exact);
+            }
+            return exact;
+        }
+        PlannerAmount remaining = requested;
+        PlannerAmount consumed = PlannerAmount.ZERO;
+        for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
+            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
+                    || candidate.getItem() != wanted.getItem()) continue;
+            PlannerAmount take = remaining.min(entry.getValue());
+            if (take.signum() <= 0) continue;
+            state.stored.remove(entry.getKey(), take);
+            addCounter(state.used, entry.getKey(), take);
+            state.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE, take);
+            consumed = consumed.add(take);
+            remaining = remaining.subtract(take);
+        }
+        return consumed;
     }
 
     private static void addCounter(PlannerCounter counter, AEKey key, PlannerAmount amount) {
