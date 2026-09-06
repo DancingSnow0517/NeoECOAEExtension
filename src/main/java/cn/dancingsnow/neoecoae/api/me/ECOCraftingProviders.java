@@ -20,7 +20,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 final class ECOCraftingProviders {
     private final Map<PlanIdentity.PatternIdentity, List<ICraftingProvider>> providerTopologyCache = new HashMap<>();
     private int taskDispatchCursor;
-    private int providerDispatchCursor;
 
     void clearTopologyCache() {
         providerTopologyCache.clear();
@@ -61,20 +60,11 @@ final class ECOCraftingProviders {
     /** Live availability check over the reusable candidate set; it does not mutate provider state. */
     static boolean hasAvailableProvider(List<ICraftingProvider> candidateProviders) {
         for (int i = 0; i < candidateProviders.size(); i++) {
-            if (!isBusy(candidateProviders.get(i))) {
+            if (!candidateProviders.get(i).isBusy()) {
                 return true;
             }
         }
         return false;
-    }
-
-    /** Isolates a provider that cannot answer its live busy-state query from the whole crafting pass. */
-    static boolean isBusy(ICraftingProvider provider) {
-        try {
-            return provider == null || provider.isBusy();
-        } catch (RuntimeException ignored) {
-            return true;
-        }
     }
 
     /**
@@ -84,29 +74,10 @@ final class ECOCraftingProviders {
     List<ExecutingCraftingJob.DispatchTask> fairTaskOrder(
             List<ExecutingCraftingJob.DispatchTask> readyTasks) {
         if (readyTasks.size() <= 1) return readyTasks;
-        int offset = Math.floorMod(taskDispatchCursor, readyTasks.size());
+        int offset = Math.floorMod(taskDispatchCursor++, readyTasks.size());
         List<ExecutingCraftingJob.DispatchTask> result = new ArrayList<>(readyTasks.size());
         for (int i = 0; i < readyTasks.size(); i++) result.add(readyTasks.get((offset + i) % readyTasks.size()));
         return result;
-    }
-
-    void advanceTaskDispatchCursor() {
-        taskDispatchCursor = taskDispatchCursor == Integer.MAX_VALUE ? 0 : taskDispatchCursor + 1;
-    }
-
-    /** Rotates provider candidates only after a real scheduling event, preserving stable fallback order. */
-    List<ICraftingProvider> fairProviderOrder(List<ICraftingProvider> candidates) {
-        if (candidates.size() <= 1) return candidates;
-        int offset = Math.floorMod(providerDispatchCursor, candidates.size());
-        List<ICraftingProvider> result = new ArrayList<>(candidates.size());
-        for (int i = 0; i < candidates.size(); i++) {
-            result.add(candidates.get((offset + i) % candidates.size()));
-        }
-        return List.copyOf(result);
-    }
-
-    void advanceProviderDispatchCursor() {
-        providerDispatchCursor = providerDispatchCursor == Integer.MAX_VALUE ? 0 : providerDispatchCursor + 1;
     }
 
     static boolean hasFastPathProvider(List<ICraftingProvider> candidateProviders) {
@@ -178,7 +149,7 @@ final class ECOCraftingProviders {
         var visitedScopes = Collections.newSetFromMap(new IdentityHashMap<>());
         long slots = 0L;
         for (ICraftingProvider provider : candidateProviders) {
-            if (isBusy(provider)) continue;
+            if (provider.isBusy()) continue;
             long contribution;
             if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
                 ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();

@@ -106,7 +106,6 @@ public final class RuntimeExecutionState {
     public int stepIndex() { return activePhase() == null ? 0 : stepIndex[phaseIndex]; }
     public long stepRemaining() { return activePhase() == null ? 0L : stepRemaining[phaseIndex]; }
     public boolean finished() { return allComplete(); }
-    public boolean hasRemainingWork() { return !allComplete(); }
     public long remaining(int taskId) { return remaining[checked(taskId)]; }
     public long[] remainingSnapshot() { return remaining.clone(); }
     public long dynamicRemaining(int taskId) { return dynamicRemaining[checked(taskId)]; }
@@ -178,43 +177,7 @@ public final class RuntimeExecutionState {
         return phase != null && phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE;
     }
     public List<Integer> eligibleTaskIds() {
-        repairFrontierIfStalled();
         return new ArrayList<>(readyTaskIds);
-    }
-
-    /**
-     * Rebuilds the transient ready frontier when persisted or runtime cursors no longer expose unfinished work.
-     *
-     * <p>The compiled plan and its durable cursors remain authoritative. Only derived queues and phase completion
-     * indexes are rebuilt here, so a missed wakeup cannot leave a job silently idle forever.</p>
-     *
-     * @return whether at least one task is dispatchable after the repair
-     */
-    public boolean repairFrontierIfStalled() {
-        if (allComplete() || !readyTaskIds.isEmpty()) {
-            return !readyTaskIds.isEmpty();
-        }
-        normalizeStalledCursors();
-        rebuildFrontier();
-        return !readyTaskIds.isEmpty();
-    }
-
-    private void normalizeStalledCursors() {
-        for (int phase = 0; phase < plan.phases().size(); phase++) {
-            var spec = plan.phases().get(phase);
-            while (stepIndex[phase] < spec.steps().size()) {
-                var step = spec.steps().get(stepIndex[phase]);
-                if (remaining[step.taskId()] <= 0L) {
-                    stepIndex[phase]++;
-                    stepRemaining[phase] = 0L;
-                    continue;
-                }
-                if (stepRemaining[phase] <= 0L || stepRemaining[phase] > step.count()) {
-                    stepRemaining[phase] = Math.min(step.count(), remaining[step.taskId()]);
-                }
-                break;
-            }
-        }
     }
     public long dispatchLimit(int taskId) {
         checked(taskId);

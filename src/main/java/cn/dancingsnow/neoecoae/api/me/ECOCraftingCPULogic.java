@@ -211,18 +211,9 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        long currentTick = TickHandler.instance().getCurrentTick();
-        job.activateDispatchRetry(currentTick);
-        if (job.dispatchRetryBlocked(currentTick)) {
-            return;
-        }
-
-        // A terminal execution error must release the CPU-owned job and any worker ownership. Keeping a failed job
-        // in the active CPU would reproduce the old "accepted but never dispatched again" state indefinitely.
+        // Missing metadata for a planner-confirmed cycle is permanent for this job. Do not repeatedly enter the
+        // dispatch path on every tick; retain the job for inspection/cancellation.
         if (job.hasPermanentExecutionError()) {
-            LOGGER.error("ECO crafting job {} terminated with {}; recovering owned work",
-                job.link.getCraftingID(), job.permanentExecutionError());
-            cancel();
             return;
         }
 
@@ -367,42 +358,17 @@ public class ECOCraftingCPULogic {
         if (job.hasPermanentExecutionError()) {
             return 0;
         }
-        long currentTick = TickHandler.instance().getCurrentTick();
-        job.activateDispatchRetry(currentTick);
-        if (job.dispatchRetryBlocked(currentTick)) {
-            return 0;
-        }
         // Materialize the shared runtime cursor once the immutable execution metadata is available.
-        var runtimeState = job.runtimeExecutionState();
+        job.runtimeExecutionState();
         job.advanceCompletedPhases();
         releaseSurplusFinalOutput(job);
         if (this.job != job) return 0;
-        if (runtimeState != null && runtimeState.finished()) {
-            return 0;
-        }
         var activePhase = job.activePhase();
         boolean componentScheduled = job.phased();
         int runnableTasks = 0;
         int tasksMissingInputs = 0;
         if (componentScheduled && activePhase == null) {
-            if (runtimeState == null) {
-                LOGGER.error("ECO job {} has a phase schedule but no executable runtime state; cancelling",
-                    job.link.getCraftingID());
-                job.failExecution(ExecutingCraftingJob.PermanentExecutionError.EXECUTION_PLAN_INVALID);
-                cancel();
-                return 0;
-            }
-            if (runtimeState.finished()) {
-                return 0;
-            }
-            job.repairRuntimeFrontier();
-            activePhase = job.activePhase();
-            if (activePhase == null) {
-                job.recordRuntimeSchedulingPass(false, true);
-                if (!job.runtimeSchedulingDegraded()) {
-                    return 0;
-                }
-            }
+            return 0;
         }
 
         var pushedPatterns = 0;
@@ -414,17 +380,6 @@ public class ECOCraftingCPULogic {
         statusChanges.beginBatch(job.runtimeExecutionState());
         try {
             List<ExecutingCraftingJob.DispatchTask> readyTasks = job.eligibleDispatchTasks();
-            if (readyTasks.isEmpty() && runtimeState != null && !runtimeState.finished()) {
-                job.repairRuntimeFrontier();
-                readyTasks = job.eligibleDispatchTasks();
-                if (readyTasks.isEmpty()) {
-                    job.recordRuntimeSchedulingPass(false, true);
-                    if (!job.runtimeSchedulingDegraded()) {
-                        return 0;
-                    }
-                    readyTasks = job.eligibleDispatchTasks();
-                }
-            }
             int fairQuantum = readyTasks.isEmpty() ? 0 : Math.max(1, maxPatterns / readyTasks.size());
             List<ExecutingCraftingJob.DispatchTask> eligibleTasks = new ArrayList<>(providers.fairTaskOrder(readyTasks));
             Set<ExecutingCraftingJob.DispatchTask> finiteFastPathStartedTasks =
@@ -445,25 +400,13 @@ public class ECOCraftingCPULogic {
                 // Topology is collected once per task: which providers advertise this pattern at all cannot
                 // change while we iterate. Live capacity - busy state, free thread slots, coolant, energy - is
                 // deliberately NOT part of this list and is re-measured on every attempt below.
-                List<ICraftingProvider> candidateProviders;
-                try {
-                    candidateProviders = providers.fairProviderOrder(
-                        providers.collectAvailableProviders(details,
-                            () -> collectAvailableProviders(craftingService, details)));
-                } catch (RuntimeException providerLookupFailure) {
-                    // A provider topology refresh can race a grid mutation. Treat it as a retryable provider wait;
-                    // the job must retain its inputs and revisit the pattern after the topology settles.
-                    LOGGER.warn("ECO provider lookup failed; deferring crafting dispatch", providerLookupFailure);
-                    job.deferDispatchRetry(currentTick);
-                    continue taskLoop;
-                }
+                List<ICraftingProvider> candidateProviders = providers.collectAvailableProviders(details,
+                    () -> collectAvailableProviders(craftingService, details));
                 if (candidateProviders.isEmpty()) {
-                    job.deferDispatchRetry(currentTick);
                     continue;
                 }
                 if (task.progress().value > 0 && pushedPatterns < maxPatterns) {
                     if (!hasAvailableProvider(candidateProviders)) {
-                        job.deferDispatchRetry(currentTick);
                         continue taskLoop;
                     }
 
@@ -488,8 +431,6 @@ public class ECOCraftingCPULogic {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
                         pushedPatterns++;
-                        providers.advanceProviderDispatchCursor();
-                        providers.advanceTaskDispatchCursor();
                         if (this.job != job) {
                             break taskLoop;
                         }
@@ -513,10 +454,7 @@ public class ECOCraftingCPULogic {
                         }
                         continue;
                     } else if (batchDispatch instanceof DispatchResult.Rejected) {
-                        // The batch target may have gone stale after the offer was captured. Inputs were rolled back
-                        // by the dispatcher; continue through the ordinary provider path in this same pass so one
-                        // rejected worker cannot suppress all alternative providers until a later tick.
-                        providers.advanceProviderDispatchCursor();
+                        continue taskLoop;
                     }
 
                     // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
@@ -595,7 +533,7 @@ public class ECOCraftingCPULogic {
                         }
                         DispatchResult single = new DispatchResult.Waiting(DispatchResult.WaitReason.PROVIDER_BUSY);
                         for (ICraftingProvider provider : dispatchProviders) {
-                            if (ECOCraftingProviders.isBusy(provider)) continue;
+                            if (provider.isBusy()) continue;
                             boolean flatRateProvider = paysFlatRateCraftingPower(provider);
                             if (!flatRateProvider && energyService.extractAEPower(attemptPower, Actionable.SIMULATE,
                                     PowerMultiplier.CONFIG) < attemptPower - 0.01) {
@@ -629,8 +567,6 @@ public class ECOCraftingCPULogic {
                         }
                         if (single instanceof DispatchResult.Accepted) {
                             pushedPatterns++;
-                            providers.advanceProviderDispatchCursor();
-                            providers.advanceTaskDispatchCursor();
                             if (this.job != job) break taskLoop;
                             eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, single));
                             if (task.progress().value <= 0) continue taskLoop;
@@ -656,10 +592,6 @@ public class ECOCraftingCPULogic {
             runnableTasks > 0 && tasksMissingInputs == runnableTasks);
         job.recordRuntimeSchedulingPass(pushedPatterns > 0,
             runnableTasks > 0 && tasksMissingInputs == runnableTasks);
-        if (this.job == job && pushedPatterns == 0 && runnableTasks > 0) {
-            job.deferDispatchRetry(currentTick);
-            markCpuDirty();
-        }
         return pushedPatterns;
     }
 
@@ -690,7 +622,6 @@ public class ECOCraftingCPULogic {
         if (type == Actionable.MODULATE && !what.matches(job.finalOutput)) {
             job.timeTracker.decrementItems(amount, what.getType());
             job.waitingFor.extract(what, amount, Actionable.MODULATE);
-            job.wakeDispatch();
             markCpuDirty();
         }
 
@@ -712,7 +643,6 @@ public class ECOCraftingCPULogic {
                 if (currentJob.runtimeExecutionState() != null) {
                     currentJob.runtimeExecutionState().acceptOutput(what, acceptedOwnership);
                 }
-                currentJob.wakeDispatch();
                 postChange(what);
                 markCpuDirty();
                 drainBufferedFinalOutput(currentJob);
@@ -726,7 +656,6 @@ public class ECOCraftingCPULogic {
                 if (currentJob.runtimeExecutionState() != null) {
                     currentJob.runtimeExecutionState().acceptOutput(what, accepted);
                 }
-                currentJob.wakeDispatch();
                 if (job == currentJob && isFinalOutputSatisfied(currentJob)) {
                     finishJob(true);
                 }
