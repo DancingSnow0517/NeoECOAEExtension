@@ -26,6 +26,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 import org.appliedenergistics.yoga.YogaEdge;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 import org.appliedenergistics.yoga.YogaGutter;
@@ -68,6 +69,7 @@ public class MultiBlockInfoWrapper {
 
     private ItemStack selectedItem = ItemStack.EMPTY;
     private ScrollerView requiredItems;
+    private final List<RequiredItemSlot> requiredItemSlots = new ArrayList<>();
 
     public MultiBlockInfoWrapper(MultiBlockDefinition definition) {
         this(definition, DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -177,9 +179,16 @@ public class MultiBlockInfoWrapper {
         requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
         root.addChild(requiredItems);
 
+        initializeRequiredItemSlots();
         expandChanged.accept(expand);
         createScene();
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
+    }
+
+    public List<RequiredItem> getRequiredItems() {
+        var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
+        definition.createLevel(context);
+        return List.copyOf(context.getRequiredItems());
     }
 
     private void onSelect(BlockPos blockPos, Direction direction) {
@@ -244,21 +253,77 @@ public class MultiBlockInfoWrapper {
             }
             scene.setRenderedCore(rendered);
         }
-        requiredItems.viewContainer.clearAllChildren();
-        for (RequiredItem requiredItem : context.getRequiredItems()) {
-            requiredItems.addScrollViewChild(new RequiredItemSlot(requiredItem.count())
-                .setItem(requiredItem.stackWithCount())
-                .xeiRecipeIngredient(IngredientIO.INPUT)
-                .xeiRecipeSlot(IngredientIO.INPUT, 1));
+        updateRequiredItemSlots(context.getRequiredItems());
+    }
+
+    /**
+     * JEI keeps references to the recipe slot widgets after the recipe UI is
+     * created. Keep those widgets alive while the preview length changes, so
+     * JEI and AE2 observe the updated stack count instead of the initial one.
+     */
+    private void initializeRequiredItemSlots() {
+        requiredItemSlots.clear();
+        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(
+            definition.getExpandMax(),
+            new TrackedDummyWorld()
+        );
+        definition.createLevel(context);
+
+        for (int i = 0; i < context.getRequiredItems().size(); i++) {
+            RequiredItemSlot slot = new RequiredItemSlot(0);
+            slot.xeiRecipeIngredient(IngredientIO.INPUT)
+                .xeiRecipeSlot(IngredientIO.INPUT, 1);
+            requiredItemSlots.add(slot);
+            requiredItems.addScrollViewChild(slot);
+        }
+    }
+
+    private void updateRequiredItemSlots(List<RequiredItem> items) {
+        for (RequiredItemSlot slot : requiredItemSlots) {
+            slot.setRequiredItem(null);
+        }
+
+        for (RequiredItem item : items) {
+            RequiredItemSlot slot = requiredItemSlots.stream()
+                .filter(candidate -> candidate.matches(item.stack()))
+                .findFirst()
+                .orElseGet(() -> requiredItemSlots.stream()
+                    .filter(RequiredItemSlot::isUnused)
+                    .findFirst()
+                    .orElse(null));
+            if (slot != null) {
+                slot.setRequiredItem(item);
+            }
         }
     }
 
     private static final class RequiredItemSlot extends ItemSlot {
-        private final int count;
+        private int count;
+        private ItemStack requiredItem = ItemStack.EMPTY;
 
         private RequiredItemSlot(int count) {
             this.count = count;
             getStyle().backgroundTexture(NETextures.ITEM_SLOT);
+        }
+
+        private void setRequiredItem(@Nullable RequiredItem requiredItem) {
+            if (requiredItem == null || requiredItem.isEmpty()) {
+                this.requiredItem = ItemStack.EMPTY;
+                this.count = 0;
+                setItem(ItemStack.EMPTY, false);
+            } else {
+                this.requiredItem = requiredItem.stack();
+                this.count = requiredItem.count();
+                setItem(requiredItem.stackWithCount(), false);
+            }
+        }
+
+        private boolean matches(ItemStack stack) {
+            return !requiredItem.isEmpty() && ItemStack.isSameItemSameComponents(requiredItem, stack);
+        }
+
+        private boolean isUnused() {
+            return requiredItem.isEmpty();
         }
 
         @Override

@@ -26,7 +26,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,21 +47,18 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     private final ItemStack stack;
     @Nullable
     private final ISaveProvider container;
-    private final List<AEItemKey> filters;
     /**
      * Compression variants are always enabled for the long-range bulk matrix; the MEGA
      * compression card is no longer required to unlock them.
      */
     private static final boolean COMPRESSION_ENABLED = true;
     private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
-    private final Map<AEItemKey, CompressionChain> chains = new HashMap<>();
     private boolean persisted = true;
 
     public ECOMegaLongBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
         super(stack, container);
         this.stack = stack;
         this.container = container;
-        this.filters = readFilters();
         loadStoredUnits();
     }
 
@@ -98,7 +94,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             }
         }
 
-        for (AEItemKey filter : filters) {
+        for (AEItemKey filter : configuredFilters()) {
             boolean occupied = false;
             for (AEItemKey stored : storedUnits.keySet()) {
                 if (sameCompressionChain(filter, stored)) {
@@ -235,7 +231,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      */
     public List<IPatternDetails> getDecompressionPatterns() {
         List<IPatternDetails> result = new ArrayList<>();
-        for (AEItemKey filter : filters) {
+        for (AEItemKey filter : configuredFilters()) {
             CompressionChain chain = chainFor(filter);
             if (!chain.isEmpty()) {
                 result.addAll(chain.getDecompressionPatterns(cutoffFor(chain, filter)));
@@ -362,7 +358,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
                 return stored;
             }
         }
-        for (AEItemKey filter : filters) {
+        for (AEItemKey filter : configuredFilters()) {
             if (matches(filter, item) && (allowEmpty || storedUnits.containsKey(filter))) {
                 return filter;
             }
@@ -371,7 +367,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private boolean hasConfiguredChain(AEItemKey candidate) {
-        for (AEItemKey filter : filters) {
+        for (AEItemKey filter : configuredFilters()) {
             if (sameCompressionChain(filter, candidate)) {
                 return true;
             }
@@ -389,7 +385,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      * fallback so that the old contents can still be recovered.
      */
     private AEItemKey storageFormFor(AEItemKey storedKey) {
-        for (AEItemKey filter : filters) {
+        for (AEItemKey filter : configuredFilters()) {
             if (sameCompressionChain(filter, storedKey)) {
                 return filter;
             }
@@ -420,7 +416,19 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private CompressionChain chainFor(AEItemKey key) {
-        return chains.computeIfAbsent(key, CompressionService::getChain);
+        // CompressionService rebuilds and invalidates its cache on server start and datapack
+        // reload. Do not add a per-cell cache here, or cells loaded before that event will retain
+        // an empty chain and never expose their decompression patterns.
+        return CompressionService.getChain(key);
+    }
+
+    /**
+     * The Drive caches this inventory instance, while the cell configuration can change in place
+     * through the cell UI. Read the current configuration whenever the cell is queried so pattern
+     * refreshes and storage matching observe the same filters as the ItemStack.
+     */
+    private List<AEItemKey> configuredFilters() {
+        return readFilters();
     }
 
     private long unitFactor(AEItemKey configured, AEItemKey item) {
