@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.event;
 
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -19,5 +20,6 @@ public final class ECOStorageLifecycleEvents {
     public static void onServerTick(ServerTickEvent.Post event) {
         ECOInfiniteStorageDomains.tick(event.getServer(), event.getServer().getTickCount());
         cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch.retry();
+        PatternBusUpdateScheduler.tick(event.getServer());
     }
 }

@@ -713,6 +713,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Override
     public void setRemoved() {
         IGrid previousGrid = getMainNode().getGrid();
+        PatternBusUpdateScheduler.remove(this);
         super.setRemoved();
         notifyPatternInterfaceTopologyChanged(previousGrid);
     }
@@ -867,23 +868,15 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return;
         }
         patternDetailsUpdateTick = serverLevel.getServer().getTickCount() + PATTERN_UPDATE_QUIET_TICKS;
-        if (patternDetailsUpdateQueued) {
-            return;
-        }
         patternDetailsUpdateQueued = true;
-        serverLevel.getServer().tell(new TickTask(patternDetailsUpdateTick, () -> {
-            if (isRemoved() || level != serverLevel) {
-                patternDetailsUpdateQueued = false;
-                return;
-            }
-            if (serverLevel.getServer().getTickCount() < patternDetailsUpdateTick) {
-                patternDetailsUpdateQueued = false;
-                queuePatternDetailsUpdate();
-                return;
-            }
+        PatternBusUpdateScheduler.mark(this, patternDetailsUpdateTick);
+    }
+
+    public void flushScheduledPatternDetails() {
+        if (!isRemoved()) {
             patternDetailsUpdateQueued = false;
             updatePatternDetails();
-        }));
+        }
     }
 
     @Override
