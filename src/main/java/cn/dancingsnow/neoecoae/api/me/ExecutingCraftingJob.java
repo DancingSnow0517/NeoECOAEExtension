@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 public class ExecutingCraftingJob {
+    private static final int RUNTIME_SCHEDULING_STALL_THRESHOLD = 20;
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final String NBT_LINK = "link";
     private static final String NBT_PLAYER_ID = "playerId";
@@ -124,6 +125,8 @@ public class ExecutingCraftingJob {
     @Nullable TaskProgress[] runtimeProgressProjection;
     private boolean runtimeProjectionDirty;
     int dynamicCycleNoProgressTicks;
+    int runtimeSchedulingStallTicks;
+    boolean runtimeSchedulingDegraded;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -162,6 +165,24 @@ public class ExecutingCraftingJob {
 
     boolean phased() {
         return runtimeExecutionState != null || ECOPhaseScheduler.hasExecutionPhases(executionSchedule);
+    }
+
+    boolean runtimeSchedulingDegraded() {
+        return runtimeSchedulingDegraded;
+    }
+
+    /** Fall back to live inventory eligibility after a sustained semantic scheduling stall. */
+    void recordRuntimeSchedulingPass(boolean progressed, boolean inventoryBlocked) {
+        if (runtimeExecutionState == null || runtimeSchedulingDegraded) return;
+        if (progressed || !inventoryBlocked || !waitingFor.list.isEmpty()) {
+            runtimeSchedulingStallTicks = 0;
+            return;
+        }
+        if (++runtimeSchedulingStallTicks >= RUNTIME_SCHEDULING_STALL_THRESHOLD) {
+            runtimeSchedulingDegraded = true;
+            LOGGER.warn("ECO runtime scheduling stalled; falling back to live task eligibility for job {}",
+                link.getCraftingID());
+        }
     }
 
     boolean orderedCycle() { return executionMode == ExecutionMode.ORDERED_CYCLE; }
@@ -238,7 +259,7 @@ public class ExecutingCraftingJob {
     }
 
     long dispatchLimit(DispatchTask task) {
-        return runtimeExecutionState == null ? task.progress().value : dispatchLimit(task.taskId());
+        return runtimeExecutionState == null || runtimeSchedulingDegraded ? task.progress().value : dispatchLimit(task.taskId());
     }
 
     long dispatchLimit(int taskId) {
@@ -255,7 +276,7 @@ public class ExecutingCraftingJob {
     }
 
     List<DispatchTask> eligibleDispatchTasks() {
-        if (runtimeExecutionState == null) return tasks.entrySet().stream()
+        if (runtimeExecutionState == null || runtimeSchedulingDegraded) return tasks.entrySet().stream()
             .filter(entry -> entry.getValue().value > 0)
             .map(entry -> new DispatchTask(-1, entry.getKey(), entry.getValue())).toList();
         ensureRuntimeProgressProjection();
@@ -288,7 +309,7 @@ public class ExecutingCraftingJob {
     }
 
     void applyAccepted(DispatchTask task, long count) {
-        if (runtimeExecutionState == null) {
+        if (runtimeExecutionState == null || runtimeSchedulingDegraded) {
             if (count <= 0 || count > task.progress().value) {
                 throw new IllegalArgumentException("Accepted dispatch does not match a remaining task");
             }
@@ -312,7 +333,7 @@ public class ExecutingCraftingJob {
             applyDispatchResult(task, result);
             return List.of();
         }
-        if (runtimeExecutionState == null) {
+        if (runtimeExecutionState == null || runtimeSchedulingDegraded) {
             applyAccepted(task, accepted.count());
             return List.of();
         }

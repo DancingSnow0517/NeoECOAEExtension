@@ -393,7 +393,7 @@ public class ECOCraftingCPULogic {
 
                 var details = task.pattern();
                 runnableTasks++;
-                if (job.runtimeExecutionState == null && activePhase != null && !ECOPhaseScheduler
+                if (!job.runtimeSchedulingDegraded() && job.runtimeExecutionState == null && activePhase != null && !ECOPhaseScheduler
                         .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
                     continue;
                 }
@@ -589,6 +589,8 @@ public class ECOCraftingCPULogic {
         }
 
         job.recordDynamicCyclePass(pushedPatterns > 0,
+            runnableTasks > 0 && tasksMissingInputs == runnableTasks);
+        job.recordRuntimeSchedulingPass(pushedPatterns > 0,
             runnableTasks > 0 && tasksMissingInputs == runnableTasks);
         return pushedPatterns;
     }
