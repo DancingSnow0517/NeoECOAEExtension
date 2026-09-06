@@ -55,6 +55,12 @@ public class NEConfig {
         BUILDER.pop();
     }
 
+    private static final ModConfigSpec.ConfigValue<String> STORAGE_HOST_UI_MODE = BUILDER
+        .comment(
+            "存储主机界面布局：modern 为当前界面，legacy 为 1.12.2 风格界面。",
+            "Storage host UI layout: modern keeps the current layout, legacy restores the 1.12.2-style layout.")
+        .define("storageHostUiMode", StorageHostUiMode.MODERN.id(), StorageHostUiMode::isConfigValue);
+
     private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
         .comment(
             "合成系统完成配方时发送原版合成事件（ItemCraftedEvent）。",
@@ -155,6 +161,7 @@ public class NEConfig {
     public static int craftingSystemMaxLength;
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
+    public static StorageHostUiMode storageHostUiMode = StorageHostUiMode.MODERN;
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
@@ -182,6 +189,7 @@ public class NEConfig {
         craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.get();
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
+        storageHostUiMode = StorageHostUiMode.fromConfig(STORAGE_HOST_UI_MODE.get());
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();

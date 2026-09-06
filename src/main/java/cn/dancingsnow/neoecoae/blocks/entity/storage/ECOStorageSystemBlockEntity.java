@@ -12,9 +12,11 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.config.StorageHostUiMode;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostHugeStackList;
+import cn.dancingsnow.neoecoae.gui.storage.StorageHostLegacyUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
@@ -23,7 +25,6 @@ import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceSafety;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -149,7 +150,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private String extractionCheckReason;
     private List<StorageHostHugeStackList.Entry> hugeUiEntries = List.of();
     private final Map<ECODriveBlockEntity, DriveUiSnapshot> driveUiSnapshots = new HashMap<>();
-    private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type,
+    private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int tier,
         List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes) {}
     private final cn.dancingsnow.neoecoae.impl.storage.StorageFaults storageFaults =
         new cn.dancingsnow.neoecoae.impl.storage.StorageFaults();
@@ -340,6 +341,20 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
 
+        if (NEConfig.storageHostUiMode == StorageHostUiMode.LEGACY) {
+            UIElement root = StorageHostLegacyUI.create(new StorageHostLegacyUI.Config(
+                () -> getItemFromBlockEntity().getDescription(),
+                this::getStoredEnergy,
+                this::getMaxEnergy,
+                this::getEnergyConsumePerTick,
+                () -> getStorageUiSnapshot().cellEntries(),
+                this::isFormedInfiniteMode,
+                this::isMigratingToInfinite
+            ));
+            actionUI.addTo(root);
+            return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        }
+
         UIElement root = new UIElement().layout(layout -> {
             layout.width(344);
             layout.height(232);
@@ -500,6 +515,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return getStorageUiSnapshot().idleMatrices();
     }
 
+    private long getEnergyConsumePerTick() {
+        return getStorageUiSnapshot().energyConsumePerTick();
+    }
+
     private long getStorageValue(int cellTypeId, StorageValue value) {
         if (cellTypeId < 0) {
             return 0;
@@ -548,15 +567,34 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         long maxLoadUsedBytes = 0L;
         long maxLoadTotalBytes = 0L;
         int idleMatrices = 0;
+        long energyConsumePerTick = 256L + (1L << (1 + 4 * tier.getTier()));
         double bestLoadRatio = -1.0D;
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
+        List<StorageHostLegacyUI.CellEntry> cellEntries = new ArrayList<>();
         driveUiSnapshots.keySet().retainAll(cluster.getDrives());
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             DriveUiSnapshot view = driveUiSnapshot(drive);
             if (view == null) continue;
             int cellTypeId = view.type();
             for (AEKeyType keyType : view.keyTypes()) cellTypesByKeyType.putIfAbsent(keyType, cellTypeId);
+            boolean supported = view.inventory() != null && tier.compareTo(view.inventory().getTier()) >= 0;
+            if (supported) {
+                energyConsumePerTick = NEMath.saturatingAdd(
+                    energyConsumePerTick,
+                    Math.max(0L, Math.round(view.inventory().getIdleDrain()))
+                );
+                cellEntries.add(new StorageHostLegacyUI.CellEntry(
+                    cellTypeId,
+                    view.tier(),
+                    legacyCellKind(view.keyTypes()),
+                    view.member() ? 0L : view.usedTypes(),
+                    view.member() ? -1L : view.totalTypes(),
+                    view.member() ? 0L : view.usedBytes(),
+                    view.member() ? -1L : view.totalBytes(),
+                    view.member()
+                ));
+            }
             if (view.member()) {
                 idleMatrices++;
                 continue;
@@ -590,14 +628,36 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             addInfiniteStorageTypes(storageTypes, cellTypesByKeyType);
         }
 
+        cellEntries.sort((left, right) -> {
+            int bytes = Long.compare(right.usedBytes(), left.usedBytes());
+            if (bytes != 0) return bytes;
+            int types = Long.compare(right.usedTypes(), left.usedTypes());
+            if (types != 0) return types;
+            int tiers = Integer.compare(right.tier(), left.tier());
+            if (tiers != 0) return tiers;
+            return Integer.compare(left.typeId(), right.typeId());
+        });
+
         return new StorageUiSnapshot(
             storedEnergy,
             maxEnergy,
+            energyConsumePerTick,
             isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadUsedBytes,
             isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadTotalBytes,
             idleMatrices,
-            Map.copyOf(storageTypes)
+            Map.copyOf(storageTypes),
+            List.copyOf(cellEntries)
         );
+    }
+
+    private static int legacyCellKind(List<AEKeyType> keyTypes) {
+        if (keyTypes.contains(AEKeyType.items())) {
+            return StorageHostLegacyUI.CellEntry.KIND_ITEM;
+        }
+        if (keyTypes.contains(AEKeyType.fluids())) {
+            return StorageHostLegacyUI.CellEntry.KIND_FLUID;
+        }
+        return keyTypes.isEmpty() ? StorageHostLegacyUI.CellEntry.KIND_EMPTY : StorageHostLegacyUI.CellEntry.KIND_GAS;
     }
 
     private DriveUiSnapshot driveUiSnapshot(ECODriveBlockEntity drive) {
@@ -616,7 +676,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             if (type >= 0 && drive.getCellStack().getItem() instanceof IECOStorageCellItem item) {
                 for (AEKeyType keyType : item.getKeyTypes()) keyTypes.add(keyType);
             }
-            DriveUiSnapshot next = new DriveUiSnapshot(inventory, revision, tick, type, List.copyOf(keyTypes), member,
+            DriveUiSnapshot next = new DriveUiSnapshot(inventory, revision, tick, type, inventory.getTier().getTier(),
+                List.copyOf(keyTypes), member,
                 member ? 0L : inventory.getStoredItemTypes(), member ? 0L : inventory.hasInfiniteTypeCapacity() ? -1L : inventory.getTotalItemTypes(),
                 member ? 0L : inventory.getUsedBytes(), member ? 0L : inventory.getTotalBytes());
             driveUiSnapshots.put(drive, next);
@@ -668,13 +729,15 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private record StorageUiSnapshot(
         long storedEnergy,
         long maxEnergy,
+        long energyConsumePerTick,
         long maxLoadUsedBytes,
         long maxLoadTotalBytes,
         int idleMatrices,
-        Map<Integer, StorageTypeTotals> storageTypes
+        Map<Integer, StorageTypeTotals> storageTypes,
+        List<StorageHostLegacyUI.CellEntry> cellEntries
     ) {
         private static final StorageUiSnapshot EMPTY =
-            new StorageUiSnapshot(0L, 0L, 0L, 0L, 0, Map.of());
+            new StorageUiSnapshot(0L, 0L, 0L, 0L, 0L, 0, Map.of(), List.of());
 
         private StorageTypeTotals storageTypeTotals(int cellTypeId) {
             return storageTypes.getOrDefault(cellTypeId, StorageTypeTotals.EMPTY);
