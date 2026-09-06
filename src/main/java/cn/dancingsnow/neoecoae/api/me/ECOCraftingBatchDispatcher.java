@@ -161,7 +161,7 @@ final class ECOCraftingBatchDispatcher {
         }
 
         for (ICraftingProvider candidate : candidateProviders) {
-            if (candidate instanceof ECOCraftingPatternBusBlockEntity || candidate.isBusy()) continue;
+            if (candidate instanceof ECOCraftingPatternBusBlockEntity || ECOCraftingProviders.isBusy(candidate)) continue;
             if (ECOThunderboltBatchBridge.supports(candidate)) {
                 DispatchResult result = tryPushThunderboltBatch(job, execution, firstCraftingContainer,
                     candidate, energyService, patternPower,
@@ -175,7 +175,7 @@ final class ECOCraftingBatchDispatcher {
         for (ICraftingProvider provider : candidateProviders) {
             if (provider instanceof ECOCraftingPatternBusBlockEntity
                     || ECOThunderboltBatchBridge.supports(provider)
-                    || provider.isBusy()
+                    || ECOCraftingProviders.isBusy(provider)
                     || !ECODataEnergisticsCountedBridge.supports(provider)) continue;
             var admission = ECODataEnergisticsCountedBridge.prepare(
                 provider, execution.details(), firstCraftingContainer, legalUpper, patternIdentity, tick);
@@ -358,7 +358,7 @@ final class ECOCraftingBatchDispatcher {
         ECOBatchProbeCraftingProvider selected = null;
         for (var provider : candidateProviders) {
             if (isUnknownBatchProbeProvider(provider) && provider instanceof ECOBatchProbeCraftingProvider capable
-                    && !provider.isBusy()) {
+                    && !ECOCraftingProviders.isBusy(provider)) {
                 selected = capable;
                 break;
             }
@@ -493,7 +493,8 @@ final class ECOCraftingBatchDispatcher {
         // one of its buses already searches every worker of the group.
         List<Object> visitedScopes = new ArrayList<>(4);
         for (ICraftingProvider provider : candidateProviders) {
-            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus) || provider.isBusy()) {
+            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)
+                    || ECOCraftingProviders.isBusy(provider)) {
                 continue;
             }
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
@@ -669,7 +670,8 @@ final class ECOCraftingBatchDispatcher {
         ECOCraftingPatternBusBlockEntity.VirtualFastPathOffer selectedOffer = null;
         List<Object> visitedScopes = new ArrayList<>(4);
         for (ICraftingProvider provider : candidateProviders) {
-            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus) || provider.isBusy()) {
+            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)
+                    || ECOCraftingProviders.isBusy(provider)) {
                 continue;
             }
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();

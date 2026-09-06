@@ -201,7 +201,22 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             || getAvailableThreadSlots() < batchSize) {
             return false;
         }
-        return worker.pushBatch(verified);
+        if (worker.pushBatch(verified)) {
+            return true;
+        }
+
+        // The offer is only a live snapshot. If that worker lost its lane between offer capture and commit, keep
+        // the exact verified batch and try the other reachable targets before returning a rejection to the CPU.
+        // This preserves input ownership while removing the single-stale-target failure mode.
+        for (ECOCraftingWorkerBlockEntity candidate : cluster.collectDispatchCandidateWorkers()) {
+            if (candidate == worker || candidate.getAvailableThreadSlots() < batchSize) {
+                continue;
+            }
+            if (candidate.pushBatch(verified)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Compatibility entry point retained for crafting_tracker releases built against the pre-verification API. */
@@ -220,9 +235,21 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return false;
         }
         ECOCraftingWorkerBlockEntity worker = offer.worker();
-        return cluster.isDispatchCandidate(worker)
-            && worker.getAvailableBatchCapacity() > 0
-            && worker.pushVirtualBatch(verified);
+        if (!cluster.isDispatchCandidate(worker) || worker.getAvailableBatchCapacity() <= 0) {
+            return false;
+        }
+        if (worker.pushVirtualBatch(verified)) {
+            return true;
+        }
+        for (ECOCraftingWorkerBlockEntity candidate : cluster.collectDispatchCandidateWorkers()) {
+            if (candidate == worker || candidate.getAvailableBatchCapacity() <= 0) {
+                continue;
+            }
+            if (candidate.pushVirtualBatch(verified)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Nullable

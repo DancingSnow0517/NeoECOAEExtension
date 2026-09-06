@@ -18,7 +18,6 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashMap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -45,6 +44,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
+import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
@@ -94,6 +94,9 @@ public class ExecutingCraftingJob {
     private static final String NBT_PLAN_TASKS = "planTasks";
     private static final String NBT_PLAN_PHASES = "planPhases";
     private static final String NBT_OWNED_RESOURCES = "ownedResourceSnapshot";
+    private static final String NBT_DISPATCH_RETRY_AT = "dispatchRetryAt";
+    private static final String NBT_DISPATCH_RETRY_DELAY = "dispatchRetryDelay";
+    private static final String NBT_DISPATCH_RETRY_SAVED_TICK = "dispatchRetrySavedTick";
     private static final String NBT_TASK_ID = "taskId";
     private static final String NBT_TASK_TOTAL = "total";
     private static final String NBT_TASK_REMAINING = "remaining";
@@ -113,7 +116,7 @@ public class ExecutingCraftingJob {
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
-    final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    final Map<IPatternDetails, TaskProgress> tasks = new LinkedHashMap<>();
     int cycleWitnessIndex;
     int currentComponentIndex;
     int executionStepIndex;
@@ -127,6 +130,8 @@ public class ExecutingCraftingJob {
     int dynamicCycleNoProgressTicks;
     int runtimeSchedulingStallTicks;
     boolean runtimeSchedulingDegraded;
+    long dispatchRetryAt = -1L;
+    int dispatchRetryDelay = 1;
     final ElapsedTimeTracker timeTracker;
     final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
@@ -163,12 +168,46 @@ public class ExecutingCraftingJob {
         }
     }
 
+    @Nullable PermanentExecutionError permanentExecutionError() {
+        return permanentExecutionError;
+    }
+
+    boolean dispatchRetryBlocked(long currentTick) {
+        return dispatchRetryAt >= 0L && currentTick < dispatchRetryAt;
+    }
+
+    void activateDispatchRetry(long currentTick) {
+        if (dispatchRetryAt >= 0L && currentTick >= dispatchRetryAt) {
+            dispatchRetryAt = -1L;
+        }
+    }
+
+    void deferDispatchRetry(long currentTick) {
+        int delay = Math.max(1, Math.min(40, dispatchRetryDelay));
+        dispatchRetryAt = Math.addExact(currentTick, delay);
+        dispatchRetryDelay = Math.min(40, delay >= 20 ? 40 : delay * 2);
+    }
+
+    void dispatchAccepted() {
+        dispatchRetryAt = -1L;
+        dispatchRetryDelay = 1;
+    }
+
+    void wakeDispatch() {
+        dispatchRetryAt = -1L;
+        dispatchRetryDelay = 1;
+    }
+
     boolean phased() {
         return runtimeExecutionState != null || ECOPhaseScheduler.hasExecutionPhases(executionSchedule);
     }
 
     boolean runtimeSchedulingDegraded() {
         return runtimeSchedulingDegraded;
+    }
+
+    boolean repairRuntimeFrontier() {
+        return runtimeExecutionState == null || runtimeExecutionState.repairFrontierIfStalled();
     }
 
     /** Fall back to live inventory eligibility after a sustained semantic scheduling stall. */
@@ -314,6 +353,7 @@ public class ExecutingCraftingJob {
                 throw new IllegalArgumentException("Accepted dispatch does not match a remaining task");
             }
             task.progress().value -= count;
+            dispatchAccepted();
             return;
         }
         applyAccepted(task.taskId(), count);
@@ -326,6 +366,7 @@ public class ExecutingCraftingJob {
         }
         runtimeExecutionState.applyAccepted(taskId, count);
         runtimeProjectionDirty = true;
+        dispatchAccepted();
     }
 
     List<DispatchTask> applyDispatchResultAndGetNewlyReady(DispatchTask task, DispatchResult result) {
@@ -343,6 +384,7 @@ public class ExecutingCraftingJob {
         runtimeExecutionState.commitAccepted(task.taskId(), accepted.count(), consumedInputs);
         task.progress().value = runtimeExecutionState.remaining(task.taskId());
         runtimeProjectionDirty = true;
+        dispatchAccepted();
         // The next tick snapshots the newly-ready frontier after the single compatibility flush.
         return List.of();
     }
@@ -372,6 +414,7 @@ public class ExecutingCraftingJob {
                     ? null : accepted.consumedInputs();
                 runtimeExecutionState.commitAccepted(taskId, accepted.count(), consumedInputs);
                 runtimeProjectionDirty = true;
+                dispatchAccepted();
             }
             return accepted.count();
         }
@@ -530,6 +573,22 @@ public class ExecutingCraftingJob {
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
+        long restoredRetryAt = data.contains(NBT_DISPATCH_RETRY_AT, Tag.TAG_LONG)
+            ? data.getLong(NBT_DISPATCH_RETRY_AT) : -1L;
+        long savedRetryTick = data.contains(NBT_DISPATCH_RETRY_SAVED_TICK, Tag.TAG_LONG)
+            ? data.getLong(NBT_DISPATCH_RETRY_SAVED_TICK) : -1L;
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (restoredRetryAt >= 0L && savedRetryTick >= 0L) {
+            long remainingDelay = Math.min(40L, Math.max(0L, restoredRetryAt - savedRetryTick));
+            this.dispatchRetryAt = remainingDelay > Long.MAX_VALUE - currentTick
+                ? Long.MAX_VALUE : currentTick + remainingDelay;
+        } else {
+            // Saves written before retry timing was versioned must wake immediately. An old absolute tick is not
+            // safe to compare with a fresh server process' TickHandler counter.
+            this.dispatchRetryAt = -1L;
+        }
+        this.dispatchRetryDelay = data.contains(NBT_DISPATCH_RETRY_DELAY, Tag.TAG_INT)
+            ? Math.max(1, Math.min(40, data.getInt(NBT_DISPATCH_RETRY_DELAY))) : 1;
         this.cycleWitnessIndex = Math.max(0, data.getInt(NBT_CYCLE_WITNESS_INDEX));
         this.currentComponentIndex = Math.max(0, data.getInt(NBT_CURRENT_COMPONENT));
         this.executionStepIndex = Math.max(0, data.getInt(NBT_EXECUTION_STEP));
@@ -645,6 +704,9 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        data.putLong(NBT_DISPATCH_RETRY_AT, dispatchRetryAt);
+        data.putInt(NBT_DISPATCH_RETRY_DELAY, dispatchRetryDelay);
+        data.putLong(NBT_DISPATCH_RETRY_SAVED_TICK, TickHandler.instance().getCurrentTick());
         data.putInt(NBT_CYCLE_WITNESS_INDEX, cycleWitnessIndex);
         data.putInt(NBT_CURRENT_COMPONENT, currentComponentIndex);
         data.putInt(NBT_EXECUTION_STEP, executionStepIndex);
