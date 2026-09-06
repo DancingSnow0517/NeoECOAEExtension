@@ -69,6 +69,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private enum RecoveryState {
         ACTIVE,
+        // A completed output remains owned by this worker until its job CPU returns.
+        WAITING_FOR_OWNER,
         RECOVERING_INPUTS,
         RECOVERING_OUTPUTS,
         RECOVERED_TO_NETWORK,
@@ -972,11 +974,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             // An ECO worker knows which CPU owns its output. Never fall through to another CPU or network storage
             // when that owner has not accepted it yet; doing so loses the job's dependency edge permanently.
             if (routedToOwningJob && remaining > 0L) {
-                // The owner may have been cancelled or unloaded after the batch was accepted. Keep the
-                // output durable and move the lane into the normal recovery path so it cannot remain busy
-                // forever while retrying an owner that no longer exists.
-                markRecoveryPending(true);
-                logBlockedOutput("owning-cpu-unavailable", stacks);
+                // A missing owner is transient until the job is explicitly cancelled. Keep the output owned
+                // by this worker and retry job-directed delivery; never leak it into generic ME storage.
+                retainRemainderForRetry(stacks, RecoveryState.WAITING_FOR_OWNER);
+                logBlockedOutput("waiting-for-owning-cpu", stacks);
                 continue;
             }
 
@@ -1123,6 +1124,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private boolean isRecoverableState() {
         return isBusy
             && (recoveryState == RecoveryState.ACTIVE
+                || recoveryState == RecoveryState.WAITING_FOR_OWNER
                 || recoveryState == RecoveryState.RECOVERING_INPUTS
                 || recoveryState == RecoveryState.RECOVERING_OUTPUTS);
     }
@@ -1609,6 +1611,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ? batchInputItems.isEmpty()
                 : batchOutputItems.isEmpty());
         if (isBusy && (!isRecoverableState() || missingBatchRecoveryStacks)) {
+            invalidPersistedState = true;
+        }
+        if (recoveryState == RecoveryState.WAITING_FOR_OWNER && craftingJobId == null) {
             invalidPersistedState = true;
         }
         if (!batchGenericWork && isBusy) {

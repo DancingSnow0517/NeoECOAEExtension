@@ -154,6 +154,12 @@ public class ExecutingCraftingJob {
         return permanentExecutionError != null;
     }
 
+    void failExecution(PermanentExecutionError error) {
+        if (permanentExecutionError == null) {
+            permanentExecutionError = error;
+        }
+    }
+
     boolean phased() {
         return runtimeExecutionState != null || ECOPhaseScheduler.hasExecutionPhases(executionSchedule);
     }
@@ -930,6 +936,7 @@ public class ExecutingCraftingJob {
         CYCLE_METADATA_MISSING,
         DYNAMIC_CYCLE_BLOCKED,
         EXECUTION_PLAN_INVALID,
-        RECOVERY_ERROR
+        RECOVERY_ERROR,
+        RUNTIME_ACCOUNTING_FAILURE
     }
 }

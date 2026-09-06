@@ -443,6 +443,7 @@ final class ECOCraftingBatchDispatcher {
                 new DispatchResult.Accepted(craftCount, actualConsumed), probe.probeCount());
         } catch (RuntimeException failure) {
             if (ownershipTransferred) {
+                job.failExecution(ExecutingCraftingJob.PermanentExecutionError.RUNTIME_ACCOUNTING_FAILURE);
                 LOGGER.error("Batch probe commit failed after ownership transfer; accounting as accepted", failure);
                 return new ProbeDispatchOutcome(
                     new DispatchResult.Accepted(craftCount, actualConsumed), probe.probeCount());
@@ -589,6 +590,7 @@ final class ECOCraftingBatchDispatcher {
             actualConsumed = firstBatch
                 ? mergeConsumedInputs(firstCraftingContainer, batchInputs)
                 : consumedInputs(batchInputs);
+            var preparedAccounting = accounting.preparePushedBatchPattern(verifiedRecipe, batchSize);
             validateRuntimeConsumption(job, actualConsumed);
             ECOBatchCraftingHelper.extractExact(inventory, batchInputs);
             batchInputsExtracted = true;
@@ -621,16 +623,18 @@ final class ECOCraftingBatchDispatcher {
             }
             try {
                 if (logic.getJob() == job) {
-                    accounting.recordPushedBatchPattern(job, verifiedRecipe, batchSize);
+                    accounting.commitPreparedPattern(job, preparedAccounting);
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
-                LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
+                job.failExecution(ExecutingCraftingJob.PermanentExecutionError.RUNTIME_ACCOUNTING_FAILURE);
+                LOGGER.error("ECO batch was accepted; CPU accounting failed and the job was blocked", e);
             }
             return new DispatchResult.Accepted(batchSize, actualConsumed);
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
             if (ownershipTransferred) {
+                job.failExecution(ExecutingCraftingJob.PermanentExecutionError.RUNTIME_ACCOUNTING_FAILURE);
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
                 return new DispatchResult.Accepted(batchSize, actualConsumed);
             }
@@ -713,6 +717,7 @@ final class ECOCraftingBatchDispatcher {
         boolean extracted = false;
         boolean ownershipTransferred = false;
         try {
+            var preparedAccounting = accounting.preparePushedBatchPattern(verifiedRecipe, craftCount);
             validateRuntimeConsumption(job, actualConsumed);
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
             extracted = true;
@@ -722,8 +727,13 @@ final class ECOCraftingBatchDispatcher {
                 return new DispatchResult.Rejected(DispatchResult.RejectReason.PROVIDER_REJECTED);
             }
             ownershipTransferred = true;
-            if (logic.getJob() == job) {
-                accounting.recordPushedBatchPattern(job, verifiedRecipe, craftCount);
+            try {
+                if (logic.getJob() == job) {
+                    accounting.commitPreparedPattern(job, preparedAccounting);
+                }
+            } catch (RuntimeException failure) {
+                job.failExecution(ExecutingCraftingJob.PermanentExecutionError.RUNTIME_ACCOUNTING_FAILURE);
+                LOGGER.error("Virtual ECO batch was accepted; CPU accounting failed and the job was blocked", failure);
             }
             return new DispatchResult.Accepted(craftCount, actualConsumed);
         } catch (RuntimeException e) {

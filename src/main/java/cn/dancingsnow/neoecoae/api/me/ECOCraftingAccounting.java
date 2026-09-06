@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 
 /** Captures physical input consumption and records outputs after provider ownership transfer. */
 final class ECOCraftingAccounting {
+    record PreparedPatternAccounting(List<GenericStack> outputs, List<GenericStack> remainders) {}
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private final Consumer<AEKey> postChange;
     private final Runnable markDirty;
@@ -29,6 +31,28 @@ final class ECOCraftingAccounting {
     ECOCraftingAccounting(Consumer<AEKey> postChange, Runnable markDirty) {
         this.postChange = postChange;
         this.markDirty = markDirty;
+    }
+
+    PreparedPatternAccounting preparePushedBatchPattern(ECOVerifiedFastPathRecipe recipe, long craftCount) {
+        if (recipe == null || craftCount <= 0L) throw new IllegalArgumentException("Invalid batch accounting request");
+        List<GenericStack> outputs = new ArrayList<>();
+        for (var output : recipe.outputsPerCraft()) {
+            long amount = Math.multiplyExact(output.amount(), craftCount);
+            if (amount <= 0L) throw new IllegalArgumentException("Invalid batch output amount");
+            outputs.add(new GenericStack(output.what(), amount));
+        }
+        List<GenericStack> remainders = new ArrayList<>();
+        for (var remainder : recipe.batchRemainders(craftCount)) {
+            if (remainder.amount() <= 0L) throw new IllegalArgumentException("Invalid batch remainder amount");
+            remainders.add(new GenericStack(remainder.what(), remainder.amount()));
+        }
+        return new PreparedPatternAccounting(List.copyOf(outputs), List.copyOf(remainders));
+    }
+
+    void commitPreparedPattern(ExecutingCraftingJob job, PreparedPatternAccounting prepared) {
+        for (var output : prepared.outputs()) recordOutput(job, output.what(), output.amount());
+        for (var remainder : prepared.remainders()) recordRemainder(job, remainder.what(), remainder.amount());
+        markDirty.run();
     }
 
     static void validateRuntimeConsumption(ExecutingCraftingJob job, Map<AEKey, Long> consumed) {
@@ -95,15 +119,7 @@ final class ECOCraftingAccounting {
     }
 
     void recordPushedBatchPattern(ExecutingCraftingJob job, ECOVerifiedFastPathRecipe recipe, long craftCount) {
-        long multiplier = Math.max(1L, craftCount);
-        for (var output : recipe.outputsPerCraft()) {
-            recordOutput(job, output.what(), Math.multiplyExact(output.amount(), multiplier));
-        }
-        // Durable tools return the aggregate batch remainder, not a multiple of the one-craft remainder.
-        for (var remainder : recipe.batchRemainders(multiplier)) {
-            recordRemainder(job, remainder.what(), remainder.amount());
-        }
-        markDirty.run();
+        commitPreparedPattern(job, preparePushedBatchPattern(recipe, craftCount));
     }
 
     static void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
