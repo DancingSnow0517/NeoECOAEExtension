@@ -570,11 +570,31 @@ public final class ComponentPlanner {
             Map<AEKey, Long> relevantStock, AEKey finalGoal, CycleComponent cycle) {
         Set<AEKey> growingFeedback = new LinkedHashSet<>();
         if (cycle.patterns().stream().map(CompiledPattern::details).distinct().count() == 1) {
+            CompiledPattern pattern = cycle.patterns().getFirst();
             var profile = new cn.dancingsnow.neoecoae.impl.crafting.planner.growth.PatternProfileValidator()
-                .validate(cycle.patterns().getFirst());
+                .validate(pattern);
             if (profile.netGrowthSafe() && profile.selfReferencingKeys().size() == 1) {
                 AEKey feedback = profile.selfReferencingKeys().getFirst();
                 if (profile.netDeltaPerFiring(feedback) > 0L) growingFeedback.add(feedback);
+            }
+            // Stock protection is a planning contract, independent of smart-bus eligibility for the
+            // algebraic optimization. Ordinary static patterns use bounded solving and need the same
+            // net-growth target when their feedback is consumed by a downstream recipe.
+            if (pattern.fastSupported() && pattern.inputs().stream().allMatch(CompiledInput::fastSupported)) {
+                Map<AEKey, PlannerAmount> consumed = new LinkedHashMap<>();
+                Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
+                pattern.grossOutputs().forEach(output -> produced.merge(output.what(),
+                    PlannerAmount.of(output.amount()), PlannerAmount::add));
+                pattern.inputs().forEach(input -> {
+                    consumed.merge(input.key(), input.amountPerPattern(), PlannerAmount::add);
+                    if (input.remainderKey() != null) produced.merge(input.remainderKey(),
+                        input.remainderAmountPerPattern(), PlannerAmount::add);
+                });
+                consumed.forEach((key, amount) -> {
+                    if (produced.getOrDefault(key, PlannerAmount.ZERO).compareTo(amount) > 0) {
+                        growingFeedback.add(key);
+                    }
+                });
             }
         }
         Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
