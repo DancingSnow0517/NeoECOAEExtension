@@ -38,7 +38,10 @@ final class ECOCraftingTestKey extends AEKey {
             super(ResourceLocation.fromNamespaceAndPath("neoecoae_test", "crafting_keys"),
                 ECOCraftingTestKey.class, Component.literal("Crafting Test Keys"));
         }
-        @Override public MapCodec<? extends AEKey> codec() { throw new UnsupportedOperationException(); }
+        @Override public MapCodec<? extends AEKey> codec() {
+            return com.mojang.serialization.Codec.STRING.fieldOf("variant")
+                .xmap(ECOCraftingTestKey::new, key -> key.variant);
+        }
         @Override public AEKey readFromPacket(RegistryFriendlyByteBuf input) { throw new UnsupportedOperationException(); }
     }
 }

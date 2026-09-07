@@ -150,6 +150,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return pushPattern(execution, craftingJobId);
     }
 
+    /** Ordinary single-craft fallback without another FastPath lookup. */
+    public boolean pushPatternSlow(IPatternDetails pattern, KeyCounter[] inputs, @Nullable UUID craftingJobId) {
+        return pushPattern(ECOExtractedPatternExecution.slow(pattern, inputs), craftingJobId);
+    }
+
     public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
         if (execution.molecularPattern() == null || cluster == null) {
             return false;

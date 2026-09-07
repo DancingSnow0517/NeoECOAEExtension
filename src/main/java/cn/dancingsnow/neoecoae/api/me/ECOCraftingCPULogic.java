@@ -1,18 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.chargeAcceptedPatternEnergy;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.consumedInputs;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.reinjectPatternInputs;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingAccounting.validateRuntimeConsumption;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.ordinaryProviders;
-import static cn.dancingsnow.neoecoae.api.me.ECOCraftingProviders.paysFlatRateCraftingPower;
-
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -53,21 +41,11 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedCraft;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.RuntimeExecutionState;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
 
 public class ECOCraftingCPULogic {
-    /**
-     * Retained for compatibility with integrations that inspect the ordinary dispatch policy. The built-in ordinary
-     * loop currently follows AdvancedAE's one-pass-per-provider baseline; FastPath and accounting remain owned by
-     * this CPU logic.
-     */
-    private volatile ECOCraftingDispatchStrategy ordinaryDispatchStrategy = ECOParallelDispatchStrategy.INSTANCE;
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     final ECOCraftingCPU cpu;
@@ -95,27 +73,10 @@ public class ECOCraftingCPULogic {
     @Getter
     private boolean markedForDeletion = false;
 
-    private boolean deliveringBufferedFinalOutput = false;
-    private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
-    private final ECOCraftingAccounting accounting;
-    private final ECOCraftingBatchDispatcher batchDispatcher;
-    private final ECOCraftingStatusChanges statusChanges;
+    private boolean deliveringFinalOutput;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
-        this.statusChanges = new ECOCraftingStatusChanges(this::notifyListeners,
-            () -> lastModifiedOnTick = TickHandler.instance().getCurrentTick(), () -> this.cpu.markDirty());
-        this.accounting = new ECOCraftingAccounting(this::postChange, this::markCpuDirty);
-        this.batchDispatcher = new ECOCraftingBatchDispatcher(this, accounting);
-    }
-
-    public ECOCraftingDispatchStrategy getOrdinaryDispatchStrategy() {
-        return ordinaryDispatchStrategy;
-    }
-
-    /** Installs the ordinary-path scheduling policy used by subsequent engine passes. */
-    public void setOrdinaryDispatchStrategy(ECOCraftingDispatchStrategy strategy) {
-        this.ordinaryDispatchStrategy = Objects.requireNonNull(strategy, "strategy");
     }
 
     public ICraftingSubmitResult trySubmitJob(
@@ -145,9 +106,6 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
-        initializeRuntimeOwnershipFromPhysicalState(this.job, false);
-        statusChanges.initialize(this.job.runtimeExecutionState());
-        batchDispatcher.resetBatchProbeBudgetForCurrentTick();
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -201,127 +159,46 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        retryBufferedFinalOutput();
-        if (job == null) {
-            return;
-        }
-
-        // Missing metadata for a planner-confirmed cycle is permanent for this job. Do not repeatedly enter the
-        // dispatch path on every tick; retain the job for inspection/cancellation.
-        if (job.hasPermanentExecutionError()) {
-            return;
-        }
-
-        // 暂停时不调度更多工作
-        if (job.suspended) {
-            return;
-        }
-
+        deliverStoredFinalOutput();
+        if (job == null || job.suspended) return;
         Level level = cpu.getLevel();
-        if (level == null) {
-            return;
+        if (level == null) return;
+
+        int operationLimit = getOperationLimit();
+        while (operationLimit > 0 && job != null) {
+            if (executeCrafting(1, cc, eg, level) == 0) break;
+            operationLimit--;
         }
+    }
 
-        var remainingOperations = getOperationLimit();
-
-        if (remainingOperations > 0) {
-            // Match AE2/AdvancedAE's scheduler cadence: one pass visits each task once and each provider at most
-            // once, then another pass starts from the first task while the CPU operation budget remains. This keeps
-            // provider order observable and lets a provider's live busy state decide whether it can receive another
-            // craft on the next pass.
-            do {
-                int pushedPatterns = executeCrafting(remainingOperations, cc, eg, level);
-                if (pushedPatterns <= 0) {
-                    break;
+    /** Retry delivery from the same physical inventory used for all recipe inputs. */
+    private void deliverStoredFinalOutput() {
+        var current = job;
+        if (current == null) return;
+        AEKey key = current.finalOutput.what();
+        long amount = inventory.extract(key, Math.max(0L, current.remainingAmount), Actionable.SIMULATE);
+        if (amount > 0L) {
+            long inserted;
+            try {
+                deliveringFinalOutput = true;
+                if (current.link.isStandalone()) {
+                    var grid = cpu.getGrid();
+                    inserted = grid == null ? 0L : grid.getStorageService().getInventory()
+                        .insert(key, amount, Actionable.MODULATE, cpu.getActionSource());
+                } else {
+                    inserted = current.link.insert(key, amount, Actionable.MODULATE);
                 }
-                remainingOperations -= pushedPatterns;
-            } while (remainingOperations > 0 && job != null);
-            // Dispatch normally flushed this projection together with status changes. This covers pre-batch exits.
-            if (job != null) job.flushRuntimeTick();
+            } catch (RuntimeException e) {
+                LOGGER.error("Final output delivery failed; items remain in the CPU inventory", e);
+                return;
+            } finally {
+                deliveringFinalOutput = false;
+            }
+            inventory.extract(key, inserted, Actionable.MODULATE);
+            current.remainingAmount -= inserted;
+            markCpuDirty();
         }
-    }
-
-    private void retryBufferedFinalOutput() {
-        ExecutingCraftingJob currentJob = job;
-        if (currentJob == null) {
-            return;
-        }
-        drainBufferedFinalOutput(currentJob);
-    }
-
-    /** Releases final-output units retained as cycle feedback once the current gate no longer needs them. */
-    private void releaseSurplusFinalOutput(ExecutingCraftingJob currentJob) {
-        if (currentJob.finalOutput == null || currentJob.finalOutput.what() == null) return;
-        AEKey key = currentJob.finalOutput.what();
-        long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
-        long reserve = currentJob.finalOutputFeedbackReserve(key);
-        long surplus = Math.max(0L, stored - Math.min(stored, reserve));
-        if (surplus <= 0L) return;
-        long transferable = currentJob.bufferedFinalOutput.accept(surplus, Actionable.SIMULATE);
-        if (transferable <= 0L) return;
-        long extracted = inventory.extract(key, transferable, Actionable.MODULATE);
-        long accepted = currentJob.bufferedFinalOutput.accept(extracted, Actionable.MODULATE);
-        if (accepted != extracted) throw new IllegalStateException("Final-output buffer rejected CPU-owned surplus");
-        postChange(key);
-        markCpuDirty();
-        drainBufferedFinalOutput(currentJob);
-    }
-
-    private void drainBufferedFinalOutput(ExecutingCraftingJob currentJob) {
-        if (job != currentJob || currentJob.finalOutput == null) {
-            return;
-        }
-        if (isFinalOutputSatisfied(currentJob)) {
-            finishJob(true);
-            return;
-        }
-        AEKey key = currentJob.finalOutput.what();
-        long buffered = currentJob.bufferedFinalOutput.amount();
-        if (buffered <= 0L) {
-            return;
-        }
-        long deliverable = Math.min(buffered, Math.max(0L, currentJob.remainingAmount));
-        if (deliverable <= 0L) {
-            return;
-        }
-        final long accepted;
-        try {
-            deliveringBufferedFinalOutput = true;
-            accepted = validateInsertionAmount(
-                deliverFinalOutput(key, deliverable, Actionable.MODULATE),
-                deliverable,
-                "final-output requester"
-            );
-        } catch (RuntimeException e) {
-            logFinalOutputDeliveryFailure(e);
-            return;
-        } finally {
-            deliveringBufferedFinalOutput = false;
-        }
-        if (accepted <= 0L) {
-            return;
-        }
-        if (job != currentJob) {
-            // The target already accepted these items. Never throw back into the Worker after that ownership
-            // transfer, since a retry would duplicate the physical output.
-            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", accepted);
-            return;
-        }
-        currentJob.bufferedFinalOutput.removeDelivered(accepted);
-        if (currentJob.runtimeExecutionState() != null) {
-            currentJob.runtimeExecutionState().releaseExternal(key, accepted);
-        }
-        currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
-        postChange(key);
-        markCpuDirty();
-        if (isFinalOutputSatisfied(currentJob)) {
-            finishJob(true);
-        }
-    }
-
-    private boolean isFinalOutputSatisfied(ExecutingCraftingJob currentJob) {
-        // The buffer may still own recipe-rounding surplus. finishJob preserves that surplus and stores it normally.
-        return currentJob.remainingAmount <= 0L && currentJob.waitingFor.list.isEmpty();
+        if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()) finishJob(true);
     }
 
     private int getOperationLimit() {
@@ -337,15 +214,11 @@ public class ECOCraftingCPULogic {
         return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
     }
 
-    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
+    private Iterable<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
             IPatternDetails details) {
         // Binary Mixin contract: Thunderbolt 1.0.6 wraps this exact invocation in this method.
         // Keep exactly one getProviders call here; a forwarding stub in the CPU is not sufficient.
-        List<ICraftingProvider> result = new ArrayList<>();
-        for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            result.add(provider);
-        }
-        return result;
+        return craftingService.getProviders(details);
     }
 
     /**
@@ -355,304 +228,67 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        var job = this.job;
-        if (job == null)
-            return 0;
-        if (job.hasPermanentExecutionError()) {
-            return 0;
-        }
-        // Materialize the shared runtime cursor once the immutable execution metadata is available.
-        job.runtimeExecutionState();
-        job.advanceCompletedPhases();
-        releaseSurplusFinalOutput(job);
-        if (this.job != job) return 0;
-        var activePhase = job.activePhase();
-        boolean componentScheduled = job.phased();
-        int runnableTasks = 0;
-        int tasksMissingInputs = 0;
-        if (componentScheduled && activePhase == null) {
-            return 0;
-        }
-
-        var pushedPatterns = 0;
-        batchDispatcher.resetBatchProbeBudgetForCurrentTick();
-
-        statusChanges.beginBatch(job.runtimeExecutionState());
-        try {
-            List<ExecutingCraftingJob.DispatchTask> readyTasks = job.eligibleDispatchTasks();
-            // Keep the task order supplied by the job. Native jobs therefore retain the same HashMap iteration
-            // order as AdvancedAE, while runtime plans retain their compiled ready-task order without an extra
-            // rotating queue or task requeue policy.
-            List<ExecutingCraftingJob.DispatchTask> eligibleTasks = new ArrayList<>(readyTasks);
-            int taskIndex = 0;
-            taskLoop: while (taskIndex < eligibleTasks.size()) {
-                var task = eligibleTasks.get(taskIndex++);
-                if (task.progress().value <= 0) {
-                    continue;
-                }
-
-                var details = task.pattern();
-                runnableTasks++;
-                if (!job.runtimeSchedulingDegraded() && job.runtimeExecutionState == null && activePhase != null && !ECOPhaseScheduler
-                        .canDispatch(activePhase, job.cycleWitnessIndex, details)) {
-                    continue;
-                }
-                // AdvancedAE obtains the provider list for every task pass and traverses it in the service order.
-                // Do the same here; live busy state is still read immediately before every provider call.
-                List<ICraftingProvider> candidateProviders = collectAvailableProviders(craftingService, details);
-                if (candidateProviders.isEmpty()) {
-                    continue;
-                }
-                if (task.progress().value > 0 && pushedPatterns < maxPatterns) {
-                    var expectedOutputs = new KeyCounter();
-                    var expectedContainerItems = new KeyCounter();
-                    @Nullable
-                    var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
-                    if (craftingContainer == null) {
-                        tasksMissingInputs++;
-                        continue taskLoop;
-                    }
-
-                    var extractedCraft = new ECOExtractedCraft(craftingContainer, expectedOutputs,
-                        expectedContainerItems, CraftingCpuHelper.calculatePatternPower(craftingContainer));
-                    var batch = batchDispatcher.dispatch(job, task, extractedCraft, candidateProviders,
-                        energyService, job.dispatchLimit(task), Math.max(0, maxPatterns - pushedPatterns),
-                        level, true);
-                    var execution = batch.execution();
-                    var batchDispatch = batch.result();
-                    if (batchDispatch instanceof DispatchResult.Accepted) {
-                        // One provider dispatch consumes one CPU scheduling operation regardless of how many
-                        // crafts the F-series host accepted in that batch.
-                        pushedPatterns++;
-                        if (this.job != job) {
-                            break taskLoop;
-                        }
-                        eligibleTasks.addAll(job.applyDispatchResultAndGetNewlyReady(task, batchDispatch));
-                        if (task.progress().value <= 0) {
-                            continue taskLoop;
-                        }
-                        if (pushedPatterns == maxPatterns) {
-                            break taskLoop;
-                        }
-                        continue;
-                    }
-                    if (batchDispatch instanceof DispatchResult.Rejected) {
-                        // Batch dispatchers return the first craft to the CPU before reporting rejection. Re-extract
-                        // a fresh ordinary-path container so the fallback cannot double-inject the same inputs.
-                        expectedOutputs = new KeyCounter();
-                        expectedContainerItems = new KeyCounter();
-                        craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
-                        if (craftingContainer == null) {
-                            tasksMissingInputs++;
-                            continue taskLoop;
-                        }
-                        extractedCraft = new ECOExtractedCraft(craftingContainer, expectedOutputs,
-                            expectedContainerItems, CraftingCpuHelper.calculatePatternPower(craftingContainer));
-                        execution = ECOExtractedPatternExecution.create(details, craftingContainer,
-                            expectedOutputs, expectedContainerItems, level);
-                    }
-
-                    // Keep the ordinary ICraftingProvider invocation in executeCrafting. External integrations
-                    // (notably useless_mod's dynamic-output bridge) wrap this exact call site by descriptor.
-                    // Match AdvancedAE: traverse providers once, and let each provider accept at most one craft in
-                    // this pass. The outer tick loop starts the next pass from the first task.
-                    List<ICraftingProvider> ordinaryCandidates = ordinaryProviders(candidateProviders);
-                    var strategyContext = new ECOCraftingDispatchStrategy.DispatchContext(
-                        details,
-                        task.progress().value,
-                        Math.max(0, maxPatterns - pushedPatterns),
-                        ordinaryCandidates,
-                        ordinaryCandidates.size()
-                    );
-                    ECOCraftingDispatchStrategy.DispatchDecision strategyDecision;
-                    try {
-                        strategyDecision = ordinaryDispatchStrategy.choose(strategyContext);
-                        if (strategyDecision == null) {
-                            throw new IllegalStateException("ordinary dispatch strategy returned null");
-                        }
-                    } catch (RuntimeException strategyFailure) {
-                        LOGGER.error("Ordinary crafting dispatch strategy failed; using provider-order fallback",
-                            strategyFailure);
-                        strategyDecision = new ECOCraftingDispatchStrategy.DispatchDecision(
-                            ordinaryCandidates, ordinaryCandidates.size());
-                    }
-                    List<ICraftingProvider> dispatchProviders = strategyDecision.providers();
-                    long runtimeLimit = job.dispatchLimit(task);
-                    int ordinaryAttemptLimit = (int) Math.min(
-                        Math.min((long) strategyDecision.maxAttempts(), (long) dispatchProviders.size()),
-                        Math.min((long) Math.max(0, maxPatterns - pushedPatterns),
-                            Math.min(task.progress().value, runtimeLimit)));
-                    if (ordinaryAttemptLimit <= 0 || dispatchProviders.isEmpty()) {
-                        reinjectPatternInputs(inventory, craftingContainer);
-                        continue taskLoop;
-                    }
-                    @Nullable KeyCounter[] pendingContainer = craftingContainer;
-                    KeyCounter pendingOutputs = extractedCraft.expectedOutputs();
-                    KeyCounter pendingContainerItems = extractedCraft.expectedContainerItems();
-                    double pendingPower = extractedCraft.patternPower();
-                    boolean acceptedAny = false;
-                    for (int providerIndex = 0; providerIndex < ordinaryAttemptLimit; providerIndex++) {
-                        ICraftingProvider provider = dispatchProviders.get(providerIndex);
-                        if (task.progress().value <= 0 || pushedPatterns >= maxPatterns || pendingContainer == null) {
-                            break;
-                        }
-                        final Map<AEKey, Long> pendingConsumed;
-                        try {
-                            pendingConsumed = consumedInputs(pendingContainer);
-                            validateRuntimeConsumption(job, pendingConsumed);
-                        } catch (RuntimeException invalidConsumption) {
-                            reinjectPatternInputs(inventory, pendingContainer);
-                            pendingContainer = null;
-                            batchDispatcher.logBatchRejection(1L, task.progress().value, invalidConsumption);
-                            break;
-                        }
-                        if (provider.isBusy()) {
-                            continue;
-                        }
-                        boolean flatRateProvider = paysFlatRateCraftingPower(provider);
-                        if (!flatRateProvider && energyService.extractAEPower(pendingPower, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < pendingPower - 0.01) {
-                            break;
-                        }
-                        // Reuse the extraction only while it is still the first craft. Every later provider gets a
-                        // freshly extracted container; reusing the first execution would hand a provider stale
-                        // inputs after the previous provider accepted its craft.
-                        @Nullable ECOExtractedPatternExecution pendingExecution = acceptedAny ? null : execution;
-                        final boolean accepted;
-                        try {
-                            // This exact call site is part of the integration contract with dynamic-output provider
-                            // mixins. Do not move it into a helper without updating those mixins.
-                            if (provider instanceof ECOCraftingPatternBusBlockEntity && pendingExecution == null) {
-                                pendingExecution = ECOExtractedPatternExecution.create(details, pendingContainer,
-                                    pendingOutputs, pendingContainerItems, level);
-                            }
-                            accepted = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                ? patternBus.pushPattern(pendingExecution, job.link.getCraftingID())
-                                : provider.pushPattern(details, pendingContainer);
-                        } catch (RuntimeException failure) {
-                            LOGGER.error("Crafting provider rejected a pattern with an exception; CPU retains inputs",
-                                failure);
-                            continue;
-                        }
-                        if (!accepted) {
-                            continue;
-                        }
-                        // The provider owns this exact extraction from the successful call onward. Clear the
-                        // CPU-owned reference before any task bookkeeping can finish the job or exhaust the pass;
-                        // otherwise the final fallback below would inject already-transferred inputs a second time.
-                        pendingContainer = null;
-                        if (!flatRateProvider) chargeAcceptedPatternEnergy(energyService, pendingPower);
-                        accounting.recordPushedPattern(job, pendingOutputs, pendingContainerItems);
-                        DispatchResult single = new DispatchResult.Accepted(1L, pendingConsumed);
-                        pushedPatterns++;
-                        acceptedAny = true;
-                        if (this.job != job) break taskLoop;
-                        job.applyDispatchResultAndGetNewlyReady(task, single);
-                        if (task.progress().value <= 0 || pushedPatterns >= maxPatterns) {
-                            break;
-                        }
-
-                        // A provider call owns this craft now. Prepare the next craft only for the next provider in
-                        // this pass, exactly like AdvancedAE's provider loop.
-                        KeyCounter nextOutputs = new KeyCounter();
-                        KeyCounter nextContainerItems = new KeyCounter();
-                        pendingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, nextOutputs, nextContainerItems);
-                        pendingOutputs = nextOutputs;
-                        pendingContainerItems = nextContainerItems;
-                        pendingPower = pendingContainer == null
-                            ? 0.0D : CraftingCpuHelper.calculatePatternPower(pendingContainer);
-                    }
-                    if (this.job == job && pendingContainer != null) {
-                        // The final unaccepted craft remains CPU-owned after the last provider was tried. If the
-                        // accepted craft finished or replaced the job, the provider already owns this container and
-                        // it must never be re-injected here.
-                        reinjectPatternInputs(inventory, pendingContainer);
-                    }
-                }
+        var current = job;
+        if (current == null || maxPatterns <= 0) return 0;
+        var it = current.tasks.entrySet().iterator();
+        while (it.hasNext()) {
+            var task = it.next();
+            if (task.getValue().value <= 0L) {
+                it.remove();
+                continue;
             }
-        } finally {
-            statusChanges.endBatch(this.job == job ? job::flushRuntimeTick : null);
+            var pattern = task.getKey();
+            var outputs = new KeyCounter();
+            var containers = new KeyCounter();
+            var inputs = CraftingCpuHelper.extractPatternInputs(pattern, inventory, level, outputs, containers);
+            // Missing intermediates do not prevent their upstream recipes from running.
+            if (inputs == null) continue;
+            boolean accepted = false;
+            try {
+                for (var provider : collectAvailableProviders(craftingService, pattern)) {
+                    if (provider.isBusy()) continue;
+                    double power = CraftingCpuHelper.calculatePatternPower(inputs);
+                    if (energyService.extractAEPower(power, Actionable.SIMULATE,
+                            PowerMultiplier.CONFIG) < power - 0.01) return 0;
+                    accepted = ECOSingleCraftingExecutor.pushPattern(
+                        provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
+                    if (!accepted) return 0;
+                    energyService.extractAEPower(power, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    for (var output : outputs) {
+                        current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
+                    }
+                    for (var container : containers) {
+                        current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
+                        current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
+                    }
+                    task.getValue().value--;
+                    for (var output : pattern.getOutputs()) postChange(output.what());
+                    markCpuDirty();
+                    return 1;
+                }
+                return 0;
+            } finally {
+                // AE2's extraction helper removes inputs before the push. A rejection returns them to inventory.
+                if (!accepted) CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);
+            }
         }
-
-        job.recordDynamicCyclePass(pushedPatterns > 0,
-            runnableTasks > 0 && tasksMissingInputs == runnableTasks);
-        job.recordRuntimeSchedulingPass(pushedPatterns > 0,
-            runnableTasks > 0 && tasksMissingInputs == runnableTasks);
-        return pushedPatterns;
+        return 0;
     }
 
-    /**
-     * 由 CraftingService 以 Integer.MAX_VALUE 优先级调用，用于注入正在等待的物品。
-     *
-     * @return 已消耗数量。
-     */
+    /** Accept only outstanding outputs; every accepted item becomes physical CPU inventory. */
     public long insert(AEKey what, long amount, Actionable type) {
-        // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插入
-        if (what == null || amount <= 0L || job == null)
-            return 0;
-        if (deliveringBufferedFinalOutput && job.finalOutput != null && what.matches(job.finalOutput)) {
-            return 0L;
-        }
-
-        // 只接收正在等待的物品。
-        var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
-        if (waitingFor <= 0) {
-            return 0;
-        }
-
-        // 确保不接收超出等待数量的物品。
-        if (amount > waitingFor) {
-            amount = waitingFor;
-        }
-
-        if (type == Actionable.MODULATE && !what.matches(job.finalOutput)) {
-            job.timeTracker.decrementItems(amount, what.getType());
-            job.waitingFor.extract(what, amount, Actionable.MODULATE);
+        var current = job;
+        if (what == null || amount <= 0L || current == null) return 0L;
+        if (deliveringFinalOutput && what.matches(current.finalOutput)) return 0L;
+        long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
+        if (accepted <= 0L) return 0L;
+        if (type == Actionable.MODULATE) {
+            inventory.insert(what, accepted, Actionable.MODULATE);
+            current.waitingFor.extract(what, accepted, Actionable.MODULATE);
+            current.timeTracker.decrementItems(accepted, what.getType());
             markCpuDirty();
         }
-
-        if (what.matches(job.finalOutput)) {
-            ExecutingCraftingJob currentJob = job;
-            long reserveTarget = currentJob.finalOutputFeedbackReserve(what);
-            long alreadyReserved = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
-            long toReserve = Math.min(amount, Math.max(0L, reserveTarget - alreadyReserved));
-            inventory.insert(what, toReserve, type);
-            long reserved = toReserve;
-            long acceptedOwnership = Math.addExact(reserved,
-                currentJob.bufferedFinalOutput.accept(amount - reserved, type));
-            if (type == Actionable.MODULATE && acceptedOwnership > 0L) {
-                // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
-                // retry or make this CPU accept the same physical output again.
-                currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
-                currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
-                // A CPU ownership event is emitted only after the inventory/buffer accepted the physical stack.
-                if (currentJob.runtimeExecutionState() != null) {
-                    currentJob.runtimeExecutionState().acceptOutput(what, acceptedOwnership);
-                }
-                postChange(what);
-                markCpuDirty();
-                drainBufferedFinalOutput(currentJob);
-            }
-            return acceptedOwnership;
-        } else {
-            if (type == Actionable.MODULATE) {
-                ExecutingCraftingJob currentJob = job;
-                inventory.insert(what, amount, Actionable.MODULATE);
-                long accepted = amount;
-                if (currentJob.runtimeExecutionState() != null) {
-                    currentJob.runtimeExecutionState().acceptOutput(what, accepted);
-                }
-                if (job == currentJob && isFinalOutputSatisfied(currentJob)) {
-                    finishJob(true);
-                }
-                return accepted;
-            }
-        }
-
-        return amount;
+        return accepted;
     }
 
     /**
@@ -673,61 +309,12 @@ public class ECOCraftingCPULogic {
         return craftingJobId != null && job != null && craftingJobId.equals(job.link.getCraftingID());
     }
 
-    private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
-        if (job == null || amount <= 0L) {
-            return 0L;
-        }
-        if (!job.link.isStandalone()) {
-            return job.link.insert(what, amount, mode);
-        }
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return 0L;
-        }
-        return grid.getStorageService().getInventory().insert(what, amount, mode, cpu.getActionSource());
-    }
-
-    private static long validateInsertionAmount(long inserted, long requested, String target) {
-        if (inserted < 0L || inserted > requested) {
-            throw new IllegalStateException(
-                "Invalid insertion result from " + target + ": " + inserted + " for " + requested
-            );
-        }
-        return inserted;
-    }
-
-    private void initializeRuntimeOwnershipFromPhysicalState(ExecutingCraftingJob currentJob, boolean recovering) {
-        RuntimeExecutionState state = currentJob.runtimeExecutionState();
-        if (state == null) return;
-        Map<AEKey, Long> physical = new LinkedHashMap<>();
-        for (var entry : inventory.list) physical.merge(entry.getKey(), entry.getLongValue(), Math::addExact);
-        if (currentJob.finalOutput != null && currentJob.bufferedFinalOutput.amount() > 0L) {
-            physical.merge(currentJob.finalOutput.what(), currentJob.bufferedFinalOutput.amount(), Math::addExact);
-        }
-        if (recovering && !state.ownershipSnapshot().equals(physical)) {
-            LOGGER.error("Persisted ownership does not match CPU inventory and final-output buffer; blocking recovery");
-            currentJob.blockRecovery();
-            return;
-        }
-        state.restoreOwnership(physical);
-    }
-
-    private void logFinalOutputDeliveryFailure(RuntimeException e) {
-        long tick = TickHandler.instance().getCurrentTick();
-        long elapsed = tick - lastFinalOutputDeliveryFailureLogTick;
-        if (lastFinalOutputDeliveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
-            lastFinalOutputDeliveryFailureLogTick = tick;
-            LOGGER.error("ECO final-output delivery failed; the CPU-owned output remains buffered", e);
-        }
-    }
-
     /**
      * 完成当前合成任务。
      *
      * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
-        preserveBufferedFinalOutput();
         if (success) {
             job.link.markDone();
         } else {
@@ -748,45 +335,11 @@ public class ECOCraftingCPULogic {
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
-        RuntimeExecutionState runtimeState = job.runtimeExecutionState();
-        if (runtimeState != null) {
-            for (var owned : runtimeState.ownershipSnapshot().entrySet()) {
-                if (owned.getValue() > 0L) runtimeState.releaseExternal(owned.getKey(), owned.getValue());
-            }
-        }
-
         // 结束任务。
         this.job = null;
-        if (!statusChanges.isBatching()) statusChanges.initialize(null);
 
         // 存储所有剩余物品。
         this.storeItems();
-    }
-
-    private void preserveBufferedFinalOutput() {
-        long buffered = job.bufferedFinalOutput.amount();
-        if (buffered <= 0L) {
-            return;
-        }
-        if (job.finalOutput == null) {
-            LOGGER.error(
-                "Discarding {} buffered final-output units because their persisted key is invalid",
-                buffered
-            );
-            job.bufferedFinalOutput.removeDelivered(buffered);
-            markCpuDirty();
-            return;
-        }
-        AEKey key = job.finalOutput.what();
-        long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
-        // Overflow guard only: fail loudly rather than silently wrapping the CPU's own item ledger.
-        Math.addExact(stored, buffered);
-
-        // Move ownership between the two local ledgers before notifying observers.
-        inventory.list.add(key, buffered);
-        job.bufferedFinalOutput.removeDelivered(buffered);
-        postChange(key);
-        markCpuDirty();
     }
 
     /**
@@ -808,9 +361,7 @@ public class ECOCraftingCPULogic {
             return;
         }
         var storage = grid.getStorageService().getInventory();
-        // A batch may have been accepted by a worker in another Network Switch member. Recover by job id from
-        // every worker still on this AE grid, rather than following today's switch topology through Pattern
-        // Buses: the group may have split or been rebuilt since ownership was transferred.
+        // Recover pre-downgrade worker jobs that still carry a crafting link id.
         for (ECOCraftingWorkerBlockEntity worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
             worker.recoverJobToNetwork(craftingJobId, storage);
         }
@@ -845,7 +396,8 @@ public class ECOCraftingCPULogic {
     }
 
     private void postChange(@Nullable AEKey what) {
-        statusChanges.postChange(what);
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        notifyListeners(what);
     }
 
     private void notifyListeners(@Nullable AEKey what) {
@@ -853,7 +405,7 @@ public class ECOCraftingCPULogic {
     }
 
     private void markCpuDirty() {
-        statusChanges.markDirty();
+        cpu.markDirty();
     }
 
     public boolean hasJob() {
@@ -880,9 +432,13 @@ public class ECOCraftingCPULogic {
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
-            this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
-            initializeRuntimeOwnershipFromPhysicalState(this.job, true);
-            statusChanges.initialize(this.job.runtimeExecutionState());
+            var jobData = data.getCompound("job");
+            this.job = new ExecutingCraftingJob(jobData, registries, this::postChange, this);
+            // One-time migration of physical items held in the former separate final-output buffer.
+            long buffered = jobData.getLong("bufferedFinalOutput");
+            if (buffered > 0L && job.finalOutput != null) {
+                inventory.insert(job.finalOutput.what(), buffered, Actionable.MODULATE);
+            }
             if (this.job.finalOutput == null) {
                 finishJob(false);
             }
@@ -893,6 +449,8 @@ public class ECOCraftingCPULogic {
         data.put("inventory", this.inventory.writeToNBT(registries));
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
+        } else {
+            data.remove("job");
         }
     }
 
@@ -916,12 +474,7 @@ public class ECOCraftingCPULogic {
     }
 
     public long getStored(AEKey template) {
-        long stored = this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
-        if (job != null && job.finalOutput != null && template.matches(job.finalOutput)) {
-            long buffered = job.bufferedFinalOutput.amount();
-            return stored > Long.MAX_VALUE - buffered ? Long.MAX_VALUE : stored + buffered;
-        }
-        return stored;
+        return this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
     }
 
     public long getWaitingFor(AEKey template) {
@@ -959,9 +512,6 @@ public class ECOCraftingCPULogic {
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);
         if (this.job != null) {
-            if (job.finalOutput != null && job.bufferedFinalOutput.amount() > 0L) {
-                out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
-            }
             out.addAll(job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
@@ -974,17 +524,11 @@ public class ECOCraftingCPULogic {
     /** Collects only items physically owned by this CPU, excluding planned and in-flight outputs. */
     public void getOwnedItems(KeyCounter out) {
         out.addAll(this.inventory.list);
-        if (this.job != null && this.job.finalOutput != null && this.job.bufferedFinalOutput.amount() > 0L) {
-            out.add(this.job.finalOutput.what(), this.job.bufferedFinalOutput.amount());
-        }
     }
 
     /** Allocation-free counterpart of {@link #getOwnedItems(KeyCounter)}; must cover the same ledgers. */
     public boolean hasOwnedItems() {
-        if (!this.inventory.list.isEmpty()) {
-            return true;
-        }
-        return this.job != null && this.job.finalOutput != null && this.job.bufferedFinalOutput.amount() > 0L;
+        return !this.inventory.list.isEmpty();
     }
 
     public boolean isJobSuspended() {
@@ -993,14 +537,13 @@ public class ECOCraftingCPULogic {
 
     /** Stable diagnostic hook for CPU menus/integrations; null means the job is still executable. */
     public @Nullable String getPermanentExecutionError() {
-        return job == null || job.permanentExecutionError == null
-            ? null
-            : job.permanentExecutionError.name();
+        return null;
     }
 
     public void setJobSuspended(boolean suspended) {
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
+            markCpuDirty();
         }
     }
 
