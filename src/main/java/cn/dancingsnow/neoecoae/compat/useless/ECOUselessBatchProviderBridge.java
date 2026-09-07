@@ -16,10 +16,13 @@ import org.slf4j.LoggerFactory;
 public final class ECOUselessBatchProviderBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final ReflectionApi API = ReflectionApi.load();
+    private static final boolean SCALED_API_AVAILABLE = hasScaledApi();
 
     private ECOUselessBatchProviderBridge() {}
 
     public static boolean supports(ICraftingProvider provider) {
+        if (SCALED_API_AVAILABLE) return ECOUselessScaledBatchDispatch.supports(provider)
+            && ECOUselessDynamicOutputBridge.isAvailable();
         if (API == null || !ECOUselessDynamicOutputBridge.isAvailable()) return false;
         try {
             return (boolean) API.supports.invoke(null, provider);
@@ -32,12 +35,60 @@ public final class ECOUselessBatchProviderBridge {
     @Nullable
     public static ECOBatchCapacityProvider adapt(ICraftingProvider provider) {
         if (!supports(provider)) return null;
+        if (SCALED_API_AVAILABLE) return new ECOUselessScaledBatchDispatch(provider);
         try {
             Object dispatcher = API.forProvider.invoke(null, provider);
             return dispatcher == null ? null : new Adapter(API, dispatcher);
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
             LOGGER.debug("Useless batch provider adapter unavailable", unavailable);
             return null;
+        }
+    }
+
+    private static boolean hasScaledApi() {
+        ClassLoader loader = ECOUselessBatchProviderBridge.class.getClassLoader();
+        Class<?> patterns;
+        try {
+            patterns = Class.forName(
+                "com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.SmartDoublingPatterns",
+                false, loader);
+        } catch (ClassNotFoundException | LinkageError unavailable) {
+            return false;
+        }
+        try {
+            validateScaledApi(patterns, Class.forName(
+                "com.sorrowmist.useless.content.recipe.AdvancedAlloyFurnaceRecipe", false, loader));
+            return true;
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            LOGGER.warn("Useless scaled batch API is incompatible; using legacy/ordinary dispatch. "
+                + "Use Useless 1.21.1-2.3.4 for scaled batching", unavailable);
+            return false;
+        }
+    }
+
+    /** Probe without linking the adapter: older releases have scale() but lack manual operation resolution. */
+    static void validateScaledApi(Class<?> patterns, Class<?> recipe) throws NoSuchMethodException {
+        requireStaticMethod(patterns, "scale", null, IPatternDetails.class, long.class);
+        if (!IPatternDetails.class.isAssignableFrom(
+                patterns.getMethod("scale", IPatternDetails.class, long.class).getReturnType())) {
+            throw new NoSuchMethodException("scale must return a pattern");
+        }
+        requireStaticMethod(patterns, "manualOperationsPerPattern", long.class, recipe, IPatternDetails.class);
+        requireStaticMethod(patterns, "maximumSafeMultiplier", long.class, IPatternDetails.class);
+        requireStaticMethod(patterns, "resolve", null, IPatternDetails.class);
+        Class<?> resolved = patterns.getMethod("resolve", IPatternDetails.class).getReturnType();
+        if (resolved.getMethod("pattern").getReturnType() != IPatternDetails.class
+                || resolved.getMethod("operationsPerPush").getReturnType() != long.class) {
+            throw new NoSuchMethodException("Incompatible smart-doubling resolved pattern");
+        }
+    }
+
+    private static void requireStaticMethod(Class<?> owner, String name, @Nullable Class<?> result,
+            Class<?>... parameters) throws NoSuchMethodException {
+        Method method = owner.getMethod(name, parameters);
+        if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())
+                || (result != null && method.getReturnType() != result)) {
+            throw new NoSuchMethodException("Incompatible " + owner.getName() + "." + name);
         }
     }
 

@@ -119,6 +119,9 @@ dependencies {
 
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
+    // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
+    compileOnly("maven.modrinth:a-useless-mod:g6crCRbB") { transitive = false }
+
     // Optional transfer fast path. Never place this on the default runtime classpath.
     compileOnly("maven.modrinth:sophisticated-core:1.21.1-1.4.90.2299")
 

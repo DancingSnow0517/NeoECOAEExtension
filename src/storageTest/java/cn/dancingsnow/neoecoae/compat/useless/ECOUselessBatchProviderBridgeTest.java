@@ -83,6 +83,37 @@ class ECOUselessBatchProviderBridgeTest {
         assertNull(ECOUselessBatchProviderBridge.adapt(ordinary));
     }
 
+    @Test void oldScaledApiIsRejectedBeforeTheAdapterCanLinkMissingMethods() {
+        assertThrows(NoSuchMethodException.class,
+            () -> ECOUselessBatchProviderBridge.validateScaledApi(OldScaledApi.class, Object.class));
+    }
+
+    @Test void completeScaledApiIsAccepted() {
+        assertDoesNotThrow(
+            () -> ECOUselessBatchProviderBridge.validateScaledApi(CurrentScaledApi.class, Object.class));
+    }
+
+    @Test void changedManualCountReturnTypeIsRejected() {
+        assertThrows(NoSuchMethodException.class,
+            () -> ECOUselessBatchProviderBridge.validateScaledApi(WrongScaledApi.class, Object.class));
+    }
+
+    public static class OldScaledApi {
+        public static IPatternDetails scale(IPatternDetails pattern, long count) { return pattern; }
+        public static long maximumSafeMultiplier(IPatternDetails pattern) { return Long.MAX_VALUE; }
+        public static ScaledResolved resolve(IPatternDetails pattern) { return new ScaledResolved(pattern, 1); }
+    }
+
+    public static class CurrentScaledApi extends OldScaledApi {
+        public static long manualOperationsPerPattern(Object recipe, IPatternDetails pattern) { return 1; }
+    }
+
+    public static class WrongScaledApi extends OldScaledApi {
+        public static int manualOperationsPerPattern(Object recipe, IPatternDetails pattern) { return 1; }
+    }
+
+    public record ScaledResolved(IPatternDetails pattern, long operationsPerPush) {}
+
     private static ECOUselessBatchProviderBridge.Adapter adapter(Dispatcher target) throws Exception {
         return new ECOUselessBatchProviderBridge.Adapter(
             ECOUselessBatchProviderBridge.ReflectionApi.resolve(Dispatcher.class), target);
@@ -93,7 +124,19 @@ class ECOUselessBatchProviderBridgeTest {
             List.of(List.of(new GenericStack(INPUT, 2))), List.of(), List.of(), null, null);
     }
 
-    private static PreparedBatch batch(ECOUselessBatchProviderBridge.Adapter adapter, int count) {
+    @Test void legacyBatchApiAlsoPreservesFiftyBillionCopies() throws Exception {
+        long count = 50_000_000_000L;
+        var target = new Dispatcher();
+        target.capacity = count;
+        var inventory = new ListCraftingInventory(key -> {});
+        inventory.insert(INPUT, count * 2, Actionable.MODULATE);
+        assertTrue(batch(adapter(target), count).push(inventory));
+        assertEquals(1, target.pushes);
+        assertEquals(count, target.accepted);
+        assertEquals(0, inventory.list.get(INPUT));
+    }
+
+    private static PreparedBatch batch(ECOUselessBatchProviderBridge.Adapter adapter, long count) {
         return new PreparedBatch(count, List.of(new GenericStack(INPUT, 2L * count)),
             List.of(), List.of(), 0, () -> adapter.eco$pushBatch(context(), count));
     }

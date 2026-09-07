@@ -164,6 +164,37 @@ class ECOCraftingDispatchRegressionTest {
         assertEquals(400_000, f.logic.getWaitingFor(OUTPUT));
     }
 
+    @Test void longBatchKeepsFullTaskAndOutputAccountingThroughCpuEntryPoint() throws Exception {
+        long count = 50_000_000_000L;
+        var f = new Fixture(count);
+        var lane = new Lane() {
+            @Override public long eco$getBatchCapacity(ECOBatchDispatchContext context) { return count; }
+        };
+        f.providers = List.of(lane);
+        assertEquals(Integer.MAX_VALUE, f.logic.executeCrafting(1, f.crafting, f.energy, level));
+        assertEquals(count, lane.accepted);
+        assertEquals(0, f.logic.getJob().tasks.get(f.pattern).value);
+        assertEquals(0, f.logic.getStored(INPUT));
+        assertEquals(count, f.logic.getWaitingFor(OUTPUT));
+    }
+
+    @Test void rejectedLongBatchRestoresAllInputsWithoutAdvancingTheTask() throws Exception {
+        long count = 50_000_000_000L;
+        var f = new Fixture(count);
+        f.providers = List.of(new Lane() {
+            @Override public long eco$getBatchCapacity(ECOBatchDispatchContext context) { return count; }
+            @Override public boolean eco$pushBatch(ECOBatchDispatchContext context, long requested) {
+                assertEquals(count, requested);
+                assertEquals(0, f.logic.getStored(INPUT));
+                return false;
+            }
+        });
+        assertEquals(0, f.logic.executeCrafting(1, f.crafting, f.energy, level));
+        assertEquals(count, f.logic.getStored(INPUT));
+        assertEquals(count, f.logic.getJob().tasks.get(f.pattern).value);
+        assertEquals(0, f.logic.getWaitingFor(OUTPUT));
+    }
+
     private static class Lane implements ICraftingProvider, ECOBatchCapacityProvider {
         long accepted;
         public List<IPatternDetails> getAvailablePatterns() { return List.of(); }

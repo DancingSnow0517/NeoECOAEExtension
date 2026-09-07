@@ -30,7 +30,7 @@ public final class ECOBatchCraftingExecutor {
     public static PreparedBatch prepare(
             ECOBatchCapacityProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
-            ListCraftingInventory inventory, int maxCrafts, IEnergyService energyService,
+            ListCraftingInventory inventory, long maxCrafts, IEnergyService energyService,
             Level level, UUID craftingJobId) {
         if (maxCrafts <= 0) return null;
         try {
@@ -39,13 +39,13 @@ public final class ECOBatchCraftingExecutor {
             long capacity = Math.max(0L, provider.eco$getBatchCapacity(context));
             if (capacity == 0L) return null;
             var perCopy = context.inputItems();
-            int requested = (int) Math.min(maxCrafts, Math.min(capacity,
+            long requested = Math.min(maxCrafts, Math.min(capacity,
                 ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
                     perCopy, context.outputs(), context.containerItems())));
             if (requested <= 0) return null;
             requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
             double power = CraftingCpuHelper.calculatePatternPower(inputs);
-            int size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
+            long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
             if (size <= 0) return null;
             return new PreparedBatch(size, ECOBatchCraftingHelper.multiply(perCopy, size),
@@ -58,7 +58,7 @@ public final class ECOBatchCraftingExecutor {
         }
     }
 
-    public record PreparedBatch(int craftCount, List<GenericStack> inputTotal,
+    public record PreparedBatch(long craftCount, List<GenericStack> inputTotal,
             List<GenericStack> outputs, List<GenericStack> remainders,
             double power, BooleanSupplier dispatch) {
         public PreparedBatch {

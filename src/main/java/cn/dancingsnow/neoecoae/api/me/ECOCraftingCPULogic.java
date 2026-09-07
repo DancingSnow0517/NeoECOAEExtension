@@ -281,14 +281,14 @@ public class ECOCraftingCPULogic {
             boolean accepted = false;
             boolean singleInputsExtracted = false;
             try {
-                int craftCount = 1;
+                long craftCount = 1L;
                 double power = CraftingCpuHelper.calculatePatternPower(inputs);
                 var capacityProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
                     ? nativeProvider : ECOUselessBatchProviderBridge.adapt(provider);
                 ECOUselessDynamicOutputBridge.Registration batchRegistration = null;
                 var batch = capacityProvider != null
                     ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
-                        inventory, (int) Math.min(task.getValue().value, Integer.MAX_VALUE),
+                        inventory, task.getValue().value,
                         energyService, level, current.link.getCraftingID())
                     : null;
                 if (batch != null) {
@@ -352,7 +352,8 @@ public class ECOCraftingCPULogic {
                 }
                 for (var output : pattern.getOutputs()) postChange(output.what());
                 markCpuDirty();
-                return craftCount;
+                // Keep the int Mixin entry point; job accounting above retains the full long count.
+                return (int) Math.min(craftCount, Integer.MAX_VALUE);
             } finally {
                 // Batch dispatch restores its own full extraction; only the single fallback is owned here.
                 if (!accepted && singleInputsExtracted) CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);
