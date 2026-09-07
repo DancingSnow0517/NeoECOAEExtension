@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -13,46 +14,46 @@ import org.jetbrains.annotations.Nullable;
 
 /** Transient provider traversal only; contains no job progress or material state. */
 final class ECOProviderCursor {
-    private static final int CHECKS_PER_TICK = 64;
-
     private final Map<IPatternDetails, Cursor> cursors = new HashMap<>();
     private CraftingService service;
     private long revision;
-    private long budgetTick = Long.MIN_VALUE;
-    private int remainingChecks;
+    private long tick;
 
-    boolean beginPass(CraftingService currentService, long tick) {
-        if (budgetTick != tick) {
-            budgetTick = tick;
-            remainingChecks = CHECKS_PER_TICK;
-        }
-        // Without the revision extension, only retain a snapshot for the current tick.
+    void beginPass(CraftingService currentService, long tick) {
+        this.tick = tick;
         long currentRevision = currentService instanceof ECOCraftingProviderRevision source
-            ? source.neoecoae$getProviderRevision() : tick;
+            ? source.neoecoae$getProviderRevision() : 0;
         if (service != currentService || revision != currentRevision) {
             cursors.clear();
             service = currentService;
             revision = currentRevision;
         }
-        return remainingChecks > 0;
     }
 
     @Nullable
     ICraftingProvider nextAvailable(IPatternDetails pattern,
-            Supplier<Iterable<ICraftingProvider>> providers) {
-        if (remainingChecks <= 0) return null;
-        Cursor cursor = cursors.computeIfAbsent(pattern, ignored -> {
+            Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
+        Cursor previous = cursors.get(pattern);
+        Cursor cursor = previous;
+        if (cursor == null || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
             var snapshot = new ArrayList<ICraftingProvider>();
             providers.get().forEach(snapshot::add);
-            return new Cursor(List.copyOf(snapshot));
-        });
-        int checks = Math.min(remainingChecks, cursor.providers.size());
+            cursor = new Cursor(List.copyOf(snapshot), tick);
+            // Refresh fallback snapshots each tick while preserving the next live provider by identity.
+            if (previous != null && !previous.providers.isEmpty()) {
+                var nextProvider = previous.providers.get(previous.next);
+                for (int i = 0; i < snapshot.size(); i++) {
+                    if (snapshot.get(i) == nextProvider) { cursor.next = i; break; }
+                }
+            }
+            cursors.put(pattern, cursor);
+        }
+        int checks = cursor.providers.size();
         while (checks-- > 0) {
             var provider = cursor.providers.get(cursor.next);
             cursor.next = (cursor.next + 1) % cursor.providers.size();
-            remainingChecks--;
             // Advance before returning, so rejection resumes at the next provider next tick.
-            if (!provider.isBusy()) return provider;
+            if (eligible.test(provider) && !provider.isBusy()) return provider;
         }
         return null;
     }
@@ -64,15 +65,16 @@ final class ECOProviderCursor {
     void clear() {
         cursors.clear();
         service = null;
-        // Do not replenish the shared tick budget when a job finishes or is replaced.
     }
 
     private static final class Cursor {
         final List<ICraftingProvider> providers;
+        final long tick;
         int next;
 
-        Cursor(List<ICraftingProvider> providers) {
+        Cursor(List<ICraftingProvider> providers, long tick) {
             this.providers = providers;
+            this.tick = tick;
         }
     }
 }

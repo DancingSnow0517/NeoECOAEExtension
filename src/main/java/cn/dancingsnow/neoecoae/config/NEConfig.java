@@ -103,6 +103,7 @@ public class NEConfig {
             "实际值仍会受可用协处理器数量限制。",
             "当前上限为 393216；后续动态发配策略接入后再调整。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
+            "Verified FastPath batches do not consume this limit.",
             "The effective value is still limited by the number of available co-processors.",
             "The temporary hard ceiling is 393216 until adaptive dispatch is integrated.")
         .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);

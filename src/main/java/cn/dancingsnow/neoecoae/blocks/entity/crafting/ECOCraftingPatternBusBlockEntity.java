@@ -21,6 +21,8 @@ import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
@@ -77,7 +79,8 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
+    ECOBatchCapacityProvider {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -181,7 +184,48 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return false;
     }
 
-    public boolean pushBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {
+    @Override
+    public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
+        var controller = getCraftingController();
+        if (controller == null || context.level() != getLevel()) return 0;
+        var execution = context.execution();
+        if (!execution.canUseFastPath()) return 0;
+        if (controller.isFullVirtualCraftingMode()) {
+            var offer = findVirtualFastPathOffer(execution);
+            return offer != null && linearRecipe(offer.recipe(), execution)
+                ? Math.min(Integer.MAX_VALUE, offer.recipe().arithmeticBatchLimit()) : 0;
+        }
+        var offer = findBatchFastPathOffer(execution, Integer.MAX_VALUE);
+        if (offer == null || !linearRecipe(offer.recipe(), execution)) return 0;
+        return Math.max(0, controller.getCraftingCoolantCraftLimit(
+            5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()));
+    }
+
+    @Override
+    public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
+        if (craftCount <= 0 || craftCount > Integer.MAX_VALUE
+                || craftCount > eco$getBatchCapacity(context)) return false;
+        var execution = context.execution();
+        var controller = getCraftingController();
+        if (controller == null) return false;
+        if (controller.isFullVirtualCraftingMode()) {
+            var offer = findVirtualFastPathOffer(execution);
+            if (offer == null || !linearRecipe(offer.recipe(), execution)) return false;
+            var verified = offer.recipe().withVirtualBatch(craftCount, context.craftingJobId());
+            return verified != null && pushVirtualBatch(verified, offer);
+        }
+        var offer = findBatchFastPathOffer(execution, (int) craftCount);
+        if (offer == null || !linearRecipe(offer.recipe(), execution)) return false;
+        var verified = offer.recipe().withBatch((int) craftCount, context.craftingJobId());
+        return verified != null && acceptVerifiedBatch(verified, offer);
+    }
+
+    private static boolean linearRecipe(ECOVerifiedFastPathRecipe recipe, ECOExtractedPatternExecution execution) {
+        // A reusable-state chain does not consume N identical complete copies of its first input.
+        return recipe.batchSafe() && recipe.reusableStateModel() == null && recipe.isVerifiedFor(execution);
+    }
+
+    public boolean acceptVerifiedBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {
         if (offer == null || cluster == null) {
             return false;
         }
@@ -199,17 +243,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return false;
         }
         return worker.pushBatch(verified);
-    }
-
-    /** Compatibility entry point retained for crafting_tracker releases built against the pre-verification API. */
-    @Deprecated(forRemoval = false)
-    public boolean pushBatch(cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest request,
-            @Nullable BatchFastPathOffer offer) {
-        if (request == null || offer == null) return false;
-        // Old requests do not carry the trusted recipe credential required by the current executor. Refuse the
-        // unsafe conversion and let the caller use its normal fallback path; the signature remains available for
-        // legacy Mixin linkage and tracking hooks.
-        return false;
     }
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {

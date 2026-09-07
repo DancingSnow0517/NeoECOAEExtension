@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
@@ -15,6 +16,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import dev.vfyjxf.taffy.style.FlexDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -87,6 +92,7 @@ public final class StorageHostLegacyUI {
         LongSupplier maxEnergy,
         LongSupplier energyConsumePerTick,
         Supplier<List<CellEntry>> cellEntries,
+        List<StorageHostPanelUI.StorageTypeLine> storageTypes,
         BooleanSupplier infiniteStorage,
         BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents,
@@ -117,14 +123,18 @@ public final class StorageHostLegacyUI {
         UIElement root = new UIElement().layout(layout -> layout
             .width(ROOT_WIDTH)
             .height(ROOT_HEIGHT)
-        ).style(style -> style.backgroundTexture(TEXTURES.background));
+        );
+        root.addChild(modeLayer(() -> !isInfinite(config))
+            .style(style -> style.backgroundTexture(TEXTURES.background)));
+        root.addChild(modeLayer(() -> isInfinite(config))
+            .style(style -> style.backgroundTexture(TEXTURES.infiniteBackground)));
 
         root.addChild(new TextElement()
             .setText(config.title().get())
             .textStyle(style -> style
                 .adaptiveHeight(true)
                 .adaptiveWidth(true)
-                .textWrap(TextWrap.HOVER_ROLL)
+                .textWrap(TextWrap.NONE)
                 .textColor(0x3F3D52)
                 .textShadow(false))
             .layout(layout -> layout
@@ -152,7 +162,8 @@ public final class StorageHostLegacyUI {
             .top(CELL_LIST_TOP)
             .width(CELL_LIST_WIDTH)
             .height(CELL_LIST_HEIGHT));
-        root.addChild(cellList);
+        root.addChild(modeLayer(() -> !isInfinite(config)).addChild(cellList));
+        root.addChild(modeLayer(() -> isInfinite(config)).addChild(infiniteTypeList(config)));
         root.addChild(infiniteComponentSlot(
             config.canExtractInfiniteComponents(),
             config.infiniteComponentInventory()
@@ -194,6 +205,74 @@ public final class StorageHostLegacyUI {
     }
 
     private static void addGraphs(UIElement root, LegacyGraphBar graphBar, Config config) {
+        UIElement infiniteGraphs = modeLayer(() -> isInfinite(config));
+        root.addChild(infiniteGraphs);
+        UIElement finiteGraphs = modeLayer(() -> !isInfinite(config));
+        root.addChild(finiteGraphs);
+        // Both peers create the same bindings before the server supplies the display mode.
+        infiniteGraphs.addChild(graph(
+            graphBar, 10, 32, 60, TEXTURES.fluidPercent,
+            () -> new Metric(config.energyConsumePerTick().getAsLong(), 0L),
+            StorageHostLegacyUI::energyUsageText, true));
+        infiniteGraphs.addChild(graph(
+            graphBar, 87, 29, 59, TEXTURES.itemType,
+            () -> new Metric(config.storedEnergy().getAsLong(), config.maxEnergy().getAsLong()),
+            metric -> percentText("gui.neoecoae.storage.legacy.graph.energy_stored", metric), false));
+        UIElement standardGraphs = modeLayer(() -> !hasKind(config, KIND_OTHER));
+        UIElement otherTypeGraphs = modeLayer(() -> hasKind(config, KIND_OTHER));
+        finiteGraphs.addChild(standardGraphs);
+        finiteGraphs.addChild(otherTypeGraphs);
+        addFiniteGraphs(standardGraphs, graphBar, config, false);
+        addFiniteGraphs(otherTypeGraphs, graphBar, config, true);
+    }
+
+    private static boolean isInfinite(Config config) {
+        return config.infiniteStorage().getAsBoolean() || config.migratingToInfinite().getAsBoolean();
+    }
+
+    private static UIElement modeLayer(BooleanSupplier visible) {
+        return HostElements.absolute(HostElements.syncedDisplay(visible), 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
+    }
+
+    private static UIElement infiniteTypeList(Config config) {
+        ScrollerView list = new ScrollerView();
+        HostElements.absolute(list, CELL_LIST_LEFT, CELL_LIST_TOP, CELL_LIST_WIDTH, CELL_LIST_HEIGHT);
+        list.scrollerStyle(style -> style.horizontalScrollDisplay(ScrollDisplay.NEVER));
+        list.viewContainer(view -> view.layout(layout -> layout.paddingAll(2).gapAll(5)
+            .flexDirection(FlexDirection.COLUMN)));
+        for (StorageHostPanelUI.StorageTypeLine line : config.storageTypes()) {
+            UIElement block = HostElements.syncedDisplay(() -> line.usedTypes().getAsLong() > 0
+                || line.usedBytes().getAsLong() > 0 || safeEntries(config.cellEntries()).stream()
+                .anyMatch(entry -> entry.typeId() == line.registryIndex()));
+            block.layout(layout -> layout.widthPercent(100).gapAll(2).flexDirection(FlexDirection.COLUMN));
+            block.addChild(compactLabel(() -> line.type().desc(),
+                HostText.storageTypeAccentColor(line.type(), line.registryIndex())));
+            block.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.legacy.cell_types",
+                HostText.ae2Amount(line.usedTypes().getAsLong()), "\u221E"), HostText.PRIMARY));
+            block.addChild(infiniteProgressBar());
+            block.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
+                line.infiniteBytesText().get(), "\u221E"), HostText.PRIMARY));
+            block.addChild(infiniteProgressBar());
+            list.addScrollViewChild(block);
+        }
+        return list;
+    }
+
+    private static UIElement compactLabel(Supplier<Component> text, int color) {
+        return HostElements.textSegment(text, () -> color)
+            .textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(TextWrap.NONE))
+            .layout(layout -> layout.widthPercent(100).height(8));
+    }
+
+    private static UIElement infiniteProgressBar() {
+        return new ProgressBar().label(label -> label.setText(""))
+            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
+            .bind(DataBindingBuilder.floatValS2C(() -> 1.0F).build())
+            .addClass("eco-host-progress")
+            .layout(layout -> layout.widthPercent(100).height(4));
+    }
+
+    private static void addFiniteGraphs(UIElement root, LegacyGraphBar graphBar, Config config, boolean hasOtherType) {
         root.addChild(graph(
             graphBar,
             9,
@@ -212,7 +291,6 @@ public final class StorageHostLegacyUI {
             () -> kindMetric(config, KIND_FLUID),
             metric -> percentText("gui.neoecoae.storage.legacy.graph.fluid", metric),
             true));
-        boolean hasOtherType = hasKind(config, KIND_OTHER);
         if (hasOtherType) {
             root.addChild(graph(
                 graphBar,
@@ -442,6 +520,7 @@ public final class StorageHostLegacyUI {
         private final Supplier<Metric> metricSupplier;
         private final Function<Metric, Component> textSupplier;
         private final boolean leftAlign;
+        private boolean focused;
         private Metric metric = Metric.EMPTY;
         private CompoundTag syncedTag = new CompoundTag();
 
@@ -462,10 +541,7 @@ public final class StorageHostLegacyUI {
                 ignored -> {
                 }
             ).syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                graphBar.focus(this);
-                event.hoverTooltips = HoverTooltips.empty().append(textSupplier.apply(metric));
-            });
+            // Graph focus is selected by the layout; moving the mouse must not replace the displayed metric.
         }
 
         @Override
@@ -487,10 +563,6 @@ public final class StorageHostLegacyUI {
             guiContext.graphics.pose().scale(scale, scale, 1.0F);
             guiContext.graphics.drawString(font, text, Math.round(textX), 0, HostText.PRIMARY, false);
             guiContext.graphics.pose().popPose();
-        }
-
-        private Metric metric() {
-            return metric;
         }
 
         @Override
@@ -515,9 +587,8 @@ public final class StorageHostLegacyUI {
         private static final int INFINITE_COLOR = 0xD8CA6CFF;
 
         private final Supplier<Metric> defaultMetric;
+        private final StorageHostAnimatedRatio animatedRatio = new StorageHostAnimatedRatio();
         private Metric syncedMetric = Metric.EMPTY;
-        @Nullable
-        private LegacyGraphElement focused;
         private CompoundTag syncedTag = new CompoundTag();
 
         private LegacyGraphBar(Supplier<Metric> defaultMetric) {
@@ -530,25 +601,27 @@ public final class StorageHostLegacyUI {
         }
 
         private void focus(LegacyGraphElement graph) {
-            focused = graph;
+            graph.focused = true;
         }
 
         private boolean isFocused(LegacyGraphElement graph) {
-            return focused == graph;
+            return graph.focused;
         }
 
         @Override
         public void drawContents(GUIContext guiContext) {
             super.drawContents(guiContext);
-            Metric metric = focused == null ? syncedMetric : focused.metric();
+            Metric metric = syncedMetric;
             boolean infinite = metric.total() < 0L;
-            float ratio = infinite ? 1.0F : HostText.usageRatio(metric.used(), metric.total());
-            if (ratio <= 0.0F && !infinite) {
+            float targetRatio = infinite ? -1.0F : HostText.usageRatio(metric.used(), metric.total());
+            animatedRatio.setTarget(targetRatio);
+            float ratio = (float) animatedRatio.value();
+            if (ratio <= 0.0F) {
                 return;
             }
             float bottom = getPositionY() + getSizeHeight();
             float bodyHeight = Math.max(0.0F, getSizeHeight() - CAP_HEIGHT);
-            float barHeight = infinite ? bodyHeight : Math.round(bodyHeight * ratio);
+            float barHeight = Math.round(bodyHeight * ratio);
             float top = bottom - barHeight - CAP_HEIGHT;
             int color = infinite ? INFINITE_COLOR : HostText.gaugeColor(ratio);
             SpriteTexture topTexture = TEXTURES.gaugeTop.copy().setColor(color);
@@ -805,6 +878,8 @@ public final class StorageHostLegacyUI {
     private static final class ResourceLocations {
         private final SpriteTexture background = sprite(
             "estorage_controller.png", 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
+        private final SpriteTexture infiniteBackground = sprite(
+            "estorage_infinite_controller.png", 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
         private final SpriteTexture itemPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
         private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
         private final SpriteTexture gasPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);

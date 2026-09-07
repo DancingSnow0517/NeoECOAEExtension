@@ -13,9 +13,9 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.StorageCell;
-import cn.dancingsnow.neoecoae.api.me.ECOBatchProbeCraftingProvider;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import gripe._90.megacells.item.part.DecompressionModulePart;
 import net.minecraft.nbt.CompoundTag;
@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import gripe._90.megacells.misc.DecompressionPattern;
 import gripe._90.megacells.misc.DecompressionService;
@@ -39,7 +38,7 @@ import gripe._90.megacells.misc.DecompressionService;
  * service. The existing MEGA service only recognises its own BulkCellInventory implementation.
  */
 public final class ECOMegaDecompressionService implements IGridService, IGridServiceProvider, ICraftingProvider,
-    ECOBatchProbeCraftingProvider {
+    ECOBatchCapacityProvider {
     private final List<IChestOrDrive> cellHosts = new ArrayList<>();
     private final List<ECODriveBlockEntity> ecoDrives = new ArrayList<>();
     private final List<IPatternDetails> patterns = new ArrayList<>();
@@ -150,34 +149,45 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     }
 
     @Override
-    public boolean eco$simulateBatch(ECOExtractedPatternExecution execution, long craftCount) {
-        return installedModules > 0
-            && craftCount > 0L
-            && execution != null
-            && execution.details() instanceof DecompressionPattern
-            && patterns.contains(execution.details());
+    public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
+        if (installedModules <= 0 || !(context.pattern() instanceof DecompressionPattern)
+                || !patterns.contains(context.pattern()) || !context.containerItems().isEmpty()) return 0;
+        var perCopy = new KeyCounter();
+        for (var output : context.pattern().getOutputs()) {
+            if (output.amount() <= 0) return 0;
+            perCopy.add(output.what(), output.amount());
+        }
+        var expected = new KeyCounter();
+        for (var output : context.outputs()) expected.add(output.what(), output.amount());
+        for (var output : perCopy) {
+            if (expected.get(output.getKey()) != output.getLongValue()) return 0;
+        }
+        for (var output : expected) {
+            if (perCopy.get(output.getKey()) != output.getLongValue()) return 0;
+        }
+        long capacity = Long.MAX_VALUE;
+        for (var output : perCopy) {
+            capacity = Math.min(capacity,
+                (Long.MAX_VALUE - pendingOutputs.getOrDefault(output.getKey(), 0L)) / output.getLongValue());
+        }
+        return capacity;
     }
 
     @Override
-    public boolean eco$commitBatch(
-        ECOExtractedPatternExecution execution,
-        long craftCount,
-        @Nullable UUID craftingJobId
-    ) {
-        if (!eco$simulateBatch(execution, craftCount)) {
+    public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
+        if (craftCount <= 0 || craftCount > eco$getBatchCapacity(context)) {
             return false;
         }
 
         Map<AEKey, Long> batchOutputs = new LinkedHashMap<>();
-        for (var output : execution.expectedOutputs()) {
+        for (var output : context.outputs()) {
             long amount = Math.multiplyExact(output.amount(), craftCount);
-            batchOutputs.merge(output.what(), amount, NEMath::saturatingAdd);
+            batchOutputs.merge(output.what(), amount, Math::addExact);
         }
         // Validate and aggregate the complete batch before publishing any output. If a malformed
         // pattern overflows, the CPU can still roll back all extracted inputs atomically.
-        for (var output : batchOutputs.entrySet()) {
-            pendingOutputs.merge(output.getKey(), output.getValue(), NEMath::saturatingAdd);
-        }
+        batchOutputs.replaceAll((key, amount) -> Math.addExact(pendingOutputs.getOrDefault(key, 0L), amount));
+        pendingOutputs.putAll(batchOutputs);
         return true;
     }
 

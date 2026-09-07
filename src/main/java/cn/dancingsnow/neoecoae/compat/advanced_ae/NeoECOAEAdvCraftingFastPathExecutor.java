@@ -172,7 +172,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
 
                 ECOVerifiedFastPathExecution verified = recipe.withBatch(
                         batchSize, jobAccess.neoecoae$getLink().getCraftingID());
-                if (verified == null || !selected.bus().pushBatch(verified, selected.offer())) {
+                if (verified == null || !selected.bus().acceptVerifiedBatch(verified, selected.offer())) {
                     rollback(inventory, craftingContainer, additionalInputs, additionalInputsExtracted);
                     continue;
                 }
