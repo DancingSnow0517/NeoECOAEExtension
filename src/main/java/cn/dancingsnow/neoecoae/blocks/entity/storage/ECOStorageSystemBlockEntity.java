@@ -12,12 +12,9 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.config.StorageHostUiMode;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostHugeStackList;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostLegacyUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
@@ -41,16 +38,11 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -143,12 +135,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private transient StorageUiSnapshot storageUiSnapshot = StorageUiSnapshot.EMPTY;
     private transient long storageUiSnapshotGameTime = Long.MIN_VALUE;
     private long storageUiRevision = Long.MIN_VALUE;
-    private long hugeUiRevision = Long.MIN_VALUE;
-    private long hugeUiTick = Long.MIN_VALUE;
-    private ECOInfiniteStorageEngine hugeUiEngine;
     private long extractionCheckTick = Long.MIN_VALUE;
     private String extractionCheckReason;
-    private List<StorageHostHugeStackList.Entry> hugeUiEntries = List.of();
     private final Map<ECODriveBlockEntity, DriveUiSnapshot> driveUiSnapshots = new HashMap<>();
     private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int tier,
         List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes) {}
@@ -341,122 +329,53 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
 
-        if (NEConfig.storageHostUiMode == StorageHostUiMode.LEGACY) {
-            UIElement root = StorageHostLegacyUI.create(new StorageHostLegacyUI.Config(
-                () -> getItemFromBlockEntity().getDescription(),
-                this::getStoredEnergy,
-                this::getMaxEnergy,
-                this::getEnergyConsumePerTick,
-                () -> getStorageUiSnapshot().cellEntries(),
-                createStoragePanelConfig().storageTypes(),
-                this::isFormedInfiniteMode,
-                this::isMigratingToInfinite,
-                this::canExtractInfiniteComponents,
-                infiniteComponentItemHandler
-            ));
-            actionUI.addTo(root);
-            return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
-        }
-
-        UIElement root = new UIElement().layout(layout -> {
-            layout.width(344);
-            layout.height(232);
-            layout.gapAll(0);
-        }).addClass("panel_bg");
-
-        root.addChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOStorageSystemBlockEntity::titleTextStyle)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(8);
-                layout.top(8);
-            }));
-
-        UIElement panels = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(24);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.STRETCH);
-            layout.gapAll(4);
-        });
-        StorageHostPanelUI.Config storagePanelConfig = createStoragePanelConfig();
-        panels.addChild(StorageHostPanelUI.createLeftPanel(storagePanelConfig));
-        panels.addChild(StorageHostPanelUI.createRightPanel(storagePanelConfig));
-
-        root.addChild(panels);
+        UIElement root = StorageHostUI.create(new StorageHostUI.Config(
+            () -> getItemFromBlockEntity().getDescription(),
+            this::getStoredEnergy,
+            this::getMaxEnergy,
+            this::getEnergyConsumePerTick,
+            this::getTotalUsedBytesText,
+            () -> getStorageUiSnapshot().cellEntries(),
+            createStorageTypeLines(),
+            this::isFormedInfiniteMode,
+            this::isMigratingToInfinite,
+            this::canExtractInfiniteComponents,
+            infiniteComponentItemHandler
+        ));
         actionUI.addTo(root);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-    private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    private List<StorageHostUI.StorageTypeLine> createStorageTypeLines() {
+        return NERegistries.CELL_TYPE.stream()
+            .map(cellType -> {
+                int id = NERegistries.CELL_TYPE.getId(cellType);
+                return new StorageHostUI.StorageTypeLine(
+                    cellType,
+                    id,
+                    () -> getStorageValue(id, StorageValue.USED_TYPES),
+                    () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
+                    () -> getStorageValue(id, StorageValue.USED_BYTES),
+                    () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
+                    () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText()
+                );
+            })
+            .toList();
     }
 
-    private StorageHostPanelUI.Config createStoragePanelConfig() {
-        return new StorageHostPanelUI.Config(
-            this::getStoredEnergy,
-            this::getMaxEnergy,
-            this::getMaxLoadUsedBytes,
-            this::getMaxLoadTotalBytes,
-            this::getIdleMatrixCount,
-            this::getPerformanceAverageNanos,
-            NERegistries.CELL_TYPE.stream()
-                .map(cellType -> {
-                    int id = NERegistries.CELL_TYPE.getId(cellType);
-                    return new StorageHostPanelUI.StorageTypeLine(
-                        cellType,
-                        id,
-                        () -> getStorageValue(id, StorageValue.USED_TYPES),
-                        () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
-                        () -> getStorageValue(id, StorageValue.USED_BYTES),
-                        () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
-                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(),
-                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesTooltipText(),
-                        () -> getStorageUiSnapshot().storageTypeTotals(id).displayUsedBytes().toString()
-                    );
-                })
-                .toList(),
-            this::isMigratingToInfinite,
-            this::getInfiniteMigrationProgressPercent,
-            this::canExtractInfiniteComponents,
-            infiniteComponentItemHandler,
-            () -> level.registryAccess(),
-            this::getHugeStackUiEntries,
-            this::getInfiniteDomainStatus,
-            this::storageDiagnostics
-        );
-    }
-
-    private List<StorageHostHugeStackList.Entry> getHugeStackUiEntries() {
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !isFormedInfiniteMode()) {
-            hugeUiEngine = null;
-            return List.of();
-        }
-        long tick = level.getGameTime();
-        if (hugeUiEngine != engine || hugeUiTick == Long.MIN_VALUE || (engine.revision() != hugeUiRevision && tick - hugeUiTick >= 20L)) {
-            hugeUiEngine = engine;
-            hugeUiTick = tick;
-            try {
-                hugeUiEntries = engine.getLargestStacks(128).stream()
-                    .map(stack -> new StorageHostHugeStackList.Entry(stack.key(), stack.amount().toString()))
-                    .toList();
-                hugeUiRevision = engine.revision();
-            } catch (RuntimeException e) {
-                storageFaults.report("large quantity display", e.toString(), tick);
+    private String getTotalUsedBytesText() {
+        StorageUiSnapshot snapshot = getStorageUiSnapshot();
+        BigInteger used = BigInteger.ZERO;
+        if (isFormedInfiniteMode()) {
+            for (StorageTypeTotals totals : snapshot.storageTypes().values()) {
+                used = used.add(totals.displayUsedBytes());
+            }
+        } else {
+            for (StorageHostUI.CellEntry entry : snapshot.cellEntries()) {
+                used = used.add(BigInteger.valueOf(Math.max(0L, entry.usedBytes())));
             }
         }
-        return hugeUiEntries;
-    }
-
-    private ECOInfiniteStorageData.DomainStatus getInfiniteDomainStatus() {
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null) {
-            return ECOInfiniteStorageData.DomainStatus.HEALTHY;
-        }
-        return engine.status();
+        return HostText.ae2Amount(used);
     }
 
     private net.minecraft.network.chat.Component storageDiagnostics() {
@@ -504,18 +423,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @SuppressWarnings("UnstableApiUsage")
     private long getMaxEnergy() {
         return getStorageUiSnapshot().maxEnergy();
-    }
-
-    private long getMaxLoadUsedBytes() {
-        return getStorageUiSnapshot().maxLoadUsedBytes();
-    }
-
-    private long getMaxLoadTotalBytes() {
-        return getStorageUiSnapshot().maxLoadTotalBytes();
-    }
-
-    private int getIdleMatrixCount() {
-        return getStorageUiSnapshot().idleMatrices();
     }
 
     private long getEnergyConsumePerTick() {
@@ -567,14 +474,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             maxEnergy = NEMath.saturatingAdd(maxEnergy, (long) energyCell.getAEMaxPower());
         }
 
-        long maxLoadUsedBytes = 0L;
-        long maxLoadTotalBytes = 0L;
-        int idleMatrices = 0;
         long energyConsumePerTick = 256L + (1L << (1 + 4 * tier.getTier()));
-        double bestLoadRatio = -1.0D;
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
-        List<StorageHostLegacyUI.CellEntry> cellEntries = new ArrayList<>();
+        List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
         driveUiSnapshots.keySet().retainAll(cluster.getDrives());
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             DriveUiSnapshot view = driveUiSnapshot(drive);
@@ -587,7 +490,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     energyConsumePerTick,
                     Math.max(0L, Math.round(view.inventory().getIdleDrain()))
                 );
-                cellEntries.add(new StorageHostLegacyUI.CellEntry(
+                cellEntries.add(new StorageHostUI.CellEntry(
                     cellTypeId,
                     view.tier(),
                     legacyCellKind(view.keyTypes()),
@@ -599,7 +502,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 ));
             }
             if (view.member()) {
-                idleMatrices++;
                 continue;
             }
 
@@ -607,18 +509,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             long totalTypes = view.totalTypes();
             long usedBytes = view.usedBytes();
             long totalBytes = view.totalBytes();
-            if (usedBytes <= 0L && usedTypes <= 0L) {
-                idleMatrices++;
-            }
-            if (totalBytes > 0L) {
-                double ratio = (double) usedBytes / (double) totalBytes;
-                if (ratio > bestLoadRatio) {
-                    bestLoadRatio = ratio;
-                    maxLoadUsedBytes = usedBytes;
-                    maxLoadTotalBytes = totalBytes;
-                }
-            }
-
             if (cellTypeId >= 0) {
                 storageTypes.merge(
                     cellTypeId,
@@ -645,9 +535,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             storedEnergy,
             maxEnergy,
             energyConsumePerTick,
-            isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadUsedBytes,
-            isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadTotalBytes,
-            idleMatrices,
             Map.copyOf(storageTypes),
             List.copyOf(cellEntries)
         );
@@ -655,12 +542,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private static int legacyCellKind(List<AEKeyType> keyTypes) {
         if (keyTypes.contains(AEKeyType.items())) {
-            return StorageHostLegacyUI.CellEntry.KIND_ITEM;
+            return StorageHostUI.CellEntry.KIND_ITEM;
         }
         if (keyTypes.contains(AEKeyType.fluids())) {
-            return StorageHostLegacyUI.CellEntry.KIND_FLUID;
+            return StorageHostUI.CellEntry.KIND_FLUID;
         }
-        return keyTypes.isEmpty() ? StorageHostLegacyUI.CellEntry.KIND_EMPTY : StorageHostLegacyUI.CellEntry.KIND_OTHER;
+        return keyTypes.isEmpty() ? StorageHostUI.CellEntry.KIND_EMPTY : StorageHostUI.CellEntry.KIND_OTHER;
     }
 
     private DriveUiSnapshot driveUiSnapshot(ECODriveBlockEntity drive) {
@@ -733,14 +620,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         long storedEnergy,
         long maxEnergy,
         long energyConsumePerTick,
-        long maxLoadUsedBytes,
-        long maxLoadTotalBytes,
-        int idleMatrices,
         Map<Integer, StorageTypeTotals> storageTypes,
-        List<StorageHostLegacyUI.CellEntry> cellEntries
+        List<StorageHostUI.CellEntry> cellEntries
     ) {
         private static final StorageUiSnapshot EMPTY =
-            new StorageUiSnapshot(0L, 0L, 0L, 0L, 0L, 0, Map.of(), List.of());
+            new StorageUiSnapshot(0L, 0L, 0L, Map.of(), List.of());
 
         private StorageTypeTotals storageTypeTotals(int cellTypeId) {
             return storageTypes.getOrDefault(cellTypeId, StorageTypeTotals.EMPTY);
@@ -761,11 +645,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
 
         private String infiniteBytesText() {
-            return HostText.fitHugeAmount(displayUsedBytes, 62);
-        }
-
-        private String infiniteBytesTooltipText() {
-            return HostText.compactStorageBytes(displayUsedBytes);
+            return HostText.ae2Amount(displayUsedBytes);
         }
 
         private StorageTypeTotals add(StorageTypeTotals other) {

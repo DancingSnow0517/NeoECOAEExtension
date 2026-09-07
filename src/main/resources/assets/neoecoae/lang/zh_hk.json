@@ -305,8 +305,6 @@
   "neoecoae.configuration.craftingPatternBusPages.tooltip": "每個 ECO 智能樣板總線暴露嘅樣板頁數。\n每頁可儲存 63 個已編碼樣板。",
   "neoecoae.configuration.storageSystemMaxLength": "儲存子系統最大長度",
   "neoecoae.configuration.storageSystemMaxLength.tooltip": "儲存子系統多方塊結構允許嘅最大長度（單位：方塊）。\n數值越大，可擴展嘅模組/組件越長，但結構檢測開銷亦可能更高。",
-  "neoecoae.configuration.storageHostUiMode": "儲存主機介面佈局",
-  "neoecoae.configuration.storageHostUiMode.tooltip": "modern 使用目前介面，legacy 使用 1.12.2 風格介面。",
   "neoecoae.configuration.structure": "結構",
   "neoecoae.configuration.structure.tooltip": "多方塊結構尺寸限制。",
   "neoecoae.tooltip.upload_pattern": "上傳樣板至可用嘅ECO合成子系統",

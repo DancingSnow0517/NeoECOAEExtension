@@ -208,7 +208,7 @@ public final class ComponentPlanner {
                 Map<AEKey, Long> stock = relevantStock(cycle, exactRequiredOutputs.keySet(), inventory,
                     acyclic.state(), stockReservations);
                 Map<AEKey, PlannerAmount> solveTargets = additionalOutputTargets(exactRequiredOutputs, stock,
-                    network.goal());
+                    network.goal(), cycle);
                 if (!solveTargets.isEmpty()) {
                     cycleResult = cycleSolver.solve(new CycleSolveRequest(cycle, representable(solveTargets),
                         solveTargets, stock, cycle.outgoingDependencies(), cycleSolveOptions(cycle)),
@@ -243,6 +243,8 @@ public final class ComponentPlanner {
                         external.diagnostic()));
                     if (external.solved()) {
                         Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
+                        solveTargets = additionalOutputTargets(exactRequiredOutputs, projectedStock,
+                            network.goal(), cycle);
                         CycleSolveResult recovered = cycleSolver.solve(new CycleSolveRequest(cycle,
                             representable(solveTargets), solveTargets, projectedStock, cycle.outgoingDependencies(),
                             cycleSolveOptions(cycle)), cancellation);
@@ -565,10 +567,19 @@ public final class ComponentPlanner {
      * translation, stored copies of the final output satisfy the solver target and produce an empty CPU job.
      */
     private static Map<AEKey, PlannerAmount> additionalOutputTargets(Map<AEKey, PlannerAmount> requiredOutputs,
-            Map<AEKey, Long> relevantStock, AEKey finalGoal) {
+            Map<AEKey, Long> relevantStock, AEKey finalGoal, CycleComponent cycle) {
+        Set<AEKey> growingFeedback = new LinkedHashSet<>();
+        if (cycle.patterns().stream().map(CompiledPattern::details).distinct().count() == 1) {
+            var profile = new cn.dancingsnow.neoecoae.impl.crafting.planner.growth.PatternProfileValidator()
+                .validate(cycle.patterns().getFirst());
+            if (profile.netGrowthSafe() && profile.selfReferencingKeys().size() == 1) {
+                AEKey feedback = profile.selfReferencingKeys().getFirst();
+                if (profile.netDeltaPerFiring(feedback) > 0L) growingFeedback.add(feedback);
+            }
+        }
         Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
         requiredOutputs.forEach((key, amount) -> {
-            if (!key.equals(finalGoal)) {
+            if (!key.equals(finalGoal) && !growingFeedback.contains(key)) {
                 result.put(key, amount);
                 return;
             }

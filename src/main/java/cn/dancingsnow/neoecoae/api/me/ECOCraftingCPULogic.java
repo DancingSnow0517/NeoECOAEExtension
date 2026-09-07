@@ -48,6 +48,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
@@ -187,7 +189,15 @@ public class ECOCraftingCPULogic {
         var current = job;
         if (current == null) return;
         AEKey key = current.finalOutput.what();
-        long amount = inventory.extract(key, Math.max(0L, current.remainingAmount), Actionable.SIMULATE);
+        PlannerAmount reserve = PlannerAmount.ZERO;
+        for (var task : current.tasks.entrySet()) {
+            reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
+                task.getKey(), task.getValue().value, key));
+        }
+        // Keep returned feedback available for the next growth wave before delivering any surplus.
+        PlannerAmount deliverable = PlannerAmount.of(inventory.list.get(key))
+            .subtract(reserve).max(PlannerAmount.ZERO);
+        long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
         if (amount > 0L) {
             long inserted;
             try {

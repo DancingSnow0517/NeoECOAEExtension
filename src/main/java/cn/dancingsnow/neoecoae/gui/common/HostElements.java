@@ -76,14 +76,6 @@ public final class HostElements {
         });
     }
 
-    public static UIElement tinyInsetPanel(int width, int height) {
-        UIElement panel = new UIElement();
-        panel.addChild(insetLayer("eco-storage-load-inset-edge", 0, 0, width, height));
-        panel.addChild(insetLayer("eco-storage-load-inset-border", 1, 1, width - 2, height - 2));
-        panel.addChild(insetLayer("eco-storage-load-inset-fill", 2, 2, width - 4, height - 4));
-        return panel;
-    }
-
     public static <T extends UIElement> T absolute(T element, int left, int top, int width, int height) {
         element.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
@@ -93,10 +85,6 @@ public final class HostElements {
             layout.height(height);
         });
         return element;
-    }
-
-    private static UIElement insetLayer(String className, int left, int top, int width, int height) {
-        return absolute(new UIElement().addClass(className), left, top, width, height);
     }
 
     private static void lineTextStyle(TextElement.TextStyle style) {
