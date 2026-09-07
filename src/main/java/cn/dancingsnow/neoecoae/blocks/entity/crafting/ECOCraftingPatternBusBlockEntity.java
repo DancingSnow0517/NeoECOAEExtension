@@ -203,11 +203,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
-        if (craftCount <= 0 || craftCount > Integer.MAX_VALUE
-                || craftCount > eco$getBatchCapacity(context)) return false;
-        var execution = context.execution();
+        if (craftCount <= 0 || craftCount > Integer.MAX_VALUE) return false;
         var controller = getCraftingController();
-        if (controller == null) return false;
+        if (controller == null || context.level() != getLevel()) return false;
+        var execution = context.execution();
+        if (!execution.canUseFastPath()) return false;
+        // Revalidate against one fresh offer instead of resolving the same recipe again through a capacity probe.
         if (controller.isFullVirtualCraftingMode()) {
             var offer = findVirtualFastPathOffer(execution);
             if (offer == null || !linearRecipe(offer.recipe(), execution)) return false;
@@ -215,7 +216,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return verified != null && pushVirtualBatch(verified, offer);
         }
         var offer = findBatchFastPathOffer(execution, (int) craftCount);
-        if (offer == null || !linearRecipe(offer.recipe(), execution)) return false;
+        if (offer == null || offer.maxBatchSize() < craftCount
+                || !linearRecipe(offer.recipe(), execution)
+                || controller.getCraftingCoolantCraftLimit(
+                    5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()) < craftCount) return false;
         var verified = offer.recipe().withBatch((int) craftCount, context.craftingJobId());
         return verified != null && acceptVerifiedBatch(verified, offer);
     }

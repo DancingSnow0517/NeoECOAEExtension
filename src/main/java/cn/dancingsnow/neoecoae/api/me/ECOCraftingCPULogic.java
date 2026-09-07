@@ -45,6 +45,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
+import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
+import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
@@ -264,6 +266,12 @@ public class ECOCraftingCPULogic {
                 continue;
             }
             var pattern = task.getKey();
+            // Skip input resolution when no eligible provider is ready for a dispatch.
+            var provider = providerCursor.nextAvailable(
+                pattern, () -> collectAvailableProviders(craftingService, pattern),
+                candidate -> lastNormalPushAttempts < maxPatterns || candidate instanceof ECOBatchCapacityProvider
+                    || ECOUselessBatchProviderBridge.supports(candidate));
+            if (provider == null) continue;
             var outputs = new KeyCounter();
             var containers = new KeyCounter();
             var inputs = CraftingCpuHelper.extractPatternInputs(
@@ -273,65 +281,78 @@ public class ECOCraftingCPULogic {
             boolean accepted = false;
             boolean singleInputsExtracted = false;
             try {
-                var provider = providerCursor.nextAvailable(
-                    pattern, () -> collectAvailableProviders(craftingService, pattern),
-                    candidate -> lastNormalPushAttempts < maxPatterns || candidate instanceof ECOBatchCapacityProvider);
-                if (provider != null) {
-                    int craftCount = 1;
-                    double power = CraftingCpuHelper.calculatePatternPower(inputs);
-                    var batch = provider instanceof ECOBatchCapacityProvider capacityProvider
-                        ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
-                            inventory, (int) Math.min(task.getValue().value, Integer.MAX_VALUE),
-                            energyService, level, current.link.getCraftingID())
-                        : null;
-                    if (batch != null) {
-                        craftCount = batch.craftCount();
-                        power = batch.power();
-                        outputs.reset();
-                        containers.reset();
-                        for (var output : batch.outputs()) outputs.add(output.what(), output.amount());
-                        for (var remainder : batch.remainders()) containers.add(remainder.what(), remainder.amount());
-                        try {
-                            accepted = batch.push(inventory);
-                        } catch (RuntimeException failure) {
-                            LOGGER.warn("Atomic batch rejected; inputs restored and next provider selected next tick", failure);
-                            continue;
-                        }
+                int craftCount = 1;
+                double power = CraftingCpuHelper.calculatePatternPower(inputs);
+                var capacityProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
+                    ? nativeProvider : ECOUselessBatchProviderBridge.adapt(provider);
+                ECOUselessDynamicOutputBridge.Registration batchRegistration = null;
+                var batch = capacityProvider != null
+                    ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
+                        inventory, (int) Math.min(task.getValue().value, Integer.MAX_VALUE),
+                        energyService, level, current.link.getCraftingID())
+                    : null;
+                if (batch != null) {
+                    craftCount = batch.craftCount();
+                    try {
+                        batchRegistration = ECOUselessDynamicOutputBridge.prepare(this, pattern, craftCount);
+                    } catch (RuntimeException failure) {
+                        LOGGER.warn("Batch dynamic output registration unavailable; no inputs extracted", failure);
+                        continue;
+                    }
+                    if (batchRegistration == null) continue;
+                    power = batch.power();
+                    outputs.reset();
+                    containers.reset();
+                    for (var output : batch.outputs()) outputs.add(output.what(), output.amount());
+                    for (var remainder : batch.remainders()) containers.add(remainder.what(), remainder.amount());
+                    try {
+                        accepted = batch.push(inventory);
+                    } catch (RuntimeException failure) {
+                        LOGGER.warn("Atomic batch rejected; inputs restored and next provider selected next tick", failure);
+                        continue;
+                    }
+                } else {
+                    // ECO workers learn unverified recipes through their ordinary one-copy path.
+                    if (capacityProvider != null
+                            && !(provider instanceof ECOCraftingPatternBusBlockEntity)) continue;
+                    if (lastNormalPushAttempts >= maxPatterns) continue;
+                    lastNormalPushAttempts++;
+                    if (energyService.extractAEPower(power, Actionable.SIMULATE,
+                            PowerMultiplier.CONFIG) < power - 0.01) continue;
+                    ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
+                    singleInputsExtracted = true;
+                    if (provider instanceof ECOCraftingPatternBusBlockEntity) {
+                        accepted = ECOSingleCraftingExecutor.pushPattern(
+                            provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
                     } else {
-                        // ECO workers learn unverified recipes through their ordinary one-copy path.
-                        if (provider instanceof ECOBatchCapacityProvider
-                                && !(provider instanceof ECOCraftingPatternBusBlockEntity)) continue;
-                        if (lastNormalPushAttempts >= maxPatterns) continue;
-                        lastNormalPushAttempts++;
-                        if (energyService.extractAEPower(power, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < power - 0.01) continue;
-                        ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
-                        singleInputsExtracted = true;
-                        if (provider instanceof ECOCraftingPatternBusBlockEntity) {
-                            accepted = ECOSingleCraftingExecutor.pushPattern(
-                                provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
-                        } else {
-                            // Useless Mod wraps this exact invocation in executeCrafting to register dynamic outputs.
-                            // Keep it here: moving it into an executor breaks its required Mixin injection.
-                            accepted = provider.pushPattern(pattern, inputs);
-                        }
+                        // Useless Mod wraps this exact invocation in executeCrafting to register dynamic outputs.
+                        // Keep it here: moving it into an executor breaks its required Mixin injection.
+                        accepted = provider.pushPattern(pattern, inputs);
                     }
-                    if (!accepted) continue;
-                    // Once accepted, the worker owns the inputs even if the energy service fails.
-                    chargeAcceptedEnergy(energyService, power);
-                    for (var output : outputs) {
-                        current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
-                    }
-                    for (var container : containers) {
-                        current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
-                        current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
-                    }
-                    task.getValue().value -= craftCount;
-                    for (var output : pattern.getOutputs()) postChange(output.what());
-                    markCpuDirty();
-                    return craftCount;
                 }
-                // A busy pattern must not starve other ready patterns in this job.
+                if (!accepted) continue;
+                // Once accepted, the worker owns the inputs even if the energy service fails.
+                chargeAcceptedEnergy(energyService, power);
+                for (var output : outputs) {
+                    current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
+                }
+                for (var container : containers) {
+                    current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
+                    current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
+                }
+                task.getValue().value -= craftCount;
+                if (batchRegistration != null) {
+                    try {
+                        batchRegistration.commit(current.link.getCraftingID(),
+                            current.finalOutput == null ? null : current.finalOutput.what());
+                    } catch (RuntimeException failure) {
+                        // The provider already owns this batch. Never replay its inputs or task on a notification failure.
+                        LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
+                    }
+                }
+                for (var output : pattern.getOutputs()) postChange(output.what());
+                markCpuDirty();
+                return craftCount;
             } finally {
                 // Batch dispatch restores its own full extraction; only the single fallback is owned here.
                 if (!accepted && singleInputsExtracted) CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);

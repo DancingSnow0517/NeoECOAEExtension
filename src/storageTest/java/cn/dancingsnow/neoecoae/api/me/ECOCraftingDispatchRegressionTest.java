@@ -103,6 +103,48 @@ class ECOCraftingDispatchRegressionTest {
         assertEquals(0, f.logic.getWaitingFor(OUTPUT));
     }
 
+    @Test void noProviderDoesNotResolveInputs() throws Exception {
+        var f = new Fixture(100);
+        assertEquals(0, f.logic.executeCrafting(100, f.crafting, f.energy, level));
+        assertEquals(0, f.inputResolutions);
+        assertEquals(100, f.logic.getStored(INPUT));
+    }
+
+    @Test void busyProviderDoesNotResolveInputsUntilItBecomesAvailable() throws Exception {
+        var f = new Fixture(400_000);
+        var lane = new Lane();
+        lane.accepted = 1;
+        f.providers = List.of(lane);
+        assertEquals(0, f.logic.executeCrafting(100, f.crafting, f.energy, level));
+        assertEquals(0, f.inputResolutions);
+        assertEquals(400_000, f.logic.getStored(INPUT));
+        assertEquals(0, f.logic.getWaitingFor(OUTPUT));
+        lane.accepted = 0;
+        assertEquals(400_000, f.logic.executeCrafting(100, f.crafting, f.energy, level));
+        assertEquals(1, f.inputResolutions);
+        assertEquals(400_000, lane.accepted);
+    }
+
+    @Test void exhaustedOrdinaryBudgetDoesNotResolveInputs() throws Exception {
+        var f = new Fixture(100);
+        f.providers = List.of(f.ordinary(false));
+        assertEquals(0, f.logic.executeCrafting(0, f.crafting, f.energy, level));
+        assertEquals(0, f.inputResolutions);
+        assertEquals(0, f.ordinaryAttempts);
+        assertEquals(100, f.logic.getStored(INPUT));
+    }
+
+    @Test void oneInputResolutionDispatchesAFullLaneWithZeroOrdinaryBudget() throws Exception {
+        var f = new Fixture(400_000);
+        var lane = new Lane();
+        f.providers = List.of(lane);
+        assertEquals(400_000, f.logic.executeCrafting(0, f.crafting, f.energy, level));
+        assertEquals(1, f.inputResolutions);
+        assertEquals(400_000, lane.accepted);
+        assertEquals(0, f.logic.getStored(INPUT));
+        assertEquals(400_000, f.logic.getWaitingFor(OUTPUT));
+    }
+
     @Test void busyFirstPatternDoesNotStarveAnotherReadyPattern() throws Exception {
         var f = new Fixture(400_000);
         var other = new IPatternDetails() {
@@ -141,10 +183,11 @@ class ECOCraftingDispatchRegressionTest {
         List<ICraftingProvider> providers = List.of();
         IPatternDetails blockedPattern;
         int ordinaryAttempts;
+        int inputResolutions;
         final IPatternDetails pattern = new IPatternDetails() {
             public AEItemKey getDefinition() { return null; }
             public List<GenericStack> getOutputs() { return List.of(new GenericStack(OUTPUT, 1)); }
-            public IInput[] getInputs() { return new IInput[] { new IInput() {
+            public IInput[] getInputs() { inputResolutions++; return new IInput[] { new IInput() {
                 public GenericStack[] getPossibleInputs() { return new GenericStack[] {new GenericStack(INPUT, 1)}; }
                 public long getMultiplier() { return 1; }
                 public boolean isValid(AEKey key, Level level) { return INPUT.equals(key); }

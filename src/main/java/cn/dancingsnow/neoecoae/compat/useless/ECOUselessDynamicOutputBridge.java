@@ -15,6 +15,10 @@ public final class ECOUselessDynamicOutputBridge {
     private ECOUselessDynamicOutputBridge() {
     }
 
+    public static boolean isAvailable() {
+        return API != null;
+    }
+
     /** Returns a no-op registration for ordinary patterns, or {@code null} when Useless reports ambiguity. */
     @Nullable
     public static Registration prepare(Object cpuLogic, IPatternDetails pattern, long logicalCrafts) {
