@@ -20,6 +20,7 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingProviderRevision;
 import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
@@ -54,7 +55,23 @@ import java.util.UUID;
 
 @Mixin(CraftingService.class)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
-        IGridServiceProvider {
+        IGridServiceProvider, ECOCraftingProviderRevision {
+    @Unique
+    private long neoecoae$providerRevision;
+
+    @Override
+    public long neoecoae$getProviderRevision() {
+        return neoecoae$providerRevision;
+    }
+
+    @Inject(method = {
+        "addNode", "removeNode", "refreshNodeCraftingProvider",
+        "addGlobalCraftingProvider", "removeGlobalCraftingProvider", "refreshGlobalCraftingProvider"
+    }, at = @At("HEAD"))
+    private void neoecoae$invalidateProviderCursors(CallbackInfo ci) {
+        neoecoae$providerRevision++;
+    }
+
     @Unique
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
         "neoecoaeIgnorePatternSubstitutions";

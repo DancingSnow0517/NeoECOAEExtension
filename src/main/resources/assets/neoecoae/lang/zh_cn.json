@@ -99,7 +99,7 @@
   "gui.neoecoae.crafting.task.status.queued": "队列中",
   "gui.neoecoae.crafting.task.status.running": "运行中",
   "gui.neoecoae.crafting.task.status.waiting_output": "等待输出",
-  "gui.neoecoae.crafting.fast_path_reason": "FastPath 未命中原因：%s",
+  "gui.neoecoae.crafting.fast_path_reason": "未命中Fastpath：%s",
   "gui.neoecoae.crafting.fast_path_reason.cache_miss": "缓存中没有已验证的结果",
   "gui.neoecoae.crafting.fast_path_reason.fast_path_disabled": "FastPath 已禁用",
   "gui.neoecoae.crafting.fast_path_reason.post_crafting_event_enabled": "已启用合成事件，因此 FastPath 被禁用",

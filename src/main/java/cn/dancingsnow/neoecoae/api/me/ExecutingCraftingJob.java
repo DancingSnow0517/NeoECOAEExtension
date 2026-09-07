@@ -39,6 +39,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.util.NEMath;
 
 public class ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -81,7 +82,8 @@ public class ExecutingCraftingJob {
         for (var entry : plan.patternTimes().entrySet()) {
             tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress()).value += entry.getValue();
             for (var output : entry.getKey().getOutputs()) {
-                var amount = output.amount() * entry.getValue() * output.what().getAmountPerUnit();
+                var amount = NEMath.saturatingMultiply(output.amount(), entry.getValue());
+                amount = NEMath.saturatingMultiply(amount, output.what().getAmountPerUnit());
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }

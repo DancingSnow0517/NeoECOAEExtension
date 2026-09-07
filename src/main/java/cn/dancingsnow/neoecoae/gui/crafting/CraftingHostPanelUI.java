@@ -521,7 +521,8 @@ public final class CraftingHostPanelUI {
             .append(Component.literal(ComputationTaskCards.progressText(entry))));
         if (entry.fastPathReason() != null) {
             lines.add(Component.translatable("gui.neoecoae.crafting.fast_path_reason",
-                ComputationTaskCards.fastPathReason(entry.fastPathReason())));
+                ComputationTaskCards.fastPathReason(entry.fastPathReason()))
+                .withStyle(style -> style.withColor(0xFFAA00)));
         }
         return lines;
     }

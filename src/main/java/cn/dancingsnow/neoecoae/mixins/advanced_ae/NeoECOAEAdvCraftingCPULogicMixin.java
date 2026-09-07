@@ -1,6 +1,11 @@
 package cn.dancingsnow.neoecoae.mixins.advanced_ae;
 
 import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.ECOJobOutputReceiver;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import java.util.UUID;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
@@ -23,11 +28,12 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Hooks AdvancedAE's dynamically-created quantum-computer CPUs into ECO's verified batch path. */
 @Pseudo
 @Mixin(value = AdvCraftingCPULogic.class, remap = false)
-public abstract class NeoECOAEAdvCraftingCPULogicMixin {
+public abstract class NeoECOAEAdvCraftingCPULogicMixin implements ECOJobOutputReceiver {
     @Unique
     private static final Logger NEOECOAE$LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
@@ -36,6 +42,42 @@ public abstract class NeoECOAEAdvCraftingCPULogicMixin {
     @Shadow @Final AdvCraftingCPU cpu;
     @Shadow @Final private ListCraftingInventory inventory;
     @Shadow private ExecutingCraftingJob job;
+    @Shadow private boolean markedForDeletion;
+    @Shadow public abstract long insert(AEKey what, long amount, Actionable type);
+
+    @Override
+    public long neoecoae$insertWorkerOutput(UUID jobId, AEKey what, long amount, Actionable type) {
+        if (what == null || amount <= 0L || !(job instanceof NeoECOAEAdvCraftingJobAccessor access)
+                || !access.neoecoae$getLink().getCraftingID().equals(jobId)) return 0L;
+        boolean wasMarkedForDeletion = markedForDeletion;
+        // Keep the CPU discoverable if insert finishes the job before its physical remainder is retained.
+        if (type == Actionable.MODULATE) markedForDeletion = true;
+        long inserted;
+        try {
+            inserted = insert(what, amount, type);
+        } finally {
+            if (job != null || type == Actionable.SIMULATE) markedForDeletion = wasMarkedForDeletion;
+        }
+        if (inserted < 0L || inserted > amount) {
+            throw new IllegalStateException("Invalid AdvancedAE insertion amount: " + inserted + " for " + amount);
+        }
+        // AdvancedAE can finish the job even when its requester returns zero. Retain that physical remainder.
+        if (type == Actionable.MODULATE && inserted < amount) {
+            inventory.insert(what, amount - inserted, Actionable.MODULATE);
+            cpu.markDirty();
+        }
+        return amount;
+    }
+
+    @Inject(method = "finishJob", at = @At("HEAD"), remap = false)
+    private void neoecoae$releaseCompletedWorkerOutputs(boolean success, CallbackInfo ci) {
+        if (!success || !(job instanceof NeoECOAEAdvCraftingJobAccessor access)) return;
+        var grid = cpu.getGrid();
+        if (grid == null) return;
+        for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
+            worker.releaseCompletedJobOutputs(access.neoecoae$getLink().getCraftingID());
+        }
+    }
 
     @Inject(method = "executeCrafting", at = @At("HEAD"), cancellable = true, remap = false)
     private void neoecoae$tryFastPath(

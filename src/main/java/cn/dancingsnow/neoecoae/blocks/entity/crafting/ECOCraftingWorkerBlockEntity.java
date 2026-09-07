@@ -424,6 +424,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         setChanged();
     }
 
+    public void releaseCompletedJobOutputs(UUID craftingJobId) {
+        for (ECOCraftingThread thread : craftingThreads) {
+            thread.releaseCompletedJobOutputs(craftingJobId);
+        }
+        wakeTickingDevice();
+    }
+
     public boolean recoverJobToNetwork(UUID craftingJobId, MEStorage storage) {
         boolean recoveredAll = true;
         for (ECOCraftingThread thread : craftingThreads) {

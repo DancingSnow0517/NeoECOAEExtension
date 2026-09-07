@@ -6,6 +6,7 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
+import cn.dancingsnow.neoecoae.api.me.ECOJobOutputReceiver;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -42,6 +43,9 @@ public abstract class NeoECOAEAdvCraftingServiceMixin implements ECOAdvancedAeCr
             for (var cpu : cluster.getActiveCPUs()) {
                 ICraftingLink link = cpu.craftingLogic.getLastLink();
                 if (link != null && craftingJobId.equals(link.getCraftingID())) {
+                    if (cpu.craftingLogic instanceof ECOJobOutputReceiver receiver) {
+                        return receiver.neoecoae$insertWorkerOutput(craftingJobId, what, amount, type);
+                    }
                     return cpu.craftingLogic.insert(what, amount, type);
                 }
             }

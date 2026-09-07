@@ -96,6 +96,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Nullable
     private UUID craftingJobId = null;
+    private boolean completedJobOutputsReleased;
 
     @Nullable
     private String fastPathReason = null;
@@ -511,7 +512,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
             ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
             ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
-        return "FAST_PATH_HIT";
+        // This craft used the assembler; the newly verified cache only accelerates subsequent crafts.
+        return "CACHE_MISS";
     }
 
     private static void logFastPathStateSlotMismatch(
@@ -599,6 +601,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         outputItems.clear();
         copyStacks(outputs, outputItems);
         this.craftingJobId = craftingJobId;
+        this.completedJobOutputsReleased = false;
         this.finiteBatchCraftCount = Math.max(1, finiteBatchCraftCount);
         this.craftCount = this.finiteBatchCraftCount;
         this.virtualBatch = false;
@@ -642,6 +645,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         batchRemainingItems.addAll(remaining);
         craftingEventOutput = ItemStack.EMPTY;
         this.craftingJobId = craftingJobId;
+        this.completedJobOutputsReleased = false;
         this.finiteBatchCraftCount = Math.max(1, finiteBatchCraftCount);
         this.craftCount = this.finiteBatchCraftCount;
         this.virtualBatch = false;
@@ -821,7 +825,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ? RecoveryState.WAITING_FOR_OWNER
                 : RecoveryState.ACTIVE;
             retainRemainderForRetry(remainder, retryState);
-            logBlockedOutput("network-capacity", remainder);
+            if (retryState != RecoveryState.WAITING_FOR_OWNER) {
+                logBlockedOutput("network-capacity", remainder);
+            }
             return false;
         }
 
@@ -955,7 +961,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             long insertedIntoCpus;
             boolean routedToOwningJob = craftingJobId != null
                 && craftingService instanceof ECOCraftingOutputRouter;
-            if (routedToOwningJob) {
+            if (completedJobOutputsReleased) {
+                insertedIntoCpus = 0L;
+            } else if (routedToOwningJob) {
                 insertedIntoCpus = validateInsertionAmount(
                     ((ECOCraftingOutputRouter) craftingService).neoecoae$insertIntoCpuForJob(
                         craftingJobId, key, remaining, Actionable.MODULATE),
@@ -976,7 +984,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
             // An ECO worker knows which CPU owns its output. Never fall through to another CPU or network storage
             // when that owner has not accepted it yet; doing so loses the job's dependency edge permanently.
-            if (routedToOwningJob && remaining > 0L) {
+            if (routedToOwningJob && !completedJobOutputsReleased && remaining > 0L) {
                 // A missing owner is transient until the job is explicitly cancelled. Keep the output owned
                 // by this worker and retry job-directed delivery; never leak it into generic ME storage.
                 retainRemainderForRetry(stacks, RecoveryState.WAITING_FOR_OWNER);
@@ -1049,6 +1057,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public boolean belongsToJob(UUID jobId) {
         return this.isBusy && Objects.equals(jobId, this.craftingJobId);
+    }
+
+    public void releaseCompletedJobOutputs(UUID jobId) {
+        if (belongsToJob(jobId)) {
+            // Do not eject here: completion can be reported inside the current output insertion.
+            completedJobOutputsReleased = true;
+            setChanged();
+        }
     }
 
     public boolean recoverInputsToNetwork(MEStorage storage) {
@@ -1187,6 +1203,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         craftingInv.clearContent();
         craftingEventOutput = ItemStack.EMPTY;
         craftingJobId = null;
+        completedJobOutputsReleased = false;
         fastPathReason = null;
         isBusy = false;
         reboot = true;
@@ -1384,6 +1401,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putLong("craftCount", craftCount);
         tag.putBoolean("virtualBatch", virtualBatch);
         tag.putBoolean("outputsReady", outputsReady);
+        tag.putBoolean("completedJobOutputsReleased", completedJobOutputsReleased);
         tag.putString("recoveryState", recoveryState.name());
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
@@ -1481,6 +1499,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.virtualBatch = nbt.getBoolean("virtualBatch");
         this.outputsReady = nbt.getBoolean("outputsReady");
         this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
+        this.completedJobOutputsReleased = nbt.getBoolean("completedJobOutputsReleased");
         this.fastPathReason = nbt.contains("fastPathReason", Tag.TAG_STRING)
             ? nbt.getString("fastPathReason") : null;
         this.recoveryState = this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;

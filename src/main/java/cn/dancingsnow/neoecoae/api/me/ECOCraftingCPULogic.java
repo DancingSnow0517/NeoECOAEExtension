@@ -41,6 +41,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
@@ -74,6 +75,7 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
 
     private boolean deliveringFinalOutput;
+    private final ECOProviderCursor providerCursor = new ECOProviderCursor();
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -106,6 +108,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        providerCursor.clear();
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -198,7 +201,8 @@ public class ECOCraftingCPULogic {
             current.remainingAmount -= inserted;
             markCpuDirty();
         }
-        if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()) finishJob(true);
+        if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()
+                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)) finishJob(true);
     }
 
     private int getOperationLimit() {
@@ -230,10 +234,12 @@ public class ECOCraftingCPULogic {
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         var current = job;
         if (current == null || maxPatterns <= 0) return 0;
+        if (!providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick())) return 0;
         var it = current.tasks.entrySet().iterator();
         while (it.hasNext()) {
             var task = it.next();
             if (task.getValue().value <= 0L) {
+                providerCursor.forget(task.getKey());
                 it.remove();
                 continue;
             }
@@ -245,13 +251,20 @@ public class ECOCraftingCPULogic {
             if (inputs == null) continue;
             boolean accepted = false;
             try {
-                for (var provider : collectAvailableProviders(craftingService, pattern)) {
-                    if (provider.isBusy()) continue;
+                var provider = providerCursor.nextAvailable(
+                    pattern, () -> collectAvailableProviders(craftingService, pattern));
+                if (provider != null) {
                     double power = CraftingCpuHelper.calculatePatternPower(inputs);
                     if (energyService.extractAEPower(power, Actionable.SIMULATE,
                             PowerMultiplier.CONFIG) < power - 0.01) return 0;
-                    accepted = ECOSingleCraftingExecutor.pushPattern(
-                        provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
+                    if (provider instanceof ECOCraftingPatternBusBlockEntity) {
+                        accepted = ECOSingleCraftingExecutor.pushPattern(
+                            provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
+                    } else {
+                        // Useless Mod wraps this exact invocation in executeCrafting to register dynamic outputs.
+                        // Keep it here: moving it into an executor breaks its required Mixin injection.
+                        accepted = provider.pushPattern(pattern, inputs);
+                    }
                     if (!accepted) return 0;
                     energyService.extractAEPower(power, Actionable.MODULATE, PowerMultiplier.CONFIG);
                     for (var output : outputs) {
@@ -292,17 +305,27 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Accepts a worker output only when this CPU still owns the supplied crafting job.
+     * Accepts a worker output only when this CPU still owns the supplied crafting job, retaining surplus locally.
      *
      * <p>Worker outputs carry the job id, but AE2's legacy {@code insertIntoCpus} API does not. Keeping this
      * guard at the CPU boundary prevents an output from being assigned to another CPU that happens to wait for
      * the same key.</p>
      */
     public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
-        if (craftingJobId == null || job == null || !craftingJobId.equals(job.link.getCraftingID())) {
+        if (what == null || amount <= 0L || craftingJobId == null || job == null
+                || !craftingJobId.equals(job.link.getCraftingID())) {
             return 0L;
         }
-        return insert(what, amount, type);
+        long accepted = insert(what, amount, type);
+        if (accepted < 0L || accepted > amount) {
+            throw new IllegalStateException("Invalid CPU insertion amount: " + accepted + " for " + amount);
+        }
+        // Job-directed surplus belongs to this CPU too, but must not decrement unrelated waiting entries.
+        if (type == Actionable.MODULATE && accepted < amount) {
+            inventory.insert(what, amount - accepted, Actionable.MODULATE);
+            markCpuDirty();
+        }
+        return amount;
     }
 
     public boolean hasCraftingJob(UUID craftingJobId) {
@@ -317,6 +340,12 @@ public class ECOCraftingCPULogic {
     private void finishJob(boolean success) {
         if (success) {
             job.link.markDone();
+            var grid = cpu.getGrid();
+            if (grid != null) {
+                for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
+                    worker.releaseCompletedJobOutputs(job.link.getCraftingID());
+                }
+            }
         } else {
             job.link.cancel();
         }
@@ -337,6 +366,7 @@ public class ECOCraftingCPULogic {
 
         // 结束任务。
         this.job = null;
+        providerCursor.clear();
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -430,6 +460,7 @@ public class ECOCraftingCPULogic {
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+        providerCursor.clear();
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
             var jobData = data.getCompound("job");

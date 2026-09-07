@@ -7,6 +7,8 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -19,6 +21,7 @@ import appeng.api.storage.MEStorage;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.me.service.CraftingService;
+import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import net.minecraft.world.level.Level;
 
@@ -30,6 +33,18 @@ class ECOSimpleCraftingCPUTest {
     private static final AEKey CRYSTAL = new ECOCraftingTestKey("crystal");
     private static final AEKey ESSENCE = new ECOCraftingTestKey("essence");
     private static Object previousTypes, previousRegistry;
+    private static java.lang.reflect.Field tickCounter;
+    private long previousTick;
+
+    @BeforeEach void captureTick() throws Exception {
+        tickCounter = TickHandler.class.getDeclaredField("tickCounter");
+        tickCounter.setAccessible(true);
+        previousTick = tickCounter.getLong(TickHandler.instance());
+    }
+
+    @AfterEach void restoreTick() throws Exception {
+        tickCounter.setLong(TickHandler.instance(), previousTick);
+    }
 
     @BeforeAll static void initializeKeyRegistry() throws Exception {
         var types = AEKeyTypesInternal.class.getDeclaredField("allTypes");
@@ -181,6 +196,23 @@ class ECOSimpleCraftingCPUTest {
         assertEquals(1, f.push());
     }
 
+    @Test void providerCheckBudgetResetsOnNextTick() throws Exception {
+        var f = new Fixture();
+        var pattern = new Pattern(PLANK, 4, TABLE, 1);
+        f.start(TABLE, 65, Map.of(pattern, 65L));
+        f.logic.getInventory().insert(PLANK, 260, Actionable.MODULATE);
+        for (int i = 0; i < 64; i++) assertEquals(1, f.pushInCurrentTick());
+        assertEquals(0, f.pushInCurrentTick());
+        assertEquals(64, f.provider.calls);
+        assertEquals(4, f.logic.getStored(PLANK));
+        assertEquals(64, f.logic.getWaitingFor(TABLE));
+        assertEquals(1, f.logic.getJob().tasks.get(pattern).value);
+        assertEquals(1, f.push());
+        assertEquals(65, f.provider.calls);
+        assertEquals(0, f.logic.getStored(PLANK));
+        assertEquals(65, f.logic.getWaitingFor(TABLE));
+    }
+
     @Test void failedDeliveryKeepsPhysicalOutputAndRetries() throws Exception {
         var f = new Fixture();
         f.start(TABLE, 1, Map.of());
@@ -216,6 +248,55 @@ class ECOSimpleCraftingCPUTest {
         f.tick();
         assertFalse(f.logic.hasJob());
         assertEquals(1, f.delivered.get(SEED));
+    }
+
+    @Test void jobDirectedSurplusIsRetainedAndDeliveredWithoutBlockingWorker() throws Exception {
+        var f = new Fixture();
+        f.start(TABLE, 1, Map.of());
+        var id = f.logic.getLastLink().getCraftingID();
+        f.logic.getJob().waitingFor.insert(TABLE, 1, Actionable.MODULATE);
+        assertEquals(3, f.logic.insertForJob(id, TABLE, 3, Actionable.SIMULATE));
+        assertEquals(0, f.logic.getStored(TABLE));
+        assertEquals(1, f.logic.getWaitingFor(TABLE));
+        assertEquals(3, f.logic.insertForJob(id, TABLE, 3, Actionable.MODULATE));
+        assertEquals(3, f.logic.getStored(TABLE));
+        assertEquals(0, f.logic.getWaitingFor(TABLE));
+        f.rejectDelivery = true;
+        f.tick();
+        assertEquals(3, f.logic.getStored(TABLE));
+        f.rejectDelivery = false;
+        f.tick();
+        assertFalse(f.logic.hasJob());
+        assertEquals(3, f.delivered.get(TABLE));
+        assertEquals(0, f.logic.getStored(TABLE));
+    }
+
+    @Test void jobDirectedRemainderDoesNotSatisfyAnotherKeyOrAnotherJob() throws Exception {
+        var f = new Fixture();
+        f.start(TABLE, 1, Map.of());
+        f.logic.getJob().waitingFor.insert(TABLE, 1, Actionable.MODULATE);
+        assertEquals(0, f.logic.insertForJob(UUID.randomUUID(), SEED, 2, Actionable.MODULATE));
+        assertEquals(0, f.logic.getStored(SEED));
+        assertEquals(2, f.logic.insertForJob(f.logic.getLastLink().getCraftingID(), SEED, 2, Actionable.MODULATE));
+        assertEquals(2, f.logic.getStored(SEED));
+        assertEquals(1, f.logic.getWaitingFor(TABLE));
+        assertEquals(0, f.logic.getStored(TABLE));
+    }
+
+    @Test void finalOutputDoesNotFinishJobWithUndispatchedRecipes() throws Exception {
+        var f = new Fixture();
+        var pattern = new Pattern(PLANK, 4, TABLE, 1);
+        f.start(TABLE, 1, Map.of(pattern, 1L));
+        f.logic.getInventory().insert(TABLE, 1, Actionable.MODULATE);
+        f.tick();
+        assertTrue(f.logic.hasJob());
+        assertEquals(0, f.logic.getRemainingJobOutputAmount());
+        f.logic.getInventory().insert(PLANK, 4, Actionable.MODULATE);
+        assertEquals(1, f.push());
+        f.logic.insertForJob(f.logic.getLastLink().getCraftingID(), TABLE, 1, Actionable.MODULATE);
+        f.tick();
+        assertFalse(f.logic.hasJob());
+        assertEquals(2, f.delivered.get(TABLE));
     }
 
     private record Pattern(AEKey input, long inputAmount, AEKey output, long outputAmount)
@@ -269,6 +350,7 @@ class ECOSimpleCraftingCPUTest {
         final IGrid grid = proxy(IGrid.class, (method, args) -> switch (method) {
             case "getStorageService" -> storageService;
             case "getCraftingService" -> crafting;
+            case "getMachines" -> List.of();
             default -> null;
         });
         final ECOCraftingCPU cpu = new ECOCraftingCPU(null, (IECOTier) null) {
@@ -293,8 +375,19 @@ class ECOSimpleCraftingCPUTest {
             field.setAccessible(true);
             field.set(logic, job);
         }
-        int push() { return logic.executeCrafting(1, crafting, energy, null); }
-        void tick() { logic.tickCraftingLogic(energy, crafting); }
+        private void advanceTick() throws IllegalAccessException {
+            // Unit tests have no server loop to advance AE2's per-tick scheduling clock.
+            tickCounter.setLong(TickHandler.instance(), TickHandler.instance().getCurrentTick() + 1);
+        }
+        int pushInCurrentTick() { return logic.executeCrafting(1, crafting, energy, null); }
+        int push() throws IllegalAccessException {
+            advanceTick();
+            return pushInCurrentTick();
+        }
+        void tick() throws IllegalAccessException {
+            advanceTick();
+            logic.tickCraftingLogic(energy, crafting);
+        }
     }
 
     @FunctionalInterface private interface Handler { Object call(String method, Object[] args); }
