@@ -78,7 +78,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.FULL)));
         }
-        lines.add(Component.translatable("gui.neoecoae.crafting_report.requested_exact", entry.exactRequested()));
+        lines.add(Component.translatable("gui.neoecoae.crafting_report.requested_exact",
+            NumberFormat.getNumberInstance().format(new BigInteger(entry.exactRequested()))));
         return lines;
     }
 
