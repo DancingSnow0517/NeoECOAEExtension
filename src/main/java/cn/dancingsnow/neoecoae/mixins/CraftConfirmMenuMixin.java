@@ -135,6 +135,17 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
             for (var cycle : snapshot.cycleGroups()) {
                 LinkedHashSet<AEKey> keys = new LinkedHashSet<>();
+                LinkedHashMap<AEKey, BigInteger> cycleConsumed = new LinkedHashMap<>();
+                LinkedHashMap<AEKey, BigInteger> cycleProduced = new LinkedHashMap<>();
+                snapshot.patterns().stream().filter(pattern -> pattern.componentId() == cycle.componentId()
+                        && pattern.firingCount() > 0L)
+                    .forEach(pattern -> {
+                        BigInteger times = BigInteger.valueOf(pattern.firingCount());
+                        pattern.inputs().forEach(input -> neoecoae$mergeCycleFlow(
+                            snapshot, cycleConsumed, input, times));
+                        pattern.outputs().forEach(output -> neoecoae$mergeCycleFlow(
+                            snapshot, cycleProduced, output, times));
+                    });
                 cycle.exactSingleNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.exactTotalNetOutputs().forEach(value -> keys.add(value.key()));
                 cycle.availableAmounts().forEach(value -> keys.add(value.key()));
@@ -154,11 +165,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
                 // still needs a selectable row so every unresolved SCC remains openable from the report.
                 for (AEKey key : keys) {
-                    CraftingGraphSnapshot.MaterialNode material = snapshot.nodes().stream()
-                        .filter(node -> node.key().equals(key)).findFirst().orElse(null);
                     cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
+                        cycleConsumed.getOrDefault(key, BigInteger.ZERO),
+                        cycleProduced.getOrDefault(key, BigInteger.ZERO),
                         neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
                         neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId()));
@@ -166,11 +175,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
                 // the left-hand list so the report remains actionable instead of showing an empty plan.
                 for (var seed : cycle.requiredSeed()) {
-                    CraftingGraphSnapshot.MaterialNode material = snapshot.nodes().stream()
-                        .filter(node -> node.key().equals(seed.key())).findFirst().orElse(null);
                     cycleItems.putIfAbsent(seed.key(), new ECOCycleItemList.Entry(seed.key(),
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
+                        cycleConsumed.getOrDefault(seed.key(), BigInteger.ZERO),
+                        cycleProduced.getOrDefault(seed.key(), BigInteger.ZERO),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
                         cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId()));
                 }
@@ -230,6 +237,15 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).map(value -> value.amount().value())
             .findFirst().orElse(java.math.BigInteger.ZERO);
+    }
+
+    @Unique
+    private static void neoecoae$mergeCycleFlow(CraftingGraphSnapshot snapshot,
+            LinkedHashMap<AEKey, BigInteger> totals, CraftingGraphSnapshot.Relationship relationship,
+            BigInteger times) {
+        snapshot.nodes().stream().filter(node -> node.nodeId() == relationship.materialNodeId()).findFirst()
+            .ifPresent(node -> totals.merge(node.key(),
+                BigInteger.valueOf(relationship.amount()).multiply(times), BigInteger::add));
     }
 
     @Override

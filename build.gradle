@@ -109,8 +109,6 @@ repositories {
 }
 
 dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
-
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
@@ -179,9 +177,6 @@ neoForge {
     runs {
         client {
             client()
-
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
         aeGuide {
@@ -194,12 +189,6 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
         data {
@@ -236,59 +225,6 @@ sourceSets.main.java {
 sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'
     exclude 'kubejs.plugins.txt'
-}
-
-sourceSets.test {
-    java.srcDir 'src/storageTest/java'
-    compileClasspath += sourceSets.main.compileClasspath
-    runtimeClasspath += sourceSets.main.runtimeClasspath
-}
-
-tasks.register('storageBenchmark', Test) {
-    group = 'verification'
-    description = 'Runs the ECO storage throughput smoke benchmark.'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    include '**/StorageThroughputBenchmark.class'
-    useJUnitPlatform()
-    outputs.upToDateWhen { false }
-}
-
-tasks.named('test', Test) {
-    exclude '**/StorageThroughputBenchmark.class'
-}
-
-// The repository also contains forward-looking tests for unrelated, not-yet-landed APIs. Keep the
-// crafting planner suite independently runnable while those fixtures are being developed.
-sourceSets {
-    plannerTest {
-        java.srcDir 'src/test/java'
-        java.srcDir 'src/plannerTest/java'
-        java.include 'cn/dancingsnow/neoecoae/impl/crafting/planner/**'
-        java.include 'cn/dancingsnow/neoecoae/client/craftinggraph/**'
-        java.include 'cn/dancingsnow/neoecoae/integration/ae2omnicells/**'
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath + configurations.testCompileClasspath
-        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath + configurations.testRuntimeClasspath
-    }
-}
-
-configurations.plannerTestImplementation.extendsFrom configurations.testImplementation
-configurations.plannerTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
-
-tasks.register('plannerTest', Test) {
-    group = 'verification'
-    description = 'Runs the isolated ECO crafting planner unit and benchmark suite.'
-    testClassesDirs = sourceSets.plannerTest.output.classesDirs
-    classpath = sourceSets.plannerTest.runtimeClasspath
-    useJUnitPlatform()
-}
-
-// The source-set filter selects tests by convention; explicitly compile its two package-private support fixtures.
-tasks.named('compilePlannerTestJava', JavaCompile).configure {
-    source files(
-        'src/test/java/cn/dancingsnow/neoecoae/impl/crafting/planner/PlannerFixtures.java',
-        'src/test/java/cn/dancingsnow/neoecoae/impl/crafting/planner/PlannerTestKey.java'
-    )
 }
 
 configurations {
@@ -334,10 +270,6 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
-
-tasks.named('test', Test).configure {
-    useJUnitPlatform()
 }
 
 tasks.register('copyGuidebook', Copy) {

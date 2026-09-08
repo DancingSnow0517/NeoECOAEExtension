@@ -26,6 +26,7 @@ final class ECOCycleItemListRenderer {
     private static final int PRODUCED_COLOR = 0x197A3A;
 
     private final AEBaseScreen<?> screen;
+    private final Blitter itemBackground;
     private final Blitter hoveredItemBackground;
     private final int x;
     private final int y;
@@ -36,6 +37,7 @@ final class ECOCycleItemListRenderer {
 
     ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y) {
         this.screen = screen;
+        this.itemBackground = screen.getStyle().getImage("cycleItem");
         this.hoveredItemBackground = screen.getStyle().getImage("cycleItemHovered");
         this.x = x;
         this.y = y;
@@ -60,7 +62,8 @@ final class ECOCycleItemListRenderer {
             int cellY = y + (index - scrollOffset) * ROW_HEIGHT;
             boolean hovered = localMouseX >= x && localMouseX < x + CELL_WIDTH
                 && localMouseY >= cellY && localMouseY < cellY + ROW_HEIGHT - 1;
-            hoveredItemBackground.dest(x, cellY).blit(graphics);
+            boolean selected = selectedComponentId != null && selectedComponentId == entry.componentId();
+            (hovered || selected ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<Component> lines = new java.util.ArrayList<>();

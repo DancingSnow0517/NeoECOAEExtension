@@ -57,8 +57,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant);
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -295,10 +295,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             && !mode.neoecoae$getCycleItems().isEmpty();
     }
 
-    private boolean isDisabledCycleRequirement(AEKey key) {
-        // Missing startup seeds are ordinary missing materials in the report. They must use AE2's red
-        // missing overlay even when cycle planning is disabled; the old blue cycle overlay hid the deficit.
-        return false;
+    private boolean isCycleParticipant(AEKey key) {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getCycleItems().stream().anyMatch(entry -> entry.what().equals(key));
     }
 
     private static final class CraftingGraphButton extends IconButton {

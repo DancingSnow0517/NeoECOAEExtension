@@ -70,32 +70,10 @@
     {
       "type": "java",
       "request": "launch",
-      "name": "GameTestServer",
-      "presentation": {
-        "group": "Mod Development - NeoECOAEExtension-1.21.1",
-        "order": 3
-      },
-      "projectName": "NeoECOAEExtension-1.21.1",
-      "mainClass": "net.neoforged.devlaunch.Main",
-      "args": [
-        "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\gameTestServerRunProgramArgs.txt"
-      ],
-      "vmArgs": [
-        "@E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\build\\moddev\\gameTestServerRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoecoae%%E:\\Minecraft Project\\NeoECOAEExtension-1.21.1\\bin\\main"
-      ],
-      "cwd": "${workspaceFolder}\\run",
-      "env": {},
-      "console": "internalConsole",
-      "shortenCommandLine": "none"
-    },
-    {
-      "type": "java",
-      "request": "launch",
       "name": "Server",
       "presentation": {
         "group": "Mod Development - NeoECOAEExtension-1.21.1",
-        "order": 4
+        "order": 3
       },
       "projectName": "NeoECOAEExtension-1.21.1",
       "mainClass": "net.neoforged.devlaunch.Main",

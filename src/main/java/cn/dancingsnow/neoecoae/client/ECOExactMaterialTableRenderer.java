@@ -27,13 +27,13 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
     private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
     private static final int MISSING_OVERLAY = 0x1AFF0000;
-    private static final int DISABLED_CYCLE_OVERLAY = 0x1AB86BFF;
-    private final Predicate<AEKey> disabledCycleRequirement;
+    private static final int CYCLE_OVERLAY = 0x1AB86BFF;
+    private final Predicate<AEKey> cycleParticipant;
 
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
-            Predicate<AEKey> disabledCycleRequirement) {
+            Predicate<AEKey> cycleParticipant) {
         super(screen, x, y, 7);
-        this.disabledCycleRequirement = disabledCycleRequirement;
+        this.cycleParticipant = cycleParticipant;
     }
 
     @Override
@@ -85,9 +85,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
-        if (entry.missingBigInteger().signum() <= 0) return 0;
-        if (entry.status() == CraftingGraphSnapshot.MaterialStatus.CYCLE) return MISSING_OVERLAY;
-        return disabledCycleRequirement.test(entry.key()) ? DISABLED_CYCLE_OVERLAY : MISSING_OVERLAY;
+        if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
+        return entry.missingBigInteger().signum() > 0 ? MISSING_OVERLAY : 0;
     }
 
     static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes) {

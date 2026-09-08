@@ -15,13 +15,13 @@ import net.minecraft.network.chat.Component;
 /** AE2 report cells with the ECO report's seven visible rows. */
 final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPlanSummaryEntry> {
     private static final int MISSING_OVERLAY = 0x1AFF0000;
-    private static final int DISABLED_CYCLE_OVERLAY = 0x1AB86BFF;
-    private final Predicate<AEKey> disabledCycleRequirement;
+    private static final int CYCLE_OVERLAY = 0x1AB86BFF;
+    private final Predicate<AEKey> cycleParticipant;
 
     ECOCraftConfirmTableRenderer(AEBaseScreen<?> screen, int x, int y,
-            Predicate<AEKey> disabledCycleRequirement) {
+            Predicate<AEKey> cycleParticipant) {
         super(screen, x, y, 7);
-        this.disabledCycleRequirement = disabledCycleRequirement;
+        this.cycleParticipant = cycleParticipant;
     }
 
     @Override protected List<Component> getEntryDescription(CraftingPlanSummaryEntry entry) {
@@ -49,7 +49,7 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     }
 
     @Override protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {
-        if (entry.getMissingAmount() <= 0) return 0;
-        return disabledCycleRequirement.test(entry.getWhat()) ? DISABLED_CYCLE_OVERLAY : MISSING_OVERLAY;
+        if (cycleParticipant.test(entry.getWhat())) return CYCLE_OVERLAY;
+        return entry.getMissingAmount() > 0 ? MISSING_OVERLAY : 0;
     }
 }
