@@ -84,7 +84,6 @@ public class ECOCraftingCPULogic {
     private boolean deliveringFinalOutput;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
-    private final ECODispatchWatchdog dispatchWatchdog = new ECODispatchWatchdog();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
     private int normalPushProbesThisPass;
     private int lastAcceptedNormalPushes;
@@ -112,17 +111,13 @@ public class ECOCraftingCPULogic {
         if (!inventory.list.isEmpty())
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
-        dispatchWatchdog.reset();
         var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
-        dispatchWatchdog.capturePlan(plan, executionPlan);
 
         // 尝试提取所需物品。
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null) {
-            dispatchWatchdog.reset();
             return CraftingSubmitResult.missingIngredient(missingIngredient);
         }
-        dispatchWatchdog.captureCpuInventory(inventory);
 
         // 设置 CPU 链接与任务。
         var playerId = src.player()
@@ -147,7 +142,6 @@ public class ECOCraftingCPULogic {
         // TODO: 发送监视器差异？
 
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
-        dispatchWatchdog.logSubmission(craftId);
 
         // 非独立任务需要为请求者创建另一个链接，两个链接都需要提交到缓存。
         if (requester != null) {
@@ -170,13 +164,11 @@ public class ECOCraftingCPULogic {
         }
         // 未激活时不 tick。
         if (!cpu.isActive()) {
-            dispatchWatchdog.reset();
             return;
         }
         cantStoreItems = false;
         // 无任务时只需尝试清空物品。
         if (this.job == null) {
-            dispatchWatchdog.reset();
             this.storeItems();
             if (!this.inventory.list.isEmpty()) {
                 cantStoreItems = true;
@@ -193,15 +185,12 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        dispatchWatchdog.bind(job.link.getCraftingID(), TickHandler.instance().getCurrentTick());
         deliverStoredFinalOutput();
         if (job == null || job.suspended) {
-            dispatchWatchdog.reset();
             return;
         }
         Level level = cpu.getLevel();
         if (level == null) {
-            dispatchWatchdog.reset();
             return;
         }
 
@@ -227,18 +216,6 @@ public class ECOCraftingCPULogic {
         // Match the rolling three-tick accounting for ordinary pushes. Verified ECO batches are bounded
         // by the live provider capacity and deliberately do not consume this operation window.
         dispatchStrategy.finishTick(acceptedNormalPushes);
-        var observedJob = job;
-        if (observedJob != null && dispatchWatchdog.check(TickHandler.instance().getCurrentTick(),
-                observedJob.tasks.values().stream().anyMatch(task -> task.value > 0L),
-                observedJob.waitingFor.list, observedJob.remainingAmount,
-                dispatchWatchdog.describeGlassLedger(observedJob, inventory))) {
-            // One resync per stalled episode. Never alter tasks, waitingFor, inventory, executionRuntime,
-            // or the accepted-operation rolling window: none proves custody of external machine inputs.
-            providerCursor.clear();
-            resumeDispatchPattern = null;
-            normalPushProbesThisPass = 0;
-            remainingNormalProbes = -1;
-        }
     }
 
     /** Retry delivery from the same physical inventory used for all recipe inputs. */
@@ -278,8 +255,6 @@ public class ECOCraftingCPULogic {
             }
             inventory.extract(key, inserted, Actionable.MODULATE);
             current.remainingAmount -= inserted;
-            if (inserted > 0L) dispatchWatchdog.progress(TickHandler.instance().getCurrentTick());
-            else dispatchWatchdog.skip(ECODispatchWatchdog.Skip.FINAL_DELIVERY);
             markCpuDirty();
         }
         if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()
@@ -315,7 +290,6 @@ public class ECOCraftingCPULogic {
         lastAcceptedNormalPushes = 0;
         var current = job;
         if (current == null) return 0;
-        dispatchWatchdog.bind(current.link.getCraftingID(), TickHandler.instance().getCurrentTick());
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
         // Direct callers get a bounded standalone pass. CPU ticks supply the shared remaining budget.
@@ -325,7 +299,6 @@ public class ECOCraftingCPULogic {
         var candidates = current.executionRuntime == null
             ? nativeDispatchCandidates(current)
             : current.executionRuntime.candidates(remainingTasks);
-        if (candidates.isEmpty()) dispatchWatchdog.skip(ECODispatchWatchdog.Skip.PHASE_BARRIER);
         int start = 0;
         if (resumeDispatchPattern != null) {
             for (int i = 0; i < candidates.size(); i++) {
@@ -351,7 +324,6 @@ public class ECOCraftingCPULogic {
             // The explicit execution runtime owns phase/cycle gating. The growth barrier remains the fallback
             // policy for legacy jobs that have no bound ECO plan.
             if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
-                dispatchWatchdog.skip(ECODispatchWatchdog.Skip.PHASE_BARRIER);
                 continue;
             }
             // Skip input resolution when no eligible provider is ready for a dispatch.
@@ -361,11 +333,9 @@ public class ECOCraftingCPULogic {
                     boolean eligible = (ordinaryLimit > 0 && normalPushProbesThisPass < probeLimit)
                     || providerCandidate instanceof ECOBatchCapacityProvider
                     || ECOUselessBatchProviderBridge.supports(providerCandidate);
-                    if (!eligible) dispatchWatchdog.skip(ECODispatchWatchdog.Skip.BUDGET);
                     return eligible;
-                }, (provider, busy) -> dispatchWatchdog.provider(pattern, provider, busy));
+                });
             if (providers.isEmpty()) {
-                dispatchWatchdog.skip(ECODispatchWatchdog.Skip.NO_READY_PROVIDER);
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
                 continue;
             }
@@ -377,8 +347,6 @@ public class ECOCraftingCPULogic {
             var inputs = CraftingCpuHelper.extractPatternInputs(
                 pattern, inputInventory, level, outputs, containers);
             if (inputs == null) {
-                dispatchWatchdog.skip(ECODispatchWatchdog.Skip.MISSING_INPUTS);
-                dispatchWatchdog.missingInputs(pattern, inventory, level);
                 // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
                 // ordered step is a hard barrier and must wait for this exact pattern.
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
@@ -408,15 +376,12 @@ public class ECOCraftingCPULogic {
                         boolean acceptedBatch;
                         try {
                             providerCursor.advanceAfter(pattern, provider);
-                            dispatchWatchdog.probe();
                             acceptedBatch = batch.push(inventory);
                         } catch (RuntimeException failure) {
                             LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
                             acceptedBatch = false;
                         }
                         if (acceptedBatch) {
-                            dispatchWatchdog.progress(TickHandler.instance().getCurrentTick());
-                            dispatchWatchdog.accepted(pattern, inputs, craftCount);
                             // Once accepted, the worker owns the inputs even if the energy service fails.
                             chargeAcceptedEnergy(energyService, power);
                             for (var output : batch.outputs()) {
@@ -443,7 +408,6 @@ public class ECOCraftingCPULogic {
                             // Keep the int Mixin entry point; job accounting above retains the full long count.
                             return (int) Math.min(craftCount, Integer.MAX_VALUE);
                         }
-                        dispatchWatchdog.batchRejected(provider);
                         // A rejected batch restores its own extraction. The ordinary fallback is exactly one
                         // copy, so it must use the per-copy power rather than the rejected batch total.
                         power = singlePower;
@@ -453,12 +417,10 @@ public class ECOCraftingCPULogic {
                 // Batch is an optional optimization. A provider that offered a batch still retains the normal
                 // one-copy fallback when that batch is unavailable, rejected, or dynamically ambiguous.
                 if (ordinaryLimit <= 0 || normalPushProbesThisPass >= probeLimit) {
-                    dispatchWatchdog.skip(ECODispatchWatchdog.Skip.BUDGET);
                     continue;
                 }
                 if (energyService.extractAEPower(power, Actionable.SIMULATE,
                         PowerMultiplier.CONFIG) < power - 0.01) {
-                    dispatchWatchdog.skip(ECODispatchWatchdog.Skip.INSUFFICIENT_POWER);
                     // Power is shared by all providers for this pattern; there is no value in retrying the rest
                     // of this provider snapshot in the same tick.
                     break;
@@ -472,7 +434,6 @@ public class ECOCraftingCPULogic {
                     // Preserve this position while probes are exhausted, including across batch-only passes.
                     resumeDispatchPattern = candidates.get((candidateIndex + 1) % candidates.size()).pattern();
                     clearProviderDiagnostics(provider);
-                    dispatchWatchdog.probe();
                     if (provider instanceof ECOCraftingPatternBusBlockEntity) {
                         acceptedSingle = ECOSingleCraftingExecutor.pushPattern(
                             provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
@@ -482,11 +443,8 @@ public class ECOCraftingCPULogic {
                         acceptedSingle = provider.pushPattern(pattern, inputs);
                     }
                     if (!acceptedSingle) {
-                        dispatchWatchdog.rejected(pattern, provider, TickHandler.instance().getCurrentTick());
                         continue;
                     }
-                    dispatchWatchdog.progress(TickHandler.instance().getCurrentTick());
-                    dispatchWatchdog.accepted(pattern, inputs, 1L);
 
                     // Once accepted, the worker owns the inputs even if the energy service fails.
                     chargeAcceptedEnergy(energyService, power);
@@ -565,7 +523,6 @@ public class ECOCraftingCPULogic {
             inventory.insert(what, accepted, Actionable.MODULATE);
             current.waitingFor.extract(what, accepted, Actionable.MODULATE);
             current.timeTracker.decrementItems(accepted, what.getType());
-            dispatchWatchdog.progress(TickHandler.instance().getCurrentTick());
             markCpuDirty();
         }
         return accepted;
@@ -591,7 +548,6 @@ public class ECOCraftingCPULogic {
         // Job-directed surplus belongs to this CPU too, but must not decrement unrelated waiting entries.
         if (type == Actionable.MODULATE && accepted < amount) {
             inventory.insert(what, amount - accepted, Actionable.MODULATE);
-            dispatchWatchdog.progress(TickHandler.instance().getCurrentTick());
             markCpuDirty();
         }
         return amount;
@@ -638,7 +594,6 @@ public class ECOCraftingCPULogic {
         this.job = null;
         providerCursor.clear();
         resumeDispatchPattern = null;
-        dispatchWatchdog.reset();
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -733,7 +688,6 @@ public class ECOCraftingCPULogic {
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         providerCursor.clear();
         resumeDispatchPattern = null;
-        dispatchWatchdog.reset();
         dispatchStrategy.reset();
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {

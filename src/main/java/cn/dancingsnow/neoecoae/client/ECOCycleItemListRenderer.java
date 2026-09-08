@@ -61,21 +61,17 @@ final class ECOCycleItemListRenderer {
             int cellY = y + (index - scrollOffset) * ROW_HEIGHT;
             boolean hovered = localMouseX >= x && localMouseX < x + CELL_WIDTH
                 && localMouseY >= cellY && localMouseY < cellY + ROW_HEIGHT - 1;
-            boolean selected = selectedComponentId != null && selectedComponentId == entry.componentId();
-            (hovered || selected ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
+            hoveredItemBackground.dest(x, cellY).blit(graphics);
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<Component> lines = new java.util.ArrayList<>();
-            lines.add(Component.translatable("gui.neoecoae.crafting_report.total_consumed",
-                formatAmount(entry.exactConsumed(), AmountFormat.SLOT)));
-            lines.add(Component.translatable("gui.neoecoae.crafting_report.total_produced",
-                formatAmount(entry.exactProduced(), AmountFormat.SLOT)));
+            lines.add(totalLine(entry, AmountFormat.SLOT));
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
             int textColor = screen.getStyle().getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
             var font = Minecraft.getInstance().font;
-            float textY = Math.round(cellY + 6.0f);
+            float textY = Math.round(cellY + 9.0f);
             for (var line : lines) {
                 int lineWidth = font.width(line);
                 graphics.drawString(font, line,
@@ -93,10 +89,7 @@ final class ECOCycleItemListRenderer {
                 if (entry.componentId() >= 0) {
                     tooltip.add(net.minecraft.network.chat.Component.literal("Cycle #" + entry.componentId()));
                 }
-                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_consumed",
-                    formatAmount(entry.exactConsumed(), AmountFormat.FULL)));
-                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_produced",
-                    formatAmount(entry.exactProduced(), AmountFormat.FULL)));
+                tooltip.add(totalLine(entry, AmountFormat.FULL));
                 if (isMissingStartupSeed(entry)) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
                 }
@@ -115,6 +108,13 @@ final class ECOCycleItemListRenderer {
 
     private static String formatAmount(BigInteger amount, AmountFormat format) {
         return format == AmountFormat.FULL ? amount.toString() : HostText.ae2Amount(amount);
+    }
+
+    private static Component totalLine(ECOCycleItemList.Entry entry, AmountFormat format) {
+        String translationKey = entry.isCycleProduct()
+            ? "gui.neoecoae.crafting_report.total_produced"
+            : "gui.neoecoae.crafting_report.total_consumed";
+        return Component.translatable(translationKey, formatAmount(entry.displayedTotal(), format));
     }
 
     private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {

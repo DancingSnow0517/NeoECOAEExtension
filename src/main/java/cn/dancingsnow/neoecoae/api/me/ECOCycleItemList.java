@@ -75,6 +75,11 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         public long singleNetOutput() { return exactSingleNetOutput.longValue(); }
         public long totalNetOutput() { return exactTotalNetOutput.longValue(); }
         public boolean totalNetOutputKnown() { return executionCountKnowledge == ExecutionCountKnowledge.EXACT; }
+
+        /** A positive net change makes this item an output of the cycle; all other members feed the cycle. */
+        public boolean isCycleProduct() { return exactTotalNetOutput.signum() > 0; }
+
+        public BigInteger displayedTotal() { return isCycleProduct() ? exactProduced : exactConsumed; }
     }
 
     private static void writeBigInteger(RegistryFriendlyByteBuf data, BigInteger value) {

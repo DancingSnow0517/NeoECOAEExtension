@@ -126,6 +126,20 @@ class CraftingGraphProductionAcceptanceTest {
         assertEquals(produced, decodedList.items().getFirst().exactProduced());
     }
 
+    @Test void cycleItemDisplaysOnlyTheTotalForItsNetRole() {
+        var rawMaterial = new ECOCycleItemList.Entry(BenchmarkKey.of("cycle_raw_material"),
+            BigInteger.valueOf(2_192), BigInteger.valueOf(2_176), BigInteger.valueOf(-16),
+            BigInteger.valueOf(-16), ExecutionCountKnowledge.EXACT, CycleSolveStatus.SUCCESS, 7);
+        assertFalse(rawMaterial.isCycleProduct());
+        assertEquals(BigInteger.valueOf(2_192), rawMaterial.displayedTotal());
+
+        var product = new ECOCycleItemList.Entry(BenchmarkKey.of("cycle_product"),
+            BigInteger.valueOf(12), BigInteger.valueOf(128), BigInteger.valueOf(116),
+            BigInteger.valueOf(116), ExecutionCountKnowledge.EXACT, CycleSolveStatus.SUCCESS, 7);
+        assertTrue(product.isCycleProduct());
+        assertEquals(BigInteger.valueOf(128), product.displayedTotal());
+    }
+
     @Test void cycleListValuesMatchCycleSnapshotValues() {
         var a = BenchmarkKey.of("consistent_a");
         var cycle = new CraftingGraphSnapshot.CycleGroup(4, List.of(0), List.of(), "SOLVED", List.of(), List.of(),
