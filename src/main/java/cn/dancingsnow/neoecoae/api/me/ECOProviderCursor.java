@@ -33,6 +33,21 @@ final class ECOProviderCursor {
     @Nullable
     ICraftingProvider nextAvailable(IPatternDetails pattern,
             Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
+        var available = availableProviders(pattern, providers, eligible);
+        if (available.isEmpty()) return null;
+        var selected = available.getFirst();
+        advanceAfter(pattern, selected);
+        return selected;
+    }
+
+    /**
+     * Returns each eligible provider once, starting at the transient round-robin cursor.
+     *
+     * <p>The caller can try the providers in this order without resolving the pattern inputs again. The cursor
+     * advances before a provider is returned, so a rejected provider cannot monopolize the next tick.</p>
+     */
+    List<ICraftingProvider> availableProviders(IPatternDetails pattern,
+            Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
         Cursor previous = cursors.get(pattern);
         Cursor cursor = previous;
         if (cursor == null || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
@@ -48,14 +63,32 @@ final class ECOProviderCursor {
             }
             cursors.put(pattern, cursor);
         }
+        if (cursor.providers.isEmpty()) return List.of();
+
+        var available = new ArrayList<ICraftingProvider>(cursor.providers.size());
         int checks = cursor.providers.size();
         while (checks-- > 0) {
             var provider = cursor.providers.get(cursor.next);
             cursor.next = (cursor.next + 1) % cursor.providers.size();
-            // Advance before returning, so rejection resumes at the next provider next tick.
-            if (eligible.test(provider) && !provider.isBusy()) return provider;
+            // Advance before returning, so rejection resumes at the next provider next tick. Keep busy checks here
+            // so the CPU can avoid resolving inputs when no provider can accept this pattern yet.
+            if (eligible.test(provider) && !provider.isBusy()) available.add(provider);
         }
-        return null;
+        return List.copyOf(available);
+    }
+
+    /** Records the provider currently being attempted so the next pass starts after it. */
+    void advanceAfter(IPatternDetails pattern, ICraftingProvider provider) {
+        Cursor cursor = cursors.get(pattern);
+        if (cursor == null || cursor.providers.isEmpty()) {
+            return;
+        }
+        for (int index = 0; index < cursor.providers.size(); index++) {
+            if (cursor.providers.get(index) == provider) {
+                cursor.next = (index + 1) % cursor.providers.size();
+                return;
+            }
+        }
     }
 
     void forget(IPatternDetails pattern) {

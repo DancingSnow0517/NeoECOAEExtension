@@ -103,6 +103,16 @@ class ECOCraftingDispatchRegressionTest {
         assertEquals(0, f.logic.getWaitingFor(OUTPUT));
     }
 
+    @Test void rejectedProviderFallsThroughWithoutResolvingInputsAgain() throws Exception {
+        var f = new Fixture(10);
+        f.providers = List.of(f.ordinary(true), f.ordinary(false));
+        assertEquals(1, f.logic.executeCrafting(2, f.crafting, f.energy, level));
+        assertEquals(2, f.ordinaryAttempts);
+        assertEquals(1, f.inputResolutions);
+        assertEquals(9, f.logic.getStored(INPUT));
+        assertEquals(1, f.logic.getWaitingFor(OUTPUT));
+    }
+
     @Test void noProviderDoesNotResolveInputs() throws Exception {
         var f = new Fixture(100);
         assertEquals(0, f.logic.executeCrafting(100, f.crafting, f.energy, level));
@@ -186,6 +196,9 @@ class ECOCraftingDispatchRegressionTest {
             @Override public boolean eco$pushBatch(ECOBatchDispatchContext context, long requested) {
                 assertEquals(count, requested);
                 assertEquals(0, f.logic.getStored(INPUT));
+                return false;
+            }
+            @Override public boolean pushPattern(IPatternDetails pattern, KeyCounter[] inputs) {
                 return false;
             }
         });

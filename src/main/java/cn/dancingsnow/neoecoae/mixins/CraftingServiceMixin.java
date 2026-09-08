@@ -529,8 +529,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         validCpusClusters.sort((a, b) -> {
             // Prioritize sorting by selected mode
-            var firstPreferred = a.canBeAutoSelectedFor(src);
-            var secondPreferred = b.canBeAutoSelectedFor(src);
+            var firstPreferred = a.isPreferredFor(src);
+            var secondPreferred = b.isPreferredFor(src);
             if (firstPreferred != secondPreferred) {
                 // Sort such that preferred comes first, not preferred second
                 return Boolean.compare(secondPreferred, firstPreferred);

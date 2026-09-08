@@ -233,6 +233,15 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         };
     }
 
+    /** Applies preferred-first CPU selection after the selection-mode filter. */
+    public boolean isPreferredFor(IActionSource actionSource) {
+        return switch (selectionMode) {
+            case ANY -> false;
+            case PLAYER_ONLY -> actionSource.player().isPresent();
+            case MACHINE_ONLY -> actionSource.player().isEmpty();
+        };
+    }
+
     public void setSelectionMode(CpuSelectionMode mode) {
         if (this.selectionMode == mode) {
             return;
