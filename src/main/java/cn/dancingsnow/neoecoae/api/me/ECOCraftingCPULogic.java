@@ -272,6 +272,8 @@ public class ECOCraftingCPULogic {
                 continue;
             }
             var pattern = task.getKey();
+            // Protect intermediate growth stock before either the batch or ordinary provider path can take it.
+            if (!current.canDispatchAfterGrowth(pattern)) continue;
             // Skip input resolution when no eligible provider is ready for a dispatch.
             var providers = providerCursor.availableProviders(
                 pattern, () -> collectAvailableProviders(craftingService, pattern),

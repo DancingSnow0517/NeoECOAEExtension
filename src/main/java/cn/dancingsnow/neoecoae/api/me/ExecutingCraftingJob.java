@@ -40,6 +40,7 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOGrowthDispatchBarrier;
 
 public class ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -55,6 +56,7 @@ public class ExecutingCraftingJob {
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    private ECOGrowthDispatchBarrier growthBarrier;
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
@@ -153,6 +155,17 @@ public class ExecutingCraftingJob {
 
         data.putBoolean(NBT_SUSPENDED, suspended);
         return data;
+    }
+
+    boolean canDispatchAfterGrowth(IPatternDetails pattern) {
+        // Derived from task patterns, including after NBT restore; no independent persisted cursor is needed.
+        if (growthBarrier == null) {
+            growthBarrier = new ECOGrowthDispatchBarrier(tasks.keySet());
+        }
+        return growthBarrier.canDispatch(pattern, member -> {
+            var task = tasks.get(member);
+            return task == null ? 0L : task.value;
+        });
     }
 
     static class TaskProgress {
