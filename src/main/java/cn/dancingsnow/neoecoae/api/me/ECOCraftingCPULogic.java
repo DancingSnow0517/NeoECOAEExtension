@@ -150,6 +150,10 @@ public class ECOCraftingCPULogic {
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
+        if (job != null && ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), job.link.getCraftingID())) {
+            cancel();
+            return;
+        }
         // 未激活时不 tick。
         if (!cpu.isActive()) {
             return;
@@ -451,6 +455,7 @@ public class ECOCraftingCPULogic {
     public long insert(AEKey what, long amount, Actionable type) {
         var current = job;
         if (what == null || amount <= 0L || current == null) return 0L;
+        if (ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), current.link.getCraftingID())) return 0L;
         if (deliveringFinalOutput && what.matches(current.finalOutput)) return 0L;
         long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
         if (accepted <= 0L) return 0L;
@@ -472,7 +477,8 @@ public class ECOCraftingCPULogic {
      */
     public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         if (what == null || amount <= 0L || craftingJobId == null || job == null
-                || !craftingJobId.equals(job.link.getCraftingID())) {
+                || !craftingJobId.equals(job.link.getCraftingID())
+                || ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), craftingJobId)) {
             return 0L;
         }
         long accepted = insert(what, amount, type);
@@ -497,6 +503,7 @@ public class ECOCraftingCPULogic {
      * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
+        ECOCraftingJobLifecycle.finish(cpu.getLevel(), job.link.getCraftingID(), success);
         if (success) {
             job.link.markDone();
             var grid = cpu.getGrid();
@@ -545,14 +552,13 @@ public class ECOCraftingCPULogic {
     }
 
     private void recoverInflightWorkerInputs(UUID craftingJobId) {
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return;
-        }
-        var storage = grid.getStorageService().getInventory();
-        // Recover pre-downgrade worker jobs that still carry a crafting link id.
-        for (ECOCraftingWorkerBlockEntity worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
-            worker.recoverJobToNetwork(craftingJobId, storage);
+        Level level = cpu.getLevel();
+        if (level == null || level.getServer() == null) return;
+        // Loaded workers may already have left this grid. Unloaded workers reconcile the durable decision later.
+        for (ECOCraftingWorkerBlockEntity worker : ECOCraftingWorkerBlockEntity.getLoadedServerWorkers()) {
+            if (worker.getLevel() != null && worker.getLevel().getServer() == level.getServer()) {
+                worker.recoverTerminatedJob(craftingJobId);
+            }
         }
     }
 

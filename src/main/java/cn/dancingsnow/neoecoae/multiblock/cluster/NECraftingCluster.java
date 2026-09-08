@@ -138,6 +138,15 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     @Override
+    public void breakCluster() {
+        if (isDestroyed()) return;
+        for (ECOCraftingWorkerBlockEntity worker : List.copyOf(workers)) {
+            worker.terminateRunningJobs();
+        }
+        destroy();
+    }
+
+    @Override
     public void addBlockEntity(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOCraftingParallelCoreBlockEntity parallelCore) {

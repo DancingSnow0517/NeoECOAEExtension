@@ -78,6 +78,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             }
         }
         getMainNode().setIdlePowerUsage(64);
+        reconcileJobTermination();
         refreshDisplayedJob();
     }
 
@@ -139,8 +140,52 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 controller.recordPerformanceSample(System.nanoTime() - startNanos);
             }
         } else {
-            return TickRateModulation.IDLE;
+            TickRateModulation rate = TickRateModulation.IDLE;
+            for (ECOCraftingThread thread : craftingThreads) {
+                TickRateModulation recoveryRate = thread.tickRecovery();
+                if (recoveryRate != null && recoveryRate.ordinal() > rate.ordinal()) rate = recoveryRate;
+            }
+            return rate;
         }
+    }
+
+    public void reconcileJobTermination() {
+        for (ECOCraftingThread thread : craftingThreads) thread.reconcileJobTermination();
+        wakeTickingDevice();
+    }
+
+    public void recoverTerminatedJob(UUID craftingJobId) {
+        boolean matched = false;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.belongsToJob(craftingJobId)) {
+                // Cancellation can arrive inside an insertion callback. Never insert the same pending ledger
+                // recursively; mark custody now and let the normal worker tick perform the physical recovery.
+                thread.reconcileJobTermination();
+                matched = true;
+            }
+        }
+        if (matched) wakeTickingDevice();
+    }
+
+    public void terminateRunningJobs() {
+        if (!(level instanceof ServerLevel)) return;
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
+        }
+        reconcileJobTermination();
+    }
+
+    @Override
+    public void breakCluster() {
+        // Also covers removal of an already detached worker, where there is no cluster to notify.
+        terminateRunningJobs();
+        super.breakCluster();
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        super.onMainNodeGridChanged();
+        reconcileJobTermination();
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {

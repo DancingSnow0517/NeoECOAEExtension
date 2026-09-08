@@ -109,6 +109,17 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         super.destroy();
     }
 
+    @Override
+    public void breakCluster() {
+        if (isDestroyed()) return;
+        // Keep nodes attached until cancellation has returned CPU inventory and notified loaded workers.
+        // Ordinary destroy() preserves deferred CPU state for topology rebuilds and chunk unloads.
+        for (ECOComputationThreadingCoreBlockEntity core : List.copyOf(threadingCores)) {
+            core.prepareForPermanentRemoval();
+        }
+        destroy();
+    }
+
     /**
      * Own real byte capacity from installed computation cells, ignoring network pooling.
      */

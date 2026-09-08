@@ -93,6 +93,11 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         }
     }
 
+    /** Physical block removal. Recalculation and unload must continue to use destroy(). */
+    public void breakCluster() {
+        destroy();
+    }
+
     @Override
     @MustBeInvokedByOverriders
     public void destroy() {

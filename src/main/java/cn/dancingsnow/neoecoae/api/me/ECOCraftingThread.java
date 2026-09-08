@@ -138,13 +138,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         this.reboot = false;
-        if (isRecoveringToNetwork()) {
-            if (retryRecoveryToNetwork()) {
-                setChanged();
-                return TickRateModulation.URGENT;
-            }
-            return TickRateModulation.SLOWER;
-        }
+        TickRateModulation recoveryRate = tickRecovery();
+        if (recoveryRate != null) return recoveryRate;
 
         if (outputsReady) {
             return ejectOutputsSafely();
@@ -190,6 +185,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public boolean isFree() {
         return !isBusy;
+    }
+
+    /** Recovery must also run while the worker has no formed crafting controller. */
+    public @Nullable TickRateModulation tickRecovery() {
+        reconcileJobTermination();
+        if (!isBusy || !isRecoveringToNetwork()) return null;
+        return retryRecoveryToNetwork() ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
+    }
+
+    public void reconcileJobTermination() {
+        if (isBusy && !isRecoveringToNetwork()
+                && ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), craftingJobId)) {
+            markRecoveryPending(shouldRecoverOutputs());
+        }
     }
 
     public ItemStack getOutputItem() {
@@ -1120,6 +1129,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (!isRecoverableState()) {
             return;
         }
+        // Removing an executor makes its outstanding outputs impossible. Stop the owner and its other workers.
+        ECOCraftingJobLifecycle.finish(worker.getLevel(), craftingJobId, false);
         List<ItemStack> recoverable = shouldRecoverOutputs() ? outputAndRemainingItems() : inputItems;
         for (ItemStack stack : recoverable) {
             if (!stack.isEmpty()) {

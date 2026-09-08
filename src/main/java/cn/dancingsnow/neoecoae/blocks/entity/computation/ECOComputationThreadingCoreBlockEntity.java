@@ -8,6 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
@@ -119,9 +120,11 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                             deferredInit[i] = null;
                             cluster.pickup(cpu.getPlan(), cpu);
                         } else {
+                            ECOCraftingJobLifecycle.cancelPersistedJob(level, tag);
                             LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined", worldPosition);
                         }
                     } catch (RuntimeException e) {
+                        ECOCraftingJobLifecycle.cancelPersistedJob(level, tag);
                         LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data", worldPosition, e);
                     }
                 }
@@ -141,8 +144,28 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         }
     }
 
+    /** Ends ownership without dropping inventory; callers retain or drop only the unreturned remainder. */
+    public void prepareForPermanentRemoval() {
+        if (level == null || level.isClientSide()) return;
+        for (int i = 0; i < cpus.length; i++) {
+            ECOCraftingCPU cpu = cpus[i];
+            if (cpu != null) cpu.getLogic().cancel();
+            if (deferredInit[i] != null) {
+                ECOCraftingJobLifecycle.cancelPersistedJob(level, deferredInit[i]);
+            }
+        }
+    }
+
+    @Override
+    public void breakCluster() {
+        // A previously dismantled core may have deferred jobs but no cluster to notify.
+        prepareForPermanentRemoval();
+        super.breakCluster();
+    }
+
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        prepareForPermanentRemoval();
         super.addAdditionalDrops(level, pos, drops);
         HolderLookup.Provider registries = level.registryAccess();
         for (int i = 0; i < cpus.length; i++) {
@@ -155,6 +178,19 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             }
             addOwnedDrops(owned, drops, level, pos);
         }
+    }
+
+    @Override
+    public void clearContent() {
+        // AE2 calls this after collecting drops (also when wrenching). Do not serialize those items again.
+        prepareForPermanentRemoval();
+        for (ECOCraftingCPU cpu : cpus) {
+            if (cpu != null) cpu.getLogic().getInventory().list.clear();
+        }
+        Arrays.fill(cpus, null);
+        Arrays.fill(deferredInit, null);
+        setChanged();
+        super.clearContent();
     }
 
     private static void collectDeferredOwnedItems(
