@@ -112,8 +112,13 @@ public class ExecutingCraftingJob {
             }
         }
         this.executionPlan = executionPlan;
-        this.executionRuntime = executionPlan == null ? null : new ECOExecutionRuntime(executionPlan,
-            bindExecutionPatterns(executionPlan));
+        if (executionPlan == null) {
+            this.executionRuntime = null;
+        } else {
+            Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(executionPlan);
+            this.executionRuntime = new ECOExecutionRuntime(executionPlan, boundPatterns,
+                bindExecutionProgress(executionPlan, boundPatterns));
+        }
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
@@ -157,11 +162,12 @@ public class ExecutingCraftingJob {
             try {
                 restoredPlan = readExecutionPlan(data.getCompound(NBT_EXECUTION_PLAN), registries, cpu, this.finalOutput);
                 Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(restoredPlan, false);
+                TaskProgress[] boundProgress = bindExecutionProgress(restoredPlan, boundPatterns);
                 if (data.contains(NBT_EXECUTION_RUNTIME)) {
                     restoredRuntime = ECOExecutionRuntime.fromNBT(restoredPlan, boundPatterns,
-                        data.getCompound(NBT_EXECUTION_RUNTIME), registries);
+                        boundProgress, data.getCompound(NBT_EXECUTION_RUNTIME), registries);
                 } else {
-                    restoredRuntime = new ECOExecutionRuntime(restoredPlan, boundPatterns);
+                    restoredRuntime = new ECOExecutionRuntime(restoredPlan, boundPatterns, boundProgress);
                 }
             } catch (RuntimeException failure) {
                 executionMetadataLost = true;
@@ -190,6 +196,20 @@ public class ExecutingCraftingJob {
                 throw new IllegalArgumentException("Execution plan count does not match submitted task: " + task.id());
             }
             result.put(task.id(), match);
+        }
+        return result;
+    }
+
+    private TaskProgress[] bindExecutionProgress(ECOExecutionPlan plan,
+            Map<Integer, IPatternDetails> boundPatterns) {
+        TaskProgress[] result = new TaskProgress[plan.tasks().size()];
+        for (var task : plan.tasks()) {
+            IPatternDetails pattern = boundPatterns.get(task.id());
+            TaskProgress progress = tasks.get(pattern);
+            if (progress == null) {
+                throw new IllegalArgumentException("Execution plan task has no live progress: " + task.id());
+            }
+            result[task.id()] = progress;
         }
         return result;
     }
@@ -373,12 +393,6 @@ public class ExecutingCraftingJob {
             var task = tasks.get(member);
             return task == null ? 0L : task.value;
         });
-    }
-
-    Map<IPatternDetails, Long> remainingTaskCounts() {
-        Map<IPatternDetails, Long> result = new HashMap<>();
-        tasks.forEach((pattern, progress) -> result.put(pattern, Math.max(0L, progress.value)));
-        return result;
     }
 
     static class TaskProgress {

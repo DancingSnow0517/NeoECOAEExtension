@@ -10,11 +10,14 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -31,28 +34,64 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ECOExecutionRuntime {
     private final ECOExecutionPlan plan;
-    private final Map<Integer, IPatternDetails> patternsById;
+    private final IPatternDetails[] patternsById;
+    @Nullable
+    private final ExecutingCraftingJob.TaskProgress[] progressByTaskId;
+    private final List<Set<AEKey>> inputKeysByTaskId;
     private final int[] stepCursor;
     private final int[] dynamicCursor;
     private final List<long[]> remainingSteps;
     private final List<Map<Integer, Long>> remainingDynamicFirings;
     private final BitSet completedPhases;
+    private final int[] unfinishedTasksByPhase;
+    private final boolean[] unfinishedTasks;
+    private final int[] activeDynamicTasksByPhase;
+    private final int[] remainingDependencies;
+    private final int[] activeTaskBuffer;
+    private final List<List<Integer>> dependentsByPhase;
     private final Map<AEKey, Long> startupSeedRemaining = new LinkedHashMap<>();
 
     public ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById) {
+        this(plan, toPatternArray(plan, patternsById), null);
+    }
+
+    ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
+            ExecutingCraftingJob.TaskProgress[] progressByTaskId) {
+        this(plan, toPatternArray(plan, patternsById), progressByTaskId);
+    }
+
+    ECOExecutionRuntime(ECOExecutionPlan plan, IPatternDetails[] patternsById,
+            ExecutingCraftingJob.TaskProgress[] progressByTaskId) {
         this.plan = Objects.requireNonNull(plan, "plan");
-        this.patternsById = Map.copyOf(patternsById);
+        this.patternsById = Objects.requireNonNull(patternsById, "patternsById").clone();
+        if (this.patternsById.length != plan.tasks().size()) {
+            throw new IllegalArgumentException("Execution pattern binding shape changed");
+        }
+        this.progressByTaskId = progressByTaskId == null ? null : progressByTaskId.clone();
+        if (this.progressByTaskId != null && this.progressByTaskId.length != plan.tasks().size()) {
+            throw new IllegalArgumentException("Execution progress binding shape changed");
+        }
         this.stepCursor = new int[plan.phases().size()];
         this.dynamicCursor = new int[plan.phases().size()];
         this.remainingSteps = new ArrayList<>(plan.phases().size());
         this.remainingDynamicFirings = new ArrayList<>(plan.phases().size());
         this.completedPhases = new BitSet(plan.phases().size());
+        this.inputKeysByTaskId = new ArrayList<>(plan.tasks().size());
+        this.unfinishedTasksByPhase = new int[plan.phases().size()];
+        this.unfinishedTasks = new boolean[plan.tasks().size()];
+        this.activeDynamicTasksByPhase = new int[plan.phases().size()];
+        this.remainingDependencies = new int[plan.phases().size()];
+        this.activeTaskBuffer = new int[plan.tasks().size()];
+        this.dependentsByPhase = createDependents(plan);
 
         for (var task : plan.tasks()) {
-            IPatternDetails actual = this.patternsById.get(task.id());
+            IPatternDetails actual = pattern(task.id());
             if (actual == null || !ECOPhaseScheduler.samePattern(task.pattern(), actual)) {
                 throw new IllegalArgumentException("Execution task is not bound to the submitted pattern vector: "
                     + task.id());
+            }
+            if (this.progressByTaskId != null && this.progressByTaskId[task.id()] == null) {
+                throw new IllegalArgumentException("Execution task has no bound progress: " + task.id());
             }
         }
         for (var phase : plan.phases()) {
@@ -62,6 +101,10 @@ public final class ECOExecutionRuntime {
             remainingDynamicFirings.add(new LinkedHashMap<>(phase.dynamicFirings()));
             phase.initialSeed().forEach((key, amount) -> startupSeedRemaining.merge(key, amount, NEMath::saturatingAdd));
         }
+        for (IPatternDetails pattern : this.patternsById) {
+            inputKeysByTaskId.add(Collections.unmodifiableSet(inputKeys(pattern)));
+        }
+        rebuildProgressState();
     }
 
     public ECOExecutionPlan plan() {
@@ -87,14 +130,26 @@ public final class ECOExecutionRuntime {
      * successful firing; this prevents one branch from consuming every copy of a shared startup seed before another
      * currently runnable branch gets a chance.</p>
      */
+    public List<DispatchCandidate> candidates() {
+        requireProgressBinding();
+        return candidatesInternal(null);
+    }
+
+    /** Compatibility entry point for callers that have not bound live task progress. */
     public List<DispatchCandidate> candidates(Map<IPatternDetails, Long> remainingTasks) {
-        refreshCompleted(remainingTasks);
-        List<DispatchCandidate> result = new ArrayList<>();
+        return candidatesInternal(Objects.requireNonNull(remainingTasks, "remainingTasks"));
+    }
+
+    private List<DispatchCandidate> candidatesInternal(@Nullable Map<IPatternDetails, Long> remainingTasks) {
+        if (remainingTasks != null) refreshCompleted(remainingTasks);
+        List<DispatchCandidate> result = new ArrayList<>(plan.tasks().size());
         for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
             if (completedPhases.get(phaseIndex) || !dependenciesComplete(phaseIndex)) continue;
             var phase = plan.phases().get(phaseIndex);
             if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
                 advanceFinishedSteps(phaseIndex);
+                if (progressByTaskId != null) maybeCompletePhase(phaseIndex);
+                if (completedPhases.get(phaseIndex)) continue;
                 if (stepCursor[phaseIndex] < phase.steps().size()) {
                     var step = phase.steps().get(stepCursor[phaseIndex]);
                     long remaining = taskRemaining(step.taskId(), remainingTasks);
@@ -110,21 +165,28 @@ public final class ECOExecutionRuntime {
 
             if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
                 Map<Integer, Long> dynamic = remainingDynamicFirings.get(phaseIndex);
-                List<Integer> active = phase.taskIds().stream()
-                    .filter(taskId -> dynamic.getOrDefault(taskId, 0L) > 0L)
-                    .filter(taskId -> taskRemaining(taskId, remainingTasks) > 0L)
-                    .toList();
-                if (active.isEmpty() && dynamic.values().stream().noneMatch(value -> value > 0L)) {
+                int activeCount = 0;
+                for (int taskId : phase.taskIds()) {
+                    if (dynamic.getOrDefault(taskId, 0L) > 0L
+                            && taskRemaining(taskId, remainingTasks) > 0L) {
+                        activeTaskBuffer[activeCount++] = taskId;
+                    }
+                }
+                if (progressByTaskId != null) maybeCompletePhase(phaseIndex);
+                if (completedPhases.get(phaseIndex)) continue;
+                if (activeCount == 0 && !hasDynamicFirings(dynamic)) {
                     addAllPhaseTasks(result, phaseIndex, phase.taskIds(), remainingTasks, false);
                     continue;
                 }
-                if (active.isEmpty()) continue;
-                int start = Math.floorMod(dynamicCursor[phaseIndex], active.size());
-                boolean sharedInput = active.size() > 1;
-                for (int offset = 0; offset < active.size(); offset++) {
-                    int taskId = active.get((start + offset) % active.size());
+                if (activeCount == 0) continue;
+                int start = Math.floorMod(dynamicCursor[phaseIndex], activeCount);
+                boolean sharedInput = activeCount > 1;
+                for (int offset = 0; offset < activeCount; offset++) {
+                    int taskId = activeTaskBuffer[(start + offset) % activeCount];
                     long allowed = Math.min(dynamic.getOrDefault(taskId, 0L), taskRemaining(taskId, remainingTasks));
-                    if (sharedInput && sharesInputWithAnother(taskId, active)) allowed = Math.min(allowed, 1L);
+                    if (sharedInput && sharesInputWithAnother(taskId, activeTaskBuffer, activeCount)) {
+                        allowed = Math.min(allowed, 1L);
+                    }
                     if (allowed > 0L) result.add(candidate(phaseIndex, taskId, allowed, false));
                 }
                 continue;
@@ -132,7 +194,7 @@ public final class ECOExecutionRuntime {
 
             addAllPhaseTasks(result, phaseIndex, phase.taskIds(), remainingTasks, false);
         }
-        return List.copyOf(result);
+        return result.isEmpty() ? List.of() : Collections.unmodifiableList(result);
     }
 
     /** Commit scheduler state only after the provider has accepted the extracted inputs. */
@@ -156,27 +218,42 @@ public final class ECOExecutionRuntime {
             long before = dynamic.getOrDefault(candidate.taskId(), 0L);
             if (count > before) throw new IllegalStateException("Accepted task exceeds dynamic firing vector");
             dynamic.put(candidate.taskId(), before - count);
+            if (before > 0L && before - count <= 0L) activeDynamicTasksByPhase[phaseIndex]--;
             int taskPosition = phase.taskIds().indexOf(candidate.taskId());
             if (taskPosition >= 0 && !phase.taskIds().isEmpty()) {
                 dynamicCursor[phaseIndex] = (taskPosition + 1) % phase.taskIds().size();
             }
         }
+        refreshTaskState(candidate.taskId());
+        maybeCompletePhase(phaseIndex);
         consumeStartupSeed(inputs, count);
     }
 
+    public boolean isComplete() {
+        requireProgressBinding();
+        return completedPhases.cardinality() == plan.phases().size();
+    }
+
     public boolean isComplete(Map<IPatternDetails, Long> remainingTasks) {
-        refreshCompleted(remainingTasks);
+        refreshCompleted(Objects.requireNonNull(remainingTasks, "remainingTasks"));
         return completedPhases.cardinality() == plan.phases().size();
     }
 
     /** Amount of planned input that must stay in the CPU for future executions of {@code key}. */
+    public long reservedInputAmount(AEKey key) {
+        requireProgressBinding();
+        return reservedInputAmount(key, null);
+    }
+
+    /** Compatibility entry point for callers that have not bound live task progress. */
     public long reservedInputAmount(AEKey key, Map<IPatternDetails, Long> remainingTasks) {
         if (key == null) return 0L;
+        if (progressByTaskId == null) Objects.requireNonNull(remainingTasks, "remainingTasks");
         long result = startupSeedRemaining.getOrDefault(key, 0L);
         for (var task : plan.tasks()) {
             long remaining = taskRemaining(task.id(), remainingTasks);
             if (remaining <= 0L) continue;
-            IPatternDetails pattern = patternsById.get(task.id());
+            IPatternDetails pattern = pattern(task.id());
             result = NEMath.saturatingAdd(result, inputAmount(pattern, key, remaining));
         }
         return result;
@@ -221,7 +298,13 @@ public final class ECOExecutionRuntime {
 
     static ECOExecutionRuntime fromNBT(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
             CompoundTag data, HolderLookup.Provider registries) {
-        ECOExecutionRuntime runtime = new ECOExecutionRuntime(plan, patternsById);
+        return fromNBT(plan, patternsById, null, data, registries);
+    }
+
+    static ECOExecutionRuntime fromNBT(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
+            ExecutingCraftingJob.TaskProgress[] progressByTaskId, CompoundTag data,
+            HolderLookup.Provider registries) {
+        ECOExecutionRuntime runtime = new ECOExecutionRuntime(plan, patternsById, progressByTaskId);
         int[] stepCursor = data.getIntArray("stepCursor");
         int[] dynamicCursor = data.getIntArray("dynamicCursor");
         if (stepCursor.length != runtime.stepCursor.length || dynamicCursor.length != runtime.dynamicCursor.length) {
@@ -261,34 +344,50 @@ public final class ECOExecutionRuntime {
                 runtime.startupSeedRemaining.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
             }
         }
+        runtime.rebuildProgressState();
         return runtime;
     }
 
     private void refreshCompleted(Map<IPatternDetails, Long> remainingTasks) {
         for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
             if (!completedPhases.get(phaseIndex) && phaseComplete(phaseIndex, remainingTasks)) {
-                completedPhases.set(phaseIndex);
+                markPhaseCompleted(phaseIndex);
             }
         }
     }
 
-    private boolean phaseComplete(int phaseIndex, Map<IPatternDetails, Long> remainingTasks) {
+    private void refreshCompleted() {
+        for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
+            if (!completedPhases.get(phaseIndex) && phaseComplete(phaseIndex, null)) {
+                markPhaseCompleted(phaseIndex);
+            }
+        }
+    }
+
+    private boolean phaseComplete(int phaseIndex, @Nullable Map<IPatternDetails, Long> remainingTasks) {
         var phase = plan.phases().get(phaseIndex);
+        if (progressByTaskId != null && remainingTasks == null) {
+            if (unfinishedTasksByPhase[phaseIndex] > 0) return false;
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
+                return stepCursor[phaseIndex] >= phase.steps().size();
+            }
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                return activeDynamicTasksByPhase[phaseIndex] == 0;
+            }
+            return true;
+        }
         for (int taskId : phase.taskIds()) if (taskRemaining(taskId, remainingTasks) > 0L) return false;
         if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
             return stepCursor[phaseIndex] >= phase.steps().size();
         }
         if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
-            return remainingDynamicFirings.get(phaseIndex).values().stream().noneMatch(value -> value > 0L);
+            return !hasDynamicFirings(remainingDynamicFirings.get(phaseIndex));
         }
         return true;
     }
 
     private boolean dependenciesComplete(int phaseIndex) {
-        for (int dependency : plan.phases().get(phaseIndex).dependencies()) {
-            if (!completedPhases.get(dependency)) return false;
-        }
-        return true;
+        return remainingDependencies[phaseIndex] == 0;
     }
 
     private void advanceFinishedSteps(int phaseIndex) {
@@ -300,7 +399,7 @@ public final class ECOExecutionRuntime {
     }
 
     private void addAllPhaseTasks(List<DispatchCandidate> result, int phaseIndex, List<Integer> taskIds,
-            Map<IPatternDetails, Long> remainingTasks, boolean blocksOrderedPhase) {
+            @Nullable Map<IPatternDetails, Long> remainingTasks, boolean blocksOrderedPhase) {
         for (int taskId : taskIds) {
             long remaining = taskRemaining(taskId, remainingTasks);
             if (remaining > 0L) result.add(candidate(phaseIndex, taskId, remaining, blocksOrderedPhase));
@@ -308,32 +407,37 @@ public final class ECOExecutionRuntime {
     }
 
     private DispatchCandidate candidate(int phaseIndex, int taskId, long allowed, boolean blocksOrderedPhase) {
-        IPatternDetails pattern = patternsById.get(taskId);
+        IPatternDetails pattern = pattern(taskId);
         if (pattern == null) throw new IllegalStateException("Execution task is not bound: " + taskId);
         return new DispatchCandidate(taskId, phaseIndex, pattern, allowed, blocksOrderedPhase);
     }
 
-    private long taskRemaining(int taskId, Map<IPatternDetails, Long> remainingTasks) {
-        IPatternDetails pattern = patternsById.get(taskId);
-        if (pattern == null) return 0L;
-        long result = 0L;
-        for (var entry : remainingTasks.entrySet()) {
-            if (ECOPhaseScheduler.samePattern(pattern, entry.getKey())) {
-                result = NEMath.saturatingAdd(result, Math.max(0L, entry.getValue() == null ? 0L : entry.getValue()));
-            }
+    private long taskRemaining(int taskId, @Nullable Map<IPatternDetails, Long> remainingTasks) {
+        if (progressByTaskId != null) {
+            var progress = progressByTaskId[taskId];
+            return progress == null ? 0L : Math.max(0L, progress.value);
         }
-        return result;
+        if (remainingTasks == null) return 0L;
+        IPatternDetails pattern = pattern(taskId);
+        if (pattern == null) return 0L;
+        Long remaining = remainingTasks.get(pattern);
+        return remaining == null ? 0L : Math.max(0L, remaining);
     }
 
-    private boolean sharesInputWithAnother(int taskId, List<Integer> active) {
-        IPatternDetails pattern = patternsById.get(taskId);
-        if (pattern == null) return false;
-        for (int otherId : active) {
+    private boolean sharesInputWithAnother(int taskId, int[] active, int activeCount) {
+        Set<AEKey> keys = inputKeysByTaskId.get(taskId);
+        if (keys.isEmpty()) return false;
+        for (int index = 0; index < activeCount; index++) {
+            int otherId = active[index];
             if (otherId == taskId) continue;
-            IPatternDetails other = patternsById.get(otherId);
-            if (other == null) continue;
-            if (inputKeys(pattern).stream().anyMatch(inputKeys(other)::contains)) return true;
+            Set<AEKey> otherKeys = inputKeysByTaskId.get(otherId);
+            for (AEKey key : keys) if (otherKeys.contains(key)) return true;
         }
+        return false;
+    }
+
+    private static boolean hasDynamicFirings(Map<Integer, Long> dynamic) {
+        for (long value : dynamic.values()) if (value > 0L) return true;
         return false;
     }
 
@@ -380,5 +484,86 @@ public final class ECOExecutionRuntime {
             }
         }
         startupSeedRemaining.entrySet().removeIf(entry -> entry.getValue() <= 0L);
+    }
+
+    private void requireProgressBinding() {
+        if (progressByTaskId == null) {
+            throw new IllegalStateException("Execution runtime has no live task-progress binding");
+        }
+    }
+
+    private IPatternDetails pattern(int taskId) {
+        return taskId >= 0 && taskId < patternsById.length ? patternsById[taskId] : null;
+    }
+
+    private void refreshTaskState(int taskId) {
+        if (progressByTaskId == null || taskId < 0 || taskId >= unfinishedTasks.length) return;
+        boolean unfinished = taskRemaining(taskId, null) > 0L;
+        if (unfinished == unfinishedTasks[taskId]) return;
+        unfinishedTasks[taskId] = unfinished;
+        int phaseIndex = plan.task(taskId).phaseIndex();
+        unfinishedTasksByPhase[phaseIndex] += unfinished ? 1 : -1;
+    }
+
+    private void maybeCompletePhase(int phaseIndex) {
+        if (progressByTaskId == null || completedPhases.get(phaseIndex)) return;
+        var phase = plan.phases().get(phaseIndex);
+        if (unfinishedTasksByPhase[phaseIndex] > 0) return;
+        if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()
+                && stepCursor[phaseIndex] < phase.steps().size()) return;
+        if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                && activeDynamicTasksByPhase[phaseIndex] > 0) return;
+        markPhaseCompleted(phaseIndex);
+    }
+
+    private void markPhaseCompleted(int phaseIndex) {
+        if (completedPhases.get(phaseIndex)) return;
+        completedPhases.set(phaseIndex);
+        for (int dependent : dependentsByPhase.get(phaseIndex)) {
+            if (remainingDependencies[dependent] > 0) remainingDependencies[dependent]--;
+        }
+    }
+
+    private void rebuildProgressState() {
+        Arrays.fill(unfinishedTasksByPhase, 0);
+        Arrays.fill(unfinishedTasks, false);
+        Arrays.fill(activeDynamicTasksByPhase, 0);
+        Arrays.fill(remainingDependencies, 0);
+        for (var dependents : dependentsByPhase) dependents.clear();
+        for (var phase : plan.phases()) {
+            int phaseIndex = phase.index();
+            for (int dependency : phase.dependencies()) {
+                dependentsByPhase.get(dependency).add(phaseIndex);
+                if (!completedPhases.get(dependency)) remainingDependencies[phaseIndex]++;
+            }
+            for (var entry : remainingDynamicFirings.get(phaseIndex).entrySet()) {
+                if (entry.getValue() > 0L) activeDynamicTasksByPhase[phaseIndex]++;
+            }
+        }
+        if (progressByTaskId != null) {
+            for (int taskId = 0; taskId < progressByTaskId.length; taskId++) {
+                boolean unfinished = taskRemaining(taskId, null) > 0L;
+                unfinishedTasks[taskId] = unfinished;
+                if (unfinished) unfinishedTasksByPhase[plan.task(taskId).phaseIndex()]++;
+            }
+            refreshCompleted();
+        }
+    }
+
+    private static List<List<Integer>> createDependents(ECOExecutionPlan plan) {
+        List<List<Integer>> result = new ArrayList<>(plan.phases().size());
+        for (int i = 0; i < plan.phases().size(); i++) result.add(new ArrayList<>());
+        return result;
+    }
+
+    private static IPatternDetails[] toPatternArray(ECOExecutionPlan plan,
+            Map<Integer, IPatternDetails> patternsById) {
+        IPatternDetails[] result = new IPatternDetails[plan.tasks().size()];
+        for (var entry : patternsById.entrySet()) {
+            if (entry.getKey() != null && entry.getKey() >= 0 && entry.getKey() < result.length) {
+                result[entry.getKey()] = entry.getValue();
+            }
+        }
+        return result;
     }
 }
