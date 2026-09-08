@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -112,7 +113,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             if (plan.isSimulation()) {
                 cpuDetails = GuiText.PartialPlan.text();
             } else if (menu.getCpuAvailableBytes() > 0) {
-                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(menu.getCpuAvailableBytes(), menu.getCpuCoProcessors());
+                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(
+                    Component.literal(NEByteFormatter.formatCpuStorage(menu.getCpuAvailableBytes())),
+                    Component.literal(NEByteFormatter.formatCpuCoProcessors(menu.getCpuCoProcessors())));
             } else {
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();
             }
