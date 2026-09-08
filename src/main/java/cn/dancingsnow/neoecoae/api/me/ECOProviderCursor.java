@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.function.Predicate;
+import java.util.function.BiConsumer;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -49,6 +50,12 @@ final class ECOProviderCursor {
      */
     List<ICraftingProvider> availableProviders(IPatternDetails pattern,
             Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
+        return availableProviders(pattern, providers, eligible, (provider, busy) -> {});
+    }
+
+    List<ICraftingProvider> availableProviders(IPatternDetails pattern,
+            Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible,
+            BiConsumer<ICraftingProvider, Boolean> observer) {
         Cursor previous = cursors.get(pattern);
         Cursor cursor = previous;
         if (cursor == null || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
@@ -67,13 +74,18 @@ final class ECOProviderCursor {
         if (cursor.providers.isEmpty()) return List.of();
 
         var available = new ArrayList<ICraftingProvider>(cursor.providers.size());
-        int checks = cursor.providers.size();
-        while (checks-- > 0) {
-            var provider = cursor.providers.get(cursor.next);
-            cursor.next = (cursor.next + 1) % cursor.providers.size();
-            // Scan each provider once. The full scan returns next to its original position.
-            // Keep busy checks here so the CPU can avoid resolving inputs when no provider is ready.
-            if (eligible.test(provider) && !provider.isBusy()) available.add(provider);
+        int size = cursor.providers.size();
+        int scanIndex = cursor.next;
+        for (int checked = 0; checked < size; checked++) {
+            var provider = cursor.providers.get(scanIndex);
+            scanIndex = (scanIndex + 1) % size;
+            // Enumeration never moves the shared cursor, even if a provider's busy check throws.
+            // Only advanceAfter records a dispatch attempt.
+            if (eligible.test(provider)) {
+                boolean busy = provider.isBusy();
+                observer.accept(provider, busy);
+                if (!busy) available.add(provider);
+            }
         }
         return List.copyOf(available);
     }

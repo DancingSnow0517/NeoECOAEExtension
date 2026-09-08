@@ -17,6 +17,7 @@
     "IOPortMenuMixin",
     "LightningBoltMixin",
     "PatternEncodingTermMenuMixin",
+    "PatternProviderDiagnosticsMixin",
     "StoredEnergyAmountMixin",
     "ae2.AECraftingPatternAccessor",
     "extendedae.ContainerExIOPortMixin",
