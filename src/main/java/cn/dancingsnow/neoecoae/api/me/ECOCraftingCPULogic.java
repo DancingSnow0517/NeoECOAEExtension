@@ -86,6 +86,9 @@ public class ECOCraftingCPULogic {
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     private int lastNormalPushAttempts;
     private int lastAcceptedNormalPushes;
+    private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
+    private int remainingNormalProbes = -1;
+    private IPatternDetails resumeDispatchPattern;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -120,6 +123,7 @@ public class ECOCraftingCPULogic {
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         providerCursor.clear();
+        resumeDispatchPattern = null;
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -186,13 +190,19 @@ public class ECOCraftingCPULogic {
         int acceptedNormalPushes = 0;
         // Thunderbolt wraps this exact executeCrafting invocation in tickCraftingLogic.
         // FastPath batches are bounded by live worker capacity, materials and power, not the slow-path budget.
-        while (job != null) {
-            lastNormalPushAttempts = 0;
-            lastAcceptedNormalPushes = 0;
-            int pushed = executeCrafting(operationLimit, cc, eg, level);
-            operationLimit = Math.max(0, operationLimit - lastNormalPushAttempts);
-            acceptedNormalPushes += lastAcceptedNormalPushes;
-            if (pushed == 0) break;
+        remainingNormalProbes = Math.max(MIN_NORMAL_PROBES_PER_TICK, operationLimit);
+        try {
+            while (job != null) {
+                lastNormalPushAttempts = 0;
+                lastAcceptedNormalPushes = 0;
+                int pushed = executeCrafting(operationLimit, cc, eg, level);
+                remainingNormalProbes = Math.max(0, remainingNormalProbes - lastNormalPushAttempts);
+                operationLimit = Math.max(0, operationLimit - lastAcceptedNormalPushes);
+                acceptedNormalPushes += lastAcceptedNormalPushes;
+                if (pushed == 0) break;
+            }
+        } finally {
+            remainingNormalProbes = -1;
         }
         // Match the rolling three-tick accounting for ordinary pushes. Verified ECO batches are bounded
         // by the live provider capacity and deliberately do not consume this operation window.
@@ -262,7 +272,7 @@ public class ECOCraftingCPULogic {
     /**
      * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
      *
-     * @param maxPatterns remaining ordinary push attempts; verified batches do not consume this budget
+     * @param maxPatterns remaining accepted ordinary pushes; verified batches do not consume this budget
      * @return 成功推送的 pattern 数量。
      */
     public int executeCrafting(
@@ -273,12 +283,25 @@ public class ECOCraftingCPULogic {
         if (current == null) return 0;
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
+        int probeLimit = remainingNormalProbes >= 0
+            ? remainingNormalProbes : Math.max(MIN_NORMAL_PROBES_PER_TICK, ordinaryLimit);
         var remainingTasks = current.remainingTaskCounts();
         var candidates = current.executionRuntime == null
             ? nativeDispatchCandidates(current)
             : current.executionRuntime.candidates(remainingTasks);
+        int start = 0;
+        if (resumeDispatchPattern != null) {
+            for (int i = 0; i < candidates.size(); i++) {
+                if (candidates.get(i).pattern().equals(resumeDispatchPattern)) {
+                    start = i;
+                    break;
+                }
+            }
+        }
         Set<Integer> blockedOrderedPhases = new HashSet<>();
-        for (var candidate : candidates) {
+        for (int offset = 0; offset < candidates.size(); offset++) {
+            int candidateIndex = (start + offset) % candidates.size();
+            var candidate = candidates.get(candidateIndex);
             if (blockedOrderedPhases.contains(candidate.phaseIndex())) continue;
             var progress = current.tasks.get(candidate.pattern());
             if (progress == null || progress.value <= 0L) {
@@ -294,7 +317,7 @@ public class ECOCraftingCPULogic {
             // Skip input resolution when no eligible provider is ready for a dispatch.
             var providers = providerCursor.availableProviders(
                 pattern, () -> collectAvailableProviders(craftingService, pattern),
-                providerCandidate -> lastNormalPushAttempts < ordinaryLimit
+                providerCandidate -> (ordinaryLimit > 0 && lastNormalPushAttempts < probeLimit)
                     || providerCandidate instanceof ECOBatchCapacityProvider
                     || ECOUselessBatchProviderBridge.supports(providerCandidate));
             if (providers.isEmpty()) {
@@ -312,7 +335,6 @@ public class ECOCraftingCPULogic {
                 continue;
             }
             for (var provider : providers) {
-                providerCursor.advanceAfter(pattern, provider);
                 long craftCount = 1L;
                 double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                 double power = singlePower;
@@ -335,6 +357,7 @@ public class ECOCraftingCPULogic {
                         power = batch.power();
                         boolean acceptedBatch;
                         try {
+                            providerCursor.advanceAfter(pattern, provider);
                             acceptedBatch = batch.push(inventory);
                         } catch (RuntimeException failure) {
                             LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
@@ -375,8 +398,7 @@ public class ECOCraftingCPULogic {
 
                 // Batch is an optional optimization. A provider that offered a batch still retains the normal
                 // one-copy fallback when that batch is unavailable, rejected, or dynamically ambiguous.
-                if (lastNormalPushAttempts >= ordinaryLimit) continue;
-                lastNormalPushAttempts++;
+                if (ordinaryLimit <= 0 || lastNormalPushAttempts >= probeLimit) continue;
                 if (energyService.extractAEPower(power, Actionable.SIMULATE,
                         PowerMultiplier.CONFIG) < power - 0.01) {
                     // Power is shared by all providers for this pattern; there is no value in retrying the rest
@@ -386,6 +408,11 @@ public class ECOCraftingCPULogic {
                 ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
                 boolean acceptedSingle = false;
                 try {
+                    providerCursor.advanceAfter(pattern, provider);
+                    lastNormalPushAttempts++;
+                    // Keep fairness separate from task progress: rejected pushes must never call onAccepted.
+                    // Preserve this position while probes are exhausted, including across batch-only passes.
+                    resumeDispatchPattern = candidates.get((candidateIndex + 1) % candidates.size()).pattern();
                     if (provider instanceof ECOCraftingPatternBusBlockEntity) {
                         acceptedSingle = ECOSingleCraftingExecutor.pushPattern(
                             provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
@@ -533,6 +560,7 @@ public class ECOCraftingCPULogic {
         // 结束任务。
         this.job = null;
         providerCursor.clear();
+        resumeDispatchPattern = null;
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -626,6 +654,7 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         providerCursor.clear();
+        resumeDispatchPattern = null;
         dispatchStrategy.reset();
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {

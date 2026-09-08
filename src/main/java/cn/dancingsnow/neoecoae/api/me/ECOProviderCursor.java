@@ -43,8 +43,9 @@ final class ECOProviderCursor {
     /**
      * Returns each eligible provider once, starting at the transient round-robin cursor.
      *
-     * <p>The caller can try the providers in this order without resolving the pattern inputs again. The cursor
-     * advances before a provider is returned, so a rejected provider cannot monopolize the next tick.</p>
+     * <p>The caller can try the providers in this order without resolving the pattern inputs again. Scanning
+     * a full snapshot preserves the cursor; the caller must call {@link #advanceAfter} only when actually
+     * attempting a provider, so skipped providers cannot undo rejection fairness.</p>
      */
     List<ICraftingProvider> availableProviders(IPatternDetails pattern,
             Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible) {
@@ -70,8 +71,8 @@ final class ECOProviderCursor {
         while (checks-- > 0) {
             var provider = cursor.providers.get(cursor.next);
             cursor.next = (cursor.next + 1) % cursor.providers.size();
-            // Advance before returning, so rejection resumes at the next provider next tick. Keep busy checks here
-            // so the CPU can avoid resolving inputs when no provider can accept this pattern yet.
+            // Scan each provider once. The full scan returns next to its original position.
+            // Keep busy checks here so the CPU can avoid resolving inputs when no provider is ready.
             if (eligible.test(provider) && !provider.isBusy()) available.add(provider);
         }
         return List.copyOf(available);
