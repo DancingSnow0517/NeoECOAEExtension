@@ -39,7 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Investigation characterizations: the stalled-state assertions document defects, not desired behavior. */
+/** Regression coverage for binding ECO execution plans to the live CPU scheduler. */
 class ECOCycleHandoffInvestigationTest {
     private static final AEKey A = new StorageTestKey("handoff_a");
     private static final AEKey B = new StorageTestKey("handoff_b");
@@ -72,7 +72,7 @@ class ECOCycleHandoffInvestigationTest {
         field.set(null, previousTypes);
     }
 
-    @Test void finalOutputDeliveryCurrentlySpendsTheInitialTwoStepCycleSeed() throws Exception {
+    @Test void finalOutputDeliveryRetainsTheInitialTwoStepCycleSeedUntilItIsConsumed() throws Exception {
         var toB = pattern(0, "a_to_b", B, 1, A, 1L);
         var toA = pattern(1, "b_to_two_a", A, 2, B, 1L);
         var result = plan(A, 1, Map.of(A, 1L), toB, toA);
@@ -82,14 +82,19 @@ class ECOCycleHandoffInvestigationTest {
 
         var fixture = new Fixture(result);
         fixture.tick();
-        assertEquals(1, fixture.network.get(A), "The seed was delivered as the requested product");
-        assertEquals(0, fixture.logic.getRemainingJobOutputAmount());
-        assertEquals(0, fixture.accepted.size(), "No recipe ran before the seed was delivered");
-        assertStalled(fixture, 2);
-        assertCompletesInPlannerOrder(result);
+        assertEquals(0, fixture.network.get(A), "The startup seed must remain available to the cycle");
+        assertEquals(1, fixture.logic.getRemainingJobOutputAmount());
+        assertEquals(List.of(toB), fixture.accepted);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(A));
     }
 
-    @Test void finalOutputDeliveryCurrentlySpendsFeedbackReturnedHalfwayThroughTheCycle() throws Exception {
+    @Test void finalOutputDeliveryRetainsFeedbackUntilTheOrderedCycleConsumesIt() throws Exception {
         var toB = pattern(0, "feedback_a_to_b", B, 1, A, 1L);
         var toA = pattern(1, "feedback_b_to_two_a", A, 2, B, 1L);
         var result = plan(B, 2, Map.of(A, 1L), toB, toA);
@@ -100,11 +105,43 @@ class ECOCycleHandoffInvestigationTest {
         assertEquals(1, fixture.logic.getWaitingFor(B));
         fixture.returnOutputs();
         fixture.tick();
-        assertEquals(1, fixture.network.get(B));
-        assertEquals(1, fixture.logic.getRemainingJobOutputAmount());
+        assertEquals(0, fixture.network.get(B));
+        assertEquals(2, fixture.logic.getRemainingJobOutputAmount());
+        assertEquals(List.of(toB, toA), fixture.accepted);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(B));
+    }
+
+    @Test void orderedCycleBatchPathStopsAtEachPlannerStepBoundary() throws Exception {
+        var toB = pattern(0, "batched_a_to_b", B, 1, A, 1L);
+        var toA = pattern(1, "batched_b_to_two_a", A, 2, B, 1L);
+        var result = plan(B, 2, Map.of(A, 1L), toB, toA);
+        var fixture = new Fixture(result, true);
+
+        fixture.tick();
         assertEquals(List.of(toB), fixture.accepted);
-        assertStalled(fixture, 3);
-        assertCompletesInPlannerOrder(result);
+        assertEquals(List.of(1L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+
+        fixture.tick();
+        assertEquals(List.of(toB, toA), fixture.accepted);
+        assertEquals(List.of(1L, 1L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+
+        fixture.tick();
+        assertEquals(List.of(1L, 1L, 2L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(B));
     }
 
     @Test void downstreamWaitsForGrowthWhenItsProducerIsTemporarilyBusy() throws Exception {
@@ -174,15 +211,15 @@ class ECOCycleHandoffInvestigationTest {
         assertTrue(barrier.canDispatch(consumer, ignored -> 0));
     }
 
-    @Test void dynamicCycleCurrentlySpendsBothSeedsOnOneBranchAndCannotFireItsJoin() throws Exception {
-        assertSplitCycleStalls(false);
+    @Test void dynamicCycleRotatesRunnableBranchesBeforeFiringTheJoin() throws Exception {
+        assertSplitCycleCompletes(false);
     }
 
-    @Test void batchDispatchCurrentlySpendsBothCycleSeedsInOneAcceptedBatch() throws Exception {
-        assertSplitCycleStalls(true);
+    @Test void dynamicCycleBatchDispatchCannotCrossACompetingBranchBoundary() throws Exception {
+        assertSplitCycleCompletes(true);
     }
 
-    private static void assertSplitCycleStalls(boolean batchMode) throws Exception {
+    private static void assertSplitCycleCompletes(boolean batchMode) throws Exception {
         var left = pattern(0, "split_left", B, 1, A, 1L);
         var right = pattern(1, "split_right", C, 1, A, 1L);
         var join = pattern(2, "join", A, 3, B, 1L, C, 1L);
@@ -194,19 +231,20 @@ class ECOCycleHandoffInvestigationTest {
         var fixture = new Fixture(result, batchMode);
         assertSame(left, fixture.logic.getJob().tasks.keySet().iterator().next());
         fixture.tick();
-        assertEquals(List.of(left, left), fixture.accepted);
-        assertEquals(batchMode ? List.of(2L) : List.of(1L, 1L), fixture.acceptedBatches);
-        assertEquals(2, fixture.logic.getWaitingFor(B));
+        assertEquals(List.of(left, right), fixture.accepted);
+        assertEquals(List.of(1L, 1L), fixture.acceptedBatches);
+        assertEquals(1, fixture.logic.getWaitingFor(B));
+        assertEquals(1, fixture.logic.getWaitingFor(C));
         fixture.returnOutputs();
-        assertEquals(2, fixture.logic.getStored(B));
-        assertEquals(0, fixture.logic.getStored(A));
-        assertEquals(0, fixture.logic.getStored(C));
-        long remaining = result.plan().patternTimes().values().stream().mapToLong(Long::longValue).sum() - 2;
-        assertStalled(fixture, remaining);
-        assertCompletesInPlannerOrder(result);
+        for (int tick = 0; tick < 100 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(GOAL));
     }
 
-    @Test void validDynamicCycleMetadataIsCurrentlyRegisteredAsMissingCyclePhase() throws Exception {
+    @Test void validDynamicCycleMetadataIsRegisteredAsAUsableSchedule() throws Exception {
         var first = pattern(0, "metadata_a_to_b", B, 2, A, 1L);
         var second = pattern(1, "metadata_b_to_c", C, 1, B, 1L);
         var third = pattern(2, "metadata_c_to_a", A, 1, C, 1L);
@@ -216,8 +254,8 @@ class ECOCycleHandoffInvestigationTest {
         var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(result.plan());
         assertNotNull(recovered);
         assertNotNull(recovered.executionPlan());
-        assertEquals(ECOPlanningResultRegistry.RecoveryState.MISSING_OR_INVALID_SCHEDULE, recovered.state());
-        assertEquals("NO_CYCLE_PHASE", recovered.rejectionReason());
+        assertEquals(ECOPlanningResultRegistry.RecoveryState.VALID_SCHEDULE, recovered.state());
+        assertNull(recovered.rejectionReason());
     }
 
     private static ECOPlanningResult plan(AEKey goal, long amount, Map<AEKey, Long> stock,

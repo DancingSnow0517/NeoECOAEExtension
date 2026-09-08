@@ -115,9 +115,10 @@ public class ECOCraftingCPULogic {
         var playerId = src.player()
                 .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
                 .orElse(null);
+        var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         providerCursor.clear();
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -200,9 +201,13 @@ public class ECOCraftingCPULogic {
         if (current == null) return;
         AEKey key = current.finalOutput.what();
         PlannerAmount reserve = PlannerAmount.ZERO;
+        var remainingTasks = current.remainingTaskCounts();
         for (var task : current.tasks.entrySet()) {
             reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
                 task.getKey(), task.getValue().value, key));
+        }
+        if (current.executionRuntime != null) {
+            reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key, remainingTasks)));
         }
         // Keep returned feedback available for the next growth wave before delivering any surplus.
         PlannerAmount deliverable = PlannerAmount.of(inventory.list.get(key))
@@ -230,7 +235,8 @@ public class ECOCraftingCPULogic {
             markCpuDirty();
         }
         if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()
-                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)) finishJob(true);
+                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)
+                && (current.executionRuntime == null || current.executionRuntime.isComplete(remainingTasks))) finishJob(true);
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
@@ -263,29 +269,44 @@ public class ECOCraftingCPULogic {
         if (current == null) return 0;
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
-        var it = current.tasks.entrySet().iterator();
-        while (it.hasNext()) {
-            var task = it.next();
-            if (task.getValue().value <= 0L) {
-                providerCursor.forget(task.getKey());
-                it.remove();
+        var remainingTasks = current.remainingTaskCounts();
+        var candidates = current.executionRuntime == null
+            ? nativeDispatchCandidates(current)
+            : current.executionRuntime.candidates(remainingTasks);
+        Set<Integer> blockedOrderedPhases = new HashSet<>();
+        for (var candidate : candidates) {
+            if (blockedOrderedPhases.contains(candidate.phaseIndex())) continue;
+            var progress = current.tasks.get(candidate.pattern());
+            if (progress == null || progress.value <= 0L) {
+                providerCursor.forget(candidate.pattern());
                 continue;
             }
-            var pattern = task.getKey();
-            // Protect intermediate growth stock before either the batch or ordinary provider path can take it.
-            if (!current.canDispatchAfterGrowth(pattern)) continue;
+            long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
+            if (allowedCount <= 0L) continue;
+            var pattern = candidate.pattern();
+            // The explicit execution runtime owns phase/cycle gating. The growth barrier remains the fallback
+            // policy for legacy jobs that have no bound ECO plan.
+            if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) continue;
             // Skip input resolution when no eligible provider is ready for a dispatch.
             var providers = providerCursor.availableProviders(
                 pattern, () -> collectAvailableProviders(craftingService, pattern),
-                candidate -> lastNormalPushAttempts < ordinaryLimit || candidate instanceof ECOBatchCapacityProvider
-                    || ECOUselessBatchProviderBridge.supports(candidate));
-            if (providers.isEmpty()) continue;
+                providerCandidate -> lastNormalPushAttempts < ordinaryLimit
+                    || providerCandidate instanceof ECOBatchCapacityProvider
+                    || ECOUselessBatchProviderBridge.supports(providerCandidate));
+            if (providers.isEmpty()) {
+                if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
+                continue;
+            }
             var outputs = new KeyCounter();
             var containers = new KeyCounter();
             var inputs = CraftingCpuHelper.extractPatternInputs(
                 pattern, new ECOCraftingInputPreview(inventory), level, outputs, containers);
-            // Missing intermediates do not prevent their upstream recipes from running.
-            if (inputs == null) continue;
+            if (inputs == null) {
+                // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
+                // ordered step is a hard barrier and must wait for this exact pattern.
+                if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
+                continue;
+            }
             for (var provider : providers) {
                 providerCursor.advanceAfter(pattern, provider);
                 long craftCount = 1L;
@@ -296,7 +317,7 @@ public class ECOCraftingCPULogic {
                 ECOUselessDynamicOutputBridge.Registration batchRegistration = null;
                 var batch = capacityProvider != null
                     ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
-                        inventory, task.getValue().value,
+                        inventory, allowedCount,
                         energyService, level, current.link.getCraftingID())
                     : null;
                 if (batch != null) {
@@ -325,7 +346,10 @@ public class ECOCraftingCPULogic {
                                 current.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
                                 current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
                             }
-                            task.getValue().value -= craftCount;
+                            progress.value -= craftCount;
+                            if (current.executionRuntime != null) {
+                                current.executionRuntime.onAccepted(candidate, craftCount, inputs);
+                            }
                             try {
                                 batchRegistration.commit(current.link.getCraftingID(),
                                     current.finalOutput == null ? null : current.finalOutput.what());
@@ -377,7 +401,10 @@ public class ECOCraftingCPULogic {
                         current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
                         current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
                     }
-                    task.getValue().value--;
+                    progress.value--;
+                    if (current.executionRuntime != null) {
+                        current.executionRuntime.onAccepted(candidate, 1L, inputs);
+                    }
                     lastAcceptedNormalPushes++;
                     for (var output : pattern.getOutputs()) postChange(output.what());
                     markCpuDirty();
@@ -390,8 +417,22 @@ public class ECOCraftingCPULogic {
                     }
                 }
             }
+            if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
         }
         return 0;
+    }
+
+    private java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeDispatchCandidates(
+            ExecutingCraftingJob current) {
+        var result = new java.util.ArrayList<ECOExecutionRuntime.DispatchCandidate>();
+        for (var entry : current.tasks.entrySet()) {
+            if (entry.getValue().value > 0L) {
+                // Native jobs do not consult task ids; the placeholder id is never committed to a runtime.
+                result.add(new ECOExecutionRuntime.DispatchCandidate(0, 0, entry.getKey(),
+                    entry.getValue().value, false));
+            }
+        }
+        return result;
     }
 
     private void chargeAcceptedEnergy(IEnergyService energyService, double power) {

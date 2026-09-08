@@ -151,7 +151,8 @@ public final class ECOPlanningResultRegistry {
         }
         boolean expected = cycleExpected(result);
         if (!expected && executionPlan == null) return null;
-        return new SubmissionAlias(confirmedSignature, result.planningId(), executionPlan, expected, "ECO");
+        return new SubmissionAlias(confirmedSignature, result.planningId(), executionPlan,
+            Map.copyOf(result.plan().patternTimes()), expected, "ECO");
     }
 
     /** Metadata is visible only if the submitted plan proves the same complete identity as the confirmation plan. */
@@ -160,6 +161,21 @@ public final class ECOPlanningResultRegistry {
         if (alias == null || !PlanIdentity.matches(alias.confirmedSignature(), plan)) return null;
         return new SubmissionMetadata(alias.executionPlan(), alias.cycleExpected(), alias.planningId(), true,
             alias.selectedPlanner());
+    }
+
+    /**
+     * Resolves and binds the execution plan at the submission boundary. The returned plan uses the pattern objects
+     * from the submitted AE2 plan, so provider lookup and input extraction operate on the same objects that the CPU
+     * received. A submission alias is consumed only for this synchronous call; runtime state must live in the job.
+     */
+    public static @Nullable ECOExecutionPlan resolveExecutionPlan(ICraftingPlan plan) {
+        if (plan == null) return null;
+        SubmissionAlias alias = ACTIVE_SUBMISSION_ALIAS.get();
+        if (alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan)) {
+            return rebind(alias.executionPlan(), alias.sourceTasks(), plan.patternTimes());
+        }
+        RecoveredExecutionMetadata recovered = recoverExecutionMetadata(plan);
+        return recovered == null ? null : recovered.executionPlan();
     }
 
     /**
@@ -193,7 +209,7 @@ public final class ECOPlanningResultRegistry {
             Entry entry = uniqueEntryObject(entries);
             if (entry == null) return null;
 
-            ECOExecutionPlan rebound = rebind(entry, plan.patternTimes());
+            ECOExecutionPlan rebound = rebind(entry.executionPlan(), entry.tasks(), plan.patternTimes());
             return recovered(entry, rebound, "strict-plan-identity");
         }
     }
@@ -272,11 +288,10 @@ public final class ECOPlanningResultRegistry {
         return entries.stream().allMatch(entry -> entry.planningId().equals(planningId)) ? entries.getFirst() : null;
     }
 
-    private static @Nullable ECOExecutionPlan rebind(Entry entry,
-            Map<IPatternDetails, Long> submittedTasks) {
-        ECOExecutionPlan sourcePlan = entry.executionPlan();
+    private static @Nullable ECOExecutionPlan rebind(@Nullable ECOExecutionPlan sourcePlan,
+            Map<IPatternDetails, Long> sourceTasks, Map<IPatternDetails, Long> submittedTasks) {
         if (sourcePlan == null) return null;
-        Map<IPatternDetails, IPatternDetails> mapping = taskMapping(entry.tasks(), submittedTasks);
+        Map<IPatternDetails, IPatternDetails> mapping = taskMapping(sourceTasks, submittedTasks);
         if (mapping == null) return null;
         List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>();
         for (var task : sourcePlan.tasks()) {
@@ -361,9 +376,9 @@ public final class ECOPlanningResultRegistry {
                 ECOExecutionSchedule schedule = executionPlan.schedule();
                 if (schedule.phases().isEmpty()) reason = "SCHEDULE_EMPTY";
                 else if (cycleExpected && schedule.phases().stream().noneMatch(phase ->
-                        phase.type() == ECOExecutionSchedule.Type.CYCLE)) reason = "NO_CYCLE_PHASE";
+                        phase.type() != ECOExecutionSchedule.Type.DAG)) reason = "NO_CYCLE_PHASE";
                 else if (cycleExpected && schedule.phases().stream()
-                        .filter(phase -> phase.type() == ECOExecutionSchedule.Type.CYCLE)
+                        .filter(phase -> phase.type() != ECOExecutionSchedule.Type.DAG)
                         .allMatch(phase -> phase.patternSet().isEmpty())) reason = "EMPTY_CYCLE_PATTERN_SET";
             } catch (RuntimeException scheduleFailure) {
                 reason = "SCHEDULE_BUILD_FAILED:" + scheduleFailure.getClass().getSimpleName();
@@ -397,7 +412,8 @@ public final class ECOPlanningResultRegistry {
     }
 
     private record SubmissionAlias(Signature confirmedSignature, UUID planningId,
-            @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, String selectedPlanner) {
+            @Nullable ECOExecutionPlan executionPlan, Map<IPatternDetails, Long> sourceTasks,
+            boolean cycleExpected, String selectedPlanner) {
     }
 
     private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
