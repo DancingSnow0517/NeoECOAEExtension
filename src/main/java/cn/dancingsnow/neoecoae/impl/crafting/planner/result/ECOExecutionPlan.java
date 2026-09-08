@@ -32,15 +32,21 @@ public record ECOExecutionPlan(
     }
 
     public record TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
-            PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind) {
+            PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind,
+            List<PlannedInputAllocation> inputAllocations) {
         public TaskSpec {
             Objects.requireNonNull(identity, "identity");
             Objects.requireNonNull(pattern, "pattern");
             Objects.requireNonNull(runtimeInfo, "runtimeInfo");
             Objects.requireNonNull(kind, "kind");
+            inputAllocations = List.copyOf(inputAllocations);
             if (id < 0 || totalCount <= 0 || phaseIndex < 0) {
                 throw new IllegalArgumentException("Invalid execution task");
             }
+        }
+        public TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
+                PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind) {
+            this(id, identity, pattern, runtimeInfo, totalCount, phaseIndex, kind, List.of());
         }
     }
 

@@ -83,7 +83,8 @@ public final class ECOExecutionPlanBuilder {
             int id = tasks.size();
             taskIdByIdentity.put(task.identity(), id);
             tasks.add(new ECOExecutionPlan.TaskSpec(id, task.identity(), task.pattern(),
-                ECOExecutionPlan.PatternRuntimeInfo.from(task.pattern()), task.count(), phaseIndex, kind));
+                ECOExecutionPlan.PatternRuntimeInfo.from(task.pattern()), task.count(), phaseIndex, kind,
+                defaultAllocations(task.pattern(), task.count())));
         }
 
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>();
@@ -129,6 +130,19 @@ public final class ECOExecutionPlanBuilder {
                         ? component.cycleResult().requiredSeed() : Map.of()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
+    }
+
+    private static List<PlannedInputAllocation> defaultAllocations(IPatternDetails pattern, long crafts) {
+        List<PlannedInputAllocation> result = new ArrayList<>();
+        var inputs = pattern.getInputs();
+        if (inputs == null) return result;
+        for (int slot = 0; slot < inputs.length; slot++) {
+            var possible = inputs[slot].getPossibleInputs();
+            if (possible == null || possible.length == 0 || possible[0] == null || possible[0].what() == null) continue;
+            result.add(new PlannedInputAllocation(slot, List.of(new PlannedInputAllocation.Run(
+                possible[0].what(), possible[0].amount() * Math.max(1L, inputs[slot].getMultiplier()), crafts))));
+        }
+        return result;
     }
 
     private static void validateCycleCounts(ComponentPlanningResult component,
