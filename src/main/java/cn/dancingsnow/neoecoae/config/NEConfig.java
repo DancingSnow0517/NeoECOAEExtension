@@ -94,12 +94,12 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
-            "实际值仍会受可用协处理器数量限制。",
-            "当前上限为 393216；后续动态发配策略接入后再调整。",
+            "实际值仍会受可用协处理器数量和最近 3 tick 已接受普通操作数限制。",
+            "当前上限为 393216；FastPath 批量发配不消耗此额度。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
             "Verified FastPath batches do not consume this limit.",
-            "The effective value is still limited by the number of available co-processors.",
-            "The temporary hard ceiling is 393216 until adaptive dispatch is integrated.")
+            "The effective value is limited by co-processors and the accepted-operation window from the last three ticks.",
+            "The hard ceiling is 393216 to keep ordinary dispatch bounded.")
         .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER

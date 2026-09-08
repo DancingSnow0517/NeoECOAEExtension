@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Investigation characterizations: the stalled-state assertions document defects, not desired behavior. */
+/** Regression coverage for binding ECO execution plans to the live CPU scheduler. */
 class ECOCycleHandoffInvestigationTest {
     private static final AEKey A = new StorageTestKey("handoff_a");
     private static final AEKey B = new StorageTestKey("handoff_b");
@@ -71,7 +72,7 @@ class ECOCycleHandoffInvestigationTest {
         field.set(null, previousTypes);
     }
 
-    @Test void finalOutputDeliveryCurrentlySpendsTheInitialTwoStepCycleSeed() throws Exception {
+    @Test void finalOutputDeliveryRetainsTheInitialTwoStepCycleSeedUntilItIsConsumed() throws Exception {
         var toB = pattern(0, "a_to_b", B, 1, A, 1L);
         var toA = pattern(1, "b_to_two_a", A, 2, B, 1L);
         var result = plan(A, 1, Map.of(A, 1L), toB, toA);
@@ -81,14 +82,19 @@ class ECOCycleHandoffInvestigationTest {
 
         var fixture = new Fixture(result);
         fixture.tick();
-        assertEquals(1, fixture.network.get(A), "The seed was delivered as the requested product");
-        assertEquals(0, fixture.logic.getRemainingJobOutputAmount());
-        assertEquals(0, fixture.accepted.size(), "No recipe ran before the seed was delivered");
-        assertStalled(fixture, 2);
-        assertCompletesInPlannerOrder(result);
+        assertEquals(0, fixture.network.get(A), "The startup seed must remain available to the cycle");
+        assertEquals(1, fixture.logic.getRemainingJobOutputAmount());
+        assertEquals(List.of(toB), fixture.accepted);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(A));
     }
 
-    @Test void finalOutputDeliveryCurrentlySpendsFeedbackReturnedHalfwayThroughTheCycle() throws Exception {
+    @Test void finalOutputDeliveryRetainsFeedbackUntilTheOrderedCycleConsumesIt() throws Exception {
         var toB = pattern(0, "feedback_a_to_b", B, 1, A, 1L);
         var toA = pattern(1, "feedback_b_to_two_a", A, 2, B, 1L);
         var result = plan(B, 2, Map.of(A, 1L), toB, toA);
@@ -99,14 +105,46 @@ class ECOCycleHandoffInvestigationTest {
         assertEquals(1, fixture.logic.getWaitingFor(B));
         fixture.returnOutputs();
         fixture.tick();
-        assertEquals(1, fixture.network.get(B));
-        assertEquals(1, fixture.logic.getRemainingJobOutputAmount());
-        assertEquals(List.of(toB), fixture.accepted);
-        assertStalled(fixture, 3);
-        assertCompletesInPlannerOrder(result);
+        assertEquals(0, fixture.network.get(B));
+        assertEquals(2, fixture.logic.getRemainingJobOutputAmount());
+        assertEquals(List.of(toB, toA), fixture.accepted);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(B));
     }
 
-    @Test void downstreamCurrentlyConsumesGrowthSeedWhenItsProducerIsTemporarilyBusy() throws Exception {
+    @Test void orderedCycleBatchPathStopsAtEachPlannerStepBoundary() throws Exception {
+        var toB = pattern(0, "batched_a_to_b", B, 1, A, 1L);
+        var toA = pattern(1, "batched_b_to_two_a", A, 2, B, 1L);
+        var result = plan(B, 2, Map.of(A, 1L), toB, toA);
+        var fixture = new Fixture(result, true);
+
+        fixture.tick();
+        assertEquals(List.of(toB), fixture.accepted);
+        assertEquals(List.of(1L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+
+        fixture.tick();
+        assertEquals(List.of(toB, toA), fixture.accepted);
+        assertEquals(List.of(1L, 1L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+
+        fixture.tick();
+        assertEquals(List.of(1L, 1L, 2L), fixture.acceptedBatches);
+        fixture.returnOutputs();
+        for (int tick = 0; tick < 8 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(B));
+    }
+
+    @Test void downstreamWaitsForGrowthWhenItsProducerIsTemporarilyBusy() throws Exception {
         var grow = pattern(0, "downstream_grow", A, 2, A, 1L);
         var consume = pattern(1, "downstream_consume", GOAL, 1, A, 1L);
         var result = plan(GOAL, 2, Map.of(A, 1L), grow, consume);
@@ -117,26 +155,71 @@ class ECOCycleHandoffInvestigationTest {
         var fixture = new Fixture(result);
         fixture.blocked = grow;
         fixture.tick();
-        assertEquals(List.of(consume), fixture.accepted);
-        fixture.returnOutputs();
+        assertTrue(fixture.accepted.isEmpty());
+        assertEquals(1, fixture.logic.getStored(A));
         fixture.blocked = null;
-        fixture.tick();
-        assertEquals(1, fixture.network.get(GOAL));
-        assertEquals(0, fixture.logic.getStored(A));
-        long remaining = result.plan().patternTimes().values().stream().mapToLong(Long::longValue).sum() - 1;
-        assertStalled(fixture, remaining);
+        for (int tick = 0; tick < 20 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(GOAL));
+        assertEquals(1, fixture.network.get(A) + fixture.logic.getStored(A));
         assertCompletesInPlannerOrder(result);
     }
 
-    @Test void dynamicCycleCurrentlySpendsBothSeedsOnOneBranchAndCannotFireItsJoin() throws Exception {
-        assertSplitCycleStalls(false);
+    @Test void millionDownstreamItemsKeepExponentialGrowthWithDelayedReturns() throws Exception {
+        var grow = pattern(1, "million_grow", A, 2, A, 1L);
+        // Deliberately place the consumer first in the task map.
+        var consume = pattern(0, "million_consume", GOAL, 1, A, 1L);
+        var result = plan(GOAL, 1_000_000, Map.of(A, 1L), grow, consume);
+        var fixture = new Fixture(result, true);
+        fixture.batchCapacity = Long.MAX_VALUE;
+        for (int wave = 0; wave < 30 && fixture.logic.hasJob(); wave++) {
+            fixture.tick();
+            if (fixture.logic.getJob() != null) {
+                var remainingGrowth = fixture.logic.getJob().tasks.get(grow);
+                if (remainingGrowth != null && remainingGrowth.value > 0) {
+                    assertFalse(fixture.accepted.contains(consume));
+                }
+            }
+            int dispatches = fixture.acceptedBatches.size();
+            fixture.tick();
+            assertEquals(dispatches, fixture.acceptedBatches.size(), "A delayed return cannot release the seed barrier");
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(1_000_000, fixture.network.get(GOAL));
+        assertEquals(1, fixture.network.get(A) + fixture.logic.getStored(A));
+        assertEquals(List.of(1L, 2L, 4L, 8L), fixture.acceptedBatches.subList(0, 4));
+        assertTrue(fixture.acceptedBatches.size() < 25, "Growth must remain batched rather than one firing per tick");
     }
 
-    @Test void batchDispatchCurrentlySpendsBothCycleSeedsInOneAcceptedBatch() throws Exception {
-        assertSplitCycleStalls(true);
+    @Test void growthBarrierAllowsTransitiveSuppliersAndUnrelatedRecipes() {
+        var grow = pattern(0, "supplied_grow", A, 2, A, 1L, C, 1L);
+        var supplier = pattern(1, "supply_c", C, 1, B, 1L);
+        var upstream = pattern(2, "supply_b", B, 2, A, 1L);
+        var consumer = pattern(3, "terminal", GOAL, 1, A, 1L);
+        var unrelated = pattern(4, "unrelated", GOAL, 1, C, 1L);
+        var barrier = new ECOGrowthDispatchBarrier(
+            List.of(grow, supplier, upstream, consumer, unrelated));
+        assertTrue(barrier.canDispatch(grow, ignored -> 10));
+        assertTrue(barrier.canDispatch(supplier, ignored -> 10));
+        assertTrue(barrier.canDispatch(upstream, ignored -> 10));
+        assertTrue(barrier.canDispatch(unrelated, ignored -> 10));
+        assertFalse(barrier.canDispatch(consumer, ignored -> 10));
+        assertTrue(barrier.canDispatch(consumer, ignored -> 0));
     }
 
-    private static void assertSplitCycleStalls(boolean batchMode) throws Exception {
+    @Test void dynamicCycleRotatesRunnableBranchesBeforeFiringTheJoin() throws Exception {
+        assertSplitCycleCompletes(false);
+    }
+
+    @Test void dynamicCycleBatchDispatchCannotCrossACompetingBranchBoundary() throws Exception {
+        assertSplitCycleCompletes(true);
+    }
+
+    private static void assertSplitCycleCompletes(boolean batchMode) throws Exception {
         var left = pattern(0, "split_left", B, 1, A, 1L);
         var right = pattern(1, "split_right", C, 1, A, 1L);
         var join = pattern(2, "join", A, 3, B, 1L, C, 1L);
@@ -148,19 +231,20 @@ class ECOCycleHandoffInvestigationTest {
         var fixture = new Fixture(result, batchMode);
         assertSame(left, fixture.logic.getJob().tasks.keySet().iterator().next());
         fixture.tick();
-        assertEquals(List.of(left, left), fixture.accepted);
-        assertEquals(batchMode ? List.of(2L) : List.of(1L, 1L), fixture.acceptedBatches);
-        assertEquals(2, fixture.logic.getWaitingFor(B));
+        assertEquals(List.of(left, right), fixture.accepted);
+        assertEquals(List.of(1L, 1L), fixture.acceptedBatches);
+        assertEquals(1, fixture.logic.getWaitingFor(B));
+        assertEquals(1, fixture.logic.getWaitingFor(C));
         fixture.returnOutputs();
-        assertEquals(2, fixture.logic.getStored(B));
-        assertEquals(0, fixture.logic.getStored(A));
-        assertEquals(0, fixture.logic.getStored(C));
-        long remaining = result.plan().patternTimes().values().stream().mapToLong(Long::longValue).sum() - 2;
-        assertStalled(fixture, remaining);
-        assertCompletesInPlannerOrder(result);
+        for (int tick = 0; tick < 100 && fixture.logic.hasJob(); tick++) {
+            fixture.tick();
+            fixture.returnOutputs();
+        }
+        assertFalse(fixture.logic.hasJob());
+        assertEquals(2, fixture.network.get(GOAL));
     }
 
-    @Test void validDynamicCycleMetadataIsCurrentlyRegisteredAsMissingCyclePhase() throws Exception {
+    @Test void validDynamicCycleMetadataIsRegisteredAsAUsableSchedule() throws Exception {
         var first = pattern(0, "metadata_a_to_b", B, 2, A, 1L);
         var second = pattern(1, "metadata_b_to_c", C, 1, B, 1L);
         var third = pattern(2, "metadata_c_to_a", A, 1, C, 1L);
@@ -170,8 +254,8 @@ class ECOCycleHandoffInvestigationTest {
         var recovered = ECOPlanningResultRegistry.recoverExecutionMetadata(result.plan());
         assertNotNull(recovered);
         assertNotNull(recovered.executionPlan());
-        assertEquals(ECOPlanningResultRegistry.RecoveryState.MISSING_OR_INVALID_SCHEDULE, recovered.state());
-        assertEquals("NO_CYCLE_PHASE", recovered.rejectionReason());
+        assertEquals(ECOPlanningResultRegistry.RecoveryState.VALID_SCHEDULE, recovered.state());
+        assertNull(recovered.rejectionReason());
     }
 
     private static ECOPlanningResult plan(AEKey goal, long amount, Map<AEKey, Long> stock,
@@ -244,6 +328,7 @@ class ECOCycleHandoffInvestigationTest {
         final List<Long> acceptedBatches = new ArrayList<>();
         final Map<IPatternDetails, ICraftingProvider> providers = new LinkedHashMap<>();
         final boolean batchMode;
+        long batchCapacity = 100;
         IPatternDetails blocked;
         IPatternDetails only;
         final IActionSource source = proxy(IActionSource.class, (name, args) -> Optional.empty());
@@ -320,9 +405,9 @@ class ECOCycleHandoffInvestigationTest {
 
         private final class BatchProvider extends Provider implements ECOBatchCapacityProvider {
             BatchProvider(IPatternDetails selected) { super(selected); }
-            public long eco$getBatchCapacity(ECOBatchDispatchContext context) { return isBusy() ? 0 : 100; }
+            public long eco$getBatchCapacity(ECOBatchDispatchContext context) { return isBusy() ? 0 : batchCapacity; }
             public boolean eco$pushBatch(ECOBatchDispatchContext context, long count) {
-                assertTrue(count > 0 && count <= 100);
+                assertTrue(count > 0 && count <= batchCapacity);
                 return accept(context.pattern(), count);
             }
         }

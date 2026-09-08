@@ -83,7 +83,9 @@ public class ECOCraftingCPULogic {
 
     private boolean deliveringFinalOutput;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
+    private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     private int lastNormalPushAttempts;
+    private int lastAcceptedNormalPushes;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -113,9 +115,10 @@ public class ECOCraftingCPULogic {
         var playerId = src.player()
                 .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
                 .orElse(null);
+        var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         providerCursor.clear();
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -175,15 +178,21 @@ public class ECOCraftingCPULogic {
         Level level = cpu.getLevel();
         if (level == null) return;
 
-        int operationLimit = getOperationLimit();
+        int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
+        int acceptedNormalPushes = 0;
         // Thunderbolt wraps this exact executeCrafting invocation in tickCraftingLogic.
         // FastPath batches are bounded by live worker capacity, materials and power, not the slow-path budget.
         while (job != null) {
             lastNormalPushAttempts = 0;
+            lastAcceptedNormalPushes = 0;
             int pushed = executeCrafting(operationLimit, cc, eg, level);
-            operationLimit -= lastNormalPushAttempts;
+            operationLimit = Math.max(0, operationLimit - lastNormalPushAttempts);
+            acceptedNormalPushes += lastAcceptedNormalPushes;
             if (pushed == 0) break;
         }
+        // Match the rolling three-tick accounting for ordinary pushes. Verified ECO batches are bounded
+        // by the live provider capacity and deliberately do not consume this operation window.
+        dispatchStrategy.finishTick(acceptedNormalPushes);
     }
 
     /** Retry delivery from the same physical inventory used for all recipe inputs. */
@@ -192,9 +201,13 @@ public class ECOCraftingCPULogic {
         if (current == null) return;
         AEKey key = current.finalOutput.what();
         PlannerAmount reserve = PlannerAmount.ZERO;
+        var remainingTasks = current.remainingTaskCounts();
         for (var task : current.tasks.entrySet()) {
             reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
                 task.getKey(), task.getValue().value, key));
+        }
+        if (current.executionRuntime != null) {
+            reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key, remainingTasks)));
         }
         // Keep returned feedback available for the next growth wave before delivering any surplus.
         PlannerAmount deliverable = PlannerAmount.of(inventory.list.get(key))
@@ -222,11 +235,8 @@ public class ECOCraftingCPULogic {
             markCpuDirty();
         }
         if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()
-                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)) finishJob(true);
-    }
-
-    private int getOperationLimit() {
-        return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
+                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)
+                && (current.executionRuntime == null || current.executionRuntime.isComplete(remainingTasks))) finishJob(true);
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
@@ -254,41 +264,60 @@ public class ECOCraftingCPULogic {
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         lastNormalPushAttempts = 0;
+        lastAcceptedNormalPushes = 0;
         var current = job;
         if (current == null) return 0;
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
-        var it = current.tasks.entrySet().iterator();
-        while (it.hasNext()) {
-            var task = it.next();
-            if (task.getValue().value <= 0L) {
-                providerCursor.forget(task.getKey());
-                it.remove();
+        int ordinaryLimit = Math.max(0, maxPatterns);
+        var remainingTasks = current.remainingTaskCounts();
+        var candidates = current.executionRuntime == null
+            ? nativeDispatchCandidates(current)
+            : current.executionRuntime.candidates(remainingTasks);
+        Set<Integer> blockedOrderedPhases = new HashSet<>();
+        for (var candidate : candidates) {
+            if (blockedOrderedPhases.contains(candidate.phaseIndex())) continue;
+            var progress = current.tasks.get(candidate.pattern());
+            if (progress == null || progress.value <= 0L) {
+                providerCursor.forget(candidate.pattern());
                 continue;
             }
-            var pattern = task.getKey();
+            long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
+            if (allowedCount <= 0L) continue;
+            var pattern = candidate.pattern();
+            // The explicit execution runtime owns phase/cycle gating. The growth barrier remains the fallback
+            // policy for legacy jobs that have no bound ECO plan.
+            if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) continue;
             // Skip input resolution when no eligible provider is ready for a dispatch.
-            var provider = providerCursor.nextAvailable(
+            var providers = providerCursor.availableProviders(
                 pattern, () -> collectAvailableProviders(craftingService, pattern),
-                candidate -> lastNormalPushAttempts < maxPatterns || candidate instanceof ECOBatchCapacityProvider
-                    || ECOUselessBatchProviderBridge.supports(candidate));
-            if (provider == null) continue;
+                providerCandidate -> lastNormalPushAttempts < ordinaryLimit
+                    || providerCandidate instanceof ECOBatchCapacityProvider
+                    || ECOUselessBatchProviderBridge.supports(providerCandidate));
+            if (providers.isEmpty()) {
+                if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
+                continue;
+            }
             var outputs = new KeyCounter();
             var containers = new KeyCounter();
             var inputs = CraftingCpuHelper.extractPatternInputs(
                 pattern, new ECOCraftingInputPreview(inventory), level, outputs, containers);
-            // Missing intermediates do not prevent their upstream recipes from running.
-            if (inputs == null) continue;
-            boolean accepted = false;
-            boolean singleInputsExtracted = false;
-            try {
+            if (inputs == null) {
+                // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
+                // ordered step is a hard barrier and must wait for this exact pattern.
+                if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
+                continue;
+            }
+            for (var provider : providers) {
+                providerCursor.advanceAfter(pattern, provider);
                 long craftCount = 1L;
-                double power = CraftingCpuHelper.calculatePatternPower(inputs);
+                double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
+                double power = singlePower;
                 var capacityProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
                     ? nativeProvider : ECOUselessBatchProviderBridge.adapt(provider);
                 ECOUselessDynamicOutputBridge.Registration batchRegistration = null;
                 var batch = capacityProvider != null
                     ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
-                        inventory, task.getValue().value,
+                        inventory, allowedCount,
                         energyService, level, current.link.getCraftingID())
                     : null;
                 if (batch != null) {
@@ -296,70 +325,114 @@ public class ECOCraftingCPULogic {
                     try {
                         batchRegistration = ECOUselessDynamicOutputBridge.prepare(this, pattern, craftCount);
                     } catch (RuntimeException failure) {
-                        LOGGER.warn("Batch dynamic output registration unavailable; no inputs extracted", failure);
-                        continue;
+                        LOGGER.warn("Batch dynamic output registration unavailable; trying ordinary provider push", failure);
                     }
-                    if (batchRegistration == null) continue;
-                    power = batch.power();
-                    outputs.reset();
-                    containers.reset();
-                    for (var output : batch.outputs()) outputs.add(output.what(), output.amount());
-                    for (var remainder : batch.remainders()) containers.add(remainder.what(), remainder.amount());
-                    try {
-                        accepted = batch.push(inventory);
-                    } catch (RuntimeException failure) {
-                        LOGGER.warn("Atomic batch rejected; inputs restored and next provider selected next tick", failure);
-                        continue;
+                    if (batchRegistration != null) {
+                        power = batch.power();
+                        boolean acceptedBatch;
+                        try {
+                            acceptedBatch = batch.push(inventory);
+                        } catch (RuntimeException failure) {
+                            LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
+                            acceptedBatch = false;
+                        }
+                        if (acceptedBatch) {
+                            // Once accepted, the worker owns the inputs even if the energy service fails.
+                            chargeAcceptedEnergy(energyService, power);
+                            for (var output : batch.outputs()) {
+                                current.waitingFor.insert(output.what(), output.amount(), Actionable.MODULATE);
+                            }
+                            for (var remainder : batch.remainders()) {
+                                current.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
+                                current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
+                            }
+                            progress.value -= craftCount;
+                            if (current.executionRuntime != null) {
+                                current.executionRuntime.onAccepted(candidate, craftCount, inputs);
+                            }
+                            try {
+                                batchRegistration.commit(current.link.getCraftingID(),
+                                    current.finalOutput == null ? null : current.finalOutput.what());
+                            } catch (RuntimeException failure) {
+                                // The provider already owns this batch. Never replay its inputs or task on a
+                                // notification failure.
+                                LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
+                            }
+                            for (var output : pattern.getOutputs()) postChange(output.what());
+                            markCpuDirty();
+                            // Keep the int Mixin entry point; job accounting above retains the full long count.
+                            return (int) Math.min(craftCount, Integer.MAX_VALUE);
+                        }
+                        // A rejected batch restores its own extraction. The ordinary fallback is exactly one
+                        // copy, so it must use the per-copy power rather than the rejected batch total.
+                        power = singlePower;
                     }
-                } else {
-                    // ECO workers learn unverified recipes through their ordinary one-copy path.
-                    if (capacityProvider != null
-                            && !(provider instanceof ECOCraftingPatternBusBlockEntity)) continue;
-                    if (lastNormalPushAttempts >= maxPatterns) continue;
-                    lastNormalPushAttempts++;
-                    if (energyService.extractAEPower(power, Actionable.SIMULATE,
-                            PowerMultiplier.CONFIG) < power - 0.01) continue;
-                    ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
-                    singleInputsExtracted = true;
+                }
+
+                // Batch is an optional optimization. A provider that offered a batch still retains the normal
+                // one-copy fallback when that batch is unavailable, rejected, or dynamically ambiguous.
+                if (lastNormalPushAttempts >= ordinaryLimit) continue;
+                lastNormalPushAttempts++;
+                if (energyService.extractAEPower(power, Actionable.SIMULATE,
+                        PowerMultiplier.CONFIG) < power - 0.01) {
+                    // Power is shared by all providers for this pattern; there is no value in retrying the rest
+                    // of this provider snapshot in the same tick.
+                    break;
+                }
+                ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
+                boolean acceptedSingle = false;
+                try {
                     if (provider instanceof ECOCraftingPatternBusBlockEntity) {
-                        accepted = ECOSingleCraftingExecutor.pushPattern(
+                        acceptedSingle = ECOSingleCraftingExecutor.pushPattern(
                             provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
                     } else {
                         // Useless Mod wraps this exact invocation in executeCrafting to register dynamic outputs.
                         // Keep it here: moving it into an executor breaks its required Mixin injection.
-                        accepted = provider.pushPattern(pattern, inputs);
+                        acceptedSingle = provider.pushPattern(pattern, inputs);
+                    }
+                    if (!acceptedSingle) continue;
+
+                    // Once accepted, the worker owns the inputs even if the energy service fails.
+                    chargeAcceptedEnergy(energyService, power);
+                    for (var output : outputs) {
+                        current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
+                    }
+                    for (var container : containers) {
+                        current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
+                        current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
+                    }
+                    progress.value--;
+                    if (current.executionRuntime != null) {
+                        current.executionRuntime.onAccepted(candidate, 1L, inputs);
+                    }
+                    lastAcceptedNormalPushes++;
+                    for (var output : pattern.getOutputs()) postChange(output.what());
+                    markCpuDirty();
+                    return 1;
+                } finally {
+                    // A rejected ordinary provider does not own the extracted inputs; try the next provider in
+                    // the same provider-first-fit pass.
+                    if (!acceptedSingle) {
+                        CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);
                     }
                 }
-                if (!accepted) continue;
-                // Once accepted, the worker owns the inputs even if the energy service fails.
-                chargeAcceptedEnergy(energyService, power);
-                for (var output : outputs) {
-                    current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
-                }
-                for (var container : containers) {
-                    current.waitingFor.insert(container.getKey(), container.getLongValue(), Actionable.MODULATE);
-                    current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
-                }
-                task.getValue().value -= craftCount;
-                if (batchRegistration != null) {
-                    try {
-                        batchRegistration.commit(current.link.getCraftingID(),
-                            current.finalOutput == null ? null : current.finalOutput.what());
-                    } catch (RuntimeException failure) {
-                        // The provider already owns this batch. Never replay its inputs or task on a notification failure.
-                        LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
-                    }
-                }
-                for (var output : pattern.getOutputs()) postChange(output.what());
-                markCpuDirty();
-                // Keep the int Mixin entry point; job accounting above retains the full long count.
-                return (int) Math.min(craftCount, Integer.MAX_VALUE);
-            } finally {
-                // Batch dispatch restores its own full extraction; only the single fallback is owned here.
-                if (!accepted && singleInputsExtracted) CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);
             }
+            if (candidate.blocksOrderedPhase()) blockedOrderedPhases.add(candidate.phaseIndex());
         }
         return 0;
+    }
+
+    private java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeDispatchCandidates(
+            ExecutingCraftingJob current) {
+        var result = new java.util.ArrayList<ECOExecutionRuntime.DispatchCandidate>();
+        for (var entry : current.tasks.entrySet()) {
+            if (entry.getValue().value > 0L) {
+                // Native jobs do not consult task ids; the placeholder id is never committed to a runtime.
+                result.add(new ECOExecutionRuntime.DispatchCandidate(0, 0, entry.getKey(),
+                    entry.getValue().value, false));
+            }
+        }
+        return result;
     }
 
     private void chargeAcceptedEnergy(IEnergyService energyService, double power) {
@@ -547,6 +620,7 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         providerCursor.clear();
+        dispatchStrategy.reset();
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
             var jobData = data.getCompound("job");
