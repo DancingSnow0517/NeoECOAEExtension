@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -18,7 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.CRC32C;
@@ -33,9 +36,18 @@ final class InfiniteStorageJournal implements AutoCloseable {
     static final int SHARDS = 16;
     private static final int MAGIC = 0x45434F32;
     private static final int MAX_RECORD_BYTES = 64 * 1024 * 1024;
-    private static final long CHECKPOINT_BYTES = 8 * 1024 * 1024;
-    private static final ThreadPoolExecutor WORKERS = new ThreadPoolExecutor(
-        1, 2, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(32), runnable -> {
+    private static final int JOURNAL_WORKER_COUNT = 2;
+    private static final int JOURNAL_QUEUE_CAPACITY = 32;
+    private static final int CHECKPOINT_QUEUE_CAPACITY = 32;
+    private static final ThreadPoolExecutor JOURNAL_WORKERS = new ThreadPoolExecutor(
+        JOURNAL_WORKER_COUNT, JOURNAL_WORKER_COUNT, 0L, TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(JOURNAL_QUEUE_CAPACITY), runnable -> {
+            Thread thread = new Thread(runnable, "ECO storage journal I/O");
+            thread.setDaemon(true);
+            return thread;
+        }, new ThreadPoolExecutor.AbortPolicy());
+    private static final ThreadPoolExecutor CHECKPOINT_WORKERS = new ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(CHECKPOINT_QUEUE_CAPACITY), runnable -> {
             Thread thread = new Thread(runnable, "ECO storage checkpoint");
             thread.setDaemon(true);
             return thread;
@@ -45,12 +57,14 @@ final class InfiniteStorageJournal implements AutoCloseable {
     private final Shard[] shards = new Shard[SHARDS];
 
     InfiniteStorageJournal(Path directory) {
-        this(directory, CHECKPOINT_BYTES);
+        this(directory, -1L);
     }
 
     InfiniteStorageJournal(Path directory, long checkpointBytes) {
         this.directory = directory;
-        for (int i = 0; i < SHARDS; i++) shards[i] = new Shard(directory.resolve(Integer.toString(i)), checkpointBytes);
+        for (int i = 0; i < SHARDS; i++) {
+            shards[i] = new Shard(directory.resolve(Integer.toString(i)), checkpointBytes);
+        }
     }
 
     static int shard(CompoundTag key) { return Math.floorMod(key.hashCode(), SHARDS); }
@@ -129,15 +143,26 @@ final class InfiniteStorageJournal implements AutoCloseable {
 
     void append(int index, CompoundTag changes) throws IOException { shards[index].append(changes); }
 
-    java.util.concurrent.CompletableFuture<boolean[]> appendAsync(Map<Integer, CompoundTag> batches) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            boolean[] results = new boolean[SHARDS];
-            batches.forEach((index, changes) -> {
-                try { append(index, changes); results[index] = true; }
-                catch (IOException | RuntimeException e) { shards[index].failure = e.toString(); }
-            });
-            return results;
-        }, WORKERS);
+    CompletableFuture<boolean[]> appendAsync(Map<Integer, CompoundTag> batches) {
+        boolean[] results = new boolean[SHARDS];
+        List<CompletableFuture<?>> tasks = new ArrayList<>(batches.size());
+        batches.forEach((index, changes) -> {
+            try {
+                tasks.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        append(index, changes);
+                        results[index] = true;
+                    } catch (IOException | RuntimeException e) {
+                        shards[index].failure = e.toString();
+                    }
+                }, JOURNAL_WORKERS));
+            } catch (RejectedExecutionException ignored) {
+                // The caller keeps this shard dirty and retries it on a later tick. A transiently full queue is not
+                // a storage fault and must not make an otherwise healthy domain degraded.
+            }
+        });
+        if (tasks.isEmpty()) return CompletableFuture.completedFuture(results);
+        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture<?>[0])).thenApply(ignored -> results);
     }
 
     @Override
@@ -154,7 +179,7 @@ final class InfiniteStorageJournal implements AutoCloseable {
 
     private static final class Shard {
         private final Path path;
-        private final long checkpointBytes;
+        private final long configuredCheckpointBytes;
         private final Map<CompoundTag, CompoundTag> entries = new HashMap<>();
         private final Set<Tag> receipts = new LinkedHashSet<>();
         private ListTag rawEntries = new ListTag();
@@ -165,7 +190,10 @@ final class InfiniteStorageJournal implements AutoCloseable {
         private volatile Future<?> checkpoint;
         private boolean rotationPending;
 
-        private Shard(Path path, long checkpointBytes) { this.path = path; this.checkpointBytes = checkpointBytes; }
+        private Shard(Path path, long checkpointBytes) {
+            this.path = path;
+            this.configuredCheckpointBytes = checkpointBytes;
+        }
         private Path file(String name) { return path.resolve(name); }
 
         private void initialize(CompoundTag initial) throws IOException {
@@ -324,8 +352,8 @@ final class InfiniteStorageJournal implements AutoCloseable {
         private void requestCheckpoint() {
             if (checkpoint != null && !checkpoint.isDone()) return;
             try {
-                if (!rotationPending && Files.size(file("journal.log")) < checkpointBytes) return;
-                checkpoint = WORKERS.submit(() -> {
+                if (!rotationPending && Files.size(file("journal.log")) < checkpointThreshold()) return;
+                checkpoint = CHECKPOINT_WORKERS.submit(() -> {
                     try {
                         CompoundTag frozen;
                         synchronized (this) {
@@ -346,11 +374,22 @@ final class InfiniteStorageJournal implements AutoCloseable {
                         failure = "checkpoint: " + e;
                     }
                 });
-            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            } catch (RejectedExecutionException ignored) {
                 // A full worker queue leaves the durable journal intact; the next commit retries.
             } catch (IOException e) {
                 failure = "checkpoint: " + e;
             }
+        }
+
+        private long checkpointThreshold() throws IOException {
+            // The package-private constructor is used by recovery tests and diagnostics to force a small threshold.
+            // Production instances use the adaptive threshold from the default constructor.
+            if (configuredCheckpointBytes > 0L) return configuredCheckpointBytes;
+            long minimum = NEConfig.infiniteStorageCheckpointMinBytes;
+            minimum = Math.max(1L, minimum);
+            long snapshotBytes = Files.exists(file("snapshot.dat")) ? Files.size(file("snapshot.dat")) : 0L;
+            long proportional = snapshotBytes > Long.MAX_VALUE / 4L ? Long.MAX_VALUE : snapshotBytes / 4L;
+            return Math.max(minimum, proportional);
         }
     }
 
@@ -375,12 +414,24 @@ final class InfiniteStorageJournal implements AutoCloseable {
         }
     }
     private static CompoundTag readSnapshot(Path file) throws IOException {
-        CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+        long maxSnapshotBytes = Math.max(1L, NEConfig.infiniteStorageMaxSnapshotBytes);
+        if (!Files.isRegularFile(file)) throw new IOException("Missing shard snapshot: " + file);
+        long compressedBytes = Files.size(file);
+        if (compressedBytes > maxSnapshotBytes) {
+            throw new IOException("Shard snapshot exceeds the compressed size limit of " + maxSnapshotBytes + " bytes");
+        }
+        CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.create(maxSnapshotBytes));
         if (tag.getInt("format") != 2) throw new IOException("Unsupported shard snapshot format");
         if (!tag.contains("sequence", Tag.TAG_LONG) || tag.getLong("sequence") < 0L) throw new IOException("Invalid checkpoint sequence");
         validateList(tag, "entries", Tag.TAG_COMPOUND);
         validateList(tag, "rawEntries", Tag.TAG_COMPOUND);
         validateList(tag, "migrations", Tag.TAG_INT_ARRAY);
+        long entryCount = (long) tag.getList("entries", Tag.TAG_COMPOUND).size()
+            + tag.getList("rawEntries", Tag.TAG_COMPOUND).size()
+            + tag.getList("migrations", Tag.TAG_INT_ARRAY).size();
+        if (entryCount > NEConfig.infiniteStorageMaxSnapshotEntries) {
+            throw new IOException("Shard snapshot contains too many entries: " + entryCount);
+        }
         return tag;
     }
     private static void validateList(CompoundTag tag, String name, int elementType) throws IOException {

@@ -146,6 +146,26 @@ public class NEConfig {
     private static final ModConfigSpec.IntValue INFINITE_DIRTY_KEYS = BUILDER
         .comment("Backpressure limit for distinct unsaved keys in one infinite domain.")
         .defineInRange("infiniteStorageMaxDirtyKeys", 65_536, 256, 1_048_576);
+    private static final ModConfigSpec.LongValue INFINITE_CHECKPOINT_MIN_BYTES = BUILDER
+        .comment(
+            "Minimum journal size before an infinite-storage checkpoint is scheduled.",
+            "The effective threshold is also at least 25% of the current snapshot size to avoid repeated full-snapshot write amplification.")
+        .defineInRange("infiniteStorageCheckpointMinBytes", 32L * 1024 * 1024, 1L * 1024 * 1024, 1L * 1024 * 1024 * 1024);
+    private static final ModConfigSpec.LongValue INFINITE_MAX_SNAPSHOT_BYTES = BUILDER
+        .comment(
+            "Maximum accounted size of one infinite-storage shard snapshot while loading.",
+            "This protects recovery from corrupt or hostile NBT without limiting the logical amount of an item.")
+        .defineInRange("infiniteStorageMaxSnapshotBytes", 2L * 1024 * 1024 * 1024, 64L * 1024 * 1024, 16L * 1024 * 1024 * 1024);
+    private static final ModConfigSpec.IntValue INFINITE_MAX_SNAPSHOT_ENTRIES = BUILDER
+        .comment(
+            "Maximum number of entries in one shard snapshot during recovery.",
+            "This is a corruption/OOM guard, not an item-amount capacity limit.")
+        .defineInRange("infiniteStorageMaxSnapshotEntries", 4_000_000, 1_024, 16_000_000);
+    private static final ModConfigSpec.LongValue INFINITE_PREPARE_NANOS = BUILDER
+        .comment(
+            "Cooperative main-thread time budget for preparing one asynchronous infinite-storage journal batch.",
+            "Save barriers drain all remaining changes synchronously and are not limited by this budget.")
+        .defineInRange("infiniteStoragePrepareNanos", 1_000_000L, 100_000L, 10_000_000L);
 
     static {
         BUILDER.pop();
@@ -168,6 +188,10 @@ public class NEConfig {
     public static long storageServerNanosPerTick = 4_000_000L;
     public static int infiniteStorageFlushIntervalTicks = 20;
     public static int infiniteStorageMaxDirtyKeys = 65_536;
+    public static long infiniteStorageCheckpointMinBytes = 32L * 1024 * 1024;
+    public static long infiniteStorageMaxSnapshotBytes = 2L * 1024 * 1024 * 1024;
+    public static int infiniteStorageMaxSnapshotEntries = 4_000_000;
+    public static long infiniteStoragePrepareNanos = 1_000_000L;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -195,6 +219,10 @@ public class NEConfig {
         storageServerNanosPerTick = STORAGE_SERVER_NANOS.get();
         infiniteStorageFlushIntervalTicks = INFINITE_FLUSH_TICKS.get();
         infiniteStorageMaxDirtyKeys = INFINITE_DIRTY_KEYS.get();
+        infiniteStorageCheckpointMinBytes = INFINITE_CHECKPOINT_MIN_BYTES.get();
+        infiniteStorageMaxSnapshotBytes = INFINITE_MAX_SNAPSHOT_BYTES.get();
+        infiniteStorageMaxSnapshotEntries = INFINITE_MAX_SNAPSHOT_ENTRIES.get();
+        infiniteStoragePrepareNanos = INFINITE_PREPARE_NANOS.get();
     }
 
     public static int getCraftingPatternBusPages() {

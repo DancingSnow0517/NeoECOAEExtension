@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -90,6 +92,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     private final Map<AEKey, CompoundTag> encodedKeys = new HashMap<>();
     private final Set<AEKey> dirtyKeys = new LinkedHashSet<>();
     private final Map<UUID, AEKey> pendingReceipts = new HashMap<>();
+    private final Map<AEKey, List<UUID>> pendingReceiptsByKey = new HashMap<>();
     private final Map<AEKey, String> encodingFailures = new java.util.LinkedHashMap<>();
     private long nextFlushTick;
     private java.util.concurrent.CompletableFuture<boolean[]> pendingWrite;
@@ -340,6 +343,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         if (!migrationReceipts.contains(transactionId)) {
             addMigrationReceipt(transactionId);
             pendingReceipts.put(transactionId, key);
+            pendingReceiptsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(transactionId);
         }
     }
 
@@ -410,7 +414,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         if (encodingFailures.containsKey(key)) return false;
         if (!canWrite()) return false;
         if (journal == null) return true;
-        if (dirtyKeys.size() >= cn.dancingsnow.neoecoae.config.NEConfig.infiniteStorageMaxDirtyKeys && !dirtyKeys.contains(key)) return false;
+        if (dirtyKeys.size() >= NEConfig.infiniteStorageMaxDirtyKeys && !dirtyKeys.contains(key)) return false;
         CompoundTag encoded = encodedKeys.get(key);
         if (encoded == null) {
             try {
@@ -498,6 +502,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         journalRegistries = registries;
         dirtyKeys.clear();
         pendingReceipts.clear();
+        pendingReceiptsByKey.clear();
         durableRevision = revision;
         setDirty(false);
         writeJournalMarker(dataFile);
@@ -547,7 +552,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             }
             batch.amounts().keySet().removeIf(key -> failed.contains(InfiniteStorageJournal.shard(encodedKeys.get(key))));
             dirtyKeys.removeAll(batch.amounts().keySet());
-            batch.receipts().forEach((id, key) -> { if (batch.amounts().containsKey(key)) pendingReceipts.remove(id); });
+            removeCompletedReceipts(batch.receipts(), batch.amounts()::containsKey);
             batch.amounts().keySet().forEach(this::forgetEmptyKey);
         }
         if (dirtyKeys.isEmpty() && pendingReceipts.isEmpty()) {
@@ -560,7 +565,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     public void tick(long tick) {
         finishPendingWrite();
         if (journal != null && isDirty() && tick >= nextFlushTick) {
-            nextFlushTick = tick + cn.dancingsnow.neoecoae.config.NEConfig.infiniteStorageFlushIntervalTicks;
+            nextFlushTick = tick + NEConfig.infiniteStorageFlushIntervalTicks;
             try { startPendingWrite(); }
             catch (RuntimeException e) {
                 String reason = "Journal preparation failed: " + e;
@@ -574,13 +579,17 @@ public final class ECOInfiniteStorageData extends SavedData {
                               Map<UUID, AEKey> receipts) {}
 
     private FlushBatch prepareBatch(Set<Integer> excludedShards) {
+        return prepareBatch(excludedShards, Long.MAX_VALUE);
+    }
+
+    private FlushBatch prepareBatch(Set<Integer> excludedShards, long budgetNanos) {
         Map<Integer, CompoundTag> batches = new HashMap<>();
         Map<AEKey, HugeAmount> frozen = new HashMap<>();
         Map<UUID, AEKey> receipts = new HashMap<>();
-        Map<AEKey, List<UUID>> receiptsByKey = new HashMap<>();
-        pendingReceipts.forEach((id, key) -> receiptsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(id));
         long bytes = 0L;
+        long started = System.nanoTime();
         for (AEKey key : dirtyKeys) {
+            if (!frozen.isEmpty() && System.nanoTime() - started >= budgetNanos) break;
             CompoundTag encoded = encodedKeys.get(key);
             if (encoded == null || encodingFailures.containsKey(key)) continue;
             int shard = InfiniteStorageJournal.shard(encoded);
@@ -593,7 +602,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             if (restore != null) entry.putUUID("restore", restore);
             writeRestoreTargets(key, entry);
             if (restoreFailures.containsKey(key)) entry.putString("restoreFailure", restoreFailures.get(key));
-            List<UUID> keyReceipts = receiptsByKey.getOrDefault(key, List.of());
+            List<UUID> keyReceipts = pendingReceiptsByKey.getOrDefault(key, List.of());
             // Twice the NBT heap estimate also covers modified UTF-8 strings. One key and all of its
             // receipts are indivisible, so replay can never acknowledge a migration without its quantity.
             long weight = 2L * entry.sizeInBytes() + 64L * keyReceipts.size() + 256L;
@@ -621,7 +630,7 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     private void startPendingWrite() {
         if (pendingWrite != null || unreadable) return;
-        FlushBatch batch = prepareBatch(Set.of());
+        FlushBatch batch = prepareBatch(Set.of(), NEConfig.infiniteStoragePrepareNanos);
         if (batch.batches().isEmpty()) return;
         try {
             pendingWrite = journal.appendAsync(batch.batches());
@@ -647,12 +656,17 @@ public final class ECOInfiniteStorageData extends SavedData {
             return;
         }
         pendingAmounts.forEach((key, amount) -> {
-            if (saved[InfiniteStorageJournal.shard(encodedKeys.get(key))]
-                && java.util.Objects.equals(keyVersions.getOrDefault(key, 0L), pendingVersions.get(key))) dirtyKeys.remove(key);
+            if (!saved[InfiniteStorageJournal.shard(encodedKeys.get(key))]) return;
+            if (java.util.Objects.equals(keyVersions.getOrDefault(key, 0L), pendingVersions.get(key))) {
+                dirtyKeys.remove(key);
+            } else if (dirtyKeys.remove(key)) {
+                // The key changed while its previous value was being written. Keep it dirty, but move it behind the
+                // untouched keys so a hot key cannot monopolize every batch forever.
+                dirtyKeys.add(key);
+            }
         });
-        inFlightReceipts.forEach((id, key) -> {
-            if (saved[InfiniteStorageJournal.shard(encodedKeys.get(key))]) pendingReceipts.remove(id);
-        });
+        removeCompletedReceipts(inFlightReceipts,
+            key -> saved[InfiniteStorageJournal.shard(encodedKeys.get(key))]);
         pendingAmounts.keySet().forEach(this::forgetEmptyKey);
         if (dirtyKeys.isEmpty() && pendingReceipts.isEmpty() && revision == pendingRevision) {
             durableRevision = pendingRevision;
@@ -666,6 +680,18 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public void closeJournal() {
         if (journal != null) { flushJournal(); journal.close(); }
+    }
+
+    private void removeCompletedReceipts(Map<UUID, AEKey> receipts, Predicate<AEKey> completed) {
+        receipts.forEach((id, key) -> {
+            if (!completed.test(key)) return;
+            pendingReceipts.remove(id);
+            List<UUID> keyReceipts = pendingReceiptsByKey.get(key);
+            if (keyReceipts != null) {
+                keyReceipts.remove(id);
+                if (keyReceipts.isEmpty()) pendingReceiptsByKey.remove(key);
+            }
+        });
     }
 
     private void forgetEmptyKey(AEKey key) {
