@@ -4,6 +4,7 @@ import appeng.api.ids.AEComponents;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.upgrades.IUpgradeInventory;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
@@ -13,9 +14,12 @@ import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.ItemLike;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +45,11 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
         return createPreservingConfigInventory(stack, slots);
     }
 
+    @Override
+    public IUpgradeInventory getUpgrades(ItemStack stack) {
+        return new LockedUpgradeInventory(stack, super.getUpgrades(stack));
+    }
+
     private static ConfigInventory createPreservingConfigInventory(ItemStack stack, int activeSlots) {
         ConfigInventory[] holder = new ConfigInventory[1];
         holder[0] = ConfigInventory.configTypes(activeSlots)
@@ -62,6 +71,99 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
             stored.set(slot, active.get(slot));
         }
         stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, stored);
+    }
+
+    private static boolean hasExtendedMarkers(ItemStack stack) {
+        List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
+        for (int slot = MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
+             slot < Math.min(configured.size(), MegaCellCapacities.LONG_BULK_UPGRADED_TYPE_LIMIT);
+             slot++) {
+            if (configured.get(slot) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final class LockedUpgradeInventory implements IUpgradeInventory {
+        private final ItemStack cellStack;
+        private final IUpgradeInventory delegate;
+
+        private LockedUpgradeInventory(ItemStack cellStack, IUpgradeInventory delegate) {
+            this.cellStack = cellStack;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int size() {
+            return delegate.size();
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return delegate.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return delegate.getStackInSlot(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            if (isLockedCard(slot) && (stack.isEmpty()
+                || !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get()))) {
+                return;
+            }
+            delegate.setItemDirect(slot, stack);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return delegate.isItemValid(slot, stack);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return delegate.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return isLockedCard(slot) ? ItemStack.EMPTY : delegate.extractItem(slot, amount, simulate);
+        }
+
+        private boolean isLockedCard(int slot) {
+            ItemStack installed = delegate.getStackInSlot(slot);
+            return !installed.isEmpty()
+                && installed.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
+                && hasExtendedMarkers(cellStack);
+        }
+
+        @Override
+        public ItemLike getUpgradableItem() {
+            return delegate.getUpgradableItem();
+        }
+
+        @Override
+        public int getInstalledUpgrades(ItemLike upgrade) {
+            return delegate.getInstalledUpgrades(upgrade);
+        }
+
+        @Override
+        public int getMaxInstalled(ItemLike upgrade) {
+            return delegate.getMaxInstalled(upgrade);
+        }
+
+        @Override
+        public void readFromNBT(CompoundTag data, String subtag, HolderLookup.Provider registries) {
+            delegate.readFromNBT(data, subtag, registries);
+        }
+
+        @Override
+        public void writeToNBT(CompoundTag data, String subtag, HolderLookup.Provider registries) {
+            delegate.writeToNBT(data, subtag, registries);
+        }
     }
 
     @Override
