@@ -12,6 +12,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import java.util.List;
 import java.util.function.Supplier;
 
 public final class StorageHostActionUI {
@@ -31,23 +32,28 @@ public final class StorageHostActionUI {
         Supplier<MultiBlockPlacementPlan> previewPlan,
         IntSupplier priority,
         IntConsumer setPriority,
-        IntConsumer changePriority
+        IntConsumer changePriority,
+        Supplier<List<StorageItemDetailsUI.StoredItem>> items,
+        StorageItemDetailsUI.InteractionHandler interactionHandler
     ) {
     }
 
     public record Elements(
         Player player,
         UIElement buildWindow,
-        UIElement priorityWindow
+        UIElement priorityWindow,
+        UIElement itemDetailsWindow
     ) {
         public void addTo(UIElement root) {
             root.addChild(HostSideButtonBar.left(
                 GuideButton.create(player, "neoecoae:neoecoae_intro/storage_system.md"),
                 MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-                StoragePriorityUI.createInlineOpenButton(priorityWindow)
+                StoragePriorityUI.createInlineOpenButton(priorityWindow),
+                StorageItemDetailsUI.createInlineOpenButton(itemDetailsWindow)
             ));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
+            root.addChild(itemDetailsWindow);
         }
     }
 
@@ -69,6 +75,11 @@ public final class StorageHostActionUI {
             config.setPriority(),
             config.changePriority()
         ));
-        return new Elements(config.player(), buildWindow, priorityWindow);
+        UIElement itemDetailsWindow = StorageItemDetailsUI.createFloatingPanel(new StorageItemDetailsUI.Config(
+            config.player(),
+            config.items(),
+            config.interactionHandler()
+        ));
+        return new Elements(config.player(), buildWindow, priorityWindow, itemDetailsWindow);
     }
 }

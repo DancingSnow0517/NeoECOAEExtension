@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageItemDetailsUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
@@ -47,6 +48,7 @@ import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
@@ -696,8 +698,105 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             buildController::createLocalPreviewPlan,
             () -> storagePriority,
             priority -> setStoragePriority(holder.player, priority),
-            delta -> changeStoragePriority(holder.player, delta)
+            delta -> changeStoragePriority(holder.player, delta),
+            this::getStoredItemDetails,
+            (key, button, shift) -> interactWithStoredItem(holder.player, key, button, shift)
         ));
+    }
+
+    private List<StorageItemDetailsUI.StoredItem> getStoredItemDetails() {
+        MEStorage storage = getStorageInterfaceHostStorage();
+        if (storage == null) {
+            return List.of();
+        }
+        List<StorageItemDetailsUI.StoredItem> items = new ArrayList<>();
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (canUseHostDomainStorage() && engine != null) {
+            for (ECOInfiniteStorageEngine.HugeStack entry : engine.getHugeStacks()) {
+                if (entry.key() instanceof AEItemKey itemKey && !entry.amount().isZero()
+                    && !engine.getAmount(itemKey).isZero()) {
+                    items.add(new StorageItemDetailsUI.StoredItem(itemKey, entry.amount().toBigInteger()));
+                }
+            }
+        } else {
+            for (Object2LongMap.Entry<AEKey> entry : storage.getAvailableStacks()) {
+                if (entry.getKey() instanceof AEItemKey itemKey && entry.getLongValue() > 0L) {
+                    items.add(new StorageItemDetailsUI.StoredItem(
+                        itemKey, BigInteger.valueOf(entry.getLongValue())));
+                }
+            }
+        }
+        items.sort(java.util.Comparator
+            .comparing((StorageItemDetailsUI.StoredItem item) -> item.key().getDisplayName().getString(),
+                String.CASE_INSENSITIVE_ORDER)
+            .thenComparing(item -> item.key().getId().toString())
+            .thenComparingInt(item -> item.key().hashCode()));
+        return List.copyOf(items);
+    }
+
+    private void interactWithStoredItem(
+        Player player,
+        @Nullable AEItemKey clickedKey,
+        int mouseButton,
+        boolean shiftDown
+    ) {
+        if (!canPlayerInteract(player) || (mouseButton != 0 && mouseButton != 1)) {
+            return;
+        }
+        MEStorage storage = getStorageInterfaceHostStorage();
+        if (storage == null) {
+            return;
+        }
+        IActionSource source = IActionSource.ofPlayer(player, this);
+        ItemStack carried = player.containerMenu.getCarried();
+        if (!carried.isEmpty()) {
+            AEItemKey carriedKey = AEItemKey.of(carried);
+            if (carriedKey == null) {
+                return;
+            }
+            long requested = mouseButton == 1 ? 1L : carried.getCount();
+            long inserted = storage.insert(carriedKey, requested, Actionable.MODULATE, source);
+            if (inserted > 0L) {
+                carried.shrink((int) inserted);
+                player.containerMenu.setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried);
+                storageUiSnapshotGameTime = Long.MIN_VALUE;
+                setChanged();
+                markForUpdate();
+                player.containerMenu.broadcastChanges();
+            }
+            return;
+        }
+        if (clickedKey == null) {
+            return;
+        }
+
+        long available = storage.extract(clickedKey, clickedKey.getMaxStackSize(), Actionable.SIMULATE, source);
+        if (available <= 0L) {
+            return;
+        }
+        long requested = mouseButton == 1 ? (available + 1L) / 2L : available;
+        long extracted = storage.extract(clickedKey, requested, Actionable.MODULATE, source);
+        if (extracted <= 0L) {
+            return;
+        }
+        ItemStack extractedStack = clickedKey.toStack((int) extracted);
+        if (shiftDown) {
+            player.getInventory().add(extractedStack);
+            if (!extractedStack.isEmpty()) {
+                long returned = storage.insert(
+                    clickedKey, extractedStack.getCount(), Actionable.MODULATE, source);
+                extractedStack.shrink((int) returned);
+                if (!extractedStack.isEmpty()) {
+                    player.drop(extractedStack, false);
+                }
+            }
+        } else {
+            player.containerMenu.setCarried(extractedStack);
+        }
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        setChanged();
+        markForUpdate();
+        player.containerMenu.broadcastChanges();
     }
 
     private void changeStoragePriority(Player player, int delta) {

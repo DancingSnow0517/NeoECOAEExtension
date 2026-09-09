@@ -214,6 +214,8 @@
   "gui.neoecoae.storage.energy_storage": "能量存储",
   "gui.neoecoae.storage.idle_matrices": "空闲矩阵",
   "gui.neoecoae.storage.infinite_value": "无限",
+  "gui.neoecoae.storage.item_details": "存储物品详情",
+  "gui.neoecoae.storage.item_details.amount": "存储数量：%s",
   "gui.neoecoae.storage.max_load": "最大负载",
   "gui.neoecoae.storage.status": "状态",
   "gui.neoecoae.storage.status.degraded": "无限存储部分数据待修复",
