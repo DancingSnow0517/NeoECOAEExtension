@@ -720,7 +720,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             rebuildAllPatternDetails = true;
         }
         queuePatternDetailsUpdate();
-        notifyPatternInterfaceHosts();
+        notifyPatternInterfaceHosts(slot);
     }
 
     @Override
@@ -767,6 +767,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private void updatePatternDetails() {
         int slotCount = getPatternSlotCount();
+        boolean refreshedAll = rebuildAllPatternDetails;
+        int[] refreshedSlots = refreshedAll ? new int[0] : dirtyPatternSlots.stream().toArray();
         if (rebuildAllPatternDetails) {
             Arrays.fill(decodedPatternDetails, null);
             for (int slot = 0; slot < slotCount; slot++) {
@@ -801,7 +803,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             }
         }
         ICraftingProvider.requestUpdate(this.getMainNode());
-        notifyPatternInterfaceHosts();
+        if (refreshedAll) {
+            notifyPatternInterfaceHosts(-1);
+        } else {
+            for (int slot : refreshedSlots) notifyPatternInterfaceHosts(slot);
+        }
     }
 
     private boolean shouldValidateNetGrowthPatterns() {
@@ -849,13 +855,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             : patternContentRevision + 1;
     }
 
-    private void notifyPatternInterfaceHosts() {
+    private void notifyPatternInterfaceHosts(int slot) {
         if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
             return;
         }
         for (var machineInterface : getMainNode().getGrid()
                 .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
-            machineInterface.onPatternBusInventoryChanged(this);
+            machineInterface.onPatternBusInventoryChanged(this, slot);
         }
     }
 

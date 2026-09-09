@@ -26,6 +26,8 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
+import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
+import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -140,10 +142,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternContentRevision;
     private transient List<PatternSlotRef> patternSlotRefs = List.of();
     private transient boolean patternInterfaceMappingInitialized;
-    private transient Map<UUID, PatternInterfaceItemHandler> patternInterfaceViews = new HashMap<>();
-    private transient PatternSearchIndex clientPatternSearchIndex = PatternSearchIndex.EMPTY;
-    private transient int patternSearchIndexRevision = Integer.MIN_VALUE;
-    private transient CompoundTag patternSearchIndexPayload = new CompoundTag();
+    @Getter
+    private final transient PatternPreviewSync patternPreviewSync = new PatternPreviewSync(this);
     private transient int migrationScannedThisTick;
     private transient int migrationInsertedThisTick;
     public ECOMachineInterfaceBlockEntity(
@@ -311,99 +311,86 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 && (patternTransferNoSpace > 0 || patternTransferIncompatible > 0));
     }
 
-    public IItemHandlerModifiable createPatternInterfaceItemHandler(UUID playerId) {
-        ensurePatternInterfaceMapping();
-        if (level != null && level.isClientSide) {
-            AppEngInternalInventory inventory = new AppEngInternalInventory(
-                    null, PATTERN_INTERFACE_VISIBLE_SLOTS, 1);
-            return new PatternInterfaceItemHandler((IItemHandlerModifiable) inventory.toItemHandler());
-        }
-        PatternInterfaceItemHandler view = new PatternInterfaceItemHandler(playerId);
-        view.setView(defaultPatternInterfaceView());
-        patternInterfaceViews.put(playerId, view);
-        return view;
+    public PatternPreviewEntry getPatternPreviewEntry(int index) {
+        PatternSlotRef ref = patternSlotRefs.get(index);
+        ItemStack stack = getPatternStack(ref).copy();
+        return new PatternPreviewEntry(ref.bus().getBlockPos().asLong(), ref.slot(), stack,
+                ref.bus().getPatternSearchKeywords(ref.slot()), patternSearchFlags(stack));
     }
 
-    public PatternSearchIndex getClientPatternSearchIndex() {
-        return clientPatternSearchIndex;
-    }
-
-    private int[] defaultPatternInterfaceView() {
-        int[] view = new int[Math.min(PATTERN_INTERFACE_VISIBLE_SLOTS, patternSlotRefs.size())];
-        for (int slot = 0; slot < view.length; slot++) {
-            view[slot] = slot;
-        }
-        return view;
-    }
-
-    /** Sends client-side search terms without turning every actual Bus slot into a menu slot. */
     @RPCMethod
-    public void requestPatternSearchIndex(RPCSender sender, int knownRevision) {
-        if (sender.isServer() || !(level instanceof ServerLevel serverLevel) || !formed || !supportsCraftingInterfaceUi()) {
-            return;
+    public void setPatternPreview(RPCSender sender, CompoundTag payload) {
+        if (sender.isServer() && level != null && level.isClientSide && payload != null) {
+            patternPreviewSync.receive(payload);
         }
+    }
+
+    /** Resolve physical identity only when acting; browsing never modifies server state. */
+    @RPCMethod
+    public void actOnPatternPreview(RPCSender sender, CompoundTag payload) {
+        if (sender.isServer() || !(level instanceof ServerLevel) || !formed
+                || !supportsCraftingInterfaceUi() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
-        if (!isPatternInterfacePlayer(player, serverLevel)) {
-            return;
-        }
+        if (player == null || !patternPreviewSync.isViewer(player)
+                || payload.getInt("menu") != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
-        if (knownRevision == patternContentRevision) {
+        if (payload.getInt("revision") != patternContentRevision) {
+            patternPreviewSync.resend(player);
+            player.containerMenu.broadcastFullState();
             return;
         }
-        rpcToPlayer(player, "setPatternSearchIndex", patternContentRevision, getPatternSearchIndexPayload());
-    }
-
-    private CompoundTag getPatternSearchIndexPayload() {
-        if (patternSearchIndexRevision == patternContentRevision) {
-            return patternSearchIndexPayload;
+        long busPosition = payload.getLong("bus");
+        int physicalSlot = payload.getInt("slot");
+        PatternSlotRef target = null;
+        for (PatternSlotRef ref : patternSlotRefs) {
+            if (ref.slot() == physicalSlot && ref.bus().getBlockPos().asLong() == busPosition) {
+                target = ref;
+                break;
+            }
         }
-        CompoundTag payload = new CompoundTag();
-        ListTag keywords = new ListTag();
-        byte[] flags = new byte[patternSlotRefs.size()];
-        for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
-            PatternSlotRef ref = patternSlotRefs.get(slot);
-            ItemStack stack = getPatternStack(slot);
-            keywords.add(StringTag.valueOf(ref.bus().getPatternSearchKeywords(ref.slot())));
-            flags[slot] = patternSearchFlags(stack);
+        if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) return;
+        InternalInventory inventory = target.bus().getTerminalPatternInventory();
+        if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
+        ItemStack existing = inventory.getStackInSlot(physicalSlot);
+        ItemStack carried = player.containerMenu.getCarried();
+        int action = payload.getInt("action");
+        int button = payload.getInt("button");
+        if (button < 0 || button > 1) return;
+        if (action == 2) {
+            int sourceSlot = payload.getInt("sourceSlot");
+            if (sourceSlot < 0 || sourceSlot >= 36 || !carried.isEmpty()) return;
+            ItemStack source = player.getInventory().getItem(sourceSlot);
+            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("sourceStack"));
+            if (source.isEmpty() || !ItemStack.matches(source, expected) || !existing.isEmpty()
+                    || !inventory.isItemValid(physicalSlot, source) || hasDuplicatePattern(target, source)) return;
+            ItemStack remainder = inventory.insertItem(physicalSlot, source.copy(), false);
+            player.getInventory().setItem(sourceSlot, remainder);
+        } else if (action == 1) {
+            ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
+            if (!available.isEmpty() && canStoreInPlayerInventory(player, available)) {
+                ItemStack extracted = inventory.extractItem(physicalSlot, available.getCount(), false);
+                player.getInventory().add(extracted);
+                if (!extracted.isEmpty()) player.drop(extracted, false);
+            }
+        } else if (action == 0) {
+            if (carried.isEmpty()) {
+                int amount = button == 1 ? (existing.getCount() + 1) / 2 : existing.getCount();
+                player.containerMenu.setCarried(inventory.extractItem(physicalSlot, amount, false));
+            } else if (existing.isEmpty() || ItemStack.isSameItemSameComponents(existing, carried)) {
+                if (inventory.isItemValid(physicalSlot, carried) && !hasDuplicatePattern(target, carried)) {
+                    int amount = button == 1 ? 1 : carried.getCount();
+                    ItemStack remainder = inventory.insertItem(physicalSlot, carried.copyWithCount(amount), false);
+                    carried.shrink(amount - remainder.getCount());
+                    player.containerMenu.setCarried(carried);
+                }
+            } else if (inventory.isItemValid(physicalSlot, carried) && !hasDuplicatePattern(target, carried)
+                    && carried.getCount() <= Math.min(inventory.getSlotLimit(physicalSlot), carried.getMaxStackSize())) {
+                ItemStack removed = existing.copy();
+                inventory.setItemDirect(physicalSlot, carried.copy());
+                player.containerMenu.setCarried(removed);
+            }
         }
-        payload.put("keywords", keywords);
-        payload.putByteArray("flags", flags);
-        patternSearchIndexRevision = patternContentRevision;
-        patternSearchIndexPayload = payload;
-        return payload;
-    }
-
-    /** Maps the client's visible window to server-authoritative actual Pattern Bus slots. */
-    @RPCMethod
-    public void setPatternInterfaceView(RPCSender sender, CompoundTag payload) {
-        if (sender.isServer() || !(level instanceof ServerLevel serverLevel) || !formed || !supportsCraftingInterfaceUi()) {
-            return;
-        }
-        ServerPlayer player = sender.asPlayer();
-        if (!isPatternInterfacePlayer(player, serverLevel)) {
-            return;
-        }
-        PatternInterfaceItemHandler view = patternInterfaceViews.get(player.getUUID());
-        if (view == null) {
-            return;
-        }
-        ensurePatternInterfaceMapping();
-        int[] requestedSlots = payload == null ? new int[0] : payload.getIntArray("slots");
-        view.setView(requestedSlots);
-    }
-
-    @RPCMethod
-    public void setPatternSearchIndex(RPCSender sender, int revision, CompoundTag payload) {
-        if (!sender.isServer() || level == null || !level.isClientSide) {
-            return;
-        }
-        ListTag keywords = payload == null ? new ListTag() : payload.getList("keywords", Tag.TAG_STRING);
-        String[] entries = new String[keywords.size()];
-        for (int slot = 0; slot < entries.length; slot++) {
-            entries[slot] = keywords.getString(slot);
-        }
-        byte[] flags = payload == null ? new byte[0] : payload.getByteArray("flags");
-        clientPatternSearchIndex = new PatternSearchIndex(Math.max(0, revision), entries, flags);
+        player.containerMenu.broadcastChanges();
     }
 
     public boolean isPatternTransferInProgress() {
@@ -469,13 +456,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel)) {
             return;
         }
-        boolean hadMapping = patternInterfaceMappingInitialized;
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
         ensurePatternInterfaceMapping();
-        if (hadMapping) {
-            closePatternInterfaceMenus();
-        }
     }
 
     @Override
@@ -509,19 +492,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel)) {
             return;
         }
-        boolean hadMapping = patternInterfaceMappingInitialized;
-        long[] previousPositions = patternBusPositions;
-        int[] previousSlotCounts = patternBusSlotCounts;
         patternInterfaceMappingInitialized = false;
         ensurePatternInterfaceMapping();
-        if (hadMapping || !Arrays.equals(previousPositions, patternBusPositions)
-                || !Arrays.equals(previousSlotCounts, patternBusSlotCounts)) {
-            closePatternInterfaceMenus();
-        }
     }
 
     /** Called by a Pattern Bus after a real slot mutation; this path never scans the inventory. */
     public void onPatternBusInventoryChanged(ECOCraftingPatternBusBlockEntity bus) {
+        onPatternBusInventoryChanged(bus, -1);
+    }
+
+    public void onPatternBusInventoryChanged(ECOCraftingPatternBusBlockEntity bus, int changedSlot) {
         if (!(level instanceof ServerLevel) || !patternInterfaceMappingInitialized) {
             return;
         }
@@ -531,15 +511,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || patternBusSlotCounts[busIndex] != slotCount
                 || !isMappedBus(busIndex, bus);
         if (mappingInvalid) {
-            long[] previousPositions = patternBusPositions;
-            int[] previousSlotCounts = patternBusSlotCounts;
             patternInterfaceMappingInitialized = false;
             ensurePatternInterfaceMapping();
-            if (!Arrays.equals(previousPositions, patternBusPositions)
-                    || !Arrays.equals(previousSlotCounts, patternBusSlotCounts)) {
-                closePatternInterfaceMenus();
-            }
         }
+        busIndex = Arrays.binarySearch(patternBusPositions, bus.getBlockPos().asLong());
+        if (busIndex < 0) return;
+        int offset = 0;
+        for (int index = 0; index < busIndex; index++) offset += patternBusSlotCounts[index];
+        if (changedSlot >= 0 && changedSlot < slotCount) patternPreviewSync.dirty(offset + changedSlot, 1);
+        else patternPreviewSync.dirty(offset, slotCount);
         patternContentRevision = nextPatternContentRevision();
         markForUpdate();
     }
@@ -577,16 +557,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
 
-        boolean changed = !Arrays.equals(patternBusPositions, positions)
-                || !Arrays.equals(patternBusSlotCounts, slotCounts);
         patternBusPositions = positions;
         patternBusSlotCounts = slotCounts;
         patternSlotRefs = List.copyOf(refs);
         patternInterfaceMappingInitialized = true;
-        if (changed) {
-            patternContentRevision = nextPatternContentRevision();
-            markForUpdate();
-        }
+        patternPreviewSync.reset();
+        // Equal positions can still refer to replacement block entities or inventories.
+        patternContentRevision = nextPatternContentRevision();
+        markForUpdate();
     }
 
     private int nextPatternContentRevision() {
@@ -604,7 +582,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 continue;
             }
             player.closeContainer();
-            patternInterfaceViews.remove(player.getUUID());
+            patternPreviewSync.resend(player);
         }
     }
 
@@ -668,161 +646,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private record PatternSlotRef(ECOCraftingPatternBusBlockEntity bus, int slot) {
-    }
-
-    private final class PatternInterfaceItemHandler implements IItemHandlerModifiable {
-        @Nullable
-        private final IItemHandlerModifiable clientDelegate;
-        private List<PatternSlotRef> refs;
-
-        private PatternInterfaceItemHandler(IItemHandlerModifiable clientDelegate) {
-            this.clientDelegate = clientDelegate;
-            this.refs = List.of();
-        }
-
-        private PatternInterfaceItemHandler(UUID playerId) {
-            this.clientDelegate = null;
-            this.refs = List.of();
-        }
-
-        private void setView(@Nullable int[] requestedSlots) {
-            if (clientDelegate != null) {
-                return;
-            }
-            List<PatternSlotRef> next = new ArrayList<>(PATTERN_INTERFACE_VISIBLE_SLOTS);
-            if (requestedSlots != null) {
-                for (int slot : requestedSlots) {
-                    if (next.size() >= PATTERN_INTERFACE_VISIBLE_SLOTS) {
-                        break;
-                    }
-                    if (slot >= 0 && slot < patternSlotRefs.size()) {
-                        next.add(patternSlotRefs.get(slot));
-                    }
-                }
-            }
-            refs = List.copyOf(next);
-        }
-
-        @Override
-        public int getSlots() {
-            return clientDelegate != null ? clientDelegate.getSlots() : PATTERN_INTERFACE_VISIBLE_SLOTS;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            if (clientDelegate != null) {
-                return clientDelegate.getStackInSlot(slot);
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return ItemStack.EMPTY;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            return ref.slot() < inventory.size() ? inventory.getStackInSlot(ref.slot()) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (clientDelegate != null) {
-                return clientDelegate.insertItem(slot, stack, simulate);
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return stack;
-            }
-            if (hasDuplicatePattern(ref, stack)) {
-                return stack;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            return ref.slot() < inventory.size() ? inventory.insertItem(ref.slot(), stack, simulate) : stack;
-        }
-
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (clientDelegate != null) {
-                return clientDelegate.extractItem(slot, amount, simulate);
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return ItemStack.EMPTY;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            return ref.slot() < inventory.size() ? inventory.extractItem(ref.slot(), amount, simulate) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            if (clientDelegate != null) {
-                return clientDelegate.getSlotLimit(slot);
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return 0;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            return ref.slot() < inventory.size() ? inventory.getSlotLimit(ref.slot()) : 0;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            if (clientDelegate != null) {
-                return clientDelegate.isItemValid(slot, stack);
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return false;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            return ref.slot() < inventory.size()
-                    && !hasDuplicatePattern(ref, stack)
-                    && inventory.isItemValid(ref.slot(), stack);
-        }
-
-        @Override
-        public void setStackInSlot(int slot, ItemStack stack) {
-            if (clientDelegate != null) {
-                clientDelegate.setStackInSlot(slot, stack);
-                return;
-            }
-            PatternSlotRef ref = ref(slot);
-            if (ref == null) {
-                return;
-            }
-            InternalInventory inventory = ref.bus().getTerminalPatternInventory();
-            if (ref.slot() < inventory.size()) {
-                if (stack != null && !stack.isEmpty()
-                        && (hasDuplicatePattern(ref, stack) || !inventory.isItemValid(ref.slot(), stack))) {
-                    return;
-                }
-                inventory.setItemDirect(ref.slot(), stack == null ? ItemStack.EMPTY : stack);
-            }
-        }
-
-        @Nullable
-        private PatternSlotRef ref(int slot) {
-            return slot >= 0 && slot < refs.size() ? refs.get(slot) : null;
-        }
-    }
-
-    public record PatternSearchIndex(int revision, String[] keywords, byte[] flags) {
-        private static final PatternSearchIndex EMPTY = new PatternSearchIndex(-1, new String[0], new byte[0]);
-
-        public PatternSearchIndex {
-            keywords = keywords == null ? new String[0] : keywords;
-            flags = flags == null ? new byte[0] : flags;
-        }
-
-        public int size() {
-            return keywords.length;
-        }
-
-        public String keywords(int slot) {
-            return slot >= 0 && slot < keywords.length ? keywords[slot] : "";
-        }
-
-        public byte flags(int slot) {
-            return slot >= 0 && slot < flags.length ? flags[slot] : 0;
-        }
     }
 
     public void organizePatternBuses(ServerPlayer player) {
@@ -900,6 +723,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (supportsCraftingInterfaceUi()) patternPreviewSync.tick(serverLevel);
         long startedNanos = System.nanoTime();
         migrationScannedThisTick = 0;
         migrationInsertedThisTick = 0;

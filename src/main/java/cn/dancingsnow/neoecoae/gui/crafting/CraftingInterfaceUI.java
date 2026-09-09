@@ -26,7 +26,6 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -61,9 +60,7 @@ public final class CraftingInterfaceUI {
     public static ModularUI create(
             ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
             Player player) {
-        IItemHandlerModifiable patternHandler =
-                craftingInterface.createPatternInterfaceItemHandler(player.getUUID());
-        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, patternHandler);
+        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
 
         UIElement root = new UIElement().layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH + PREVIEW_SCROLLBAR_WIDTH + PREVIEW_SCROLLBAR_GAP + ROOT_SIDE_MARGIN * 2)
@@ -98,6 +95,13 @@ public final class CraftingInterfaceUI {
         root.addChild(contentFrame);
         root.addChild(previewSection(craftingInterface, previewState, player));
         InventorySlots playerInventory = new InventorySlots();
+        playerInventory.apply(slot -> slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.isShiftDown() && (event.button == 0 || event.button == 1)
+                    && previewState.quickMoveFromInventory(slot.getSlot())) {
+                event.hasHandler = true;
+                event.stopImmediatePropagation();
+            }
+        }));
         playerInventory.layout(layout -> layout
                 .width(PLAYER_INVENTORY_WIDTH)
                 .marginTop(2));
@@ -246,7 +250,6 @@ public final class CraftingInterfaceUI {
                 .height(PREVIEW_HEIGHT)
                 .alignItems(AlignItems.CENTER))
                 .addClass("panel_border");
-        preview.addEventListener(UIEvents.TICK, event -> previewState.refresh());
         // Consume ordinary wheel input before AE2 sees it, but leave Shift + wheel
         // to the individual preview slot so it can retain the quick-move shortcut.
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {

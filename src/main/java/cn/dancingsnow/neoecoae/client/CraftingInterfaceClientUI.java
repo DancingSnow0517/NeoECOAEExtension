@@ -106,6 +106,10 @@ public final class CraftingInterfaceClientUI {
 
     private static final class NativeSearchField extends CraftingInterfaceUI.SearchField {
         private final PositionedEditBox editBox;
+        private int nativeX = Integer.MIN_VALUE;
+        private int nativeY = Integer.MIN_VALUE;
+        private int nativeWidth = -1;
+        private int nativeHeight = -1;
 
         private NativeSearchField(Consumer<String> responder) {
             super(responder);
@@ -121,12 +125,6 @@ public final class CraftingInterfaceClientUI {
             editBox.setVisible(true);
             editBox.active = true;
 
-            addEventListener(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents.TICK, event -> {
-                syncNativeBounds();
-                if (isFocused()) {
-                    claimNativeFocus(Minecraft.getInstance().screen);
-                }
-            });
         }
 
         private boolean ownsNativeInput(Screen screen) {
@@ -155,15 +153,20 @@ public final class CraftingInterfaceClientUI {
         public void drawContents(com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext guiContext) {
             super.drawContents(guiContext);
             syncNativeBounds();
+            if (isFocused()) claimNativeFocus(Minecraft.getInstance().screen);
             editBox.renderNative(guiContext.graphics, guiContext.mouseX, guiContext.mouseY, guiContext.partialTick);
         }
 
         private void syncNativeBounds() {
             // Keep native text, cursor, and selection inside the recessed search-field sprite.
-            editBox.setX(Math.round(getPositionX()) + SEARCH_TEXT_INSET_X);
-            editBox.setY(Math.round(getPositionY()) + SEARCH_TEXT_INSET_Y);
-            editBox.setWidth(Math.max(1, Math.round(getSizeWidth())));
-            editBox.setHeight(Math.max(1, Math.round(getSizeHeight())));
+            int x = Math.round(getPositionX()) + SEARCH_TEXT_INSET_X;
+            int y = Math.round(getPositionY()) + SEARCH_TEXT_INSET_Y;
+            int width = Math.max(1, Math.round(getSizeWidth()));
+            int height = Math.max(1, Math.round(getSizeHeight()));
+            if (x != nativeX) editBox.setX(nativeX = x);
+            if (y != nativeY) editBox.setY(nativeY = y);
+            if (width != nativeWidth) editBox.setWidth(nativeWidth = width);
+            if (height != nativeHeight) editBox.setHeight(nativeHeight = height);
         }
 
         private final class PositionedEditBox extends EditBox {
