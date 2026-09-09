@@ -7,10 +7,13 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.PaletteColor;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import java.util.List;
 import java.math.BigInteger;
+import java.text.NumberFormat;
+import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
@@ -22,8 +25,6 @@ final class ECOCycleItemListRenderer {
     private static final int VISIBLE_ROWS = 7;
     private static final int ROW_HEIGHT = 23;
     private static final int CELL_WIDTH = 67;
-    private static final int CONSUMED_COLOR = 0xB3261E;
-    private static final int PRODUCED_COLOR = 0x197A3A;
 
     private final AEBaseScreen<?> screen;
     private final Blitter itemBackground;
@@ -71,7 +72,7 @@ final class ECOCycleItemListRenderer {
             var pose = graphics.pose();
             pose.pushPose();
             pose.scale(0.5f, 0.5f, 1.0f);
-            int textColor = 0xFF000000 | (entry.isCycleProduct() ? PRODUCED_COLOR : CONSUMED_COLOR);
+            int textColor = screen.getStyle().getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
             var font = Minecraft.getInstance().font;
             float textY = Math.round(cellY + 9.0f);
             for (var line : lines) {
@@ -109,15 +110,16 @@ final class ECOCycleItemListRenderer {
     }
 
     private static String formatAmount(BigInteger amount, AmountFormat format) {
-        return format == AmountFormat.FULL ? amount.toString() : HostText.ae2Amount(amount);
+        return format == AmountFormat.FULL
+            ? NumberFormat.getIntegerInstance(Locale.ROOT).format(amount)
+            : HostText.ae2Amount(amount);
     }
 
     private static Component totalLine(ECOCycleItemList.Entry entry, AmountFormat format) {
         String translationKey = entry.isCycleProduct()
             ? "gui.neoecoae.crafting_report.total_produced"
             : "gui.neoecoae.crafting_report.total_consumed";
-        int color = entry.isCycleProduct() ? PRODUCED_COLOR : CONSUMED_COLOR;
-        return Component.translatable(translationKey, formatAmount(entry.displayedTotal(), format)).withColor(color);
+        return Component.translatable(translationKey, formatAmount(entry.displayedTotal(), format));
     }
 
     private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
