@@ -15,6 +15,7 @@ import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.api.me.ECOStatefulBatchProvider;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -39,18 +40,35 @@ public final class ECOBatchCraftingExecutor {
             long capacity = Math.max(0L, provider.eco$getBatchCapacity(context));
             if (capacity == 0L) return null;
             var perCopy = context.inputItems();
+            var statefulCalculator = provider instanceof ECOStatefulBatchProvider statefulProvider
+                ? statefulProvider.eco$getStatefulBatchCalculator(context) : null;
+            if (provider instanceof ECOStatefulBatchProvider
+                    && context.execution().fastPathType() != ECORecipeClassifier.Type.NORMAL
+                    && statefulCalculator == null) {
+                return null;
+            }
+            long materialLimit = statefulCalculator == null
+                ? ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+                    perCopy, context.outputs(), context.containerItems())
+                : statefulCalculator.arithmeticBatchLimit();
             long requested = Math.min(maxCrafts, Math.min(capacity,
-                ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
-                    perCopy, context.outputs(), context.containerItems())));
+                materialLimit));
             if (requested <= 0) return null;
-            requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
+            requested = statefulCalculator == null
+                ? ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested)
+                : statefulCalculator.maxCraftsFromInventory(inventory, requested);
             double power = CraftingCpuHelper.calculatePatternPower(inputs);
             long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
             if (size <= 0) return null;
-            return new PreparedBatch(size, ECOBatchCraftingHelper.multiply(perCopy, size),
+            var inputTotal = statefulCalculator == null
+                ? ECOBatchCraftingHelper.multiply(perCopy, size) : statefulCalculator.batchInputs(size);
+            var remainderTotal = statefulCalculator == null
+                ? ECOBatchCraftingHelper.multiply(context.containerItems(), size)
+                : statefulCalculator.batchRemainders(size);
+            return new PreparedBatch(size, inputTotal,
                 ECOBatchCraftingHelper.multiply(context.outputs(), size),
-                ECOBatchCraftingHelper.multiply(context.containerItems(), size), power * size,
+                remainderTotal, power * size,
                 () -> provider.eco$pushBatch(context, size));
         } catch (RuntimeException unavailable) {
             LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);

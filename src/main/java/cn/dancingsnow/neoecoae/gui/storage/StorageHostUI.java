@@ -45,7 +45,7 @@ import java.util.function.Supplier;
 /** The storage controller surface, backed by the current storage implementation. */
 public final class StorageHostUI {
     public static final int ROOT_WIDTH = 272;
-    public static final int ROOT_HEIGHT = 210;
+    public static final int ROOT_HEIGHT = 216;
 
     private static final int CHART_LEFT = 63;
     private static final int CHART_TOP = 22;
@@ -73,7 +73,7 @@ public final class StorageHostUI {
     private static final int INFINITE_COMPONENT_SLOT_TOP = 100;
     private static final int INFINITE_COMPONENT_SLOT_SIZE = 18;
     private static final int INVENTORY_LEFT = 7;
-    private static final int INVENTORY_TOP = 124;
+    private static final int INVENTORY_TOP = 130;
     private static final int INVENTORY_WIDTH = 9 * 18;
     private static final int INVENTORY_HEIGHT = 4 * 18;
 
