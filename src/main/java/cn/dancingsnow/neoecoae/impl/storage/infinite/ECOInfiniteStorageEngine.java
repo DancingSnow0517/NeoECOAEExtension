@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import java.util.Collection;
+import java.math.BigInteger;
 import java.util.UUID;
 
 public interface ECOInfiniteStorageEngine {
@@ -13,6 +14,12 @@ public interface ECOInfiniteStorageEngine {
     record HugeStack(AEKey key, HugeAmount amount) {}
 
     long insert(AEKey key, long amount, Actionable mode);
+
+    void setCapacityBytes(long capacityBytes);
+
+    long capacityBytes();
+
+    BigInteger usedBytes();
 
     /**
      * Inserts at most once for the given transaction id. Repeating a call that already succeeded reports the same

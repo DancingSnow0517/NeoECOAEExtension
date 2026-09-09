@@ -9,6 +9,7 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
@@ -153,16 +154,8 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
     }
 
     static long calculateRemainingAmount(long totalBytes, long usedBytes, long targetBucketAmount, long amountPerByte) {
-        if (totalBytes <= 0L || usedBytes > totalBytes) {
-            return 0L;
-        }
-
-        amountPerByte = Math.max(1L, amountPerByte);
-        long unitsToCompleteBucket = targetBucketAmount <= 0L
-            ? 0L
-            : (amountPerByte - targetBucketAmount % amountPerByte) % amountPerByte;
-        long freeBytes = totalBytes - usedBytes;
-        return saturatingAdd(unitsToCompleteBucket, saturatingMultiply(freeBytes, amountPerByte));
+        return StorageByteAccounting.remainingInsertAmount(
+            totalBytes, usedBytes, targetBucketAmount, amountPerByte);
     }
 
     private static long ceilDivide(long dividend, long divisor) {
@@ -178,13 +171,6 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
             return Long.MAX_VALUE;
         }
         return left + right;
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0L;
-        }
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private StorageSnapshot snapshot() {

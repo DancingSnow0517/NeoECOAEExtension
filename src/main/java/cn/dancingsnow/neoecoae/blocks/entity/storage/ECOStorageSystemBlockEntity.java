@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceSafety;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
@@ -477,6 +478,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         long energyConsumePerTick = 256L + (1L << (1 + 4 * tier.getTier()));
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
         Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
+        Map<Integer, Long> infiniteCapacityByCellType = new HashMap<>();
         List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
         driveUiSnapshots.keySet().retainAll(cluster.getDrives());
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
@@ -502,6 +504,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 ));
             }
             if (view.member()) {
+                if (cellTypeId >= 0) {
+                    infiniteCapacityByCellType.merge(
+                        cellTypeId, Math.max(0L, view.totalBytes()), NEMath::saturatingAdd);
+                }
                 continue;
             }
 
@@ -518,7 +524,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             }
         }
         if (isFormedInfiniteMode()) {
-            addInfiniteStorageTypes(storageTypes, cellTypesByKeyType);
+            addInfiniteStorageTypes(storageTypes, cellTypesByKeyType, infiniteCapacityByCellType);
         }
 
         cellEntries.sort((left, right) -> {
@@ -569,7 +575,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             DriveUiSnapshot next = new DriveUiSnapshot(inventory, revision, tick, type, inventory.getTier().getTier(),
                 List.copyOf(keyTypes), member,
                 member ? 0L : inventory.getStoredItemTypes(), member ? 0L : inventory.hasInfiniteTypeCapacity() ? -1L : inventory.getTotalItemTypes(),
-                member ? 0L : inventory.getUsedBytes(), member ? 0L : inventory.getTotalBytes());
+                member ? 0L : inventory.getUsedBytes(), inventory.getTotalBytes());
             driveUiSnapshots.put(drive, next);
             storageFaults.recovered(component);
             return next;
@@ -581,12 +587,18 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private void addInfiniteStorageTypes(
         Map<Integer, StorageTypeTotals> storageTypes,
-        Map<AEKeyType, Integer> cellTypesByKeyType
+        Map<AEKeyType, Integer> cellTypesByKeyType,
+        Map<Integer, Long> capacityByCellType
     ) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null) {
             return;
         }
+        capacityByCellType.forEach((cellTypeId, capacity) -> storageTypes.merge(
+            cellTypeId,
+            new StorageTypeTotals(0L, 0L, 0L, capacity),
+            StorageTypeTotals::add
+        ));
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
             int cellTypeId = cellTypesByKeyType.getOrDefault(stats.keyType(), -1);
             if (cellTypeId < 0) {
@@ -608,12 +620,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private static BigInteger infiniteUsedBytes(ECOInfiniteStorageEngine.TypeStats stats) {
-        BigInteger amount = stats.storedAmount().toBigInteger();
-        BigInteger amountPerByte = BigInteger.valueOf(stats.keyType().getAmountPerByte());
-        BigInteger[] division = amount.divideAndRemainder(amountPerByte);
-        BigInteger contentBytes = division[0].add(division[1].signum() == 0 ? BigInteger.ZERO : BigInteger.ONE);
         long bytesPerType = 1L << (12 + ECOTier.L9.getTier());
-        return contentBytes.add(BigInteger.valueOf(stats.storedTypes()).multiply(BigInteger.valueOf(bytesPerType)));
+        return StorageByteAccounting.usedBytes(
+            stats.storedTypes(), stats.storedAmount().toBigInteger(), stats.keyType().getAmountPerByte(), bytesPerType);
     }
 
     private record StorageUiSnapshot(
@@ -1135,7 +1144,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         UUID domainId = ensureInfiniteDomainId();
-        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, domainId);
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null) {
+            return;
+        }
         if (!engine.isHealthy()) {
             return;
         }
@@ -1629,7 +1641,34 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
             return null;
         }
-        return ECOInfiniteStorageDomains.get(serverLevel, infiniteDomainId);
+        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, infiniteDomainId);
+        engine.setCapacityBytes(calculateInfiniteCapacityBytes());
+        return engine;
+    }
+
+    private long calculateInfiniteCapacityBytes() {
+        if (cluster == null || infiniteDomainId == null) {
+            return 0L;
+        }
+
+        long capacity = 0L;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell cell = drive.getCellInventory();
+            if (stack == null || stack.isEmpty() || cell == null) {
+                continue;
+            }
+
+            boolean currentMember = ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId);
+            boolean pendingMember = hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                && !ECOInfiniteStorageMember.isMember(stack)
+                && cell.getTier() == ECOTier.L9
+                && cell.isInfiniteStorageEligible();
+            if (currentMember || pendingMember) {
+                capacity = NEMath.saturatingAdd(capacity, Math.max(0L, cell.getTotalBytes()));
+            }
+        }
+        return capacity;
     }
 
     private static boolean isInfiniteComponent(ItemStack stack) {

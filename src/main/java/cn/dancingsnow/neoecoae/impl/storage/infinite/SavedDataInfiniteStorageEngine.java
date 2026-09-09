@@ -4,6 +4,9 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import java.math.BigInteger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,6 +25,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     private final ECOInfiniteStorageData data;
     private final HolderLookup.Provider registries;
     private final Path dataFile;
+    private long capacityBytes;
 
     // Views derived from the stored amounts. They exist so the storage network and the UI do not have to walk the
     // whole domain on every query; they carry no state of their own.
@@ -41,15 +45,52 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         rebuildIndexes();
     }
 
-    /**
-     * The amount that may be inserted, used by both {@link Actionable} modes. An infinite domain has no byte budget,
-     * so the only limits are the arguments themselves and whether the underlying world data currently accepts writes.
-     */
     private long acceptableInsertAmount(AEKey key, long amount) {
-        if (key == null || amount <= 0L || !data.canWrite(key)) {
+        if (key == null || amount <= 0L || data.hasRawEntries() || !data.canWrite(key)) {
             return 0L;
         }
-        return amount;
+
+        AEKeyType keyType = key.getType();
+        MutableTypeStats stats = typeStats.get(keyType);
+        BigInteger targetBucketAmount = stats == null ? BigInteger.ZERO : stats.storedAmount.toBigInteger();
+        long capacityBound = StorageByteAccounting.remainingInsertAmount(
+            capacityBytes,
+            usedBytes(),
+            targetBucketAmount,
+            keyType.getAmountPerByte(),
+            bytesPerType(),
+            data.getAmount(key).isZero()
+        );
+        return Math.min(amount, capacityBound);
+    }
+
+    @Override
+    public synchronized void setCapacityBytes(long capacityBytes) {
+        this.capacityBytes = Math.max(0L, capacityBytes);
+    }
+
+    @Override
+    public synchronized long capacityBytes() {
+        return capacityBytes;
+    }
+
+    @Override
+    public synchronized BigInteger usedBytes() {
+        BigInteger used = BigInteger.ZERO;
+        for (Map.Entry<AEKeyType, MutableTypeStats> entry : typeStats.entrySet()) {
+            MutableTypeStats stats = entry.getValue();
+            used = used.add(StorageByteAccounting.usedBytes(
+                stats.storedTypes,
+                stats.storedAmount.toBigInteger(),
+                entry.getKey().getAmountPerByte(),
+                bytesPerType()
+            ));
+        }
+        return used;
+    }
+
+    private static long bytesPerType() {
+        return 1L << (12 + ECOTier.L9.getTier());
     }
 
     @Override
@@ -67,17 +108,17 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (transactionId == null) {
             return insert(key, amount, Actionable.MODULATE);
         }
+        if (data.hasMigrationReceipt(transactionId)) {
+            return amount;
+        }
         long accepted = acceptableInsertAmount(key, amount);
-        if (accepted <= 0L) {
+        if (accepted < amount) {
             return 0L;
         }
-        if (data.hasMigrationReceipt(transactionId)) {
-            return accepted;
-        }
-        applyDelta(key, accepted, true);
+        applyDelta(key, amount, true);
         // The amount and its receipt live in the same file, so they become durable together.
         data.addMigrationReceipt(transactionId, key);
-        return accepted;
+        return amount;
     }
 
     @Override
