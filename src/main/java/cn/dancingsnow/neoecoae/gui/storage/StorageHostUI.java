@@ -55,6 +55,7 @@ public final class StorageHostUI {
     private static final int BAR_HEIGHT = 92;
     private static final int GRAPH_HEIGHT = 16;
     private static final int GRAPH_LABEL_HEIGHT = 10;
+    private static final int GRAPH_TEXT_OFFSET_TOP = 2;
     private static final int GRAPH_TEXT_SCALE = 6;
     private static final int GRAPH_OFFSET_LEFT = -55;
     private static final int GRAPH_OFFSET_TOP = -26;
@@ -452,7 +453,15 @@ public final class StorageHostUI {
         @Override
         public void drawContents(GUIContext guiContext) {
             super.drawContents(guiContext);
-            int color = graphBar.isFocused(this) ? GRAPH_FOCUSED_COLOR : GRAPH_UNFOCUSED_COLOR;
+            boolean hovered = isMouseOver(
+                getPositionX(),
+                getPositionY() + GRAPH_LABEL_HEIGHT,
+                getSizeWidth(),
+                getSizeHeight() - GRAPH_LABEL_HEIGHT,
+                guiContext.mouseX,
+                guiContext.mouseY
+            );
+            int color = graphBar.isFocused(this) || hovered ? GRAPH_FOCUSED_COLOR : GRAPH_UNFOCUSED_COLOR;
             guiContext.drawTexture(background.copy().setColor(color),
                 getPositionX(), getPositionY() + GRAPH_LABEL_HEIGHT, getSizeWidth(), getSizeHeight() - GRAPH_LABEL_HEIGHT);
             drawText(guiContext, syncedText);
@@ -464,7 +473,8 @@ public final class StorageHostUI {
             float availableWidth = getSizeWidth() / scale;
             float textX = leftAlign ? 2.0F : Math.max(0.0F, availableWidth - font.width(text) - 2.0F);
             guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(getPositionX(), getPositionY() + 1.0F, 0.0F);
+            guiContext.graphics.pose().translate(
+                getPositionX(), getPositionY() + GRAPH_TEXT_OFFSET_TOP, 0.0F);
             guiContext.graphics.pose().scale(scale, scale, 1.0F);
             guiContext.graphics.drawString(font, text, Math.round(textX), 0, HostText.PRIMARY, false);
             guiContext.graphics.pose().popPose();
