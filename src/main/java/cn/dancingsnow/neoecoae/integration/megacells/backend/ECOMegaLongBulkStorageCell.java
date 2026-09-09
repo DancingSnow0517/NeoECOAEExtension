@@ -20,7 +20,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
 
@@ -215,7 +214,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             if (!chain.isEmpty() && COMPRESSION_ENABLED) {
                 // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
                 AEItemKey storageForm = storageFormFor(storedKey);
-                chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain, storageForm), storageForm)
+                chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain), storageForm)
                     .forEach(out::add);
             } else if (!chain.isEmpty()) {
                 out.add(storedKey, units / unitFactor(storedKey, storedKey));
@@ -225,16 +224,13 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
     }
 
-    /**
-     * Exposes the decompression path selected by the first configured variant of each chain.
-     * For example, an iron-block filter exposes iron block -> ingot and ingot -> nugget.
-     */
+    /** Exposes decompression paths starting from the highest variant of each configured chain. */
     public List<IPatternDetails> getDecompressionPatterns() {
         List<IPatternDetails> result = new ArrayList<>();
         for (AEItemKey filter : configuredFilters()) {
             CompressionChain chain = chainFor(filter);
             if (!chain.isEmpty()) {
-                result.addAll(chain.getDecompressionPatterns(cutoffFor(chain, filter)));
+                result.addAll(chain.getDecompressionPatterns(cutoffFor(chain)));
             }
         }
         return List.copyOf(result);
@@ -402,17 +398,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return !firstChain.isEmpty() && firstChain.equals(chainFor(second));
     }
 
-    /**
-     * The configured form is the highest form exposed by this cell. Lower forms are still emitted
-     * when needed for a remainder, which keeps quantities such as a single nugget lossless.
-     */
-    private static int cutoffFor(CompressionChain chain, AEItemKey storageForm) {
-        for (int i = 0; i < chain.size(); i++) {
-            if (ItemStack.isSameItemSameComponents(storageForm.getReadOnlyStack(), chain.getItem(i))) {
-                return i;
-            }
-        }
-        return chain.size() - 1;
+    private static int cutoffFor(CompressionChain chain) {
+        return Math.max(0, chain.size() - 1);
     }
 
     private CompressionChain chainFor(AEItemKey key) {
