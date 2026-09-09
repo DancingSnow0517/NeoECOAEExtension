@@ -252,6 +252,11 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         cellState = cellInventory == null ? CellState.ABSENT : cellInventory.getStatus();
     }
 
+    @Nullable
+    public ECOStorageSystemBlockEntity getStorageController() {
+        return cluster instanceof NEStorageCluster storageCluster ? storageCluster.getController() : null;
+    }
+
     /** Persists an in-place CellConfig mutation and refreshes this drive's AE2 storage mount. */
     public void onCellConfigurationChanged() {
         if (level == null || level.isClientSide) {

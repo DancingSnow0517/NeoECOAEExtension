@@ -1,8 +1,5 @@
 package cn.dancingsnow.neoecoae.integration.megacells.backend;
 
-import appeng.api.upgrades.Upgrades;
-import gripe._90.megacells.definition.MEGAItems;
-import net.minecraft.world.level.ItemLike;
 import net.neoforged.fml.ModList;
 
 /**
@@ -26,9 +23,5 @@ public final class MegaCellsBackend {
 
     public static boolean isChemicalAvailable() {
         return ModList.get().isLoaded(APPMEK_MOD_ID) && ModList.get().isLoaded(MEKANISM_MOD_ID);
-    }
-
-    public static void registerCompressionCard(ItemLike target, String group) {
-        Upgrades.add(MEGAItems.COMPRESSION_CARD, target, 1, group);
     }
 }

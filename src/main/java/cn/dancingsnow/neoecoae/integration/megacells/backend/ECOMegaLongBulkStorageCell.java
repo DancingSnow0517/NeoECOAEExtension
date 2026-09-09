@@ -9,6 +9,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
+import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
@@ -129,6 +131,13 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Override
     public long getStoredItemTypes() {
         return storedUnits.size();
+    }
+
+    @Override
+    public long getTotalItemTypes() {
+        return hasEcoMegaUpgradeCard()
+            ? MegaCellCapacities.LONG_BULK_UPGRADED_TYPE_LIMIT
+            : MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
     }
 
     @Override
@@ -289,7 +298,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     private List<AEItemKey> readFilters() {
         List<AEItemKey> result = new ArrayList<>();
         var config = getConfigInventory();
-        for (int i = 0; i < config.size(); i++) {
+        int activeSlots = Math.min(config.size(), (int) getTotalItemTypes());
+        for (int i = 0; i < activeSlots; i++) {
             if (config.getKey(i) instanceof AEItemKey item && !hasFilterForChain(result, item)) {
                 result.add(item);
             }
@@ -417,6 +427,14 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      */
     private List<AEItemKey> configuredFilters() {
         return readFilters();
+    }
+
+    public boolean hasEcoMegaUpgradeCard() {
+        return getUpgradesInventory().isInstalled(NEMegaItems.ECO_MEGA_UPGRADE_CARD);
+    }
+
+    public List<AEItemKey> getEffectiveConfiguredFilters() {
+        return List.copyOf(configuredFilters());
     }
 
     private long unitFactor(AEItemKey configured, AEItemKey item) {

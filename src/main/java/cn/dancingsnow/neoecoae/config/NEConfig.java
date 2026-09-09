@@ -207,6 +207,16 @@ public class NEConfig {
             "This option only collects diagnostics; it never resynchronizes, replays inputs or changes crafting state.")
         .define("ecoDispatchWatchdogDebug", false);
 
+    private static final ModConfigSpec.BooleanValue ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG = BUILDER
+        .comment(
+            "启用 ECO 合成产物交付等待诊断日志。",
+            "同一任务的 Worker 连续 200 tick 无法交付产物后记录首条汇总警告，之后每 1200 tick 再次记录。",
+            "等待结束后会记录一条恢复信息；此选项只控制日志，不会改变产物所有权、重试或恢复逻辑。",
+            "Enable ECO crafting output-delivery wait diagnostic logs.",
+            "Logs one aggregated warning per job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.",
+            "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
+        .define("ecoCraftingOutputDeliveryDebug", false);
+
     static {
         BUILDER.pop();
     }
@@ -234,6 +244,7 @@ public class NEConfig {
     public static int infiniteStorageMaxSnapshotEntries = 4_000_000;
     public static long infiniteStoragePrepareNanos = 1_000_000L;
     public static boolean ecoDispatchWatchdogDebug = false;
+    public static boolean ecoCraftingOutputDeliveryDebug = false;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -267,6 +278,7 @@ public class NEConfig {
         infiniteStorageMaxSnapshotEntries = INFINITE_MAX_SNAPSHOT_ENTRIES.get();
         infiniteStoragePrepareNanos = INFINITE_PREPARE_NANOS.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
+        ecoCraftingOutputDeliveryDebug = ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG.get();
     }
 
     public static int getCraftingPatternBusPages() {

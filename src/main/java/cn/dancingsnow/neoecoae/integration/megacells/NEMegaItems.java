@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
+import appeng.api.upgrades.Upgrades;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -25,7 +26,7 @@ public final class NEMegaItems {
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.storage_type"), "MEGA storage type: %s");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.4g"), "4 GiB storage capacity");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.configure_item"),
-            "Configure up to 25 compression chains; the first variant selects the storage form");
+            "Configure 25 compression chains, or 50 with an ECO MEGA Upgrade Card; the first variant selects the storage form");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_builtin"),
             "Compression variants are enabled by default; no upgrade card required");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.empty_only"),
@@ -36,6 +37,11 @@ public final class NEMegaItems {
 
     public static final ItemEntry<Item> MEGA_ITEM_CELL_HOUSING = housing("mega_item", "Mega Item");
     public static final ItemEntry<Item> MEGA_FLUID_CELL_HOUSING = housing("mega_fluid", "Mega Fluid");
+    public static final ItemEntry<Item> ECO_MEGA_UPGRADE_CARD =
+        REGISTRATE.item("eco_mega_upgrade_card", Upgrades::createUpgradeCardItem)
+            .lang("ECO MEGA Upgrade Card")
+            .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/eco_mega_upgrade_card")))
+            .register();
 
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
         itemCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);

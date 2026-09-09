@@ -14,7 +14,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -51,17 +50,15 @@ public final class StorageHostActionUI {
         Config config,
         Player player,
         UIElement buildWindow,
-        UIElement priorityWindow
+        UIElement priorityWindow,
+        Button bulkMarkingButton
     ) {
         public void addTo(UIElement root) {
-            List<UIElement> buttons = new ArrayList<>(List.of(
+            List<UIElement> buttons = List.of(
                 GuideButton.create(player, "neoecoae:neoecoae_intro/storage_system.md"),
                 MultiblockBuilderUI.createInlineOpenButton(buildWindow),
                 StoragePriorityUI.createInlineOpenButton(priorityWindow)
-            ));
-            if (config.bulkMarkingAvailable().getAsBoolean()) {
-                buttons.add(createBulkMarkingButton(config));
-            }
+            );
             root.addChild(HostSideButtonBar.left(buttons));
             root.addChild(buildWindow);
             root.addChild(priorityWindow);
@@ -86,7 +83,10 @@ public final class StorageHostActionUI {
             config.setPriority(),
             config.changePriority()
         ));
-        return new Elements(config, config.player(), buildWindow, priorityWindow);
+        Button bulkMarkingButton = config.bulkMarkingAvailable().getAsBoolean()
+            ? createBulkMarkingButton(config)
+            : null;
+        return new Elements(config, config.player(), buildWindow, priorityWindow, bulkMarkingButton);
     }
 
     private static Button createBulkMarkingButton(Config config) {

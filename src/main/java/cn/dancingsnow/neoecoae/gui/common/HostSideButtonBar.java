@@ -76,6 +76,27 @@ public final class HostSideButtonBar {
         return new AE2IconButton();
     }
 
+    public static void placeButton(Button button, int left, int top) {
+        button.layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(left);
+            layout.top(top);
+            layout.width(BUTTON_WIDTH);
+            layout.height(BUTTON_HEIGHT);
+        });
+        button.setOverflowVisible(true);
+        for (UIElement child : button.getChildren()) {
+            if (child != button.text && child.getStyle().backgroundTexture() != null) {
+                child.layout(layout -> layout
+                    .positionType(TaffyPosition.ABSOLUTE)
+                    .left(1)
+                    .top(3)
+                    .width(ICON_SIZE)
+                    .height(ICON_SIZE));
+            }
+        }
+    }
+
     public static UIElement create(Side side, List<? extends UIElement> buttons) {
         return create(side, buttons, ContentType.BUTTON);
     }
@@ -150,24 +171,7 @@ public final class HostSideButtonBar {
         if (!(element instanceof Button button)) {
             return;
         }
-        button.layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(BUTTON_LEFT);
-            layout.top(top);
-            layout.width(BUTTON_WIDTH);
-            layout.height(BUTTON_HEIGHT);
-        });
-        button.setOverflowVisible(true);
-        for (UIElement child : button.getChildren()) {
-            if (child != button.text && child.getStyle().backgroundTexture() != null) {
-                child.layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(1)
-                    .top(3)
-                    .width(ICON_SIZE)
-                    .height(ICON_SIZE));
-            }
-        }
+        placeButton(button, BUTTON_LEFT, top);
     }
 
     private static final class AE2IconButton extends Button {

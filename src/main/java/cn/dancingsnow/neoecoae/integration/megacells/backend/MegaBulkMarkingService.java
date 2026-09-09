@@ -6,7 +6,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
@@ -22,9 +21,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /** Writes host-wide compression-chain filters into ECO MEGA long bulk cells. */
 public final class MegaBulkMarkingService {
@@ -40,6 +37,23 @@ public final class MegaBulkMarkingService {
             }
         }
         return false;
+    }
+
+    public static ItemStack normalizeMarker(ItemStack stack) {
+        AEItemKey key = stack == null || stack.isEmpty() ? null : AEItemKey.of(stack);
+        return key != null && !CompressionService.getChain(key).isEmpty()
+            ? stack.copyWithCount(1)
+            : ItemStack.EMPTY;
+    }
+
+    public static boolean isSameMarkerChain(ItemStack left, ItemStack right) {
+        AEItemKey leftKey = left == null || left.isEmpty() ? null : AEItemKey.of(left);
+        AEItemKey rightKey = right == null || right.isEmpty() ? null : AEItemKey.of(right);
+        if (leftKey == null || rightKey == null) {
+            return false;
+        }
+        CompressionChain leftChain = CompressionService.getChain(leftKey);
+        return !leftChain.isEmpty() && leftChain.equals(CompressionService.getChain(rightKey));
     }
 
     public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold) {
@@ -59,7 +73,6 @@ public final class MegaBulkMarkingService {
         if (targets.isEmpty()) {
             return result(Status.NO_BULK_CELL);
         }
-
         KeyCounter available = host.collectLocalStorageStacksForIntegration();
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
@@ -85,7 +98,7 @@ public final class MegaBulkMarkingService {
             .forEach(drive -> {
                 ItemStack stack = drive.getCellStack();
                 if (stack == null || stack.isEmpty()
-                    || !(stack.getItem() instanceof ECOMegaLongBulkStorageCellItem cellItem)) {
+                    || !(stack.getItem() instanceof ECOMegaLongBulkStorageCellItem)) {
                     return;
                 }
                 IECOStorageCell inventory = drive.getCellInventory();
@@ -93,7 +106,7 @@ public final class MegaBulkMarkingService {
                     || host.getTier().compareTo(bulkStorage.getTier()) < 0) {
                     return;
                 }
-                result.add(new TargetCell(drive, cellItem.getConfigInventory(stack), bulkStorage));
+                result.add(new TargetCell(drive, bulkStorage));
             });
         return result;
     }
@@ -105,18 +118,21 @@ public final class MegaBulkMarkingService {
         List<Candidate> rawCandidates
     ) {
         List<CompressionChain> occupiedChains = new ArrayList<>();
-        List<SlotRef> freeSlots = new ArrayList<>();
         for (TargetCell target : targets) {
-            ConfigInventory config = target.config();
+            for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
+                CompressionChain chain = CompressionService.getChain(itemKey);
+                if (!chain.isEmpty() && !containsChain(occupiedChains, chain)) {
+                    occupiedChains.add(chain);
+                }
+            }
+        }
+        List<SlotTarget> freeSlots = new ArrayList<>();
+        for (TargetCell target : targets) {
+            var config = ((ECOMegaLongBulkStorageCellItem) target.drive().getCellStack().getItem())
+                .getConfigInventory(target.drive().getCellStack());
             for (int slot = 0; slot < config.size(); slot++) {
-                AEKey existing = config.getKey(slot);
-                if (existing instanceof AEItemKey itemKey) {
-                    CompressionChain chain = CompressionService.getChain(itemKey);
-                    if (!chain.isEmpty() && !containsChain(occupiedChains, chain)) {
-                        occupiedChains.add(chain);
-                    }
-                } else if (existing == null) {
-                    freeSlots.add(new SlotRef(target.drive(), config, slot));
+                if (config.getKey(slot) == null) {
+                    freeSlots.add(new SlotTarget(target, slot));
                 }
             }
         }
@@ -140,17 +156,17 @@ public final class MegaBulkMarkingService {
         }
 
         int count = Math.min(freeSlots.size(), accepted.size());
-        Set<ECODriveBlockEntity> changedDrives = new HashSet<>();
         for (int index = 0; index < count; index++) {
-            SlotRef slot = freeSlots.get(index);
-            slot.config().setStack(slot.slot(), new GenericStack(accepted.get(index).key(), 0L));
-            changedDrives.add(slot.drive());
+            SlotTarget slotTarget = freeSlots.get(index);
+            ItemStack cellStack = slotTarget.target().drive().getCellStack();
+            var cellItem = (ECOMegaLongBulkStorageCellItem) cellStack.getItem();
+            cellItem.getConfigInventory(cellStack).setStack(
+                slotTarget.slot(), new GenericStack(accepted.get(index).key(), 0L));
+            slotTarget.target().drive().onCellConfigurationChanged();
         }
-        changedDrives.forEach(ECODriveBlockEntity::onCellConfigurationChanged);
-        if (!changedDrives.isEmpty()) host.notifyStorageConfigurationChanged();
 
         long transferred = transferMarkedChains(host, drives, targets);
-        if (transferred > 0L) host.notifyStorageConfigurationChanged();
+        if (count > 0 || transferred > 0L) host.notifyStorageConfigurationChanged();
         return new MarkResult(Status.SUCCESS, count, alreadyMarked, 0, accepted.size() - count, transferred);
     }
 
@@ -200,8 +216,7 @@ public final class MegaBulkMarkingService {
     private static List<ChainTarget> collectChainTargets(List<TargetCell> targets) {
         List<ChainTarget> result = new ArrayList<>();
         for (TargetCell target : targets) {
-            for (int slot = 0; slot < target.config().size(); slot++) {
-                if (!(target.config().getKey(slot) instanceof AEItemKey itemKey)) continue;
+            for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
                 CompressionChain chain = CompressionService.getChain(itemKey);
                 if (!chain.isEmpty() && findTarget(result, chain) == null) {
                     result.add(new ChainTarget(chain, target.storage()));
@@ -268,15 +283,14 @@ public final class MegaBulkMarkingService {
 
     private record TargetCell(
         ECODriveBlockEntity drive,
-        ConfigInventory config,
         ECOMegaLongBulkStorageCell storage
     ) {
     }
 
-    private record ChainTarget(CompressionChain chain, ECOMegaLongBulkStorageCell storage) {
+    private record SlotTarget(TargetCell target, int slot) {
     }
 
-    private record SlotRef(ECODriveBlockEntity drive, ConfigInventory config, int slot) {
+    private record ChainTarget(CompressionChain chain, ECOMegaLongBulkStorageCell storage) {
     }
 
     private record Candidate(AEItemKey key, long amount, CompressionChain chain) {

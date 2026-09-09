@@ -26,7 +26,9 @@ public final class MegaCellsIntegration {
     public void apply() {
         StorageBulkMarkingIntegration.register(
             MegaBulkMarkingService::autoMark,
-            MegaBulkMarkingService::hasBulkCell
+            MegaBulkMarkingService::hasBulkCell,
+            MegaBulkMarkingService::normalizeMarker,
+            MegaBulkMarkingService::isSameMarkerChain
         );
         GridServices.register(ECOMegaDecompressionService.class, ECOMegaDecompressionService.class);
         NEMegaCellTypes.register();
@@ -63,7 +65,7 @@ public final class MegaCellsIntegration {
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, group);
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
-            MegaCellsBackend.registerCompressionCard(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, group);
+            Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
         });
     }
 

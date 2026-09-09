@@ -75,5 +75,12 @@ public class ConfigLangs {
                 "Includes phase, task, input, power and pattern-provider state.\n" +
                 "This option never resynchronizes the scheduler, replays inputs or changes crafting state."
         );
+        provider.add("neoecoae.configuration.ecoCraftingOutputDeliveryDebug", "ECO Output Delivery Debug");
+        provider.add(
+            "neoecoae.configuration.ecoCraftingOutputDeliveryDebug.tooltip",
+            "Log one aggregated warning per crafting job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.\n" +
+                "A recovery message is logged when the wait ends.\n" +
+                "This option only controls logging and never changes output ownership, retry or recovery behavior."
+        );
     }
 }

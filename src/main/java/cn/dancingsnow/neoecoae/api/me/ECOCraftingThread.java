@@ -39,8 +39,12 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
@@ -65,7 +69,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
     private static final int MAX_PERSISTED_ITEM_STACK_ENTRIES = 256;
     private static final long BLOCKED_PROGRESS_LOG_INTERVAL_TICKS = 100L;
-    private static final long BLOCKED_OUTPUT_LOG_INTERVAL_TICKS = 100L;
+    private static final long BLOCKED_OUTPUT_LOG_GRACE_TICKS = 200L;
+    private static final long BLOCKED_OUTPUT_LOG_INTERVAL_TICKS = 1_200L;
+    private static final long BLOCKED_OUTPUT_ACTIVE_LANE_TICKS = 40L;
+    private static final long BLOCKED_OUTPUT_STALE_JOB_TICKS = 2_400L;
+    private static final int BLOCKED_OUTPUT_LOG_POSITION_LIMIT = 8;
+    private static final Object BLOCKED_OUTPUT_DIAGNOSTIC_LOCK = new Object();
+    private static final Map<UUID, BlockedOutputDiagnostic> BLOCKED_OUTPUT_DIAGNOSTICS = new HashMap<>();
+    private static volatile boolean blockedOutputDiagnosticsEnabled;
 
     private enum RecoveryState {
         ACTIVE,
@@ -111,7 +122,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
     private long lastBlockedProgressLogTick = Long.MIN_VALUE;
-    private long lastBlockedOutputLogTick = Long.MIN_VALUE;
+    private long unownedBlockedOutputSinceTick = Long.MIN_VALUE;
+    private long lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
+    private final String outputDiagnosticLaneId = Integer.toHexString(System.identityHashCode(this));
 
     private final TransientCraftingContainer craftingInv;
 
@@ -918,19 +931,35 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void logBlockedOutput(String reason, @Nullable KeyCounter pending) {
-        long tick = TickHandler.instance().getCurrentTick();
-        long elapsed = tick - lastBlockedOutputLogTick;
-        if (lastBlockedOutputLogTick != Long.MIN_VALUE && elapsed >= 0L
-            && elapsed < BLOCKED_OUTPUT_LOG_INTERVAL_TICKS) {
+        if (!NEConfig.ecoCraftingOutputDeliveryDebug) {
+            disableBlockedOutputDiagnostics();
+            resetUnownedBlockedOutputDiagnostic();
             return;
         }
-        lastBlockedOutputLogTick = tick;
+        blockedOutputDiagnosticsEnabled = true;
+
+        long tick = TickHandler.instance().getCurrentTick();
+        if (craftingJobId != null) {
+            logBlockedJobOutput(craftingJobId, reason, pending, tick);
+            return;
+        }
+
+        if (unownedBlockedOutputSinceTick == Long.MIN_VALUE || tick < unownedBlockedOutputSinceTick) {
+            unownedBlockedOutputSinceTick = tick;
+            lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
+        }
+        long blockedTicks = tick - unownedBlockedOutputSinceTick;
+        if (blockedTicks < BLOCKED_OUTPUT_LOG_GRACE_TICKS) return;
+        long sinceLastLog = tick - lastUnownedBlockedOutputLogTick;
+        if (lastUnownedBlockedOutputLogTick != Long.MIN_VALUE && sinceLastLog >= 0L
+            && sinceLastLog < BLOCKED_OUTPUT_LOG_INTERVAL_TICKS) return;
+        lastUnownedBlockedOutputLogTick = tick;
         LOGGER.warn(
-            "ECO crafting output delivery blocked: worker={} reason={} job={} progress={}/{} "
-                + "pending={} batchCrafts={} craftCount={} virtualBatch={}",
+            "ECO crafting output delivery blocked: worker={} reason={} job=null blockedTicks={} "
+                + "progress={}/{} pending={} batchCrafts={} craftCount={} virtualBatch={}",
             worker.getBlockPos(),
             reason,
-            craftingJobId,
+            blockedTicks,
             progress,
             MAX_PROGRESS,
             pending == null ? "unknown" : pending,
@@ -939,6 +968,219 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             virtualBatch
         );
     }
+
+    private void logBlockedJobOutput(UUID jobId, String reason, @Nullable KeyCounter pending, long tick) {
+        AggregatedBlockedOutputLog aggregated = null;
+        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
+            pruneBlockedOutputDiagnostics(tick);
+            BlockedOutputDiagnostic diagnostic = BLOCKED_OUTPUT_DIAGNOSTICS.computeIfAbsent(
+                jobId, ignored -> new BlockedOutputDiagnostic(tick)
+            );
+            diagnostic.lastSeenTick = tick;
+            diagnostic.lanes.values().removeIf(lane -> {
+                long age = tick - lane.lastSeenTick();
+                return age < 0L || age > BLOCKED_OUTPUT_STALE_JOB_TICKS;
+            });
+            String workerPosition = describeWorkerPosition();
+            diagnostic.lanes.put(
+                workerPosition + "#" + outputDiagnosticLaneId,
+                createBlockedOutputLane(workerPosition, reason, pending, tick)
+            );
+
+            long blockedTicks = tick - diagnostic.firstBlockedTick;
+            long sinceLastLog = tick - diagnostic.lastLogTick;
+            if (blockedTicks >= BLOCKED_OUTPUT_LOG_GRACE_TICKS
+                && (diagnostic.lastLogTick == Long.MIN_VALUE || sinceLastLog < 0L
+                    || sinceLastLog >= BLOCKED_OUTPUT_LOG_INTERVAL_TICKS)) {
+                aggregated = aggregateBlockedOutput(jobId, diagnostic, tick, blockedTicks);
+                diagnostic.lastLogTick = tick;
+                diagnostic.hasLogged = true;
+            }
+        }
+        if (aggregated != null) {
+            LOGGER.warn(
+                "ECO crafting output delivery blocked: job={} blockedTicks={} reasons={} workers={} "
+                    + "threads={} workerPositions={} pendingKeyEntries={} pendingAmount={} pendingUnknown={}",
+                aggregated.jobId(),
+                aggregated.blockedTicks(),
+                aggregated.reasons(),
+                aggregated.workerCount(),
+                aggregated.threadCount(),
+                aggregated.workerPositions(),
+                aggregated.pendingKeys(),
+                aggregated.pendingAmount(),
+                aggregated.pendingUnknown()
+            );
+        }
+    }
+
+    private BlockedOutputLane createBlockedOutputLane(
+        String workerPosition,
+        String reason,
+        @Nullable KeyCounter pending,
+        long tick
+    ) {
+        if (pending == null) return new BlockedOutputLane(workerPosition, reason, tick, 0, 0L, true);
+        int pendingKeys = 0;
+        long pendingAmount = 0L;
+        for (Object2LongMap.Entry<AEKey> entry : pending) {
+            if (entry.getLongValue() <= 0L) continue;
+            pendingKeys++;
+            pendingAmount = saturatingAdd(pendingAmount, entry.getLongValue());
+        }
+        return new BlockedOutputLane(workerPosition, reason, tick, pendingKeys, pendingAmount, false);
+    }
+
+    private static AggregatedBlockedOutputLog aggregateBlockedOutput(
+        UUID jobId,
+        BlockedOutputDiagnostic diagnostic,
+        long tick,
+        long blockedTicks
+    ) {
+        Set<String> reasons = new LinkedHashSet<>();
+        Set<String> workerPositions = new LinkedHashSet<>();
+        int threadCount = 0;
+        int pendingKeys = 0;
+        long pendingAmount = 0L;
+        boolean pendingUnknown = false;
+        for (BlockedOutputLane lane : diagnostic.lanes.values()) {
+            long age = tick - lane.lastSeenTick();
+            if (age < 0L || age > BLOCKED_OUTPUT_ACTIVE_LANE_TICKS) continue;
+            threadCount++;
+            reasons.add(lane.reason());
+            workerPositions.add(lane.workerPosition());
+            pendingKeys = saturatingAdd(pendingKeys, lane.pendingKeys());
+            pendingAmount = saturatingAdd(pendingAmount, lane.pendingAmount());
+            pendingUnknown |= lane.pendingUnknown();
+        }
+        return new AggregatedBlockedOutputLog(
+            jobId,
+            blockedTicks,
+            List.copyOf(reasons),
+            workerPositions.size(),
+            threadCount,
+            summarizeWorkerPositions(workerPositions),
+            pendingKeys,
+            pendingAmount,
+            pendingUnknown
+        );
+    }
+
+    private static List<String> summarizeWorkerPositions(Set<String> positions) {
+        List<String> result = new ArrayList<>(Math.min(positions.size(), BLOCKED_OUTPUT_LOG_POSITION_LIMIT) + 1);
+        int added = 0;
+        for (String position : positions) {
+            if (added >= BLOCKED_OUTPUT_LOG_POSITION_LIMIT) break;
+            result.add(position);
+            added++;
+        }
+        if (positions.size() > added) result.add("+" + (positions.size() - added) + " more");
+        return List.copyOf(result);
+    }
+
+    private String describeWorkerPosition() {
+        return worker.getLevel() == null
+            ? worker.getBlockPos().toShortString()
+            : worker.getLevel().dimension().location() + "@" + worker.getBlockPos().toShortString();
+    }
+
+    private void finishBlockedOutputDiagnostic() {
+        UUID jobId = craftingJobId;
+        if (jobId == null) {
+            resetUnownedBlockedOutputDiagnostic();
+            return;
+        }
+        AggregatedBlockedOutputRecovery recovery = null;
+        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
+            BlockedOutputDiagnostic diagnostic = BLOCKED_OUTPUT_DIAGNOSTICS.get(jobId);
+            if (diagnostic == null) return;
+            diagnostic.lanes.remove(describeWorkerPosition() + "#" + outputDiagnosticLaneId);
+            if (diagnostic.lanes.isEmpty()) {
+                BLOCKED_OUTPUT_DIAGNOSTICS.remove(jobId);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug && diagnostic.hasLogged) {
+                    long tick = TickHandler.instance().getCurrentTick();
+                    recovery = new AggregatedBlockedOutputRecovery(
+                        jobId, Math.max(0L, tick - diagnostic.firstBlockedTick)
+                    );
+                }
+            }
+        }
+        if (recovery != null) {
+            LOGGER.info(
+                "ECO crafting output delivery wait ended: job={} blockedTicks={}",
+                recovery.jobId(),
+                recovery.blockedTicks()
+            );
+        }
+    }
+
+    private static void disableBlockedOutputDiagnostics() {
+        if (!blockedOutputDiagnosticsEnabled) return;
+        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
+            if (!NEConfig.ecoCraftingOutputDeliveryDebug) {
+                BLOCKED_OUTPUT_DIAGNOSTICS.clear();
+                blockedOutputDiagnosticsEnabled = false;
+            }
+        }
+    }
+
+    private static void pruneBlockedOutputDiagnostics(long tick) {
+        BLOCKED_OUTPUT_DIAGNOSTICS.entrySet().removeIf(entry -> {
+            long age = tick - entry.getValue().lastSeenTick;
+            return age < 0L || age > BLOCKED_OUTPUT_STALE_JOB_TICKS;
+        });
+    }
+
+    private void resetUnownedBlockedOutputDiagnostic() {
+        unownedBlockedOutputSinceTick = Long.MIN_VALUE;
+        lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
+    }
+
+    private static int saturatingAdd(int left, int right) {
+        if (right > 0 && left > Integer.MAX_VALUE - right) return Integer.MAX_VALUE;
+        return left + right;
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right > 0L && left > Long.MAX_VALUE - right) return Long.MAX_VALUE;
+        return left + right;
+    }
+
+    private static final class BlockedOutputDiagnostic {
+        private final long firstBlockedTick;
+        private long lastSeenTick;
+        private long lastLogTick = Long.MIN_VALUE;
+        private boolean hasLogged;
+        private final Map<String, BlockedOutputLane> lanes = new HashMap<>();
+
+        private BlockedOutputDiagnostic(long tick) {
+            firstBlockedTick = tick;
+            lastSeenTick = tick;
+        }
+    }
+
+    private record BlockedOutputLane(
+        String workerPosition,
+        String reason,
+        long lastSeenTick,
+        int pendingKeys,
+        long pendingAmount,
+        boolean pendingUnknown
+    ) {}
+
+    private record AggregatedBlockedOutputLog(
+        UUID jobId,
+        long blockedTicks,
+        List<String> reasons,
+        int workerCount,
+        int threadCount,
+        List<String> workerPositions,
+        int pendingKeys,
+        long pendingAmount,
+        boolean pendingUnknown
+    ) {}
+
+    private record AggregatedBlockedOutputRecovery(UUID jobId, long blockedTicks) {}
 
     private KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
@@ -1225,6 +1467,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        finishBlockedOutputDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
         inputItems.clear();
@@ -1247,7 +1490,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         outputsReady = false;
         recoveryState = RecoveryState.CLEARED;
         lastBlockedProgressLogTick = Long.MIN_VALUE;
-        lastBlockedOutputLogTick = Long.MIN_VALUE;
+        resetUnownedBlockedOutputDiagnostic();
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
