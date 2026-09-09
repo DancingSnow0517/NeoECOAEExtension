@@ -91,8 +91,6 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.status.degraded", "Infinite storage data needs repair");
         provider.add("gui.neoecoae.storage.status.recovery", "Infinite storage is temporarily read-only");
         provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");
-        provider.add("gui.neoecoae.storage.item_details", "Stored Item Details");
-        provider.add("gui.neoecoae.storage.item_details.amount", "Stored: %s");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");

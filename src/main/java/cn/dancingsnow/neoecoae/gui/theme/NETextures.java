@@ -78,9 +78,6 @@ public class NETextures {
         SpriteTexture.of(AppEng.makeId("textures/guis/text_field.png"))
             .setSprite(0, 24, 128, 12)
             .setBorder(1, 0, 1, 0);
-    public static IGuiTexture BIG_INTEGER_ITEM =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/eco_biginteger_item.png"))
-            .setSprite(0, 0, 195, 134);
     public static IGuiTexture AE2_TOOLBOX =
         SpriteTexture.of(NeoECOAE.id("textures/gui/eco_extra_panels.png"))
             .setSprite(0, 0, 61, 66);
