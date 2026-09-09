@@ -18,9 +18,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
-import cn.dancingsnow.neoecoae.mixins.advanced_ae.NeoECOAEAdvCraftingJobAccessor;
-import cn.dancingsnow.neoecoae.mixins.advanced_ae.NeoECOAEElapsedTimeTrackerInvoker;
-import cn.dancingsnow.neoecoae.mixins.advanced_ae.NeoECOAEAdvTaskProgressAccessor;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeCraftingJobAccessor;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeElapsedTimeTrackerInvoker;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.AdvancedAeTaskProgressAccessor;
 import java.util.Iterator;
 import java.util.List;
 import net.minecraft.world.level.Level;
@@ -53,15 +53,15 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
         }
 
         int pushedOperations = 0;
-        if (!(job instanceof NeoECOAEAdvCraftingJobAccessor jobAccess)) {
+        if (!(job instanceof AdvancedAeCraftingJobAccessor jobAccess)) {
             return 0;
         }
         Iterator<? extends java.util.Map.Entry<IPatternDetails, ?>> tasks =
                 jobAccess.neoecoae$getTasks().entrySet().iterator();
         while (tasks.hasNext() && pushedOperations < maxPatterns) {
             var taskEntry = tasks.next();
-            NeoECOAEAdvTaskProgressAccessor task =
-                    (NeoECOAEAdvTaskProgressAccessor) taskEntry.getValue();
+            AdvancedAeTaskProgressAccessor task =
+                    (AdvancedAeTaskProgressAccessor) taskEntry.getValue();
             if (task.neoecoae$getValue() <= 0L) {
                 tasks.remove();
                 continue;
@@ -219,8 +219,8 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
 
     private static int executeVirtualBatch(
             AdvCraftingCPU cpu,
-            NeoECOAEAdvCraftingJobAccessor job,
-            NeoECOAEAdvTaskProgressAccessor task,
+            AdvancedAeCraftingJobAccessor job,
+            AdvancedAeTaskProgressAccessor task,
             ListCraftingInventory inventory,
             KeyCounter[] craftingContainer,
             ECOExtractedPatternExecution execution,
@@ -326,8 +326,8 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
 
     private static void recordAcceptedBatch(
             AdvCraftingCPU cpu,
-            NeoECOAEAdvCraftingJobAccessor job,
-            NeoECOAEAdvTaskProgressAccessor task,
+            AdvancedAeCraftingJobAccessor job,
+            AdvancedAeTaskProgressAccessor task,
             List<GenericStack> outputs,
             List<GenericStack> remainders,
             long batchSize) {
@@ -336,7 +336,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
         }
         for (GenericStack remainder : remainders) {
             job.neoecoae$getWaitingFor().insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
-            ((NeoECOAEElapsedTimeTrackerInvoker) job.neoecoae$getTimeTracker())
+            ((AdvancedAeElapsedTimeTrackerInvoker) job.neoecoae$getTimeTracker())
                     .neoecoae$addMaxItems(remainder.amount(), remainder.what().getType());
         }
         task.neoecoae$setValue(task.neoecoae$getValue() - batchSize);

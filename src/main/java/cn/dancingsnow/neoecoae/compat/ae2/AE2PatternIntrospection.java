@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.AECraftingPatternAccessor;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
