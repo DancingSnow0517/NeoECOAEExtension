@@ -62,5 +62,18 @@ public class ConfigLangs {
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
             "Maximum recipe entries kept in each ECO fast path cache."
         );
+
+        provider.add("neoecoae.configuration.debug", "Debug");
+        provider.add(
+            "neoecoae.configuration.debug.tooltip",
+            "Troubleshooting options. Keep these disabled during normal play."
+        );
+        provider.add("neoecoae.configuration.ecoDispatchWatchdogDebug", "ECO Dispatch Watchdog Debug");
+        provider.add(
+            "neoecoae.configuration.ecoDispatchWatchdogDebug.tooltip",
+            "Log detailed crafting dispatch diagnostics after 200 ticks without real progress, then every 1200 ticks.\n" +
+                "Includes phase, task, input, power and pattern-provider state.\n" +
+                "This option never resynchronizes the scheduler, replays inputs or changes crafting state."
+        );
     }
 }

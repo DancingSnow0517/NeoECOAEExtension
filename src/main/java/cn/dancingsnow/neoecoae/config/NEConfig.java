@@ -171,6 +171,28 @@ public class NEConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER
+            .comment(
+                "仅用于排查问题的调试选项。正常游玩时建议保持关闭。",
+                "Debug options intended only for troubleshooting. Keep these disabled during normal play.")
+            .push("debug");
+    }
+
+    private static final ModConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
+        .comment(
+            "启用 ECO 合成发配停滞诊断日志。",
+            "当合成连续 200 tick 没有实际进展时记录任务、阶段、材料、供电和样板供应器状态，之后每 1200 tick 再次记录。",
+            "此选项只收集诊断信息，不会自动重同步、重放输入或修改合成状态。",
+            "Enable ECO crafting dispatch stall diagnostic logs.",
+            "Logs job, phase, input, power and pattern-provider state after 200 ticks without real progress, then every 1200 ticks.",
+            "This option only collects diagnostics; it never resynchronizes, replays inputs or changes crafting state.")
+        .define("ecoDispatchWatchdogDebug", false);
+
+    static {
+        BUILDER.pop();
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength;
@@ -192,6 +214,7 @@ public class NEConfig {
     public static long infiniteStorageMaxSnapshotBytes = 2L * 1024 * 1024 * 1024;
     public static int infiniteStorageMaxSnapshotEntries = 4_000_000;
     public static long infiniteStoragePrepareNanos = 1_000_000L;
+    public static boolean ecoDispatchWatchdogDebug = false;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -223,6 +246,7 @@ public class NEConfig {
         infiniteStorageMaxSnapshotBytes = INFINITE_MAX_SNAPSHOT_BYTES.get();
         infiniteStorageMaxSnapshotEntries = INFINITE_MAX_SNAPSHOT_ENTRIES.get();
         infiniteStoragePrepareNanos = INFINITE_PREPARE_NANOS.get();
+        ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
     }
 
     public static int getCraftingPatternBusPages() {

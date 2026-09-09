@@ -85,6 +85,7 @@ public class ECOCraftingCPULogic {
     private boolean deliveringFinalOutput;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
+    private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
     private int normalPushProbesThisPass;
     private int lastAcceptedNormalPushes;
@@ -129,6 +130,7 @@ public class ECOCraftingCPULogic {
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         providerCursor.clear();
         resumeDispatchPattern = null;
+        stallDiagnostics.bind(craftId, TickHandler.instance().getCurrentTick());
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
         // disables the cancel button because it derives that button from the visible status entries.
@@ -186,6 +188,7 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        stallDiagnostics.bind(job.link.getCraftingID(), TickHandler.instance().getCurrentTick());
         deliverStoredFinalOutput();
         if (job == null || job.suspended) {
             return;
@@ -217,6 +220,9 @@ public class ECOCraftingCPULogic {
         // Match the rolling three-tick accounting for ordinary pushes. Verified ECO batches are bounded
         // by the live provider capacity and deliberately do not consume this operation window.
         dispatchStrategy.finishTick(acceptedNormalPushes);
+        if (job != null) {
+            stallDiagnostics.check(TickHandler.instance().getCurrentTick(), job);
+        }
     }
 
     /** Retry delivery from the same physical inventory used for all recipe inputs. */
@@ -256,6 +262,11 @@ public class ECOCraftingCPULogic {
             inventory.extract(key, inserted, Actionable.MODULATE);
             current.remainingAmount -= inserted;
             markCpuDirty();
+            if (inserted > 0L) {
+                stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
+            } else {
+                stallDiagnostics.finalDeliveryBlocked(key, amount);
+            }
         }
         boolean tasksDone = current.tasks.values().stream().noneMatch(task -> task.value > 0L);
         boolean physicallyComplete = current.remainingAmount <= 0L
@@ -304,13 +315,18 @@ public class ECOCraftingCPULogic {
         // Direct callers get a bounded standalone pass. CPU ticks supply the shared remaining budget.
         int probeLimit = remainingNormalProbes >= 0
             ? remainingNormalProbes : Math.max(MIN_NORMAL_PROBES_PER_TICK, ordinaryLimit);
+        stallDiagnostics.beginDispatch(ordinaryLimit, probeLimit);
         int totalPushed = 0;
         BitSet blockedOrderedPhases = new BitSet();
         while (job == current) {
             var candidates = current.executionRuntime == null
                 ? nativeDispatchCandidates(current)
                 : current.executionRuntime.candidates();
-            if (candidates.isEmpty()) break;
+            stallDiagnostics.candidates(candidates.size());
+            if (candidates.isEmpty()) {
+                stallDiagnostics.noCandidates(current.executionRuntime != null && hasPendingTasks(current));
+                break;
+            }
 
             int start = 0;
             if (resumeDispatchPattern != null) {
@@ -333,11 +349,15 @@ public class ECOCraftingCPULogic {
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
-                if (allowedCount <= 0L) continue;
+                if (allowedCount <= 0L) {
+                    if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
+                    continue;
+                }
                 var pattern = candidate.pattern();
                 // The explicit execution runtime owns phase/cycle gating. The growth barrier remains the fallback
                 // policy for legacy jobs that have no bound ECO plan.
                 if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
+                    stallDiagnostics.phaseBarrier();
                     continue;
                 }
                 // Skip input resolution when no eligible provider is ready for a dispatch.
@@ -346,11 +366,14 @@ public class ECOCraftingCPULogic {
                     providerCandidate -> {
                         boolean eligible = (ordinaryLimit > 0 && lastAcceptedNormalPushes < ordinaryLimit
                             && normalPushProbesThisPass < probeLimit)
-                        || providerCandidate instanceof ECOBatchCapacityProvider
-                        || ECOUselessBatchProviderBridge.supports(providerCandidate);
+                            || providerCandidate instanceof ECOBatchCapacityProvider
+                            || ECOUselessBatchProviderBridge.supports(providerCandidate);
+                        stallDiagnostics.providerConsidered(eligible);
                         return eligible;
-                    });
+                    }, (providerCandidate, busy) ->
+                        stallDiagnostics.provider(pattern, providerCandidate, busy));
                 if (providers.isEmpty()) {
+                    stallDiagnostics.noReadyProvider();
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
                 }
@@ -362,9 +385,18 @@ public class ECOCraftingCPULogic {
                 var inputs = CraftingCpuHelper.extractPatternInputs(
                     pattern, inputInventory, level, outputs, containers);
                 if (inputs == null) {
+                    if (stallDiagnostics.isActive()) {
+                        var diagnosticInventory = current.executionRuntime == null
+                            ? new ECOCraftingInputPreview(inventory)
+                            : new ECOCraftingInputPreview(inventory, pattern);
+                        stallDiagnostics.missingInputs(pattern, diagnosticInventory);
+                    }
                     // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
                     // ordered step is a hard barrier and must wait for this exact pattern.
-                    if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
+                    if (candidate.blocksOrderedPhase()) {
+                        stallDiagnostics.phaseBarrier();
+                        blockedOrderedPhases.set(candidate.phaseIndex());
+                    }
                     continue;
                 }
                 for (var provider : providers) {
@@ -420,6 +452,7 @@ public class ECOCraftingCPULogic {
                                 }
                                 for (var output : pattern.getOutputs()) postChange(output.what());
                                 markCpuDirty();
+                                stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
                                 // Refresh the runtime candidates after every accepted batch so phase transitions are
                                 // visible immediately, while retaining the fixed Mixin entry point below.
                                 resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
@@ -427,6 +460,7 @@ public class ECOCraftingCPULogic {
                                 acceptedInPass = true;
                                 break;
                             }
+                            stallDiagnostics.batchRejected(pattern, provider);
                             // A rejected batch restores its own extraction. The ordinary fallback is exactly one
                             // copy, so it must use the per-copy power rather than the rejected batch total.
                             power = singlePower;
@@ -436,10 +470,13 @@ public class ECOCraftingCPULogic {
                     // Batch is an optional optimization. A provider that offered a batch still retains the normal
                     // one-copy fallback when that batch is unavailable, rejected, or dynamically ambiguous.
                     if (ordinaryLimit <= 0 || normalPushProbesThisPass >= probeLimit) {
+                        stallDiagnostics.budget();
                         continue;
                     }
-                    if (energyService.extractAEPower(power, Actionable.SIMULATE,
-                            PowerMultiplier.CONFIG) < power - 0.01) {
+                    double availablePower = energyService.extractAEPower(
+                        power, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+                    if (availablePower < power - 0.01) {
+                        stallDiagnostics.insufficientPower(power, availablePower);
                         // Power is shared by all providers for this pattern; there is no value in retrying the rest
                         // of this provider snapshot in the same tick.
                         break;
@@ -449,10 +486,11 @@ public class ECOCraftingCPULogic {
                     try {
                         providerCursor.advanceAfter(pattern, provider);
                         normalPushProbesThisPass++;
+                        stallDiagnostics.probe();
                         // Keep fairness separate from task progress: rejected pushes must never call onAccepted.
                         // Preserve this position while probes are exhausted, including across batch-only passes.
                         resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
-                        clearProviderDiagnostics(provider);
+                        if (stallDiagnostics.isActive()) clearProviderDiagnostics(provider);
                         if (provider instanceof ECOCraftingPatternBusBlockEntity) {
                             acceptedSingle = ECOSingleCraftingExecutor.pushPattern(
                                 provider, pattern, inputs, outputs, containers, level, current.link.getCraftingID());
@@ -462,6 +500,7 @@ public class ECOCraftingCPULogic {
                             acceptedSingle = provider.pushPattern(pattern, inputs);
                         }
                         if (!acceptedSingle) {
+                            stallDiagnostics.pushRejected(pattern, provider);
                             continue;
                         }
 
@@ -482,6 +521,7 @@ public class ECOCraftingCPULogic {
                         totalPushed = addPushed(totalPushed, 1L);
                         for (var output : pattern.getOutputs()) postChange(output.what());
                         markCpuDirty();
+                        stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
                         acceptedInPass = true;
                     } finally {
                         // A rejected ordinary provider does not own the extracted inputs; try the next provider in
@@ -506,6 +546,10 @@ public class ECOCraftingCPULogic {
 
     private static int addPushed(int current, long accepted) {
         return (int) Math.min(Integer.MAX_VALUE, (long) current + Math.max(0L, accepted));
+    }
+
+    private static boolean hasPendingTasks(ExecutingCraftingJob current) {
+        return current.tasks.values().stream().anyMatch(task -> task.value > 0L);
     }
 
     private void clearProviderDiagnostics(ICraftingProvider provider) {
@@ -556,6 +600,7 @@ public class ECOCraftingCPULogic {
             current.waitingFor.extract(what, accepted, Actionable.MODULATE);
             current.timeTracker.decrementItems(accepted, what.getType());
             markCpuDirty();
+            stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
         }
         return accepted;
     }
@@ -626,6 +671,7 @@ public class ECOCraftingCPULogic {
         this.job = null;
         providerCursor.clear();
         resumeDispatchPattern = null;
+        stallDiagnostics.reset();
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -721,6 +767,7 @@ public class ECOCraftingCPULogic {
         providerCursor.clear();
         resumeDispatchPattern = null;
         dispatchStrategy.reset();
+        stallDiagnostics.reset();
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
             var jobData = data.getCompound("job");
@@ -840,6 +887,7 @@ public class ECOCraftingCPULogic {
     public void setJobSuspended(boolean suspended) {
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
+            stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
             markCpuDirty();
         }
     }

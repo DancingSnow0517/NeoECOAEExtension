@@ -15,6 +15,7 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.helpers.patternprovider.PatternProviderTarget;
 import cn.dancingsnow.neoecoae.api.me.ECOPatternPushDiagnostics;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -60,6 +61,7 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
     @WrapMethod(method = "pushPattern")
     private boolean neoecoae$observePush(IPatternDetails pattern, KeyCounter[] inputs,
             Operation<Boolean> original) {
+        if (!NEConfig.ecoDispatchWatchdogDebug) return original.call(pattern, inputs);
         neoecoae$clearPushDiagnostics();
         neoecoae$observingPush = true;
         try {

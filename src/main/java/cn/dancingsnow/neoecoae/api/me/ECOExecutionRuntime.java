@@ -8,11 +8,13 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Mutable server-side cursor for one immutable ECO execution plan.
@@ -33,10 +37,16 @@ import org.jetbrains.annotations.Nullable;
  * scheduler state.</p>
  */
 public final class ECOExecutionRuntime {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
+    private static final int MAX_DIAGNOSTIC_PHASES = 16;
+    private static final int MAX_DIAGNOSTIC_TASKS = 8;
+    private static final int MAX_DIAGNOSTIC_LENGTH = 4096;
+
     private final ECOExecutionPlan plan;
     private final IPatternDetails[] patternsById;
     @Nullable
     private final ExecutingCraftingJob.TaskProgress[] progressByTaskId;
+    private final int[][] progressAliasesByTaskId;
     private final List<Set<AEKey>> inputKeysByTaskId;
     private final int[] stepCursor;
     private final int[] dynamicCursor;
@@ -50,6 +60,7 @@ public final class ECOExecutionRuntime {
     private final int[] activeTaskBuffer;
     private final List<List<Integer>> dependentsByPhase;
     private final Map<AEKey, Long> startupSeedRemaining = new LinkedHashMap<>();
+    private boolean reconciledEmptyCandidates;
 
     public ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById) {
         this(plan, toPatternArray(plan, patternsById), null);
@@ -94,6 +105,7 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Execution task has no bound progress: " + task.id());
             }
         }
+        this.progressAliasesByTaskId = createProgressAliases(this.progressByTaskId, plan.tasks().size());
         for (var phase : plan.phases()) {
             long[] steps = new long[phase.steps().size()];
             for (int i = 0; i < steps.length; i++) steps[i] = phase.steps().get(i).count();
@@ -105,6 +117,7 @@ public final class ECOExecutionRuntime {
             inputKeysByTaskId.add(Collections.unmodifiableSet(inputKeys(pattern)));
         }
         rebuildProgressState();
+        logSharedProgressAliases();
     }
 
     public ECOExecutionPlan plan() {
@@ -132,15 +145,16 @@ public final class ECOExecutionRuntime {
      */
     public List<DispatchCandidate> candidates() {
         requireProgressBinding();
-        return candidatesInternal(null);
+        return candidatesInternal(null, true);
     }
 
     /** Compatibility entry point for callers that have not bound live task progress. */
     public List<DispatchCandidate> candidates(Map<IPatternDetails, Long> remainingTasks) {
-        return candidatesInternal(Objects.requireNonNull(remainingTasks, "remainingTasks"));
+        return candidatesInternal(Objects.requireNonNull(remainingTasks, "remainingTasks"), false);
     }
 
-    private List<DispatchCandidate> candidatesInternal(@Nullable Map<IPatternDetails, Long> remainingTasks) {
+    private List<DispatchCandidate> candidatesInternal(@Nullable Map<IPatternDetails, Long> remainingTasks,
+            boolean allowReconciliation) {
         if (remainingTasks != null) refreshCompleted(remainingTasks);
         List<DispatchCandidate> result = new ArrayList<>(plan.tasks().size());
         for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
@@ -192,9 +206,31 @@ public final class ECOExecutionRuntime {
                 continue;
             }
 
+            int candidatesBeforePhase = result.size();
             addAllPhaseTasks(result, phaseIndex, phase.taskIds(), remainingTasks, false);
+            if (progressByTaskId != null && result.size() == candidatesBeforePhase) {
+                // TaskProgress is the source of truth. If a ready DAG phase produces no candidate, reconcile its
+                // cached unfinished count before deciding that it must remain open. This repairs a stale phase cache
+                // without scanning the complete execution plan on every successful dispatch.
+                refreshPhaseTaskState(phaseIndex, phase.taskIds());
+                maybeCompletePhase(phaseIndex);
+            }
         }
-        return result.isEmpty() ? List.of() : Collections.unmodifiableList(result);
+        if (!result.isEmpty()) return Collections.unmodifiableList(result);
+        if (allowReconciliation && !reconciledEmptyCandidates && hasLiveTaskProgress()) {
+            reconciledEmptyCandidates = true;
+            String before = NEConfig.ecoDispatchWatchdogDebug ? describeProgressCache() : null;
+            rebuildProgressState();
+            if (NEConfig.ecoDispatchWatchdogDebug) {
+                String after = describeProgressCache();
+                if (!Objects.equals(before, after)) {
+                    LOGGER.warn("[ECO Execution Cache Reconciliation] repaired stale cache before=[{}] after=[{}]",
+                        before, after);
+                }
+            }
+            return candidatesInternal(null, false);
+        }
+        return List.of();
     }
 
     /** Commit scheduler state only after the provider has accepted the extracted inputs. */
@@ -224,6 +260,7 @@ public final class ECOExecutionRuntime {
                 dynamicCursor[phaseIndex] = (taskPosition + 1) % phase.taskIds().size();
             }
         }
+        reconciledEmptyCandidates = false;
         refreshTaskState(candidate.taskId());
         maybeCompletePhase(phaseIndex);
         consumeStartupSeed(inputs, count);
@@ -238,6 +275,90 @@ public final class ECOExecutionRuntime {
     public boolean isComplete(Map<IPatternDetails, Long> remainingTasks) {
         refreshCompleted(Objects.requireNonNull(remainingTasks, "remainingTasks"));
         return completedPhases.cardinality() == plan.phases().size();
+    }
+
+    /** Read-only, bounded snapshot used only after dispatch has already been classified as stalled. */
+    String describeStallState() {
+        var text = new StringBuilder()
+            .append("completedPhases=").append(completedPhases.cardinality())
+            .append('/').append(plan.phases().size())
+            .append(" progressBinding=").append(progressByTaskId != null)
+            .append(" sharedProgressAliases=").append(describeProgressAliases())
+            .append(" phases=[");
+        int included = 0;
+        int unfinished = 0;
+        for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
+            if (completedPhases.get(phaseIndex)) continue;
+            unfinished++;
+            if (included >= MAX_DIAGNOSTIC_PHASES) continue;
+            if (included++ > 0) text.append(", ");
+            var phase = plan.phases().get(phaseIndex);
+            text.append("phase=").append(phaseIndex)
+                .append(" type=").append(phase.type())
+                .append(" ready=").append(remainingDependencies[phaseIndex] == 0)
+                .append(" remainingDependencies=").append(remainingDependencies[phaseIndex])
+                .append(" dependencies=").append(phase.dependencies())
+                .append(" unfinishedTasks=").append(unfinishedTasksByPhase[phaseIndex]);
+
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
+                int cursor = stepCursor[phaseIndex];
+                text.append(" stepCursor=").append(cursor).append('/').append(phase.steps().size());
+                if (cursor < phase.steps().size()) {
+                    var step = phase.steps().get(cursor);
+                    text.append(" currentStep={task=").append(step.taskId())
+                        .append(" remainingStep=").append(remainingSteps.get(phaseIndex)[cursor])
+                        .append(" taskRemaining=").append(taskRemaining(step.taskId(), null)).append('}');
+                }
+            } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                text.append(" dynamicCursor=").append(dynamicCursor[phaseIndex])
+                    .append(" activeDynamicTasks=").append(activeDynamicTasksByPhase[phaseIndex])
+                    .append(" remainingFirings=");
+                appendDynamicFirings(text, phaseIndex);
+            }
+            text.append(" taskRemaining=");
+            appendTaskRemaining(text, phase.taskIds());
+        }
+        if (unfinished > included) {
+            text.append(", ... ").append(unfinished - included).append(" phases omitted");
+        }
+        text.append(']');
+        return text.length() <= MAX_DIAGNOSTIC_LENGTH
+            ? text.toString() : text.substring(0, MAX_DIAGNOSTIC_LENGTH) + "...";
+    }
+
+    private void appendDynamicFirings(StringBuilder text, int phaseIndex) {
+        text.append('[');
+        int included = 0;
+        int remainingEntries = 0;
+        for (var entry : remainingDynamicFirings.get(phaseIndex).entrySet()) {
+            if (entry.getValue() <= 0L) continue;
+            remainingEntries++;
+            if (included >= MAX_DIAGNOSTIC_TASKS) continue;
+            if (included++ > 0) text.append(',');
+            text.append("task=").append(entry.getKey())
+                .append(" firing=").append(entry.getValue())
+                .append(" taskRemaining=").append(taskRemaining(entry.getKey(), null));
+        }
+        if (remainingEntries > included) {
+            text.append(",...").append(remainingEntries - included).append(" omitted");
+        }
+        text.append(']');
+    }
+
+    private void appendTaskRemaining(StringBuilder text, List<Integer> taskIds) {
+        text.append('[');
+        int included = 0;
+        int unfinished = 0;
+        for (int taskId : taskIds) {
+            long remaining = taskRemaining(taskId, null);
+            if (remaining <= 0L) continue;
+            unfinished++;
+            if (included >= MAX_DIAGNOSTIC_TASKS) continue;
+            if (included++ > 0) text.append(',');
+            text.append(taskId).append('=').append(remaining);
+        }
+        if (unfinished > included) text.append(",...").append(unfinished - included).append(" omitted");
+        text.append(']');
     }
 
     /** Amount of planned input that must stay in the CPU for future executions of {@code key}. */
@@ -499,11 +620,115 @@ public final class ECOExecutionRuntime {
 
     private void refreshTaskState(int taskId) {
         if (progressByTaskId == null || taskId < 0 || taskId >= unfinishedTasks.length) return;
+        BitSet affectedPhases = new BitSet(plan.phases().size());
+        for (int aliasedTaskId : progressAliasesByTaskId[taskId]) {
+            refreshSingleTaskState(aliasedTaskId);
+            affectedPhases.set(plan.task(aliasedTaskId).phaseIndex());
+        }
+        for (int phaseIndex = affectedPhases.nextSetBit(0); phaseIndex >= 0;
+                phaseIndex = affectedPhases.nextSetBit(phaseIndex + 1)) {
+            maybeCompletePhase(phaseIndex);
+        }
+    }
+
+    private void refreshSingleTaskState(int taskId) {
         boolean unfinished = taskRemaining(taskId, null) > 0L;
         if (unfinished == unfinishedTasks[taskId]) return;
         unfinishedTasks[taskId] = unfinished;
         int phaseIndex = plan.task(taskId).phaseIndex();
         unfinishedTasksByPhase[phaseIndex] += unfinished ? 1 : -1;
+    }
+
+    private void refreshPhaseTaskState(int phaseIndex, List<Integer> taskIds) {
+        int unfinished = 0;
+        for (int taskId : taskIds) {
+            if (plan.task(taskId).phaseIndex() != phaseIndex) {
+                throw new IllegalStateException("Execution task is assigned to the wrong phase: " + taskId);
+            }
+            boolean liveUnfinished = taskRemaining(taskId, null) > 0L;
+            unfinishedTasks[taskId] = liveUnfinished;
+            if (liveUnfinished) unfinished++;
+        }
+        unfinishedTasksByPhase[phaseIndex] = unfinished;
+    }
+
+    private boolean hasLiveTaskProgress() {
+        if (progressByTaskId == null) return false;
+        for (var progress : progressByTaskId) {
+            if (progress != null && progress.value > 0L) return true;
+        }
+        return false;
+    }
+
+    private String describeProgressCache() {
+        var text = new StringBuilder("completed=")
+            .append(completedPhases.cardinality()).append('/').append(plan.phases().size())
+            .append(" mismatches=[");
+        int mismatches = 0;
+        int included = 0;
+        for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
+            int actual = actualUnfinishedTasks(phaseIndex);
+            int cached = unfinishedTasksByPhase[phaseIndex];
+            if (actual == cached) continue;
+            mismatches++;
+            if (included >= MAX_DIAGNOSTIC_PHASES) continue;
+            if (included++ > 0) text.append(',');
+            text.append("phase=").append(phaseIndex)
+                .append(" cached=").append(cached).append(" actual=").append(actual);
+        }
+        if (mismatches > included) text.append(",...").append(mismatches - included).append(" omitted");
+        text.append("] remainingDependencies=").append(Arrays.toString(remainingDependencies));
+        return text.length() <= MAX_DIAGNOSTIC_LENGTH
+            ? text.toString() : text.substring(0, MAX_DIAGNOSTIC_LENGTH) + "...";
+    }
+
+    private int actualUnfinishedTasks(int phaseIndex) {
+        int actual = 0;
+        for (int taskId : plan.phases().get(phaseIndex).taskIds()) {
+            if (taskRemaining(taskId, null) > 0L) actual++;
+        }
+        return actual;
+    }
+
+    private String describeProgressAliases() {
+        if (progressByTaskId == null) return "[]";
+        var text = new StringBuilder("[");
+        int groups = 0;
+        int included = 0;
+        for (int taskId = 0; taskId < progressAliasesByTaskId.length; taskId++) {
+            int[] aliases = progressAliasesByTaskId[taskId];
+            if (aliases.length <= 1 || aliases[0] != taskId) continue;
+            groups++;
+            if (included >= MAX_DIAGNOSTIC_TASKS) continue;
+            if (included++ > 0) text.append(',');
+            appendProgressAlias(text, aliases);
+        }
+        if (groups > included) text.append(",...").append(groups - included).append(" groups omitted");
+        return text.append(']').toString();
+    }
+
+    private void appendProgressAlias(StringBuilder text, int[] aliases) {
+        text.append("identity=").append(System.identityHashCode(progressByTaskId[aliases[0]]))
+            .append(" tasks=[");
+        int limit = Math.min(aliases.length, MAX_DIAGNOSTIC_TASKS);
+        for (int index = 0; index < limit; index++) {
+            if (index > 0) text.append(',');
+            text.append(aliases[index]);
+        }
+        if (aliases.length > limit) text.append(",...").append(aliases.length - limit).append(" omitted");
+        text.append("] phases=[");
+        for (int index = 0; index < limit; index++) {
+            if (index > 0) text.append(',');
+            text.append(plan.task(aliases[index]).phaseIndex());
+        }
+        if (aliases.length > limit) text.append(",...");
+        text.append(']');
+    }
+
+    private void logSharedProgressAliases() {
+        if (!NEConfig.ecoDispatchWatchdogDebug || progressByTaskId == null) return;
+        String aliases = describeProgressAliases();
+        if (!"[]".equals(aliases)) LOGGER.warn("[ECO Execution] shared TaskProgress aliases={}", aliases);
     }
 
     private void maybeCompletePhase(int phaseIndex) {
@@ -554,6 +779,25 @@ public final class ECOExecutionRuntime {
     private static List<List<Integer>> createDependents(ECOExecutionPlan plan) {
         List<List<Integer>> result = new ArrayList<>(plan.phases().size());
         for (int i = 0; i < plan.phases().size(); i++) result.add(new ArrayList<>());
+        return result;
+    }
+
+    private static int[][] createProgressAliases(
+            @Nullable ExecutingCraftingJob.TaskProgress[] progressByTaskId, int taskCount) {
+        int[][] result = new int[taskCount][];
+        if (progressByTaskId == null) {
+            for (int taskId = 0; taskId < taskCount; taskId++) result[taskId] = new int[] {taskId};
+            return result;
+        }
+
+        var aliasesByProgress = new IdentityHashMap<ExecutingCraftingJob.TaskProgress, List<Integer>>();
+        for (int taskId = 0; taskId < progressByTaskId.length; taskId++) {
+            aliasesByProgress.computeIfAbsent(progressByTaskId[taskId], ignored -> new ArrayList<>()).add(taskId);
+        }
+        for (var aliases : aliasesByProgress.values()) {
+            int[] taskIds = aliases.stream().mapToInt(Integer::intValue).toArray();
+            for (int taskId : taskIds) result[taskId] = taskIds;
+        }
         return result;
     }
 
