@@ -231,6 +231,7 @@ public final class ECOExecutionRuntime {
 
     public boolean isComplete() {
         requireProgressBinding();
+        refreshCompleted();
         return completedPhases.cardinality() == plan.phases().size();
     }
 

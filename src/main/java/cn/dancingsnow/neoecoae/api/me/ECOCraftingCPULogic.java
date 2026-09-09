@@ -257,9 +257,18 @@ public class ECOCraftingCPULogic {
             current.remainingAmount -= inserted;
             markCpuDirty();
         }
-        if (current.remainingAmount <= 0L && current.waitingFor.list.isEmpty()
-                && current.tasks.values().stream().noneMatch(task -> task.value > 0L)
-                && (current.executionRuntime == null || current.executionRuntime.isComplete())) finishJob(true);
+        boolean tasksDone = current.tasks.values().stream().noneMatch(task -> task.value > 0L);
+        boolean physicallyComplete = current.remainingAmount <= 0L
+                && current.waitingFor.list.isEmpty()
+                && tasksDone;
+        if (physicallyComplete) {
+            if (current.executionRuntime != null && !current.executionRuntime.isComplete()) {
+                LOGGER.warn("ECO crafting job {} reached terminal crafting state "
+                                + "but execution runtime is incomplete; forcing finalization",
+                        current.link.getCraftingID());
+            }
+            finishJob(true);
+        }
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
