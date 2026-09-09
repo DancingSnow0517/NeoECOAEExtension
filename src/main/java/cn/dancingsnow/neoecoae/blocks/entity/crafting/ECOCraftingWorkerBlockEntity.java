@@ -63,6 +63,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Getter
     @Nullable
     private GenericStack displayedJob;
+    private boolean displayDirty = true;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
@@ -145,6 +146,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 TickRateModulation recoveryRate = thread.tickRecovery();
                 if (recoveryRate != null && recoveryRate.ordinal() > rate.ordinal()) rate = recoveryRate;
             }
+            refreshDisplayedJob();
             return rate;
         }
     }
@@ -386,21 +388,26 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         return getBlockState().is(NEBlocks.FX_MONITOR_CORE.get());
     }
 
+    public void markDisplayDirty() {
+        displayDirty = true;
+    }
+
     private void refreshDisplayedJob() {
+        if (!displayDirty) return;
         GenericStack nextDisplay = null;
         if (isMonitor()) {
             for (ECOCraftingThread thread : craftingThreads) {
-                ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
-                if (!snapshot.busy() || snapshot.outputItem().isEmpty()) {
-                    continue;
-                }
-                GenericStack item = GenericStack.fromItemStack(snapshot.outputItem().copyWithCount(1));
-                if (item != null) {
-                    nextDisplay = new GenericStack(item.what(), Math.max(1L, snapshot.outputAmount()));
+                var key = thread.getDisplayedOutputKey();
+                if (key != null) {
+                    long amount = thread.getDisplayedOutputAmount();
+                    nextDisplay = displayedJob != null && displayedJob.what().equals(key)
+                        && displayedJob.amount() == amount
+                        ? displayedJob : new GenericStack(key, amount);
                     break;
                 }
             }
         }
+        displayDirty = false;
         if (!java.util.Objects.equals(displayedJob, nextDisplay)) {
             displayedJob = nextDisplay;
             markForUpdate();
@@ -511,6 +518,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         runningThreads = 0;
         nextFreeThreadIndex = 0;
         displayedJob = null;
+        displayDirty = false;
         if (cluster != null && cluster.getController() != null) {
             cluster.getController().recalculateRunningThreadCountFromWorkers();
         }
@@ -540,6 +548,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        markDisplayDirty();
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
         // The fast-path cache is no longer per worker, so a worker load must not wipe knowledge its whole

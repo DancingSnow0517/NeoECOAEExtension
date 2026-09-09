@@ -205,6 +205,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return firstOutputItem().copy();
     }
 
+    /** Monitor-only view; batch keys never need to be materialized as ItemStacks. */
+    public @Nullable AEItemKey getDisplayedOutputKey() {
+        if (!isBusy) return null;
+        if (!outputItems.isEmpty()) return AEItemKey.of(outputItems.getFirst());
+        for (var stack : batchOutputItems) {
+            if (stack.what() instanceof AEItemKey key) return key;
+        }
+        return null;
+    }
+
+    public long getDisplayedOutputAmount() {
+        return isBusy ? getOutputAmount() : 0L;
+    }
+
     public List<ItemStack> getRemainingItems() {
         return copyStacks(remainingItems);
     }
@@ -607,6 +621,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         @Nullable UUID craftingJobId,
         int finiteBatchCraftCount
     ) {
+        worker.markDisplayDirty();
         outputItems.clear();
         copyStacks(outputs, outputItems);
         this.craftingJobId = craftingJobId;
@@ -643,6 +658,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         @Nullable UUID craftingJobId,
         int finiteBatchCraftCount
     ) {
+        worker.markDisplayDirty();
         outputItems.clear();
         inputItems.clear();
         remainingItems.clear();
@@ -673,6 +689,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void startVirtualWork(ECOVirtualCraftingWork work) {
+        worker.markDisplayDirty();
         outputItems.clear();
         inputItems.clear();
         remainingItems.clear();
@@ -1164,6 +1181,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void markRecoveryPending(boolean recoverOutputs) {
+        if (!recoverOutputs && (!outputItems.isEmpty() || !batchOutputItems.isEmpty())) {
+            worker.markDisplayDirty();
+        }
         isBusy = true;
         reboot = true;
         if (recoverOutputs) {
@@ -1205,6 +1225,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        worker.markDisplayDirty();
         outputItems.clear();
         inputItems.clear();
         remainingItems.clear();
@@ -1230,6 +1251,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
+        worker.markDisplayDirty();
         List<GenericStack> stacks = keyCounterToGenericStacks(remainder);
         if (stacks.isEmpty() && !isEmpty(remainder)) {
             LOGGER.error(
@@ -1255,6 +1277,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void retainInputRemainderForRetry(KeyCounter remainder) {
+        worker.markDisplayDirty();
         List<GenericStack> stacks = keyCounterToGenericStacks(remainder, true);
         if (stacks.isEmpty() && !isEmpty(remainder)) {
             LOGGER.error(
@@ -1493,6 +1516,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+        worker.markDisplayDirty();
         int persistedVersion = nbt.getInt("neoecoae_version");
         this.isBusy = nbt.getBoolean("isBusy");
         this.reboot = nbt.getBoolean("reboot");
