@@ -319,7 +319,35 @@ public final class BoundedCycleSolver implements CycleSolver {
         }
         boolean[] member = new boolean[n];
         for (AEKey key : request.component().members()) member[index.get(key)] = true;
-        return new Model(keys, transitions, cons, prod, suppliable, member, producesRequired, stock, required);
+        TransitionMetadata[] metadata = new TransitionMetadata[t];
+        for (int p = 0; p < t; p++) {
+            int[] internal = new int[n];
+            int[] changed = new int[n];
+            int internalCount = 0;
+            int changedCount = 0;
+            List<OutputTarget> outputs = new ArrayList<>();
+            List<UnlockTarget> unlocks = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                if (cons[p][i] > 0 && !suppliable[i]) internal[internalCount++] = i;
+                if (cons[p][i] > 0 || prod[p][i] > 0) changed[changedCount++] = i;
+                if (prod[p][i] <= cons[p][i]) continue;
+                PlannerAmount delta = PlannerAmount.of(prod[p][i] - cons[p][i]);
+                if (required[i].signum() > 0) outputs.add(new OutputTarget(i, delta));
+                if (suppliable[i]) continue;
+                Set<Long> thresholds = new HashSet<>();
+                for (int other = 0; other < t; other++) {
+                    long needed = cons[other][i];
+                    if (needed > 0 && thresholds.add(needed)) {
+                        unlocks.add(new UnlockTarget(i, PlannerAmount.of(needed), delta));
+                    }
+                }
+            }
+            metadata[p] = new TransitionMetadata(Arrays.copyOf(internal, internalCount),
+                Arrays.copyOf(changed, changedCount), outputs.toArray(OutputTarget[]::new),
+                unlocks.toArray(UnlockTarget[]::new));
+        }
+        return new Model(keys, transitions, cons, prod, suppliable, member, producesRequired, stock, required,
+            metadata);
     }
 
     private static @Nullable String unsupportedReason(CompiledPattern pattern) {
@@ -662,12 +690,12 @@ public final class BoundedCycleSolver implements CycleSolver {
         List<Node> nodes = new ArrayList<>();
         Set<Marking> seen = new HashSet<>();
         java.util.PriorityQueue<Integer> queue = new java.util.PriorityQueue<>((left, right) -> {
-            int progress = compareProgress(model, nodes.get(left), nodes.get(right));
+            int progress = compareProgress(nodes.get(left), nodes.get(right));
             return progress != 0 ? progress : Integer.compare(left, right);
         });
 
         PlannerAmount[] root = Arrays.copyOf(start, n);
-        nodes.add(new Node(root, -1, null, 0));
+        nodes.add(new Node(root, -1, null, 0, deficitScore(model, root)));
         seen.add(new Marking(root));
         if (satisfied(root, model.required)) {
             outcome.kind = Search.Kind.REACHED;
@@ -691,8 +719,8 @@ public final class BoundedCycleSolver implements CycleSolver {
             }
             outcome.statesExpanded++;
             for (int t = 0; t < transitionCount; t++) {
-                List<Long> batches = candidateBatchCounts(model, node.marking, t);
-                if (batches.isEmpty()) {
+                long[] batches = candidateBatchCounts(model, node.marking, t, false);
+                if (batches.length == 0) {
                     outcome.considerUnblock(model, node.marking, t);
                     continue;
                 }
@@ -706,7 +734,8 @@ public final class BoundedCycleSolver implements CycleSolver {
                     }
                     seen.add(key);
                     int child = nodes.size();
-                    nodes.add(new Node(next, index, new BatchFiring(t, batch), node.depth + 1));
+                    nodes.add(new Node(next, index, new BatchFiring(t, batch), node.depth + 1,
+                        deficitScore(model, next)));
                     if (satisfied(next, model.required)) {
                         outcome.kind = Search.Kind.REACHED;
                         outcome.witness = witnessOf(nodes, child);
@@ -886,57 +915,42 @@ public final class BoundedCycleSolver implements CycleSolver {
      * <p>The maximal safe batch is the important fast path. The smaller candidates preserve useful alternate
      * interleavings when another transition needs an intermediate before the maximal batch would consume it all.
      */
-    private static List<Long> candidateBatchCounts(Model model, PlannerAmount[] marking, int transition) {
+    private static long[] candidateBatchCounts(Model model, PlannerAmount[] marking, int transition,
+            boolean greedy) {
         PlannerAmount maximum = maximumSafeBatch(model, marking, transition);
-        if (maximum.signum() <= 0) return List.of();
+        if (maximum.signum() <= 0) return EMPTY_BATCHES;
 
-        Set<Long> candidates = new LinkedHashSet<>();
+        BatchCandidates candidates = new BatchCandidates();
         addBatchCandidate(candidates, PlannerAmount.ONE, maximum);
 
-        long[] consumes = model.cons[transition];
-        long[] produces = model.prod[transition];
-        for (int i = 0; i < model.keyCount(); i++) {
-            PlannerAmount delta = PlannerAmount.of(produces[i]).subtract(consumes[i]);
-            if (delta.signum() <= 0 || model.required[i].compareTo(marking[i]) <= 0) continue;
+        TransitionMetadata metadata = model.metadata[transition];
+        for (OutputTarget output : metadata.requiredOutputs) {
+            int i = output.key;
+            if (model.required[i].compareTo(marking[i]) <= 0) continue;
             addBatchCandidate(candidates,
-                model.required[i].subtract(marking[i]).ceilDiv(delta), maximum);
+                model.required[i].subtract(marking[i]).ceilDiv(output.delta), maximum);
         }
 
         // Add counts that make a currently disabled internal input of another transition available. This retains
         // interleavings such as "produce enough catalyst, then switch transition" without enumerating every count.
-        for (int other = 0; other < model.transitionCount(); other++) {
-            for (int i = 0; i < model.keyCount(); i++) {
-                long needed = model.cons[other][i];
-                if (needed <= 0L || model.suppliable[i] || marking[i].compareTo(PlannerAmount.of(needed)) >= 0) {
-                    continue;
-                }
-                PlannerAmount delta = PlannerAmount.of(produces[i]).subtract(consumes[i]);
-                if (delta.signum() <= 0) continue;
-                addBatchCandidate(candidates,
-                    PlannerAmount.of(needed).subtract(marking[i]).ceilDiv(delta), maximum);
-            }
+        for (UnlockTarget target : metadata.unlockTargets) {
+            if (marking[target.key].compareTo(target.threshold) >= 0) continue;
+            addBatchCandidate(candidates,
+                target.threshold.subtract(marking[target.key]).ceilDiv(target.delta), maximum);
         }
 
         addBatchCandidate(candidates, maximum, maximum);
-        return candidates.stream().sorted(java.util.Comparator.reverseOrder()).toList();
+        return candidates.sorted(greedy, greedy && !hasFiniteInternalBound(model, transition));
     }
 
     /** Greedy never treats the synthetic unbounded sentinel as a meaningful maximal batch. */
-    private static List<Long> greedyCandidateBatchCounts(Model model, PlannerAmount[] marking, int transition) {
-        List<Long> candidates = candidateBatchCounts(model, marking, transition);
-        java.util.stream.Stream<Long> usable = candidates.stream();
-        if (!hasFiniteInternalBound(model, transition)) {
-            usable = usable.filter(count -> count != Long.MAX_VALUE);
-        }
+    private static long[] greedyCandidateBatchCounts(Model model, PlannerAmount[] marking, int transition) {
         // Exact target/unblocking boundaries must be considered before an over-producing maximal batch.
-        return usable.sorted().toList();
+        return candidateBatchCounts(model, marking, transition, true);
     }
 
     private static boolean hasFiniteInternalBound(Model model, int transition) {
-        for (int i = 0; i < model.keyCount(); i++) {
-            if (model.cons[transition][i] > 0L && !model.suppliable[i]) return true;
-        }
-        return false;
+        return model.metadata[transition].consumedInternalKeys.length > 0;
     }
 
     private static PlannerAmount boundaryImportScore(Model model, int transition, long batch) {
@@ -1012,9 +1026,8 @@ public final class BoundedCycleSolver implements CycleSolver {
 
     private static PlannerAmount maximumSafeBatch(Model model, PlannerAmount[] marking, int transition) {
         PlannerAmount maximum = null;
-        for (int i = 0; i < model.keyCount(); i++) {
+        for (int i : model.metadata[transition].consumedInternalKeys) {
             long consumed = model.cons[transition][i];
-            if (consumed <= 0L || model.suppliable[i]) continue;
             PlannerAmount available = marking[i].divide(PlannerAmount.of(consumed));
             maximum = maximum == null ? available : maximum.min(available);
         }
@@ -1023,16 +1036,14 @@ public final class BoundedCycleSolver implements CycleSolver {
         return maximum == null ? PlannerAmount.of(Long.MAX_VALUE) : maximum;
     }
 
-    private static void addBatchCandidate(Set<Long> candidates, PlannerAmount candidate, PlannerAmount maximum) {
+    private static void addBatchCandidate(BatchCandidates candidates, PlannerAmount candidate, PlannerAmount maximum) {
         if (candidate == null || candidate.signum() <= 0 || !candidate.fitsLong()
                 || candidate.compareTo(maximum) > 0) return;
         candidates.add(candidate.longValueExact());
     }
 
-    private static int compareProgress(Model model, Node left, Node right) {
-        PlannerAmount leftDeficit = deficitScore(model, left.marking);
-        PlannerAmount rightDeficit = deficitScore(model, right.marking);
-        int deficit = leftDeficit.compareTo(rightDeficit);
+    private static int compareProgress(Node left, Node right) {
+        int deficit = left.deficit.compareTo(right.deficit);
         if (deficit != 0) return deficit;
         return Integer.compare(left.depth, right.depth);
     }
@@ -1063,8 +1074,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         PlannerAmount count = PlannerAmount.of(batch);
         long[] cons = model.cons[transition];
         long[] prod = model.prod[transition];
-        for (int i = 0; i < next.length; i++) {
-            if (cons[i] <= 0L && prod[i] <= 0L) continue;
+        for (int i : model.metadata[transition].changedKeys) {
             if (model.suppliable[i]) {
                 next[i] = advanceWithBoundarySupply(marking[i], cons[i], prod[i], count);
             } else {
@@ -1429,7 +1439,8 @@ public final class BoundedCycleSolver implements CycleSolver {
         boolean[] member,
         boolean[] producesRequired,
         PlannerAmount[] stock,
-        PlannerAmount[] required
+        PlannerAmount[] required,
+        TransitionMetadata[] metadata
     ) {
         int keyCount() { return keys.size(); }
         int transitionCount() { return transitions.size(); }
@@ -1451,12 +1462,46 @@ public final class BoundedCycleSolver implements CycleSolver {
         private final int parent;
         private final BatchFiring firing;
         private final int depth;
+        private final PlannerAmount deficit;
 
-        private Node(PlannerAmount[] marking, int parent, BatchFiring firing, int depth) {
+        private Node(PlannerAmount[] marking, int parent, BatchFiring firing, int depth, PlannerAmount deficit) {
             this.marking = marking;
             this.parent = parent;
             this.firing = firing;
             this.depth = depth;
+            this.deficit = deficit;
+        }
+    }
+
+    private record OutputTarget(int key, PlannerAmount delta) {}
+    private record UnlockTarget(int key, PlannerAmount threshold, PlannerAmount delta) {}
+    private record TransitionMetadata(int[] consumedInternalKeys, int[] changedKeys,
+            OutputTarget[] requiredOutputs, UnlockTarget[] unlockTargets) {}
+
+    private static final long[] EMPTY_BATCHES = new long[0];
+
+    /** Invocation-local storage also keeps recursive lookahead candidates independent. */
+    private static final class BatchCandidates {
+        private long[] values = new long[8];
+        private int size;
+
+        void add(long value) {
+            for (int i = 0; i < size; i++) if (values[i] == value) return;
+            if (size == values.length) values = Arrays.copyOf(values, size * 2);
+            values[size++] = value;
+        }
+
+        long[] sorted(boolean ascending, boolean omitUnbounded) {
+            Arrays.sort(values, 0, size);
+            if (omitUnbounded && size > 0 && values[size - 1] == Long.MAX_VALUE) size--;
+            if (!ascending) {
+                for (int left = 0, right = size - 1; left < right; left++, right--) {
+                    long value = values[left];
+                    values[left] = values[right];
+                    values[right] = value;
+                }
+            }
+            return size == 0 ? EMPTY_BATCHES : Arrays.copyOf(values, size);
         }
     }
 

@@ -21,8 +21,7 @@ public final class CandidateResolver {
         while (!queue.isEmpty()) {
             AEKey failedKey = queue.removeFirst();
             for (AEKey parent : failed.parents.getOrDefault(failedKey, Set.of())) {
-                List<CompiledPattern> candidates = network.producersOf(parent).stream()
-                    .filter(CompiledPattern::fastSupported).toList();
+                List<CompiledPattern> candidates = network.fastProducersOf(parent);
                 int current = choices.getOrDefault(parent, 0);
                 if (current + 1 < candidates.size()) {
                     choices.put(parent, current + 1);

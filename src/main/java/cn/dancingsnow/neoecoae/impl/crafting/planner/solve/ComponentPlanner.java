@@ -79,6 +79,15 @@ public final class ComponentPlanner {
             ignorePatternSubstitutions, cancellation);
     }
 
+    public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
+            PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
+            cancellation);
+        return plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
+            ignorePatternSubstitutions, cancellation);
+    }
+
     public ActiveRouteSelector.Selection selectRoutes(CondensationGraph condensation,
             boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
         // Route selection and cycle avoidance are structural planning steps, not cycle solving. The toggle only
@@ -95,6 +104,13 @@ public final class ComponentPlanner {
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
             KeyCounter inventory, long amount, boolean cyclePlanningEnabled,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        return plan(network, activeSelection, inventory, PlannerInventorySnapshot.of(inventory), amount,
+            cyclePlanningEnabled, ignorePatternSubstitutions, cancellation);
+    }
+
+    public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
+            KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
@@ -106,7 +122,7 @@ public final class ComponentPlanner {
             .flatMap(cycle -> cycle.patterns().stream())
             .map(CompiledPattern::details)
             .collect(java.util.stream.Collectors.toSet());
-        var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), inventory, amount,
+        var acyclic = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), snapshot, amount,
             activeSelection.choices(), cycleOwnedPatterns, ignorePatternSubstitutions, cancellation);
         ECOPlanTrace trace = acyclic.trace();
         for (var deferred : activeSelection.deferredCyclicCandidates()) {
@@ -507,8 +523,7 @@ public final class ComponentPlanner {
             Map<AEKey, Integer> choices, AEKey key, int excludedComponentId) {
         if (condensation.componentFor(key) instanceof CycleComponent direct
                 && direct.componentId() != excludedComponentId) return direct;
-        List<CompiledPattern> candidates = network.producersOf(key).stream()
-            .filter(CompiledPattern::fastSupported).toList();
+        List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (!candidates.isEmpty()) {
             int choice = Math.max(0, Math.min(choices.getOrDefault(key, 0), candidates.size() - 1));
             IPatternDetails selected = candidates.get(choice).details();

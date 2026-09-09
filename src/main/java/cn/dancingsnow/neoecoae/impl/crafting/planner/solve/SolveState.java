@@ -36,6 +36,10 @@ public final class SolveState {
         for (var entry : inventory) if (entry.getLongValue() > 0) stored.add(entry.getKey(), entry.getLongValue());
     }
 
+    SolveState(PlannerInventorySnapshot inventory) {
+        inventory.initialize(stored);
+    }
+
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
     public KeyCounter usedItems() { return used.toKeyCounterExact("used items"); }
     /** AE2-facing view. Callers must only use this after execution representability was checked. */

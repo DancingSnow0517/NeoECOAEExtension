@@ -212,8 +212,7 @@ public final class SpecialPatternResolver {
     }
 
     private CompiledPattern selectedPattern(AEKey key) {
-        List<CompiledPattern> candidates = network.producersOf(key).stream()
-            .filter(CompiledPattern::fastSupported).toList();
+        List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (candidates.isEmpty()) return null;
         int choice = Math.max(0, choices.getOrDefault(key, 0));
         return candidates.get(Math.min(choice, candidates.size() - 1));

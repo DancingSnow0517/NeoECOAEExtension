@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
@@ -43,6 +44,7 @@ public final class ECOCraftingPlannerService {
         private final ICraftingService craftingService;
         private final AEKey goal;
         private final KeyCounter inventory;
+        private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
         private volatile CompiledNetwork compiled;
@@ -54,7 +56,8 @@ public final class ECOCraftingPlannerService {
                 boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions) {
             this.craftingService = craftingService;
             this.goal = goal;
-            this.inventory = copy(inventory);
+            this.inventorySnapshot = PlannerInventorySnapshot.of(inventory);
+            this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
         }
@@ -69,14 +72,14 @@ public final class ECOCraftingPlannerService {
                     if (activeSelection == null) synchronized (initializationLock) {
                         if (activeSelection == null) activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
                     }
-                    solved = componentPlanner.plan(compiled, activeSelection, inventory, amount, true,
+                    solved = componentPlanner.plan(compiled, activeSelection, inventory, inventorySnapshot, amount, true,
                         ignorePatternSubstitutions, cancellation);
                 } else {
-                    solved = componentPlanner.plan(compiled, condensation, inventory, amount, false,
+                    solved = componentPlanner.plan(compiled, condensation, inventory, inventorySnapshot, amount, false,
                         ignorePatternSubstitutions, cancellation);
                 }
                 solved = rejectUnclosedSuccess(solved, amount);
-                boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
+                boolean multiplePaths = compiled.multiplePaths();
                 var plan = switch (solved.status()) {
                     case SUCCESS, MISSING_ITEMS -> bridge.success(goal, amount,
                         simulation || solved.status() != PlanningStatus.SUCCESS, multiplePaths, solved.state());
@@ -187,9 +190,4 @@ public final class ECOCraftingPlannerService {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions);
     }
 
-    private static KeyCounter copy(KeyCounter source) {
-        KeyCounter result = new KeyCounter();
-        for (var entry : source) if (entry.getLongValue() > 0) result.add(entry.getKey(), entry.getLongValue());
-        return result;
-    }
 }

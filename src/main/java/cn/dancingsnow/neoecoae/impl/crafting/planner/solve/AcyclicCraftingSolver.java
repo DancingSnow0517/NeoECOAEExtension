@@ -53,6 +53,13 @@ public final class AcyclicCraftingSolver {
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, route, PlannerInventorySnapshot.of(inventory), amount, initialChoices,
+            deferredPatterns, ignorePatternSubstitutions, cancellation);
+    }
+
+    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, PlannerInventorySnapshot inventory,
+            long amount, Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
@@ -167,9 +174,7 @@ public final class AcyclicCraftingSolver {
 
     private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,
             Map<AEKey, Integer> choices) {
-        List<CompiledPattern> candidates = network.producersOf(key).stream()
-            .filter(CompiledPattern::fastSupported)
-            .toList();
+        List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (candidates.isEmpty()) return null;
         int choice = choices.getOrDefault(key, 0);
         if (choice < 0) choice = 0;
@@ -218,7 +223,7 @@ public final class AcyclicCraftingSolver {
                 state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
                 continue;
             }
-            List<CompiledPattern> fast = network.producersOf(key).stream().filter(CompiledPattern::fastSupported).toList();
+            List<CompiledPattern> fast = network.fastProducersOf(key);
             if (fast.isEmpty()) {
                 if (network.producersOf(key).isEmpty()) addCounter(state.missing, key, requested);
                 else state.unsupported.add(key);
