@@ -716,6 +716,12 @@ public class ECOCraftingCPULogic {
         if (data.contains("job")) {
             var jobData = data.getCompound("job");
             this.job = new ExecutingCraftingJob(jobData, registries, this::postChange, this);
+            IGrid grid = cpu.getGrid();
+            if (grid != null) {
+                // Publish the restored link only after the complete job decoded successfully. A failed restore stays
+                // quarantined in the threading core and must not leave an orphan link in the crafting service.
+                ((CraftingService) grid.getCraftingService()).addLink(this.job.link);
+            }
             // One-time migration of physical items held in the former separate final-output buffer.
             long buffered = jobData.getLong("bufferedFinalOutput");
             if (buffered > 0L && job.finalOutput != null) {

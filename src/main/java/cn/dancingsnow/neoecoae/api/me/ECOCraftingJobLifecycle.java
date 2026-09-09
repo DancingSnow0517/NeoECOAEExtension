@@ -46,6 +46,19 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         if (link.hasUUID("craftId")) finish(level, link.getUUID("craftId"), false);
     }
 
+    /**
+     * Repairs the obsolete restore-failure cancellation marker once the complete persisted CPU has decoded again.
+     * Completed jobs remain terminal; only the false marker formerly written by the quarantine path is removed.
+     */
+    public static void resumePersistedJob(@Nullable Level level, CompoundTag cpuData) {
+        CompoundTag link = cpuData.getCompound("job").getCompound("link");
+        if (!link.hasUUID("craftId")) return;
+        var data = get(level);
+        if (data != null && Boolean.FALSE.equals(data.terminatedJobs.remove(link.getUUID("craftId")))) {
+            data.setDirty();
+        }
+    }
+
     private static ECOCraftingJobLifecycle load(CompoundTag tag, HolderLookup.Provider registries) {
         var data = new ECOCraftingJobLifecycle();
         ListTag jobs = tag.getList("jobs", Tag.TAG_COMPOUND);

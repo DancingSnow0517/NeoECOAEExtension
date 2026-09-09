@@ -36,14 +36,12 @@ import net.minecraft.nbt.Tag;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
-import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
@@ -127,10 +125,6 @@ public class ExecutingCraftingJob {
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
             CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
-        IGrid grid = cpu.cpu.getGrid();
-        if (grid != null) {
-            ((CraftingService) grid.getCraftingService()).addLink(link);
-        }
 
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);

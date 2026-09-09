@@ -116,16 +116,17 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                     try {
                         cpu.readFromNBT(tag, registries);
                         if (cpu.getPlan() != null) {
+                            ECOCraftingJobLifecycle.resumePersistedJob(level, tag);
                             cpus[i] = cpu;
                             deferredInit[i] = null;
                             cluster.pickup(cpu.getPlan(), cpu);
                         } else {
-                            ECOCraftingJobLifecycle.cancelPersistedJob(level, tag);
-                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined", worldPosition);
+                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined for retry",
+                                worldPosition);
                         }
                     } catch (RuntimeException e) {
-                        ECOCraftingJobLifecycle.cancelPersistedJob(level, tag);
-                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data", worldPosition, e);
+                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data for retry",
+                            worldPosition, e);
                     }
                 }
             }
