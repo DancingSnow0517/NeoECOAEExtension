@@ -67,6 +67,7 @@ public final class PatternPreviewSync {
         List<ServerPlayer> active = level.players().stream().filter(this::isViewer).toList();
         viewers.keySet().removeIf(id -> active.stream().noneMatch(player -> player.getUUID().equals(id)));
         if (active.isEmpty()) return;
+        host.refreshPatternCatalog();
         int size = host.getPatternInterfaceSlotCount();
         int revision = host.getPatternContentRevision();
         boolean full = reset || cachedEntries.size() != size;

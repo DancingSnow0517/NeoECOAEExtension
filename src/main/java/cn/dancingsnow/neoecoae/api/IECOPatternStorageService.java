@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.networking.IGridService;
 import appeng.api.networking.IGrid;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -18,8 +19,8 @@ public interface IECOPatternStorageService extends IGridService {
     }
 
     /**
-     * Returns the network-wide migration candidates. While the index is rebuilding, {@code ready} is false and the
-     * caller must wait for a later tick instead of falling back to a full synchronous inventory scan.
+     * Returns network-wide migration index progress. Discovered candidates are claimable while {@code ready} is
+     * false; readiness only means that the scanner has reached the end of the current generation.
      */
     ExternalPatternIndexState getExternalPatternIndex(IGrid grid);
 
@@ -38,6 +39,12 @@ public interface IECOPatternStorageService extends IGridService {
 
     default long getPatternCapacityGeneration() {
         return 0L;
+    }
+
+    /** Applies one atomic pattern-bus mutation to the network catalog. */
+    default void onPatternSlotsChanged(ECOCraftingPatternBusBlockEntity bus,
+                                       int previousRevision,
+                                       int[] changedSlots) {
     }
 
     record ExternalPatternIndexState(

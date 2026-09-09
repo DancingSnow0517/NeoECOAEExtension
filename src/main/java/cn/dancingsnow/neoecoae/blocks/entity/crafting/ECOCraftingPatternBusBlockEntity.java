@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
+import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
@@ -74,7 +75,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -132,6 +132,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private transient boolean craftingProviderRefreshQueued;
     /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
     private transient ECOPreparedPattern activePreparedPattern;
+    private transient int patternBatchDepth;
+    private final transient BitSet patternBatchChangedSlots = new BitSet();
     /** Ordinary one-craft dispatch follows AdvancedAE's successful-target round-robin. */
     private int dispatchRoundRobinIndex;
 
@@ -693,11 +695,24 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
+        if (patternBatchDepth > 0) {
+            return;
+        }
         this.saveChanges();
     }
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+        if (patternBatchDepth > 0) {
+            if (slot >= 0 && slot < inventory.size()) {
+                patternBatchChangedSlots.set(slot);
+            } else {
+                patternCapacityIndexInitialized = false;
+                rebuildAllPatternDetails = true;
+            }
+            return;
+        }
+        int previousRevision = patternContentRevision;
         this.saveChanges();
         incrementPatternContentRevision();
         if (slot < 0 || slot >= inventory.size()) {
@@ -720,7 +735,100 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             rebuildAllPatternDetails = true;
         }
         queuePatternDetailsUpdate();
+        notifyPatternCatalog(previousRevision, new int[] { slot });
         notifyPatternInterfaceHosts(slot);
+    }
+
+    /** Starts a server-thread mutation batch. Nested callers share the outer commit. */
+    public void beginPatternBatch() {
+        patternBatchDepth++;
+    }
+
+    /** Writes one physical slot while retaining the exact key/space delta for the catalog commit. */
+    public void setPatternDirect(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= effectiveInventory.size()) {
+            return;
+        }
+        ItemStack next = stack == null ? ItemStack.EMPTY : stack;
+        ItemStack previous = inventory.getStackInSlot(slot);
+        if (ItemStack.matches(previous, next)) {
+            return;
+        }
+        if (patternBatchDepth <= 0) {
+            inventory.setItemDirect(slot, next);
+            return;
+        }
+        patternBatchChangedSlots.set(slot);
+        inventory.setItemDirect(slot, next);
+    }
+
+    public void endPatternBatch() {
+        if (patternBatchDepth <= 0) {
+            throw new IllegalStateException("Pattern batch is not active");
+        }
+        if (--patternBatchDepth > 0) {
+            return;
+        }
+        if (patternBatchChangedSlots.isEmpty()) {
+            clearPatternBatchState();
+            return;
+        }
+
+        int previousRevision = patternContentRevision;
+        this.saveChanges();
+        incrementPatternContentRevision();
+        applyPatternCapacityBatch(patternBatchChangedSlots);
+        dirtyPatternSlots.or(patternBatchChangedSlots);
+
+        IGrid grid = getMainNode().getGrid();
+        if (grid != null) {
+            IECOPatternStorageService storageService = grid.getService(IECOPatternStorageService.class);
+            if (storageService != null) {
+                storageService.onPatternSlotsChanged(
+                        this, previousRevision, patternBatchChangedSlots.stream().toArray());
+            }
+        }
+        updatePatternDetails();
+        patternDetailsUpdateQueued = false;
+        clearPatternBatchState();
+    }
+
+    private void applyPatternCapacityBatch(BitSet changedSlots) {
+        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
+        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
+            rebuildPatternCapacityIndex(slotCount);
+        } else {
+            for (int slot = changedSlots.nextSetBit(0);
+                 slot >= 0 && slot < slotCount;
+                 slot = changedSlots.nextSetBit(slot + 1)) {
+                emptyPatternSlots.set(slot, inventory.getStackInSlot(slot).isEmpty());
+            }
+            patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
+                    ? 1
+                    : patternCapacityGeneration + 1;
+        }
+        highestOccupiedSlot = -1;
+        for (int slot = slotCount - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                highestOccupiedSlot = slot;
+                break;
+            }
+        }
+    }
+
+    private void clearPatternBatchState() {
+        patternBatchChangedSlots.clear();
+    }
+
+    private void notifyPatternCatalog(int previousRevision, int[] changedSlots) {
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+        IECOPatternStorageService storageService = grid.getService(IECOPatternStorageService.class);
+        if (storageService != null) {
+            storageService.onPatternSlotsChanged(this, previousRevision, changedSlots);
+        }
     }
 
     @Override
@@ -805,8 +913,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         ICraftingProvider.requestUpdate(this.getMainNode());
         if (refreshedAll) {
             notifyPatternInterfaceHosts(-1);
-        } else {
-            for (int slot : refreshedSlots) notifyPatternInterfaceHosts(slot);
+        } else if (refreshedSlots.length > 0) {
+            notifyPatternInterfaceHosts(refreshedSlots);
         }
     }
 
@@ -849,6 +957,19 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return slot >= 0 && slot < patternSearchKeywords.length ? patternSearchKeywords[slot] : "";
     }
 
+    /** Makes the bus-owned decode cache current before catalog planning reads it. */
+    public void refreshPatternDetailsForCatalog() {
+        if (rebuildAllPatternDetails || !dirtyPatternSlots.isEmpty()) {
+            updatePatternDetails();
+            patternDetailsUpdateQueued = false;
+        }
+    }
+
+    @Nullable
+    public IPatternDetails getDecodedPatternDetails(int slot) {
+        return slot >= 0 && slot < decodedPatternDetails.length ? decodedPatternDetails[slot] : null;
+    }
+
     private void incrementPatternContentRevision() {
         patternContentRevision = patternContentRevision == Integer.MAX_VALUE
             ? 1
@@ -862,6 +983,16 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         for (var machineInterface : getMainNode().getGrid()
                 .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
             machineInterface.onPatternBusInventoryChanged(this, slot);
+        }
+    }
+
+    private void notifyPatternInterfaceHosts(int[] slots) {
+        if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
+            return;
+        }
+        for (var machineInterface : getMainNode().getGrid()
+                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
+            machineInterface.onPatternBusInventoryChanged(this, slots);
         }
     }
 
