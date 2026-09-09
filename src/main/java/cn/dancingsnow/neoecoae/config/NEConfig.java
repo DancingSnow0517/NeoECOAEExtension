@@ -55,6 +55,24 @@ public class NEConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER
+            .comment(
+                "ECO 存储系统选项。",
+                "ECO storage system options.")
+            .push("storage");
+    }
+
+    private static final ModConfigSpec.LongValue MEGA_BULK_AUTO_MARK_THRESHOLD = BUILDER
+        .comment(
+            "ECO 存储主机自动标记可压缩物品时使用的数量阈值；只有数量严格大于此值的物品才会被标记。",
+            "Amount threshold used when an ECO storage host automatically marks compressible items; only amounts strictly greater than this value are marked.")
+        .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
+
+    static {
+        BUILDER.pop();
+    }
+
     private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
         .comment(
             "合成系统完成配方时发送原版合成事件（ItemCraftedEvent）。",
@@ -198,6 +216,7 @@ public class NEConfig {
     public static int craftingSystemMaxLength;
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
+    public static long megaBulkAutoMarkThreshold = 20_000L;
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
@@ -230,6 +249,7 @@ public class NEConfig {
         craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.get();
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
+        megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();

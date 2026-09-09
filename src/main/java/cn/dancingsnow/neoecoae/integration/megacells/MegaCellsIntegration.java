@@ -7,7 +7,9 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
+import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressionService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -22,6 +24,10 @@ public final class MegaCellsIntegration {
     private boolean chemicalEnabled;
 
     public void apply() {
+        StorageBulkMarkingIntegration.register(
+            MegaBulkMarkingService::autoMark,
+            MegaBulkMarkingService::hasBulkCell
+        );
         GridServices.register(ECOMegaDecompressionService.class, ECOMegaDecompressionService.class);
         NEMegaCellTypes.register();
         NEMegaItems.register();

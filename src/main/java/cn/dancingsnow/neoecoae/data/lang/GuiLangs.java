@@ -73,6 +73,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
         provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
         provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
+        provider.add("gui.neoecoae.storage.bulk_mark", "Auto-mark compressible items above %s");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.success",
+            "Auto-marked %s; already marked %s; no space %s; internally transferred %s");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO MEGA long bulk cell installed");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "MEGA bulk-cell integration is unavailable");
         provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 

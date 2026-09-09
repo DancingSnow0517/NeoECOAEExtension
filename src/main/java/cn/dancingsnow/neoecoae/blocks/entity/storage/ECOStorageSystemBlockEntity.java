@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceSafety;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
@@ -348,7 +349,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             this::isFormedInfiniteMode,
             this::isMigratingToInfinite,
             this::canExtractInfiniteComponents,
-            infiniteComponentItemHandler
+            infiniteComponentItemHandler,
+            () -> StorageBulkMarkingIntegration.hasBulkCell(this)
         ));
         actionUI.addTo(root);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -696,8 +698,31 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             buildController::createLocalPreviewPlan,
             () -> storagePriority,
             priority -> setStoragePriority(holder.player, priority),
-            delta -> changeStoragePriority(holder.player, delta)
+            delta -> changeStoragePriority(holder.player, delta),
+            StorageBulkMarkingIntegration::isAvailable,
+            () -> NEConfig.megaBulkAutoMarkThreshold,
+            () -> autoMarkBulkCells(holder.player)
         ));
+    }
+
+    private void autoMarkBulkCells(Player player) {
+        if (!canPlayerInteract(player)) {
+            return;
+        }
+        StorageBulkMarkingIntegration.MarkResult result = StorageBulkMarkingIntegration.autoMark(
+            this, NEConfig.megaBulkAutoMarkThreshold);
+        String key = switch (result.status()) {
+            case SUCCESS -> "gui.neoecoae.storage.bulk_mark.result.success";
+            case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_mark.result.no_bulk_cell";
+            case BUSY -> "gui.neoecoae.storage.bulk_mark.result.busy";
+            case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_mark.result.invalid_threshold";
+            case UNAVAILABLE -> "gui.neoecoae.storage.bulk_mark.result.unavailable";
+        };
+        net.minecraft.network.chat.Component message = result.status() == StorageBulkMarkingIntegration.Status.SUCCESS
+            ? net.minecraft.network.chat.Component.translatable(
+                key, result.added(), result.alreadyMarked(), result.noSpace(), result.transferred())
+            : net.minecraft.network.chat.Component.translatable(key);
+        player.displayClientMessage(message, true);
     }
 
     private void changeStoragePriority(Player player, int delta) {
@@ -724,6 +749,32 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             IStorageProvider.requestUpdate(drive.getMainNode());
         }
         IStorageProvider.requestUpdate(getMainNode());
+    }
+
+    /** Read-only local-storage snapshot for optional integrations. */
+    public KeyCounter collectLocalStorageStacksForIntegration() {
+        KeyCounter result = new KeyCounter();
+        MEStorage storage = getStorageInterfaceHostStorage();
+        if (storage != null) {
+            storage.getAvailableStacks(result);
+        }
+        return result;
+    }
+
+    /** Stable snapshot of the drives belonging to this storage host. */
+    public List<ECODriveBlockEntity> getStorageDrivesForIntegration() {
+        return cluster == null ? List.of() : List.copyOf(cluster.getDrives());
+    }
+
+    /** Invalidates host UI data and refreshes AE2 mounts after an integration changes cell configuration. */
+    public void notifyStorageConfigurationChanged() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        storageUiSnapshotGameTime = Long.MIN_VALUE;
+        setChanged();
+        markForUpdate();
+        refreshDriveStorageProviders();
     }
 
     @Override

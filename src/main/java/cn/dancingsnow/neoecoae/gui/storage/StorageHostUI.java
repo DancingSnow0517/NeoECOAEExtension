@@ -47,6 +47,11 @@ public final class StorageHostUI {
     public static final int ROOT_WIDTH = 272;
     public static final int ROOT_HEIGHT = 216;
 
+    private static final int ECO_MEGA_PANEL_WIDTH = 103;
+    private static final int ECO_MEGA_PANEL_HEIGHT = 130;
+    private static final int ECO_MEGA_PANEL_LEFT = ROOT_WIDTH;
+    private static final int ECO_MEGA_PANEL_TOP = ROOT_HEIGHT - ECO_MEGA_PANEL_HEIGHT;
+
     private static final int CHART_LEFT = 63;
     private static final int CHART_TOP = 22;
     private static final int GRAPH_BAR_OFFSET_LEFT = 9;
@@ -109,7 +114,8 @@ public final class StorageHostUI {
         BooleanSupplier infiniteStorage,
         BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents,
-        IItemHandlerModifiable infiniteComponentInventory
+        IItemHandlerModifiable infiniteComponentInventory,
+        BooleanSupplier ecoMegaPanelVisible
     ) {
     }
 
@@ -177,6 +183,13 @@ public final class StorageHostUI {
             .width(INFINITE_COMPONENT_SLOT_SIZE)
             .height(INFINITE_COMPONENT_SLOT_SIZE)));
         root.addChild(playerInventory());
+        root.addChild(HostElements.absolute(
+            HostElements.syncedDisplay(config.ecoMegaPanelVisible()),
+            ECO_MEGA_PANEL_LEFT,
+            ECO_MEGA_PANEL_TOP,
+            ECO_MEGA_PANEL_WIDTH,
+            ECO_MEGA_PANEL_HEIGHT
+        ).style(style -> style.backgroundTexture(TEXTURES.ecoMegaStorage)));
         return root;
     }
 
@@ -310,7 +323,7 @@ public final class StorageHostUI {
         inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         for (InventorySlots.Row row : inventory.rows) {
-            row.apply(slot -> slot.transform(transform -> transform.translate(0, 1)));
+            row.apply(slot -> slot.transform(transform -> transform.translate(0, 3)));
         }
         return inventory;
     }
@@ -792,6 +805,8 @@ public final class StorageHostUI {
     private static final class ResourceLocations {
         private final SpriteTexture infiniteBackground = sprite(
             "estorage_infinite_controller.png", 0, 0, ROOT_WIDTH, ROOT_HEIGHT);
+        private final SpriteTexture ecoMegaStorage = sprite(
+            "eco_mega_storage.png", 0, 0, ECO_MEGA_PANEL_WIDTH, ECO_MEGA_PANEL_HEIGHT);
         private final SpriteTexture itemPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
         private final SpriteTexture fluidPercent = sprite("estorage_controller_elements.png", 6, 225, 60, 6);
         private final SpriteTexture gasPercent = sprite("estorage_controller_elements.png", 1, 232, 65, 6);
