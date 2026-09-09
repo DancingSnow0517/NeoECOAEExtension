@@ -4,16 +4,17 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
-import java.util.Collections;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
 /** Identity-scoped NET_GROWTH_SAFE evidence issued by the smart pattern bus. */
 public final class NetGrowthPatternValidationRegistry {
-    private static final Set<IPatternDetails> VALIDATED =
-        Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+    private static final WeakIdentitySet<IPatternDetails> VALIDATED = new WeakIdentitySet<>();
 
     private NetGrowthPatternValidationRegistry() {}
 
@@ -100,5 +101,65 @@ public final class NetGrowthPatternValidationRegistry {
 
     public static void clear() {
         VALIDATED.clear();
+    }
+
+    private static final class WeakIdentitySet<T> {
+        private final ReferenceQueue<T> queue = new ReferenceQueue<>();
+        private final Set<IdentityRef<T>> entries = new HashSet<>();
+
+        synchronized void add(T value) {
+            expunge();
+            entries.add(new IdentityRef<>(value, queue));
+        }
+
+        synchronized boolean contains(T value) {
+            expunge();
+            return entries.contains(new IdentityRef<>(value));
+        }
+
+        synchronized void clear() {
+            entries.clear();
+            while (queue.poll() != null) {
+                // Drain references that were enqueued before the clear.
+            }
+        }
+
+        private void expunge() {
+            Reference<? extends T> reference;
+            while ((reference = queue.poll()) != null) {
+                entries.remove(reference);
+            }
+        }
+    }
+
+    private static final class IdentityRef<T> extends WeakReference<T> {
+        private final int identityHash;
+
+        IdentityRef(T value, ReferenceQueue<T> queue) {
+            super(value, queue);
+            identityHash = System.identityHashCode(value);
+        }
+
+        IdentityRef(T value) {
+            super(value);
+            identityHash = System.identityHashCode(value);
+        }
+
+        @Override
+        public int hashCode() {
+            return identityHash;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof IdentityRef<?> reference)) {
+                return false;
+            }
+            Object value = get();
+            return value != null && value == reference.get();
+        }
     }
 }

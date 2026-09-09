@@ -33,6 +33,43 @@ public final class ECOSophisticatedMutationBatch {
         return NOOP;
     }
 
+    /** Drops an accidentally unclosed server-thread scope at the server lifecycle boundary. */
+    public static void clearThreadState() {
+        State state = CURRENT.get();
+        CURRENT.remove();
+        if (state != null) {
+            state.depth = 0;
+            flush(state);
+        }
+    }
+
+    public static void assertClean() {
+        if (CURRENT.get() != null) {
+            throw new IllegalStateException("ECOSophisticatedMutationBatch scope leaked across a server tick");
+        }
+    }
+
+    private static void flush(State closing) {
+        closing.currentKey = null;
+        for (var entry : new ArrayList<>(closing.dirty.entrySet())) {
+            try {
+                ((ECOSophisticatedHandlerBridge) entry.getKey()).neoecoae$saveInventory();
+                ECOSophisticatedMetrics.BATCH_FLUSHES.incrementAndGet();
+            } catch (Throwable failure) {
+                ECOSophisticatedMetrics.FLUSH_FAILURES.incrementAndGet();
+                Set<AEKey> keys = new LinkedHashSet<>(entry.getValue());
+                keys.remove(null);
+                Set<AEKey> immutableKeys = Set.copyOf(keys);
+                synchronized (FAILED_FLUSHES) {
+                    FAILED_FLUSHES.put(entry.getKey(),
+                        new FailedFlush(immutableKeys, new WeakReference<>(closing.failureSink)));
+                }
+                closing.failureSink.onFlushFailure(immutableKeys, failure);
+            }
+        }
+        closing.dirty.clear();
+    }
+
     public static boolean deferSave(Object handler) {
         State state = CURRENT.get();
         if (state == null || !(handler instanceof ECOSophisticatedHandlerBridge)) return false;
@@ -104,22 +141,7 @@ public final class ECOSophisticatedMutationBatch {
             state = null;
             if (--closing.depth > 0) return;
             CURRENT.remove();
-            for (var entry : new ArrayList<>(closing.dirty.entrySet())) {
-                try {
-                    ((ECOSophisticatedHandlerBridge) entry.getKey()).neoecoae$saveInventory();
-                    ECOSophisticatedMetrics.BATCH_FLUSHES.incrementAndGet();
-                } catch (Throwable failure) {
-                    ECOSophisticatedMetrics.FLUSH_FAILURES.incrementAndGet();
-                    Set<AEKey> keys = new LinkedHashSet<>(entry.getValue());
-                    keys.remove(null);
-                    Set<AEKey> immutableKeys = Set.copyOf(keys);
-                    synchronized (FAILED_FLUSHES) {
-                        FAILED_FLUSHES.put(entry.getKey(),
-                            new FailedFlush(immutableKeys, new WeakReference<>(closing.failureSink)));
-                    }
-                    closing.failureSink.onFlushFailure(immutableKeys, failure);
-                }
-            }
+            flush(closing);
         }
     }
 

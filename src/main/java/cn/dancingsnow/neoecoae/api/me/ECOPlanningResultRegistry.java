@@ -241,6 +241,13 @@ public final class ECOPlanningResultRegistry {
         }
     }
 
+    public static void clear() {
+        synchronized (RESULTS) {
+            RESULTS.clear();
+        }
+        ACTIVE_SUBMISSION_ALIAS.remove();
+    }
+
     public static String mismatchDiagnostic(ICraftingPlan plan) {
         Signature submittedSignature = PlanIdentity.of(plan);
         if (submittedSignature == null) return "submitted-signature-unavailable";

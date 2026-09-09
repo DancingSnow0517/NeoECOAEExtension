@@ -62,6 +62,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -151,6 +152,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         new cn.dancingsnow.neoecoae.impl.storage.transfer.ECOGenericTransfer();
     private ECOInfiniteStorageEngine cachedStorageEngine;
     private MEStorage cachedInfiniteStorage;
+    @Nullable
+    private transient MinecraftServer mountedInfiniteServer;
+    @Nullable
+    private transient UUID mountedInfiniteDomainId;
+    @Nullable
+    private transient ECOInfiniteStorageEngine mountedInfiniteEngine;
     private final Map<UUID, MigrationCursor> migrationCursors = new HashMap<>();
     private int migrationDriveCursor;
     private RestorePlan activeRestorePlan;
@@ -743,6 +750,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
             return;
         }
+        releaseMountedInfiniteEngine();
         infiniteDomainId = tag.getUUID(CONTROLLER_DOMAIN_TAG);
         hostMode = ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG));
         setChanged();
@@ -1594,7 +1602,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             // Journal receipts remain as ownership tombstones for stale source chunks.
             engine.clearMigrationReceipts();
             engine.commit();
-            ECOInfiniteStorageDomains.release(serverLevel.getServer(), domainId);
+            releaseMountedInfiniteEngine();
         }
         infiniteDomainId = null;
         refreshDriveStorageProviders();
@@ -1621,29 +1629,54 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (nextCluster == null && finiteTransferDomain != null) {
             materializeFiniteTransferDomain();
         }
+        if (nextCluster == null) {
+            releaseMountedInfiniteEngine();
+        }
         super.updateCluster(nextCluster);
     }
 
     @Override
     public void onChunkUnloaded() {
         materializeFiniteTransferDomain();
+        releaseMountedInfiniteEngine();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
         materializeFiniteTransferDomain();
+        releaseMountedInfiniteEngine();
         super.setRemoved();
     }
 
     @Nullable
     private ECOInfiniteStorageEngine getInfiniteEngine() {
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
+            releaseMountedInfiniteEngine();
             return null;
         }
-        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, infiniteDomainId);
+        MinecraftServer server = serverLevel.getServer();
+        if (mountedInfiniteEngine == null || mountedInfiniteServer != server
+                || !infiniteDomainId.equals(mountedInfiniteDomainId)) {
+            releaseMountedInfiniteEngine();
+            mountedInfiniteServer = server;
+            mountedInfiniteDomainId = infiniteDomainId;
+            mountedInfiniteEngine = ECOInfiniteStorageDomains.acquire(serverLevel, infiniteDomainId);
+        }
+        ECOInfiniteStorageEngine engine = mountedInfiniteEngine;
         engine.setCapacityBytes(calculateInfiniteCapacityBytes());
         return engine;
+    }
+
+    private void releaseMountedInfiniteEngine() {
+        if (mountedInfiniteServer != null && mountedInfiniteDomainId != null) {
+            ECOInfiniteStorageDomains.release(mountedInfiniteServer, mountedInfiniteDomainId);
+        }
+        mountedInfiniteServer = null;
+        mountedInfiniteDomainId = null;
+        mountedInfiniteEngine = null;
+        cachedStorageEngine = null;
+        cachedInfiniteStorage = null;
     }
 
     private long calculateInfiniteCapacityBytes() {

@@ -11,6 +11,9 @@ public final class PatternBusUpdateScheduler {
     private PatternBusUpdateScheduler() {}
     public static void mark(ECOCraftingPatternBusBlockEntity bus, int deadline) { DIRTY.put(bus, deadline); }
     public static void remove(ECOCraftingPatternBusBlockEntity bus) { DIRTY.remove(bus); }
+    public static void clear(MinecraftServer server) {
+        DIRTY.keySet().removeIf(bus -> bus.getLevel() == null || bus.getLevel().getServer() == server);
+    }
     public static void tick(MinecraftServer server) {
         int now = server.getTickCount();
         for (Iterator<Map.Entry<ECOCraftingPatternBusBlockEntity, Integer>> it = DIRTY.entrySet().iterator(); it.hasNext();) {

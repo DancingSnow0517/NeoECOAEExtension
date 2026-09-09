@@ -43,6 +43,26 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         }
     }
 
+    /** Drops an accidentally unclosed server-thread scope at the server lifecycle boundary. */
+    public static void clearThreadState() {
+        ECOCellMutationBatch batch = ACTIVE.get();
+        ACTIVE.remove();
+        Set<ECOStorageCell> pending = new LinkedHashSet<>();
+        while (batch != null) {
+            pending.addAll(batch.changed);
+            batch.changed.clear();
+            batch.closed = true;
+            batch = batch.parent;
+        }
+        for (ECOStorageCell cell : pending) flush(cell);
+    }
+
+    public static void assertClean() {
+        if (ACTIVE.get() != null) {
+            throw new IllegalStateException("ECOCellMutationBatch scope leaked across a server tick");
+        }
+    }
+
     private static void flush(ECOStorageCell cell) {
         try {
             cell.flushBatchedChanges();

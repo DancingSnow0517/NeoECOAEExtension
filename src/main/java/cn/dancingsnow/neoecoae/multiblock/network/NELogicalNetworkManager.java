@@ -18,7 +18,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
 
 /**
  * Server-thread authority for network-switch group membership. A logical group is scoped to one
@@ -28,7 +27,7 @@ import java.util.WeakHashMap;
  * the same logical group.
  */
 public final class NELogicalNetworkManager {
-    private static final Map<ServerLevel, LevelState> LEVELS = new WeakHashMap<>();
+    private static final Map<ServerLevel, LevelState> LEVELS = new IdentityHashMap<>();
     private static final int NETWORK_HOST_LIMIT = NEFrequencyAllocator.HOST_LIMIT;
 
     private NELogicalNetworkManager() {
@@ -94,10 +93,12 @@ public final class NELogicalNetworkManager {
         int refreshTick = serverLevel.getServer().getTickCount() + 1;
         serverLevel.getServer().tell(new TickTask(refreshTick, () -> {
             LevelState currentState = LEVELS.get(serverLevel);
-            if (currentState != null) {
-                currentState.pendingGridRefresh.remove(cluster);
+            if (currentState == null) {
+                return;
             }
-            if (!serverLevel.getServer().isStopped()) {
+            currentState.pendingGridRefresh.remove(cluster);
+            if (!serverLevel.getServer().isStopped() && !cluster.isDestroyed()
+                    && getLevel(cluster) == serverLevel) {
                 refresh(cluster);
             }
         }));
@@ -116,15 +117,27 @@ public final class NELogicalNetworkManager {
     }
 
     public static void clearAll() {
-        for (LevelState state : LEVELS.values()) {
-            for (NECraftingCluster cluster : state.crafting) {
-                cluster.setNetworkCluster(null);
-            }
-            for (NEComputationCluster cluster : state.computation) {
-                cluster.setNetworkCluster(null);
-            }
+        for (ServerLevel level : List.copyOf(LEVELS.keySet())) {
+            clear(level);
         }
-        LEVELS.clear();
+    }
+
+    public static void clear(ServerLevel level) {
+        LevelState state = LEVELS.remove(level);
+        if (state == null) {
+            return;
+        }
+        for (NECraftingCluster cluster : state.crafting) {
+            cluster.setNetworkCluster(null);
+        }
+        for (NEComputationCluster cluster : state.computation) {
+            cluster.setNetworkCluster(null);
+        }
+        state.pendingGridRefresh.clear();
+        state.craftingNetworks.clear();
+        state.computationNetworks.clear();
+        state.crafting.clear();
+        state.computation.clear();
     }
 
     private static void detach(NECluster<?> cluster) {

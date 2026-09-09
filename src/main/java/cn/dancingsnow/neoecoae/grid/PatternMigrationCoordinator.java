@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.grid;
 
+import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -13,7 +14,7 @@ public final class PatternMigrationCoordinator {
     private static final Map<Object, PatternMigrationCoordinator> BY_GRID =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    private Object owner;
+    private WeakReference<Object> owner = new WeakReference<>(null);
     private long budgetGameTime = Long.MIN_VALUE;
     private long budgetDeadlineNanos;
     private long completedSlices;
@@ -33,7 +34,7 @@ public final class PatternMigrationCoordinator {
     public static boolean isAnyMigrationActive() {
         synchronized (BY_GRID) {
             for (PatternMigrationCoordinator coordinator : BY_GRID.values()) {
-                if (coordinator.owner != null) {
+                if (coordinator.owner.get() != null) {
                     return true;
                 }
             }
@@ -44,26 +45,27 @@ public final class PatternMigrationCoordinator {
     /** Acquires the one migration lease for this grid. Calls are expected on the server thread. */
     public boolean tryAcquire(Object requester) {
         Objects.requireNonNull(requester, "requester");
-        if (owner == null || owner == requester) {
-            owner = requester;
+        Object current = owner.get();
+        if (current == null || current == requester) {
+            owner = new WeakReference<>(requester);
             return true;
         }
         return false;
     }
 
     public boolean isOwner(Object requester) {
-        return owner == requester;
+        return owner.get() == requester;
     }
 
     public void release(Object requester) {
-        if (owner == requester) {
-            owner = null;
+        if (owner.get() == requester) {
+            owner.clear();
         }
     }
 
     /** Starts or returns this tick's shared budget; zero means the requester does not hold the lease. */
     public long beginSlice(Object requester, long gameTime) {
-        if (owner != requester) {
+        if (owner.get() != requester) {
             return 0L;
         }
         if (budgetGameTime != gameTime) {

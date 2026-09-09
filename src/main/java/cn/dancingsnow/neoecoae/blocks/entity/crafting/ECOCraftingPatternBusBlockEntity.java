@@ -849,6 +849,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Override
     public void onChunkUnloaded() {
         IGrid previousGrid = getMainNode().getGrid();
+        PatternBusUpdateScheduler.remove(this);
         super.onChunkUnloaded();
         notifyPatternInterfaceTopologyChanged(previousGrid);
     }
