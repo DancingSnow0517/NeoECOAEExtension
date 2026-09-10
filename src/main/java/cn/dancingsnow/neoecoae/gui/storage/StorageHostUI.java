@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.widget.NELDLibSyncedStateWidget;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextFieldWidget;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.FriendlyByteBuf;
@@ -19,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 /** LDLib1 implementation of the 1.21 storage host surface. Server storage remains authoritative. */
 public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiState> {
@@ -40,6 +42,13 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private double animatedRatio;
     private TextFieldWidget priorityField;
     private SlotWidget infiniteSlot;
+    private SlotWidget megaUpgradeSlot;
+    private int megaCellCount;
+    private int megaCellIndex;
+    private int megaPage;
+    private boolean megaUpgraded;
+    private long megaFingerprint = Long.MIN_VALUE;
+    private final List<ItemStack> megaFilters = new ArrayList<>();
     private final PageSession pageSession;
 
     private static final class PageSession {
@@ -102,6 +111,10 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     }
                 })
                 .useAeTabButton());
+        addWidget(new NEAe2IconButtonWidget(-20, 110, 18, 20, Icon.BACKGROUND_UPGRADE, click -> {
+                    if (click.isRemote) panel = panel == 6 ? 0 : 6;
+                })
+                .useAeTabButton());
         NEPlayerInventoryWidgets.addPlayerInventorySlots(this, player.getInventory(), 7, 129, 187);
         infiniteSlot = new SlotWidget(
                 new NEForgeItemTransfer(
@@ -120,6 +133,18 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             }
         }.setBackgroundTexture(IGuiTexture.EMPTY);
         addWidget(infiniteSlot);
+        megaUpgradeSlot = new SlotWidget(
+                        new NEForgeItemTransfer(
+                                storage.getEcoMegaUpgradeItemHandler(), storage::notifyStorageConfigurationChanged),
+                        0,
+                        116,
+                        82,
+                        true,
+                        true)
+                .setBackgroundTexture(IGuiTexture.EMPTY);
+        megaUpgradeSlot.setVisible(false);
+        megaUpgradeSlot.setActive(false);
+        addWidget(megaUpgradeSlot);
         priorityField = new TextFieldWidget(60, 55, 92, 14, () -> Integer.toString(priority), text -> {
             try {
                 if (player instanceof ServerPlayer
@@ -139,9 +164,13 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     @Override
     public void detectAndSendChanges() {
         super.detectAndSendChanges();
-        if (priority != storage.getPriority() || length != storage.getSelectedBuildLength()) {
+        long currentMegaFingerprint = storage.getEcoMegaConfigurationFingerprint();
+        if (priority != storage.getPriority()
+                || length != storage.getSelectedBuildLength()
+                || megaFingerprint != currentMegaFingerprint) {
             priority = storage.getPriority();
             length = storage.getSelectedBuildLength();
+            megaFingerprint = currentMegaFingerprint;
             writeUpdateInfo(CONFIG, this::writeConfig);
         }
     }
@@ -149,11 +178,22 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private void writeConfig(FriendlyByteBuf buf) {
         buf.writeInt(storage.getPriority());
         buf.writeVarInt(storage.getSelectedBuildLength());
+        buf.writeVarInt(storage.getEcoMegaBulkCellCount());
+        buf.writeVarInt(storage.getSelectedEcoMegaBulkCell());
+        buf.writeVarInt(storage.getSelectedEcoMegaPage());
+        buf.writeBoolean(storage.hasEcoMegaUpgradeCard());
+        for (int slot = 0; slot < 25; slot++) buf.writeItem(storage.getEcoMegaFilterStack(slot));
     }
 
     private void readConfig(FriendlyByteBuf buf) {
         priority = buf.readInt();
         length = buf.readVarInt();
+        megaCellCount = buf.readVarInt();
+        megaCellIndex = buf.readVarInt();
+        megaPage = buf.readVarInt();
+        megaUpgraded = buf.readBoolean();
+        megaFilters.clear();
+        for (int slot = 0; slot < 25; slot++) megaFilters.add(buf.readItem());
     }
 
     @Override
@@ -182,6 +222,15 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         });
     }
 
+    private void sendFilter(int slot, ItemStack stack) {
+        writeClientAction(ACTION, buf -> {
+            buf.writeVarInt(9);
+            buf.writeInt(slot);
+            buf.writeBoolean(false);
+            buf.writeItem(stack == null ? ItemStack.EMPTY : stack.copy());
+        });
+    }
+
     @Override
     public void handleClientAction(int id, FriendlyByteBuf buf) {
         if (id != ACTION) {
@@ -191,6 +240,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         int action = buf.readVarInt();
         int value = buf.readInt();
         boolean mirror = buf.readBoolean();
+        ItemStack filter = action == 9 ? buf.readItem() : ItemStack.EMPTY;
         if (!(player instanceof ServerPlayer serverPlayer)
                 || storage.isRemoved()
                 || player.distanceToSqr(storage.getBlockPos().getCenter()) > 64) return;
@@ -215,6 +265,26 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             case 6 -> {
                 if (value >= 0 && value < currentState().hugeStackPageCount()) pageSession.page = value;
             }
+            case 7 -> storage.changeSelectedEcoMegaBulkCell(value < 0 ? -1 : 1);
+            case 8 -> storage.changeSelectedEcoMegaPage(value < 0 ? -1 : 1);
+            case 9 -> storage.setEcoMegaFilter(value, filter);
+            case 10 -> {
+                var result = storage.autoMarkEcoMegaBulkCells();
+                String key =
+                        switch (result.status()) {
+                            case SUCCESS -> "gui.neoecoae.storage.bulk_mark.result.success";
+                            case NO_BULK_CELL -> "gui.neoecoae.storage.bulk_mark.result.no_bulk_cell";
+                            case BUSY -> "gui.neoecoae.storage.bulk_mark.result.busy";
+                            case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_mark.result.invalid_threshold";
+                            case UNAVAILABLE -> "gui.neoecoae.storage.bulk_mark.result.unavailable";
+                        };
+                Component message = result.status()
+                                == cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status.SUCCESS
+                        ? Component.translatable(
+                                key, result.added(), result.alreadyMarked(), result.noSpace(), result.transferred())
+                        : Component.translatable(key);
+                serverPlayer.displayClientMessage(message, true);
+            }
             default -> {
                 return;
             }
@@ -236,6 +306,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         priorityField.setActive(panel == 1);
         infiniteSlot.setVisible(panel == 0);
         infiniteSlot.setActive(panel == 0);
+        megaUpgradeSlot.setVisible(panel == 6 && megaCellCount > 0);
+        megaUpgradeSlot.setActive(panel == 6 && megaCellCount > 0);
         if (panel != 0) drawPanel(g, 6, 6, 166, 116);
     }
 
@@ -369,6 +441,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                         154);
             }
             small(g, Component.literal(currentState().infiniteDomainState()), 12, 105, 154);
+        } else if (panel == 6) {
+            drawMegaPanel(g);
         } else if (selected >= 0 && selected < cells().size()) {
             var cell = cells().get(selected);
             small(g, cell.stack().getHoverName(), 12, 32, 154);
@@ -382,6 +456,26 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             small(g, Component.literal(capacity(cell.usedTypes()) + " / " + capacity(cell.totalTypes())), 12, 82, 154);
         }
         g.pose().popPose();
+    }
+
+    private void drawMegaPanel(GuiGraphics g) {
+        small(g, Component.translatable("gui.neoecoae.storage.mega.title"), 12, 12, 140);
+        if (megaCellCount <= 0) {
+            small(g, Component.translatable("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell"), 12, 34, 145);
+            return;
+        }
+        for (int slot = 0; slot < 25; slot++) {
+            int x = 12 + slot % 5 * 18;
+            int y = 27 + slot / 5 * 18;
+            g.fill(absX(x), absY(y), absX(x + 17), absY(y + 17), 0xFF8F83A7);
+            if (slot < megaFilters.size() && !megaFilters.get(slot).isEmpty()) {
+                g.renderItem(megaFilters.get(slot), absX(x), absY(y));
+            }
+        }
+        small(g, Component.literal("< " + (megaCellIndex + 1) + "/" + megaCellCount + " >"), 108, 30, 48);
+        small(g, Component.literal("< " + (megaPage + 1) + "/" + (megaUpgraded ? 2 : 1) + " >"), 108, 52, 48);
+        small(g, Component.translatable("gui.neoecoae.storage.bulk_mark"), 108, 73, 48);
+        small(g, Component.translatable("gui.neoecoae.storage.mega.upgrade"), 108, 101, 48);
     }
 
     @Override
@@ -413,6 +507,19 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                 if (isMouseIn(94, 72, 64, 18, mx, my)) send(5, 0);
             } else if (panel == 4 && isMouseIn(12, 96, 148, 24, mx, my)) {
                 send(6, currentState().hugeStackPage() + (mx < absX(86) ? -1 : 1));
+            } else if (panel == 6) {
+                if (isMouseIn(12, 27, 90, 90, mx, my)) {
+                    int slot = (my - absY(27)) / 18 * 5 + (mx - absX(12)) / 18;
+                    ItemStack carried = player.containerMenu.getCarried();
+                    if (button == 1) sendFilter(slot, ItemStack.EMPTY);
+                    else if (button == 0 && !carried.isEmpty()) sendFilter(slot, carried);
+                } else if (isMouseIn(106, 24, 52, 18, mx, my)) {
+                    send(7, mx < absX(132) ? -1 : 1);
+                } else if (isMouseIn(106, 46, 52, 18, mx, my) && megaUpgraded) {
+                    send(8, mx < absX(132) ? -1 : 1);
+                } else if (isMouseIn(106, 68, 52, 18, mx, my)) {
+                    send(10, 0);
+                }
             }
             return true;
         }
@@ -447,7 +554,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             "gui.neoecoae.storage.host.build",
             "gui.neoecoae.storage.infinite_domain",
             "gui.neoecoae.storage.host.details",
-            "gui.neoecoae.storage.host.guide"
+            "gui.neoecoae.storage.host.guide",
+            "gui.neoecoae.storage.mega.title"
         };
         for (int i = 0; i < keys.length; i++) {
             if (isMouseIn(-20, i * 22, 18, 20, x, y)) {

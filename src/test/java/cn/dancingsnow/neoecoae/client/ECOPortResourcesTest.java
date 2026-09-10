@@ -10,10 +10,14 @@ import org.junit.jupiter.api.Test;
 class ECOPortResourcesTest {
     @Test
     void confirmationStyleAndReferencedBackgroundArePackaged() throws Exception {
-        try (var stream = getClass().getResourceAsStream("/assets/ae2/screens/eco_craft_confirm.json")) {
+        String styleResource = "/assets/ae2/screens/eco_planner_report.json";
+        assertFalse(styleResource.contains("craft_confirm.json"));
+        try (var stream = getClass().getResourceAsStream(styleResource)) {
             assertNotNull(stream);
             var style = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
                     .getAsJsonObject();
+            assertTrue(style.getAsJsonObject("images").has("cycleItem"));
+            assertTrue(style.getAsJsonObject("images").has("cycleItemHovered"));
             String texture = style.getAsJsonObject("background").get("texture").getAsString();
             String[] parts = texture.split(":", 2);
             try (var image = getClass().getResourceAsStream("/assets/" + parts[0] + "/" + parts[1])) {

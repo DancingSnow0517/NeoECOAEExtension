@@ -94,7 +94,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     // This Minecraft override uses its SRG name in production; AE2-owned methods remain unmapped.
-    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("TAIL"), require = 1)
+    @Inject(
+            method = {"broadcastChanges()V", "m_38946_()V"},
+            at = @At("TAIL"),
+            require = 1)
     private void capturePlannerDiagnostics(CallbackInfo ci) {
         ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
                 ? diagnostics.neoecoae$getPlanningResult()

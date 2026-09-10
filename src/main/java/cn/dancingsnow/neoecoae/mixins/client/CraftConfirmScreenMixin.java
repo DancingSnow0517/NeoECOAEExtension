@@ -69,6 +69,6 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
                 this.menu,
                 this.menu.getPlayerInventory(),
                 screen.getTitle(),
-                appeng.client.gui.style.StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json")));
+                appeng.client.gui.style.StyleManager.loadStyleDoc(ECOCraftConfirmScreen.STYLE_PATH)));
     }
 }

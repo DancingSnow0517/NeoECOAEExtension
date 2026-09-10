@@ -41,6 +41,7 @@ repositories {
 
     mavenLocal()
     mavenCentral()
+    maven { url = 'https://maven.shedaniel.me/' }
     maven { url = 'https://maven.minecraftforge.net' }
     maven {
         name = "Modrinth Maven"
@@ -215,6 +216,10 @@ dependencies {
 
     compileOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
     runtimeOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
+
+    compileOnly fg.deobf("curse.maven:mega-cells-622112:6175008")
+    runtimeOnly fg.deobf("curse.maven:mega-cells-622112:6175008")
+    runtimeOnly fg.deobf("me.shedaniel.cloth:cloth-config-forge:11.1.106")
 
     compileOnly("org.appliedenergistics:guideme:${guideme_version}:api")
     runtimeOnly fg.deobf("org.appliedenergistics:guideme:${guideme_version}")

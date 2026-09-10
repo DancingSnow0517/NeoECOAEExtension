@@ -23,11 +23,11 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellHandle;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
-import com.tterrag.registrate.util.entry.RegistryEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.Getter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -52,6 +52,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final IECOTier tier;
 
     private final long fallbackTotalBytes;
+    private final long idleDrainBytes;
+    private final boolean configurableCapacity;
     private final int bytesPerType;
     private final int totalTypes;
     private final AEKeyType keyType;
@@ -59,15 +61,36 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
      * Registered cell-type entry — direct access avoids Component-desc matching
      * bugs.
      */
-    private final RegistryEntry<ECOCellType> cellType;
+    private final Supplier<ECOCellType> cellType;
 
-    public ECOStorageCellItem(
-            Properties properties, IECOTier tier, AEKeyType keyType, RegistryEntry<ECOCellType> cellType) {
+    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
         super(properties);
         this.tier = tier;
         this.fallbackTotalBytes = tier.getStorageTotalBytes();
+        this.idleDrainBytes = fallbackTotalBytes;
+        this.configurableCapacity = true;
         this.bytesPerType = 1 << (12 + tier.getTier());
         this.totalTypes = tier.getStorageTotalTypes(keyType);
+        this.keyType = keyType;
+        this.cellType = cellType;
+    }
+
+    public ECOStorageCellItem(
+            Properties properties,
+            IECOTier tier,
+            AEKeyType keyType,
+            Supplier<ECOCellType> cellType,
+            long totalBytes,
+            int bytesPerType,
+            int totalTypes,
+            double idleDrain) {
+        super(properties);
+        this.tier = tier;
+        this.fallbackTotalBytes = totalBytes;
+        this.idleDrainBytes = Math.max(0L, (long) (idleDrain * (1L << 20)));
+        this.configurableCapacity = false;
+        this.bytesPerType = bytesPerType;
+        this.totalTypes = totalTypes;
         this.keyType = keyType;
         this.cellType = cellType;
     }
@@ -79,12 +102,12 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public long getBytes() {
-        return NEConfig.getEcoStorageCellCapacity(tier, fallbackTotalBytes);
+        return configurableCapacity ? NEConfig.getEcoStorageCellCapacity(tier, fallbackTotalBytes) : fallbackTotalBytes;
     }
 
     @Override
     public long getIdleDrainBytes() {
-        return fallbackTotalBytes;
+        return idleDrainBytes;
     }
 
     @Override
@@ -142,10 +165,14 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Nullable public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
-        if (stack.getItem() instanceof ECOStorageCellItem) {
-            return new ECOStorageCell(stack, host);
+        if (stack.getItem() instanceof ECOStorageCellItem cellItem) {
+            return cellItem.createCellInventory(stack, host);
         }
         return null;
+    }
+
+    protected ECOStorageCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        return new ECOStorageCell(stack, host);
     }
 
     @Override

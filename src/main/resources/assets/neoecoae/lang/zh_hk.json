@@ -916,5 +916,7 @@
   "gui.neoecoae.storage.host.preview": "预览",
   "gui.neoecoae.storage.host.mirror": "镜像：%s",
   "gui.neoecoae.storage.host.details": "存储详情",
-  "gui.neoecoae.storage.host.guide": "存储系统指南"
+  "gui.neoecoae.storage.host.guide": "存储系统指南",
+  "gui.neoecoae.storage.mega.title": "MEGA 大宗儲存",
+  "gui.neoecoae.storage.mega.upgrade": "升級卡"
 }

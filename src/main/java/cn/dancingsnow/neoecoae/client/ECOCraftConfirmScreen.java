@@ -33,6 +33,9 @@ import org.lwjgl.glfw.GLFW;
 
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
+    // GTLCore rewrites every style path containing "craft_confirm.json".
+    public static final String STYLE_PATH = "/screens/eco_planner_report.json";
+
     private static final int AE2_TEXT_DARK = 0x403E53;
     private static final int CYCLE_STATUS_X = 237;
     private static final int CYCLE_STATUS_Y = 7;

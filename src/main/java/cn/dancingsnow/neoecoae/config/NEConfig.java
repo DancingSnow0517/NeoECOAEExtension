@@ -121,6 +121,11 @@ public class NEConfig {
                     "Changing this config is fully applied after re-entering the world or restarting the server.")
             .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
 
+    private static final ForgeConfigSpec.LongValue MEGA_BULK_AUTO_MARK_THRESHOLD = BUILDER.comment(
+                    "Amount threshold used when an ECO storage host automatically marks compressible items.",
+                    "Only amounts strictly greater than this value are marked.")
+            .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
@@ -134,6 +139,7 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 1;
     public static boolean increaseStorageCellCapacity;
+    public static long megaBulkAutoMarkThreshold = 20_000L;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -152,6 +158,7 @@ public class NEConfig {
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
+        megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {

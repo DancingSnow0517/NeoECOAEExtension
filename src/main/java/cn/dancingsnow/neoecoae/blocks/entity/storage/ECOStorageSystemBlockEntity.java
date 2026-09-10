@@ -10,8 +10,10 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -49,6 +51,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
@@ -73,6 +76,7 @@ import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -101,6 +105,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
     private static final String CONTROLLER_MEMBER_REQUIREMENT_TAG = "neoecoae_infinite_controller_member_requirement";
+    private static final ResourceLocation ECO_MEGA_BULK_CELL_ID = NeoECOAE.id("eco_mega_long_bulk_cell");
+    private static final ResourceLocation ECO_MEGA_UPGRADE_CARD_ID = NeoECOAE.id("eco_mega_upgrade_card");
+    private static final int ECO_MEGA_SLOTS_PER_PAGE = 25;
+    private static final int ECO_MEGA_PAGE_COUNT = 2;
 
     @Getter
     private final IECOTier tier;
@@ -113,6 +121,71 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     /** Storage priority for AE2 network insertion/extraction ordering. */
     private int priority = 0;
+
+    private int selectedEcoMegaBulkCell;
+    private int selectedEcoMegaPage;
+    private final IItemHandler ecoMegaUpgradeHandler = new IItemHandler() {
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            if (slot != 0) return ItemStack.EMPTY;
+            var upgrades = getSelectedEcoMegaUpgradeInventory();
+            if (upgrades == null) return ItemStack.EMPTY;
+            for (ItemStack upgrade : upgrades) {
+                if (ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(upgrade.getItem()))) {
+                    return upgrade;
+                }
+            }
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (slot != 0
+                    || stack.isEmpty()
+                    || !ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))) return stack;
+            var upgrades = getSelectedEcoMegaUpgradeInventory();
+            if (upgrades == null) return stack;
+            ItemStack one = stack.copy();
+            one.setCount(1);
+            ItemStack remainder = upgrades.addItems(one, simulate);
+            if (!remainder.isEmpty()) return stack;
+            if (!simulate) onSelectedEcoMegaUpgradeChanged();
+            ItemStack result = stack.copy();
+            result.shrink(1);
+            return result;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != 0 || amount <= 0) return ItemStack.EMPTY;
+            var upgrades = getSelectedEcoMegaUpgradeInventory();
+            if (upgrades == null) return ItemStack.EMPTY;
+            for (int index = 0; index < upgrades.size(); index++) {
+                if (ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(
+                        upgrades.getStackInSlot(index).getItem()))) {
+                    ItemStack extracted = upgrades.extractItem(index, 1, simulate);
+                    if (!simulate && !extracted.isEmpty()) onSelectedEcoMegaUpgradeChanged();
+                    return extracted;
+                }
+            }
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 1;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot == 0 && ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        }
+    };
 
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
 
@@ -676,7 +749,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     static boolean isInfiniteMigrationCandidate(@Nullable IECOStorageCell cell) {
         return (cell instanceof ECOStorageCell || cell instanceof ECOUniversalStorageCell)
-                && cell.getTier() == ECOTier.L9;
+                && cell.getTier() == ECOTier.L9
+                && cell.isInfiniteStorageEligible();
     }
 
     private static boolean clearMigratedCell(IECOStorageCell cell) {
@@ -1136,6 +1210,180 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public boolean isInfiniteMode() {
         return hostMode.isInfiniteState();
+    }
+
+    /** Optional-integration view of the currently formed storage drives. */
+    public List<ECODriveBlockEntity> getStorageDrivesForIntegration() {
+        return cluster == null ? List.of() : List.copyOf(cluster.getDrives());
+    }
+
+    /** The 1.20.1 backend has no separate finite transfer-domain lock. */
+    public boolean isFiniteTransferDomainLocked() {
+        return false;
+    }
+
+    public KeyCounter collectLocalStorageStacksForIntegration() {
+        KeyCounter result = new KeyCounter();
+        for (ECODriveBlockEntity drive : getStorageDrivesForIntegration()) {
+            if (isInfiniteMemberCell(drive.getCellStack())) continue;
+            IECOStorageCell inventory = drive.getCellInventory();
+            if (inventory != null) inventory.getAvailableStacks(result);
+        }
+        return result;
+    }
+
+    public void notifyStorageConfigurationChanged() {
+        markStorageStatsDirty();
+        requestProviderUpdates();
+        IStorageProvider.requestUpdate(getMainNode());
+        setChanged();
+        markForUpdate();
+    }
+
+    private List<ECODriveBlockEntity> getEcoMegaBulkDrives() {
+        return getStorageDrivesForIntegration().stream()
+                .filter(drive -> {
+                    ItemStack stack = drive.getCellStack();
+                    return stack != null
+                            && !stack.isEmpty()
+                            && ECO_MEGA_BULK_CELL_ID.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+                })
+                .sorted(Comparator.comparingLong(drive -> drive.getBlockPos().asLong()))
+                .toList();
+    }
+
+    public boolean hasEcoMegaBulkCell() {
+        return !getEcoMegaBulkDrives().isEmpty();
+    }
+
+    public int getEcoMegaBulkCellCount() {
+        return getEcoMegaBulkDrives().size();
+    }
+
+    public int getSelectedEcoMegaBulkCell() {
+        int count = getEcoMegaBulkCellCount();
+        selectedEcoMegaBulkCell = count == 0 ? 0 : Math.max(0, Math.min(selectedEcoMegaBulkCell, count - 1));
+        return selectedEcoMegaBulkCell;
+    }
+
+    public int getSelectedEcoMegaPage() {
+        if (!hasEcoMegaUpgradeCard()) selectedEcoMegaPage = 0;
+        return selectedEcoMegaPage;
+    }
+
+    public void changeSelectedEcoMegaBulkCell(int delta) {
+        int count = getEcoMegaBulkCellCount();
+        selectedEcoMegaBulkCell = count == 0 ? 0 : Math.floorMod(getSelectedEcoMegaBulkCell() + delta, count);
+        selectedEcoMegaPage = 0;
+    }
+
+    public void changeSelectedEcoMegaPage(int delta) {
+        selectedEcoMegaPage =
+                hasEcoMegaUpgradeCard() ? Math.floorMod(getSelectedEcoMegaPage() + delta, ECO_MEGA_PAGE_COUNT) : 0;
+    }
+
+    public boolean hasEcoMegaUpgradeCard() {
+        ItemStack cell = getSelectedEcoMegaCellStack();
+        if (cell.isEmpty() || !(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)) {
+            return false;
+        }
+        for (ItemStack upgrade : item.getUpgrades(cell)) {
+            if (ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(upgrade.getItem()))) return true;
+        }
+        return false;
+    }
+
+    @Nullable private appeng.api.upgrades.IUpgradeInventory getSelectedEcoMegaUpgradeInventory() {
+        ItemStack cell = getSelectedEcoMegaCellStack();
+        return cell.isEmpty() || !(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)
+                ? null
+                : item.getUpgrades(cell);
+    }
+
+    private void onSelectedEcoMegaUpgradeChanged() {
+        if (!hasEcoMegaUpgradeCard()) selectedEcoMegaPage = 0;
+        List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
+        int index = getSelectedEcoMegaBulkCell();
+        if (index >= 0 && index < drives.size()) drives.get(index).onCellConfigurationChanged();
+        notifyStorageConfigurationChanged();
+    }
+
+    public IItemHandler getEcoMegaUpgradeItemHandler() {
+        return ecoMegaUpgradeHandler;
+    }
+
+    public ItemStack getEcoMegaFilterStack(int visualSlot) {
+        if (visualSlot < 0 || visualSlot >= ECO_MEGA_SLOTS_PER_PAGE) return ItemStack.EMPTY;
+        ItemStack cell = getSelectedEcoMegaCellStack();
+        if (cell.isEmpty() || !(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)) {
+            return ItemStack.EMPTY;
+        }
+        AEKey key =
+                item.getConfigInventory(cell).getKey(getSelectedEcoMegaPage() * ECO_MEGA_SLOTS_PER_PAGE + visualSlot);
+        return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
+    }
+
+    public void setEcoMegaFilter(int visualSlot, ItemStack candidate) {
+        if (visualSlot < 0 || visualSlot >= ECO_MEGA_SLOTS_PER_PAGE) return;
+        ItemStack normalized = StorageBulkMarkingIntegration.normalizeMarker(candidate);
+        if (candidate != null && !candidate.isEmpty() && normalized.isEmpty()) return;
+        List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
+        int driveIndex = getSelectedEcoMegaBulkCell();
+        if (driveIndex < 0 || driveIndex >= drives.size()) return;
+        ECODriveBlockEntity drive = drives.get(driveIndex);
+        ItemStack cell = drive.getCellStack();
+        if (!(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)) return;
+        int targetSlot = getSelectedEcoMegaPage() * ECO_MEGA_SLOTS_PER_PAGE + visualSlot;
+        if (!normalized.isEmpty() && hasDuplicateEcoMegaMarker(drives, driveIndex, targetSlot, normalized)) return;
+        AEItemKey key = normalized.isEmpty() ? null : AEItemKey.of(normalized);
+        item.getConfigInventory(cell).setStack(targetSlot, key == null ? null : new GenericStack(key, 0L));
+        drive.onCellConfigurationChanged();
+        notifyStorageConfigurationChanged();
+    }
+
+    private boolean hasDuplicateEcoMegaMarker(
+            List<ECODriveBlockEntity> drives, int selectedDrive, int targetSlot, ItemStack candidate) {
+        for (int driveIndex = 0; driveIndex < drives.size(); driveIndex++) {
+            ItemStack cell = drives.get(driveIndex).getCellStack();
+            if (!(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)) continue;
+            var config = item.getConfigInventory(cell);
+            int active = hasEcoMegaUpgradeCard(cell) ? 50 : 25;
+            for (int slot = 0; slot < Math.min(config.size(), active); slot++) {
+                if (driveIndex == selectedDrive && slot == targetSlot) continue;
+                AEKey configured = config.getKey(slot);
+                if (configured instanceof AEItemKey key
+                        && StorageBulkMarkingIntegration.isSameMarkerChain(candidate, key.toStack())) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasEcoMegaUpgradeCard(ItemStack cell) {
+        if (!(cell.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem item)) return false;
+        for (ItemStack upgrade : item.getUpgrades(cell)) {
+            if (ECO_MEGA_UPGRADE_CARD_ID.equals(BuiltInRegistries.ITEM.getKey(upgrade.getItem()))) return true;
+        }
+        return false;
+    }
+
+    private ItemStack getSelectedEcoMegaCellStack() {
+        List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
+        int index = getSelectedEcoMegaBulkCell();
+        return index >= 0 && index < drives.size() ? drives.get(index).getCellStack() : ItemStack.EMPTY;
+    }
+
+    public long getEcoMegaConfigurationFingerprint() {
+        long hash = 31L * getEcoMegaBulkCellCount() + getSelectedEcoMegaBulkCell();
+        hash = 31L * hash + getSelectedEcoMegaPage();
+        hash = 31L * hash + (hasEcoMegaUpgradeCard() ? 1 : 0);
+        for (int slot = 0; slot < ECO_MEGA_SLOTS_PER_PAGE; slot++) {
+            hash = 31L * hash + getEcoMegaFilterStack(slot).hashCode();
+        }
+        return hash;
+    }
+
+    public StorageBulkMarkingIntegration.MarkResult autoMarkEcoMegaBulkCells() {
+        return StorageBulkMarkingIntegration.autoMark(this, NEConfig.megaBulkAutoMarkThreshold);
     }
 
     public boolean isInfiniteSlotVisible() {

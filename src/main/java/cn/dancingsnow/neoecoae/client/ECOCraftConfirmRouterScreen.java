@@ -29,7 +29,7 @@ public final class ECOCraftConfirmRouterScreen extends CraftConfirmScreen {
                 && mode.neoecoae$shouldShowFastPlannerReport()) {
             routed = true;
             switchToScreen(new ECOCraftConfirmScreen(
-                    menu, playerInventory, screenTitle, StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json")));
+                    menu, playerInventory, screenTitle, StyleManager.loadStyleDoc(ECOCraftConfirmScreen.STYLE_PATH)));
         }
     }
 }
