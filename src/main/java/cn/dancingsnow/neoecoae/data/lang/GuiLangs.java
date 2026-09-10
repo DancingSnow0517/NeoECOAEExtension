@@ -373,6 +373,23 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.overclock_short", "OC");
         provider.add("gui.neoecoae.crafting.ui.cooling_short", "Cool");
         provider.add("gui.neoecoae.crafting.coolant", "Coolant");
+        provider.add("gui.neoecoae.crafting_report.calculating", "Calculating...");
+        provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
+        provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s B");
+        provider.add("gui.neoecoae.crafting_report.bytes_only", "Bytes: %s B");
+        provider.add("gui.neoecoae.crafting_report.single_net_output", "Change per craft: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
+        provider.add("gui.neoecoae.crafting_report.total_net_output_unknown", "Total change: unknown");
+        provider.add("gui.neoecoae.crafting_report.total_consumed", "Total consumed: %s");
+        provider.add("gui.neoecoae.crafting_report.total_produced", "Total produced: %s");
+        provider.add("gui.neoecoae.crafting_report.requested_exact", "Total requested: %s");
+        provider.add(
+                "gui.neoecoae.crafting_report.cycle_unsupported",
+                "A cyclic recipe unsupported by the current solver was detected.");
+        provider.add("gui.neoecoae.crafting_report.cycle_not_detected", "No cycle detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_enabled", "Cycle detected");
+        provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
+        provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting.energy_short", "Energy");
         provider.add("gui.neoecoae.crafting.cooling_short", "Cooling");
         provider.add("gui.neoecoae.crafting.waste_short", "Waste");
