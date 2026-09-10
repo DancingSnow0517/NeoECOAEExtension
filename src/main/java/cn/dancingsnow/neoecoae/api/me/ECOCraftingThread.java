@@ -63,7 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
-    private static final int CURRENT_NBT_VERSION = 3;
+    private static final int CURRENT_NBT_VERSION = 4;
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
@@ -73,6 +73,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final long BLOCKED_OUTPUT_LOG_INTERVAL_TICKS = 1_200L;
     private static final long BLOCKED_OUTPUT_ACTIVE_LANE_TICKS = 40L;
     private static final long BLOCKED_OUTPUT_STALE_JOB_TICKS = 2_400L;
+    private static final long OWNING_CPU_RECOVERY_TIMEOUT_TICKS = 2_400L;
     private static final int BLOCKED_OUTPUT_LOG_POSITION_LIMIT = 8;
     private static final Object BLOCKED_OUTPUT_DIAGNOSTIC_LOCK = new Object();
     private static final Map<UUID, BlockedOutputDiagnostic> BLOCKED_OUTPUT_DIAGNOSTICS = new HashMap<>();
@@ -124,6 +125,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private long lastBlockedProgressLogTick = Long.MIN_VALUE;
     private long unownedBlockedOutputSinceTick = Long.MIN_VALUE;
     private long lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
+    private long owningCpuMissingSinceGameTime = Long.MIN_VALUE;
     private final String outputDiagnosticLaneId = Integer.toHexString(System.identityHashCode(this));
 
     private final TransientCraftingContainer craftingInv;
@@ -203,8 +205,28 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     /** Recovery must also run while the worker has no formed crafting controller. */
     public @Nullable TickRateModulation tickRecovery() {
         reconcileJobTermination();
+        if (recoveryState == RecoveryState.WAITING_FOR_OWNER && hasOwningCpuRecoveryTimedOut()) {
+            UUID orphanedJobId = craftingJobId;
+            ECOCraftingJobLifecycle.finish(worker.getLevel(), orphanedJobId, false);
+            markRecoveryPending(true);
+            LOGGER.warn(
+                "ECO crafting worker stopped waiting for an unavailable owning CPU after {} ticks; "
+                    + "the orphaned job was cancelled and its outputs will be recovered to network storage: "
+                    + "worker={} job={}",
+                OWNING_CPU_RECOVERY_TIMEOUT_TICKS,
+                worker.getBlockPos(),
+                orphanedJobId
+            );
+        }
         if (!isBusy || !isRecoveringToNetwork()) return null;
         return retryRecoveryToNetwork() ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
+    }
+
+    /** Deliver already-produced items even while the crafting multiblock is unavailable. */
+    public @Nullable TickRateModulation tickOutputOnly() {
+        TickRateModulation recoveryRate = tickRecovery();
+        if (recoveryRate != null) return recoveryRate;
+        return isBusy && outputsReady ? ejectOutputsSafely() : null;
     }
 
     public void reconcileJobTermination() {
@@ -388,9 +410,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
             case MISMATCH -> {
                 fastPathReason = lookup.reason() == null ? "CACHE_RESULT_MISMATCH" : lookup.reason();
-                cache.putNegative(key, tick);
                 cache.recordFallbackSlowPath();
-                return calcPatternSlow(execution, controller, craftingJobId, false, tick);
+                return calcPatternSlow(execution, controller, craftingJobId, true, tick);
             }
             case VERIFIED -> {
                 ECOVerifiedFastPathRecipe recipe = lookup.recipe();
@@ -1204,16 +1225,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private boolean canInsertAll(MEStorage storage, KeyCounter stacks) {
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            long inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.SIMULATE, actionSource);
-            if (inserted != entry.getLongValue()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private KeyCounter ejectAllAndCollectRemainder(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
         List<GenericStack> pendingEntries = keyCounterToGenericStacks(stacks);
         if (pendingEntries.isEmpty() && !isEmpty(stacks)) {
@@ -1222,7 +1233,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         // Persist a shrinking pending ledger so completed external inserts are never retried.
         stacks.removeZeros();
-        retainRemainderForRetry(stacks, RecoveryState.ACTIVE);
+        retainRemainderForRetry(stacks, recoveryState == RecoveryState.WAITING_FOR_OWNER
+            ? RecoveryState.WAITING_FOR_OWNER : RecoveryState.ACTIVE);
         for (GenericStack entry : pendingEntries) {
             AEKey key = entry.what();
             long remaining = entry.amount();
@@ -1363,10 +1375,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         try {
             KeyCounter stacks = collectStacks(recoverable);
             addGenericStacks(stacks, recoverableGeneric);
-            if (!canInsertAll(storage, stacks)) {
-                markRecoveryPending(recoverOutputs);
-                return false;
-            }
+            // Commit whatever fits. The insertion loop persists the remainder after each successful
+            // key, so a full cell or a later exception cannot replay earlier transfers on retry.
             KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks, recoverOutputs);
             if (!isEmpty(remainder)) {
                 retainRecoveryRemainder(remainder, recoverOutputs);
@@ -1420,6 +1430,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean shouldRecoverOutputs() {
         return outputsReady || recoveryState == RecoveryState.RECOVERING_OUTPUTS;
+    }
+
+    private boolean hasOwningCpuRecoveryTimedOut() {
+        long gameTime = worker.getLevel() == null ? TickHandler.instance().getCurrentTick()
+            : worker.getLevel().getGameTime();
+        if (owningCpuMissingSinceGameTime == Long.MIN_VALUE || gameTime < owningCpuMissingSinceGameTime) {
+            owningCpuMissingSinceGameTime = gameTime;
+            setChanged();
+            return false;
+        }
+        return gameTime - owningCpuMissingSinceGameTime >= OWNING_CPU_RECOVERY_TIMEOUT_TICKS;
     }
 
     private void markRecoveryPending(boolean recoverOutputs) {
@@ -1489,6 +1510,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         virtualBatch = false;
         outputsReady = false;
         recoveryState = RecoveryState.CLEARED;
+        owningCpuMissingSinceGameTime = Long.MIN_VALUE;
         lastBlockedProgressLogTick = Long.MIN_VALUE;
         resetUnownedBlockedOutputDiagnostic();
     }
@@ -1515,6 +1537,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         batchInputItems.clear();
         isBusy = true;
         outputsReady = true;
+        if (nextState == RecoveryState.WAITING_FOR_OWNER
+                && recoveryState != RecoveryState.WAITING_FOR_OWNER) {
+            owningCpuMissingSinceGameTime = worker.getLevel() == null
+                ? TickHandler.instance().getCurrentTick() : worker.getLevel().getGameTime();
+        } else if (nextState != RecoveryState.WAITING_FOR_OWNER) {
+            owningCpuMissingSinceGameTime = Long.MIN_VALUE;
+        }
         recoveryState = nextState;
         setChanged();
     }
@@ -1680,6 +1709,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putBoolean("outputsReady", outputsReady);
         tag.putBoolean("completedJobOutputsReleased", completedJobOutputsReleased);
         tag.putString("recoveryState", recoveryState.name());
+        if (owningCpuMissingSinceGameTime != Long.MIN_VALUE) {
+            tag.putLong("owningCpuMissingSinceGameTime", owningCpuMissingSinceGameTime);
+        }
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
@@ -1787,6 +1819,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             } catch (IllegalArgumentException e) {
                 invalidPersistedState = true;
             }
+        }
+        this.owningCpuMissingSinceGameTime = nbt.contains("owningCpuMissingSinceGameTime")
+            ? nbt.getLong("owningCpuMissingSinceGameTime") : Long.MIN_VALUE;
+        if (recoveryState != RecoveryState.WAITING_FOR_OWNER) {
+            owningCpuMissingSinceGameTime = Long.MIN_VALUE;
         }
         boolean batchGenericWork = nbt.getBoolean("batchGenericWork");
 

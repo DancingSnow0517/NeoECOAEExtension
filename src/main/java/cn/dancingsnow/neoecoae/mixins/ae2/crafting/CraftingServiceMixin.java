@@ -9,6 +9,7 @@ import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
@@ -475,7 +476,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         @Local(name = "cpuCluster") CraftingCPUCluster cpuCluster,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        if (job.simulation()) { cir.setReturnValue(ICraftingSubmitResult.INCOMPLETE_PLAN); return; }`r`n          if (target instanceof ECOCraftingCPU ecoCpu) {
+        if (job.simulation()) {
+            cir.setReturnValue(CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
+        if (target instanceof ECOCraftingCPU ecoCpu) {
             cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
         } else if (target == null) {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);

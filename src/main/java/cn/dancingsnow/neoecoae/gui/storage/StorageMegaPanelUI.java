@@ -212,10 +212,12 @@ public final class StorageMegaPanelUI {
             super();
             this.host = host;
             this.visualSlot = visualSlot;
+            // Server refreshes (including page/cell changes) must not be sent back as edits.
+            // The default binding calls setValue(value, true), which would invoke our RPC.
             bind(DataBindingBuilder.itemStackS2C(() -> {
                 ItemStack stack = filterInventory.getStackInSlot(visualSlot);
                 return stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
-            }).build());
+            }).remoteSetter(value -> setValue(value, false)).build());
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
                     setValue(ItemStack.EMPTY, true);

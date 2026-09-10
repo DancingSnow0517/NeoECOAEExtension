@@ -10,6 +10,7 @@
     "ae2.crafting.CraftingServiceMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
+    "ae2.menu.CellWorkbenchMenuMixin",
     "ae2.menu.CraftConfirmMenuMixin",
     "ae2.menu.CraftingCpuListEntryMixin",
     "ae2.menu.CraftingCpuMenuMixin",
@@ -17,6 +18,7 @@
     "ae2.menu.IOPortMenuMixin",
     "ae2.menu.PatternEncodingTermMenuMixin",
     "ae2.storage.AppEngInternalInventoryMixin",
+    "ae2.storage.CellWorkbenchBlockEntityMixin",
     "ae2.storage.IOPortBlockEntityMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "minecraft.LightningBoltMixin"

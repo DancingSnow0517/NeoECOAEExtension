@@ -437,6 +437,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return List.copyOf(configuredFilters());
     }
 
+    /** One representative per occupied chain, without expanding compression variants. */
+    public List<AEItemKey> getStoredChainFilters() {
+        return storedUnits.keySet().stream().map(this::storageFormFor).toList();
+    }
+
     private long unitFactor(AEItemKey configured, AEItemKey item) {
         return CompressionChain.clamp(chainFor(configured).unitFactor(item), MAX_UNITS);
     }

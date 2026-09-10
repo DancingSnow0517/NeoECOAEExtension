@@ -198,6 +198,7 @@ public final class ECOCraftingFastPathCache {
         // Do not mint a current credential from an execution context constructed before the latest reload,
         // even if an obsolete entry somehow survived memory clearing.
         if (!key.isForReloadGeneration(reloadGeneration)) {
+            entries.remove(key);
             expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }
@@ -217,6 +218,10 @@ public final class ECOCraftingFastPathCache {
             return ECOFastPathLookup.negative(result.rejectReason());
         }
         if (!result.matchesExecution(execution)) {
+            // A positive entry is only a memoized proof for the exact observed execution. If that proof no
+            // longer matches, discard it so the caller can run the assembler again and replace it with fresh
+            // evidence. Turning this into a negative entry would suppress re-verification for the full TTL.
+            entries.remove(key);
             expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }

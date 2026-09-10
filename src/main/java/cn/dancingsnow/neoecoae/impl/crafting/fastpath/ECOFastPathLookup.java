@@ -5,7 +5,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Outcome of one fast-path cache lookup. The status distinguishes the three non-usable cases the caller has
  * to treat differently (cold miss must verify, negative entry must not re-verify, stale positive entry must be
- * demoted to negative) without forcing a second map lookup or a second value comparison.
+ * invalidated and re-verified) without forcing a second map lookup or a second value comparison.
  *
  * <p>Miss and mismatch outcomes are shared singletons. Negative outcomes that carry the cached rejection
  * reason allocate a small result so the caller can expose the actual diagnostic.
@@ -16,7 +16,7 @@ public final class ECOFastPathLookup {
         MISS,
         /** A live negative entry exists: the caller must run the slow path without re-verifying. */
         NEGATIVE,
-        /** A positive entry exists but no longer matches this execution: it must be demoted to negative. */
+        /** A positive entry existed but no longer matched this execution; it was invalidated and must be re-verified. */
         MISMATCH,
         /** A positive entry matched; {@link #recipe()} is a usable credential. */
         VERIFIED

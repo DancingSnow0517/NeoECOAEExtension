@@ -56,7 +56,14 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
             .supportedTypes(Set.of(AEKeyType.items()))
             .changeListener(() -> saveConfigInventory(stack, holder[0]))
             .build();
-        holder[0].readFromList(stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
+        // Loading is read-only: a workbench may be copying this stack at the same time.
+        // Do not publish partially loaded configurations through the change listener.
+        holder[0].beginBatch();
+        try {
+            holder[0].readFromList(stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
+        } finally {
+            holder[0].endBatchSuppressed();
+        }
         return holder[0];
     }
 
@@ -73,16 +80,16 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
         stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, stored);
     }
 
-    private static boolean hasExtendedMarkers(ItemStack stack) {
+    private static boolean hasTooManyMarkers(ItemStack stack) {
         List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
-        for (int slot = MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
-             slot < Math.min(configured.size(), MegaCellCapacities.LONG_BULK_UPGRADED_TYPE_LIMIT);
-             slot++) {
-            if (configured.get(slot) != null) {
-                return true;
-            }
-        }
-        return false;
+        return configured.stream().filter(java.util.Objects::nonNull).count()
+            >= MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
+    }
+
+    private static void compactMarkers(ItemStack stack) {
+        List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
+        stack.set(AEComponents.STORAGE_CELL_CONFIG_INV,
+            configured.stream().filter(java.util.Objects::nonNull).toList());
     }
 
     private static final class LockedUpgradeInventory implements IUpgradeInventory {
@@ -115,7 +122,12 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
                 || !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get()))) {
                 return;
             }
+            boolean removingCard = delegate.getStackInSlot(slot).is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
+                && !stack.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get());
             delegate.setItemDirect(slot, stack);
+            if (removingCard) {
+                compactMarkers(cellStack);
+            }
         }
 
         @Override
@@ -130,14 +142,21 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return isLockedCard(slot) ? ItemStack.EMPTY : delegate.extractItem(slot, amount, simulate);
+            if (isLockedCard(slot)) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack extracted = delegate.extractItem(slot, amount, simulate);
+            if (!simulate && extracted.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())) {
+                compactMarkers(cellStack);
+            }
+            return extracted;
         }
 
         private boolean isLockedCard(int slot) {
             ItemStack installed = delegate.getStackInSlot(slot);
             return !installed.isEmpty()
                 && installed.is(NEMegaItems.ECO_MEGA_UPGRADE_CARD.get())
-                && hasExtendedMarkers(cellStack);
+                && hasTooManyMarkers(cellStack);
         }
 
         @Override

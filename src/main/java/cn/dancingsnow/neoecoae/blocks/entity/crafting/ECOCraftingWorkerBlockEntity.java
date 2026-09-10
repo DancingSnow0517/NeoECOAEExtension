@@ -143,8 +143,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         } else {
             TickRateModulation rate = TickRateModulation.IDLE;
             for (ECOCraftingThread thread : craftingThreads) {
-                TickRateModulation recoveryRate = thread.tickRecovery();
-                if (recoveryRate != null && recoveryRate.ordinal() > rate.ordinal()) rate = recoveryRate;
+                TickRateModulation outputRate = thread.tickOutputOnly();
+                if (outputRate != null && outputRate.ordinal() > rate.ordinal()) rate = outputRate;
             }
             refreshDisplayedJob();
             return rate;
@@ -193,7 +193,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (isWorking()) {
+            if (getAvailableBatchCapacity() <= 0) {
                 getFastPathCache().recordNoThreadReject();
                 return false;
             }
@@ -352,10 +352,18 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     /** Remaining craft count accepted by this physical FX lane's next batch. */
     public int getAvailableBatchCapacity() {
         if (cluster != null && cluster.getController() != null) {
-            if (isWorking()) {
+            ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (controller.getThreadObjectCapacityForWorker(this) <= 0) {
                 return 0;
             }
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
+            // Each physical worker is one execution lane, even if a legacy save retained multiple thread
+            // objects. Consult actual custody rather than the derived running counter, but never reuse a
+            // free object alongside a busy one: virtual coolant is charged per physical lane.
+            for (ECOCraftingThread thread : craftingThreads) {
+                if (!thread.isFree()) {
+                    return 0;
+                }
+            }
             return Math.max(0, controller.getThreadCountForWorker(this));
         }
         return 0;
