@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -65,15 +66,15 @@ final class ECOProviderCursor {
             // Refresh fallback snapshots each tick while preserving the next live provider by identity.
             if (previous != null && !previous.providers.isEmpty()) {
                 var nextProvider = previous.providers.get(previous.next);
-                for (int i = 0; i < snapshot.size(); i++) {
-                    if (snapshot.get(i) == nextProvider) { cursor.next = i; break; }
-                }
+                int nextIndex = cursor.indices.getOrDefault(nextProvider, -1);
+                if (nextIndex >= 0) cursor.next = nextIndex;
             }
             cursors.put(pattern, cursor);
         }
-        if (cursor.providers.isEmpty()) return List.of();
+        if (cursor.providers.isEmpty()) return cursor.readyProviders;
 
-        var available = new ArrayList<ICraftingProvider>(cursor.providers.size());
+        var available = cursor.readyProviders;
+        available.clear();
         int size = cursor.providers.size();
         int scanIndex = cursor.next;
         for (int checked = 0; checked < size; checked++) {
@@ -87,7 +88,7 @@ final class ECOProviderCursor {
                 if (!busy) available.add(provider);
             }
         }
-        return List.copyOf(available);
+        return available;
     }
 
     /** Records the provider currently being attempted so the next pass starts after it. */
@@ -96,11 +97,9 @@ final class ECOProviderCursor {
         if (cursor == null || cursor.providers.isEmpty()) {
             return;
         }
-        for (int index = 0; index < cursor.providers.size(); index++) {
-            if (cursor.providers.get(index) == provider) {
-                cursor.next = (index + 1) % cursor.providers.size();
-                return;
-            }
+        int index = cursor.indices.getOrDefault(provider, -1);
+        if (index >= 0) {
+            cursor.next = (index + 1) % cursor.providers.size();
         }
     }
 
@@ -115,11 +114,18 @@ final class ECOProviderCursor {
 
     private static final class Cursor {
         final List<ICraftingProvider> providers;
+        final IdentityHashMap<ICraftingProvider, Integer> indices;
+        final List<ICraftingProvider> readyProviders;
         final long tick;
         int next;
 
         Cursor(List<ICraftingProvider> providers, long tick) {
             this.providers = providers;
+            this.indices = new IdentityHashMap<>(providers.size());
+            for (int index = 0; index < providers.size(); index++) {
+                this.indices.put(providers.get(index), index);
+            }
+            this.readyProviders = new ArrayList<>(providers.size());
             this.tick = tick;
         }
     }

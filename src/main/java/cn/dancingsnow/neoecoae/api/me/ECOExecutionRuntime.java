@@ -59,6 +59,8 @@ public final class ECOExecutionRuntime {
     private final int[] remainingDependencies;
     private final int[] activeTaskBuffer;
     private final List<List<Integer>> dependentsByPhase;
+    // Reused by the dispatch loop; callers consume the snapshot before requesting the next one.
+    private final List<DispatchCandidate> candidateBuffer = new ArrayList<>();
     private final Map<AEKey, Long> startupSeedRemaining = new LinkedHashMap<>();
     private boolean reconciledEmptyCandidates;
 
@@ -156,7 +158,8 @@ public final class ECOExecutionRuntime {
     private List<DispatchCandidate> candidatesInternal(@Nullable Map<IPatternDetails, Long> remainingTasks,
             boolean allowReconciliation) {
         if (remainingTasks != null) refreshCompleted(remainingTasks);
-        List<DispatchCandidate> result = new ArrayList<>(plan.tasks().size());
+        List<DispatchCandidate> result = candidateBuffer;
+        result.clear();
         for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
             if (completedPhases.get(phaseIndex) || !dependenciesComplete(phaseIndex)) continue;
             var phase = plan.phases().get(phaseIndex);
@@ -216,7 +219,7 @@ public final class ECOExecutionRuntime {
                 maybeCompletePhase(phaseIndex);
             }
         }
-        if (!result.isEmpty()) return Collections.unmodifiableList(result);
+        if (!result.isEmpty()) return result;
         if (allowReconciliation && !reconciledEmptyCandidates && hasLiveTaskProgress()) {
             reconciledEmptyCandidates = true;
             String before = NEConfig.ecoDispatchWatchdogDebug ? describeProgressCache() : null;

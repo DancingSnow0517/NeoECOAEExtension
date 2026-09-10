@@ -93,6 +93,8 @@ public class ECOCraftingCPULogic {
     // Shared across every pass of tickCraftingLogic; -1 denotes a standalone executeCrafting call.
     private int remainingNormalProbes = -1;
     private IPatternDetails resumeDispatchPattern;
+    private final java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer =
+        new java.util.ArrayList<>();
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -399,9 +401,11 @@ public class ECOCraftingCPULogic {
                     }
                     continue;
                 }
+                // Inputs are resolved once for this provider-first-fit pass; their power cost is identical
+                // for every provider attempt and must not be recalculated inside that loop.
+                double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                 for (var provider : providers) {
                     long craftCount = 1L;
-                    double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                     double power = singlePower;
                     var capacityProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
                         ? nativeProvider : ECOUselessBatchProviderBridge.adapt(provider);
@@ -564,7 +568,8 @@ public class ECOCraftingCPULogic {
 
     private java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeDispatchCandidates(
             ExecutingCraftingJob current) {
-        var result = new java.util.ArrayList<ECOExecutionRuntime.DispatchCandidate>();
+        var result = nativeCandidateBuffer;
+        result.clear();
         for (var entry : current.tasks.entrySet()) {
             if (entry.getValue().value > 0L) {
                 // Native jobs do not consult task ids; the placeholder id is never committed to a runtime.
