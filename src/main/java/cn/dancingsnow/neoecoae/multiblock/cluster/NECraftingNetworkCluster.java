@@ -9,11 +9,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -33,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * and scheduling state.
  */
 public final class NECraftingNetworkCluster {
+    public static final long VIRTUAL_CRAFTING_POWER_PER_TICK = 100L;
     public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
     private static final Comparator<NECraftingCluster> CLUSTER_ORDER =
             Comparator.comparing(cluster -> cluster.getController() == null
@@ -50,6 +49,7 @@ public final class NECraftingNetworkCluster {
     private int nextCoolantControllerIndex;
     private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
     private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
     private boolean overclocked;
     private boolean activeCooling;
     private long revision;
@@ -68,6 +68,7 @@ public final class NECraftingNetworkCluster {
                 .sorted(CLUSTER_ORDER)
                 .toList();
         this.physicalClusters = List.copyOf(clusters);
+        fastPathCache.clear();
 
         List<ECOCraftingSystemBlockEntity> nextControllers = new ArrayList<>();
         Set<ECOCraftingWorkerBlockEntity> nextWorkers = new LinkedHashSet<>();
@@ -120,6 +121,7 @@ public final class NECraftingNetworkCluster {
         parallelCores = List.of();
         nextPhysicalClusterIndex = 0;
         nextWorkerIndexByCluster.clear();
+        fastPathCache.clear();
         revision++;
     }
 
@@ -145,6 +147,10 @@ public final class NECraftingNetworkCluster {
 
     public long getRevision() {
         return revision;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     public int getMemberCount() {
@@ -497,12 +503,6 @@ public final class NECraftingNetworkCluster {
         if (workers.isEmpty()) {
             return false;
         }
-        // A deferred virtual batch must not fall through to the one-craft provider path.
-        // Otherwise enabling ECO round-robin scheduling silently turns the remaining work
-        // of that job into individual dispatches.
-        if (isVirtualBatchDispatchDeferred(craftingJobId)) {
-            return false;
-        }
         if (getAvailableThreadSlots(grid) <= 0) {
             return false;
         }
@@ -529,121 +529,6 @@ public final class NECraftingNetworkCluster {
             }
         }
         return false;
-    }
-
-    public boolean tryPushBatch(
-            @Nullable IGrid grid,
-            ECOBatchCraftingRequest request,
-            @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer) {
-        if (workers.isEmpty() || offer == null) {
-            return false;
-        }
-        if (isVirtualBatchDispatchDeferred(request.craftingJobId())) {
-            return false;
-        }
-        // A batch occupies one logical host thread. Its physical worker slots
-        // are checked separately below, so a batch may be larger than the
-        // number of logical hosts in the network.
-        if (getAvailableThreadSlots(grid) <= 0) {
-            return false;
-        }
-        ECOCraftingWorkerBlockEntity worker = offer.worker();
-        if (!workers.contains(worker) || (grid != null && worker.getMainNode().getGrid() != grid)) {
-            return false;
-        }
-        NECraftingCluster physical = worker.getCluster();
-        ECOCraftingSystemBlockEntity controller = physical == null ? null : physical.getController();
-        if (controller != null
-                && offer.maxBatchSize() >= request.batchSize()
-                && getAvailableLogicalSlots(worker) > 0
-                && worker.getAvailableThreadSlots() > 0
-                && worker.pushBatch(request, offer.result())) {
-            updateRoundRobinAfterAccept(physical, worker);
-            if (isVirtualCraftingEligible()) {
-                batchFairnessTracker.noteAccepted(request.craftingJobId());
-            }
-            return true;
-        }
-        return false;
-    }
-
-    @Nullable public ECOCraftingPatternBusBlockEntity.BatchFastPathOffer findBatchFastPathOffer(
-            @Nullable IGrid grid,
-            ECOFastPathKey key,
-            @Nullable ECOExtractedPatternExecution execution,
-            @Nullable ECOBatchCraftingRequest request,
-            @Nullable UUID craftingJobId,
-            long requestedBatchSize) {
-        if (requestedBatchSize <= 0 || workers.isEmpty()) {
-            return null;
-        }
-        if (isVirtualBatchDispatchDeferred(craftingJobId)) {
-            return null;
-        }
-        if (getAvailableThreadSlots(grid) <= 0) {
-            return null;
-        }
-        int clusterStart = Math.floorMod(nextPhysicalClusterIndex, physicalClusters.size());
-        for (int clusterOffset = 0; clusterOffset < physicalClusters.size(); clusterOffset++) {
-            NECraftingCluster physical = physicalClusters.get((clusterStart + clusterOffset) % physicalClusters.size());
-            ECOCraftingSystemBlockEntity controller = physical.getController();
-            List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
-            if (controller == null || getAvailableLogicalSlots(physical) <= 0 || localWorkers.isEmpty()) {
-                continue;
-            }
-            long availableBatchSize = controller.isVirtualCraftingMode()
-                    ? Long.MAX_VALUE
-                    : controller.getLargestAvailableCraftingBatchSize();
-            if (availableBatchSize <= 0) {
-                continue;
-            }
-            int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
-            ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
-            for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
-                ECOCraftingWorkerBlockEntity worker =
-                        localWorkers.get((workerStart + workerOffset) % localWorkers.size());
-                if ((grid != null && worker.getMainNode().getGrid() != grid) || worker.getAvailableThreadSlots() <= 0) {
-                    continue;
-                }
-                ECOFastPathResult result = execution == null
-                        ? worker.getFastPathCache().peek(key)
-                        : worker.getVerifiedFastPathResult(execution);
-                if (result == null || result.isNegative()) {
-                    continue;
-                }
-                if (request != null && !result.matchesBatchRequest(request)) {
-                    worker.getFastPathCache().recordExpectedMismatch();
-                    continue;
-                }
-                long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
-                bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
-                break;
-            }
-            if (bestOffer != null) {
-                return bestOffer;
-            }
-        }
-        return null;
-    }
-
-    public void noteCompletedBatchJob(@Nullable UUID craftingJobId) {
-        batchFairnessTracker.noteCompleted(craftingJobId);
-    }
-
-    private boolean isVirtualBatchDispatchDeferred(@Nullable UUID craftingJobId) {
-        return isVirtualCraftingEligible() && batchFairnessTracker.shouldDefer(craftingJobId);
-    }
-
-    private void updateRoundRobinAfterAccept(NECraftingCluster physical, ECOCraftingWorkerBlockEntity acceptedWorker) {
-        List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
-        int workerIndex = localWorkers.indexOf(acceptedWorker);
-        if (workerIndex >= 0 && !localWorkers.isEmpty()) {
-            nextWorkerIndexByCluster.put(physical, (workerIndex + 1) % localWorkers.size());
-        }
-        int clusterIndex = physicalClusters.indexOf(physical);
-        if (clusterIndex >= 0 && !physicalClusters.isEmpty()) {
-            nextPhysicalClusterIndex = (clusterIndex + 1) % physicalClusters.size();
-        }
     }
 
     public boolean isBusy(@Nullable IGrid grid) {

@@ -1,0 +1,46 @@
+package cn.dancingsnow.neoecoae.compat.ae2;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.HashSet;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.ClassNode;
+
+/** Verifies injection targets without initializing Minecraft or loading transformed classes. */
+class ECOCraftingMixinContractTest {
+    @Test
+    void craftingServiceInjectionTargetsExistInTheActualAe2Dependency() throws Exception {
+        var target = read("appeng/me/service/CraftingService");
+        var mixin = read("cn/dancingsnow/neoecoae/mixins/CraftingServiceMixin");
+        var names = new HashSet<String>();
+        target.methods.forEach(method -> names.add(method.name));
+        for (var method : mixin.methods) {
+            if (method.visibleAnnotations == null) continue;
+            for (var annotation : method.visibleAnnotations) {
+                if (!annotation.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;")) continue;
+                for (int i = 0; i < annotation.values.size(); i += 2) {
+                    if (!annotation.values.get(i).equals("method")) continue;
+                    for (var selector : (List<?>) annotation.values.get(i + 1)) {
+                        String name = selector.toString().split("\\(", 2)[0];
+                        assertTrue(names.contains(name), "Missing AE2 injection target: " + selector);
+                    }
+                }
+            }
+        }
+        assertTrue(mixin.interfaces.contains("cn/dancingsnow/neoecoae/api/me/ECOCraftingOutputRouter"));
+        assertTrue(mixin.methods.stream()
+                .anyMatch(method -> method.name.equals("saveNodeData")
+                        && method.desc.equals("(Lappeng/api/networking/IGridNode;Lnet/minecraft/nbt/CompoundTag;)V")));
+    }
+
+    private ClassNode read(String name) throws Exception {
+        try (var stream = getClass().getResourceAsStream("/" + name + ".class")) {
+            assertNotNull(stream);
+            var node = new ClassNode();
+            new ClassReader(stream).accept(node, ClassReader.SKIP_CODE);
+            return node;
+        }
+    }
+}

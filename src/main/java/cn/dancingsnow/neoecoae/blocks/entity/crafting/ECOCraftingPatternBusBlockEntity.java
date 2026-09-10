@@ -21,9 +21,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -88,6 +86,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return pushPattern(ECOExtractedPatternExecution.slow(patternDetails, inputHolder), craftingJobId);
     }
 
+    /** Ordinary single-craft fallback without another FastPath lookup. */
+    public boolean pushPatternSlow(IPatternDetails pattern, KeyCounter[] inputs, @Nullable UUID craftingJobId) {
+        return pushPattern(ECOExtractedPatternExecution.slow(pattern, inputs), craftingJobId);
+    }
+
     public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
         if (execution.molecularPattern() == null) {
             return false;
@@ -112,111 +115,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             }
         }
         return false;
-    }
-
-    public boolean pushBatch(ECOBatchCraftingRequest request) {
-        NECraftingNetworkCluster network = getNetworkCluster();
-        if (network != null) {
-            BatchFastPathOffer offer =
-                    findBatchFastPathOffer(request.key(), null, request, request.craftingJobId(), request.batchSize());
-            return pushBatch(request, offer);
-        }
-        BatchFastPathOffer offer =
-                findBatchFastPathOffer(request.key(), null, request, request.craftingJobId(), request.batchSize());
-        return pushBatch(request, offer);
-    }
-
-    public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
-        NECraftingNetworkCluster network = getNetworkCluster();
-        if (network != null) {
-            return network.tryPushBatch(getGrid(), request, offer);
-        }
-        if (offer == null
-                || cluster == null
-                || !cluster.getWorkers().contains(offer.worker())
-                || offer.maxBatchSize() < request.batchSize()
-                || offer.worker().getAvailableThreadSlots() <= 0
-                || getAvailableThreadSlots() <= 0
-                || !offer.result().matchesBatchRequest(request)) {
-            return false;
-        }
-        int nextIndex = nextWorkerIndexAfter(offer.worker());
-        if (offer.worker().pushBatch(request, offer.result())) {
-            nextWorkerIndex = nextIndex;
-            return true;
-        }
-        return false;
-    }
-
-    @Nullable public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, long requestedBatchSize) {
-        return findBatchFastPathOffer(execution, requestedBatchSize, null);
-    }
-
-    @Nullable public BatchFastPathOffer findBatchFastPathOffer(
-            ECOExtractedPatternExecution execution, long requestedBatchSize, @Nullable UUID craftingJobId) {
-        if (execution.key() == null) {
-            return null;
-        }
-        return findBatchFastPathOffer(execution.key(), execution, null, craftingJobId, requestedBatchSize);
-    }
-
-    @Nullable private BatchFastPathOffer findBatchFastPathOffer(
-            ECOFastPathKey key,
-            @Nullable ECOExtractedPatternExecution execution,
-            @Nullable ECOBatchCraftingRequest request,
-            @Nullable UUID craftingJobId,
-            long requestedBatchSize) {
-        if (cluster == null || requestedBatchSize <= 0) {
-            return null;
-        }
-        NECraftingNetworkCluster network = getNetworkCluster();
-        if (network != null) {
-            return network.findBatchFastPathOffer(
-                    getGrid(), key, execution, request, craftingJobId, requestedBatchSize);
-        }
-        ECOCraftingSystemBlockEntity controller = getCraftingController();
-        if (controller == null) {
-            return null;
-        }
-        if (controller.getCurrentBatchSlots() <= 0) {
-            return null;
-        }
-        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
-        if (workers.isEmpty()) {
-            return null;
-        }
-        long availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
-        if (availableBatchSize <= 0) {
-            return null;
-        }
-        int start = Math.floorMod(nextWorkerIndex, workers.size());
-        BatchFastPathOffer bestOffer = null;
-        for (int offset = 0; offset < workers.size(); offset++) {
-            int index = (start + offset) % workers.size();
-            ECOCraftingWorkerBlockEntity worker = workers.get(index);
-            int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots <= 0) {
-                continue;
-            }
-            ECOFastPathResult result = execution == null
-                    ? worker.getFastPathCache().peek(key)
-                    : worker.getVerifiedFastPathResult(execution);
-            if (result == null || result.isNegative()) {
-                continue;
-            }
-            if (request != null && !result.matchesBatchRequest(request)) {
-                worker.getFastPathCache().recordExpectedMismatch();
-                continue;
-            }
-            long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
-            if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
-                bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
-                if (maxBatchSize >= requestedBatchSize) {
-                    break;
-                }
-            }
-        }
-        return bestOffer;
     }
 
     private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {

@@ -26,20 +26,6 @@ public final class ECOPlannerNetwork {
         }
         CHANNEL.registerMessage(
                 0,
-                ECOPlannerNoticePayload.class,
-                ECOPlannerNoticePayload::encode,
-                ECOPlannerNoticePayload::decode,
-                ECOPlannerNoticePayload::handle,
-                java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(
-                1,
-                ECOCycleDiagnosticsPayload.class,
-                ECOCycleDiagnosticsPayload::encode,
-                ECOCycleDiagnosticsPayload::decode,
-                ECOCycleDiagnosticsPayload::handle,
-                java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(
-                2,
                 ECOCpuOverlayPayload.class,
                 ECOCpuOverlayPayload::encode,
                 ECOCpuOverlayPayload::decode,

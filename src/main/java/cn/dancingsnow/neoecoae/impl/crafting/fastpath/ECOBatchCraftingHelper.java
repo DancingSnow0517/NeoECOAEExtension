@@ -1,31 +1,104 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.config.Actionable;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
-import net.minecraft.world.item.ItemStack;
+import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 
 public final class ECOBatchCraftingHelper {
-    public static final int MAX_BATCH_SIZE = Integer.MAX_VALUE;
+    /** Maximum number of distinct item entries in one batch. */
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
-    public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
+    /**
+     * Per-entry amount limit for a multiplied batch total, and therefore the only hard ceiling a batch
+     * has. How many crafts a batch may carry is decided by the live capability of the F-series host that
+     * accepts it, so no fixed batch-size constant exists.
+     */
+    public static final long MAX_BATCH_STACK_AMOUNT = 1L << 42;
 
     private ECOBatchCraftingHelper() {}
+
+    /**
+     * Sanitizes a persisted batch size. Only the lower bound is structural; the plausible upper bound
+     * depends on the batch's own totals and is applied by the caller that owns them.
+     */
+    public static int clampPersistedBatchSize(int batchSize) {
+        return Math.max(1, batchSize);
+    }
+
+    public static void validateBatchSize(int batchSize) {
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("batchSize must be positive");
+        }
+    }
+
+    /**
+     * Largest batch multiplier that keeps a single per-craft entry within {@link #MAX_BATCH_STACK_AMOUNT}
+     * once it is multiplied out.
+     */
+    public static long maxBatchSizeForAmount(long perCraftAmount) {
+        if (perCraftAmount <= 0L) {
+            return 0;
+        }
+        return MAX_BATCH_STACK_AMOUNT / perCraftAmount;
+    }
+
+    /**
+     * Largest batch multiplier that keeps every per-craft entry of a recipe within
+     * {@link #MAX_BATCH_STACK_AMOUNT}. This replaces a fixed batch cap: the bound follows from the recipe
+     * itself, so a host may batch as many crafts as its own thread capacity allows.
+     */
+    public static long maxBatchSizeForPerCraftStacks(
+            List<GenericStack> inputsPerCraft,
+            List<GenericStack> outputsPerCraft,
+            List<GenericStack> remainingPerCraft) {
+        long max = Long.MAX_VALUE;
+        max = Math.min(max, maxBatchSizeForStacks(inputsPerCraft));
+        max = Math.min(max, maxBatchSizeForStacks(outputsPerCraft));
+        max = Math.min(max, maxBatchSizeForStacks(remainingPerCraft));
+        return max;
+    }
+
+    /**
+     * Upper bound implied by an already-multiplied batch total: every craft contributes at least one unit
+     * to each entry, so the batch size can never exceed the smallest total amount. Used to reject a
+     * corrupted persisted thread-slot count without inventing a magic limit.
+     */
+    public static int maxBatchSizeFromTotals(List<GenericStack> totals) {
+        int max = Integer.MAX_VALUE;
+        for (GenericStack stack : totals) {
+            if (stack == null) {
+                continue;
+            }
+            max = (int) Math.min(max, Math.max(0L, stack.amount()));
+        }
+        return max;
+    }
+
+    private static long maxBatchSizeForStacks(List<GenericStack> perCraft) {
+        long max = Long.MAX_VALUE;
+        for (GenericStack stack : perCraft) {
+            if (stack == null) {
+                continue;
+            }
+            max = Math.min(max, maxBatchSizeForAmount(stack.amount()));
+            if (max <= 0) {
+                return 0;
+            }
+        }
+        return max;
+    }
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
         return multiply(stacks, (long) multiplier);
     }
 
+    /** Long-count multiplication used by explicit virtual batches and opt-in unknown-capacity batch commits. */
     public static List<GenericStack> multiply(List<GenericStack> stacks, long multiplier) {
         if (multiplier <= 0 || stacks.isEmpty()) {
             return List.of();
@@ -35,71 +108,129 @@ public final class ECOBatchCraftingHelper {
             long amount = multiplyExact(stack.amount(), multiplier);
             counter.add(stack.what(), amount);
         }
-        return copyCounter(counter);
+        return ECOFastPathStacks.copyCounter(counter);
+    }
+
+    /** Returns {@code total - alreadyOwned}, preserving concrete AEItemKey components. */
+    public static List<GenericStack> subtract(List<GenericStack> total, List<GenericStack> alreadyOwned) {
+        KeyCounter counter = new KeyCounter();
+        for (GenericStack stack : total) counter.add(stack.what(), stack.amount());
+        for (GenericStack stack : alreadyOwned) {
+            long available = counter.get(stack.what());
+            if (available < stack.amount()) {
+                throw new IllegalArgumentException("Batch total is smaller than its first craft inputs");
+            }
+            counter.remove(stack.what(), stack.amount());
+        }
+        return ECOFastPathStacks.copyCounter(counter);
     }
 
     public static int maxCraftsFromInventory(
             ListCraftingInventory inventory, List<GenericStack> perCraft, int requested) {
-        return (int) maxCraftsFromInventory(inventory, perCraft, (long) requested);
-    }
-
-    public static long maxCraftsFromInventory(
-            ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
-        return inventoryBatchLimit(inventory, perCraft, requested).crafts();
-    }
-
-    public static InventoryBatchLimit inventoryBatchLimit(
-            ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
-        long max = Math.max(0L, requested);
-        AEKey limitingKey = null;
-        long limitingAvailable = 0L;
-        long limitingPerCraft = 0L;
+        int max = requested;
         for (GenericStack stack : perCraft) {
             if (stack.amount() <= 0) {
-                return new InventoryBatchLimit(0L, stack.what(), 0L, stack.amount());
+                return 0;
             }
             // The CPU inventory is already an in-memory KeyCounter. Reading it directly avoids one
             // simulated crafting-inventory transaction per ingredient while preserving the exact
             // same concrete-input semantics as the verified fast-path key.
             long available = inventory.list.get(stack.what());
-            long ingredientLimit = available / stack.amount();
-            if (ingredientLimit < max) {
-                max = ingredientLimit;
-                limitingKey = stack.what();
-                limitingAvailable = available;
-                limitingPerCraft = stack.amount();
-            }
+            max = Math.min(max, (int) Math.min(Integer.MAX_VALUE, available / stack.amount()));
             if (max <= 0) {
-                break;
+                return 0;
             }
         }
-        return new InventoryBatchLimit(max, limitingKey, limitingAvailable, limitingPerCraft);
+        return max;
     }
 
-    public record InventoryBatchLimit(long crafts, AEKey limitingKey, long available, long perCraft) {}
+    public static long maxCraftsFromInventory(
+            ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
+        long max = Math.max(0L, requested);
+        for (GenericStack stack : perCraft) {
+            if (stack.amount() <= 0L) {
+                return 0L;
+            }
+            max = Math.min(max, inventory.list.get(stack.what()) / stack.amount());
+            if (max <= 0L) {
+                return 0L;
+            }
+        }
+        return max;
+    }
 
     /**
-     * Returns the largest batch whose per-key totals can be represented by a long.
-     * Inputs and outputs are bounded independently; output and remaining entries share
-     * one bound because both are materialized by the worker in the same batch.
+     * Finds the largest total batch whose inputs beyond the already-extracted first craft are available.
+     * Stateful recipes cannot use a per-craft division here: a reusable tool is owned by the first craft and
+     * contributes no additional input until a later batch starts with another concrete tool state.
      */
-    public static long maxSafeBatchSize(
-            List<GenericStack> inputsPerCraft,
-            List<GenericStack> outputsPerCraft,
-            List<GenericStack> remainingPerCraft,
-            long requested) {
-        if (requested <= 0L) {
-            return 0L;
-        }
-        long inputLimit = maxBatchForAggregates(inputsPerCraft, List.of());
-        long outputLimit = maxBatchForAggregates(outputsPerCraft, remainingPerCraft);
-        return Math.min(requested, Math.min(inputLimit, outputLimit));
+    public static int maxBatchSizeFromAdditionalInputs(
+            ListCraftingInventory inventory, int requestedBatchSize, IntFunction<List<GenericStack>> additionalInputs) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, additionalInputs);
     }
 
-    public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        for (GenericStack stack : stacks) {
-            long extracted = inventory.extract(stack.what(), stack.amount(), Actionable.SIMULATE);
-            if (extracted != stack.amount()) {
+    /**
+     * Finds the largest complete batch whose full physical inputs are currently available. This is used after
+     * the first craft of a logical task has already been dispatched; unlike additionalInputs, the function must
+     * include reusable state inputs and every ordinary input for the whole next batch.
+     */
+    public static long maxBatchSizeFromBatchInputs(
+            ListCraftingInventory inventory, long requestedBatchSize, LongFunction<List<GenericStack>> batchInputs) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, batchInputs);
+    }
+
+    private static int maxBatchSizeFromInputFunction(
+            ListCraftingInventory inventory, int requestedBatchSize, IntFunction<List<GenericStack>> inputFunction) {
+        Objects.requireNonNull(inventory, "inventory");
+        Objects.requireNonNull(inputFunction, "inputFunction");
+        if (requestedBatchSize <= 1) return Math.max(0, requestedBatchSize);
+        if (containsAll(inventory, inputFunction.apply(requestedBatchSize))) return requestedBatchSize;
+
+        int low = 1;
+        int high = requestedBatchSize - 1;
+        while (low < high) {
+            int difference = high - low;
+            int candidate = low + difference / 2 + difference % 2;
+            if (containsAll(inventory, inputFunction.apply(candidate))) {
+                low = candidate;
+            } else {
+                high = candidate - 1;
+            }
+        }
+        return low;
+    }
+
+    public static long maxBatchSizeFromAdditionalInputs(
+            ListCraftingInventory inventory,
+            long requestedBatchSize,
+            LongFunction<List<GenericStack>> additionalInputs) {
+        return maxBatchSizeFromInputFunction(inventory, requestedBatchSize, additionalInputs);
+    }
+
+    private static long maxBatchSizeFromInputFunction(
+            ListCraftingInventory inventory, long requestedBatchSize, LongFunction<List<GenericStack>> inputFunction) {
+        Objects.requireNonNull(inventory, "inventory");
+        Objects.requireNonNull(inputFunction, "inputFunction");
+        if (requestedBatchSize <= 1L) return Math.max(0L, requestedBatchSize);
+        if (containsAll(inventory, inputFunction.apply(requestedBatchSize))) return requestedBatchSize;
+
+        long low = 1L;
+        long high = requestedBatchSize - 1L;
+        while (low < high) {
+            long difference = high - low;
+            long candidate = low + difference / 2L + difference % 2L;
+            if (containsAll(inventory, inputFunction.apply(candidate))) {
+                low = candidate;
+            } else {
+                high = candidate - 1L;
+            }
+        }
+        return low;
+    }
+
+    private static boolean containsAll(ListCraftingInventory inventory, List<GenericStack> required) {
+        for (GenericStack stack : required) {
+            if (stack == null || stack.amount() <= 0L || inventory.list.get(stack.what()) < stack.amount()) {
                 return false;
             }
         }
@@ -107,8 +238,13 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static int maxAffordableCrafts(double patternPower, int requested, DoubleUnaryOperator simulatedExtraction) {
+        return (int) maxAffordableCrafts(patternPower, (long) requested, simulatedExtraction);
+    }
+
+    public static long maxAffordableCrafts(
+            double patternPower, long requested, DoubleUnaryOperator simulatedExtraction) {
         Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
-        int boundedRequested = Math.max(0, requested);
+        long boundedRequested = Math.max(0L, requested);
         if (boundedRequested <= 0 || !Double.isFinite(patternPower) || patternPower < 0.0D) {
             return 0;
         }
@@ -119,10 +255,11 @@ public final class ECOBatchCraftingHelper {
             return boundedRequested;
         }
 
-        int low = 0;
-        int high = boundedRequested - 1;
+        long low = 0L;
+        long high = boundedRequested - 1L;
         while (low < high) {
-            int batchSize = low + (int) (((long) high - low + 1L) / 2L);
+            long difference = high - low;
+            long batchSize = low + difference / 2L + difference % 2L;
             if (hasEnoughEnergy(patternPower, batchSize, simulatedExtraction)) {
                 low = batchSize;
             } else {
@@ -132,37 +269,14 @@ public final class ECOBatchCraftingHelper {
         return low;
     }
 
-    public static boolean areValidItemStacks(List<GenericStack> stacks, long maxAmount, boolean requireNonEmpty) {
-        if (!areValidPersistedItemStacks(stacks, maxAmount, requireNonEmpty)) {
-            return false;
-        }
-        for (GenericStack stack : stacks) {
-            AEItemKey itemKey = (AEItemKey) stack.what();
-            ItemStack itemStack = itemKey.toStack(1);
-            if (itemStack.isEmpty() || itemKey.isDamaged()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static boolean areValidPersistedItemStacks(
-            List<GenericStack> stacks, long maxAmount, boolean requireNonEmpty) {
-        if (stacks == null || stacks.size() > MAX_BATCH_STACK_ENTRIES || requireNonEmpty && stacks.isEmpty()) {
-            return false;
-        }
-        for (GenericStack stack : stacks) {
-            if (stack == null
-                    || stack.amount() <= 0
-                    || stack.amount() > maxAmount
-                    || !(stack.what() instanceof AEItemKey)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public static void extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        if (!tryExtractExact(inventory, stacks)) {
+            throw new IllegalStateException("Failed to extract exact fast-path batch inputs");
+        }
+    }
+
+    /** A stale preview is a rejected dispatch, not a server tick failure. */
+    public static boolean tryExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
         List<GenericStack> extractedStacks = new ArrayList<>(stacks.size());
         try {
             for (GenericStack stack : stacks) {
@@ -171,13 +285,15 @@ public final class ECOBatchCraftingHelper {
                     extractedStacks.add(new GenericStack(stack.what(), extracted));
                 }
                 if (extracted != stack.amount()) {
-                    throw new IllegalStateException("Failed to extract exact fast-path batch inputs");
+                    insertAll(inventory, extractedStacks);
+                    return false;
                 }
             }
         } catch (RuntimeException e) {
             insertAll(inventory, extractedStacks);
             throw e;
         }
+        return true;
     }
 
     public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
@@ -188,47 +304,16 @@ public final class ECOBatchCraftingHelper {
         }
     }
 
-    private static List<GenericStack> copyCounter(KeyCounter counter) {
-        List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-            }
-        }
-        return List.copyOf(stacks);
-    }
-
-    private static long maxBatchForAggregates(List<GenericStack> first, List<GenericStack> second) {
-        Map<AEKey, Long> totals = new HashMap<>();
-        for (List<GenericStack> stacks : List.of(first, second)) {
-            for (GenericStack stack : stacks) {
-                if (stack == null || stack.amount() <= 0L) {
-                    return 0L;
-                }
-                long old = totals.getOrDefault(stack.what(), 0L);
-                if (old > Long.MAX_VALUE - stack.amount()) {
-                    return 0L;
-                }
-                totals.put(stack.what(), old + stack.amount());
-            }
-        }
-        long limit = Long.MAX_VALUE;
-        for (long total : totals.values()) {
-            limit = Math.min(limit, Long.MAX_VALUE / total);
-        }
-        return limit;
-    }
-
     private static long multiplyExact(long amount, long multiplier) {
         try {
-            return Math.multiplyExact(amount, multiplier);
+            return Math.multiplyExact(amount, (long) multiplier);
         } catch (ArithmeticException e) {
             throw new IllegalArgumentException("Batch fast path amount overflow", e);
         }
     }
 
     private static boolean hasEnoughEnergy(
-            double patternPower, int batchSize, DoubleUnaryOperator simulatedExtraction) {
+            double patternPower, long batchSize, DoubleUnaryOperator simulatedExtraction) {
         double totalPower = patternPower * batchSize;
         if (!Double.isFinite(totalPower) || totalPower < 0.0D) {
             return false;

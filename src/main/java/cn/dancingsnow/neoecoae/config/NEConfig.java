@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import com.google.common.math.LongMath;
 import net.minecraft.util.Mth;
@@ -160,7 +159,7 @@ public class NEConfig {
     }
 
     public static int getEcoFastPathTickLimit() {
-        return ECOBatchCraftingHelper.MAX_BATCH_SIZE;
+        return ecoCpuPushTickLimit;
     }
 
     public static boolean isIncreaseStorageCellCapacity() {

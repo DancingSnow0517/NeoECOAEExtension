@@ -93,6 +93,20 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                         })
                 .useAeTabButton();
         addWidget(fastTaskPlanningButton);
+        addWidget(new NEAe2IconButtonWidget(-24, 48, 24, 24, Icon.LEVEL_ENERGY, click -> {
+                    if (!click.isRemote) {
+                        computation.toggleCyclePlanning();
+                        syncStateNow();
+                    }
+                })
+                .useAeTabButton());
+        addWidget(new NEAe2IconButtonWidget(-24, 72, 24, 24, Icon.POWER_UNIT_AE, click -> {
+                    if (!click.isRemote) {
+                        computation.toggleIgnoringSubstitutions();
+                        syncStateNow();
+                    }
+                })
+                .useAeTabButton());
         batchFairSchedulingButton = new NEAe2IconButtonWidget(
                         BATCH_FAIR_SCHEDULING_BUTTON_X,
                         BATCH_FAIR_SCHEDULING_BUTTON_Y,
@@ -188,6 +202,32 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (isMouseIn(-24, 48, 24, 24, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(Component.translatable(
+                            currentState().cyclePlanningEnabled()
+                                    ? "gui.neoecoae.crafting.cycle_planning.on"
+                                    : "gui.neoecoae.crafting.cycle_planning.off")),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        if (isMouseIn(-24, 72, 24, 24, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            Component.translatable(
+                                    currentState().ignoringSubstitutions()
+                                            ? "gui.neoecoae.crafting.planning.ignore_substitutions.on"
+                                            : "gui.neoecoae.crafting.planning.ignore_substitutions.off"),
+                            Component.translatable(
+                                    "gui.neoecoae.crafting.planning.substitution_pattern_count",
+                                    currentState().substitutionPatternCount())),
+                    mouseX,
+                    mouseY);
+            return;
+        }
         if (drawFastTaskPlanningTooltip(graphics, mouseX, mouseY)) {
             return;
         }

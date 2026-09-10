@@ -121,6 +121,7 @@ public class ECOComputationThreadingCoreBlockEntity
                 continue; // Keep deferredInit[i] for retry
             }
             if (cpu.getPlan() != null && cpu.getLogic().hasJob()) {
+                cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle.resumePersistedJob(this.level, tag);
                 cpus[i] = cpu;
                 cluster.pickup(cpu.getPlan(), cpu);
                 deferredInit[i] = null; // Only clear on success

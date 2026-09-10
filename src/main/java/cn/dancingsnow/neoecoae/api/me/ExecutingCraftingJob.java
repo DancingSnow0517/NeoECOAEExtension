@@ -21,19 +21,24 @@ package cn.dancingsnow.neoecoae.api.me;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
-import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOPlannedInputs;
-import java.util.ArrayDeque;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOGrowthDispatchBarrier;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionMode;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.core.HolderLookup;
@@ -50,32 +55,28 @@ public class ExecutingCraftingJob {
     private static final String NBT_TIME_TRACKER = "timeTracker";
     private static final String NBT_REMAINING_AMOUNT = "remainingAmount";
     private static final String NBT_TASKS = "tasks";
-    private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
-    private static final String NBT_USER_PAUSED = "userPaused";
-    private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
-    private static final String NBT_PLANNED_INPUTS = "plannedInputs";
-    private static final String NBT_PLANNED_INPUT_COUNT = "count";
-    private static final String NBT_PLANNED_INPUT_SLOTS = "slots";
-    private static final String NBT_PLANNED_INPUT_ALTERNATIVES = "alternatives";
-    private static final String NBT_PLANNED_INPUT_STACK = "stack";
-    private static final String NBT_PLANNED_INPUT_MULTIPLIER = "multiplier";
-    // Legacy homogeneous-selection format written before mixed inputs were supported.
-    private static final String NBT_PLANNED_INPUT_STACKS = "stacks";
+    private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
+    private static final String NBT_EXECUTION_PLAN = "executionPlan";
+    private static final String NBT_EXECUTION_RUNTIME = "executionRuntime";
+    private static final String NBT_EXECUTION_PERSISTENCE_FAILED = "executionPersistenceFailed";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
-    final Map<IPatternDetails, ArrayDeque<ECOPlannedInputs.PlannedInputBatch>> plannedInputs = new HashMap<>();
+
+    @Nullable final ECOExecutionPlan executionPlan;
+
+    @Nullable final ECOExecutionRuntime executionRuntime;
+
+    private ECOGrowthDispatchBarrier growthBarrier;
     final ElapsedTimeTracker timeTracker;
-    final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
     long remainingAmount;
 
     @Nullable Integer playerId;
 
     boolean suspended;
-    boolean userPaused;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -87,13 +88,21 @@ public class ExecutingCraftingJob {
             CraftingDifferenceListener postCraftingDifference,
             CraftingLink link,
             @Nullable Integer playerId) {
+        this(plan, null, postCraftingDifference, link, playerId);
+    }
+
+    ExecutingCraftingJob(
+            ICraftingPlan plan,
+            @Nullable ECOExecutionPlan executionPlan,
+            CraftingDifferenceListener postCraftingDifference,
+            CraftingLink link,
+            @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
 
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
-        this.bufferedFinalOutput = new ECOFinalOutputBuffer();
         for (var entry : plan.emittedItems()) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
@@ -101,61 +110,256 @@ public class ExecutingCraftingJob {
         for (var entry : plan.patternTimes().entrySet()) {
             tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress()).value += entry.getValue();
             for (var output : entry.getKey().getOutputs()) {
-                var amount = output.amount() * entry.getValue() * output.what().getAmountPerUnit();
+                var amount = NEMath.saturatingMultiply(output.amount(), entry.getValue());
+                amount = NEMath.saturatingMultiply(amount, output.what().getAmountPerUnit());
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
-        this.plannedInputs.putAll(ECOPlannedInputs.take(plan));
+        this.executionPlan = executionPlan;
+        if (executionPlan == null) {
+            this.executionRuntime = null;
+        } else {
+            Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(executionPlan);
+            this.executionRuntime = new ECOExecutionRuntime(
+                    executionPlan, boundPatterns, bindExecutionProgress(executionPlan, boundPatterns));
+        }
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
-        this.userPaused = false;
     }
 
     ExecutingCraftingJob(
             CompoundTag data,
             HolderLookup.Provider registries,
             CraftingDifferenceListener postCraftingDifference,
-            ECOCraftingCPULogic logic) {
-        this.link = new CraftingLink(data.getCompound(NBT_LINK), logic.cpu);
+            ECOCraftingCPULogic cpu) {
+        this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
+
         this.finalOutput = GenericStack.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
-        this.bufferedFinalOutput = new ECOFinalOutputBuffer(Math.max(0L, data.getLong(NBT_BUFFERED_FINAL_OUTPUT)));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
         } else {
             this.playerId = null;
         }
 
-        boolean invalidPlannedInputs = false;
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(item);
-            var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
+            var details = PatternDetailsHelper.decodePattern(pattern, cpu.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
                 this.tasks.put(details, tp);
-                ArrayDeque<ECOPlannedInputs.PlannedInputBatch> selections =
-                        readPlannedInputs(item, details.getInputs());
-                if (selections == null) {
-                    invalidPlannedInputs = true;
-                } else if (!selections.isEmpty()) {
-                    this.plannedInputs.put(details, selections);
-                }
             }
         }
 
-        this.suspended = data.getBoolean(NBT_SUSPENDED) || invalidPlannedInputs;
-        this.userPaused = data.getBoolean(NBT_USER_PAUSED);
-        IGrid grid = logic.cpu.getGrid();
-        if (grid != null) {
-            ((CraftingService) grid.getCraftingService()).addLink(link);
+        ECOExecutionPlan restoredPlan = null;
+        ECOExecutionRuntime restoredRuntime = null;
+        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED);
+        if (data.contains(NBT_EXECUTION_PLAN)) {
+            try {
+                restoredPlan =
+                        readExecutionPlan(data.getCompound(NBT_EXECUTION_PLAN), registries, cpu, this.finalOutput);
+                Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(restoredPlan, false);
+                TaskProgress[] boundProgress = bindExecutionProgress(restoredPlan, boundPatterns);
+                if (data.contains(NBT_EXECUTION_RUNTIME)) {
+                    restoredRuntime = ECOExecutionRuntime.fromNBT(
+                            restoredPlan,
+                            boundPatterns,
+                            boundProgress,
+                            data.getCompound(NBT_EXECUTION_RUNTIME),
+                            registries);
+                } else {
+                    restoredRuntime = new ECOExecutionRuntime(restoredPlan, boundPatterns, boundProgress);
+                }
+            } catch (RuntimeException failure) {
+                executionMetadataLost = true;
+            }
         }
+        this.executionPlan = restoredPlan;
+        this.executionRuntime = restoredRuntime;
+        this.suspended = data.getBoolean(NBT_SUSPENDED) || executionMetadataLost;
+    }
+
+    private Map<Integer, IPatternDetails> bindExecutionPatterns(ECOExecutionPlan plan) {
+        return bindExecutionPatterns(plan, true);
+    }
+
+    private Map<Integer, IPatternDetails> bindExecutionPatterns(ECOExecutionPlan plan, boolean validateTotals) {
+        Map<Integer, IPatternDetails> result = new HashMap<>();
+        for (var task : plan.tasks()) {
+            IPatternDetails match = tasks.keySet().stream()
+                    .filter(candidate -> ECOPhaseScheduler.samePattern(candidate, task.pattern()))
+                    .findFirst()
+                    .orElse(null);
+            if (match == null) {
+                throw new IllegalArgumentException("Execution plan task is absent from submitted plan: " + task.id());
+            }
+            TaskProgress progress = tasks.get(match);
+            if (progress == null || (validateTotals && progress.value != task.totalCount())) {
+                throw new IllegalArgumentException("Execution plan count does not match submitted task: " + task.id());
+            }
+            result.put(task.id(), match);
+        }
+        return result;
+    }
+
+    private TaskProgress[] bindExecutionProgress(ECOExecutionPlan plan, Map<Integer, IPatternDetails> boundPatterns) {
+        TaskProgress[] result = new TaskProgress[plan.tasks().size()];
+        for (var task : plan.tasks()) {
+            IPatternDetails pattern = boundPatterns.get(task.id());
+            TaskProgress progress = tasks.get(pattern);
+            if (progress == null) {
+                throw new IllegalArgumentException("Execution plan task has no live progress: " + task.id());
+            }
+            result[task.id()] = progress;
+        }
+        return result;
+    }
+
+    private static CompoundTag writeExecutionPlan(ECOExecutionPlan plan, HolderLookup.Provider registries) {
+        CompoundTag data = new CompoundTag();
+        data.putString("mode", plan.mode().name());
+
+        ListTag taskTags = new ListTag();
+        for (var task : plan.tasks()) {
+            if (task.pattern().getDefinition() == null) {
+                throw new IllegalStateException("Cannot persist an execution task without a pattern definition");
+            }
+            CompoundTag taskTag = new CompoundTag();
+            taskTag.putInt("id", task.id());
+            taskTag.putLong("total", task.totalCount());
+            taskTag.putInt("phase", task.phaseIndex());
+            taskTag.putString("kind", task.kind().name());
+            taskTag.put("pattern", task.pattern().getDefinition().toTag());
+            taskTags.add(taskTag);
+        }
+        data.put("tasks", taskTags);
+
+        ListTag phaseTags = new ListTag();
+        for (var phase : plan.phases()) {
+            CompoundTag phaseTag = new CompoundTag();
+            phaseTag.putInt("index", phase.index());
+            phaseTag.putInt("component", phase.componentId());
+            phaseTag.putString("type", phase.type().name());
+            phaseTag.putIntArray(
+                    "tasks",
+                    phase.taskIds().stream().mapToInt(Integer::intValue).toArray());
+            phaseTag.putIntArray(
+                    "dependencies",
+                    phase.dependencies().stream().mapToInt(Integer::intValue).toArray());
+
+            ListTag steps = new ListTag();
+            for (var step : phase.steps()) {
+                CompoundTag stepTag = new CompoundTag();
+                stepTag.putInt("task", step.taskId());
+                stepTag.putLong("count", step.count());
+                steps.add(stepTag);
+            }
+            phaseTag.put("steps", steps);
+
+            ListTag dynamic = new ListTag();
+            for (var entry : phase.dynamicFirings().entrySet()) {
+                CompoundTag firing = new CompoundTag();
+                firing.putInt("task", entry.getKey());
+                firing.putLong("count", entry.getValue());
+                dynamic.add(firing);
+            }
+            phaseTag.put("dynamic", dynamic);
+
+            ListTag seeds = new ListTag();
+            for (var entry : phase.initialSeed().entrySet()) {
+                seeds.add(GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getValue())));
+            }
+            phaseTag.put("initialSeed", seeds);
+            phaseTags.add(phaseTag);
+        }
+        data.put("phases", phaseTags);
+        return data;
+    }
+
+    private static ECOExecutionPlan readExecutionPlan(
+            CompoundTag data, HolderLookup.Provider registries, ECOCraftingCPULogic cpu, GenericStack finalOutput) {
+        ExecutionMode mode = ExecutionMode.valueOf(data.getString("mode"));
+        ListTag taskTags = data.getList("tasks", Tag.TAG_COMPOUND);
+        List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>(taskTags.size());
+        Map<Integer, IPatternDetails> patternsById = new HashMap<>();
+        for (int i = 0; i < taskTags.size(); i++) {
+            CompoundTag taskTag = taskTags.getCompound(i);
+            int id = taskTag.getInt("id");
+            if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
+            AEItemKey definition = AEItemKey.fromTag(taskTag.getCompound("pattern"));
+            IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
+            if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
+            PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
+            if (identity == null) throw new IllegalArgumentException("Persisted execution pattern has no identity");
+            patternsById.put(id, pattern);
+            tasks.add(new ECOExecutionPlan.TaskSpec(
+                    id,
+                    identity,
+                    pattern,
+                    ECOExecutionPlan.PatternRuntimeInfo.from(pattern),
+                    taskTag.getLong("total"),
+                    taskTag.getInt("phase"),
+                    ECOExecutionPlan.TaskKind.valueOf(taskTag.getString("kind"))));
+        }
+
+        ListTag phaseTags = data.getList("phases", Tag.TAG_COMPOUND);
+        List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>(phaseTags.size());
+        List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>(phaseTags.size());
+        List<ECOExecutionSchedule.PhaseDependency> dependencies = new ArrayList<>();
+        for (int i = 0; i < phaseTags.size(); i++) {
+            CompoundTag phaseTag = phaseTags.getCompound(i);
+            int index = phaseTag.getInt("index");
+            if (index != i) throw new IllegalArgumentException("Persisted execution phase ids are not dense");
+            ECOExecutionSchedule.Type type = ECOExecutionSchedule.Type.valueOf(phaseTag.getString("type"));
+            List<Integer> taskIds =
+                    Arrays.stream(phaseTag.getIntArray("tasks")).boxed().toList();
+            List<Integer> phaseDependencies =
+                    Arrays.stream(phaseTag.getIntArray("dependencies")).boxed().toList();
+            List<ECOExecutionPlan.ExecutionStep> steps = new ArrayList<>();
+            ListTag stepTags = phaseTag.getList("steps", Tag.TAG_COMPOUND);
+            for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
+                CompoundTag step = stepTags.getCompound(stepIndex);
+                steps.add(new ECOExecutionPlan.ExecutionStep(step.getInt("task"), step.getLong("count")));
+            }
+            Map<Integer, Long> dynamic = new LinkedHashMap<>();
+            ListTag dynamicTags = phaseTag.getList("dynamic", Tag.TAG_COMPOUND);
+            for (int dynamicIndex = 0; dynamicIndex < dynamicTags.size(); dynamicIndex++) {
+                CompoundTag firing = dynamicTags.getCompound(dynamicIndex);
+                dynamic.put(firing.getInt("task"), firing.getLong("count"));
+            }
+            Map<AEKey, Long> seed = new LinkedHashMap<>();
+            ListTag seedTags = phaseTag.getList("initialSeed", Tag.TAG_COMPOUND);
+            for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
+                GenericStack stack = GenericStack.readTag(seedTags.getCompound(seedIndex));
+                if (stack == null || stack.amount() <= 0L) throw new IllegalArgumentException("Invalid persisted seed");
+                seed.put(stack.what(), stack.amount());
+            }
+            phases.add(new ECOExecutionPlan.PhaseSpec(
+                    index, phaseTag.getInt("component"), type, taskIds, steps, phaseDependencies, dynamic, seed));
+
+            LinkedHashSet<IPatternDetails> patternSet = new LinkedHashSet<>();
+            for (int taskId : taskIds) patternSet.add(patternsById.get(taskId));
+            schedulePhases.add(new ECOExecutionSchedule.ComponentExecutionPhase(
+                    phaseTag.getInt("component"), type, patternSet, List.of()));
+            for (int dependency : phaseDependencies) {
+                dependencies.add(new ECOExecutionSchedule.PhaseDependency(dependency, index));
+            }
+        }
+
+        Map<PlanIdentity.PatternIdentity, Long> signatureTasks = new LinkedHashMap<>();
+        for (var task : tasks) signatureTasks.put(task.identity(), task.totalCount());
+        if (finalOutput == null) throw new IllegalArgumentException("Persisted execution job has no final output");
+        PlanIdentity.Signature signature = new PlanIdentity.Signature(
+                finalOutput.what(), finalOutput.amount(), signatureTasks, Map.of(), Map.of(), Map.of());
+        return new ECOExecutionPlan(
+                signature, mode, tasks, phases, new ECOExecutionSchedule(schedulePhases, dependencies));
     }
 
     CompoundTag writeToNBT(HolderLookup.Provider registries) {
@@ -169,13 +373,11 @@ public class ExecutingCraftingJob {
 
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT());
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
-        data.putLong(NBT_BUFFERED_FINAL_OUTPUT, bufferedFinalOutput.amount());
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {
             var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
-            writePlannedInputs(item, plannedInputs.get(e.getKey()));
             list.add(item);
         }
         data.put(NBT_TASKS, list);
@@ -186,187 +388,30 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
-        data.putBoolean(NBT_USER_PAUSED, userPaused);
+        if (executionPlan != null && executionRuntime != null) {
+            try {
+                data.put(NBT_EXECUTION_PLAN, writeExecutionPlan(executionPlan, registries));
+                CompoundTag runtime = new CompoundTag();
+                executionRuntime.writeToNBT(runtime, registries);
+                data.put(NBT_EXECUTION_RUNTIME, runtime);
+            } catch (RuntimeException failure) {
+                // A phased job must never be restored as a native unordered job when a pattern definition cannot
+                // be encoded. The read path turns this marker into a suspended job instead.
+                data.putBoolean(NBT_EXECUTION_PERSISTENCE_FAILED, true);
+            }
+        }
         return data;
     }
 
-    @Nullable List<ECOAE2InputSelection> peekPlannedInputs(IPatternDetails details) {
-        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
-        ECOPlannedInputs.PlannedInputBatch batch = batches == null ? null : batches.peekFirst();
-        return batch == null ? null : batch.selectedInputs();
-    }
-
-    long peekPlannedInputCount(IPatternDetails details) {
-        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
-        ECOPlannedInputs.PlannedInputBatch batch = batches == null ? null : batches.peekFirst();
-        if (batch == null) {
-            return 0L;
+    boolean canDispatchAfterGrowth(IPatternDetails pattern) {
+        // Derived from task patterns, including after NBT restore; no independent persisted cursor is needed.
+        if (growthBarrier == null) {
+            growthBarrier = new ECOGrowthDispatchBarrier(tasks.keySet());
         }
-
-        // The planner may emit the same exact input selection in multiple segments when
-        // dependencies are scheduled in waves. FastPath can safely combine those segments;
-        // it must never cross into a different selection of alternatives.
-        return compatiblePlannedInputCount(batches);
-    }
-
-    void consumePlannedInputs(IPatternDetails details) {
-        consumePlannedInputs(details, 1L);
-    }
-
-    void consumePlannedInputs(IPatternDetails details, long crafts) {
-        if (crafts <= 0L) {
-            return;
-        }
-        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
-        if (batches == null || batches.isEmpty()) {
-            return;
-        }
-
-        consumeCompatiblePlannedInputs(batches, crafts);
-        if (batches.isEmpty()) {
-            plannedInputs.remove(details);
-        }
-    }
-
-    void discardPlannedInputs(IPatternDetails details) {
-        plannedInputs.remove(details);
-    }
-
-    static long compatiblePlannedInputCount(ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches) {
-        if (batches == null || batches.isEmpty()) {
-            return 0L;
-        }
-        List<ECOAE2InputSelection> selectedInputs = batches.getFirst().selectedInputs();
-        long total = 0L;
-        for (ECOPlannedInputs.PlannedInputBatch batch : batches) {
-            if (batch.selectedInputs().equals(selectedInputs)) {
-                total = saturatingAdd(total, batch.remaining());
-            }
-        }
-        return total;
-    }
-
-    static void consumeCompatiblePlannedInputs(ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches, long crafts) {
-        if (batches == null || batches.isEmpty() || crafts <= 0L) {
-            return;
-        }
-        List<ECOAE2InputSelection> selectedInputs = batches.getFirst().selectedInputs();
-        var iterator = batches.iterator();
-        while (crafts > 0L && iterator.hasNext()) {
-            ECOPlannedInputs.PlannedInputBatch batch = iterator.next();
-            if (!batch.selectedInputs().equals(selectedInputs)) {
-                continue;
-            }
-            long consumed = Math.min(crafts, batch.remaining());
-            batch.consume(consumed);
-            crafts -= consumed;
-            if (batch.remaining() == 0L) {
-                iterator.remove();
-            }
-        }
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right <= 0L) {
-            return Math.max(0L, left);
-        }
-        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
-    }
-
-    private static void writePlannedInputs(
-            CompoundTag taskTag, @Nullable ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches) {
-        if (batches == null || batches.isEmpty()) {
-            return;
-        }
-        ListTag serializedBatches = new ListTag();
-        for (ECOPlannedInputs.PlannedInputBatch batch : batches) {
-            CompoundTag serializedBatch = new CompoundTag();
-            serializedBatch.putLong(NBT_PLANNED_INPUT_COUNT, batch.remaining());
-            ListTag slots = new ListTag();
-            for (ECOAE2InputSelection selection : batch.selectedInputs()) {
-                CompoundTag serializedSlot = new CompoundTag();
-                ListTag alternatives = new ListTag();
-                for (ECOAE2InputSelection.Alternative alternative : selection.alternatives()) {
-                    CompoundTag serializedAlternative = new CompoundTag();
-                    serializedAlternative.put(NBT_PLANNED_INPUT_STACK, GenericStack.writeTag(alternative.template()));
-                    serializedAlternative.putLong(NBT_PLANNED_INPUT_MULTIPLIER, alternative.multiplier());
-                    alternatives.add(serializedAlternative);
-                }
-                serializedSlot.put(NBT_PLANNED_INPUT_ALTERNATIVES, alternatives);
-                slots.add(serializedSlot);
-            }
-            serializedBatch.put(NBT_PLANNED_INPUT_SLOTS, slots);
-            serializedBatches.add(serializedBatch);
-        }
-        taskTag.put(NBT_PLANNED_INPUTS, serializedBatches);
-    }
-
-    private static @Nullable ArrayDeque<ECOPlannedInputs.PlannedInputBatch> readPlannedInputs(
-            CompoundTag taskTag, IPatternDetails.IInput[] expectedInputs) {
-        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> result = new ArrayDeque<>();
-        if (!taskTag.contains(NBT_PLANNED_INPUTS, Tag.TAG_LIST)) {
-            return result;
-        }
-        ListTag serializedBatches = taskTag.getList(NBT_PLANNED_INPUTS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < serializedBatches.size(); i++) {
-            CompoundTag serializedBatch = serializedBatches.getCompound(i);
-            long count = serializedBatch.getLong(NBT_PLANNED_INPUT_COUNT);
-            if (count <= 0L) {
-                return null;
-            }
-            if (serializedBatch.contains(NBT_PLANNED_INPUT_SLOTS, Tag.TAG_LIST)) {
-                ListTag serializedSlots = serializedBatch.getList(NBT_PLANNED_INPUT_SLOTS, Tag.TAG_COMPOUND);
-                if (serializedSlots.size() != expectedInputs.length) {
-                    return null;
-                }
-                List<ECOAE2InputSelection> selections = new ArrayList<>(serializedSlots.size());
-                for (int slot = 0; slot < serializedSlots.size(); slot++) {
-                    ListTag serializedAlternatives =
-                            serializedSlots.getCompound(slot).getList(NBT_PLANNED_INPUT_ALTERNATIVES, Tag.TAG_COMPOUND);
-                    if (serializedAlternatives.isEmpty()) {
-                        return null;
-                    }
-                    List<ECOAE2InputSelection.Alternative> alternatives =
-                            new ArrayList<>(serializedAlternatives.size());
-                    for (int alternative = 0; alternative < serializedAlternatives.size(); alternative++) {
-                        CompoundTag serializedAlternative = serializedAlternatives.getCompound(alternative);
-                        GenericStack stack =
-                                GenericStack.readTag(serializedAlternative.getCompound(NBT_PLANNED_INPUT_STACK));
-                        long multiplier = serializedAlternative.getLong(NBT_PLANNED_INPUT_MULTIPLIER);
-                        if (stack == null || stack.amount() <= 0L || multiplier <= 0L) {
-                            return null;
-                        }
-                        alternatives.add(new ECOAE2InputSelection.Alternative(stack, multiplier));
-                    }
-                    ECOAE2InputSelection selection = new ECOAE2InputSelection(alternatives);
-                    try {
-                        if (selection.totalMultiplier() != expectedInputs[slot].getMultiplier()) {
-                            return null;
-                        }
-                    } catch (ArithmeticException overflow) {
-                        return null;
-                    }
-                    selections.add(selection);
-                }
-                result.addLast(new ECOPlannedInputs.PlannedInputBatch(selections, count));
-                continue;
-            }
-
-            ListTag serializedStacks = serializedBatch.getList(NBT_PLANNED_INPUT_STACKS, Tag.TAG_COMPOUND);
-            if (serializedStacks.size() != expectedInputs.length) {
-                return null;
-            }
-            List<ECOAE2InputSelection> selections = new ArrayList<>(serializedStacks.size());
-            for (int j = 0; j < serializedStacks.size(); j++) {
-                GenericStack stack = GenericStack.readTag(serializedStacks.getCompound(j));
-                if (stack == null || stack.amount() <= 0L) {
-                    return null;
-                }
-                selections.add(ECOAE2InputSelection.single(stack, expectedInputs[j].getMultiplier()));
-            }
-            result.addLast(new ECOPlannedInputs.PlannedInputBatch(selections, count));
-        }
-        return result;
+        return growthBarrier.canDispatch(pattern, member -> {
+            var task = tasks.get(member);
+            return task == null ? 0L : task.value;
+        });
     }
 
     static class TaskProgress {

@@ -60,7 +60,7 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 }
                 CompoundTag craft = new CompoundTag();
                 craft.put("output", output.save(new CompoundTag()));
-                craft.putInt("slots", snapshot.occupiedThreadSlots());
+                craft.putInt("slots", Math.max(1, snapshot.finiteBatchCraftCount()));
                 craft.putInt("progress", snapshot.progress());
                 craft.putInt("maxProgress", snapshot.maxProgress());
                 crafts.add(craft);

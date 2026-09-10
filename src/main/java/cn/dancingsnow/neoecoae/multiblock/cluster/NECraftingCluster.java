@@ -16,6 +16,13 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
+    private final cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache fastPathCache =
+            new cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache();
+
+    public cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache getFastPathCache() {
+        return networkCluster == null ? fastPathCache : networkCluster.getFastPathCache();
+    }
+
     @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
 

@@ -4,29 +4,29 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.stacks.KeyCounter;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
-import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import java.util.ArrayList;
-import java.util.BitSet;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -39,14 +39,27 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         implements IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
+    private static final Set<ECOCraftingWorkerBlockEntity> LOADED_SERVER_WORKERS =
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
-    private final ECOCraftingFastPathCache detachedFastPathCache = new ECOCraftingFastPathCache();
+
+    /**
+     * Only used while this worker has no cluster - a detached worker can never craft, but statistics calls
+     * still need a sink. The real cache lives on the crafting cluster (or, when a Network Switch group is
+     * formed, on that group) so verified recipes are shared instead of re-verified per worker.
+     */
+    @Nullable private ECOCraftingFastPathCache detachedFastPathCache;
 
     @Getter
     private int runningThreads = 0;
 
     private int nextFreeThreadIndex = 0;
+
+    @Getter
+    @Nullable private GenericStack displayedJob;
+
+    private boolean displayDirty = true;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -56,7 +69,38 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     @Override
     public void onReady() {
         super.onReady();
+        if (level instanceof ServerLevel) {
+            synchronized (LOADED_SERVER_WORKERS) {
+                LOADED_SERVER_WORKERS.add(this);
+            }
+        }
         getMainNode().setIdlePowerUsage(64);
+        reconcileJobTermination();
+        refreshDisplayedJob();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        unregisterLoadedWorker();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        unregisterLoadedWorker();
+        super.setRemoved();
+    }
+
+    private void unregisterLoadedWorker() {
+        synchronized (LOADED_SERVER_WORKERS) {
+            LOADED_SERVER_WORKERS.remove(this);
+        }
+    }
+
+    public static List<ECOCraftingWorkerBlockEntity> getLoadedServerWorkers() {
+        synchronized (LOADED_SERVER_WORKERS) {
+            return List.copyOf(LOADED_SERVER_WORKERS);
+        }
     }
 
     @Override
@@ -71,56 +115,79 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             long startNanos = System.nanoTime();
             try {
                 int powerMultiply = 1;
-                if (controller.isLocalOverclocked() && !controller.isLocalActiveCooling()) {
+                if (controller.isOverclocked() && !controller.isActiveCooling()) {
                     powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
                 }
-                powerMultiply =
-                        (int) Math.min(Integer.MAX_VALUE, (long) powerMultiply * cluster.getNetworkPowerMultiplier());
-                int overlockTimes = controller.getEffectiveOverclockTimesForLocalTasks();
-                boolean fullNetworkPowerMode = cluster.getNetworkMultiplier() > 1;
-                boolean networkPowerPrepaid = fullNetworkPowerMode && controller.tryPayFullNetworkPowerForCurrentTick();
+                int overlockTimes = controller.getEffectiveOverclockTimes();
                 TickRateModulation rate = TickRateModulation.IDLE;
                 for (ECOCraftingThread thread : craftingThreads) {
-                    TickRateModulation r = thread.tick(
-                            overlockTimes,
-                            powerMultiply,
-                            ticksSinceLastCall,
-                            fullNetworkPowerMode,
-                            networkPowerPrepaid);
+                    TickRateModulation r = thread.tick(controller, overlockTimes, powerMultiply, ticksSinceLastCall);
                     if (r.ordinal() > rate.ordinal()) {
                         rate = r;
                     }
                 }
-                setChanged();
+                // Thread state transitions call setChanged() at the mutation point. Avoid marking the block entity
+                // dirty on every tick when no persistent field changed; monitor rendering is the only reason to
+                // refresh the derived display here.
+                if (isMonitor()) {
+                    refreshDisplayedJob();
+                }
                 return rate;
             } finally {
                 controller.recordPerformanceSample(System.nanoTime() - startNanos);
             }
         } else {
-            return TickRateModulation.IDLE;
+            TickRateModulation rate = TickRateModulation.IDLE;
+            for (ECOCraftingThread thread : craftingThreads) {
+                TickRateModulation recoveryRate = thread.tickRecovery();
+                if (recoveryRate != null && recoveryRate.ordinal() > rate.ordinal()) rate = recoveryRate;
+            }
+            refreshDisplayedJob();
+            return rate;
         }
     }
 
-    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
-        return pushPattern(pattern, table, null);
+    public void reconcileJobTermination() {
+        for (ECOCraftingThread thread : craftingThreads) thread.reconcileJobTermination();
+        wakeTickingDevice();
     }
 
-    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, UUID craftingJobId) {
-        return pushPattern(ECOExtractedPatternExecution.slow(pattern, table), craftingJobId);
+    public void recoverTerminatedJob(UUID craftingJobId) {
+        boolean matched = false;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.belongsToJob(craftingJobId)) {
+                // Cancellation can arrive inside an insertion callback. Never insert the same pending ledger
+                // recursively; mark custody now and let the normal worker tick perform the physical recovery.
+                thread.reconcileJobTermination();
+                matched = true;
+            }
+        }
+        if (matched) wakeTickingDevice();
+    }
+
+    public void terminateRunningJobs() {
+        if (!(level instanceof ServerLevel)) return;
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
+        }
+        reconcileJobTermination();
+    }
+
+    @Override
+    public void breakCluster() {
+        // Also covers removal of an already detached worker, where there is no cluster to notify.
+        terminateRunningJobs();
+        super.breakCluster();
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+            if (isWorking()) {
                 getFastPathCache().recordNoThreadReject();
                 return false;
             }
-            ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(1);
-            if (lane == null) {
-                getFastPathCache().recordNoThreadReject();
-                return false;
-            }
+            int threadObjectCapacity = controller.getThreadCountPerWorker();
 
             int threadCount = craftingThreads.size();
             if (threadCount > 0) {
@@ -131,66 +198,51 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     if (!thread.isFree()) {
                         continue;
                     }
-                    if (thread.pushPattern(execution, controller, craftingJobId, lane.index())) {
+                    if (thread.pushPattern(execution, controller, craftingJobId)) {
                         nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                        refreshDisplayedJob();
                         return true;
                     }
                 }
             }
 
-            if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            if (craftingThreads.size() >= threadObjectCapacity) {
                 return false;
             }
 
             ECOCraftingThread thread = new ECOCraftingThread(this);
             craftingThreads.add(thread);
-            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, threadObjectCapacity);
             setChanged();
             markForUpdate();
-            return thread.pushPattern(execution, controller, craftingJobId, lane.index());
+            boolean accepted = thread.pushPattern(execution, controller, craftingJobId);
+            if (accepted) {
+                refreshDisplayedJob();
+            }
+            return accepted;
         } else {
             return false;
         }
     }
 
-    public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
-        if (!NEConfig.isEcoAe2FastPathEnabled() || NEConfig.postCraftingEvent) {
-            getFastPathCache().recordDisabled();
-            ECOFastPathDiagnostics.logBatchFailure(
-                    request,
-                    NEConfig.postCraftingEvent
-                            ? ECOFastPathFallbackReason.POST_CRAFTING_EVENT
-                            : ECOFastPathFallbackReason.FAST_PATH_DISABLED,
-                    ECOFastPathStage.ELIGIBILITY,
-                    getBlockPos(),
-                    currentTick(),
-                    "worker_gate enabled=" + NEConfig.isEcoAe2FastPathEnabled() + " postCraftingEvent="
-                            + NEConfig.postCraftingEvent);
+    public boolean pushBatch(ECOVerifiedFastPathExecution verified) {
+        ECOCraftingFastPathCache cache = getFastPathCache();
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+            cache.recordDisabled();
             return false;
         }
         if (cluster == null || cluster.getController() == null) {
-            ECOFastPathDiagnostics.logBatchFailure(
-                    request,
-                    ECOFastPathFallbackReason.WORKER_REJECTED,
-                    ECOFastPathStage.WORKER_ACCEPT,
-                    getBlockPos(),
-                    currentTick(),
-                    "worker_has_no_active_cluster_or_controller");
+            return false;
+        }
+        if (!verified.recipe().isIssuedBy(cache)) {
+            cache.recordExpectedMismatch();
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        int requiredLaneCapacity = controller.isVirtualCraftingMode() ? 1 : Math.toIntExact(request.batchSize());
-        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
-        if (lane == null || getAvailableThreadSlots() <= 0 || getControllerAvailableThreadSlots(controller) <= 0) {
-            getFastPathCache().recordNoThreadReject();
-            ECOFastPathDiagnostics.logBatchFailure(
-                    request,
-                    ECOFastPathFallbackReason.NO_THREAD_SLOT,
-                    ECOFastPathStage.WORKER_ACCEPT,
-                    getBlockPos(),
-                    currentTick(),
-                    "laneAvailable=" + (lane != null) + " workerSlots=" + getAvailableThreadSlots()
-                            + " controllerSlots=" + getControllerAvailableThreadSlots(controller));
+        int workerThreadCapacity = controller.getThreadCountPerWorker();
+        if (verified.batchSize() > getAvailableThreadSlots()
+                || verified.batchSize() > getControllerAvailableThreadSlots(controller)) {
+            cache.recordNoThreadReject();
             return false;
         }
 
@@ -203,93 +255,80 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushBatch(request, controller, verifiedResult, lane.index())) {
+                if (thread.pushBatch(verified, controller)) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                    refreshDisplayedJob();
                     return true;
                 }
             }
         }
 
-        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
-            ECOFastPathDiagnostics.logBatchFailure(
-                    request,
-                    ECOFastPathFallbackReason.NO_THREAD_SLOT,
-                    ECOFastPathStage.WORKER_ACCEPT,
-                    getBlockPos(),
-                    currentTick(),
-                    "all_existing_threads_rejected_and_thread_count_reached_limit="
-                            + controller.getThreadCountPerWorker());
+        if (craftingThreads.size() >= workerThreadCapacity) {
             return false;
         }
 
         ECOCraftingThread thread = new ECOCraftingThread(this);
         craftingThreads.add(thread);
-        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
         setChanged();
         markForUpdate();
-        boolean accepted = thread.pushBatch(request, controller, verifiedResult, lane.index());
-        if (!accepted) {
-            ECOFastPathDiagnostics.logBatchFailure(
-                    request,
-                    ECOFastPathFallbackReason.WORKER_REJECTED,
-                    ECOFastPathStage.WORKER_ACCEPT,
-                    getBlockPos(),
-                    currentTick(),
-                    "new_thread_rejected_batch lane=" + lane.index());
+        boolean accepted = thread.pushBatch(verified, controller);
+        if (accepted) {
+            refreshDisplayedJob();
         }
         return accepted;
     }
 
-    public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
-        var key = execution.key();
-        if (key == null) {
-            getFastPathCache().recordKeyBuildFailed();
-            ECOFastPathDiagnostics.logFailure(
-                    execution,
-                    ECOFastPathFallbackReason.KEY_BUILD_FAILED,
-                    ECOFastPathStage.CACHE_LOOKUP,
-                    getBlockPos(),
-                    currentTick(),
-                    "execution_key_is_null");
-            return null;
+    public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
+        ECOCraftingFastPathCache cache = getFastPathCache();
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+            cache.recordDisabled();
+            return false;
         }
-        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
-        ECOFastPathResult result = getFastPathCache().get(key, tick);
-        if (result == null) {
-            return null;
+        if (cluster == null || cluster.getController() == null || isWorking()) {
+            return false;
         }
-        if (result.isNegative()) {
-            getFastPathCache().recordFallbackSlowPath();
-            ECOFastPathDiagnostics.logFailure(
-                    execution,
-                    ECOFastPathFallbackReason.NEGATIVE_CACHE,
-                    ECOFastPathStage.CACHE_LOOKUP,
-                    getBlockPos(),
-                    tick,
-                    "negative_cache_result");
-            return null;
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (!controller.isVirtualCraftingMode() || !verified.recipe().isIssuedBy(cache)) {
+            cache.recordExpectedMismatch();
+            return false;
         }
-        if (!result.matchesExecution(execution)) {
-            getFastPathCache().recordExpectedMismatch();
-            ECOFastPathDiagnostics.logFailure(
-                    execution,
-                    ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH,
-                    ECOFastPathStage.CACHE_VERIFY,
-                    getBlockPos(),
-                    tick,
-                    "cached_result_does_not_match_execution");
-            return null;
+        for (int index = 0; index < craftingThreads.size(); index++) {
+            ECOCraftingThread thread = craftingThreads.get(index);
+            if (thread.isFree() && thread.pushVirtualBatch(verified, controller)) {
+                nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                refreshDisplayedJob();
+                return true;
+            }
         }
-        return result;
+        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            return false;
+        }
+        ECOCraftingThread thread = new ECOCraftingThread(this);
+        craftingThreads.add(thread);
+        boolean accepted = thread.pushVirtualBatch(verified, controller);
+        if (accepted) {
+            refreshDisplayedJob();
+            setChanged();
+            markForUpdate();
+        }
+        return accepted;
     }
 
+    /**
+     * Fast-path knowledge for this worker: the crafting cluster's cache, or the Network Switch group's shared
+     * cache while a group is formed. A worker never owns verified recipes on its own, so a recipe verified by
+     * any worker of the group is immediately usable by all of them.
+     */
     public ECOCraftingFastPathCache getFastPathCache() {
-        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
-        return controller == null ? detachedFastPathCache : controller.getFastPathCache();
-    }
-
-    private static long currentTick() {
-        return appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
+        cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster owner = cluster;
+        if (owner != null) {
+            return owner.getFastPathCache();
+        }
+        if (detachedFastPathCache == null) {
+            detachedFastPathCache = new ECOCraftingFastPathCache(ECOCraftingFastPathCache.MIN_CACHE_SIZE);
+        }
+        return detachedFastPathCache;
     }
 
     public boolean isBusy() {
@@ -297,95 +336,77 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public int getAvailableThreadSlots() {
+        return getAvailableBatchCapacity();
+    }
+
+    /** Remaining craft count accepted by this physical FX lane's next batch. */
+    public int getAvailableBatchCapacity() {
         if (cluster != null && cluster.getController() != null) {
+            if (isWorking()) {
+                return 0;
+            }
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
+            return Math.max(0, controller.getThreadCountPerWorker());
         }
         return 0;
     }
-
-    public int getBatchOccupiedThreadSlots(int craftCount) {
-        return craftCount > 0 ? 1 : 0;
-    }
-
-    public List<Integer> getAssignedLaneIndices() {
-        List<Integer> indices = new ArrayList<>();
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.isFree() && thread.getAssignedLaneIndex() >= 0) {
-                indices.add(thread.getAssignedLaneIndex());
-            }
-        }
-        return List.copyOf(indices);
-    }
-
-    public int getUnassignedBusyTaskCount() {
-        int count = 0;
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.isFree() && thread.getAssignedLaneIndex() < 0) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    /** Number of logical crafting tasks, independent of batch slot usage. */
-    public int getRunningTaskCount() {
-        int count = 0;
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.isFree()) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    public int collectLaneOccupancy(BitSet occupied, int laneCount) {
-        int unassigned = 0;
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (thread.isFree()) {
-                continue;
-            }
-            int index = thread.getAssignedLaneIndex();
-            if (index >= 0 && index < laneCount) {
-                occupied.set(index);
-            } else {
-                unassigned++;
-            }
-        }
-        return unassigned;
-    }
-
-    /** Read-only progress projection retained for the 1.20.1 Jade/UI adapters. */
-    public ThreadProgressSummary getThreadProgressSummary() {
-        int busyThreadCount = 0;
-        int occupiedSlots = 0;
-        int maxProgress = 0;
-        long weightedProgress = 0L;
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (thread.isFree()) {
-                continue;
-            }
-            int slots = Math.max(1, thread.getOccupiedThreadSlots());
-            busyThreadCount++;
-            occupiedSlots += slots;
-            maxProgress = Math.max(maxProgress, thread.getProgress());
-            weightedProgress += (long) thread.getProgress() * slots;
-        }
-        int averageProgress = occupiedSlots == 0 ? 0 : Math.round((float) weightedProgress / occupiedSlots);
-        return new ThreadProgressSummary(busyThreadCount, occupiedSlots, maxProgress, averageProgress);
-    }
-
-    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {}
 
     public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
         return cluster != null && cluster.getController() == controller;
     }
 
-    public void onCraftingJobCompleted(@Nullable UUID craftingJobId) {
-        if (craftingJobId != null && cluster != null && cluster.getNetworkCluster() != null) {
-            cluster.getNetworkCluster().noteCompletedBatchJob(craftingJobId);
+    public int collectLaneOccupancy(java.util.BitSet occupied, int laneCount) {
+        int busy = 0;
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            if (busy < laneCount) occupied.set(busy);
+            busy++;
         }
+        return Math.max(0, busy - laneCount);
     }
+
+    public ItemStack getActiveCraftOutput() {
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            if (!snapshot.outputItem().isEmpty()) return snapshot.outputItem();
+        }
+        return ItemStack.EMPTY;
+    }
+
+    public boolean recoverUnfinishedJobInputsToNetwork(UUID craftingJobId, MEStorage storage) {
+        return recoverJobToNetwork(craftingJobId, storage);
+    }
+
+    public boolean recoverOrphanedWorkToNetwork(Set<UUID> activeJobIds, MEStorage storage) {
+        boolean recovered = true;
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            if (snapshot.craftingJobId() != null && !activeJobIds.contains(snapshot.craftingJobId())) {
+                recovered &= recoverJobToNetwork(snapshot.craftingJobId(), storage);
+            }
+        }
+        return recovered;
+    }
+
+    public void releaseJobOutputsToNetwork(UUID craftingJobId) {
+        releaseCompletedJobOutputs(craftingJobId);
+    }
+
+    /** Read-only progress projection retained for the 1.20.1 UI adapters. */
+    public ThreadProgressSummary getThreadProgressSummary() {
+        int busy = 0;
+        int occupied = 0;
+        int max = 0;
+        long weighted = 0L;
+        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
+            int slots = Math.max(1, snapshot.finiteBatchCraftCount());
+            busy++;
+            occupied += slots;
+            max = Math.max(max, snapshot.progress());
+            weighted += (long) snapshot.progress() * slots;
+        }
+        int average = occupied == 0 ? 0 : Math.round((float) weighted / occupied);
+        return new ThreadProgressSummary(busy, occupied, max, average);
+    }
+
+    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {}
 
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {
         List<ECOCraftingThread.Snapshot> snapshots = new ArrayList<>();
@@ -398,56 +419,78 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.copyOf(snapshots);
     }
 
-    public boolean hasBusyOutput(ItemStack output) {
-        if (output.isEmpty()) {
-            return false;
-        }
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (thread.hasOutput(output)) {
-                return true;
-            }
-        }
+    private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
+        return controller.getCurrentBatchSlots();
+    }
+
+    public int getCapacityMultiplier() {
+        return 1;
+    }
+
+    public boolean isMonitor() {
         return false;
     }
 
-    public ItemStack getActiveCraftOutput() {
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.isFree()) {
-                ItemStack output = thread.getOutputItem();
-                if (!output.isEmpty()) {
-                    return output;
+    public void markDisplayDirty() {
+        displayDirty = true;
+    }
+
+    private void refreshDisplayedJob() {
+        if (!displayDirty) return;
+        GenericStack nextDisplay = null;
+        if (isMonitor()) {
+            for (ECOCraftingThread thread : craftingThreads) {
+                var key = thread.getDisplayedOutputKey();
+                if (key != null) {
+                    long amount = thread.getDisplayedOutputAmount();
+                    nextDisplay =
+                            displayedJob != null && displayedJob.what().equals(key) && displayedJob.amount() == amount
+                                    ? displayedJob
+                                    : new GenericStack(key, amount);
+                    break;
                 }
             }
         }
-        return ItemStack.EMPTY;
+        displayDirty = false;
+        if (!java.util.Objects.equals(displayedJob, nextDisplay)) {
+            displayedJob = nextDisplay;
+            markForUpdate();
+        }
     }
 
-    private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
-        return Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
+    @Override
+    protected boolean readFromStream(FriendlyByteBuf data) {
+        boolean changed = super.readFromStream(data);
+        GenericStack previousDisplayedJob = displayedJob;
+        displayedJob = GenericStack.readBuffer(data);
+        return changed || !java.util.Objects.equals(previousDisplayedJob, displayedJob);
     }
 
-    public void onThreadWork() {
-        onThreadWork(1);
+    @Override
+    protected void writeToStream(FriendlyByteBuf data) {
+        super.writeToStream(data);
+        GenericStack.writeBuffer(displayedJob, data);
     }
 
-    public void onThreadWork(int occupiedThreadSlots) {
-        int slots = Math.max(1, occupiedThreadSlots);
+    public void onBatchStarted() {
         int previousRunningThreads = runningThreads;
-        runningThreads = Math.addExact(runningThreads, slots);
+        runningThreads = Math.addExact(runningThreads, 1);
         ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
         boolean controllerUpdateAttempted = controller != null;
         try {
             if (controller != null) {
-                controller.onWorkerThreadCountChanged(slots);
+                controller.recalculateRunningThreadCountFromWorkers();
             }
             setChanged();
             wakeTickingDevice();
         } catch (RuntimeException | Error e) {
+            // Error is included so worker and controller thread counts are rolled back before it escapes.
             runningThreads = previousRunningThreads;
             if (controllerUpdateAttempted) {
                 try {
-                    controller.onWorkerThreadCountChanged(-slots);
+                    controller.recalculateRunningThreadCountFromWorkers();
                 } catch (RuntimeException | Error rollbackFailure) {
+                    // Preserve a rollback failure without hiding the original runtime failure or Error.
                     e.addSuppressed(rollbackFailure);
                 }
             }
@@ -462,22 +505,23 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    public void onThreadStop() {
-        onThreadStop(1);
-    }
-
-    public void onThreadStop(int occupiedThreadSlots) {
-        int slots = Math.max(1, occupiedThreadSlots);
-        runningThreads -= slots;
+    public void onBatchStopped() {
+        runningThreads -= 1;
         if (runningThreads < 0) {
-            LOGGER.warn(
-                    "ECO worker runningThreads underflow: worker={} slots={} before correction", getBlockPos(), slots);
+            LOGGER.warn("ECO worker running batch count underflow: worker={} before correction", getBlockPos());
             runningThreads = 0;
         }
         if (cluster != null && cluster.getController() != null) {
-            cluster.getController().onWorkerThreadCountChanged(-slots);
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
         }
         setChanged();
+    }
+
+    public void releaseCompletedJobOutputs(UUID craftingJobId) {
+        for (ECOCraftingThread thread : craftingThreads) {
+            thread.releaseCompletedJobOutputs(craftingJobId);
+        }
+        wakeTickingDevice();
     }
 
     public boolean recoverJobToNetwork(UUID craftingJobId, MEStorage storage) {
@@ -493,29 +537,39 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return recoveredAll;
     }
 
-    public boolean recoverUnfinishedJobInputsToNetwork(UUID craftingJobId, MEStorage storage) {
-        return recoverJobToNetwork(craftingJobId, storage);
-    }
-
-    public boolean recoverOrphanedWorkToNetwork(Set<UUID> activeJobIds, MEStorage storage) {
-        boolean recoveredAll = true;
+    /** Discards every in-flight stack without creating item entities. Intended for the administrative repair command. */
+    public ClearResult discardAllCraftingContents() {
+        Set<UUID> jobIds = new HashSet<>();
+        int busyThreads = 0;
         for (ECOCraftingThread thread : craftingThreads) {
-            if (!thread.recoverOrphanedWorkToNetwork(activeJobIds, storage)) {
-                recoveredAll = false;
+            ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+            if (!snapshot.busy()) {
+                continue;
+            }
+            busyThreads++;
+            if (snapshot.craftingJobId() != null) {
+                jobIds.add(snapshot.craftingJobId());
             }
         }
-        if (recoveredAll) {
-            wakeTickingDevice();
+        if (craftingThreads.isEmpty()) {
+            return new ClearResult(0, Set.of());
         }
-        return recoveredAll;
+
+        craftingThreads.clear();
+        runningThreads = 0;
+        nextFreeThreadIndex = 0;
+        displayedJob = null;
+        displayDirty = false;
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
+        }
+        setChanged();
+        markForUpdate();
+        wakeTickingDevice();
+        return new ClearResult(busyThreads, Set.copyOf(jobIds));
     }
 
-    public void releaseJobOutputsToNetwork(UUID craftingJobId) {
-        for (ECOCraftingThread thread : craftingThreads) {
-            thread.releaseJobOutputsToNetwork(craftingJobId);
-        }
-        wakeTickingDevice();
-    }
+    public record ClearResult(int threadCount, Set<UUID> jobIds) {}
 
     private void wakeTickingDevice() {
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
@@ -535,11 +589,12 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
+        markDisplayDirty();
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
-        if (cluster == null || cluster.getController() == null) {
-            detachedFastPathCache.clear();
-        }
+        // The fast-path cache is no longer per worker, so a worker load must not wipe knowledge its whole
+        // cluster shares. Staleness is already impossible: every key carries the reload generation and the
+        // dimension, and losing the cluster drops the cache with it.
         if (threads.size() > MAX_PERSISTED_THREAD_RECORDS) {
             LOGGER.error(
                     "ECO worker persisted too many crafting threads; excess records will be ignored: worker={} count={}",
@@ -552,15 +607,23 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             thread.deserializeNBT(threads.getCompound(i));
             craftingThreads.add(thread);
             if (!thread.isFree()) {
-                busyThreads += thread.getOccupiedThreadSlots();
+                busyThreads++;
             }
         }
         runningThreads = (int) Math.min(Integer.MAX_VALUE, busyThreads);
         nextFreeThreadIndex = 0;
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().recalculateRunningThreadCountFromWorkers();
+        }
     }
 
     public boolean isWorking() {
         return runningThreads > 0;
+    }
+
+    /** Number of currently executing batches, distinct from the craft count carried by those batches. */
+    public int getRunningBatchCount() {
+        return Math.max(0, runningThreads);
     }
 
     @Override
