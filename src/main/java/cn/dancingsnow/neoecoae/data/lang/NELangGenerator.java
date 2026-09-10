@@ -9,6 +9,7 @@ public class NELangGenerator {
 
         // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
+        provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
 
@@ -19,11 +20,20 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.worker_network_x8", "Connected to %d Network Exchange x8 host(s)");
         provider.add("jade.neoecoae.worker_capacity_formula", "Capacity formula: %s");
         provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
+        provider.add("jade.neoecoae.overclock_disabled", "Overclock Disabled");
         provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
-        provider.add("jade.neoecoae.coolant", "Coolant: %d");
+        provider.add("jade.neoecoae.active_cooling_disabled", "Active Cooling Disabled");
+        provider.add("jade.neoecoae.coolant", "Coolant %s");
         provider.add("jade.neoecoae.coolant_max_overclock", "Coolant Max Overclock: %d");
         provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant Max Overclock: None");
-        provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective Overclock: %d/%d");
+        provider.add("jade.neoecoae.network_composition", "Network: %d %s+%d %s");
+        provider.add("jade.neoecoae.normal_switch", "normal exchange(s)");
+        provider.add("jade.neoecoae.high_energy_switch", "high-energy exchange(s)");
+        provider.add("jade.neoecoae.total_crafting_capacity", "Total Crafting Capacity: %s");
+        provider.add("jade.neoecoae.fast_planner.enabled", "ECO Fast Planning Enabled");
+        provider.add("jade.neoecoae.fast_planner.disabled", "ECO Fast Planning Disabled");
+        provider.add("jade.neoecoae.cycle_planning.enabled", "ECO Cycle Planning Enabled");
+        provider.add("jade.neoecoae.cycle_planning.disabled", "ECO Cycle Planning Disabled");
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
 

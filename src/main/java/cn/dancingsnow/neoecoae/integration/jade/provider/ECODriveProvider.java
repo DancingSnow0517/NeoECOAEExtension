@@ -37,7 +37,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             }
         }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"),serverData.getLong("totalBytes")));
+            iTooltip.add(bytesUsedLine(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
         }
         if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
             long storedItemTypes = serverData.getLong("storedItemTypes");
@@ -55,6 +55,22 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
                 iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLong("totalItemTypes")));
             }
         }
+    }
+
+    private static Component bytesUsedLine(long used, long total) {
+        if (total != Long.MAX_VALUE) {
+            return Tooltips.bytesUsed(used, total);
+        }
+        return Tooltips.of(
+            GuiText.BytesUsed,
+            Tooltips.of(
+                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
+                Tooltips.of(" "),
+                Tooltips.of(GuiText.Of),
+                Tooltips.of(" "),
+                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
+            )
+        );
     }
 
     @Override

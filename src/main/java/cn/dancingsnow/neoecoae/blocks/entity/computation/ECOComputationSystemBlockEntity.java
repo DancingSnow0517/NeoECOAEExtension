@@ -268,7 +268,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         markForUpdate();
     }
 
-    private boolean isFastCraftingPlannerEnabled() {
+    public boolean isFastCraftingPlannerEnabled() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
             ? settings.neoecoae$isFastPlannerEnabled()
@@ -285,7 +285,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         }
     }
 
-    private boolean isCyclePlanningEnabled() {
+    public boolean isCyclePlanningEnabled() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
             ? settings.neoecoae$isCyclePlanningEnabled()
