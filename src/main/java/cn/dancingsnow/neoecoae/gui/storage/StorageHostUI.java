@@ -135,12 +135,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         megaPreviousPageButton = megaArrowButton(MEGA_CONTROLS_LEFT, MEGA_PAGE_CONTROLS_TOP, -2);
         megaNextPageButton = megaArrowButton(MEGA_CONTROLS_LEFT + 30, MEGA_PAGE_CONTROLS_TOP, 2);
         megaBulkMarkingButton = new NEAe2IconButtonWidget(
-                MEGA_ACTION_LEFT,
-                MEGA_ACTION_TOP,
-                16,
-                16,
-                NEAe2IconButtonWidget.Ae2Icon.TYPE_FILTER_ALL,
-                click -> {
+                MEGA_ACTION_LEFT, MEGA_ACTION_TOP, 16, 16, NEAe2IconButtonWidget.Ae2Icon.TYPE_FILTER_ALL, click -> {
                     if (click.isRemote) send(10, 0);
                 });
         addWidget(megaPreviousCellButton);
@@ -451,8 +446,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         g.pose().translate(0, 0, 300);
         small(
                 g,
-                Component.translatable(
-                        panel == 1 ? "gui.ae2.Priority" : "gui.neoecoae.storage.host.details"),
+                Component.translatable(panel == 1 ? "gui.ae2.Priority" : "gui.neoecoae.storage.host.details"),
                 12,
                 12,
                 140);
@@ -567,8 +561,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             return true;
         }
         if (megaCellCount > 0 && isMouseIn(MEGA_GRID_LEFT, MEGA_GRID_TOP, 90, 90, mx, my)) {
-            int slot = (my - absY(MEGA_GRID_TOP)) / MEGA_SLOT_SIZE * 5
-                    + (mx - absX(MEGA_GRID_LEFT)) / MEGA_SLOT_SIZE;
+            int slot = (my - absY(MEGA_GRID_TOP)) / MEGA_SLOT_SIZE * 5 + (mx - absX(MEGA_GRID_LEFT)) / MEGA_SLOT_SIZE;
             ItemStack carried = player.containerMenu.getCarried();
             if (button == 1) sendFilter(slot, ItemStack.EMPTY);
             else if (button == 0 && !carried.isEmpty()) sendFilter(slot, carried);
@@ -616,11 +609,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             }
         }
         if (megaCellCount > 0 && isMouseIn(MEGA_ACTION_LEFT, MEGA_ACTION_TOP, 16, 16, x, y)) {
-            g.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.storage.bulk_mark")),
-                    x,
-                    y);
+            g.renderComponentTooltip(font(), List.of(Component.translatable("gui.neoecoae.storage.bulk_mark")), x, y);
             return;
         }
         if (panel == 4 && isMouseIn(12, 28, 154, 64, x, y)) {

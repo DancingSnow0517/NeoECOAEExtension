@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.integration.megacells;
 
+import appeng.api.networking.GridServices;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.Upgrades;
-import appeng.api.networking.GridServices;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;

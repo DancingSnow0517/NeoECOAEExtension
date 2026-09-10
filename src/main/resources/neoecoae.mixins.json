@@ -23,7 +23,6 @@
     "aae.TileExIOPortMixin"
   ],
   "client": [
-    "client.CraftConfirmScreenMixin",
     "CraftingCPUScreenMixin",
     "CraftingStatusTableRendererMixin",
     "CPUSelectionListMixin",

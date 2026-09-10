@@ -122,8 +122,9 @@ public final class ECOMegaDecompressionService
         // providers from grid nodes; invoking it reflectively keeps the optional
         // integration binary-compatible with both layouts.
         try {
-            var method = grid.getCraftingService().getClass().getMethod(
-                    "refreshGlobalCraftingProvider", ICraftingProvider.class);
+            var method = grid.getCraftingService()
+                    .getClass()
+                    .getMethod("refreshGlobalCraftingProvider", ICraftingProvider.class);
             method.invoke(grid.getCraftingService(), this);
         } catch (ReflectiveOperationException | SecurityException ignored) {
             // Provider refresh is picked up by the next grid rebuild on 15.4.x.

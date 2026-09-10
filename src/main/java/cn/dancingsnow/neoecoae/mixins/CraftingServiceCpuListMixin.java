@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Adds ECO CPUs after compatibility mods have finished rebuilding AE2's CPU set. */
-@Mixin(value = CraftingService.class, priority = 900, remap = false)
+@Mixin(value = CraftingService.class, priority = 800, remap = false)
 public abstract class CraftingServiceCpuListMixin {
     @Shadow
     @Final

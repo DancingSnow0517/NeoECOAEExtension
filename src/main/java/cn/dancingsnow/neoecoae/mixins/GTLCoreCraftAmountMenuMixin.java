@@ -9,7 +9,8 @@ import org.spongepowered.asm.mixin.Shadow;
 /** Lets GTLCore's quantity screen hand a request to an AE2 menu from this mod. */
 @Mixin(value = CraftAmountMenu.class, priority = 1100, remap = false)
 public abstract class GTLCoreCraftAmountMenuMixin implements ILongCraftAmountMenu {
-    @Shadow private AEKey whatToCraft;
+    @Shadow
+    private AEKey whatToCraft;
 
     @Override
     public void gtlcore$confirmLongAmount(long amount, boolean craftMissingAmount, boolean startImmediately) {

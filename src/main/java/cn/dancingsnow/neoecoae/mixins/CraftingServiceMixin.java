@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = CraftingService.class, remap = false)
+@Mixin(value = CraftingService.class, priority = 900, remap = false)
 public abstract class CraftingServiceMixin
         implements ECOBatchFairSchedulingControl,
                 cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings,

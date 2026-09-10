@@ -17,7 +17,9 @@ public final class GTLCoreMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override
-    public String getRefMapperConfig() { return null; }
+    public String getRefMapperConfig() {
+        return null;
+    }
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
@@ -28,7 +30,9 @@ public final class GTLCoreMixinPlugin implements IMixinConfigPlugin {
     public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}
 
     @Override
-    public List<String> getMixins() { return null; }
+    public List<String> getMixins() {
+        return null;
+    }
 
     @Override
     public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
