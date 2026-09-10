@@ -217,6 +217,16 @@ public class NEConfig {
             "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
         .define("ecoCraftingOutputDeliveryDebug", false);
 
+    private static final ModConfigSpec.BooleanValue ECO_CRAFT_CONFIRM_DEBUG = BUILDER
+        .comment(
+            "启用合成确认界面的开始按钮诊断日志。",
+            "当计划没有缺料但仍无法开始时，记录计划状态、已选 CPU、AE2 发布的全部 CPU，以及 ECO 运算集群的筛选原因。",
+            "每个确认计划只记录一次；提交失败时会额外记录错误码。",
+            "Enable crafting-confirm start-button diagnostic logs.",
+            "When a plan cannot start, logs its state, selected CPU, every CPU advertised by AE2, and ECO computation-cluster selection reasons.",
+            "Each confirmation plan is logged once; submission failures are logged separately.")
+        .define("ecoCraftConfirmDebug", false);
+
     static {
         BUILDER.pop();
     }
@@ -245,6 +255,7 @@ public class NEConfig {
     public static long infiniteStoragePrepareNanos = 1_000_000L;
     public static boolean ecoDispatchWatchdogDebug = false;
     public static boolean ecoCraftingOutputDeliveryDebug = false;
+    public static boolean ecoCraftConfirmDebug = false;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -279,6 +290,7 @@ public class NEConfig {
         infiniteStoragePrepareNanos = INFINITE_PREPARE_NANOS.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
         ecoCraftingOutputDeliveryDebug = ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG.get();
+        ecoCraftConfirmDebug = ECO_CRAFT_CONFIRM_DEBUG.get();
     }
 
     public static int getCraftingPatternBusPages() {

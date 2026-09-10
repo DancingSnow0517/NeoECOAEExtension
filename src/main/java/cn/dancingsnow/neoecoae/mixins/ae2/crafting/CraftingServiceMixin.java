@@ -22,6 +22,7 @@ import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingProviderRevision;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
@@ -56,7 +57,7 @@ import java.util.UUID;
 
 @Mixin(CraftingService.class)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
-        IGridServiceProvider, ECOCraftingProviderRevision {
+        IGridServiceProvider, ECOCraftingProviderRevision, ECOCraftingServiceDiagnostics {
     @Unique
     private long neoecoae$providerRevision;
 
@@ -109,8 +110,61 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Shadow
     public abstract void addLink(CraftingLink link);
 
+    @Shadow
+    public abstract ImmutableSet<ICraftingCPU> getCpus();
+
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
+
+    @Override
+    public String neoecoae$describeCpuSelection(ICraftingPlan plan, IActionSource source) {
+        StringBuilder details = new StringBuilder();
+        ImmutableSet<ICraftingCPU> advertised = getCpus();
+        details.append("advertisedCpus=").append(advertised.size());
+        int index = 0;
+        for (ICraftingCPU cpu : advertised) {
+            long storage = cpu.getAvailableStorage();
+            boolean busy = cpu.isBusy();
+            details.append("\n  cpu[").append(index++).append("] type=")
+                .append(cpu.getClass().getName())
+                .append(", name=").append(cpu.getName() == null ? "<unnamed>" : cpu.getName().getString())
+                .append(", storage=").append(storage)
+                .append(", required=").append(plan.bytes())
+                .append(", fits=").append(storage >= plan.bytes())
+                .append(", busy=").append(busy)
+                .append(", coprocessors=").append(cpu.getCoProcessors())
+                .append(", selectionMode=").append(cpu.getSelectionMode())
+                .append(", menuSelectable=").append(!busy && storage >= plan.bytes());
+        }
+
+        details.append("\nregisteredEcoClusters=").append(neoecoae$computationClusters.size());
+        index = 0;
+        for (NEComputationCluster cluster : neoecoae$computationClusters) {
+            boolean representative = cluster.isNetworkRepresentative();
+            boolean active = cluster.isActive();
+            long storage = cluster.getAvailableStorage();
+            boolean threadAvailable = cluster.getActiveCPUCount() < cluster.getMaxThreads();
+            boolean allowed = cluster.canBeAutoSelectedFor(source);
+            String rejection = !representative ? "not_network_representative"
+                : !active ? "offline"
+                : !threadAvailable ? "all_threads_busy"
+                : storage < plan.bytes() ? "too_small"
+                : !allowed ? "selection_mode_excluded"
+                : "none";
+            details.append("\n  ecoCluster[").append(index++).append("] representative=")
+                .append(representative)
+                .append(", active=").append(active)
+                .append(", storage=").append(storage)
+                .append(", required=").append(plan.bytes())
+                .append(", activeThreads=").append(cluster.getActiveCPUCount())
+                .append(", maxThreads=").append(cluster.getMaxThreads())
+                .append(", parallelism=").append(cluster.getPooledParallelism())
+                .append(", selectionMode=").append(cluster.getSelectionMode())
+                .append(", sourceAllowed=").append(allowed)
+                .append(", rejection=").append(rejection);
+        }
+        return details.toString();
+    }
     @Unique
     private boolean neoecoae$ignorePatternSubstitutions;
     @Unique

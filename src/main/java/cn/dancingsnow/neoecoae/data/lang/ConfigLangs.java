@@ -82,5 +82,12 @@ public class ConfigLangs {
                 "A recovery message is logged when the wait ends.\n" +
                 "This option only controls logging and never changes output ownership, retry or recovery behavior."
         );
+        provider.add("neoecoae.configuration.ecoCraftConfirmDebug", "Craft Confirm Start Debug");
+        provider.add(
+            "neoecoae.configuration.ecoCraftConfirmDebug.tooltip",
+            "Log one diagnostic report when a completed crafting plan cannot be started.\n" +
+                "Includes the plan state, selected CPU, all CPUs advertised by AE2, and ECO computation-cluster selection reasons.\n" +
+                "Submission failures are logged separately."
+        );
     }
 }

@@ -6,6 +6,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -15,12 +16,14 @@ import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
@@ -76,8 +79,27 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
 
+    @Unique
+    private boolean neoecoae$craftConfirmDiagnosticLogged;
+
     @Shadow
     private ICraftingPlan result;
+
+    @Shadow
+    private @Nullable ICraftingCPU selectedCpu;
+
+    @Shadow
+    public boolean noCPU;
+
+    @Shadow
+    private IGrid getGrid() {
+        throw new AssertionError();
+    }
+
+    @Shadow
+    private IActionSource getActionSrc() {
+        throw new AssertionError();
+    }
 
 
     @Inject(method = "<init>", at = @At("RETURN"))
@@ -100,6 +122,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
+        neoecoae$craftConfirmDiagnosticLogged = false;
     }
 
     @Inject(
@@ -179,6 +202,42 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
     }
 
+    @Inject(method = "broadcastChanges", at = @At("TAIL"))
+    private void logDisabledStartButton(CallbackInfo ci) {
+        if (!NEConfig.ecoCraftConfirmDebug || neoecoae$craftConfirmDiagnosticLogged || result == null) {
+            return;
+        }
+        PlanningStatus status = neoecoae$getPlanningStatus();
+        boolean unrepresentable = status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+        if (!noCPU && !result.simulation() && !unrepresentable) {
+            return;
+        }
+
+        neoecoae$craftConfirmDiagnosticLogged = true;
+        IGrid grid = getGrid();
+        String cpuDetails = grid != null
+            && grid.getCraftingService() instanceof ECOCraftingServiceDiagnostics diagnostics
+            ? diagnostics.neoecoae$describeCpuSelection(result, getActionSrc())
+            : "crafting service diagnostics unavailable";
+        NEOECOAE_LOGGER.warn(
+            "[craft-confirm] Start disabled: player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
+                + "planningStatus={}, selectedCpu={}\n{}",
+            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
+            result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
+            status, neoecoae$describeCpu(selectedCpu), cpuDetails);
+    }
+
+    @Unique
+    private static String neoecoae$describeCpu(@Nullable ICraftingCPU cpu) {
+        if (cpu == null) return "<automatic>";
+        return cpu.getClass().getName() + "{name="
+            + (cpu.getName() == null ? "<unnamed>" : cpu.getName().getString())
+            + ", storage=" + cpu.getAvailableStorage()
+            + ", busy=" + cpu.isBusy()
+            + ", coprocessors=" + cpu.getCoProcessors()
+            + ", selectionMode=" + cpu.getSelectionMode() + "}";
+    }
+
     /**
      * Bind only the synchronous submission represented by this confirmation menu to its complete ECO plan,
      * execution schedule and independent cycle expectation. The latter remains true when schedule propagation
@@ -210,8 +269,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
         if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
         ECOPlanningResult boundResult = planningResult;
-        return ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
+        ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
+        if (NEConfig.ecoCraftConfirmDebug && !submitResult.successful()) {
+            String cpuDetails = service instanceof ECOCraftingServiceDiagnostics diagnostics
+                ? diagnostics.neoecoae$describeCpuSelection(submittedPlan, source)
+                : "crafting service diagnostics unavailable";
+            NEOECOAE_LOGGER.warn(
+                "[craft-confirm] Submission failed: output={}, amount={}, bytes={}, target={}, error={}, detail={}\n{}",
+                submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), submittedPlan.bytes(),
+                neoecoae$describeCpu(target), submitResult.errorCode(), submitResult.errorDetail(), cpuDetails);
+        }
+        return submitResult;
     }
 
     @Unique
