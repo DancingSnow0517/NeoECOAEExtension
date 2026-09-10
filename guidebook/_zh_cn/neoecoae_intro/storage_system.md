@@ -24,15 +24,43 @@ item_ids:
 
 # ECO 存储系统
 
-ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME网络提供大容量存储。
+<GameScene zoom="4" interactive={true}>
+  <ImportStructure src="../scenes/store_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
 
-## 概述
+ECO 存储系统为 ME 网络提供大容量存储。上方是最小结构，可以旋转查看各个部件的位置；需要更多容量时，再沿长度方向扩展驱动器和能量元件。
 
-存储子系统作为AE2网络的高容量存储扩展。它由控制器、存储单元驱动器、能量元件以及各种结构组件组成。
+## 先把结构搭起来
 
-## 等级
+<ItemGrid>
+  <ItemIcon id="neoecoae:storage_system_l4" />
+  <ItemIcon id="neoecoae:storage_system_l6" />
+  <ItemIcon id="neoecoae:storage_system_l9" />
+  <ItemIcon id="neoecoae:eco_drive" />
+  <ItemIcon id="neoecoae:energy_cell_l4" />
+  <ItemIcon id="neoecoae:energy_cell_l6" />
+  <ItemIcon id="neoecoae:energy_cell_l9" />
+  <ItemIcon id="neoecoae:storage_interface" />
+  <ItemIcon id="neoecoae:storage_vent" />
+  <ItemIcon id="neoecoae:storage_casing" />
+</ItemGrid>
 
-共有三个等级的存储系统可用：
+主机决定整套结构的等级，<ItemLink id="neoecoae:eco_drive" /> 用于放置 ECO 存储矩阵。高密度能量元件（<ItemLink id="neoecoae:energy_cell_l4" />、<ItemLink id="neoecoae:energy_cell_l6" />、<ItemLink id="neoecoae:energy_cell_l9" />）提供能量存储，等级必须与主机匹配。
+
+<ItemLink id="neoecoae:storage_interface" /> 负责接入 ME 网络，<ItemLink id="neoecoae:storage_vent" /> 用于热量管理，<ItemLink id="neoecoae:storage_casing" /> 补齐结构框架。
+
+搭建时先让主机朝外，再按场景确定各部件位置：
+
+1. 用结构外壳搭出主机周围的框架，留出右方和右后方。
+2. 在主机左后方放置通讯接口。
+3. 在主机右侧水平排列驱动器。
+4. 每一纵列驱动器背面，上下各放一个能量元件，中间放散热器。
+5. 用外壳补齐剩余结构。
+
+扩建时继续添加驱动器和能量元件。如果不想逐块放置，可以使用控制器里的[自动搭建面板](multiblock_builder.md)，先预览再补齐结构。
+
+## 选用哪一级主机？
 
 | 等级 | 控制器 | 存储容量 | 能量存储 |
 |------|--------|----------|----------|
@@ -40,104 +68,31 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 | L6 | <ItemLink id="neoecoae:storage_system_l6" /> | 每单元64MB | 100,000,000 AE |
 | L9 | <ItemLink id="neoecoae:storage_system_l9" /> | 每单元256MB | 1,000,000,000 AE |
 
-## 结构组件
+三个等级分别对应入门的 L4、中级的 L6 和顶级的 L9，稀有度依次为罕见、稀有、史诗。准备材料时，把主机、能量元件和要使用的存储矩阵一起考虑。
 
-### 主机
+## 装入存储矩阵
 
-<Row>
-  <BlockImage id="neoecoae:storage_system_l4" scale="2"></BlockImage>
-  <BlockImage id="neoecoae:storage_system_l6" scale="2"></BlockImage>
-  <BlockImage id="neoecoae:storage_system_l9" scale="2"></BlockImage>
-</Row>
-
-主机（<ItemLink id="neoecoae:storage_system_l4" />、<ItemLink id="neoecoae:storage_system_l6" /> 或 <ItemLink id="neoecoae:storage_system_l9" />）是存储系统的核心。它必须放置在多方块结构的有效位置，并决定整个系统的等级。
-
-### 存储矩阵驱动器
-
-<BlockImage id="neoecoae:eco_drive" scale="2"></BlockImage>
-
-<ItemLink id="neoecoae:eco_drive" /> 用于放置ECO存储单元。可以添加多个驱动器以扩展存储容量。驱动器沿控制器延伸的方向排列放置。
-
-### 能量元件
-
-<Row>
-  <BlockImage id="neoecoae:energy_cell_l4" scale="2"></BlockImage>
-  <BlockImage id="neoecoae:energy_cell_l6" scale="2"></BlockImage>
-  <BlockImage id="neoecoae:energy_cell_l9" scale="2"></BlockImage>
-</Row>
-
-高密度能量元件（<ItemLink id="neoecoae:energy_cell_l4" />、<ItemLink id="neoecoae:energy_cell_l6" /> 或 <ItemLink id="neoecoae:energy_cell_l9" />）为系统提供能量存储。能量元件等级必须与控制器等级匹配。
-
-### 通讯接口
-
-<BlockImage id="neoecoae:storage_interface" scale="2"></BlockImage>
-
-<ItemLink id="neoecoae:storage_interface" /> 将存储系统连接到ME网络。
-
-### 散热器
-
-<BlockImage id="neoecoae:storage_vent" scale="2"></BlockImage>
-
-<ItemLink id="neoecoae:storage_vent" /> 用于存储系统的热量管理。
-
-### 结构外壳
-
-<BlockImage id="neoecoae:storage_casing" scale="2"></BlockImage>
-
-<ItemLink id="neoecoae:storage_casing" /> 方块构成多方块结构的框架。
-
-## 搭建结构
-
-1. 放置**主机**，使其朝外
-2. 使用**存储系统结构外壳**在控制器（不包含右方和右后方）搭建结构框架
-3. 在指定位置（控制器左后方）放置**通讯接口**
-4. 在控制器右侧水平排列添加**驱动器**
-5. 在控制器右侧每一纵列驱动器的背面放置：上下方各一个能源元件、中间一个散热器
-6. 使用剩余的外壳方块完成结构
-
-结构可扩展——你可以添加更多驱动器和能量元件以增加容量。
-
-若希望快速完成结构搭建，可参考 [多方块自动搭建](multiblock_builder.md) 中的自动预览与建造功能。
-
-<GameScene zoom="4" interactive={true}>
-  <ImportStructure src="../scenes/store_min.nbt" />
-  <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-## 存储单元
-
-以下ECO存储单元可用于驱动器：
-
-### 物品存储
+物品和流体矩阵都放入驱动器。两类矩阵各有 16MB、64MB、256MB 三档：
 
 <ItemGrid>
   <ItemIcon id="neoecoae:eco_item_storage_cell_16m" />
   <ItemIcon id="neoecoae:eco_item_storage_cell_64m" />
   <ItemIcon id="neoecoae:eco_item_storage_cell_256m" />
-</ItemGrid>
-
-- <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> - 16MB容量
-- <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> - 64MB容量
-- <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> - 256MB容量
-
-### 流体存储
-
-<ItemGrid>
   <ItemIcon id="neoecoae:eco_fluid_storage_cell_16m" />
   <ItemIcon id="neoecoae:eco_fluid_storage_cell_64m" />
   <ItemIcon id="neoecoae:eco_fluid_storage_cell_256m" />
 </ItemGrid>
 
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> - 16MB容量
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB容量
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB容量
+| 容量 | 物品矩阵 | 流体矩阵 |
+|------|----------|----------|
+| 16MB | <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> | <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> |
+| 64MB | <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> | <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> |
+| 256MB | <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> | <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> |
 
-AE2 Omni Cells 与 AE2 闪电科技提供的存储矩阵详见[兼容存储矩阵](compat_storage_matrices.md)。
+安装 AE2 Omni Cells、AE2 闪电科技、AppFlux 等模组后，还可以使用[兼容存储矩阵](compat_storage_matrices.md)存放更多资源类型。
 
-## 使用方法
+## 接入 ME 网络
 
-结构形成后，存储系统将通过接口自动连接到ME网络。所有存储的物品和流体将可通过任何连接的终端访问。
+结构形成后，通过通讯接口连接 ME 网络，就能从网络中的终端访问已存入的物品和流体。主机界面会显示当前能量存储水平和能量容量百分比。
 
-GUI显示：
-- 当前能量存储水平
-- 能量容量百分比
+<SubPages icons={true} />
