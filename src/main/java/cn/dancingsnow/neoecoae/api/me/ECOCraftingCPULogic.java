@@ -485,7 +485,12 @@ public class ECOCraftingCPULogic {
                         // of this provider snapshot in the same tick.
                         break;
                     }
-                    ECOBatchCraftingHelper.extractExact(inventory, ECOFastPathStacks.copyCounters(inputs));
+                    if (!ECOBatchCraftingHelper.extractExact(
+                            inventory, ECOFastPathStacks.copyCounters(inputs))) {
+                        // extractExact already restored the partial extraction. Do not reinject the complete
+                        // resolved input set, and do not offer that stale set to another provider.
+                        break;
+                    }
                     boolean acceptedSingle = false;
                     try {
                         providerCursor.advanceAfter(pattern, provider);

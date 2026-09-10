@@ -6,20 +6,23 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
 
 public final class ECOInfiniteStorage implements MEStorage {
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
+    private final BooleanSupplier allowInsert;
 
-    public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description) {
+    public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description, BooleanSupplier allowInsert) {
         this.engine = engine;
         this.description = description;
+        this.allowInsert = allowInsert;
     }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+        if (!allowInsert.getAsBoolean() || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
             return 0L;
         }
         return engine.insert(what, amount, mode);
@@ -37,7 +40,7 @@ public final class ECOInfiniteStorage implements MEStorage {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        return engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
+        return allowInsert.getAsBoolean() && engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
     }
 
     @Override

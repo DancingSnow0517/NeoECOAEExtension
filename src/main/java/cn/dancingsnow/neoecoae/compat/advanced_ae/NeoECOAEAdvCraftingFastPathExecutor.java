@@ -167,7 +167,10 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                         recipe.outputsPerCraft(), batchSize);
                 List<GenericStack> remainderTotal = recipe.batchRemainders(batchSize);
                 additionalInputs = recipe.additionalInputs(batchSize);
-                ECOBatchCraftingHelper.extractExact(inventory, additionalInputs);
+                if (!ECOBatchCraftingHelper.extractExact(inventory, additionalInputs)) {
+                    reinject(inventory, craftingContainer);
+                    continue;
+                }
                 additionalInputsExtracted = true;
 
                 ECOVerifiedFastPathExecution verified = recipe.withBatch(
@@ -262,7 +265,10 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                     recipe.outputsPerCraft(), craftCount);
             List<GenericStack> remainderTotal = recipe.batchRemainders(craftCount);
             additionalInputs = recipe.additionalInputs(craftCount);
-            ECOBatchCraftingHelper.extractExact(inventory, additionalInputs);
+            if (!ECOBatchCraftingHelper.extractExact(inventory, additionalInputs)) {
+                reinject(inventory, craftingContainer);
+                return 0;
+            }
             additionalInputsExtracted = true;
 
             ECOVerifiedVirtualExecution verified = recipe.withVirtualBatch(

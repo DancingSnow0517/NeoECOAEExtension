@@ -100,7 +100,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
-    private static final int INFINITE_MEMBER_REQUIRED = 12;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
     private static final String FINITE_TRANSFER_DOMAIN_TAG = "finiteTransferDomain";
@@ -642,7 +641,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (engine == null || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
             return;
         }
-        storageMounts.mount(new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), storagePriority);
+        storageMounts.mount(
+            new ECOInfiniteStorage(engine, getBlockState().getBlock().getName(), this::canInsertIntoInfiniteDomain),
+            storagePriority
+        );
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -1040,14 +1042,25 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private int getInfiniteMigrationProgressPercent() {
-        if (!hostMode.isInfiniteState()) {
+        if (hostMode == ECOStorageHostMode.FORMED_INFINITE) {
+            return 100;
+        }
+        if (hostMode != ECOStorageHostMode.MIGRATING_TO_INFINITE) {
             return 0;
         }
-        return Math.clamp(Math.round(countInfiniteMembers() * 100.0F / INFINITE_MEMBER_REQUIRED), 0, 100);
+        int migrated = countInfiniteMembers();
+        int totalTargets = migrated + countPendingInfiniteMigrationTargets();
+        return totalTargets == 0
+            ? 100
+            : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
     }
 
     public boolean canUseHostDomainStorage() {
         return formed && hostMode.isInfiniteState() && infiniteDomainId != null;
+    }
+
+    public boolean canInsertIntoInfiniteDomain() {
+        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null;
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
@@ -1237,7 +1250,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             if (engine != cachedStorageEngine) {
                 cachedStorageEngine = engine;
-                cachedInfiniteStorage = engine == null ? null : new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+                cachedInfiniteStorage = engine == null ? null : new ECOInfiniteStorage(
+                    engine,
+                    getBlockState().getBlock().getName(),
+                    this::canInsertIntoInfiniteDomain
+                );
             }
             return cachedInfiniteStorage;
         }
@@ -1358,8 +1375,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             && formed
             && cluster != null
             && hasRequiredInfiniteComponents()
-            && !hasForeignInfiniteMembers()
-            && countEligibleInfiniteMatrices() >= INFINITE_MEMBER_REQUIRED;
+            && !hasForeignInfiniteMembers();
     }
 
     private boolean hasForeignInfiniteMembers() {
@@ -1385,7 +1401,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return isInfiniteComponent(stack) && stack.getCount() >= INFINITE_COMPONENT_REQUIRED;
     }
 
-    private int countEligibleInfiniteMatrices() {
+    private int countPendingInfiniteMigrationTargets() {
         if (cluster == null) {
             return 0;
         }
@@ -1461,7 +1477,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 storageFaults.report(stage, e.toString(), tick, e);
             }
         }
-        if (!hasPending && countInfiniteMembers() >= INFINITE_MEMBER_REQUIRED) {
+        if (!hasPending) {
             hostMode = ECOStorageHostMode.FORMED_INFINITE;
         }
     }
@@ -1934,9 +1950,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             mountedInfiniteDomainId = infiniteDomainId;
             mountedInfiniteEngine = ECOInfiniteStorageDomains.acquire(serverLevel, infiniteDomainId);
         }
-        ECOInfiniteStorageEngine engine = mountedInfiniteEngine;
-        engine.setCapacityBytes(calculateInfiniteCapacityBytes());
-        return engine;
+        return mountedInfiniteEngine;
     }
 
     private void releaseMountedInfiniteEngine() {
@@ -1948,31 +1962,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         mountedInfiniteEngine = null;
         cachedStorageEngine = null;
         cachedInfiniteStorage = null;
-    }
-
-    private long calculateInfiniteCapacityBytes() {
-        if (cluster == null || infiniteDomainId == null) {
-            return 0L;
-        }
-
-        long capacity = 0L;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            IECOStorageCell cell = drive.getCellInventory();
-            if (stack == null || stack.isEmpty() || cell == null) {
-                continue;
-            }
-
-            boolean currentMember = ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId);
-            boolean pendingMember = hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
-                && !ECOInfiniteStorageMember.isMember(stack)
-                && cell.getTier() == ECOTier.L9
-                && cell.isInfiniteStorageEligible();
-            if (currentMember || pendingMember) {
-                capacity = NEMath.saturatingAdd(capacity, Math.max(0L, cell.getTotalBytes()));
-            }
-        }
-        return capacity;
     }
 
     private static boolean isInfiniteComponent(ItemStack stack) {

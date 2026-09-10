@@ -87,7 +87,9 @@ public final class ECOBatchCraftingExecutor {
 
         /** Extract the prepared input total once and restore that exact total on rejection. */
         public boolean push(ListCraftingInventory inventory) {
-            ECOBatchCraftingHelper.extractExact(inventory, inputTotal);
+            if (!ECOBatchCraftingHelper.extractExact(inventory, inputTotal)) {
+                return false;
+            }
             boolean accepted = false;
             try {
                 accepted = dispatch.getAsBoolean();

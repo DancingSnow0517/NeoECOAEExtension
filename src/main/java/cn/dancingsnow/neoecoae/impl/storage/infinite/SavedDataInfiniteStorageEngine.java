@@ -25,7 +25,6 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     private final ECOInfiniteStorageData data;
     private final HolderLookup.Provider registries;
     private final Path dataFile;
-    private long capacityBytes;
 
     // Views derived from the stored amounts. They exist so the storage network and the UI do not have to walk the
     // whole domain on every query; they carry no state of their own.
@@ -49,29 +48,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (key == null || amount <= 0L || data.hasRawEntries() || !data.canWrite(key)) {
             return 0L;
         }
-
-        AEKeyType keyType = key.getType();
-        MutableTypeStats stats = typeStats.get(keyType);
-        BigInteger targetBucketAmount = stats == null ? BigInteger.ZERO : stats.storedAmount.toBigInteger();
-        long capacityBound = StorageByteAccounting.remainingInsertAmount(
-            capacityBytes,
-            usedBytes(),
-            targetBucketAmount,
-            keyType.getAmountPerByte(),
-            bytesPerType(),
-            data.getAmount(key).isZero()
-        );
-        return Math.min(amount, capacityBound);
-    }
-
-    @Override
-    public synchronized void setCapacityBytes(long capacityBytes) {
-        this.capacityBytes = Math.max(0L, capacityBytes);
-    }
-
-    @Override
-    public synchronized long capacityBytes() {
-        return capacityBytes;
+        return amount;
     }
 
     @Override

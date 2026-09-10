@@ -291,7 +291,14 @@ public final class ECOBatchCraftingHelper {
         return low;
     }
 
-    public static void extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
+    /**
+     * Atomically extracts the requested concrete inputs.
+     *
+     * <p>A mismatch is an expected preview-to-commit race and is returned to the caller after every
+     * physically extracted item has been restored. Unexpected inventory failures are also rolled back,
+     * but remain exceptions so callers do not mistake implementation faults for ordinary contention.</p>
+     */
+    public static boolean extractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
         List<GenericStack> extractedStacks = new ArrayList<>(stacks.size());
         try {
             for (GenericStack stack : stacks) {
@@ -300,9 +307,11 @@ public final class ECOBatchCraftingHelper {
                     extractedStacks.add(new GenericStack(stack.what(), extracted));
                 }
                 if (extracted != stack.amount()) {
-                    throw new IllegalStateException("Failed to extract exact fast-path batch inputs");
+                    insertAll(inventory, extractedStacks);
+                    return false;
                 }
             }
+            return true;
         } catch (RuntimeException e) {
             insertAll(inventory, extractedStacks);
             throw e;
