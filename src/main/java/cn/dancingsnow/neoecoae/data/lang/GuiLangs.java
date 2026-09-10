@@ -119,6 +119,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.fast_path_reason", "FastPath miss reason: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_hit", "FastPath hit");
+        provider.add("gui.neoecoae.crafting.fast_path_partial_hit", "Partial FastPath hit; miss reasons: %s");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.not_recorded", "No runtime FastPath result recorded yet");
+        provider.add("gui.neoecoae.crafting.fast_path_reason.fluid_input_single_craft", "Fluid input requires single-craft execution");
         provider.add("gui.neoecoae.crafting.fast_path_reason.cache_miss", "No verified result in the cache");
         provider.add("gui.neoecoae.crafting.fast_path_reason.fast_path_disabled", "FastPath is disabled");
         provider.add("gui.neoecoae.crafting.fast_path_reason.post_crafting_event_enabled",

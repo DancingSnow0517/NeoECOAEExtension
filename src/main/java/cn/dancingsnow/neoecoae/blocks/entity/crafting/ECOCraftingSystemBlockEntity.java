@@ -1241,9 +1241,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             remainingProgress = NEMath.saturatingAdd(remainingProgress,
                 NEMath.saturatingMultiply(Math.max(0, maxProgress - progress), crafts));
             waitingOutput &= snapshot.outputsReady();
-            if (snapshot.fastPathReason() != null && !"FAST_PATH_HIT".equals(snapshot.fastPathReason())) {
-                fastPathReasons.add(snapshot.fastPathReason());
-            }
+            fastPathReasons.add(snapshot.fastPathReason() == null ? "NOT_RECORDED" : snapshot.fastPathReason());
         }
 
         private ComputationTaskEntry toEntry(BlockPos controllerPos, int index) {
@@ -1265,8 +1263,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 CpuSelectionMode.ANY,
                 progress,
                 0L,
-                fastPathReasons.isEmpty() ? null
-                    : fastPathReasons.size() == 1 ? fastPathReasons.iterator().next() : "MULTIPLE"
+                String.join("\n", fastPathReasons)
             );
         }
     }

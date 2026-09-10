@@ -112,6 +112,27 @@ public final class ComputationTaskCards {
         return lines;
     }
 
+    /** Aggregated runtime outcomes, kept distinct so a partial hit is never reported as a full hit. */
+    public static Component fastPathStatus(String reasons) {
+        if (reasons == null || reasons.isBlank()) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_reason.not_recorded")
+                .withColor(0xFFAA00);
+        }
+        var codes = java.util.Arrays.stream(reasons.split("\n")).distinct().toList();
+        if (codes.size() == 1 && codes.getFirst().equals("FAST_PATH_HIT")) {
+            return Component.translatable("gui.neoecoae.crafting.fast_path_hit").withColor(0x55FF55);
+        }
+        var misses = Component.empty();
+        for (String code : codes) {
+            if (code.equals("FAST_PATH_HIT")) continue;
+            if (!misses.getSiblings().isEmpty()) misses.append("；");
+            misses.append(fastPathReason(code));
+        }
+        return Component.translatable(codes.contains("FAST_PATH_HIT")
+                ? "gui.neoecoae.crafting.fast_path_partial_hit" : "gui.neoecoae.crafting.fast_path_reason", misses)
+            .withColor(0xFFAA00);
+    }
+
     public static Component fastPathReason(String reason) {
         if (reason == null || reason.isBlank()) {
             return Component.translatable("gui.neoecoae.crafting.fast_path_reason.unknown");
@@ -134,6 +155,8 @@ public final class ComputationTaskCards {
                 reason.substring("CLASSIFIER_FAILED:".length()));
         }
         String key = switch (reason) {
+            case "NOT_RECORDED" -> "not_recorded";
+            case "FLUID_INPUT_SINGLE_CRAFT" -> "fluid_input_single_craft";
             case "CACHE_MISS" -> "cache_miss";
             case "FAST_PATH_DISABLED" -> "fast_path_disabled";
             case "POST_CRAFTING_EVENT_ENABLED" -> "post_crafting_event_enabled";
