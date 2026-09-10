@@ -94,6 +94,11 @@ public final class CraftingInterfaceUI {
         contentFrame.addChild(patternTransferProgress(craftingInterface));
         root.addChild(contentFrame);
         root.addChild(previewSection(craftingInterface, previewState, player));
+        root.addEventListener(UIEvents.MOUSE_UP, event -> {
+            if (event.button == 0) previewState.endQuickMoveDrag();
+        }, true);
+        root.addEventListener(UIEvents.TICK,
+                event -> previewState.endQuickMoveDragIfReleased(root.isMouseDown(0)));
         InventorySlots playerInventory = new InventorySlots();
         playerInventory.apply(slot -> slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.isShiftDown() && (event.button == 0 || event.button == 1)

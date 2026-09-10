@@ -49,82 +49,74 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 
 ### 主机
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_system_l4" />
-  <ItemIcon id="neoecoae:computation_system_l6" />
-  <ItemIcon id="neoecoae:computation_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_system_l9" scale="2"></BlockImage>
+</Row>
 
 计算系统主机（<ItemLink id="neoecoae:computation_system_l4" />、<ItemLink id="neoecoae:computation_system_l6" /> 或 <ItemLink id="neoecoae:computation_system_l9" />）是多方块的核心。它决定等级并管理所有合成操作。
 
 ### 晶阵驱动器
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_drive" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_drive" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:computation_drive" /> 用于放置计算单元，为合成操作提供存储空间。驱动器放置在传输总线上方和下方的两排。
 
 ### 超导传输总线
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_transmitter" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_transmitter" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:computation_transmitter" /> 处理驱动器和处理核心之间的数据传输。
 
 ### 线程核心
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_threading_core_l4" />
-  <ItemIcon id="neoecoae:computation_threading_core_l6" />
-  <ItemIcon id="neoecoae:computation_threading_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_threading_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_threading_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_threading_core_l9" scale="2"></BlockImage>
+</Row>
 
 线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。主机可使用与自身同级或更低级的核心。
 
 ### 并行核心
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_parallel_core_l4" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l6" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_parallel_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_parallel_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_parallel_core_l9" scale="2"></BlockImage>
+</Row>
 
 并行核心（<ItemLink id="neoecoae:computation_parallel_core_l4" />、<ItemLink id="neoecoae:computation_parallel_core_l6" /> 或 <ItemLink id="neoecoae:computation_parallel_core_l9" />）提供合成加速器，加快合成操作速度。它们放置在线程核心上方和下方的两排。
 
 ### 冷却系统控制器
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_cooling_controller_l4" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l6" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_cooling_controller_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_cooling_controller_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_cooling_controller_l9" scale="2"></BlockImage>
+</Row>
 
 冷却系统控制器（<ItemLink id="neoecoae:computation_cooling_controller_l4" />、<ItemLink id="neoecoae:computation_cooling_controller_l6" /> 或 <ItemLink id="neoecoae:computation_cooling_controller_l9" />）管理计算系统的散热。它放置在结构的末端。
 
 ### 通讯接口
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_interface" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:computation_interface" /> 将系统连接到ME网络。
 
 ### 结构外壳
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_casing" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:computation_casing" /> 方块构成多方块结构的框架。
 
 ### 网络交换模块
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_network_switch" />
-  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
 #### 普通网络交换模块结构（长度 1）
 

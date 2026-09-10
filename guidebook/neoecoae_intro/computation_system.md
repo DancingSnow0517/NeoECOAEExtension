@@ -47,82 +47,74 @@ There are three tiers of computation systems available:
 
 ### Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_system_l4" />
-  <ItemIcon id="neoecoae:computation_system_l6" />
-  <ItemIcon id="neoecoae:computation_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_system_l9" scale="2"></BlockImage>
+</Row>
 
 The computation system controller (<ItemLink id="neoecoae:computation_system_l4" />, <ItemLink id="neoecoae:computation_system_l6" />, or <ItemLink id="neoecoae:computation_system_l9" />) is the core of the multiblock. It determines the tier and manages all crafting operations.
 
 ### Computation Drive
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_drive" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_drive" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:computation_drive" /> holds computation cells that provide storage space for crafting operations. Drives are placed in upper and lower rows above and below the transmitter.
 
 ### Superconductive Transmitter
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_transmitter" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_transmitter" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:computation_transmitter" /> handles data transfer between drives and processing cores.
 
 ### Threading Core
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_threading_core_l4" />
-  <ItemIcon id="neoecoae:computation_threading_core_l6" />
-  <ItemIcon id="neoecoae:computation_threading_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_threading_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_threading_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_threading_core_l9" scale="2"></BlockImage>
+</Row>
 
 Threading cores (<ItemLink id="neoecoae:computation_threading_core_l4" />, <ItemLink id="neoecoae:computation_threading_core_l6" />, or <ItemLink id="neoecoae:computation_threading_core_l9" />) provide crafting threads. Each thread can handle one crafting job simultaneously. A controller accepts cores at its own tier or lower.
 
 ### Parallel Core
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_parallel_core_l4" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l6" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_parallel_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_parallel_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_parallel_core_l9" scale="2"></BlockImage>
+</Row>
 
 Parallel cores (<ItemLink id="neoecoae:computation_parallel_core_l4" />, <ItemLink id="neoecoae:computation_parallel_core_l6" />, or <ItemLink id="neoecoae:computation_parallel_core_l9" />) provide crafting accelerators that speed up crafting operations. They are placed in rows above and below the threading cores.
 
 ### Cooling Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_cooling_controller_l4" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l6" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_cooling_controller_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_cooling_controller_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_cooling_controller_l9" scale="2"></BlockImage>
+</Row>
 
 The cooling system controller (<ItemLink id="neoecoae:computation_cooling_controller_l4" />, <ItemLink id="neoecoae:computation_cooling_controller_l6" />, or <ItemLink id="neoecoae:computation_cooling_controller_l9" />) manages thermal output of the computation system. It is placed at the end of the structure.
 
 ### Interface
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_interface" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:computation_interface" /> connects the system to your ME Network.
 
 ### Casing
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:computation_casing" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the multiblock structure.
 
 ### Network Exchange Modules
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_network_switch" />
-  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:computation_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
 #### Normal Network Exchange Structure (Length 1)
 

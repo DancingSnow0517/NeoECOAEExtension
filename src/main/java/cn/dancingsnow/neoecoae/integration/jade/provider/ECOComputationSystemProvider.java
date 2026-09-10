@@ -20,14 +20,14 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
         CompoundTag data = accessor.getServerData();
         if (data.contains("fastPlannerEnabled")) {
             boolean enabled = data.getBoolean("fastPlannerEnabled");
-            tooltip.add(0, Component.translatable(enabled
+            tooltip.add(1, Component.translatable(enabled
                     ? "jade.neoecoae.fast_planner.enabled"
                     : "jade.neoecoae.fast_planner.disabled")
                 .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED));
         }
         if (data.contains("cyclePlanningEnabled")) {
             boolean enabled = data.getBoolean("cyclePlanningEnabled");
-            tooltip.add(1, Component.translatable(enabled
+            tooltip.add(2, Component.translatable(enabled
                     ? "jade.neoecoae.cycle_planning.enabled"
                     : "jade.neoecoae.cycle_planning.disabled")
                 .withStyle(enabled ? ChatFormatting.AQUA : ChatFormatting.GRAY));

@@ -36,8 +36,6 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,7 +44,6 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.IntConsumer;
@@ -106,7 +103,6 @@ public final class CraftingHostPanelUI {
         IntSupplier singleCoreCapacity,
         IntSupplier effectiveOverclockTimes,
         IntSupplier executionTicks,
-        Supplier<Component> statsTooltip,
         LongSupplier performanceAverageNanos,
         LongSupplier energyUsage,
         IntSupplier coolantAmount,
@@ -302,33 +298,7 @@ public final class CraftingHostPanelUI {
         panel.addChild(recipeTime);
         panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.single_core_capacity")
             .append(": ").append(processingCapacityText(config.singleCoreCapacity.getAsInt())), PANEL_MUTED));
-        BindableValue<Component> tooltip = syncedComponent(config.statsTooltip);
-        tooltip.setDisplay(false);
-        panel.addChild(tooltip);
-        panel.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = HoverTooltips.empty().append(
-                splitTooltipLines(tooltip.getValue()).toArray(Component[]::new)));
         return panel;
-    }
-
-    private static List<Component> splitTooltipLines(Component tooltip) {
-        List<Component> lines = new ArrayList<>();
-        MutableComponent[] currentLine = {Component.empty()};
-        tooltip.visit((style, text) -> {
-            String[] parts = text.split("\\n", -1);
-            for (int index = 0; index < parts.length; index++) {
-                if (index > 0) {
-                    lines.add(currentLine[0]);
-                    currentLine[0] = Component.empty();
-                }
-                if (!parts[index].isEmpty()) {
-                    currentLine[0].append(Component.literal(parts[index]).withStyle(style));
-                }
-            }
-            return Optional.empty();
-        }, Style.EMPTY);
-        lines.add(currentLine[0]);
-        return lines;
     }
 
     private static Label performanceLabel(LongSupplier performanceAverageNanos) {

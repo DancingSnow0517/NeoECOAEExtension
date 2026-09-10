@@ -41,86 +41,72 @@ There are three tiers of crafting systems available:
 
 ### Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_system_l4" />
-  <ItemIcon id="neoecoae:crafting_system_l6" />
-  <ItemIcon id="neoecoae:crafting_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l9" scale="2"></BlockImage>
+</Row>
 
 The crafting system controller (<ItemLink id="neoecoae:crafting_system_l4" />, <ItemLink id="neoecoae:crafting_system_l6" />, or <ItemLink id="neoecoae:crafting_system_l9" />) manages all pattern processing operations and determines the tier of the system.
 
 ### Worker
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_worker" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_worker" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_worker" /> provides one independent physical execution lane. Network exchange increases the batch carried by that lane; it never creates additional physical lanes.
 
 ### Pattern Bus
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_pattern_bus" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_pattern_bus" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In an exchange group, every member publishes the union of all member pattern buses to the ME network.
 
 ### Parallel Core
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_parallel_core_l4" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l6" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_parallel_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l9" scale="2"></BlockImage>
+</Row>
 
 Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide structural processing capacity. Capacity beyond what the FX Workers can use increases overflow overclock; it does not set the batch size of an FX thread.
 
 ### Interface
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_interface" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_interface" /> connects the system to your ME Network.
 
 ### Fluid Input Hatch
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:input_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:input_hatch" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:input_hatch" /> accepts coolant fluids for active cooling mode.
 
 ### Fluid Output Hatch
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:output_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:output_hatch" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:output_hatch" /> expels used coolant from the system.
 
 ### Heat Sink
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_vent" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_vent" /> provides passive thermal management for the crafting system.
 
 ### Casing
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_casing" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the multiblock structure.
 
 ### Network Exchange Modules
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_network_switch" />
-  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
 #### Normal Network Exchange Structure (Length 1)
 

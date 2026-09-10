@@ -30,6 +30,7 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.normal_switch", "normal exchange(s)");
         provider.add("jade.neoecoae.high_energy_switch", "high-energy exchange(s)");
         provider.add("jade.neoecoae.total_crafting_capacity", "Total Crafting Capacity: %s");
+        provider.add("jade.neoecoae.crafting_capacity", "Crafting Capacity: %s");
         provider.add("jade.neoecoae.fast_planner.enabled", "ECO Fast Planning Enabled");
         provider.add("jade.neoecoae.fast_planner.disabled", "ECO Fast Planning Disabled");
         provider.add("jade.neoecoae.cycle_planning.enabled", "ECO Cycle Planning Enabled");

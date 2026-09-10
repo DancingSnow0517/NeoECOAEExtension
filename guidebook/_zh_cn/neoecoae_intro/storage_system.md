@@ -44,53 +44,45 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 
 ### 主机
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_system_l4" />
-  <ItemIcon id="neoecoae:storage_system_l6" />
-  <ItemIcon id="neoecoae:storage_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:storage_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l9" scale="2"></BlockImage>
+</Row>
 
 主机（<ItemLink id="neoecoae:storage_system_l4" />、<ItemLink id="neoecoae:storage_system_l6" /> 或 <ItemLink id="neoecoae:storage_system_l9" />）是存储系统的核心。它必须放置在多方块结构的有效位置，并决定整个系统的等级。
 
 ### 存储矩阵驱动器
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_drive" />
-</ItemGrid>
+<BlockImage id="neoecoae:eco_drive" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:eco_drive" /> 用于放置ECO存储单元。可以添加多个驱动器以扩展存储容量。驱动器沿控制器延伸的方向排列放置。
 
 ### 能量元件
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:energy_cell_l4" />
-  <ItemIcon id="neoecoae:energy_cell_l6" />
-  <ItemIcon id="neoecoae:energy_cell_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:energy_cell_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l9" scale="2"></BlockImage>
+</Row>
 
 高密度能量元件（<ItemLink id="neoecoae:energy_cell_l4" />、<ItemLink id="neoecoae:energy_cell_l6" /> 或 <ItemLink id="neoecoae:energy_cell_l9" />）为系统提供能量存储。能量元件等级必须与控制器等级匹配。
 
 ### 通讯接口
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_interface" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:storage_interface" /> 将存储系统连接到ME网络。
 
 ### 散热器
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_vent" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:storage_vent" /> 用于存储系统的热量管理。
 
 ### 结构外壳
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_casing" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:storage_casing" /> 方块构成多方块结构的框架。
 

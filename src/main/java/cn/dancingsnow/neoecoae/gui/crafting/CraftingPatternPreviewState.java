@@ -7,11 +7,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +40,10 @@ final class CraftingPatternPreviewState {
     private boolean showSubstitution = true;
     private boolean showFluidSubstitution = true;
     private int scrollRow;
+    private final List<PatternPreviewEntry> quickMoveTargets = new ArrayList<>();
+    private boolean quickMoveDrag;
+    private int quickMoveRevision = -1;
+    private int lastQuickMoveVisualSlot = -1;
 
     CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
         this.craftingInterface = craftingInterface;
@@ -53,11 +59,20 @@ final class CraftingPatternPreviewState {
         slots[visualSlot] = slot;
         slot.highlighted(() -> displayed[visualSlot] >= 0 && !search.isBlank());
         slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            if (event.button == 0 && event.isShiftDown()) {
+                beginQuickMoveDrag(visualSlot);
+                event.hasHandler = true;
+                event.stopImmediatePropagation();
+                return;
+            }
             if (event.button == 0 || event.button == 1) {
                 act(visualSlot, event.isShiftDown() ? 1 : 0, event.button);
                 event.hasHandler = true;
                 event.stopImmediatePropagation();
             }
+        });
+        slot.addEventListener(UIEvents.MOUSE_ENTER, event -> {
+            if (quickMoveDrag && slot.isMouseDown(0) && event.isShiftDown()) enterQuickMoveDrag(visualSlot);
         });
         slot.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.isShiftDown() && event.deltaY != 0) {
@@ -84,10 +99,73 @@ final class CraftingPatternPreviewState {
         craftingInterface.rpcToServer("actOnPatternPreview", payload);
     }
 
+    void endQuickMoveDrag() {
+        if (!quickMoveDrag) return;
+        quickMoveDrag = false;
+        lastQuickMoveVisualSlot = -1;
+        flushQuickMoveBatch();
+    }
+
+    void endQuickMoveDragIfReleased(boolean leftMouseDown) {
+        if (quickMoveDrag && !leftMouseDown) endQuickMoveDrag();
+    }
+
+    private void beginQuickMoveDrag(int visualSlot) {
+        quickMoveTargets.clear();
+        quickMoveDrag = true;
+        quickMoveRevision = revision;
+        lastQuickMoveVisualSlot = visualSlot;
+        queueQuickMove(visualSlot);
+    }
+
+    private void enterQuickMoveDrag(int visualSlot) {
+        if (visualSlot == lastQuickMoveVisualSlot) return;
+        lastQuickMoveVisualSlot = visualSlot;
+        queueQuickMove(visualSlot);
+    }
+
+    private void queueQuickMove(int visualSlot) {
+        if (!player.level().isClientSide || quickMoveRevision < 0 || pending != null
+                || menuId != player.containerMenu.containerId) return;
+        int index = displayed[visualSlot];
+        if (index < 0 || index >= entries.length) return;
+        PatternPreviewEntry entry = entries[index];
+        if (entry.stack().isEmpty()) return;
+        for (PatternPreviewEntry queued : quickMoveTargets) {
+            if (queued.busPosition() == entry.busPosition() && queued.physicalSlot() == entry.physicalSlot()) return;
+        }
+        if (quickMoveTargets.size() < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS) {
+            quickMoveTargets.add(entry);
+        }
+    }
+
+    private void flushQuickMoveBatch() {
+        if (quickMoveTargets.isEmpty()) return;
+        if (!player.level().isClientSide || quickMoveRevision < 0
+                || menuId != player.containerMenu.containerId) {
+            quickMoveTargets.clear();
+            return;
+        }
+        CompoundTag payload = new CompoundTag();
+        payload.putInt("menu", menuId);
+        payload.putInt("revision", quickMoveRevision);
+        ListTag targets = new ListTag();
+        for (PatternPreviewEntry entry : quickMoveTargets) {
+            CompoundTag target = new CompoundTag();
+            target.putLong("bus", entry.busPosition());
+            target.putInt("slot", entry.physicalSlot());
+            target.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+            targets.add(target);
+        }
+        payload.put("targets", targets);
+        quickMoveTargets.clear();
+        craftingInterface.rpcToServer("quickMovePatternPreview", payload);
+    }
+
     boolean quickMoveFromInventory(Slot source) {
         if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)) return false;
         if (!player.level().isClientSide || revision < 0 || pending != null
-                || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return true;
+                || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (PatternPreviewEntry entry : entries) {
             if (!entry.stack().isEmpty()) continue;
             CompoundTag payload = new CompoundTag();
@@ -100,9 +178,9 @@ final class CraftingPatternPreviewState {
             payload.putInt("sourceSlot", source.getContainerSlot());
             payload.put("sourceStack", source.getItem().saveOptional(player.level().registryAccess()));
             craftingInterface.rpcToServer("actOnPatternPreview", payload);
-            break;
+            return true;
         }
-        return true;
+        return false;
     }
 
     private void receive(CompoundTag payload) {

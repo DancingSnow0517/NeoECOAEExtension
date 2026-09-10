@@ -417,6 +417,51 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         player.containerMenu.broadcastChanges();
     }
 
+    /** Executes a client drag gesture atomically with respect to its starting preview revision. */
+    @RPCMethod
+    public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
+        if (sender.isServer() || !(level instanceof ServerLevel) || !formed
+                || !supportsCraftingInterfaceUi() || payload == null) return;
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || !patternPreviewSync.isViewer(player)
+                || payload.getInt("menu") != player.containerMenu.containerId) return;
+        ensurePatternInterfaceMapping();
+        if (payload.getInt("revision") != patternContentRevision) {
+            patternPreviewSync.resend(player);
+            player.containerMenu.broadcastFullState();
+            return;
+        }
+        ListTag targets = payload.getList("targets", Tag.TAG_COMPOUND);
+        int targetCount = Math.min(targets.size(), PATTERN_INTERFACE_VISIBLE_SLOTS);
+        for (int index = 0; index < targetCount; index++) {
+            CompoundTag targetTag = targets.getCompound(index);
+            int physicalSlot = targetTag.getInt("slot");
+            PatternSlotRef target = resolvePatternSlot(targetTag.getLong("bus"), physicalSlot);
+            if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) {
+                continue;
+            }
+            InternalInventory inventory = target.bus().getTerminalPatternInventory();
+            if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
+            ItemStack existing = inventory.getStackInSlot(physicalSlot);
+            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
+            if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
+            ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
+            if (available.isEmpty() || !canStoreInPlayerInventory(player, available)) continue;
+            ItemStack extracted = inventory.extractItem(physicalSlot, available.getCount(), false);
+            player.getInventory().add(extracted);
+            if (!extracted.isEmpty()) player.drop(extracted, false);
+        }
+        player.containerMenu.broadcastChanges();
+    }
+
+    @Nullable
+    private PatternSlotRef resolvePatternSlot(long busPosition, int physicalSlot) {
+        for (PatternSlotRef ref : patternSlotRefs) {
+            if (ref.slot() == physicalSlot && ref.bus().getBlockPos().asLong() == busPosition) return ref;
+        }
+        return null;
+    }
+
     public boolean isPatternTransferInProgress() {
         return patternTransferInProgress || patternOrganizeInProgress;
     }

@@ -13,9 +13,7 @@ item_ids:
 
 # Integrated Working Station
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:integrated_working_station" />
-</ItemGrid>
+<BlockImage id="neoecoae:integrated_working_station" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:integrated_working_station" /> is an advanced crafting machine that combines multiple AE2 device functions into a single, powerful workstation. It is essential for crafting most of the advanced components in this mod.
 

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
-import appeng.core.localization.Tooltips;
+import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -20,26 +20,22 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
     @Override
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag data = blockAccessor.getServerData();
-        if (data.contains("running") && data.contains("max")) {
+        if (data.contains("max")) {
             long max = data.getLong("max");
-            int running = data.getInt("running");
             boolean infinite = data.getBoolean("infinite");
             int normalHosts = data.getInt("normalSwitchHosts");
             int highEnergyHosts = data.getInt("highEnergySwitchHosts");
-            if (normalHosts > 0) {
-                iTooltip.add(Component.translatable("jade.neoecoae.worker_network_x2", normalHosts)
-                    .withStyle(ChatFormatting.GREEN));
-            }
-            if (highEnergyHosts > 0) {
-                iTooltip.add(Component.translatable("jade.neoecoae.worker_network_x8", highEnergyHosts)
-                    .withStyle(ChatFormatting.GREEN));
-            }
-            iTooltip.add(Component.translatable("gui.neoecoae.crafting.capability.fx", running, 1));
+            Component normalSwitches = Component.translatable("jade.neoecoae.normal_switch")
+                .withStyle(ChatFormatting.GREEN);
+            Component highEnergySwitches = Component.translatable("jade.neoecoae.high_energy_switch")
+                .withStyle(ChatFormatting.GOLD);
+            iTooltip.add(Component.translatable("jade.neoecoae.network_composition",
+                normalHosts, normalSwitches, highEnergyHosts, highEnergySwitches));
             Component batchCapacity = infinite
-                ? Component.translatable("gui.neoecoae.storage.infinite_value")
-                : Tooltips.ofNumber(max);
-            iTooltip.add(Component.translatable(
-                "gui.neoecoae.crafting.capability.batch_per_fx", batchCapacity));
+                ? Component.translatable("gui.neoecoae.storage.infinite_value").withStyle(ChatFormatting.LIGHT_PURPLE)
+                : Component.literal(String.format(Locale.ROOT, "%,d", max))
+                    .withStyle(ChatFormatting.LIGHT_PURPLE);
+            iTooltip.add(Component.translatable("jade.neoecoae.crafting_capacity", batchCapacity));
             if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
                 long base = data.getLong("baseCapacity");
                 String terms = normalHosts > 0 && highEnergyHosts > 0
@@ -59,14 +55,11 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 var controller = worker.getCluster().getController();
                 CraftingCapabilitySnapshot state = controller.getCapabilitySnapshot();
                 long max = state.batchPerFx().finiteValue();
-                int running = worker.getRunningBatchCount();
-                compoundTag.putInt("running", running);
                 compoundTag.putLong("max", max);
                 compoundTag.putLong("baseCapacity", CraftingCapabilitySnapshot.F9_OVERCLOCKED_BATCH_PER_FX);
                 compoundTag.putBoolean("infinite", state.batchPerFx().unlimited());
                 compoundTag.putInt("normalSwitchHosts", state.normalSwitchHosts());
                 compoundTag.putInt("highEnergySwitchHosts", state.highEnergySwitchHosts());
-                compoundTag.putInt("networkMultiplier", state.networkMultiplier());
             }
         }
     }

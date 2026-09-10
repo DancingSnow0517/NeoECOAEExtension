@@ -22,7 +22,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostStatsText;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
@@ -903,10 +902,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             .append(")");
     }
 
-    private Component getStatsTooltip() {
-        return CraftingHostStatsText.capability(getCapabilitySnapshot());
-    }
-
     public int getDisplayedCoolantAmount() {
         return cluster != null && cluster.getNetworkCluster() != null
             ? cluster.getNetworkCluster().getCoolantAmount() : coolant;
@@ -1007,7 +1002,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getEffectiveOverclockTimes,
             () -> getCapabilitySnapshot().virtualMode()
                 ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getEffectiveOverclockTimes()),
-            this::getStatsTooltip,
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
             this::getDisplayedCoolantAmount,

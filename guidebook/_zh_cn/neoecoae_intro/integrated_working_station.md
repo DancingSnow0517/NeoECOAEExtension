@@ -13,9 +13,7 @@ item_ids:
 
 # 集成工作站
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:integrated_working_station" />
-</ItemGrid>
+<BlockImage id="neoecoae:integrated_working_station" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:integrated_working_station" /> 是一台高级合成机器，将多种AE2设备的功能整合到一个强大的工作站中。它是制作本模组大多数高级组件的必需设备。
 

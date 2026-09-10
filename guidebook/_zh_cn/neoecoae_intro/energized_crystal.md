@@ -18,12 +18,12 @@ item_ids:
 
 ## 水晶品质等级
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:flawless_budding_energized_crystal" />
-  <ItemIcon id="neoecoae:flawed_budding_energized_crystal" />
-  <ItemIcon id="neoecoae:chipped_budding_energized_crystal" />
-  <ItemIcon id="neoecoae:damaged_budding_energized_crystal" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:flawless_budding_energized_crystal" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:flawed_budding_energized_crystal" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:chipped_budding_energized_crystal" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:damaged_budding_energized_crystal" scale="2"></BlockImage>
+</Row>
 
 盈能水晶母岩有四个品质等级：
 - <ItemLink id="neoecoae:flawless_budding_energized_crystal" /> - 最佳品质，不会退化

@@ -351,6 +351,7 @@
   "jade.neoecoae.coolant": "Coolant %s",
   "jade.neoecoae.coolant_max_overclock": "Coolant Max Overclock: %d",
   "jade.neoecoae.coolant_max_overclock.none": "Coolant Max Overclock: None",
+  "jade.neoecoae.crafting_capacity": "Crafting Capacity: %s",
   "jade.neoecoae.drive_mounted": "ECO Drive Mounted",
   "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted",
   "jade.neoecoae.fast_planner.disabled": "ECO Fast Planning Disabled",

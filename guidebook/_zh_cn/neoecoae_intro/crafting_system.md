@@ -43,86 +43,72 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 
 ### 主机
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_system_l4" />
-  <ItemIcon id="neoecoae:crafting_system_l6" />
-  <ItemIcon id="neoecoae:crafting_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_system_l9" scale="2"></BlockImage>
+</Row>
 
 合成系统主机（<ItemLink id="neoecoae:crafting_system_l4" />、<ItemLink id="neoecoae:crafting_system_l6" /> 或 <ItemLink id="neoecoae:crafting_system_l9" />）管理所有样板处理操作，并决定系统等级。
 
 ### 工作核心
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_worker" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_worker" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:crafting_worker" /> 提供一条独立的物理执行 lane。网络交换只提高该 lane 一次承担的 batch，不会创建额外物理 lane。
 
 ### 样板总线
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_pattern_bus" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_pattern_bus" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:crafting_pattern_bus" /> 用于放置合成样板。可以添加多个样板总线以存储更多样板；接入网络交换组后，各成员主机向 ME 网络发布所有成员样板的并集。
 
 ### 并行核心
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_parallel_core_l4" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l6" />
-  <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_parallel_core_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_parallel_core_l9" scale="2"></BlockImage>
+</Row>
 
 并行核心（<ItemLink id="neoecoae:crafting_parallel_core_l4" />、<ItemLink id="neoecoae:crafting_parallel_core_l6" /> 或 <ItemLink id="neoecoae:crafting_parallel_core_l9" />）提供结构并行处理能力。超过 FX 工作核心可用容量的部分会提高溢出超频，但不会决定 FX 线程的单槽批量。
 
 ### 通讯接口
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_interface" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:crafting_interface" /> 将系统连接到ME网络。
 
 ### 流体输入仓
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:input_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:input_hatch" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:input_hatch" /> 接收主动冷却模式所需的冷却剂流体。
 
 ### 流体输出仓
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:output_hatch" />
-</ItemGrid>
+<BlockImage id="neoecoae:output_hatch" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:output_hatch" /> 排出系统使用过的冷却剂。
 
 ### 散热器
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_vent" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:crafting_vent" /> 为合成系统提供被动热量管理。
 
 ### 结构外壳
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:crafting_casing" scale="2"></BlockImage>
 
 <ItemLink id="neoecoae:crafting_casing" /> 方块构成多方块结构的框架。
 
 ### 网络交换模块
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:crafting_network_switch" />
-  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:crafting_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:crafting_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
 #### 普通网络交换模块结构（长度 1）
 

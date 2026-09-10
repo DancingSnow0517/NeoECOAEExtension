@@ -377,6 +377,7 @@
   "jade.neoecoae.coolant": "冷却液 %s",
   "jade.neoecoae.coolant_max_overclock": "冷却液最高超频: %d",
   "jade.neoecoae.coolant_max_overclock.none": "冷却液最高超频: 无",
+  "jade.neoecoae.crafting_capacity": "合成能力：%s",
   "jade.neoecoae.drive_mounted": "ECO 驱动器已挂载",
   "jade.neoecoae.drive_unmounted": "ECO 驱动器未挂载",
   "jade.neoecoae.fast_planner.disabled": "未开启ECO快速规划",
