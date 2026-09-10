@@ -475,7 +475,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         @Local(name = "cpuCluster") CraftingCPUCluster cpuCluster,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        if (target instanceof ECOCraftingCPU ecoCpu) {
+        if (job.simulation()) { cir.setReturnValue(ICraftingSubmitResult.INCOMPLETE_PLAN); return; }`r`n          if (target instanceof ECOCraftingCPU ecoCpu) {
             cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
         } else if (target == null) {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
