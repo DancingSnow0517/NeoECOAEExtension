@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.megacells;
 
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.Upgrades;
+import appeng.api.networking.GridServices;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -11,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
+import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressionService;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -32,6 +34,7 @@ public final class MegaCellsIntegration {
                 MegaBulkMarkingService::hasBulkCell,
                 MegaBulkMarkingService::normalizeMarker,
                 MegaBulkMarkingService::isSameMarkerChain);
+        GridServices.register(ECOMegaDecompressionService.class, ECOMegaDecompressionService.class);
         NEMegaCellTypes.register();
         NEMegaItems.register();
         energyEnabled = MegaCellsBackend.isEnergyAvailable();
