@@ -30,6 +30,21 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private static final int CONFIG = FIRST_CUSTOM_UPDATE_ID + 2;
     private static final ResourceLocation BACKGROUND =
             cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/estorage_infinite_controller.png");
+    private static final ResourceLocation MEGA_BACKGROUND =
+            cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/eco_mega_storage.png");
+    private static final int MEGA_PANEL_WIDTH = 103;
+    private static final int MEGA_PANEL_HEIGHT = 130;
+    private static final int MEGA_PANEL_LEFT = -MEGA_PANEL_WIDTH + 3;
+    private static final int MEGA_PANEL_TOP = HEIGHT - MEGA_PANEL_HEIGHT - 2;
+    private static final int MEGA_SLOT_SIZE = 18;
+    private static final int MEGA_GRID_LEFT = MEGA_PANEL_LEFT + 7;
+    private static final int MEGA_GRID_TOP = MEGA_PANEL_TOP + 31;
+    private static final int MEGA_CONTROLS_LEFT = MEGA_PANEL_LEFT + 31;
+    private static final int MEGA_CELL_CONTROLS_TOP = MEGA_PANEL_TOP + 3;
+    private static final int MEGA_PAGE_CONTROLS_TOP = MEGA_PANEL_TOP + 16;
+    private static final int MEGA_ACTION_LEFT = MEGA_PANEL_LEFT + 82;
+    private static final int MEGA_ACTION_TOP = MEGA_PANEL_TOP + 4;
+    private static final int MEGA_TEXT_COLOR = 0xFF3F3D52;
     private final ECOStorageSystemBlockEntity storage;
     private final Player player;
     private int scroll;
@@ -43,6 +58,11 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private TextFieldWidget priorityField;
     private SlotWidget infiniteSlot;
     private SlotWidget megaUpgradeSlot;
+    private NEAe2IconButtonWidget megaPreviousCellButton;
+    private NEAe2IconButtonWidget megaNextCellButton;
+    private NEAe2IconButtonWidget megaPreviousPageButton;
+    private NEAe2IconButtonWidget megaNextPageButton;
+    private NEAe2IconButtonWidget megaBulkMarkingButton;
     private int megaCellCount;
     private int megaCellIndex;
     private int megaPage;
@@ -90,19 +110,18 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     if (click.isRemote) panel = panel == 1 ? 0 : 1;
                 })
                 .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 22, 18, 20, NEAe2IconButtonWidget.Ae2Icon.WRENCH, click -> {
-                    if (click.isRemote) panel = panel == 2 ? 0 : 2;
-                })
-                .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 44, 18, 20, Icon.LEVEL_ENERGY, click -> {
+        // Structure construction is configured through the Structure Terminal.
+        // The storage host only exposes storage controls; keeping the old build tab
+        // here made the migrated 1.20.1 screen advertise a removed workflow.
+        addWidget(new NEAe2IconButtonWidget(WIDTH + 2, 0, 18, 20, Icon.LEVEL_ENERGY, click -> {
                     if (click.isRemote) panel = panel == 4 ? 0 : 4;
                 })
                 .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 66, 18, 20, Icon.POWER_UNIT_AE, click -> {
+        addWidget(new NEAe2IconButtonWidget(WIDTH + 2, 22, 18, 20, Icon.POWER_UNIT_AE, click -> {
                     if (click.isRemote) panel = panel == 5 ? 0 : 5;
                 })
                 .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 88, 18, 20, Icon.HELP, click -> {
+        addWidget(new NEAe2IconButtonWidget(-20, 44, 18, 20, Icon.HELP, click -> {
                     if (!click.isRemote && net.minecraftforge.fml.ModList.get().isLoaded("guideme")) {
                         guideme.GuidesCommon.openGuide(
                                 player,
@@ -111,10 +130,24 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     }
                 })
                 .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 110, 18, 20, Icon.BACKGROUND_UPGRADE, click -> {
-                    if (click.isRemote) panel = panel == 6 ? 0 : 6;
-                })
-                .useAeTabButton());
+        megaPreviousCellButton = megaArrowButton(MEGA_CONTROLS_LEFT, MEGA_CELL_CONTROLS_TOP, -1);
+        megaNextCellButton = megaArrowButton(MEGA_CONTROLS_LEFT + 30, MEGA_CELL_CONTROLS_TOP, 1);
+        megaPreviousPageButton = megaArrowButton(MEGA_CONTROLS_LEFT, MEGA_PAGE_CONTROLS_TOP, -2);
+        megaNextPageButton = megaArrowButton(MEGA_CONTROLS_LEFT + 30, MEGA_PAGE_CONTROLS_TOP, 2);
+        megaBulkMarkingButton = new NEAe2IconButtonWidget(
+                MEGA_ACTION_LEFT,
+                MEGA_ACTION_TOP,
+                16,
+                16,
+                NEAe2IconButtonWidget.Ae2Icon.TYPE_FILTER_ALL,
+                click -> {
+                    if (click.isRemote) send(10, 0);
+                });
+        addWidget(megaPreviousCellButton);
+        addWidget(megaNextCellButton);
+        addWidget(megaPreviousPageButton);
+        addWidget(megaNextPageButton);
+        addWidget(megaBulkMarkingButton);
         NEPlayerInventoryWidgets.addPlayerInventorySlots(this, player.getInventory(), 7, 129, 187);
         infiniteSlot = new SlotWidget(
                 new NEForgeItemTransfer(
@@ -137,8 +170,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                         new NEForgeItemTransfer(
                                 storage.getEcoMegaUpgradeItemHandler(), storage::notifyStorageConfigurationChanged),
                         0,
-                        116,
-                        82,
+                        MEGA_PANEL_LEFT + 7,
+                        MEGA_PANEL_TOP + 6,
                         true,
                         true)
                 .setBackgroundTexture(IGuiTexture.EMPTY);
@@ -159,6 +192,15 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         priorityField.setVisible(false);
         priorityField.setActive(false);
         addWidget(priorityField);
+    }
+
+    private NEAe2IconButtonWidget megaArrowButton(int x, int y, int direction) {
+        Icon icon = direction < 0 ? Icon.ARROW_LEFT : Icon.ARROW_RIGHT;
+        return new NEAe2IconButtonWidget(x, y, 10, 10, icon, click -> {
+            if (!click.isRemote) return;
+            if (Math.abs(direction) == 1) send(7, direction);
+            else send(8, direction);
+        });
     }
 
     @Override
@@ -256,12 +298,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                         || value == -100
                         || value == -1000) storage.setPriority(StoragePriority.adjust(storage.getPriority(), value));
             }
-            case 3 -> {
-                if (value > 0) storage.increaseBuildLength();
-                else storage.decreaseBuildLength();
-            }
-            case 4 -> storage.previewStructure(serverPlayer, storage.getSelectedBuildLength(), mirror);
-            case 5 -> storage.autoBuild(serverPlayer, storage.getSelectedBuildLength(), mirror);
             case 6 -> {
                 if (value >= 0 && value < currentState().hugeStackPageCount()) pageSession.page = value;
             }
@@ -306,8 +342,31 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         priorityField.setActive(panel == 1);
         infiniteSlot.setVisible(panel == 0);
         infiniteSlot.setActive(panel == 0);
-        megaUpgradeSlot.setVisible(panel == 6 && megaCellCount > 0);
-        megaUpgradeSlot.setActive(panel == 6 && megaCellCount > 0);
+        boolean showMega = megaCellCount > 0;
+        megaUpgradeSlot.setVisible(showMega);
+        megaUpgradeSlot.setActive(showMega);
+        megaPreviousCellButton.setVisible(showMega);
+        megaPreviousCellButton.setActive(showMega);
+        megaNextCellButton.setVisible(showMega);
+        megaNextCellButton.setActive(showMega);
+        megaPreviousPageButton.setVisible(showMega && megaUpgraded);
+        megaPreviousPageButton.setActive(showMega && megaUpgraded);
+        megaNextPageButton.setVisible(showMega && megaUpgraded);
+        megaNextPageButton.setActive(showMega && megaUpgraded);
+        megaBulkMarkingButton.setVisible(showMega);
+        megaBulkMarkingButton.setActive(showMega);
+        if (showMega) {
+            g.blit(
+                    MEGA_BACKGROUND,
+                    absX(MEGA_PANEL_LEFT),
+                    absY(MEGA_PANEL_TOP),
+                    0,
+                    0,
+                    MEGA_PANEL_WIDTH,
+                    MEGA_PANEL_HEIGHT,
+                    MEGA_PANEL_WIDTH,
+                    MEGA_PANEL_HEIGHT);
+        }
         if (panel != 0) drawPanel(g, 6, 6, 166, 116);
     }
 
@@ -383,6 +442,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     y + 18,
                     78);
         }
+        if (megaCellCount > 0) drawMegaPanel(g, mx, my);
         if (panel != 0) drawFloatingPanel(g);
     }
 
@@ -392,9 +452,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         small(
                 g,
                 Component.translatable(
-                        panel == 1
-                                ? "gui.ae2.Priority"
-                                : panel == 2 ? "gui.neoecoae.storage.host.build" : "gui.neoecoae.storage.host.details"),
+                        panel == 1 ? "gui.ae2.Priority" : "gui.neoecoae.storage.host.details"),
                 12,
                 12,
                 140);
@@ -407,11 +465,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             }
             small(g, Component.translatable("gui.ae2.PriorityInsertionHint"), 12, 99, 154);
             small(g, Component.translatable("gui.ae2.PriorityExtractionHint"), 12, 110, 154);
-        } else if (panel == 2) {
-            small(g, Component.literal("−       " + length + "       +"), 20, 34, 130);
-            small(g, Component.translatable("gui.neoecoae.storage.host.mirror", mirrored), 20, 54, 138);
-            small(g, Component.translatable("gui.neoecoae.storage.host.preview"), 20, 78, 64);
-            small(g, Component.translatable("gui.neoecoae.storage.host.build"), 94, 78, 64);
         } else if (panel == 4) {
             var entries = currentState().hugeStacks();
             detailScroll = Math.max(0, Math.min(detailScroll, Math.max(0, entries.size() - 4)));
@@ -441,8 +494,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                         154);
             }
             small(g, Component.literal(currentState().infiniteDomainState()), 12, 105, 154);
-        } else if (panel == 6) {
-            drawMegaPanel(g);
         } else if (selected >= 0 && selected < cells().size()) {
             var cell = cells().get(selected);
             small(g, cell.stack().getHoverName(), 12, 32, 154);
@@ -458,24 +509,35 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         g.pose().popPose();
     }
 
-    private void drawMegaPanel(GuiGraphics g) {
-        small(g, Component.translatable("gui.neoecoae.storage.mega.title"), 12, 12, 140);
-        if (megaCellCount <= 0) {
-            small(g, Component.translatable("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell"), 12, 34, 145);
-            return;
-        }
+    private void drawMegaPanel(GuiGraphics g, int mouseX, int mouseY) {
         for (int slot = 0; slot < 25; slot++) {
-            int x = 12 + slot % 5 * 18;
-            int y = 27 + slot / 5 * 18;
-            g.fill(absX(x), absY(y), absX(x + 17), absY(y + 17), 0xFF8F83A7);
+            int x = MEGA_GRID_LEFT + slot % 5 * MEGA_SLOT_SIZE;
+            int y = MEGA_GRID_TOP + slot / 5 * MEGA_SLOT_SIZE;
             if (slot < megaFilters.size() && !megaFilters.get(slot).isEmpty()) {
                 g.renderItem(megaFilters.get(slot), absX(x), absY(y));
             }
+            if (isMouseIn(x, y, MEGA_SLOT_SIZE, MEGA_SLOT_SIZE, mouseX, mouseY)) {
+                g.fill(absX(x + 1), absY(y + 1), absX(x + 17), absY(y + 17), 0x66FFFFFF);
+            }
         }
-        small(g, Component.literal("< " + (megaCellIndex + 1) + "/" + megaCellCount + " >"), 108, 30, 48);
-        small(g, Component.literal("< " + (megaPage + 1) + "/" + (megaUpgraded ? 2 : 1) + " >"), 108, 52, 48);
-        small(g, Component.translatable("gui.neoecoae.storage.bulk_mark"), 108, 73, 48);
-        small(g, Component.translatable("gui.neoecoae.storage.mega.upgrade"), 108, 101, 48);
+        drawMegaControlLabel(g, (megaCellIndex + 1) + "/" + megaCellCount, MEGA_CELL_CONTROLS_TOP);
+        if (megaUpgraded) drawMegaControlLabel(g, (megaPage + 1) + "/2", MEGA_PAGE_CONTROLS_TOP);
+    }
+
+    private void drawMegaControlLabel(GuiGraphics g, String value, int top) {
+        float scale = 2.0F / 3.0F;
+        int textWidth = font().width(value);
+        g.pose().pushPose();
+        g.pose().translate(absX(MEGA_CONTROLS_LEFT + 10), absY(top + 2), 0);
+        g.pose().scale(scale, scale, 1);
+        g.drawString(
+                font(),
+                Component.literal(value),
+                Math.round((20 / scale - textWidth) / 2.0F),
+                0,
+                MEGA_TEXT_COLOR,
+                false);
+        g.pose().popPose();
     }
 
     @Override
@@ -499,28 +561,17 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     }
                 }
                 if (isMouseIn(60, 55, 92, 14, mx, my)) return super.mouseClicked(x, y, button);
-            } else if (panel == 2) {
-                if (isMouseIn(20, 28, 30, 18, mx, my)) send(3, -1);
-                if (isMouseIn(90, 28, 40, 18, mx, my)) send(3, 1);
-                if (isMouseIn(20, 48, 138, 18, mx, my)) mirrored = !mirrored;
-                if (isMouseIn(20, 72, 64, 18, mx, my)) send(4, 0);
-                if (isMouseIn(94, 72, 64, 18, mx, my)) send(5, 0);
             } else if (panel == 4 && isMouseIn(12, 96, 148, 24, mx, my)) {
                 send(6, currentState().hugeStackPage() + (mx < absX(86) ? -1 : 1));
-            } else if (panel == 6) {
-                if (isMouseIn(12, 27, 90, 90, mx, my)) {
-                    int slot = (my - absY(27)) / 18 * 5 + (mx - absX(12)) / 18;
-                    ItemStack carried = player.containerMenu.getCarried();
-                    if (button == 1) sendFilter(slot, ItemStack.EMPTY);
-                    else if (button == 0 && !carried.isEmpty()) sendFilter(slot, carried);
-                } else if (isMouseIn(106, 24, 52, 18, mx, my)) {
-                    send(7, mx < absX(132) ? -1 : 1);
-                } else if (isMouseIn(106, 46, 52, 18, mx, my) && megaUpgraded) {
-                    send(8, mx < absX(132) ? -1 : 1);
-                } else if (isMouseIn(106, 68, 52, 18, mx, my)) {
-                    send(10, 0);
-                }
             }
+            return true;
+        }
+        if (megaCellCount > 0 && isMouseIn(MEGA_GRID_LEFT, MEGA_GRID_TOP, 90, 90, mx, my)) {
+            int slot = (my - absY(MEGA_GRID_TOP)) / MEGA_SLOT_SIZE * 5
+                    + (mx - absX(MEGA_GRID_LEFT)) / MEGA_SLOT_SIZE;
+            ItemStack carried = player.containerMenu.getCarried();
+            if (button == 1) sendFilter(slot, ItemStack.EMPTY);
+            else if (button == 0 && !carried.isEmpty()) sendFilter(slot, carried);
             return true;
         }
         if (isMouseIn(178, 22, 83, 168, mx, my)) {
@@ -549,19 +600,28 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     @Override
     protected void drawMachineTooltips(GuiGraphics g, int x, int y) {
-        String[] keys = {
-            "gui.ae2.Priority",
-            "gui.neoecoae.storage.host.build",
-            "gui.neoecoae.storage.infinite_domain",
-            "gui.neoecoae.storage.host.details",
-            "gui.neoecoae.storage.host.guide",
-            "gui.neoecoae.storage.mega.title"
-        };
-        for (int i = 0; i < keys.length; i++) {
-            if (isMouseIn(-20, i * 22, 18, 20, x, y)) {
-                g.renderComponentTooltip(font(), List.of(Component.translatable(keys[i])), x, y);
+        String[] leftKeys = {"gui.ae2.Priority", "gui.neoecoae.storage.host.guide"};
+        int[] leftYs = {0, 44};
+        for (int i = 0; i < leftKeys.length; i++) {
+            if (isMouseIn(-20, leftYs[i], 18, 20, x, y)) {
+                g.renderComponentTooltip(font(), List.of(Component.translatable(leftKeys[i])), x, y);
                 return;
             }
+        }
+        String[] rightKeys = {"gui.neoecoae.storage.infinite_domain", "gui.neoecoae.storage.host.details"};
+        for (int i = 0; i < rightKeys.length; i++) {
+            if (isMouseIn(WIDTH + 2, i * 22, 18, 20, x, y)) {
+                g.renderComponentTooltip(font(), List.of(Component.translatable(rightKeys[i])), x, y);
+                return;
+            }
+        }
+        if (megaCellCount > 0 && isMouseIn(MEGA_ACTION_LEFT, MEGA_ACTION_TOP, 16, 16, x, y)) {
+            g.renderComponentTooltip(
+                    font(),
+                    List.of(Component.translatable("gui.neoecoae.storage.bulk_mark")),
+                    x,
+                    y);
+            return;
         }
         if (panel == 4 && isMouseIn(12, 28, 154, 64, x, y)) {
             int index = detailScroll + (y - absY(28)) / 16;

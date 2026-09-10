@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.widget.NECraftingPatternBusWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEFluidHatchWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEIntegratedWorkingStationWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageInterfaceWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageControllerWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStructureTerminalWidget;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -25,12 +26,8 @@ import net.minecraft.world.entity.player.Player;
 public final class NELDLibUis {
 
     public static ModularUI createStorageController(ECOStorageSystemBlockEntity storage, Player player) {
-        return new ModularUI(
-                        cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.WIDTH,
-                        cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.HEIGHT,
-                        storage,
-                        player)
-                .widget(new cn.dancingsnow.neoecoae.gui.storage.StorageHostUI(storage, player));
+        return new ModularUI(NEStorageControllerWidget.UI_WIDTH, NEStorageControllerWidget.UI_HEIGHT, storage, player)
+                .widget(new NEStorageControllerWidget(storage, player));
     }
 
     public static ModularUI createStorageInterface(
