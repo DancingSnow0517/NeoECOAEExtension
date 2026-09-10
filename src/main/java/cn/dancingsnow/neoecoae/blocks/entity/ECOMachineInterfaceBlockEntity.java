@@ -44,6 +44,7 @@ import lombok.Getter;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -78,6 +79,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
+    private static final String PATTERN_BUS_POSITIONS_SYNC_KEY = "patternBusPositions";
+    private static final String PATTERN_BUS_SLOT_COUNTS_SYNC_KEY = "patternBusSlotCounts";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -134,9 +137,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Nullable
     private PatternOrganizeTask patternOrganizeTask;
     private long lastPatternTransferSyncTick = Long.MIN_VALUE;
-    @DescSynced
     private long[] patternBusPositions = new long[0];
-    @DescSynced
     private int[] patternBusSlotCounts = new int[0];
     @DescSynced
     private int patternContentRevision;
@@ -153,6 +154,30 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         NEClusterCalculator.Factory<C> calculator
     ) {
         super(type, pos, blockState, calculator);
+    }
+
+    @Override
+    public synchronized void writeCustomSyncData(HolderLookup.Provider provider, CompoundTag tag) {
+        // LDLib2's DirectArrayRef can expose a partially rebuilt element-ref array while a dynamically sized
+        // primitive array is replaced. Serialize both mapping arrays as one custom snapshot instead.
+        tag.putLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY, patternBusPositions);
+        tag.putIntArray(PATTERN_BUS_SLOT_COUNTS_SYNC_KEY, patternBusSlotCounts);
+    }
+
+    @Override
+    public synchronized void readCustomSyncData(HolderLookup.Provider provider, CompoundTag tag) {
+        long[] positions = tag.getLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY);
+        int[] slotCounts = tag.getIntArray(PATTERN_BUS_SLOT_COUNTS_SYNC_KEY);
+        if (positions.length != slotCounts.length) {
+            patternBusPositions = new long[0];
+            patternBusSlotCounts = new int[0];
+            return;
+        }
+        for (int index = 0; index < slotCounts.length; index++) {
+            slotCounts[index] = Math.max(0, slotCounts[index]);
+        }
+        patternBusPositions = positions;
+        patternBusSlotCounts = slotCounts;
     }
 
     public ECOStorageInterfaceMode getStorageInterfaceMode() { return storageInterfaceMode; }
@@ -654,8 +679,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
 
-        patternBusPositions = positions;
-        patternBusSlotCounts = slotCounts;
+        synchronized (this) {
+            patternBusPositions = positions;
+            patternBusSlotCounts = slotCounts;
+        }
         patternSlotRefs = List.copyOf(refs);
         patternInterfaceMappingInitialized = true;
         patternPreviewSync.reset();

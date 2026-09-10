@@ -120,6 +120,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @DescSynced
     private int currentPage;
     private boolean patternDetailsUpdateQueued;
+    private transient boolean immediatePatternDetailsUpdate;
+    private transient boolean patternDetailsUpdateInProgress;
     private boolean rebuildAllPatternDetails = true;
     private int patternDetailsUpdateTick;
     private int highestOccupiedSlot = -1;
@@ -810,7 +812,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                         this, previousRevision, patternBatchChangedSlots.stream().toArray());
             }
         }
-        updatePatternDetails();
+        updatePatternDetailsNow();
         patternDetailsUpdateQueued = false;
         clearPatternBatchState();
     }
@@ -865,7 +867,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 break;
             }
         }
-        updatePatternDetails();
+        updatePatternDetailsNow();
     }
 
     @Override
@@ -897,48 +899,84 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private void updatePatternDetails() {
-        int slotCount = getPatternSlotCount();
-        boolean refreshedAll = rebuildAllPatternDetails;
-        int[] refreshedSlots = refreshedAll ? new int[0] : dirtyPatternSlots.stream().toArray();
-        if (rebuildAllPatternDetails) {
-            Arrays.fill(decodedPatternDetails, null);
-            for (int slot = 0; slot < slotCount; slot++) {
-                decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                    inventory.getStackInSlot(slot), level
-                );
-            }
-        } else {
-            for (int slot = dirtyPatternSlots.nextSetBit(0);
-                 slot >= 0;
-                 slot = dirtyPatternSlots.nextSetBit(slot + 1)) {
-                decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                    inventory.getStackInSlot(slot), level
-                );
-            }
+        // Compatibility integrations historically reflectively invoked this private method when an asynchronous
+        // expansion completed. Route those calls through the same quiet-window scheduler as inventory mutations;
+        // otherwise N completion callbacks for one bus cause N full AE2 provider unmount/mount cycles. Keep this
+        // method and the requestUpdate invocation below intact because existing mixins inject at that call site.
+        if (patternDetailsUpdateInProgress) {
+            queuePatternDetailsUpdate();
+            return;
         }
-        rebuildAllPatternDetails = false;
-        dirtyPatternSlots.clear();
+        if (level instanceof ServerLevel && !immediatePatternDetailsUpdate) {
+            queuePatternDetailsUpdate();
+            return;
+        }
 
-        patternDetails.clear();
-        for (int slot = 0; slot < slotCount; slot++) {
-            IPatternDetails details = decodedPatternDetails[slot];
-            patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
-            // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
-            // patterns as executable providers, even if their encoded item remains stored for manual removal.
-            if (details instanceof IMolecularAssemblerSupportedPattern) {
-                ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
-                if (shouldValidateNetGrowthPatterns()) {
-                    NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+        patternDetailsUpdateInProgress = true;
+        try {
+            int slotCount = getPatternSlotCount();
+            boolean refreshedAll = rebuildAllPatternDetails;
+            int[] refreshedSlots = refreshedAll ? new int[0] : dirtyPatternSlots.stream().toArray();
+            if (rebuildAllPatternDetails) {
+                Arrays.fill(decodedPatternDetails, null);
+                for (int slot = 0; slot < slotCount; slot++) {
+                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
+                        inventory.getStackInSlot(slot), level
+                    );
                 }
-                patternDetails.add(details);
+            } else {
+                for (int slot = dirtyPatternSlots.nextSetBit(0);
+                     slot >= 0;
+                     slot = dirtyPatternSlots.nextSetBit(slot + 1)) {
+                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
+                        inventory.getStackInSlot(slot), level
+                    );
+                }
             }
+            rebuildAllPatternDetails = false;
+            dirtyPatternSlots.clear();
+
+            patternDetails.clear();
+            for (int slot = 0; slot < slotCount; slot++) {
+                IPatternDetails details = decodedPatternDetails[slot];
+                patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
+                // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
+                // patterns as executable providers, even if their encoded item remains stored for manual removal.
+                if (details instanceof IMolecularAssemblerSupportedPattern) {
+                    ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
+                    if (shouldValidateNetGrowthPatterns()) {
+                        NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+                    }
+                    patternDetails.add(details);
+                }
+            }
+            ICraftingProvider.requestUpdate(this.getMainNode());
+            if (refreshedAll) {
+                notifyPatternInterfaceHosts(-1);
+            } else if (refreshedSlots.length > 0) {
+                notifyPatternInterfaceHosts(refreshedSlots);
+            }
+        } finally {
+            patternDetailsUpdateInProgress = false;
         }
-        ICraftingProvider.requestUpdate(this.getMainNode());
-        if (refreshedAll) {
-            notifyPatternInterfaceHosts(-1);
-        } else if (refreshedSlots.length > 0) {
-            notifyPatternInterfaceHosts(refreshedSlots);
+    }
+
+    private void updatePatternDetailsNow() {
+        boolean previous = immediatePatternDetailsUpdate;
+        immediatePatternDetailsUpdate = true;
+        try {
+            updatePatternDetails();
+        } finally {
+            immediatePatternDetailsUpdate = previous;
         }
+    }
+
+    /**
+     * Compatibility entry point for integrations whose asynchronously supplied pattern set has changed.
+     * Repeated requests for this bus share the normal two-tick quiet window and produce one provider refresh.
+     */
+    public void requestPatternDetailsRefresh() {
+        queuePatternDetailsUpdate();
     }
 
     private boolean shouldValidateNetGrowthPatterns() {
@@ -983,7 +1021,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     /** Makes the bus-owned decode cache current before catalog planning reads it. */
     public void refreshPatternDetailsForCatalog() {
         if (rebuildAllPatternDetails || !dirtyPatternSlots.isEmpty()) {
-            updatePatternDetails();
+            updatePatternDetailsNow();
             patternDetailsUpdateQueued = false;
         }
     }
@@ -1059,7 +1097,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private void queuePatternDetailsUpdate() {
         if (!(level instanceof ServerLevel serverLevel)) {
-            updatePatternDetails();
+            if (!patternDetailsUpdateInProgress) {
+                updatePatternDetailsNow();
+            }
             return;
         }
         patternDetailsUpdateTick = serverLevel.getServer().getTickCount() + PATTERN_UPDATE_QUIET_TICKS;
@@ -1070,7 +1110,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public void flushScheduledPatternDetails() {
         if (!isRemoved()) {
             patternDetailsUpdateQueued = false;
-            updatePatternDetails();
+            updatePatternDetailsNow();
         }
     }
 

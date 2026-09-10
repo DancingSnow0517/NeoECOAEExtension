@@ -72,6 +72,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override protected void updateBeforeRender() {
         super.updateBeforeRender();
+
+        var errorResult = menu.submitError.result();
+        if (errorResult != null && errorResult.errorCode() != null) {
+            switchToScreen(new ECOCraftErrorScreen(
+                this,
+                errorResult.errorCode(),
+                errorResult.errorDetail()));
+            return;
+        }
+
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
