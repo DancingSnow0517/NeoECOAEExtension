@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client;
 
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
@@ -27,6 +28,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -57,8 +59,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant);
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant,
+            this::isFuzzyPlanningItem);
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
+            this::isFuzzyPlanningItem);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
@@ -308,6 +312,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private boolean isCycleParticipant(AEKey key) {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && mode.neoecoae$getCycleItems().stream().anyMatch(entry -> entry.what().equals(key));
+    }
+
+    private boolean isFuzzyPlanningItem(AEKey key) {
+        if (!(key instanceof AEItemKey itemKey) || !((Object) menu instanceof ECOCraftConfirmMenuMode mode)) {
+            return false;
+        }
+        return mode.neoecoae$getCraftingGraphSnapshot().fuzzyPlanningItemIds()
+            .contains(BuiltInRegistries.ITEM.getKey(itemKey.getItem()));
     }
 
     private static final class CraftingGraphButton extends IconButton {

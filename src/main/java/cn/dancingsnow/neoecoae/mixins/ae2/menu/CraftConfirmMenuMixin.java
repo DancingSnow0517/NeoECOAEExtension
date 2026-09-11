@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
+import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
@@ -11,8 +12,11 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ISubMenuHost;
+import appeng.core.network.clientbound.CraftConfirmPlanPacket;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.menu.me.crafting.CraftingPlanSummary;
+import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
@@ -24,12 +28,16 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -84,6 +92,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Shadow
     private ICraftingPlan result;
+
+    @Shadow
+    private CraftingPlanSummary plan;
 
     @Shadow
     private @Nullable ICraftingCPU selectedCpu;
@@ -202,6 +213,65 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
     }
 
+    @WrapOperation(
+        method = "broadcastChanges",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/menu/me/crafting/CraftingPlanSummary;fromJob("
+                + "Lappeng/api/networking/IGrid;"
+                + "Lappeng/api/networking/security/IActionSource;"
+                + "Lappeng/api/networking/crafting/ICraftingPlan;"
+                + ")Lappeng/menu/me/crafting/CraftingPlanSummary;"
+        )
+    )
+    private CraftingPlanSummary neoecoae$recheckCraftingPlanSummary(
+            IGrid grid,
+            IActionSource source,
+            ICraftingPlan job,
+            Operation<CraftingPlanSummary> original) {
+        return neoecoae$recheckStoredAmounts(grid, source, original.call(grid, source, job));
+    }
+
+    /**
+     * Recheck the stored part of a complete plan against the current network inventory. AE2 already performs this
+     * check for simulated/incomplete plans. Keep the plan's simulation flag unchanged: this refresh only describes
+     * current availability and must not permanently disable Start when ingredients arrive later.
+     */
+    @Unique
+    private static CraftingPlanSummary neoecoae$recheckStoredAmounts(
+            IGrid grid, IActionSource source, CraftingPlanSummary summary) {
+        if (summary.isSimulation()) {
+            return summary;
+        }
+
+        var storage = grid.getStorageService().getInventory();
+        var crafting = grid.getCraftingService();
+        var entries = new ArrayList<CraftingPlanSummaryEntry>(summary.getEntries().size());
+
+        for (var entry : summary.getEntries()) {
+            var key = entry.getWhat();
+            long required = entry.getStoredAmount() + entry.getMissingAmount();
+            long storedAmount = required;
+            long missingAmount = 0L;
+
+            if (required > 0L && !crafting.canEmitFor(key)) {
+                storedAmount = storage.extract(key, required, Actionable.SIMULATE, source);
+                missingAmount = Math.max(0L, required - storedAmount);
+            }
+
+            entries.add(new CraftingPlanSummaryEntry(
+                key,
+                missingAmount,
+                storedAmount,
+                entry.getCraftAmount()
+            ));
+        }
+
+        Collections.sort(entries);
+        ((CraftingPlanSummaryAccessor) (Object) summary).neoecoae$setEntries(List.copyOf(entries));
+        return summary;
+    }
+
     @Inject(method = "broadcastChanges", at = @At("TAIL"))
     private void logDisabledStartButton(CallbackInfo ci) {
         if (!NEConfig.ecoCraftConfirmDebug || neoecoae$craftConfirmDiagnosticLogged || result == null) {
@@ -236,6 +306,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             + ", busy=" + cpu.isBusy()
             + ", coprocessors=" + cpu.getCoProcessors()
             + ", selectionMode=" + cpu.getSelectionMode() + "}";
+    }
+
+    /**
+     * Close the confirmation-page TOCTOU window as far as possible by refreshing immediately before submission. If
+     * ingredients disappeared since the page was opened, retain the menu and send the refreshed red rows instead of
+     * submitting a plan that is already known to fail with MISSING_INGREDIENT.
+     */
+    @Inject(
+        method = "startJob",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/menu/me/crafting/CraftConfirmMenu;getGrid()Lappeng/api/networking/IGrid;"
+        ),
+        cancellable = true
+    )
+    private void neoecoae$refreshMissingIngredientsBeforeStart(CallbackInfo ci) {
+        if (result == null || result.simulation()) {
+            return;
+        }
+
+        IGrid grid = getGrid();
+        IActionSource source = getActionSrc();
+        CraftingPlanSummary current = plan != null
+            ? plan
+            : CraftingPlanSummary.fromJob(grid, source, result);
+        CraftingPlanSummary refreshed = neoecoae$recheckStoredAmounts(grid, source, current);
+        plan = refreshed;
+        if (refreshed.getEntries().stream().noneMatch(entry -> entry.getMissingAmount() > 0L)) {
+            return;
+        }
+
+        if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player) {
+            player.connection.send(new CraftConfirmPlanPacket(refreshed));
+        }
+        ci.cancel();
     }
 
     /**

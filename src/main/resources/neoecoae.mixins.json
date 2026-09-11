@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ae2.accessor.AECraftingPatternAccessor",
+    "ae2.accessor.CraftingPlanSummaryAccessor",
     "ae2.crafting.CraftingCalculationMixin",
     "ae2.crafting.CraftingPlanMixin",
     "ae2.crafting.CraftingServiceMixin",

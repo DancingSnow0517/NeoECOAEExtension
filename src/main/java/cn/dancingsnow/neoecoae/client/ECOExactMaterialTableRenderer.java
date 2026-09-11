@@ -28,12 +28,15 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
     private static final int MISSING_OVERLAY = 0x1AFF0000;
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
+    private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
     private final Predicate<AEKey> cycleParticipant;
+    private final Predicate<AEKey> fuzzyPlanningItem;
 
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
-            Predicate<AEKey> cycleParticipant) {
+            Predicate<AEKey> cycleParticipant, Predicate<AEKey> fuzzyPlanningItem) {
         super(screen, x, y, 7);
         this.cycleParticipant = cycleParticipant;
+        this.fuzzyPlanningItem = fuzzyPlanningItem;
     }
 
     @Override
@@ -86,6 +89,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
         if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
+        if (fuzzyPlanningItem.test(entry.key())) return FUZZY_PLANNING_OVERLAY;
         return entry.missingBigInteger().signum() > 0 ? MISSING_OVERLAY : 0;
     }
 
