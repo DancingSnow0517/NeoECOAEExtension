@@ -188,8 +188,8 @@ public final class ECOTransferScheduler implements SourceChangeSink {
 
     private long transferInput(AEKey key, long remainingBudget) {
         long conventionalInfinite = NEMath.saturatingMultiply(Integer.MAX_VALUE, Math.max(1L, key.getAmountPerUnit()));
-        // This bounded probe returns the exact amount for ordinary keys and can also discover a newly-dirty key that
-        // was absent from the last full snapshot. Long.MAX_VALUE is reserved for threshold-sized candidates only.
+        // The safety probe performs the unbounded simulation first so creative/infinite sources are never imported,
+        // including newly-dirty keys that were absent from the last full snapshot.
         if (ECOStorageSourceSafety.isEffectivelyInfiniteSource(network, key, snapshot.getLong(key), source)) {
             return 0L;
         }
@@ -203,13 +203,6 @@ public final class ECOTransferScheduler implements SourceChangeSink {
         long extractable = Math.min(requestAmount, observedExtract(key, requestAmount, Actionable.SIMULATE, adaptive));
         if (extractable <= 0L) {
             return 0L;
-        }
-        if (!chunked && extractable >= conventionalInfinite) {
-            longMaxProbes++;
-            sourceSimulates++;
-            if (observedExtract(key, Long.MAX_VALUE, Actionable.SIMULATE, adaptive) == Long.MAX_VALUE) {
-                return 0L;
-            }
         }
         ECOTransferTransaction reservation = domain.reserveInsert(key, extractable, source);
         reservations++;
