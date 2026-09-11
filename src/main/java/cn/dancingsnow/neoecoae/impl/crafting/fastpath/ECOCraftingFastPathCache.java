@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.me.ECOCompiledPatternInputs;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -311,6 +312,7 @@ public final class ECOCraftingFastPathCache {
                 cache.clear();
             }
         }
+        ECOCompiledPatternInputs.clearCache();
     }
 
     public void recordDisabled() {

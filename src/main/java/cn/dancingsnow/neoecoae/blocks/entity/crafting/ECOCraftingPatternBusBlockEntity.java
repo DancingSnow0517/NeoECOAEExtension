@@ -24,12 +24,12 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.api.me.ECOCompiledPatternInputs;
 import cn.dancingsnow.neoecoae.api.me.ECOStatefulBatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
@@ -943,7 +943,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
                 // patterns as executable providers, even if their encoded item remains stored for manual removal.
                 if (details instanceof IMolecularAssemblerSupportedPattern) {
-                    ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
+                    // Compile invariant input/remainder semantics while the provider publishes the pattern, keeping
+                    // getRemainingKey/toStack work out of the CPU's first dispatch burst.
+                    ECOCompiledPatternInputs.get(details);
                     if (shouldValidateNetGrowthPatterns()) {
                         NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
                     }
