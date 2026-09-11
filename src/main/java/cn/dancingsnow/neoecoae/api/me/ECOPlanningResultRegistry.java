@@ -305,7 +305,8 @@ public final class ECOPlanningResultRegistry {
             IPatternDetails target = mappedPattern(task.pattern(), mapping);
             if (target == null) return null;
             tasks.add(new ECOExecutionPlan.TaskSpec(task.id(), task.identity(), target,
-                ECOExecutionPlan.PatternRuntimeInfo.from(target), task.totalCount(), task.phaseIndex(), task.kind()));
+                ECOExecutionPlan.PatternRuntimeInfo.from(target), task.totalCount(), task.phaseIndex(), task.kind(),
+                task.inputAllocations()));
         }
         List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>();
         for (var phase : sourcePlan.schedule().phases()) {

@@ -9,6 +9,7 @@ import appeng.crafting.inv.ICraftingInventory;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -23,6 +24,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     private final Set<AEKey> primaryInputs;
     private final Set<AEKey> possibleInputs;
     private final Set<AEKey> reusableTemplates;
+    private final Map<AEKey, Long> protectedAmounts;
 
     /** Native AE2 dispatch keeps substitution/fuzzy selection unrestricted while extraction stays virtual. */
     ECOCraftingInputPreview(ICraftingInventory source) {
@@ -30,13 +32,20 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         this.primaryInputs = Set.of();
         this.possibleInputs = Set.of();
         this.reusableTemplates = Set.of();
+        this.protectedAmounts = Map.of();
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern) {
+        this(source, pattern, Map.of());
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
+            Map<AEKey, Long> protectedAmounts) {
         this.source = source;
         this.primaryInputs = new HashSet<>();
         this.possibleInputs = new HashSet<>();
         this.reusableTemplates = new HashSet<>();
+        this.protectedAmounts = Map.copyOf(protectedAmounts);
         for (var input : pattern.getInputs()) {
             if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
             var possible = input.getPossibleInputs();
@@ -73,7 +82,9 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
-        long available = Math.max(0L, source.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) - removed.get(key));
+        long available = Math.max(0L,
+            source.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) - removed.get(key));
+        available = Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
         long extracted = Math.min(amount, available);
         if (mode == Actionable.MODULATE) removed.add(key, extracted);
         return extracted;

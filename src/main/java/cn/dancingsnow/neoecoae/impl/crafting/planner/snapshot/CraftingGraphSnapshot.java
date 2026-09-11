@@ -16,6 +16,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable, solver-free network DTO consumed by the crafting graph client. */
@@ -25,18 +26,20 @@ public record CraftingGraphSnapshot(
     List<PatternNode> patterns,
     List<Edge> edges,
     List<CycleGroup> cycleGroups,
+    List<ResourceLocation> fuzzyPlanningItemIds,
     Summary summary
 ) implements PacketWritable {
     private static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
     private static final int MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
     public static final CraftingGraphSnapshot EMPTY = new CraftingGraphSnapshot(-1, List.of(), List.of(), List.of(),
-        List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
+        List.of(), List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
 
     public CraftingGraphSnapshot {
         nodes = List.copyOf(nodes);
         patterns = List.copyOf(patterns);
         edges = List.copyOf(edges);
         cycleGroups = List.copyOf(cycleGroups);
+        fuzzyPlanningItemIds = List.copyOf(fuzzyPlanningItemIds);
     }
 
     public CraftingGraphSnapshot(RegistryFriendlyByteBuf data) {
@@ -44,7 +47,8 @@ public record CraftingGraphSnapshot(
     }
 
     private CraftingGraphSnapshot(Decoded decoded) {
-        this(decoded.rootNodeId, decoded.nodes, decoded.patterns, decoded.edges, decoded.cycleGroups, decoded.summary);
+        this(decoded.rootNodeId, decoded.nodes, decoded.patterns, decoded.edges, decoded.cycleGroups,
+            decoded.fuzzyPlanningItemIds, decoded.summary);
     }
 
     @Override
@@ -67,6 +71,7 @@ public record CraftingGraphSnapshot(
         writeList(data, patterns, PatternNode::write);
         writeList(data, edges, Edge::write);
         writeList(data, cycleGroups, CycleGroup::write);
+        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeResourceLocation(itemId));
         summary.write(data);
     }
 
@@ -81,7 +86,7 @@ public record CraftingGraphSnapshot(
         try {
             Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
                 readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                Summary.read(raw));
+                readList(raw, RegistryFriendlyByteBuf::readResourceLocation), Summary.read(raw));
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {
@@ -127,7 +132,7 @@ public record CraftingGraphSnapshot(
     }
 
     private record Decoded(int rootNodeId, List<MaterialNode> nodes, List<PatternNode> patterns, List<Edge> edges,
-            List<CycleGroup> cycleGroups, Summary summary) {}
+            List<CycleGroup> cycleGroups, List<ResourceLocation> fuzzyPlanningItemIds, Summary summary) {}
 
     public enum MaterialStatus { SATISFIED, CRAFTING, MISSING, UNSUPPORTED, CYCLE }
     public enum CandidateStatus { SELECTED, REJECTED, UNSUPPORTED }

@@ -71,7 +71,7 @@ public final class AcyclicCraftingSolver {
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
             List<AEKey> currentRoute = selectedRoute(
-                network, route.keys(), choices, deferredPatterns, cancellation);
+                network, choices, deferredPatterns, cancellation);
             if (currentRoute == null) {
                 state = new SolveState(inventory);
                 state.unsupported.add(network.goal());
@@ -125,10 +125,10 @@ public final class AcyclicCraftingSolver {
      *
      * @return the selected route, or {@code null} when the selected acyclic subset now contains a cycle
      */
-    private static List<AEKey> selectedRoute(CompiledNetwork network, List<AEKey> allowedRoute,
+    private static List<AEKey> selectedRoute(CompiledNetwork network,
             Map<AEKey, Integer> choices, Set<IPatternDetails> deferredPatterns,
             ECOCancellation cancellation) throws InterruptedException {
-        Set<AEKey> allowed = new LinkedHashSet<>(allowedRoute);
+        Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
         Map<AEKey, Set<AEKey>> outgoing = new LinkedHashMap<>();

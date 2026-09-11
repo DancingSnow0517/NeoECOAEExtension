@@ -107,7 +107,8 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
             grid.getCraftingService(), output.what(), inventory,
             settings.neoecoae$isCyclePlanningEnabled(),
-            this.neoecoae$ignorePatternSubstitutions);
+            this.neoecoae$ignorePatternSubstitutions,
+            settings.neoecoae$getFuzzyPlanningItemIds());
     }
 
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)

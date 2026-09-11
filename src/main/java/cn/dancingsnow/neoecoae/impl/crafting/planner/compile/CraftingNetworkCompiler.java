@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.compile;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
@@ -19,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
@@ -52,6 +55,13 @@ public final class CraftingNetworkCompiler {
      */
     public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
+        return compile(service, goal, cyclePlanningEnabled, Set.of(), cancellation);
+    }
+
+    public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
+            Set<ResourceLocation> fuzzyPlanningItemIds, ECOCancellation cancellation) throws InterruptedException {
+        Set<ResourceLocation> ignoredItemIds = fuzzyPlanningItemIds == null ? Set.of()
+            : Set.copyOf(fuzzyPlanningItemIds);
         Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
         Set<AEKey> emittable = new HashSet<>();
         Set<AEKey> queued = new HashSet<>();
@@ -70,7 +80,8 @@ public final class CraftingNetworkCompiler {
             List<CompiledPattern> compiled = new ArrayList<>();
             for (IPatternDetails details : service.getCraftingFor(key)) {
                 cancellation.checkpoint();
-                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled);
+                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                    ignoredItemIds);
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -103,7 +114,7 @@ public final class CraftingNetworkCompiler {
     }
 
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
-            boolean cyclePlanningEnabled) {
+            boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs;
         List<GenericStack> outputs;
         PlannerAmount outputPerPattern = PlannerAmount.ZERO;
@@ -157,9 +168,9 @@ public final class CraftingNetworkCompiler {
             }
 
             if (!semantics.consumedInputs().isEmpty()) {
-                inputs = compileInputs(semantics, fastClassification, adapter);
+                inputs = compileInputs(semantics, fastClassification, adapter, fuzzyPlanningItemIds);
             } else {
-                inputs = compileRawInputs(details);
+                inputs = compileRawInputs(details, fuzzyPlanningItemIds);
             }
             specialAnalysis = specialPatternAnalyzer.analyze(id, details, semantics, inputs);
             for (CompiledInput compiledInput : inputs) {
@@ -195,11 +206,14 @@ public final class CraftingNetworkCompiler {
         );
     }
 
-    private static List<CompiledInput> compileRawInputs(IPatternDetails details) {
+    private static List<CompiledInput> compileRawInputs(IPatternDetails details,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         IPatternDetails.IInput[] rawInputs = details.getInputs();
         if (rawInputs == null) throw new IllegalArgumentException("null input array");
-        for (IPatternDetails.IInput input : rawInputs) inputs.addAll(compileInputs(input));
+        for (IPatternDetails.IInput input : rawInputs) {
+            inputs.addAll(compileInputs(input, fuzzyPlanningItemIds));
+        }
         return inputs;
     }
 
@@ -218,7 +232,8 @@ public final class CraftingNetworkCompiler {
     }
 
     private static List<CompiledInput> compileInputs(PatternSemantics semantics,
-            ECORecipeClassifier.Classification classification, PatternSemanticAdapter adapter) {
+            ECORecipeClassifier.Classification classification, PatternSemanticAdapter adapter,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (PatternSemantics.Input input : semantics.consumedInputs()) {
             String reason = "";
@@ -246,7 +261,7 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "INVALID_INPUT_AMOUNT";
             }
-            boolean ignoresComponents = input.source() != null
+            boolean ignoresComponents = ignoresComponents(input.key(), fuzzyPlanningItemIds) || input.source() != null
                 && adapter != null
                 && adapter.ignoresComponents(semantics.physicalPattern(), indexOfInput(semantics, input));
             inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
@@ -259,7 +274,8 @@ public final class CraftingNetworkCompiler {
         return semantics.consumedInputs().indexOf(target);
     }
 
-    private static List<CompiledInput> compileInputs(IPatternDetails.IInput input) {
+    private static List<CompiledInput> compileInputs(IPatternDetails.IInput input,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         if (input == null) {
             throw new IllegalArgumentException("null input");
         }
@@ -270,7 +286,8 @@ public final class CraftingNetworkCompiler {
         GenericStack primary = possible[0];
         long multiplier = input.getMultiplier();
         if (primary.amount() <= 0 || multiplier <= 0) {
-            return List.of(new CompiledInput(input, primary.what(), 0, false, "INVALID_INPUT_AMOUNT"));
+            return List.of(new CompiledInput(input, primary.what(), PlannerAmount.ZERO, false, "INVALID_INPUT_AMOUNT",
+                null, PlannerAmount.ZERO, ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
         }
         // A substitution set is still safe to plan when the planner commits to one concrete member. Use the
         // pattern's primary input deterministically; AE2 may accept other members at execution time, but the
@@ -279,10 +296,16 @@ public final class CraftingNetworkCompiler {
         AEKey remainder = input.getRemainingKey(primary.what());
         if (remainder != null) {
             return List.of(new CompiledInput(input, primary.what(), amount, false, "UNSUPPORTED_REMAINDER",
-                remainder, PlannerAmount.of(multiplier)));
+                remainder, PlannerAmount.of(multiplier), ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
         }
         return List.of(new CompiledInput(input, primary.what(), amount, true,
-            possible.length == 1 ? "" : "UNSUPPORTED_SUBSTITUTION"));
+            possible.length == 1 ? "" : "UNSUPPORTED_SUBSTITUTION", null, PlannerAmount.ZERO,
+            ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
+    }
+
+    private static boolean ignoresComponents(AEKey key, Set<ResourceLocation> fuzzyPlanningItemIds) {
+        return key instanceof AEItemKey itemKey
+            && fuzzyPlanningItemIds.contains(BuiltInRegistries.ITEM.getKey(itemKey.getItem()));
     }
 
     private static List<GenericStack> safeOutputs(IPatternDetails details) {

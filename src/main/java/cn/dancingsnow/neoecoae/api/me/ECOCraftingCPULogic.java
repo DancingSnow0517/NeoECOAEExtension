@@ -381,16 +381,19 @@ public class ECOCraftingCPULogic {
                 }
                 var outputs = new KeyCounter();
                 var containers = new KeyCounter();
+                var protectedStartupSeed = current.executionRuntime == null
+                    ? java.util.Map.<AEKey, Long>of()
+                    : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null
                     ? new ECOCraftingInputPreview(inventory)
-                    : new ECOCraftingInputPreview(inventory, pattern);
+                    : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
                 var inputs = CraftingCpuHelper.extractPatternInputs(
                     pattern, inputInventory, level, outputs, containers);
                 if (inputs == null) {
                     if (stallDiagnostics.isActive()) {
                         var diagnosticInventory = current.executionRuntime == null
                             ? new ECOCraftingInputPreview(inventory)
-                            : new ECOCraftingInputPreview(inventory, pattern);
+                            : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
                         stallDiagnostics.missingInputs(pattern, diagnosticInventory);
                     }
                     // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
@@ -415,6 +418,13 @@ public class ECOCraftingCPULogic {
                             inventory, allowedCount,
                             energyService, level, current.link.getCraftingID())
                         : null;
+                    if (batch != null && current.executionRuntime != null
+                            && !current.executionRuntime.preservesStartupSeeds(
+                                candidate, batch.inputTotal(), inventory)) {
+                        // The batch calculator sees the physical CPU inventory. Reject a batch that would cross a
+                        // different phase's seed lease; the one-copy fallback still uses the protected preview.
+                        batch = null;
+                    }
                     if (batch != null) {
                         craftCount = batch.craftCount();
                         try {

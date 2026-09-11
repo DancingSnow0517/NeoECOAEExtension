@@ -48,6 +48,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionMode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlannedInputAllocation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 
 public class ExecutingCraftingJob {
@@ -178,18 +179,23 @@ public class ExecutingCraftingJob {
 
     private Map<Integer, IPatternDetails> bindExecutionPatterns(ECOExecutionPlan plan, boolean validateTotals) {
         Map<Integer, IPatternDetails> result = new HashMap<>();
+        java.util.Set<IPatternDetails> usedMatches = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
         for (var task : plan.tasks()) {
             IPatternDetails match = tasks.keySet().stream()
+                .filter(candidate -> !usedMatches.contains(candidate))
                 .filter(candidate -> ECOPhaseScheduler.samePattern(candidate, task.pattern()))
                 .findFirst().orElse(null);
             if (match == null) {
                 throw new IllegalArgumentException("Execution plan task is absent from submitted plan: " + task.id());
             }
             TaskProgress progress = tasks.get(match);
-            if (progress == null || (validateTotals && progress.value != task.totalCount())) {
+            if (progress == null || progress.value < 0L || progress.value > task.totalCount()
+                    || (validateTotals && progress.value != task.totalCount())) {
                 throw new IllegalArgumentException("Execution plan count does not match submitted task: " + task.id());
             }
             result.put(task.id(), match);
+            usedMatches.add(match);
         }
         return result;
     }
@@ -223,6 +229,21 @@ public class ExecutingCraftingJob {
             taskTag.putInt("phase", task.phaseIndex());
             taskTag.putString("kind", task.kind().name());
             taskTag.put("pattern", task.pattern().getDefinition().toTag(registries));
+            ListTag allocations = new ListTag();
+            for (var allocation : task.inputAllocations()) {
+                CompoundTag allocationTag = new CompoundTag();
+                allocationTag.putInt("slot", allocation.slot());
+                ListTag runs = new ListTag();
+                for (var run : allocation.runs()) {
+                    CompoundTag runTag = GenericStack.writeTag(registries,
+                        new GenericStack(run.key(), run.amount()));
+                    runTag.putLong("crafts", run.crafts());
+                    runs.add(runTag);
+                }
+                allocationTag.put("runs", runs);
+                allocations.add(allocationTag);
+            }
+            taskTag.put("inputAllocations", allocations);
             taskTags.add(taskTag);
         }
         data.put("tasks", taskTags);
@@ -281,9 +302,24 @@ public class ExecutingCraftingJob {
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
             if (identity == null) throw new IllegalArgumentException("Persisted execution pattern has no identity");
             patternsById.put(id, pattern);
+            List<PlannedInputAllocation> allocations = new ArrayList<>();
+            ListTag allocationTags = taskTag.getList("inputAllocations", Tag.TAG_COMPOUND);
+            for (int allocationIndex = 0; allocationIndex < allocationTags.size(); allocationIndex++) {
+                CompoundTag allocationTag = allocationTags.getCompound(allocationIndex);
+                List<PlannedInputAllocation.Run> runs = new ArrayList<>();
+                ListTag runTags = allocationTag.getList("runs", Tag.TAG_COMPOUND);
+                for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
+                    CompoundTag runTag = runTags.getCompound(runIndex);
+                    GenericStack stack = GenericStack.readTag(registries, runTag);
+                    long crafts = runTag.getLong("crafts");
+                    if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
+                    runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
+                }
+                allocations.add(new PlannedInputAllocation(allocationTag.getInt("slot"), runs));
+            }
             tasks.add(new ECOExecutionPlan.TaskSpec(id, identity, pattern,
                 ECOExecutionPlan.PatternRuntimeInfo.from(pattern), taskTag.getLong("total"),
-                taskTag.getInt("phase"), ECOExecutionPlan.TaskKind.valueOf(taskTag.getString("kind"))));
+                taskTag.getInt("phase"), ECOExecutionPlan.TaskKind.valueOf(taskTag.getString("kind")), allocations));
         }
 
         ListTag phaseTags = data.getList("phases", Tag.TAG_COMPOUND);

@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -37,6 +38,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
@@ -401,6 +403,18 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
         }
         return false;
+    }
+
+    @Override
+    public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
+        Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
+        for (ECOMachineInterfaceBlockEntity<?> machineInterface
+                : grid.getMachines(ECOMachineInterfaceBlockEntity.class)) {
+            if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {
+                result.addAll(machineInterface.getFuzzyPlanningItemIds());
+            }
+        }
+        return Set.copyOf(result);
     }
 
     @Unique

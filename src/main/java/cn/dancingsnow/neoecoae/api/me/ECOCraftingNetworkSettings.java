@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.networking.IGrid;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -23,6 +25,9 @@ public interface ECOCraftingNetworkSettings {
     void neoecoae$setCyclePlanningEnabled(boolean enabled);
 
     boolean neoecoae$hasComputationHost();
+
+    /** Item ids selected by computation interfaces for component-insensitive planning. */
+    Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds();
 
     default boolean neoecoae$shouldUseFastPlanner() {
         return neoecoae$isFastPlannerEnabled() && neoecoae$hasComputationHost();

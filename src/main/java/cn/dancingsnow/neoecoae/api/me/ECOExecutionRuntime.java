@@ -61,7 +61,7 @@ public final class ECOExecutionRuntime {
     private final List<List<Integer>> dependentsByPhase;
     // Reused by the dispatch loop; callers consume the snapshot before requesting the next one.
     private final List<DispatchCandidate> candidateBuffer = new ArrayList<>();
-    private final Map<AEKey, Long> startupSeedRemaining = new LinkedHashMap<>();
+    private final List<Map<AEKey, Long>> startupSeedRemainingByPhase;
     private boolean reconciledEmptyCandidates;
 
     public ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById) {
@@ -96,6 +96,7 @@ public final class ECOExecutionRuntime {
         this.remainingDependencies = new int[plan.phases().size()];
         this.activeTaskBuffer = new int[plan.tasks().size()];
         this.dependentsByPhase = createDependents(plan);
+        this.startupSeedRemainingByPhase = new ArrayList<>(plan.phases().size());
 
         for (var task : plan.tasks()) {
             IPatternDetails actual = pattern(task.id());
@@ -108,12 +109,13 @@ public final class ECOExecutionRuntime {
             }
         }
         this.progressAliasesByTaskId = createProgressAliases(this.progressByTaskId, plan.tasks().size());
+        rejectSharedProgressAliases();
         for (var phase : plan.phases()) {
             long[] steps = new long[phase.steps().size()];
             for (int i = 0; i < steps.length; i++) steps[i] = phase.steps().get(i).count();
             remainingSteps.add(steps);
             remainingDynamicFirings.add(new LinkedHashMap<>(phase.dynamicFirings()));
-            phase.initialSeed().forEach((key, amount) -> startupSeedRemaining.merge(key, amount, NEMath::saturatingAdd));
+            startupSeedRemainingByPhase.add(new LinkedHashMap<>(phase.initialSeed()));
         }
         for (IPatternDetails pattern : this.patternsById) {
             inputKeysByTaskId.add(Collections.unmodifiableSet(inputKeys(pattern)));
@@ -220,7 +222,8 @@ public final class ECOExecutionRuntime {
             }
         }
         if (!result.isEmpty()) return result;
-        if (allowReconciliation && !reconciledEmptyCandidates && hasLiveTaskProgress()) {
+        if (allowReconciliation && !reconciledEmptyCandidates
+                && completedPhases.cardinality() < plan.phases().size()) {
             reconciledEmptyCandidates = true;
             String before = NEConfig.ecoDispatchWatchdogDebug ? describeProgressCache() : null;
             rebuildProgressState();
@@ -255,18 +258,22 @@ public final class ECOExecutionRuntime {
         } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
             Map<Integer, Long> dynamic = remainingDynamicFirings.get(phaseIndex);
             long before = dynamic.getOrDefault(candidate.taskId(), 0L);
-            if (count > before) throw new IllegalStateException("Accepted task exceeds dynamic firing vector");
-            dynamic.put(candidate.taskId(), before - count);
-            if (before > 0L && before - count <= 0L) activeDynamicTasksByPhase[phaseIndex]--;
-            int taskPosition = phase.taskIds().indexOf(candidate.taskId());
-            if (taskPosition >= 0 && !phase.taskIds().isEmpty()) {
-                dynamicCursor[phaseIndex] = (taskPosition + 1) % phase.taskIds().size();
+            // Once the exact cycle firing vector is exhausted, remaining AE2 task progress is the aggregate
+            // non-cycle remainder. It is legal work, but must not be charged to the already-finished vector.
+            if (before > 0L) {
+                if (count > before) throw new IllegalStateException("Accepted task exceeds dynamic firing vector");
+                dynamic.put(candidate.taskId(), before - count);
+                if (before - count <= 0L) activeDynamicTasksByPhase[phaseIndex]--;
+                int taskPosition = phase.taskIds().indexOf(candidate.taskId());
+                if (taskPosition >= 0 && !phase.taskIds().isEmpty()) {
+                    dynamicCursor[phaseIndex] = (taskPosition + 1) % phase.taskIds().size();
+                }
             }
         }
         reconciledEmptyCandidates = false;
         refreshTaskState(candidate.taskId());
         maybeCompletePhase(phaseIndex);
-        consumeStartupSeed(inputs, count);
+        consumeStartupSeed(candidate, inputs, count);
     }
 
     public boolean isComplete() {
@@ -374,7 +381,7 @@ public final class ECOExecutionRuntime {
     public long reservedInputAmount(AEKey key, Map<IPatternDetails, Long> remainingTasks) {
         if (key == null) return 0L;
         if (progressByTaskId == null) Objects.requireNonNull(remainingTasks, "remainingTasks");
-        long result = startupSeedRemaining.getOrDefault(key, 0L);
+        long result = totalStartupSeedRemaining(key);
         for (var task : plan.tasks()) {
             long remaining = taskRemaining(task.id(), remainingTasks);
             if (remaining <= 0L) continue;
@@ -386,9 +393,9 @@ public final class ECOExecutionRuntime {
 
     @Nullable
     public AEKey startupSeedShortfall(appeng.crafting.inv.ListCraftingInventory inventory) {
-        for (var entry : startupSeedRemaining.entrySet()) {
-            if (inventory.extract(entry.getKey(), entry.getValue(), Actionable.SIMULATE)
-                    < entry.getValue()) {
+        Map<AEKey, Long> totals = protectedStartupSeed(null);
+        for (var entry : totals.entrySet()) {
+            if (inventory.extract(entry.getKey(), entry.getValue(), Actionable.SIMULATE) < entry.getValue()) {
                 return entry.getKey();
             }
         }
@@ -415,8 +422,13 @@ public final class ECOExecutionRuntime {
         data.put("phases", phases);
         data.putIntArray("completed", completedPhases.stream().toArray());
         ListTag seeds = new ListTag();
-        for (var entry : startupSeedRemaining.entrySet()) {
-            seeds.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getValue())));
+        for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
+            for (var entry : startupSeedRemainingByPhase.get(phaseIndex).entrySet()) {
+                CompoundTag seed = GenericStack.writeTag(registries,
+                    new GenericStack(entry.getKey(), entry.getValue()));
+                seed.putInt("phase", phaseIndex);
+                seeds.add(seed);
+            }
         }
         data.put("startupSeeds", seeds);
     }
@@ -461,14 +473,27 @@ public final class ECOExecutionRuntime {
         for (int phase : data.getIntArray("completed")) {
             if (phase >= 0 && phase < runtime.plan.phases().size()) runtime.completedPhases.set(phase);
         }
-        runtime.startupSeedRemaining.clear();
+        runtime.startupSeedRemainingByPhase.forEach(Map::clear);
         ListTag seeds = data.getList("startupSeeds", Tag.TAG_COMPOUND);
+        Map<AEKey, Long> legacySeeds = new LinkedHashMap<>();
         for (int i = 0; i < seeds.size(); i++) {
-            GenericStack stack = GenericStack.readTag(registries, seeds.getCompound(i));
+            CompoundTag seed = seeds.getCompound(i);
+            GenericStack stack = GenericStack.readTag(registries, seed);
             if (stack != null && stack.amount() > 0L) {
-                runtime.startupSeedRemaining.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
+                if (seed.contains("phase", Tag.TAG_INT)) {
+                    int phaseIndex = seed.getInt("phase");
+                    if (phaseIndex < 0 || phaseIndex >= runtime.plan.phases().size()) {
+                        throw new IllegalArgumentException("Persisted startup seed has invalid phase owner");
+                    }
+                    runtime.startupSeedRemainingByPhase.get(phaseIndex)
+                        .merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
+                } else {
+                    legacySeeds.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
+                }
             }
         }
+        runtime.restoreLegacyStartupSeeds(legacySeeds);
+        runtime.validateStartupSeedOwnership();
         runtime.rebuildProgressState();
         return runtime;
     }
@@ -598,17 +623,56 @@ public final class ECOExecutionRuntime {
         return NEMath.saturatingMultiply(result, remaining);
     }
 
-    private void consumeStartupSeed(KeyCounter[] inputs, long count) {
-        if (inputs == null || startupSeedRemaining.isEmpty()) return;
+    Map<AEKey, Long> protectedStartupSeed(@Nullable DispatchCandidate candidate) {
+        int ownerPhase = candidate == null ? -1 : candidate.phaseIndex();
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
+            if (phaseIndex == ownerPhase) continue;
+            startupSeedRemainingByPhase.get(phaseIndex).forEach(
+                (key, amount) -> result.merge(key, amount, NEMath::saturatingAdd));
+        }
+        return result.isEmpty() ? Map.of() : Map.copyOf(result);
+    }
+
+    boolean preservesStartupSeeds(DispatchCandidate candidate, List<GenericStack> inputs,
+            appeng.crafting.inv.ListCraftingInventory inventory) {
+        Map<AEKey, Long> protectedAmounts = protectedStartupSeed(candidate);
+        if (protectedAmounts.isEmpty() || inputs.isEmpty()) return true;
+        Map<AEKey, Long> required = new LinkedHashMap<>();
+        for (GenericStack input : inputs) {
+            if (input != null && input.amount() > 0L) {
+                required.merge(input.what(), input.amount(), NEMath::saturatingAdd);
+            }
+        }
+        for (var entry : required.entrySet()) {
+            long available = Math.max(0L,
+                inventory.list.get(entry.getKey()) - protectedAmounts.getOrDefault(entry.getKey(), 0L));
+            if (available < entry.getValue()) return false;
+        }
+        return true;
+    }
+
+    private long totalStartupSeedRemaining(AEKey key) {
+        long result = 0L;
+        for (Map<AEKey, Long> phaseSeeds : startupSeedRemainingByPhase) {
+            result = NEMath.saturatingAdd(result, phaseSeeds.getOrDefault(key, 0L));
+        }
+        return result;
+    }
+
+    private void consumeStartupSeed(DispatchCandidate candidate, KeyCounter[] inputs, long count) {
+        if (inputs == null) return;
+        Map<AEKey, Long> ownedSeeds = startupSeedRemainingByPhase.get(candidate.phaseIndex());
+        if (ownedSeeds.isEmpty()) return;
         for (KeyCounter input : inputs) {
             if (input == null) continue;
             for (var entry : input) {
                 long consumed = NEMath.saturatingMultiply(entry.getLongValue(), count);
-                long reserved = startupSeedRemaining.getOrDefault(entry.getKey(), 0L);
-                if (reserved > 0L) startupSeedRemaining.put(entry.getKey(), Math.max(0L, reserved - consumed));
+                long reserved = ownedSeeds.getOrDefault(entry.getKey(), 0L);
+                if (reserved > 0L) ownedSeeds.put(entry.getKey(), Math.max(0L, reserved - consumed));
             }
         }
-        startupSeedRemaining.entrySet().removeIf(entry -> entry.getValue() <= 0L);
+        ownedSeeds.entrySet().removeIf(entry -> entry.getValue() <= 0L);
     }
 
     private void requireProgressBinding() {
@@ -653,14 +717,6 @@ public final class ECOExecutionRuntime {
             if (liveUnfinished) unfinished++;
         }
         unfinishedTasksByPhase[phaseIndex] = unfinished;
-    }
-
-    private boolean hasLiveTaskProgress() {
-        if (progressByTaskId == null) return false;
-        for (var progress : progressByTaskId) {
-            if (progress != null && progress.value > 0L) return true;
-        }
-        return false;
     }
 
     private String describeProgressCache() {
@@ -748,12 +804,17 @@ public final class ECOExecutionRuntime {
     private void markPhaseCompleted(int phaseIndex) {
         if (completedPhases.get(phaseIndex)) return;
         completedPhases.set(phaseIndex);
+        startupSeedRemainingByPhase.get(phaseIndex).clear();
         for (int dependent : dependentsByPhase.get(phaseIndex)) {
             if (remainingDependencies[dependent] > 0) remainingDependencies[dependent]--;
         }
     }
 
     private void rebuildProgressState() {
+        reconcileCycleProgress();
+        // With a live binding, completion is derived from task progress and the rebuilt witness rather than trusted
+        // as an independent persisted source of truth. The compatibility runtime has no such authoritative counter.
+        if (progressByTaskId != null) completedPhases.clear();
         Arrays.fill(unfinishedTasksByPhase, 0);
         Arrays.fill(unfinishedTasks, false);
         Arrays.fill(activeDynamicTasksByPhase, 0);
@@ -802,6 +863,113 @@ public final class ECOExecutionRuntime {
             for (int taskId : taskIds) result[taskId] = taskIds;
         }
         return result;
+    }
+
+    private void rejectSharedProgressAliases() {
+        if (progressByTaskId == null) return;
+        for (int taskId = 0; taskId < progressAliasesByTaskId.length; taskId++) {
+            int[] aliases = progressAliasesByTaskId[taskId];
+            if (aliases.length > 1 && aliases[0] == taskId) {
+                throw new IllegalArgumentException("Execution tasks share one aggregate TaskProgress: "
+                    + Arrays.toString(aliases));
+            }
+        }
+    }
+
+    /** Rebuilds cycle-only progress from the one-to-one live task counters that record accepted provider pushes. */
+    private void reconcileCycleProgress() {
+        if (progressByTaskId == null) return;
+        boolean changed = false;
+        for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
+            var phase = plan.phases().get(phaseIndex);
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE && !phase.steps().isEmpty()) {
+                long[] steps = remainingSteps.get(phaseIndex);
+                long[] completedByTask = new long[plan.tasks().size()];
+                for (int taskId : phase.taskIds()) {
+                    completedByTask[taskId] = Math.max(0L,
+                        plan.task(taskId).totalCount() - taskRemaining(taskId, null));
+                }
+                boolean prefixComplete = true;
+                for (int index = 0; index < phase.steps().size(); index++) {
+                    var step = phase.steps().get(index);
+                    long consumed = prefixComplete
+                        ? Math.min(step.count(), completedByTask[step.taskId()]) : 0L;
+                    long rebuilt = step.count() - consumed;
+                    completedByTask[step.taskId()] -= consumed;
+                    if (rebuilt > 0L) prefixComplete = false;
+                    changed |= steps[index] != rebuilt;
+                    steps[index] = rebuilt;
+                }
+                stepCursor[phaseIndex] = 0;
+                advanceFinishedSteps(phaseIndex);
+            } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                Map<Integer, Long> dynamic = remainingDynamicFirings.get(phaseIndex);
+                dynamic.keySet().removeIf(taskId -> !phase.dynamicFirings().containsKey(taskId));
+                for (var initial : phase.dynamicFirings().entrySet()) {
+                    int taskId = initial.getKey();
+                    long completed = Math.max(0L,
+                        plan.task(taskId).totalCount() - taskRemaining(taskId, null));
+                    long rebuilt = Math.max(0L, initial.getValue() - completed);
+                    if (dynamic.getOrDefault(taskId, -1L) != rebuilt) {
+                        dynamic.put(taskId, rebuilt);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed && NEConfig.ecoDispatchWatchdogDebug) {
+            LOGGER.warn("[ECO Execution] reconciled cycle witness counters to accepted AE2 task progress");
+        }
+    }
+
+    private void restoreLegacyStartupSeeds(Map<AEKey, Long> legacySeeds) {
+        for (var entry : legacySeeds.entrySet()) {
+            List<Integer> owners = new ArrayList<>();
+            long plannedTotal = 0L;
+            for (int phaseIndex = 0; phaseIndex < plan.phases().size(); phaseIndex++) {
+                boolean hasLiveWork = progressByTaskId == null ? !completedPhases.get(phaseIndex) : false;
+                if (progressByTaskId != null) {
+                    for (int taskId : plan.phases().get(phaseIndex).taskIds()) {
+                        if (taskRemaining(taskId, null) > 0L) {
+                            hasLiveWork = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasLiveWork) continue;
+                long planned = plan.phases().get(phaseIndex).initialSeed().getOrDefault(entry.getKey(), 0L);
+                if (planned <= 0L) continue;
+                owners.add(phaseIndex);
+                plannedTotal = NEMath.saturatingAdd(plannedTotal, planned);
+            }
+            if (owners.isEmpty() || entry.getValue() > plannedTotal) {
+                throw new IllegalArgumentException("Persisted startup seed exceeds execution-plan ownership");
+            }
+            if (owners.size() > 1 && entry.getValue() != plannedTotal) {
+                // The legacy format aggregated equal keys across phases. Once any owner consumed only part of that
+                // total, its remaining ownership is unknowable; suspending is safer than assigning another phase's
+                // seed and recreating the cross-phase theft this format is being replaced to prevent.
+                throw new IllegalArgumentException("Legacy startup seed has ambiguous phase ownership");
+            }
+            long remaining = entry.getValue();
+            for (int phaseIndex : owners) {
+                long assigned = Math.min(remaining,
+                    plan.phases().get(phaseIndex).initialSeed().getOrDefault(entry.getKey(), 0L));
+                startupSeedRemainingByPhase.get(phaseIndex).put(entry.getKey(), assigned);
+                remaining -= assigned;
+            }
+        }
+    }
+
+    private void validateStartupSeedOwnership() {
+        for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
+            Map<AEKey, Long> planned = plan.phases().get(phaseIndex).initialSeed();
+            for (var entry : startupSeedRemainingByPhase.get(phaseIndex).entrySet()) {
+                if (entry.getValue() <= 0L || entry.getValue() > planned.getOrDefault(entry.getKey(), 0L)) {
+                    throw new IllegalArgumentException("Persisted startup seed exceeds its phase ownership");
+                }
+            }
+        }
     }
 
     private static IPatternDetails[] toPatternArray(ECOExecutionPlan plan,

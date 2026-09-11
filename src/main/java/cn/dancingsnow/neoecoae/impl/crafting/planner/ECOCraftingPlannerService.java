@@ -26,6 +26,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerInventorySnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,19 +49,22 @@ public final class ECOCraftingPlannerService {
         private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
+        private final Set<ResourceLocation> fuzzyPlanningItemIds;
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
-                boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions) {
+                boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
+                Set<ResourceLocation> fuzzyPlanningItemIds) {
             this.craftingService = craftingService;
             this.goal = goal;
             this.inventorySnapshot = PlannerInventorySnapshot.of(inventory);
             this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
+            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
@@ -94,6 +99,7 @@ public final class ECOCraftingPlannerService {
                     solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos), solved.state().executionProvenance());
                 result.setTheoreticalBytes(solved.state().plannerBytes());
+                result.setFuzzyPlanningItemIds(fuzzyPlanningItemIds);
                 if (result.status() == PlanningStatus.SUCCESS
                         && ECOPlanningResultRegistry.cycleExpected(result)
                         && result.executionPlanError() != null) {
@@ -122,7 +128,8 @@ public final class ECOCraftingPlannerService {
         private void ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
             if (compiled != null && condensation != null) return;
             synchronized (initializationLock) {
-                if (compiled == null) compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled, cancellation);
+                if (compiled == null) compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled,
+                    fuzzyPlanningItemIds, cancellation);
                 if (condensation == null) {
                     var graph = graphBuilder.build(compiled, cancellation);
                     var sccs = sccAnalyzer.analyze(graph, cancellation);
@@ -148,7 +155,7 @@ public final class ECOCraftingPlannerService {
 
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS) return solved;
-            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory);
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled);
             if (issue == null) return solved;
 
             String key = issue.key() == null ? "<plan>" : issue.key().toString();
@@ -177,17 +184,24 @@ public final class ECOCraftingPlannerService {
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory) {
-        return new Session(service, goal, inventory, false, false);
+        return new Session(service, goal, inventory, false, false, Set.of());
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
             boolean cyclePlanningEnabled) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, false);
+        return new Session(service, goal, inventory, cyclePlanningEnabled, false, Set.of());
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
             boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions);
+        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions, Set.of());
+    }
+
+    public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
+            boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
+        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
+            fuzzyPlanningItemIds);
     }
 
 }

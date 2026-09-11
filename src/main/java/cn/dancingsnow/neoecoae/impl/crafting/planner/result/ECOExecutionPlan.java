@@ -111,6 +111,16 @@ public record ECOExecutionPlan(
             TaskSpec task = tasks.get(i);
             if (task.id() != i) throw new IllegalArgumentException("Task ids must be dense and stable");
             if (task.phaseIndex() >= phases.size()) throw new IllegalArgumentException("Task phase is absent");
+            boolean[] allocatedSlots = new boolean[task.runtimeInfo().inputSlots()];
+            for (PlannedInputAllocation allocation : task.inputAllocations()) {
+                if (allocation.slot() >= allocatedSlots.length || allocatedSlots[allocation.slot()]) {
+                    throw new IllegalArgumentException("Invalid or duplicate task input allocation slot");
+                }
+                allocatedSlots[allocation.slot()] = true;
+                if (allocation.totalCrafts() != task.totalCount()) {
+                    throw new IllegalArgumentException("Task input allocation does not cover its complete count");
+                }
+            }
         }
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             PhaseSpec phase = phases.get(phaseIndex);

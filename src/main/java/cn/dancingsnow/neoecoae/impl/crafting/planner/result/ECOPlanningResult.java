@@ -8,7 +8,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 import java.math.BigInteger;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable planning answer. Its execution plan is interpreted exactly once during construction. */
@@ -21,6 +23,7 @@ public final class ECOPlanningResult {
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
     private BigInteger theoreticalBytes = BigInteger.ZERO;
+    private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private final ECOExecutionRequirement executionRequirement;
     private final @Nullable ECOExecutionPlan executionPlan;
@@ -113,6 +116,10 @@ public final class ECOPlanningResult {
     public BigInteger theoreticalBytes() { return theoreticalBytes; }
     public void setTheoreticalBytes(PlannerAmount bytes) {
         theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
+    }
+    public Set<ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
+    public void setFuzzyPlanningItemIds(Set<ResourceLocation> itemIds) {
+        fuzzyPlanningItemIds = itemIds == null ? Set.of() : Set.copyOf(itemIds);
     }
     public UUID planningId() { return planningId; }
     public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
