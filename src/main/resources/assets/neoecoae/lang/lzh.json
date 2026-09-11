@@ -380,7 +380,7 @@
   "tooltip.neoecoae.max_thread_count": "極緒之數 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
   "tooltip.neoecoae.megacells.configure_item": "最多配置 25 條壓縮鏈；每鏈首變體決定所藏形態",
-  "tooltip.neoecoae.megacells.compression_builtin": "預啟壓變，不須裝卡",
+  "tooltip.neoecoae.megacells.compression_card_required": "裝 MEGA Cells 壓縮卡，方啟壓變",
   "tooltip.neoecoae.megacells.empty_only": "惟空儲方可拆",
   "tooltip.neoecoae.megacells.housing": "所以容 %s 儲方之 MEGA Cells 殼",
   "tooltip.neoecoae.megacells.storage_type": "MEGA 所藏之類：%s",

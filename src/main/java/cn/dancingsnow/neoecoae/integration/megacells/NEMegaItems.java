@@ -27,8 +27,8 @@ public final class NEMegaItems {
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.4g"), "4 GiB storage capacity");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.configure_item"),
             "Configure 25 compression chains, or 50 with an ECO MEGA Upgrade Card; the first variant selects the storage form");
-        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_builtin"),
-            "Compression variants are enabled by default; no upgrade card required");
+        REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.compression_card_required"),
+            "Install a MEGA Cells Compression Card to enable compression variants");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.empty_only"),
             "Only an empty storage matrix can be disassembled");
         REGISTRATE.addLang("tooltip", NeoECOAE.id("megacells.housing"),

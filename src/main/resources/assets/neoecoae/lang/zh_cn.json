@@ -496,7 +496,7 @@
   "tooltip.neoecoae.max_thread_count": "§7§o最大线程数量 +%d",
   "tooltip.neoecoae.megacells.4g": "容量：4 GiB",
   "tooltip.neoecoae.megacells.configure_item": "可配置 25 条压缩链，安装 ECO MEGA 升级卡后增至 50 条；每条链的首个变体决定存储形态",
-  "tooltip.neoecoae.megacells.compression_builtin": "默认启用压缩变体，无需安装升级卡",
+  "tooltip.neoecoae.megacells.compression_card_required": "安装 MEGA Cells 压缩卡后启用压缩变体",
   "tooltip.neoecoae.megacells.empty_only": "只有空存储矩阵才能拆解",
   "tooltip.neoecoae.megacells.housing": "用于 %s 存储矩阵的 MEGA Cells 外壳",
   "tooltip.neoecoae.megacells.storage_type": "MEGA 存储类型：%s",

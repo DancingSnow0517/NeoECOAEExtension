@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.util.NEMath;
+import gripe._90.megacells.definition.MEGAItems;
 import gripe._90.megacells.misc.CompressionChain;
 import gripe._90.megacells.misc.CompressionService;
 import net.minecraft.core.component.DataComponents;
@@ -49,11 +50,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     private final ItemStack stack;
     @Nullable
     private final ISaveProvider container;
-    /**
-     * Compression variants are always enabled for the long-range bulk matrix; the MEGA
-     * compression card is no longer required to unlock them.
-     */
-    private static final boolean COMPRESSION_ENABLED = true;
     private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
     private boolean persisted = true;
 
@@ -221,7 +217,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
             AEItemKey storedKey = entry.getKey();
             CompressionChain chain = chainFor(storedKey);
-            if (!chain.isEmpty() && COMPRESSION_ENABLED) {
+            if (!chain.isEmpty() && hasCompressionCard()) {
                 // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
                 AEItemKey storageForm = storageFormFor(storedKey);
                 chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain), storageForm)
@@ -236,6 +232,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     /** Exposes decompression paths starting from the highest variant of each configured chain. */
     public List<IPatternDetails> getDecompressionPatterns() {
+        if (!hasCompressionCard()) {
+            return List.of();
+        }
         List<IPatternDetails> result = new ArrayList<>();
         for (AEItemKey filter : configuredFilters()) {
             CompressionChain chain = chainFor(filter);
@@ -383,7 +382,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private boolean matches(AEItemKey configured, AEItemKey item) {
-        return configured.equals(item) || COMPRESSION_ENABLED && chainFor(configured).containsVariant(item);
+        return configured.equals(item) || hasCompressionCard() && chainFor(configured).containsVariant(item);
     }
 
     /**
@@ -431,6 +430,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     public boolean hasEcoMegaUpgradeCard() {
         return getUpgradesInventory().isInstalled(NEMegaItems.ECO_MEGA_UPGRADE_CARD);
+    }
+
+    private boolean hasCompressionCard() {
+        // Cell UIs can change upgrades while the drive retains this inventory instance.
+        return getUpgradesInventory().isInstalled(MEGAItems.COMPRESSION_CARD);
     }
 
     public List<AEItemKey> getEffectiveConfiguredFilters() {

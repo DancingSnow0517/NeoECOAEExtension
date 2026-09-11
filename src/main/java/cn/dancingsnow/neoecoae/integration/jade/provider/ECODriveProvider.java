@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -25,6 +26,12 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (serverData.getBoolean("infiniteMember")) {
             iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
+        if (serverData.getBoolean("infiniteResource")) {
+            if (serverData.getBoolean("mounted")) {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+            }
             return;
         }
         if (serverData.contains("mounted")) {
@@ -77,6 +84,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECODriveBlockEntity be) {
             compoundTag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(be.getCellStack()));
+            compoundTag.putBoolean("infiniteResource", be.getCellInventory() instanceof ECOInfiniteResourceCell);
             compoundTag.putBoolean("mounted", be.isMounted());
             IECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {

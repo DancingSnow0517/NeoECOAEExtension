@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageMegaPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
@@ -161,7 +162,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private String extractionCheckReason;
     private final Map<ECODriveBlockEntity, DriveUiSnapshot> driveUiSnapshots = new HashMap<>();
     private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int tier,
-        List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes) {}
+        List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes,
+        boolean infiniteResource) {}
     private final cn.dancingsnow.neoecoae.impl.storage.StorageFaults storageFaults =
         new cn.dancingsnow.neoecoae.impl.storage.StorageFaults();
     private final Map<String, Long> stageRetryTicks = new HashMap<>();
@@ -738,6 +740,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             DriveUiSnapshot view = driveUiSnapshot(drive);
             if (view == null) continue;
+            if (view.infiniteResource()) continue;
             int cellTypeId = view.type();
             for (AEKeyType keyType : view.keyTypes()) cellTypesByKeyType.putIfAbsent(keyType, cellTypeId);
             boolean supported = view.inventory() != null && tier.compareTo(view.inventory().getTier()) >= 0;
@@ -819,8 +822,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             if (inventory == null) { driveUiSnapshots.remove(drive); return null; }
             long revision = inventory instanceof ECOStorageCell cell ? cell.contentRevision() : -1L;
             boolean member = isInfiniteMemberCell(drive.getCellStack());
+            boolean infiniteResource = inventory instanceof ECOInfiniteResourceCell;
             if (previous != null && previous.inventory() == inventory && previous.revision() == revision
-                && previous.member() == member && tick - previous.tick() < 20L) return previous;
+                && previous.member() == member && previous.infiniteResource() == infiniteResource
+                && tick - previous.tick() < 20L) return previous;
             int type = NERegistries.CELL_TYPE.getId(inventory.getCellType());
             List<AEKeyType> keyTypes = new ArrayList<>();
             if (type >= 0 && drive.getCellStack().getItem() instanceof IECOStorageCellItem item) {
@@ -829,7 +834,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             DriveUiSnapshot next = new DriveUiSnapshot(inventory, revision, tick, type, inventory.getTier().getTier(),
                 List.copyOf(keyTypes), member,
                 member ? 0L : inventory.getStoredItemTypes(), member ? 0L : inventory.hasInfiniteTypeCapacity() ? -1L : inventory.getTotalItemTypes(),
-                member ? 0L : inventory.getUsedBytes(), inventory.getTotalBytes());
+                member || infiniteResource ? 0L : inventory.getUsedBytes(),
+                member || infiniteResource ? 0L : inventory.getTotalBytes(), infiniteResource);
             driveUiSnapshots.put(drive, next);
             storageFaults.recovered(component);
             return next;

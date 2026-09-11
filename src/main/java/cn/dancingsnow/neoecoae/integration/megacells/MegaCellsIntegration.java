@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingServ
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressionService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import gripe._90.megacells.definition.MEGAItems;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.ArrayList;
@@ -66,6 +67,7 @@ public final class MegaCellsIntegration {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, group);
             }
             Upgrades.add(NEMegaItems.ECO_MEGA_UPGRADE_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
+            Upgrades.add(MEGAItems.COMPRESSION_CARD, NEMegaItems.ECO_MEGA_LONG_BULK_CELL, 1, group);
         });
     }
 

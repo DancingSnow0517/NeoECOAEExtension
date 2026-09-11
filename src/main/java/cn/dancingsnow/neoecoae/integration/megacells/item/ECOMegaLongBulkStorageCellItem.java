@@ -196,7 +196,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
         MegaCellTooltips.append(this, lines);
         lines.add(Component.translatable("tooltip.neoecoae.megacells.configure_item")
             .withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("tooltip.neoecoae.megacells.compression_builtin")
+        lines.add(Component.translatable("tooltip.neoecoae.megacells.compression_card_required")
             .withStyle(ChatFormatting.GRAY));
     }
 }
