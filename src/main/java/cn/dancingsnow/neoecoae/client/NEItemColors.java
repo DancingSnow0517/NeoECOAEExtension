@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client;
 import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import net.minecraft.util.FastColor;
 import net.minecraft.world.item.ItemStack;
 
@@ -10,7 +11,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
- * Tints the status-light layer (tint index 2) of ECO cell icons with the cell's AE2 state colour.
+ * Tints the status-light layer of ECO cell icons with the cell's AE2 state colour. Standard cells
+ * use layer 2; the infinite resource cell has no tier-light layer, so its status light is layer 1.
  *
  * <p>ECO cells are not registered with AE2's {@code StorageCells} registry, so
  * {@code StorageCells.getCellInventory} always returns null for them. Looking the state up that way
@@ -35,7 +37,10 @@ public final class NEItemColors {
     }
 
     public static int getCellColor(ItemStack stack, int tintIndex) {
-        if (tintIndex != STATUS_LIGHT_TINT_INDEX) {
+        int statusLightTintIndex = stack.getItem() instanceof ECOInfiniteResourceCellItem
+            ? 1
+            : STATUS_LIGHT_TINT_INDEX;
+        if (tintIndex != statusLightTintIndex) {
             return 0xFFFFFFFF;
         }
         return FastColor.ARGB32.opaque(stateColor(stack));

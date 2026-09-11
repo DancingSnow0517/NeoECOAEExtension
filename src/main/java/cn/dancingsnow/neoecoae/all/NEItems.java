@@ -839,17 +839,14 @@ public class NEItems {
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
         .recipe((ctx, prov) -> {
             IntegratedWorkingStationRecipe.builder()
-                // Keep the two 64-component stacks separate for the workstation input limit.
-                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
-                .require(NEItems.ECO_CELL_COMPONENT_256M, 64)
-                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
-                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
-                .require(AEItems.SINGULARITY, 64)
-                .require(NEItems.CRYSTAL_INGOT, 16)
-                .require(NEBlocks.STORAGE_SYSTEM_L9, 2)
-                .require(AEBlocks.DRIVE, 16)
-                .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 64_000)
-                .energy(1_000_000)
+                .require(Items.WATER_BUCKET)
+                .require(Items.LAVA_BUCKET)
+                .require(Items.COBBLESTONE, 64)
+                .require(NEItems.ECO_CELL_COMPONENT_256M)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 8)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                .require(NEItems.CRYSTAL_MATRIX, 4)
+                .energy(144_000)
                 .itemOutput(ctx.get())
                 .save(prov);
         })
@@ -956,7 +953,7 @@ public class NEItems {
      * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set
      * of base resources (see {@link ECOInfiniteResourceCellItem#lockedKeys()}). Capacity uses
      * {@link Long#MAX_VALUE} as the "unbounded" sentinel that {@link ECOStorageCellItem} renders as ∞.
-     * The recipe is intentionally not defined yet.
+     * The finished matrix is assembled from the infinite component and the standard item housing.
      */
     public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_ITEM_CELL = REGISTRATE
         .item("eco_infinite_item_cell", p -> new ECOInfiniteResourceCellItem(
@@ -964,6 +961,11 @@ public class NEItems {
             ECOTier.L9,
             NECellTypes.ITEM
         ))
+        .recipe((ctx, prov) -> ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+            .requires(NEItems.ECO_ITEM_CELL_HOUSING)
+            .requires(NEItems.ECO_INFINITE_CELL_COMPONENT)
+            .unlockedBy("has_infinite_component", RegistrateRecipeProvider.has(NEItems.ECO_INFINITE_CELL_COMPONENT))
+            .save(prov))
         .lang("ECO Infinite Base Resource Storage Matrix")
         .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))
         .register();

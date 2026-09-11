@@ -758,9 +758,24 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         } else {
             rebuildAllPatternDetails = true;
         }
-        queuePatternDetailsUpdate();
+        refreshPatternDetailsAfterInventoryChange(slot);
         notifyPatternCatalog(previousRevision, new int[] { slot });
         notifyPatternInterfaceHosts(slot);
+    }
+
+    /**
+     * Pattern additions may share the normal quiet-window refresh, but removals must be unpublished immediately.
+     * Leaving a removed pattern in {@link #patternDetails} until the scheduler runs allows AE2 to keep advertising it;
+     * an unrelated batch operation such as organizing the buses then appears to be required to clear the stale entry.
+     */
+    private void refreshPatternDetailsAfterInventoryChange(int slot) {
+        if (slot >= 0 && slot < inventory.size() && inventory.getStackInSlot(slot).isEmpty()) {
+            PatternBusUpdateScheduler.remove(this);
+            patternDetailsUpdateQueued = false;
+            updatePatternDetailsNow();
+            return;
+        }
+        queuePatternDetailsUpdate();
     }
 
     /** Starts a server-thread mutation batch. Nested callers share the outer commit. */

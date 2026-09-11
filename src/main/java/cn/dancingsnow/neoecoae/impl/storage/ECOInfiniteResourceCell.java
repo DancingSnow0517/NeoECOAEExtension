@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.impl.storage;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
@@ -39,8 +38,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell {
     }
 
     private boolean isServable(AEKey what) {
-        AEKeyType type = getKeyType();
-        return type != null && what != null && type.contains(what) && isLockedKey(what)
+        return what != null && isLockedKey(what)
             && !ECOInfiniteStorageMember.isSealed(cellStack);
     }
 

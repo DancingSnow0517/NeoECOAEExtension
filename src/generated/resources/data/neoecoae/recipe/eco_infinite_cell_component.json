@@ -1,42 +1,31 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 1000000,
-  "inputFluid": {
-    "amount": 64000,
-    "fluid": "neoecoae:cryotheum_solution"
-  },
+  "energy": 144000,
   "inputItems": [
     {
-      "count": 64,
-      "item": "neoecoae:eco_cell_component_256m"
+      "item": "minecraft:water_bucket"
+    },
+    {
+      "item": "minecraft:lava_bucket"
     },
     {
       "count": 64,
+      "item": "minecraft:cobblestone"
+    },
+    {
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 64,
+      "count": 8,
       "item": "neoecoae:energized_superconductive_ingot"
     },
     {
-      "count": 64,
+      "count": 8,
       "item": "neoecoae:superconducting_processor"
     },
     {
-      "count": 64,
-      "item": "ae2:singularity"
-    },
-    {
-      "count": 16,
-      "item": "neoecoae:crystal_ingot"
-    },
-    {
-      "count": 2,
-      "item": "neoecoae:storage_system_l9"
-    },
-    {
-      "count": 16,
-      "item": "ae2:drive"
+      "count": 4,
+      "item": "neoecoae:crystal_matrix"
     }
   ],
   "itemOutput": {

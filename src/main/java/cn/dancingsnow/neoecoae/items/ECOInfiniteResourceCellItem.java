@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.items;
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -16,14 +17,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.material.Fluids;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
  * ECO infinite base resource storage matrix: an unbounded supply of a small fixed set of base
- * resources (water buckets, cobblestone and lava buckets).
+ * resources (water, cobblestone and lava).
  *
  * <p>The cell is hard-locked to those keys: {@link #isBlackListed} rejects every other key, so no
  * partition configuration can widen it. It is also permanently excluded from the ECO infinite
@@ -34,9 +37,9 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     /** The only keys this cell accepts or supplies. */
     private static final List<AEKey> LOCKED_KEYS = List.of(
-        AEItemKey.of(Items.WATER_BUCKET),
+        AEFluidKey.of(Fluids.WATER),
         AEItemKey.of(Items.COBBLESTONE),
-        AEItemKey.of(Items.LAVA_BUCKET)
+        AEFluidKey.of(Fluids.LAVA)
     );
 
     /** One slot per locked key, so the cell reads as partition-configured out of the box. */
@@ -74,6 +77,11 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     }
 
     @Override
+    public Set<AEKeyType> getKeyTypes() {
+        return Set.of(AEKeyType.items(), AEKeyType.fluids());
+    }
+
+    @Override
     public boolean isBlackListed(ItemStack cellStack, AEKey what) {
         return !isLockedKey(what);
     }
@@ -106,5 +114,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
             .withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.unbounded")
             .withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.sink")
+            .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
     }
 }
