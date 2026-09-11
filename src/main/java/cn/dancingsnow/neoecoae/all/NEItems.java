@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -949,6 +950,22 @@ public class NEItems {
         })
         .lang("ECO - LE9 Storage Matrix (Item)")
         .model(ItemModelUtil.cellModel("item", "256m"))
+        .register();
+
+    /**
+     * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set
+     * of base resources (see {@link ECOInfiniteResourceCellItem#lockedKeys()}). Capacity uses
+     * {@link Long#MAX_VALUE} as the "unbounded" sentinel that {@link ECOStorageCellItem} renders as ∞.
+     * The recipe is intentionally not defined yet.
+     */
+    public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_ITEM_CELL = REGISTRATE
+        .item("eco_infinite_item_cell", p -> new ECOInfiniteResourceCellItem(
+            p.stacksTo(1).rarity(Rarity.EPIC),
+            ECOTier.L9,
+            NECellTypes.ITEM
+        ))
+        .lang("ECO Infinite Base Resource Storage Matrix")
+        .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE

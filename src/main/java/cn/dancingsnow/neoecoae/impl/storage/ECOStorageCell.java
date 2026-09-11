@@ -53,7 +53,8 @@ public class ECOStorageCell implements IECOStorageCell {
     private final IncludeExclude partitionListMode;
     private final boolean hasVoidUpgrade;
 
-    private final ItemStack cellStack;
+    /** Protected so specialised cells (for example the infinite resource cell) can read the cell stack. */
+    protected final ItemStack cellStack;
 
     private final int maxItemTypes;
     private int storedItems;
