@@ -5,6 +5,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.IdentityHashMap;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
@@ -100,6 +101,9 @@ public class ECOCraftingCPULogic {
     private IPatternDetails resumeDispatchPattern;
     private final java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer =
         new java.util.ArrayList<>();
+    /** Pattern input metadata is immutable for the lifetime of an encoded pattern. */
+    private final IdentityHashMap<IPatternDetails, ECOCraftingInputPreview.PatternMetadata> inputPreviewMetadata =
+        new IdentityHashMap<>();
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -135,6 +139,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
+        inputPreviewMetadata.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
         stallDiagnostics.bind(craftId, TickHandler.instance().getCurrentTick());
@@ -309,6 +314,15 @@ public class ECOCraftingCPULogic {
         return craftingService.getProviders(details);
     }
 
+    private ECOCraftingInputPreview.PatternMetadata previewMetadata(IPatternDetails pattern) {
+        var metadata = inputPreviewMetadata.get(pattern);
+        if (metadata == null) {
+            metadata = ECOCraftingInputPreview.metadataFor(pattern);
+            inputPreviewMetadata.put(pattern, metadata);
+        }
+        return metadata;
+    }
+
     /**
      * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
      *
@@ -397,15 +411,14 @@ public class ECOCraftingCPULogic {
                     : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null
                     ? new ECOCraftingInputPreview(inventory)
-                    : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
+                    : new ECOCraftingInputPreview(inventory, previewMetadata(pattern), protectedStartupSeed);
                 var inputs = CraftingCpuHelper.extractPatternInputs(
                     pattern, inputInventory, level, outputs, containers);
                 if (inputs == null) {
                     if (stallDiagnostics.isActive()) {
-                        var diagnosticInventory = current.executionRuntime == null
-                            ? new ECOCraftingInputPreview(inventory)
-                            : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
-                        stallDiagnostics.missingInputs(pattern, diagnosticInventory);
+                        // Input resolution is simulation-only, so the preview still reflects the same inventory.
+                        // Reusing it avoids a second preview/KeyCounter allocation on every missing-input probe.
+                        stallDiagnostics.missingInputs(pattern, inputInventory);
                     }
                     // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
                     // ordered step is a hard barrier and must wait for this exact pattern.
@@ -801,6 +814,7 @@ public class ECOCraftingCPULogic {
      * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
+        inputPreviewMetadata.clear();
         ECOCraftingJobLifecycle.finish(cpu.getLevel(), job.link.getCraftingID(), success);
         if (success) {
             job.link.markDone();

@@ -41,11 +41,22 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts) {
+        this(source, metadataFor(pattern), protectedAmounts);
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, PatternMetadata metadata,
+            Map<AEKey, Long> protectedAmounts) {
         this.source = source;
-        this.primaryInputs = new HashSet<>();
-        this.possibleInputs = new HashSet<>();
-        this.reusableTemplates = new HashSet<>();
-        this.protectedAmounts = Map.copyOf(protectedAmounts);
+        this.primaryInputs = metadata.primaryInputs;
+        this.possibleInputs = metadata.possibleInputs;
+        this.reusableTemplates = metadata.reusableTemplates;
+        this.protectedAmounts = protectedAmounts.isEmpty() ? Map.of() : Map.copyOf(protectedAmounts);
+    }
+
+    static PatternMetadata metadataFor(IPatternDetails pattern) {
+        var primaryInputs = new HashSet<AEKey>();
+        var possibleInputs = new HashSet<AEKey>();
+        var reusableTemplates = new HashSet<AEKey>();
         for (var input : pattern.getInputs()) {
             if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
             var possible = input.getPossibleInputs();
@@ -57,6 +68,20 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
                     if (isReusableTemplate(input, candidate.what())) reusableTemplates.add(candidate.what());
                 }
             }
+        }
+        return new PatternMetadata(Set.copyOf(primaryInputs), Set.copyOf(possibleInputs),
+                Set.copyOf(reusableTemplates));
+    }
+
+    static final class PatternMetadata {
+        final Set<AEKey> primaryInputs;
+        final Set<AEKey> possibleInputs;
+        final Set<AEKey> reusableTemplates;
+
+        PatternMetadata(Set<AEKey> primaryInputs, Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {
+            this.primaryInputs = primaryInputs;
+            this.possibleInputs = possibleInputs;
+            this.reusableTemplates = reusableTemplates;
         }
     }
 
@@ -105,10 +130,9 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
         // The planner's reservation is keyed by the primary concrete key. Filtering the result also prevents a
         // fuzzy inventory match from changing that concrete key after planning.
-        var result = new java.util.ArrayList<AEKey>();
         for (var candidate : source.findFuzzyTemplates(key)) {
-            if (key.equals(candidate) && primaryInputs.contains(candidate)) result.add(candidate);
+            if (key.equals(candidate) && primaryInputs.contains(candidate)) return List.of(key);
         }
-        return List.copyOf(result);
+        return List.of();
     }
 }
