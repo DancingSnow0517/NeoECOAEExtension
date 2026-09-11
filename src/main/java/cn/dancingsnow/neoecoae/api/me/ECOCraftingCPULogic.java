@@ -46,7 +46,6 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge;
@@ -98,23 +97,9 @@ public class ECOCraftingCPULogic {
     private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
     // Shared across every pass of tickCraftingLogic; -1 denotes a standalone executeCrafting call.
     private int remainingNormalProbes = -1;
-    private final ECODispatchBudget dispatchBudget = new ECODispatchBudget();
-    private boolean dispatchYieldedThisPass;
-    private int acceptedDispatchesThisTick;
-    private long dispatchAccountingTick = Long.MIN_VALUE;
     private IPatternDetails resumeDispatchPattern;
     private final java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer =
         new java.util.ArrayList<>();
-    private final java.util.List<ECOExecutionRuntime.DispatchCandidate> prioritizedCandidateBuffer =
-        new java.util.ArrayList<>();
-    private final java.util.List<ECOExecutionRuntime.DispatchCandidate> directCandidateBuffer =
-        new java.util.ArrayList<>();
-    private final java.util.List<ECOExecutionRuntime.DispatchCandidate> resolvedCandidateBuffer =
-        new java.util.ArrayList<>();
-    private final java.util.List<ECOExecutionRuntime.DispatchCandidate> genericCandidateBuffer =
-        new java.util.ArrayList<>();
-    private final java.util.Map<Integer, ECOResolvedDispatchLease> resolvedDispatchLeases =
-        new java.util.HashMap<>();
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -150,7 +135,6 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
-        resolvedDispatchLeases.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
         stallDiagnostics.bind(craftId, TickHandler.instance().getCurrentTick());
@@ -227,21 +211,16 @@ public class ECOCraftingCPULogic {
         // Thunderbolt wraps this exact executeCrafting invocation in tickCraftingLogic.
         // FastPath batches are bounded by live worker capacity, materials and power, not the slow-path budget.
         remainingNormalProbes = Math.max(MIN_NORMAL_PROBES_PER_TICK, operationLimit);
-        long dispatchTick = TickHandler.instance().getCurrentTick();
-        dispatchBudget.beginTick(dispatchTick);
-        acceptedDispatchesThisTick = 0;
-        dispatchAccountingTick = dispatchTick;
         try {
             while (job != null) {
                 // Reset pass results only. The remaining tick probe budget is never reset here.
                 normalPushProbesThisPass = 0;
                 lastAcceptedNormalPushes = 0;
-                dispatchYieldedThisPass = false;
                 int pushed = executeCrafting(operationLimit, cc, eg, level);
                 remainingNormalProbes = Math.max(0, remainingNormalProbes - normalPushProbesThisPass);
                 operationLimit = Math.max(0, operationLimit - lastAcceptedNormalPushes);
                 acceptedNormalPushes += lastAcceptedNormalPushes;
-                if (dispatchYieldedThisPass || pushed == 0) break;
+                if (pushed == 0) break;
             }
         } finally {
             remainingNormalProbes = -1;
@@ -342,13 +321,7 @@ public class ECOCraftingCPULogic {
         lastAcceptedNormalPushes = 0;
         var current = job;
         if (current == null) return 0;
-        long dispatchTick = TickHandler.instance().getCurrentTick();
-        if (dispatchAccountingTick != dispatchTick) {
-            dispatchAccountingTick = dispatchTick;
-            acceptedDispatchesThisTick = 0;
-        }
-        dispatchBudget.beginTick(dispatchTick);
-        providerCursor.beginPass(craftingService, dispatchTick);
+        providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
         // Direct callers get a bounded standalone pass. CPU ticks supply the shared remaining budget.
         int probeLimit = remainingNormalProbes >= 0
@@ -357,10 +330,9 @@ public class ECOCraftingCPULogic {
         int totalPushed = 0;
         BitSet blockedOrderedPhases = new BitSet();
         while (job == current) {
-            var rawCandidates = current.executionRuntime == null
+            var candidates = current.executionRuntime == null
                 ? nativeDispatchCandidates(current)
                 : current.executionRuntime.candidates();
-            var candidates = prioritizeCandidates(rawCandidates, current.executionRuntime);
             stallDiagnostics.candidates(candidates.size());
             if (candidates.isEmpty()) {
                 if (stallDiagnostics.isActive()) {
@@ -370,7 +342,7 @@ public class ECOCraftingCPULogic {
             }
 
             int start = 0;
-            if (resumeDispatchPattern != null && current.executionRuntime == null) {
+            if (resumeDispatchPattern != null) {
                 for (int i = 0; i < candidates.size(); i++) {
                     if (candidates.get(i).pattern().equals(resumeDispatchPattern)) {
                         start = i;
@@ -379,16 +351,10 @@ public class ECOCraftingCPULogic {
                 }
             }
             blockedOrderedPhases.clear();
-            boolean acceptedInSweep = false;
+            boolean acceptedInPass = false;
             for (int offset = 0; offset < candidates.size(); offset++) {
                 int candidateIndex = (start + offset) % candidates.size();
                 var candidate = candidates.get(candidateIndex);
-                boolean candidateAccepted = false;
-                if (acceptedDispatchesThisTick >= NEConfig.ecoDispatchSafetyLimitPerTick) {
-                    dispatchYieldedThisPass = true;
-                    stallDiagnostics.budget();
-                    break;
-                }
                 if (blockedOrderedPhases.get(candidate.phaseIndex())) continue;
                 var progress = current.tasks.get(candidate.pattern());
                 if (progress == null || progress.value <= 0L) {
@@ -426,49 +392,20 @@ public class ECOCraftingCPULogic {
                 }
                 var outputs = new KeyCounter();
                 var containers = new KeyCounter();
-                ECOCompiledPatternInputs compiled = current.executionRuntime == null
-                    ? null : ECOCompiledPatternInputs.get(pattern);
+                var protectedStartupSeed = current.executionRuntime == null
+                    ? java.util.Map.<AEKey, Long>of()
+                    : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null
                     ? new ECOCraftingInputPreview(inventory)
-                    : new ECOCraftingInputPreview(inventory, compiled,
-                        key -> current.executionRuntime.protectedStartupSeedAmount(candidate, key));
-                KeyCounter[] inputs;
-                if (compiled != null
-                        && compiled.resolutionMode() == ECOCompiledPatternInputs.ResolutionMode.DIRECT_EXACT) {
-                    inputs = compiled.resolveDirect(inputInventory, level, outputs, containers);
-                } else {
-                    ECOResolvedDispatchLease lease = current.executionRuntime == null
-                        ? null : resolvedDispatchLeases.get(candidate.taskId());
-                    inputs = lease == null ? null : lease.resolve(
-                        pattern, inputInventory, level, outputs, containers,
-                        current.executionRuntime.startupSeedEpoch());
-                    boolean leaseMaterialMissing = lease != null && inputs == null && lease.materialMissing();
-                    if (lease != null && inputs == null && !leaseMaterialMissing) {
-                        resolvedDispatchLeases.remove(candidate.taskId());
-                    }
-                    if (inputs == null && !leaseMaterialMissing) {
-                        if (!dispatchBudget.tryBeginGeneric(dispatchTick)) {
-                            dispatchYieldedThisPass = true;
-                            stallDiagnostics.budget();
-                            break;
-                        }
-                        try {
-                            inputs = CraftingCpuHelper.extractPatternInputs(
-                                pattern, inputInventory, level, outputs, containers);
-                        } finally {
-                            dispatchBudget.finishGeneric(dispatchTick);
-                        }
-                        if (inputs != null && compiled != null && compiled.resolvedLeaseSafe()
-                                && current.executionRuntime != null) {
-                            resolvedDispatchLeases.put(candidate.taskId(), ECOResolvedDispatchLease.create(
-                                inputs, outputs, containers, current.executionRuntime.startupSeedEpoch()));
-                        }
-                    }
-                }
+                    : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
+                var inputs = CraftingCpuHelper.extractPatternInputs(
+                    pattern, inputInventory, level, outputs, containers);
                 if (inputs == null) {
-                    if (current.executionRuntime != null) current.executionRuntime.onMissingInputs(candidate);
                     if (stallDiagnostics.isActive()) {
-                        stallDiagnostics.missingInputs(pattern, inputInventory);
+                        var diagnosticInventory = current.executionRuntime == null
+                            ? new ECOCraftingInputPreview(inventory)
+                            : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
+                        stallDiagnostics.missingInputs(pattern, diagnosticInventory);
                     }
                     // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
                     // ordered step is a hard barrier and must wait for this exact pattern.
@@ -483,10 +420,6 @@ public class ECOCraftingCPULogic {
                 double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
                 List<GenericStack> ordinaryInputStacks = null;
                 for (var provider : providers) {
-                    if (acceptedDispatchesThisTick >= NEConfig.ecoDispatchSafetyLimitPerTick) {
-                        dispatchYieldedThisPass = true;
-                        break;
-                    }
                     long craftCount = 1L;
                     double power = singlePower;
                     var capacityProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
@@ -527,7 +460,6 @@ public class ECOCraftingCPULogic {
                                     acceptedBatch = false;
                                 }
                                 if (acceptedBatch) {
-                                    acceptedDispatchesThisTick++;
                                     energyReservation.commit();
                                     for (var output : batch.outputs()) {
                                         current.waitingFor.insert(output.what(), output.amount(), Actionable.MODULATE);
@@ -537,9 +469,6 @@ public class ECOCraftingCPULogic {
                                         current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
                                     }
                                     progress.value -= craftCount;
-                                    if (progress.value <= 0L && current.executionRuntime != null) {
-                                        resolvedDispatchLeases.remove(candidate.taskId());
-                                    }
                                     if (current.executionRuntime != null) {
                                         current.executionRuntime.onAccepted(candidate, craftCount, inputs);
                                     }
@@ -554,12 +483,11 @@ public class ECOCraftingCPULogic {
                                     for (var output : pattern.getOutputs()) postChange(output.what());
                                     markCpuDirty();
                                     stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
-                                    // Resume after this candidate on the next sweep; the current sweep continues filling
-                                    // unrelated ready workers before rebuilding phase state.
+                                    // Refresh the runtime candidates after every accepted batch so phase transitions are
+                                    // visible immediately, while retaining the fixed Mixin entry point below.
                                     resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
                                     totalPushed = addPushed(totalPushed, craftCount);
-                                    candidateAccepted = true;
-                                    acceptedInSweep = true;
+                                    acceptedInPass = true;
                                     break;
                                 }
                                 energyReservation.refund();
@@ -637,21 +565,15 @@ public class ECOCraftingCPULogic {
                             current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
                         }
                         progress.value--;
-                        if (progress.value <= 0L && current.executionRuntime != null) {
-                            resolvedDispatchLeases.remove(candidate.taskId());
-                        }
                         if (current.executionRuntime != null) {
                             current.executionRuntime.onAccepted(candidate, 1L, inputs);
                         }
                         lastAcceptedNormalPushes++;
-                        acceptedDispatchesThisTick++;
                         totalPushed = addPushed(totalPushed, 1L);
                         for (var output : pattern.getOutputs()) postChange(output.what());
                         markCpuDirty();
                         stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
-                        candidateAccepted = true;
-                        acceptedInSweep = true;
-                        break;
+                        acceptedInPass = true;
                     } finally {
                         // A rejected ordinary provider does not own the extracted inputs; try the next provider in
                         // the same provider-first-fit pass.
@@ -661,12 +583,10 @@ public class ECOCraftingCPULogic {
                         }
                     }
                 }
-                if (dispatchYieldedThisPass) break;
-                if (!candidateAccepted && candidate.blocksOrderedPhase()) {
-                    blockedOrderedPhases.set(candidate.phaseIndex());
-                }
+                if (acceptedInPass) break;
+                if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
-            if (dispatchYieldedThisPass || !acceptedInSweep) break;
+            if (!acceptedInPass) break;
         }
         return totalPushed;
     }
@@ -685,111 +605,6 @@ public class ECOCraftingCPULogic {
             if (task.value > 0L) return true;
         }
         return false;
-    }
-
-    private java.util.List<ECOExecutionRuntime.DispatchCandidate> prioritizeCandidates(
-            java.util.List<ECOExecutionRuntime.DispatchCandidate> candidates,
-            @Nullable ECOExecutionRuntime runtime) {
-        if (runtime == null || candidates.size() < 2) return candidates;
-        directCandidateBuffer.clear();
-        resolvedCandidateBuffer.clear();
-        genericCandidateBuffer.clear();
-        prioritizedCandidateBuffer.clear();
-        for (var candidate : candidates) {
-            ECOCompiledPatternInputs compiled = ECOCompiledPatternInputs.get(candidate.pattern());
-            if (compiled.resolutionMode() == ECOCompiledPatternInputs.ResolutionMode.DIRECT_EXACT) {
-                directCandidateBuffer.add(candidate);
-            } else if (resolvedDispatchLeases.containsKey(candidate.taskId())) {
-                resolvedCandidateBuffer.add(candidate);
-            } else {
-                genericCandidateBuffer.add(candidate);
-            }
-        }
-        prioritizedCandidateBuffer.addAll(directCandidateBuffer);
-        prioritizedCandidateBuffer.addAll(resolvedCandidateBuffer);
-        prioritizedCandidateBuffer.addAll(genericCandidateBuffer);
-        return prioritizedCandidateBuffer;
-    }
-
-    private static final class ECOResolvedDispatchLease {
-        private final KeyCounter[] inputs;
-        private final KeyCounter outputs;
-        private final KeyCounter containers;
-        private final long reloadGeneration;
-        private final long startupSeedEpoch;
-        private boolean materialMissing;
-
-        private ECOResolvedDispatchLease(KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
-                long reloadGeneration, long startupSeedEpoch) {
-            this.inputs = copyCounters(inputs);
-            this.outputs = copyCounter(outputs);
-            this.containers = copyCounter(containers);
-            this.reloadGeneration = reloadGeneration;
-            this.startupSeedEpoch = startupSeedEpoch;
-        }
-
-        static ECOResolvedDispatchLease create(KeyCounter[] inputs, KeyCounter outputs,
-                KeyCounter containers, long startupSeedEpoch) {
-            return new ECOResolvedDispatchLease(inputs, outputs, containers,
-                AE2PatternIntrospection.reloadGeneration(), startupSeedEpoch);
-        }
-
-        @Nullable
-        KeyCounter[] resolve(IPatternDetails pattern, ECOCraftingInputPreview inventory, Level level,
-                KeyCounter expectedOutputs, KeyCounter expectedContainers, long currentSeedEpoch) {
-            materialMissing = false;
-            IPatternDetails.IInput[] patternInputs = pattern.getInputs();
-            if (reloadGeneration != AE2PatternIntrospection.reloadGeneration()
-                    || startupSeedEpoch != currentSeedEpoch
-                    || patternInputs.length != inputs.length) {
-                return null;
-            }
-            KeyCounter[] result = new KeyCounter[inputs.length];
-            for (int slot = 0; slot < inputs.length; slot++) {
-                KeyCounter resolved = new KeyCounter();
-                result[slot] = resolved;
-                for (var entry : inputs[slot]) {
-                    if (!patternInputs[slot].isValid(entry.getKey(), level)) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, result);
-                        return null;
-                    }
-                    if (inventory.extract(entry.getKey(), entry.getLongValue(), Actionable.SIMULATE)
-                            < entry.getLongValue()) {
-                        materialMissing = true;
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, result);
-                        return null;
-                    }
-                    long extracted = inventory.extract(
-                        entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
-                    if (extracted > 0L) resolved.add(entry.getKey(), extracted);
-                    if (extracted != entry.getLongValue()) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, result);
-                        throw new IllegalStateException("Resolved ECO input lease simulation changed");
-                    }
-                }
-            }
-            expectedOutputs.addAll(outputs);
-            expectedContainers.addAll(containers);
-            return result;
-        }
-
-        boolean materialMissing() {
-            return materialMissing;
-        }
-
-        private static KeyCounter[] copyCounters(KeyCounter[] source) {
-            KeyCounter[] result = new KeyCounter[source.length];
-            for (int index = 0; index < source.length; index++) {
-                result[index] = copyCounter(source[index]);
-            }
-            return result;
-        }
-
-        private static KeyCounter copyCounter(KeyCounter source) {
-            KeyCounter result = new KeyCounter();
-            if (source != null) result.addAll(source);
-            return result;
-        }
     }
 
     private void clearProviderDiagnostics(ICraftingProvider provider) {
@@ -943,7 +758,6 @@ public class ECOCraftingCPULogic {
         if (accepted <= 0L) return 0L;
         if (type == Actionable.MODULATE) {
             inventory.insert(what, accepted, Actionable.MODULATE);
-            if (current.executionRuntime != null) current.executionRuntime.onInventoryChanged(what);
             current.waitingFor.extract(what, accepted, Actionable.MODULATE);
             current.timeTracker.decrementItems(accepted, what.getType());
             markCpuDirty();
@@ -972,7 +786,6 @@ public class ECOCraftingCPULogic {
         // Job-directed surplus belongs to this CPU too, but must not decrement unrelated waiting entries.
         if (type == Actionable.MODULATE && accepted < amount) {
             inventory.insert(what, amount - accepted, Actionable.MODULATE);
-            if (job != null && job.executionRuntime != null) job.executionRuntime.onInventoryChanged(what);
             markCpuDirty();
         }
         return amount;
@@ -1017,7 +830,6 @@ public class ECOCraftingCPULogic {
 
         // 结束任务。
         this.job = null;
-        resolvedDispatchLeases.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
         stallDiagnostics.reset();
@@ -1114,7 +926,6 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         providerCursor.clear();
-        resolvedDispatchLeases.clear();
         resumeDispatchPattern = null;
         dispatchStrategy.reset();
         stallDiagnostics.reset();

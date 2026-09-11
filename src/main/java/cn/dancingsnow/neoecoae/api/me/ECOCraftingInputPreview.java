@@ -1,11 +1,15 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.config.Actionable;
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -20,13 +24,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     private final Set<AEKey> primaryInputs;
     private final Set<AEKey> possibleInputs;
     private final Set<AEKey> reusableTemplates;
-    private final ProtectedAmountView protectedAmounts;
-
-    @FunctionalInterface
-    interface ProtectedAmountView {
-        ProtectedAmountView EMPTY = key -> 0L;
-        long get(AEKey key);
-    }
+    private final Map<AEKey, Long> protectedAmounts;
 
     /** Native AE2 dispatch keeps substitution/fuzzy selection unrestricted while extraction stays virtual. */
     ECOCraftingInputPreview(ICraftingInventory source) {
@@ -34,16 +32,47 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         this.primaryInputs = Set.of();
         this.possibleInputs = Set.of();
         this.reusableTemplates = Set.of();
-        this.protectedAmounts = ProtectedAmountView.EMPTY;
+        this.protectedAmounts = Map.of();
     }
 
-    ECOCraftingInputPreview(ICraftingInventory source, ECOCompiledPatternInputs compiled,
-            ProtectedAmountView protectedAmounts) {
+    ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern) {
+        this(source, pattern, Map.of());
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
+            Map<AEKey, Long> protectedAmounts) {
         this.source = source;
-        this.primaryInputs = compiled.primaryInputs();
-        this.possibleInputs = compiled.possibleInputs();
-        this.reusableTemplates = compiled.reusableTemplates();
-        this.protectedAmounts = protectedAmounts == null ? ProtectedAmountView.EMPTY : protectedAmounts;
+        this.primaryInputs = new HashSet<>();
+        this.possibleInputs = new HashSet<>();
+        this.reusableTemplates = new HashSet<>();
+        this.protectedAmounts = Map.copyOf(protectedAmounts);
+        for (var input : pattern.getInputs()) {
+            if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
+            var possible = input.getPossibleInputs();
+            if (possible[0] == null || possible[0].what() == null) continue;
+            primaryInputs.add(possible[0].what());
+            for (var candidate : possible) {
+                if (candidate != null && candidate.what() != null) {
+                    possibleInputs.add(candidate.what());
+                    if (isReusableTemplate(input, candidate.what())) reusableTemplates.add(candidate.what());
+                }
+            }
+        }
+    }
+
+    private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
+        try {
+            AEKey remainder = input.getRemainingKey(key);
+            if (key.equals(remainder)) return true;
+            if (!(key instanceof AEItemKey item) || !(remainder instanceof AEItemKey returned)
+                    || item.getItem() != returned.getItem()) return false;
+            var before = item.toStack(1);
+            var after = returned.toStack(1);
+            return before.isDamageableItem() && after.isDamageableItem()
+                && after.getDamageValue() > before.getDamageValue();
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
     }
 
     @Override
@@ -55,7 +84,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     public long extract(AEKey key, long amount, Actionable mode) {
         long available = Math.max(0L,
             source.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) - removed.get(key));
-        available = Math.max(0L, available - Math.max(0L, protectedAmounts.get(key)));
+        available = Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
         long extracted = Math.min(amount, available);
         if (mode == Actionable.MODULATE) removed.add(key, extracted);
         return extracted;

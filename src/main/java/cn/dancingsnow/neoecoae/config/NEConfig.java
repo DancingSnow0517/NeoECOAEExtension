@@ -120,30 +120,6 @@ public class NEConfig {
             "The hard ceiling is 393216 to keep ordinary dispatch bounded.")
         .defineInRange("ecoCpuPushTickLimit", 200_000, 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
 
-    private static final ModConfigSpec.IntValue ECO_GENERIC_RESOLUTIONS_PER_TICK = BUILDER
-        .comment(
-            "每个 ECO CPU 每 tick 最多执行的 AE2 通用输入解析次数；Direct 与租约命中不计费。",
-            "Maximum AE2 generic input resolutions per ECO CPU per tick; direct and resolved-lease hits are free.")
-        .defineInRange("ecoGenericResolutionsPerTick", 128, 1, 65_536);
-
-    private static final ModConfigSpec.IntValue ECO_DISPATCH_SAFETY_LIMIT_PER_TICK = BUILDER
-        .comment(
-            "每个 ECO CPU 每 tick 的派发异常保险丝；正常调度由 Worker busy 状态自然限流。",
-            "Emergency dispatch fuse per ECO CPU per tick; normal dispatch is naturally limited by busy workers.")
-        .defineInRange("ecoDispatchSafetyLimitPerTick", 65_536, 1_024, 1_048_576);
-
-    private static final ModConfigSpec.LongValue ECO_GENERIC_CPU_NANOS_PER_TICK = BUILDER
-        .comment(
-            "每个 ECO CPU 的 AE2 通用输入解析持续预算（纳秒）；未使用额度最多积攒 3 tick。",
-            "Sustained AE2 generic-resolution budget per ECO CPU in nanoseconds; unused credit bursts up to three ticks.")
-        .defineInRange("ecoGenericCpuNanosPerTick", 1_500_000L, 100_000L, 20_000_000L);
-
-    private static final ModConfigSpec.LongValue ECO_GENERIC_SERVER_NANOS_PER_TICK = BUILDER
-        .comment(
-            "所有 ECO CPU 共享的 AE2 通用输入解析持续预算（纳秒）；Direct 发配不消耗。",
-            "Shared sustained AE2 generic-resolution budget in nanoseconds; direct dispatch is not charged.")
-        .defineInRange("ecoGenericServerNanosPerTick", 4_000_000L, 100_000L, 40_000_000L);
-
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
             "每个 ECO 快速路径缓存最多保留的配方条目数量。",
@@ -265,10 +241,6 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
-    public static int ecoGenericResolutionsPerTick = 128;
-    public static int ecoDispatchSafetyLimitPerTick = 65_536;
-    public static long ecoGenericCpuNanosPerTick = 1_500_000L;
-    public static long ecoGenericServerNanosPerTick = 4_000_000L;
     public static int ecoFastPathCacheSize = 512;
     public static boolean enableSophisticatedTransferOptimization = true;
     public static long storageTransferRate = Integer.MAX_VALUE;
@@ -304,10 +276,6 @@ public class NEConfig {
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
-        ecoGenericResolutionsPerTick = ECO_GENERIC_RESOLUTIONS_PER_TICK.get();
-        ecoDispatchSafetyLimitPerTick = ECO_DISPATCH_SAFETY_LIMIT_PER_TICK.get();
-        ecoGenericCpuNanosPerTick = ECO_GENERIC_CPU_NANOS_PER_TICK.get();
-        ecoGenericServerNanosPerTick = ECO_GENERIC_SERVER_NANOS_PER_TICK.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
         storageTransferRate = Math.clamp(STORAGE_TRANSFER_RATE.get(), 1L, MAX_STORAGE_TRANSFER_RATE);

@@ -62,18 +62,6 @@ public class ConfigLangs {
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
             "Maximum recipe entries kept in each ECO fast path cache."
         );
-        provider.add("neoecoae.configuration.ecoGenericResolutionsPerTick", "Generic Resolutions Per Tick");
-        provider.add("neoecoae.configuration.ecoGenericResolutionsPerTick.tooltip",
-            "Maximum AE2 generic input resolutions per ECO CPU per tick. Direct and cached dispatch are not charged.");
-        provider.add("neoecoae.configuration.ecoDispatchSafetyLimitPerTick", "Dispatch Safety Fuse");
-        provider.add("neoecoae.configuration.ecoDispatchSafetyLimitPerTick.tooltip",
-            "Emergency dispatch fuse only. Normal FastPath throughput is limited naturally by available workers.");
-        provider.add("neoecoae.configuration.ecoGenericCpuNanosPerTick", "Generic CPU Time Budget");
-        provider.add("neoecoae.configuration.ecoGenericCpuNanosPerTick.tooltip",
-            "Sustained AE2 generic-resolution budget per ECO CPU; unused credit may burst up to three ticks.");
-        provider.add("neoecoae.configuration.ecoGenericServerNanosPerTick", "Generic Server Time Budget");
-        provider.add("neoecoae.configuration.ecoGenericServerNanosPerTick.tooltip",
-            "Shared sustained generic-resolution budget; direct dispatch never consumes it.");
 
         provider.add("neoecoae.configuration.debug", "Debug");
         provider.add(
