@@ -57,6 +57,9 @@ config="${mod_id}.compat.advanced_ae.mixins.json"
 config="${mod_id}.compat.extendedae.mixins.json"
 
 [[mixins]]
+config="${mod_id}.compat.ae2omnicells.mixins.json"
+
+[[mixins]]
 config="${mod_id}.compat.useless_mod.mixins.json"
 
 # The [[accessTransformers]] block allows you to declare where your AT file is.

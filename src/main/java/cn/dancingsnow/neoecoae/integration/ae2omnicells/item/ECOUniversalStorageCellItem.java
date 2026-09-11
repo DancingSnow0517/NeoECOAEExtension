@@ -6,6 +6,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalCellHandler;
+import cn.dancingsnow.neoecoae.integration.ae2omnicells.OmniLongCapacityProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
@@ -31,14 +32,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements IECOStorageCellItem {
+public class ECOUniversalStorageCellItem extends AEUniversalCellItem
+    implements IECOStorageCellItem, OmniLongCapacityProvider {
     private static final long MAX_EXTERNAL_STORAGE_BYTES = (long) Integer.MAX_VALUE / 1024L * 1024L;
 
     @Getter
     private final IECOTier tier;
     private final Supplier<ECOCellType> cellType;
     private final long ecoStorageTotalBytes;
-    private final boolean externallyUnlimited;
 
     public ECOUniversalStorageCellItem(
         Properties properties,
@@ -62,7 +63,6 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         this.tier = tier;
         this.cellType = cellType;
         this.ecoStorageTotalBytes = totalBytes;
-        this.externallyUnlimited = totalBytes > MAX_EXTERNAL_STORAGE_BYTES;
     }
 
     private static int externalKilobytes(long totalBytes) {
@@ -76,8 +76,9 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         return ecoStorageTotalBytes;
     }
 
-    public boolean isExternallyUnlimited() {
-        return externallyUnlimited;
+    @Override
+    public long getOmniTotalBytes() {
+        return ecoStorageTotalBytes;
     }
 
     @Override
@@ -97,7 +98,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
-        if (isExternallyUnlimited()) {
+        if (getECOStorageTotalBytes() > MAX_EXTERNAL_STORAGE_BYTES) {
             lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getECOStorageTotalBytes()));
             long usedTypes = IAEUniversalCell.getUsedTypes(stack);
             lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));

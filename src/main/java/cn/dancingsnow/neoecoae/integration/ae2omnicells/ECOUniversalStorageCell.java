@@ -65,9 +65,6 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public CellState getStatus() {
-        if (item.isExternallyUnlimited() && getUsedBytes() >= getTotalBytes()) {
-            return CellState.FULL;
-        }
         return delegate.getStatus();
     }
 
@@ -95,15 +92,13 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return 0L;
-        return insertForMigration(what, amount, mode, source);
+        return delegate.insert(what, amount, mode, source);
     }
 
     public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (amount <= 0L) return 0L;
-        if (!item.isExternallyUnlimited()) {
-            return delegate.insert(what, amount, mode, source);
-        }
-
+        // Migration must not mistake Omni's void-card overflow for physically stored data.
+        // Capping the request from a one-time migration snapshot keeps that path lossless.
         long amountPerByte = Math.max(1L, what.getType().getAmountPerByte());
         StorageSnapshot current = snapshot();
         long capacityBound = calculateRemainingAmount(
