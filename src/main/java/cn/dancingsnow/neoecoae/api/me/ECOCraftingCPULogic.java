@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashSet;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -232,45 +233,48 @@ public class ECOCraftingCPULogic {
         var current = job;
         if (current == null) return;
         AEKey key = current.finalOutput.what();
-        PlannerAmount reserve = PlannerAmount.ZERO;
-        for (var task : current.tasks.entrySet()) {
-            reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
-                task.getKey(), task.getValue().value, key));
-        }
-        if (current.executionRuntime != null) {
-            reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
-        }
-        // Keep returned feedback available for the next growth wave before delivering any surplus.
-        PlannerAmount deliverable = PlannerAmount.of(inventory.list.get(key))
-            .subtract(reserve).max(PlannerAmount.ZERO);
-        long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
-        if (amount > 0L) {
-            long inserted;
-            try {
-                deliveringFinalOutput = true;
-                if (current.link.isStandalone()) {
-                    var grid = cpu.getGrid();
-                    inserted = grid == null ? 0L : grid.getStorageService().getInventory()
-                        .insert(key, amount, Actionable.MODULATE, cpu.getActionSource());
-                } else {
-                    inserted = current.link.insert(key, amount, Actionable.MODULATE);
+        long storedFinalOutput = inventory.list.get(key);
+        if (storedFinalOutput > 0L) {
+            PlannerAmount reserve = PlannerAmount.ZERO;
+            for (var task : current.tasks.entrySet()) {
+                reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
+                    task.getKey(), task.getValue().value, key));
+            }
+            if (current.executionRuntime != null) {
+                reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
+            }
+            // Keep returned feedback available for the next growth wave before delivering any surplus.
+            PlannerAmount deliverable = PlannerAmount.of(storedFinalOutput)
+                .subtract(reserve).max(PlannerAmount.ZERO);
+            long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
+            if (amount > 0L) {
+                long inserted;
+                try {
+                    deliveringFinalOutput = true;
+                    if (current.link.isStandalone()) {
+                        var grid = cpu.getGrid();
+                        inserted = grid == null ? 0L : grid.getStorageService().getInventory()
+                            .insert(key, amount, Actionable.MODULATE, cpu.getActionSource());
+                    } else {
+                        inserted = current.link.insert(key, amount, Actionable.MODULATE);
+                    }
+                } catch (RuntimeException e) {
+                    LOGGER.error("Final output delivery failed; items remain in the CPU inventory", e);
+                    return;
+                } finally {
+                    deliveringFinalOutput = false;
                 }
-            } catch (RuntimeException e) {
-                LOGGER.error("Final output delivery failed; items remain in the CPU inventory", e);
-                return;
-            } finally {
-                deliveringFinalOutput = false;
-            }
-            inventory.extract(key, inserted, Actionable.MODULATE);
-            current.remainingAmount -= inserted;
-            markCpuDirty();
-            if (inserted > 0L) {
-                stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
-            } else {
-                stallDiagnostics.finalDeliveryBlocked(key, amount);
+                inventory.extract(key, inserted, Actionable.MODULATE);
+                current.remainingAmount -= inserted;
+                markCpuDirty();
+                if (inserted > 0L) {
+                    stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
+                } else {
+                    stallDiagnostics.finalDeliveryBlocked(key, amount);
+                }
             }
         }
-        boolean tasksDone = current.tasks.values().stream().noneMatch(task -> task.value > 0L);
+        boolean tasksDone = !hasPendingTasks(current);
         boolean physicallyComplete = current.remainingAmount <= 0L
                 && current.waitingFor.list.isEmpty()
                 && tasksDone;
@@ -326,7 +330,9 @@ public class ECOCraftingCPULogic {
                 : current.executionRuntime.candidates();
             stallDiagnostics.candidates(candidates.size());
             if (candidates.isEmpty()) {
-                stallDiagnostics.noCandidates(current.executionRuntime != null && hasPendingTasks(current));
+                if (stallDiagnostics.isActive()) {
+                    stallDiagnostics.noCandidates(current.executionRuntime != null && hasPendingTasks(current));
+                }
                 break;
             }
 
@@ -407,6 +413,7 @@ public class ECOCraftingCPULogic {
                 // Inputs are resolved once for this provider-first-fit pass; their power cost is identical
                 // for every provider attempt and must not be recalculated inside that loop.
                 double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
+                List<GenericStack> ordinaryInputStacks = null;
                 for (var provider : providers) {
                     long craftCount = 1L;
                     double power = singlePower;
@@ -415,7 +422,7 @@ public class ECOCraftingCPULogic {
                     ECOUselessDynamicOutputBridge.Registration batchRegistration = null;
                     var batch = capacityProvider != null
                         ? ECOBatchCraftingExecutor.prepare(capacityProvider, pattern, inputs, outputs, containers,
-                            inventory, allowedCount,
+                            inventory, allowedCount, singlePower,
                             energyService, level, current.link.getCraftingID())
                         : null;
                     if (batch != null && current.executionRuntime != null
@@ -495,8 +502,10 @@ public class ECOCraftingCPULogic {
                         // of this provider snapshot in the same tick.
                         break;
                     }
-                    if (!ECOBatchCraftingHelper.extractExact(
-                            inventory, ECOFastPathStacks.copyCounters(inputs))) {
+                    if (ordinaryInputStacks == null) {
+                        ordinaryInputStacks = ECOFastPathStacks.copyCounters(inputs);
+                    }
+                    if (!ECOBatchCraftingHelper.extractExact(inventory, ordinaryInputStacks)) {
                         // extractExact already restored the partial extraction. Do not reinject the complete
                         // resolved input set, and do not offer that stale set to another provider.
                         break;
@@ -568,7 +577,10 @@ public class ECOCraftingCPULogic {
     }
 
     private static boolean hasPendingTasks(ExecutingCraftingJob current) {
-        return current.tasks.values().stream().anyMatch(task -> task.value > 0L);
+        for (var task : current.tasks.values()) {
+            if (task.value > 0L) return true;
+        }
+        return false;
     }
 
     private void clearProviderDiagnostics(ICraftingProvider provider) {

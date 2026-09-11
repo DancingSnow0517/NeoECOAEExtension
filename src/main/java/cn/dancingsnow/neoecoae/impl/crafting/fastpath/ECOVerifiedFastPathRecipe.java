@@ -87,7 +87,10 @@ public final class ECOVerifiedFastPathRecipe {
     }
 
     public boolean hasFluidInput() {
-        return inputsPerCraft().stream().anyMatch(stack -> stack.what() instanceof AEFluidKey);
+        for (GenericStack stack : inputsPerCraft()) {
+            if (stack.what() instanceof AEFluidKey) return true;
+        }
+        return false;
     }
 
     @Nullable

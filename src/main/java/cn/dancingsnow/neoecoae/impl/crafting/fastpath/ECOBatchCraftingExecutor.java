@@ -10,7 +10,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
@@ -31,7 +30,7 @@ public final class ECOBatchCraftingExecutor {
     public static PreparedBatch prepare(
             ECOBatchCapacityProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
-            ListCraftingInventory inventory, long maxCrafts, IEnergyService energyService,
+            ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
             Level level, UUID craftingJobId) {
         if (maxCrafts <= 0) return null;
         try {
@@ -57,7 +56,6 @@ public final class ECOBatchCraftingExecutor {
             requested = statefulCalculator == null
                 ? ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested)
                 : statefulCalculator.maxCraftsFromInventory(inventory, requested);
-            double power = CraftingCpuHelper.calculatePatternPower(inputs);
             long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
             if (size <= 0) return null;

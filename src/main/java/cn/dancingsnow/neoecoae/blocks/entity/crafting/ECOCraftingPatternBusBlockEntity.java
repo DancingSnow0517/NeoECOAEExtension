@@ -180,9 +180,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         for (int offset = 0; offset < candidates.size(); offset++) {
             int candidateIndex = (start + offset) % candidates.size();
             ECOCraftingWorkerBlockEntity worker = candidates.get(candidateIndex);
-            if (worker.getAvailableThreadSlots() <= 0) {
-                continue;
-            }
+            // The worker performs the authoritative capacity check immediately before accepting ownership.
             if (worker.pushPattern(execution, craftingJobId)) {
                 dispatchRoundRobinIndex = (candidateIndex + 1) % candidates.size();
                 return true;
@@ -448,9 +446,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean isBusy() {
-        // getAvailableThreadSlots() already covers the complete reachable worker set (including Network Switch
-        // peers). Calling hasAvailableDispatchCandidate() afterwards would scan that same set a second time.
-        return getAvailableThreadSlots() <= 0;
+        return cluster == null
+            || getCraftingController() == null
+            || !cluster.hasAvailableDispatchCandidate();
     }
 
     public int getAvailableThreadSlots() {

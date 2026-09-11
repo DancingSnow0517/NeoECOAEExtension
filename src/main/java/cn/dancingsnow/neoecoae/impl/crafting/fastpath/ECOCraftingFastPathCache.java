@@ -205,7 +205,7 @@ public final class ECOCraftingFastPathCache {
         ECOPatternEligibility eligibility = patternEntries.computeIfAbsent(
             key.patternKey(), ignored -> execution.patternEligibility());
         if (!eligibility.supported()) {
-            recordRejectReason(eligibility.rejectReason(), execution.expectedOutputs().toString());
+            recordRejectReasonLazy(eligibility.rejectReason(), () -> execution.expectedOutputs().toString());
             return ECOFastPathLookup.negative(eligibility.rejectReason());
         }
         ECOFastPathResult result = get(key, tick);
@@ -324,10 +324,9 @@ public final class ECOCraftingFastPathCache {
 
     public void recordDisabled(ECOExtractedPatternExecution execution) {
         String reason = execution == null ? "UNKNOWN" : execution.fastPathReason();
-        recordDisabled(reason);
-        if (execution != null) {
-            ineligibleReasonExamples.putIfAbsent(reason, execution.expectedOutputs().toString());
-        }
+        recordDisabled();
+        if (execution == null) recordRejectReason(reason, null);
+        else recordRejectReasonLazy(reason, () -> execution.expectedOutputs().toString());
     }
 
     public void recordFallbackSlowPath() {
@@ -377,9 +376,19 @@ public final class ECOCraftingFastPathCache {
     }
 
     private void recordRejectReason(@Nullable String reason, @Nullable String example) {
-        String normalized = reason == null || reason.isBlank() ? "UNKNOWN" : reason;
+        String normalized = normalizeRejectReason(reason);
         ineligibleReasonCounts.merge(normalized, 1L, Long::sum);
         if (example != null) ineligibleReasonExamples.putIfAbsent(normalized, example);
+    }
+
+    private void recordRejectReasonLazy(@Nullable String reason, java.util.function.Supplier<String> example) {
+        String normalized = normalizeRejectReason(reason);
+        ineligibleReasonCounts.merge(normalized, 1L, Long::sum);
+        ineligibleReasonExamples.computeIfAbsent(normalized, ignored -> example.get());
+    }
+
+    private static String normalizeRejectReason(@Nullable String reason) {
+        return reason == null || reason.isBlank() ? "UNKNOWN" : reason;
     }
 
     private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {
