@@ -961,10 +961,13 @@ public class NEItems {
             ECOTier.L9,
             NECellTypes.ITEM
         ))
-        .recipe((ctx, prov) -> ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-            .requires(NEItems.ECO_ITEM_CELL_HOUSING)
-            .requires(NEItems.ECO_INFINITE_CELL_COMPONENT)
-            .unlockedBy("has_infinite_component", RegistrateRecipeProvider.has(NEItems.ECO_INFINITE_CELL_COMPONENT))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(Items.WATER_BUCKET)
+            .require(Items.LAVA_BUCKET)
+            .require(NEItems.ECO_CELL_COMPONENT_256M)
+            .require(NEItems.CRYSTAL_MATRIX)
+            .itemOutput(ctx.get())
+            .energy(144_000)
             .save(prov))
         .lang("ECO Infinite Base Resource Storage Matrix")
         .model(ItemModelUtil.infiniteCellModel("eco_infinite_cell_housing"))

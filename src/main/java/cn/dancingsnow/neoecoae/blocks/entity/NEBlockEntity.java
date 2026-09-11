@@ -70,6 +70,14 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         onGridConnectableSidesChanged();
         if (level instanceof ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
+            // During chunk loading, neighboring block entities may not be available yet. A single
+            // immediate calculation can therefore leave a valid structure disconnected until a
+            // block update occurs. Retry after the load queue has finished restoring the chunk.
+            serverLevel.getServer().executeIfPossible(() -> {
+                if (!isRemoved() && level == serverLevel && hasLevel() && level.hasChunkAt(worldPosition)) {
+                    calculator.calculateMultiblock(serverLevel, worldPosition);
+                }
+            });
         }
         getMainNode().setIdlePowerUsage(16);
     }
