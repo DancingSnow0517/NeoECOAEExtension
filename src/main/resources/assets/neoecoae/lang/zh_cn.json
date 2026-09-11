@@ -256,6 +256,8 @@
   "gui.neoecoae.storage.bulk_mark.result.no_bulk_cell": "存储主机中没有 ECO MEGA 长整型大宗存储盘",
   "gui.neoecoae.storage.bulk_mark.result.success": "自动标记完成：新增 %s，已标记 %s，空间不足 %s，内部转移 %s",
   "gui.neoecoae.storage.bulk_mark.result.unavailable": "MEGA 大宗存储盘集成不可用",
+  "gui.neoecoae.storage.mega_filter.duplicate_chain": "该压缩链已在此存储主机的其他标记槽中配置",
+  "gui.neoecoae.storage.mega_filter.not_compressible": "只能标记属于 MEGA 压缩链的物品",
   "gui.neoecoae.storage_priority.close": "关闭优先级面板",
   "gui.neoecoae.storage_priority.open": "打开优先级面板",
   "item.neoecoae.aluminum_alloy_axe": "铝合金斧",

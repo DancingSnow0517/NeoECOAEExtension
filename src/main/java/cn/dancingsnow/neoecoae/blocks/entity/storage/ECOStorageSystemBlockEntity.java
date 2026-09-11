@@ -494,8 +494,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void setEcoMegaFilterFromClient(int visualSlot, ItemStack stack) {
         int driveIndex = getSelectedEcoMegaBulkCell();
         int page = getSelectedEcoMegaPage();
+        if (level != null && level.isClientSide) {
+            rpcToServer("setEcoMegaFilter", driveIndex, page, visualSlot, stack);
+            return;
+        }
         setEcoMegaFilterDirect(driveIndex, page, visualSlot, stack);
-        rpcToServer("setEcoMegaFilter", driveIndex, page, visualSlot, stack);
     }
 
     @RPCMethod
@@ -513,32 +516,41 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) {
             return;
         }
-        setEcoMegaFilterDirect(driveIndex, page, visualSlot, stack);
+        EcoMegaFilterResult result = setEcoMegaFilterDirect(driveIndex, page, visualSlot, stack);
+        if (result == EcoMegaFilterResult.NOT_COMPRESSIBLE) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "gui.neoecoae.storage.mega_filter.not_compressible"), true);
+        } else if (result == EcoMegaFilterResult.DUPLICATE_CHAIN) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "gui.neoecoae.storage.mega_filter.duplicate_chain"), true);
+        }
     }
 
-    private void setEcoMegaFilterDirect(int driveIndex, int page, int visualSlot, ItemStack stack) {
+    private EcoMegaFilterResult setEcoMegaFilterDirect(int driveIndex, int page, int visualSlot, ItemStack stack) {
         if (visualSlot < 0 || visualSlot >= ECO_MEGA_SLOTS_PER_PAGE
             || page < 0 || page >= ECO_MEGA_PAGE_COUNT) {
-            return;
+            return EcoMegaFilterResult.INVALID_TARGET;
         }
         List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
         if (driveIndex < 0 || driveIndex >= drives.size()
             || page > 0 && !hasEcoMegaUpgradeCard(drives.get(driveIndex).getCellStack())) {
-            return;
+            return EcoMegaFilterResult.INVALID_TARGET;
         }
         ItemStack normalized = ItemStack.EMPTY;
         if (stack != null && !stack.isEmpty()) {
             normalized = StorageBulkMarkingIntegration.normalizeMarker(stack);
-            if (normalized.isEmpty() || hasDuplicateEcoMegaMarker(
-                drives, driveIndex, page, visualSlot, normalized)) {
-                return;
+            if (normalized.isEmpty()) {
+                return EcoMegaFilterResult.NOT_COMPRESSIBLE;
+            }
+            if (hasDuplicateEcoMegaMarker(drives, driveIndex, page, visualSlot, normalized)) {
+                return EcoMegaFilterResult.DUPLICATE_CHAIN;
             }
         }
         ECODriveBlockEntity drive = drives.get(driveIndex);
         ItemStack cellStack = drive.getCellStack();
         if (cellStack == null || cellStack.isEmpty()
             || !(cellStack.getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem cellItem)) {
-            return;
+            return EcoMegaFilterResult.INVALID_TARGET;
         }
         AEItemKey key = normalized.isEmpty() ? null : AEItemKey.of(normalized);
         cellItem.getConfigInventory(cellStack).setStack(
@@ -547,6 +559,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         );
         drive.onCellConfigurationChanged();
         notifyStorageConfigurationChanged();
+        return EcoMegaFilterResult.SUCCESS;
+    }
+
+    private enum EcoMegaFilterResult {
+        SUCCESS,
+        NOT_COMPRESSIBLE,
+        DUPLICATE_CHAIN,
+        INVALID_TARGET
     }
 
     private boolean hasDuplicateEcoMegaMarker(

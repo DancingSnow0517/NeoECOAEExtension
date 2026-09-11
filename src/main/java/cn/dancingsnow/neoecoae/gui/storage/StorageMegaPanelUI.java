@@ -221,6 +221,7 @@ public final class StorageMegaPanelUI {
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
                     setValue(ItemStack.EMPTY, true);
+                    event.hasHandler = true;
                     event.stopImmediatePropagation();
                     return;
                 }
@@ -229,6 +230,7 @@ public final class StorageMegaPanelUI {
                     ItemStack carried = player == null ? ItemStack.EMPTY : player.containerMenu.getCarried();
                     if (!carried.isEmpty()) {
                         setValue(carried, true);
+                        event.hasHandler = true;
                         event.stopImmediatePropagation();
                     }
                 }

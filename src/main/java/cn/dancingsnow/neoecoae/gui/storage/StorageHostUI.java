@@ -650,7 +650,7 @@ public final class StorageHostUI {
             Component type = Component.translatable("gui.neoecoae.storage.legacy.cell_info",
                 cellKindName(entry), tierName(entry.tier()));
             Component types = Component.translatable("gui.neoecoae.storage.legacy.cell_types",
-                HostText.ae2Amount(entry.usedTypes()), formatCapacity(entry.totalTypes()));
+                HostText.ae2Amount(entry.usedTypes()), entry.totalTypes() == 0L ? "\u221E" : formatCapacity(entry.totalTypes()));
             Component bytes = Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
                 HostText.ae2Amount(entry.usedBytes()), formatCapacity(entry.totalBytes()));
             guiContext.graphics.pose().pushPose();

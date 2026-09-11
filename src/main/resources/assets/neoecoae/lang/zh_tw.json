@@ -149,6 +149,8 @@
   "gui.neoecoae.storage.idle_matrices": "閒置矩陣",
   "gui.neoecoae.storage.infinite_value": "無限",
   "gui.neoecoae.storage.max_load": "最大負載",
+  "gui.neoecoae.storage.mega_filter.duplicate_chain": "此壓縮鏈已在這個儲存主機的其他標記格中設定",
+  "gui.neoecoae.storage.mega_filter.not_compressible": "只能標記屬於 MEGA 壓縮鏈的物品",
   "gui.neoecoae.storage.status": "狀態",
   "gui.neoecoae.storage.status.degraded": "無限儲存部分資料待修復",
   "gui.neoecoae.storage.status.full": "%s容量已滿",
