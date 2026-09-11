@@ -207,6 +207,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Nullable
     private transient CompoundTag pendingFiniteTransferDomain;
     private transient boolean finiteDomainRestoreFailed;
+    private transient boolean finiteDomainLeaseDurable;
     private final transient ECOStorageSourceAdapterRegistry sourceAdapterRegistry =
         new ECOStorageSourceAdapterRegistry();
     // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
@@ -282,15 +283,15 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             server, this, level.getGameTime(), NEConfig.storageTransferNanosPerTick);
         if (currentStorageBudget <= 0L) return;
         try (var cellBatch = cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch.open()) {
-            runStorageStage("migration", this::updateInfiniteStorageMode);
+            if (!runStorageStage("migration", this::updateInfiniteStorageMode)) return;
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
-                runStorageStage("transfer", () -> {
+                if (!runStorageStage("transfer", () -> {
                     updateFiniteTransferDomain(storageInterface);
                     storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
-                });
+                })) return;
             } else if (finiteTransferDomain != null) {
-                runStorageStage("materialization", this::materializeFiniteTransferDomain);
+                if (!runStorageStage("materialization", this::materializeFiniteTransferDomain)) return;
             }
             runStorageStage("construction", () -> buildController.tick(level));
         } finally {
@@ -300,17 +301,19 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    private void runStorageStage(String stage, Runnable action) {
+    private boolean runStorageStage(String stage, Runnable action) {
         long tick = level == null ? 0L : level.getGameTime();
-        if (tick < stageRetryTicks.getOrDefault(stage, Long.MIN_VALUE)) return;
-        if (currentStorageBudget <= 0L) return;
+        if (tick < stageRetryTicks.getOrDefault(stage, Long.MIN_VALUE)) return false;
+        if (currentStorageBudget <= 0L) return false;
         long start = System.nanoTime();
         try {
             action.run();
             storageFaults.recovered(stage);
+            return true;
         } catch (RuntimeException e) {
             stageRetryTicks.put(stage, tick + 200L);
             storageFaults.report(stage, worldPosition + ": " + e, tick, e);
+            return false;
         } finally {
             currentStorageBudget = Math.max(0L, currentStorageBudget - (System.nanoTime() - start));
         }
@@ -1021,6 +1024,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        if (!materializeFiniteTransferDomain()) {
+            LOGGER.error("Refusing to release storage-controller contents at {} while finite recovery is unresolved", pos);
+            return;
+        }
         super.addAdditionalDrops(level, pos, drops);
         ItemStack infiniteComponent = infiniteComponentInventory.getStackInSlot(0);
         if (!infiniteComponent.isEmpty()) {
@@ -1113,16 +1120,35 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             LOGGER.error("Finite storage transfer domain at {} cannot materialize because restore failed", worldPosition);
             return false;
         }
+        long tick = level == null ? 0L : level.getGameTime();
+        if (tick < stageRetryTicks.getOrDefault("materialization", Long.MIN_VALUE)) return false;
         resetFiniteTransferScheduler();
-        boolean materialized = finiteTransferDomain.materialize(IActionSource.ofMachine(this));
-        if (!materialized) {
+        if (!finiteTransferDomain.materializePhaseA()) {
             LOGGER.error("Unable to materialize finite storage transfer domain at {}; drives remain locked", worldPosition);
+            stageRetryTicks.put("materialization", NEMath.saturatingAdd(tick, 200L));
             setChanged();
+            return false;
+        }
+        // Phase A must make both the MATERIALIZING recovery snapshot and every Drive component durable before the
+        // controller is allowed to relinquish recovery ownership.
+        setChanged();
+        try {
+            if (level instanceof ServerLevel serverLevel) serverLevel.getChunkSource().save(true);
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to persist finite storage handoff at {}; recovery lease retained", worldPosition, e);
+            stageRetryTicks.put("materialization", NEMath.saturatingAdd(tick, 200L));
+            return false;
+        }
+        if (!finiteTransferDomain.verifyMaterialized()) {
+            LOGGER.error("Unable to verify finite storage transfer domain at {}; recovery lease retained", worldPosition);
+            stageRetryTicks.put("materialization", NEMath.saturatingAdd(tick, 200L));
             return false;
         }
         finiteTransferDomain = null;
         pendingFiniteTransferDomain = null;
         finiteDomainRestoreFailed = false;
+        finiteDomainLeaseDurable = false;
+        stageRetryTicks.remove("materialization");
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         refreshDriveStorageProviders();
         setChanged();
@@ -1148,7 +1174,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     .filter(drive -> !isInfiniteMemberCell(drive.getCellStack()))
                     .toList(),
                 tier, storageInterface.getStorageInterfaceMode(),
-                getBlockState().getBlock().getName(), actionSource);
+                getBlockState().getBlock().getName(), actionSource, pendingFiniteTransferDomain);
             long eligibleCells = cluster.getDrives().stream()
                 .filter(drive -> !isInfiniteMemberCell(drive.getCellStack()))
                 .map(ECODriveBlockEntity::getCellInventory)
@@ -1169,8 +1195,17 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             }
             if (pendingFiniteTransferDomain != null) {
                 try {
-                    finiteTransferDomain.restore(pendingFiniteTransferDomain, level.registryAccess(), actionSource);
+                    ECOFiniteStorageDomain.RestoreResult result = finiteTransferDomain.restore(
+                        pendingFiniteTransferDomain, level.registryAccess(), actionSource);
                     pendingFiniteTransferDomain = null;
+                    if (result == ECOFiniteStorageDomain.RestoreResult.ALREADY_MATERIALIZED) {
+                        finiteTransferDomain = null;
+                        finiteDomainRestoreFailed = false;
+                        refreshDriveStorageProviders();
+                        setChanged();
+                        return;
+                    }
+                    finiteDomainLeaseDurable = true;
                 } catch (RuntimeException e) {
                     finiteDomainRestoreFailed = true;
                     LOGGER.error("Unable to restore finite storage transfer domain at {}; drives remain locked",
@@ -1181,6 +1216,26 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             refreshDriveStorageProviders();
             setChanged();
+            if (pendingFiniteTransferDomain == null && !finiteDomainLeaseDurable) {
+                try {
+                    if (level instanceof ServerLevel serverLevel) serverLevel.getChunkSource().save(true);
+                    finiteDomainLeaseDurable = true;
+                } catch (RuntimeException e) {
+                    LOGGER.error("Unable to persist finite storage ownership lease at {}; transfer remains disabled",
+                        worldPosition, e);
+                    return;
+                }
+            }
+        }
+        if (!finiteDomainLeaseDurable && !finiteDomainRestoreFailed) {
+            try {
+                setChanged();
+                if (level instanceof ServerLevel serverLevel) serverLevel.getChunkSource().save(true);
+                finiteDomainLeaseDurable = true;
+            } catch (RuntimeException e) {
+                LOGGER.error("Unable to persist finite storage ownership lease at {}; will retry", worldPosition, e);
+                return;
+            }
         }
         if (finiteTransferDomain.state() == ECOFiniteStorageDomain.State.MATERIALIZING) {
             materializeFiniteTransferDomain();
@@ -1218,9 +1273,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         MEStorage network = grid.getStorageService().getInventory();
         MEStorage hostStorage = getStorageInterfaceHostStorage();
         if (hostStorage == null) return 0L;
+        if (finiteTransferDomain != null && (finiteDomainRestoreFailed || !finiteDomainLeaseDurable)) return 0L;
         IActionSource source = IActionSource.ofMachine(storageInterface);
         long moved;
-        if (!isInfiniteMode() && finiteTransferDomain != null && !finiteDomainRestoreFailed) {
+        if (!isInfiniteMode() && finiteTransferDomain != null && !finiteDomainRestoreFailed
+            && finiteDomainLeaseDurable) {
             if (finiteTransferScheduler == null) {
                 finiteTransferScheduler = new ECOTransferScheduler(
                     finiteTransferDomain,
@@ -1394,6 +1451,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return !infiniteExitRequested && tier == ECOTier.L9
             && formed
             && cluster != null
+            && finiteTransferDomain == null
+            && pendingFiniteTransferDomain == null
+            && !finiteDomainRestoreFailed
+            && !isStorageInterfaceTransferMode()
             && hasRequiredInfiniteComponents()
             && !hasForeignInfiniteMembers();
     }
@@ -2030,6 +2091,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             ? data.getCompound(FINITE_TRANSFER_DOMAIN_TAG).copy()
             : null;
         finiteDomainRestoreFailed = false;
+        finiteDomainLeaseDurable = false;
     }
 
     private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {

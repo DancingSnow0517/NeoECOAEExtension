@@ -29,8 +29,9 @@ public final class ECOStorageLifecycleEvents {
         NELogicalNetworkManager.clearAll();
         ECOPlanningResultRegistry.clear();
         NetGrowthPatternValidationRegistry.clear();
-        ECOStorageCells.clearRuntimeState();
         ECOCellMutationBatch.clearThreadState();
+        ECOCellMutationBatch.drainRetries();
+        ECOStorageCells.clearRuntimeState();
         ECOSophisticatedMutationBatch.clearThreadState();
         ECOInfiniteStorageDomains.onServerStopped(server);
         ECOStorageTickBudget.clear(server);

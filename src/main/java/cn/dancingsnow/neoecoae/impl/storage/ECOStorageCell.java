@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
@@ -33,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,8 +76,9 @@ public class ECOStorageCell implements IECOStorageCell {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
             var storedStacks = getStoredStacks();
-            this.storedItems = storedStacks.size();
-            this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
+            this.storedItems = (int) storedStacks.stream().filter(stack -> stack.amount() > 0L).count();
+            this.storedItemCount = storedStacks.stream().filter(stack -> stack.amount() > 0L)
+                .mapToLong(GenericStack::amount).reduce(0L, NEMath::saturatingAdd);
             this.storedAmounts = null;
             this.cellType = c;
             this.tier = c.getTier();
@@ -118,22 +121,24 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getRemainingItemCount() {
-        final long remaining = this.getFreeBytes() * keyType.getAmountPerByte() + this.getUnusedItemCount();
-        return remaining > 0 ? remaining : 0;
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(getFreeBytes(), Math.max(1L, keyType.getAmountPerByte())),
+            getUnusedItemCount());
     }
 
     public long getFreeBytes() {
-        return this.getTotalBytes() - this.getUsedBytes();
+        return Math.max(0L, this.getTotalBytes() - this.getUsedBytes());
     }
 
     public int getUnusedItemCount() {
-        final int div = (int) (this.getStoredItemCount() % keyType.getAmountPerByte());
+        int amountPerByte = Math.max(1, keyType.getAmountPerByte());
+        final int div = (int) (this.getStoredItemCount() % amountPerByte);
 
         if (div == 0) {
             return 0;
         }
 
-        return keyType.getAmountPerByte() - div;
+        return amountPerByte - div;
     }
 
     public int getBytesPerType() {
@@ -141,8 +146,11 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getUsedBytes() {
-        var bytesForItemCount = (this.getStoredItemCount() + this.getUnusedItemCount()) / keyType.getAmountPerByte();
-        return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
+        long storedAmount = Math.max(0L, getStoredItemCount());
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long bytesForItems = ceilDivide(storedAmount, amountPerByte);
+        return NEMath.saturatingAdd(
+            NEMath.saturatingMultiply(getStoredItemTypes(), getBytesPerType()), bytesForItems);
     }
 
     public long getTotalBytes() {
@@ -195,8 +203,13 @@ public class ECOStorageCell implements IECOStorageCell {
     private void loadCellItems() {
         var stacks = getStoredStacks();
         for (var stack : stacks) {
-            storedAmounts.put(stack.what(), stack.amount());
+            if (stack.what() != null && stack.amount() > 0L) {
+                storedAmounts.put(stack.what(), NEMath.saturatingAdd(
+                    storedAmounts.getLong(stack.what()), stack.amount()));
+            }
         }
+        storedItems = storedAmounts.size();
+        storedItemCount = storedAmounts.values().longStream().reduce(0L, NEMath::saturatingAdd);
     }
 
     @Override
@@ -239,6 +252,7 @@ public class ECOStorageCell implements IECOStorageCell {
         this.storedItems = actualTypes;
 
         this.storedItemCount = itemCount;
+        ECOFiniteCellMetadata.bumpGenerationIfUnleased(cellStack);
         this.isPersisted = true;
     }
 
@@ -263,7 +277,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     /**
      * Keeps logical mutations in memory while a controller finite-storage domain is active. The caller must invoke
-     * {@link #materializeDeferredChanges()} before the cell stack can leave the controller.
+     * {@link #materializeDeferredChanges(UUID, long)} before the cell stack can leave the controller.
      */
     public void deferPersistence() {
         persistenceDeferred = true;
@@ -273,10 +287,12 @@ public class ECOStorageCell implements IECOStorageCell {
         return persistenceDeferred;
     }
 
-    /** Writes all deferred mutations to {@code STORAGE_CELL_INV} exactly once. */
-    public void materializeDeferredChanges() {
+    /** Writes deferred contents and records the durable handoff generation on the cell stack. */
+    public void materializeDeferredChanges(UUID domainId, long expectedGeneration) {
         persistenceDeferred = false;
         persist();
+        ECOFiniteCellMetadata.commit(cellStack, domainId, expectedGeneration);
+        if (container != null) container.saveChanges();
     }
 
     @Override
@@ -344,7 +360,7 @@ public class ECOStorageCell implements IECOStorageCell {
         long unusedItemCount = storedItemCount % amountPerByte == 0L
             ? 0L
             : amountPerByte - storedItemCount % amountPerByte;
-        long bytesForItems = NEMath.saturatingAdd(storedItemCount, unusedItemCount) / amountPerByte;
+        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
         long typeBytes = NEMath.saturatingMultiply(storedTypes, getBytesPerType());
         long usedBytes = NEMath.saturatingAdd(typeBytes, bytesForItems);
         long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
@@ -385,9 +401,14 @@ public class ECOStorageCell implements IECOStorageCell {
         long unusedItemCount = storedItemCount % amountPerByte == 0L
             ? 0L
             : amountPerByte - storedItemCount % amountPerByte;
-        long bytesForItems = NEMath.saturatingAdd(storedItemCount, unusedItemCount) / amountPerByte;
+        long bytesForItems = ceilDivide(storedItemCount, amountPerByte);
         return NEMath.saturatingAdd(
             NEMath.saturatingMultiply(storedTypes, getBytesPerType()), bytesForItems);
+    }
+
+    private static long ceilDivide(long amount, long divisor) {
+        long quotient = amount / divisor;
+        return amount % divisor == 0L ? quotient : quotient + 1L;
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
@@ -404,7 +425,8 @@ public class ECOStorageCell implements IECOStorageCell {
                 return 0;
             }
 
-            remainingItemCount -= (long) this.getBytesPerType() * keyType.getAmountPerByte();
+            remainingItemCount = Math.max(0L, remainingItemCount
+                - NEMath.saturatingMultiply(this.getBytesPerType(), keyType.getAmountPerByte()));
             if (remainingItemCount <= 0) {
                 return 0;
             }

@@ -218,7 +218,15 @@ public final class ECOTransferScheduler implements SourceChangeSink {
             reservation.rollback();
             return 0L;
         }
-        long accepted = domain.commitInsert(reservation, extracted, source);
+        long domainBefore = domain.storedAmount(key);
+        long accepted;
+        try {
+            accepted = domain.commitInsert(reservation, extracted, source);
+        } catch (RuntimeException e) {
+            long domainAfter = domain.reconcileKey(key, source);
+            accepted = Math.max(0L, domainAfter - domainBefore);
+            halt(key, "input shard commit failed after accepting " + accepted + " of " + extracted + ": " + e);
+        }
         if (accepted < extracted) {
             sourceModulates++;
             long restored = network.insert(key, extracted - accepted, Actionable.MODULATE, source);
@@ -253,7 +261,15 @@ public final class ECOTransferScheduler implements SourceChangeSink {
             reservation.rollback();
             return 0L;
         }
-        long extracted = domain.commitExtract(reservation, accepted, source);
+        long domainBefore = domain.storedAmount(key);
+        long extracted;
+        try {
+            extracted = domain.commitExtract(reservation, accepted, source);
+        } catch (RuntimeException e) {
+            long domainAfter = domain.reconcileKey(key, source);
+            extracted = Math.max(0L, domainBefore - domainAfter);
+            halt(key, "output shard commit failed after extracting " + extracted + " of " + accepted + ": " + e);
+        }
         long inserted = network.insert(key, extracted, Actionable.MODULATE, source);
         if (inserted < 0L || inserted > extracted) throw new IllegalStateException("Invalid destination acknowledgement");
         sourceModulates++;

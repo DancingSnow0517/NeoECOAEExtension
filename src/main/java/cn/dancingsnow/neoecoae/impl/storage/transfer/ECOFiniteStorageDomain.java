@@ -28,7 +28,7 @@ import net.minecraft.network.chat.Component;
 
 /** Controller-owned in-memory view of all ordinary finite ECO cells while transfer mode is active. */
 public final class ECOFiniteStorageDomain implements MEStorage {
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
     public static final int MAX_MASKED_SHARDS = Long.SIZE;
 
     public enum State { ACTIVE, MATERIALIZING }
@@ -45,6 +45,9 @@ public final class ECOFiniteStorageDomain implements MEStorage {
     private static final String TAG_DRIVE = "drive";
     private static final String TAG_AMOUNT = "amount";
     private static final String TAG_FINGERPRINT = "fingerprint";
+    private static final String TAG_DOMAIN_ID = "domainId";
+    private static final String TAG_CELL_ID = "cellId";
+    private static final String TAG_GENERATION = "generation";
 
     private final List<ECOStorageShard> shards;
     private final Map<Long, ECOStorageShard> shardsByPosition;
@@ -56,11 +59,14 @@ public final class ECOFiniteStorageDomain implements MEStorage {
     private ECOStorageInterfaceMode mode;
     private long sourceEpoch;
     private long revision;
+    private final java.util.UUID domainId;
 
-    private ECOFiniteStorageDomain(List<ECOStorageShard> shards, ECOStorageInterfaceMode mode, Component description) {
+    private ECOFiniteStorageDomain(List<ECOStorageShard> shards, ECOStorageInterfaceMode mode,
+                                   Component description, java.util.UUID domainId) {
         this.shards = List.copyOf(shards);
         this.mode = mode;
         this.description = description;
+        this.domainId = domainId;
         this.shardsByPosition = new HashMap<>();
         for (ECOStorageShard shard : shards) {
             shardsByPosition.put(shard.drivePosition(), shard);
@@ -73,8 +79,11 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         IECOTier controllerTier,
         ECOStorageInterfaceMode mode,
         Component description,
-        IActionSource source
+        IActionSource source, CompoundTag recovery
     ) {
+        boolean restoring = recovery != null && recovery.getInt(TAG_VERSION) == CURRENT_VERSION;
+        java.util.UUID domainId = restoring && recovery.hasUUID(TAG_DOMAIN_ID)
+            ? recovery.getUUID(TAG_DOMAIN_ID) : java.util.UUID.randomUUID();
         List<ECODriveBlockEntity> ordered = drives.stream()
             .sorted(Comparator.comparingLong(drive -> drive.getBlockPos().asLong()))
             .toList();
@@ -85,13 +94,24 @@ public final class ECOFiniteStorageDomain implements MEStorage {
                 if (shards.size() >= MAX_MASKED_SHARDS) {
                     throw new IllegalStateException("Finite transfer domain supports at most 64 drives");
                 }
-                shards.add(new ECOStorageShard(shards.size(), drive, storage));
+                CompoundTag recoveryShard = restoring ? findRecoveryShard(recovery, drive.getBlockPos().asLong()) : null;
+                shards.add(new ECOStorageShard(shards.size(), drive, storage, domainId, recoveryShard));
             }
         }
-        ECOFiniteStorageDomain domain = new ECOFiniteStorageDomain(shards, mode, description);
+        ECOFiniteStorageDomain domain = new ECOFiniteStorageDomain(shards, mode, description, domainId);
         domain.rebuildIndex(source);
         return domain;
     }
+
+    private static CompoundTag findRecoveryShard(CompoundTag recovery, long drivePosition) {
+        for (Tag raw : recovery.getList(TAG_SHARDS, Tag.TAG_COMPOUND)) {
+            CompoundTag shard = (CompoundTag) raw;
+            if (shard.getLong(TAG_DRIVE) == drivePosition) return shard;
+        }
+        throw new IllegalStateException("Finite transfer recovery drive set changed");
+    }
+
+    public java.util.UUID domainId() { return domainId; }
 
     public State state() {
         return state;
@@ -111,6 +131,19 @@ public final class ECOFiniteStorageDomain implements MEStorage {
 
     public long revision() {
         return revision;
+    }
+
+    public long storedAmount(AEKey key) {
+        return Math.max(0L, totals.getLong(key));
+    }
+
+    /** Rebuilds one key from physical shards after an exception-induced uncertain acknowledgement. */
+    public long reconcileKey(AEKey key, IActionSource source) {
+        for (ECOStorageShard shard : shards) {
+            updateShardAmount(key, shard, shard.stored(key, source));
+        }
+        changed(key);
+        return storedAmount(key);
     }
 
     public long sourceEpoch() {
@@ -193,10 +226,11 @@ public final class ECOFiniteStorageDomain implements MEStorage {
             if (remaining <= 0L) break;
             long request = Math.min(remaining, allocation.amount());
             ECOStorageShard shard = shards.get(allocation.shardIndex());
-            accepted = NEMath.saturatingAdd(accepted,
-                shard.insert(plan.key(), request, Actionable.MODULATE, source));
+            long actual = shard.insert(plan.key(), request, Actionable.MODULATE, source);
+            if (actual < 0L || actual > request) throw new IllegalStateException("Invalid shard acknowledgement");
+            accepted = NEMath.saturatingAdd(accepted, actual);
             updateShardAmount(plan.key(), shard, shard.stored(plan.key(), source));
-            remaining -= request;
+            remaining -= actual;
         }
         transaction.committed();
         changed(plan.key());
@@ -324,12 +358,20 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         return description;
     }
 
-    public boolean materialize(IActionSource source) {
+    public boolean materializePhaseA() {
         state = State.MATERIALIZING;
         try {
             for (ECOStorageShard shard : shards) {
-                shard.storage().materializeDeferredChanges();
+                shard.materialize(domainId);
             }
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    public boolean verifyMaterialized() {
+        try {
             KeyCounter verified = new KeyCounter();
             for (ECOStorageShard shard : shards) {
                 shard.storage().getAvailableStacks(verified);
@@ -350,11 +392,14 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         tag.putString(TAG_MODE, mode.name());
         tag.putLong(TAG_SOURCE_EPOCH, sourceEpoch);
         tag.putLong(TAG_REVISION, revision);
+        tag.putUUID(TAG_DOMAIN_ID, domainId);
         ListTag shardTags = new ListTag();
         for (ECOStorageShard shard : shards) {
             CompoundTag shardTag = new CompoundTag();
             shardTag.putLong(TAG_DRIVE, shard.drivePosition());
             shardTag.putString(TAG_FINGERPRINT, shard.fingerprint());
+            shardTag.putUUID(TAG_CELL_ID, shard.cellId());
+            shardTag.putLong(TAG_GENERATION, shard.leaseGeneration());
             shardTags.add(shardTag);
         }
         tag.put(TAG_SHARDS, shardTags);
@@ -376,12 +421,68 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         return tag;
     }
 
-    public void restore(CompoundTag tag, HolderLookup.Provider registries, IActionSource source) {
-        if (tag.getInt(TAG_VERSION) != CURRENT_VERSION) {
-            throw new IllegalStateException("Unsupported finite transfer domain version " + tag.getInt(TAG_VERSION));
+    public RestoreResult restore(CompoundTag tag, HolderLookup.Provider registries, IActionSource source) {
+        if (tag.getInt(TAG_VERSION) == 1) return restoreLegacyIfAlreadyMaterialized(tag, registries);
+        if (tag.getInt(TAG_VERSION) != CURRENT_VERSION || !tag.hasUUID(TAG_DOMAIN_ID)
+            || !domainId.equals(tag.getUUID(TAG_DOMAIN_ID))) {
+            throw new IllegalStateException("Unsupported or mismatched finite transfer domain snapshot");
         }
         validateShards(tag);
-        for (ECOStorageShard shard : shards) shard.storage().clearAllStoredStacks();
+        Map<ECOStorageShard, KeyCounter> desired = decodeAndPreflight(tag, registries);
+        boolean allHandedOff = true;
+        boolean hasNewerState = false;
+        for (ECOStorageShard shard : shards) {
+            ECOFiniteCellMetadata.State metadata = shard.metadata();
+            long expected = shard.leaseGeneration() == Long.MAX_VALUE ? Long.MAX_VALUE : shard.leaseGeneration() + 1L;
+            boolean active = domainId.equals(metadata.leaseId()) && !metadata.leaseCommitted()
+                && metadata.leaseGeneration() == shard.leaseGeneration()
+                && metadata.generation() == shard.leaseGeneration();
+            boolean committed = domainId.equals(metadata.leaseId()) && metadata.leaseCommitted()
+                && metadata.leaseGeneration() == shard.leaseGeneration() && metadata.generation() == expected;
+            boolean newer = metadata.generation() >= expected && !active && !committed;
+            if (!active && !committed && !newer) {
+                throw new IllegalStateException("Finite transfer cell generation changed before restore");
+            }
+            if (committed && !sameContents(shard, desired.get(shard))) {
+                throw new IllegalStateException("Committed finite transfer cell contents do not match snapshot");
+            }
+            allHandedOff &= committed || newer;
+            hasNewerState |= newer;
+        }
+        if (allHandedOff) return RestoreResult.ALREADY_MATERIALIZED;
+        if (hasNewerState) {
+            throw new IllegalStateException("Finite transfer snapshot spans active and newer cell generations");
+        }
+
+        Map<ECOStorageShard, KeyCounter> originals = snapshotContents();
+        try {
+            for (ECOStorageShard shard : shards) {
+                if (shard.metadata().leaseCommitted()) continue;
+                replaceContents(shard, desired.get(shard), source);
+            }
+        } catch (RuntimeException failure) {
+            try {
+                for (ECOStorageShard shard : shards) replaceContents(shard, originals.get(shard), source);
+            } catch (RuntimeException rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            throw failure;
+        }
+        state = State.valueOf(tag.getString(TAG_STATE));
+        mode = ECOStorageInterfaceMode.valueOf(tag.getString(TAG_MODE));
+        sourceEpoch = tag.getLong(TAG_SOURCE_EPOCH);
+        revision = tag.getLong(TAG_REVISION);
+        rebuildIndex(source);
+        return RestoreResult.RESTORED;
+    }
+
+    public enum RestoreResult { RESTORED, ALREADY_MATERIALIZED }
+
+    private Map<ECOStorageShard, KeyCounter> decodeAndPreflight(CompoundTag tag, HolderLookup.Provider registries) {
+        Map<ECOStorageShard, KeyCounter> desired = new HashMap<>();
+        for (ECOStorageShard shard : shards) desired.put(shard, new KeyCounter());
+        long[] storedTypes = new long[shards.size()];
+        long[] storedAmounts = new long[shards.size()];
         for (Tag rawEntry : tag.getList(TAG_ENTRIES, Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) rawEntry;
             AEKey key = AEKey.fromTagGeneric(registries, entry.getCompound(TAG_KEY));
@@ -390,17 +491,64 @@ public final class ECOFiniteStorageDomain implements MEStorage {
                 CompoundTag fragment = (CompoundTag) rawFragment;
                 ECOStorageShard shard = shardsByPosition.get(fragment.getLong(TAG_DRIVE));
                 long amount = fragment.getLong(TAG_AMOUNT);
-                if (shard == null || amount <= 0L
-                    || shard.insert(key, amount, Actionable.MODULATE, source) != amount) {
-                    throw new IllegalStateException("Could not restore finite transfer shard");
+                if (shard == null || amount <= 0L) throw new IllegalStateException("Invalid finite transfer fragment");
+                KeyCounter contents = desired.get(shard);
+                long currentAmount = contents.get(key);
+                if (currentAmount != 0L) throw new IllegalStateException("Duplicate finite transfer fragment");
+                int shardIndex = shard.index();
+                if (shard.storage().simulateInsertForMigration(key, amount, currentAmount,
+                    storedTypes[shardIndex], storedAmounts[shardIndex]) != amount)
+                    throw new IllegalStateException("Finite transfer snapshot exceeds cell capacity");
+                contents.add(key, amount);
+                if (currentAmount <= 0L) {
+                    storedTypes[shardIndex] = NEMath.saturatingAdd(storedTypes[shardIndex], 1L);
                 }
+                storedAmounts[shardIndex] = NEMath.saturatingAdd(storedAmounts[shardIndex], amount);
             }
         }
-        state = State.valueOf(tag.getString(TAG_STATE));
-        mode = ECOStorageInterfaceMode.valueOf(tag.getString(TAG_MODE));
-        sourceEpoch = tag.getLong(TAG_SOURCE_EPOCH);
-        revision = tag.getLong(TAG_REVISION);
-        rebuildIndex(source);
+        return desired;
+    }
+
+    private Map<ECOStorageShard, KeyCounter> snapshotContents() {
+        Map<ECOStorageShard, KeyCounter> result = new HashMap<>();
+        for (ECOStorageShard shard : shards) {
+            KeyCounter contents = new KeyCounter();
+            shard.storage().getAvailableStacks(contents);
+            result.put(shard, contents);
+        }
+        return result;
+    }
+
+    private static boolean sameContents(ECOStorageShard shard, KeyCounter expected) {
+        KeyCounter actual = new KeyCounter();
+        shard.storage().getAvailableStacks(actual);
+        if (actual.size() != expected.size()) return false;
+        for (Object2LongMap.Entry<AEKey> entry : expected) {
+            if (actual.get(entry.getKey()) != entry.getLongValue()) return false;
+        }
+        return true;
+    }
+
+    private static void replaceContents(ECOStorageShard shard, KeyCounter contents, IActionSource source) {
+        shard.storage().clearAllStoredStacks();
+        for (Object2LongMap.Entry<AEKey> entry : contents) {
+            if (entry.getLongValue() <= 0L
+                || shard.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, source) != entry.getLongValue()) {
+                throw new IllegalStateException("Could not apply finite transfer recovery snapshot");
+            }
+        }
+    }
+
+    private RestoreResult restoreLegacyIfAlreadyMaterialized(CompoundTag tag, HolderLookup.Provider registries) {
+        validateLegacyShardProducts(tag);
+        Map<ECOStorageShard, KeyCounter> desired = decodeAndPreflight(tag, registries);
+        for (ECOStorageShard shard : shards) {
+            if (!sameContents(shard, desired.get(shard))) {
+                throw new IllegalStateException("Legacy finite transfer snapshot differs from drive state; refusing destructive restore");
+            }
+        }
+        state = State.MATERIALIZING;
+        return RestoreResult.RESTORED;
     }
 
     private void validateShards(CompoundTag tag) {
@@ -411,9 +559,23 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         for (Tag raw : storedShards) {
             CompoundTag stored = (CompoundTag) raw;
             ECOStorageShard current = shardsByPosition.get(stored.getLong(TAG_DRIVE));
-            if (current == null || !current.fingerprint().equals(stored.getString(TAG_FINGERPRINT))) {
+            if (current == null || !stored.hasUUID(TAG_CELL_ID)
+                || !current.cellId().equals(stored.getUUID(TAG_CELL_ID))
+                || current.leaseGeneration() != stored.getLong(TAG_GENERATION)
+                || !current.fingerprint().equals(stored.getString(TAG_FINGERPRINT))) {
                 throw new IllegalStateException("Finite transfer drive fingerprint changed");
             }
+        }
+    }
+
+    private void validateLegacyShardProducts(CompoundTag tag) {
+        ListTag storedShards = tag.getList(TAG_SHARDS, Tag.TAG_COMPOUND);
+        if (storedShards.size() != shards.size()) throw new IllegalStateException("Legacy finite transfer drive set changed");
+        for (Tag raw : storedShards) {
+            CompoundTag stored = (CompoundTag) raw;
+            ECOStorageShard current = shardsByPosition.get(stored.getLong(TAG_DRIVE));
+            if (current == null || !current.fingerprint().startsWith(stored.getString(TAG_FINGERPRINT) + ":"))
+                throw new IllegalStateException("Legacy finite transfer drive product changed");
         }
     }
 }

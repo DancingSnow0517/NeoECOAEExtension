@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -118,7 +119,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public boolean isLockedByFiniteTransferDomain() {
-        return cluster instanceof NEStorageCluster storageCluster
+        ECOFiniteCellMetadata.State metadata = cellStack == null || cellStack.isEmpty()
+            ? null : ECOFiniteCellMetadata.read(cellStack);
+        return metadata != null && metadata.leaseId() != null && !metadata.leaseCommitted()
+            || cluster instanceof NEStorageCluster storageCluster
             && storageCluster.getController() != null
             && storageCluster.getController().isFiniteTransferDomainLocked();
     }

@@ -2,13 +2,13 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.WeakHashMap;
 import org.slf4j.LoggerFactory;
 
 /** Coalesces component serialization inside one controller tick; live amounts remain authoritative. */
 public final class ECOCellMutationBatch implements AutoCloseable {
     private static final ThreadLocal<ECOCellMutationBatch> ACTIVE = new ThreadLocal<>();
-    private static final Set<ECOStorageCell> RETRY = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    // Persistence obligations must retain their owner until they succeed or the server-stop drain reports failure.
+    private static final Set<ECOStorageCell> RETRY = new LinkedHashSet<>();
     private final ECOCellMutationBatch parent;
     private final Set<ECOStorageCell> changed = new LinkedHashSet<>();
     private boolean closed;
@@ -39,7 +39,18 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         int remaining = 16;
         for (ECOStorageCell cell : new java.util.ArrayList<>(RETRY)) {
             if (remaining-- <= 0) break;
+            // Failed entries are re-added at the tail by flush(), so one permanently failing
+            // cell cannot starve every persistence obligation queued behind it.
+            RETRY.remove(cell);
             flush(cell);
+        }
+    }
+
+    public static void drainRetries() {
+        for (ECOStorageCell cell : new java.util.ArrayList<>(RETRY)) flush(cell);
+        if (!RETRY.isEmpty()) {
+            LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                .error("{} ECO cell persistence operation(s) still failed during server shutdown", RETRY.size());
         }
     }
 

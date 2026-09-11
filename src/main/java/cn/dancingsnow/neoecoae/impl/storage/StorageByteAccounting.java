@@ -14,7 +14,7 @@ public final class StorageByteAccounting {
         long targetBucketAmount,
         long amountPerByte
     ) {
-        if (totalBytes <= 0L || usedBytes > totalBytes) {
+        if (totalBytes <= 0L || usedBytes < 0L || usedBytes > totalBytes || targetBucketAmount < 0L) {
             return 0L;
         }
 
@@ -34,7 +34,8 @@ public final class StorageByteAccounting {
         long bytesPerType,
         boolean newType
     ) {
-        if (totalBytes <= 0L || usedBytes == null || targetBucketAmount == null) {
+        if (totalBytes <= 0L || usedBytes == null || targetBucketAmount == null
+            || usedBytes.signum() < 0 || targetBucketAmount.signum() < 0) {
             return 0L;
         }
 
