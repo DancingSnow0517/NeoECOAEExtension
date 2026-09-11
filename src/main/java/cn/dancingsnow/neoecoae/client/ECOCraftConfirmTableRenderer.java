@@ -52,8 +52,9 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     }
 
     @Override protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {
+        if (entry.getMissingAmount() > 0) return MISSING_OVERLAY;
         if (cycleParticipant.test(entry.getWhat())) return CYCLE_OVERLAY;
         if (fuzzyPlanningItem.test(entry.getWhat())) return FUZZY_PLANNING_OVERLAY;
-        return entry.getMissingAmount() > 0 ? MISSING_OVERLAY : 0;
+        return 0;
     }
 }

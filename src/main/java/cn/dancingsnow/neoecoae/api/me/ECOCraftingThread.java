@@ -643,9 +643,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
-        return !controller.isActiveCooling()
-            || controller.usesTickBasedCoolant()
-            || controller.tryConsumeCoolant(5 * Math.max(1, craftCount), controller.getEffectiveOverclockTimes());
+        if (!controller.isActiveCooling() || controller.usesTickBasedCoolant()) {
+            return true;
+        }
+        long requested = 5L * Math.max(1, craftCount);
+        return requested <= Integer.MAX_VALUE
+            && controller.tryConsumeCoolant((int) requested, controller.getEffectiveOverclockTimes());
     }
 
     private void startWork(
@@ -1394,25 +1397,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return true;
     }
 
-    public void dropRecoverablesAndClear(List<ItemStack> drops) {
+    /**
+     * Makes this thread portable in the worker block item's block-entity data.
+     *
+     * <p>The complete ItemStack/GenericStack custody remains in NBT. In particular, fluid keys and amounts above
+     * {@link Integer#MAX_VALUE} are never narrowed to ordinary world drops. When the worker is placed again, the
+     * durable terminal decision makes the normal recovery path return the retained custody to its new grid.</p>
+     */
+    public boolean preparePortableRecovery() {
         if (!isRecoverableState()) {
-            return;
+            return false;
         }
-        // Removing an executor makes its outstanding outputs impossible. Stop the owner and its other workers.
         ECOCraftingJobLifecycle.finish(worker.getLevel(), craftingJobId, false);
-        List<ItemStack> recoverable = shouldRecoverOutputs() ? outputAndRemainingItems() : inputItems;
-        for (ItemStack stack : recoverable) {
-            if (!stack.isEmpty()) {
-                copySerializableStacks(stack, drops);
-            }
-        }
-        for (GenericStack stack : shouldRecoverOutputs() ? batchOutputAndRemainingItems() : batchInputItems) {
-            copyGenericStackToDrops(stack, drops);
-        }
-        recoveryState = RecoveryState.DROPPED_TO_WORLD;
-        worker.onBatchStopped();
-        clearWork();
+        reboot = true;
         setChanged();
+        return true;
     }
 
     private boolean isRecoveringToNetwork() {
@@ -1624,23 +1623,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return true;
     }
 
-    private static void copyGenericStackToDrops(GenericStack stack, List<ItemStack> drops) {
-        if (stack == null || stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE
-            || !(stack.what() instanceof AEItemKey itemKey)) {
-            return;
-        }
-        int remaining = (int) stack.amount();
-        while (remaining > 0) {
-            int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
-            ItemStack itemStack = itemKey.toStack(count);
-            if (itemStack.isEmpty()) {
-                return;
-            }
-            drops.add(itemStack);
-            remaining -= count;
-        }
-    }
-
     private void postCraftingEventSafely(ItemStack craftedOutput) {
         try {
             NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
@@ -1675,7 +1657,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         for (GenericStack stack : batchOutputItems) {
             if (stack != null && stack.amount() > 0) {
-                amount += stack.amount();
+                amount = amount > Long.MAX_VALUE - stack.amount() ? Long.MAX_VALUE : amount + stack.amount();
             }
         }
         return Math.max(1L, amount);
@@ -1768,15 +1750,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             if (stack != null && stack.amount() > 0) {
                 counter.add(stack.what(), stack.amount());
             }
-        }
-    }
-
-    private static void copySerializableStacks(ItemStack stack, List<ItemStack> target) {
-        int remaining = stack.getCount();
-        while (remaining > 0) {
-            int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
-            target.add(stack.copyWithCount(count));
-            remaining -= count;
         }
     }
 

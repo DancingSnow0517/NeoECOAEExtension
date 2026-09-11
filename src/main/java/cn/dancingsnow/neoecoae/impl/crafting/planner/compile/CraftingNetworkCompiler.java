@@ -15,8 +15,10 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,10 +80,11 @@ public final class CraftingNetworkCompiler {
                 emittable.add(key);
             }
             List<CompiledPattern> compiled = new ArrayList<>();
-            for (IPatternDetails details : service.getCraftingFor(key)) {
+            boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+            for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
                 cancellation.checkpoint();
                 CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
-                    ignoredItemIds);
+                    ignoredItemIds, componentInsensitiveOutput);
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -113,8 +116,28 @@ public final class CraftingNetworkCompiler {
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
     }
 
+    /**
+     * Keep AE2's exact producer order first, then add deterministic same-item producers for an explicitly
+     * component-insensitive dependency. The selected physical pattern remains unchanged; only its planner-facing
+     * primary output is aliased to the dependency key below.
+     */
+    private static List<IPatternDetails> craftingFor(ICraftingService service, AEKey key,
+            boolean componentInsensitiveOutput) {
+        LinkedHashSet<IPatternDetails> result = new LinkedHashSet<>(service.getCraftingFor(key));
+        if (!componentInsensitiveOutput || !(key instanceof AEItemKey wanted)) {
+            return List.copyOf(result);
+        }
+
+        service.getCraftables(candidate -> candidate instanceof AEItemKey itemKey
+                && itemKey.getItem() == wanted.getItem()).stream()
+            .sorted(Comparator.comparing(AEKey::toString))
+            .forEach(candidate -> result.addAll(service.getCraftingFor(candidate)));
+        return List.copyOf(result);
+    }
+
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
-            boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds) {
+            boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds,
+            boolean componentInsensitiveOutput) {
         List<CompiledInput> inputs;
         List<GenericStack> outputs;
         PlannerAmount outputPerPattern = PlannerAmount.ZERO;
@@ -149,8 +172,12 @@ public final class CraftingNetworkCompiler {
             // AE2 indexes a pattern by getPrimaryOutput(); all remaining entries in getOutputs() are
             // byproducts and must not change the firing ratio or make a byproduct look craftable on its own.
             if (primaryOutput != null && primaryOutput.what() != null && primaryOutput.amount() > 0L
-                    && producedKey.equals(primaryOutput.what())) {
+                    && (producedKey.equals(primaryOutput.what())
+                        || componentInsensitiveOutput && sameItem(producedKey, primaryOutput.what()))) {
                 outputPerPattern = PlannerAmount.of(primaryOutput.amount());
+                if (!producedKey.equals(primaryOutput.what())) {
+                    outputs = aliasPrimaryOutput(outputs, primaryOutput.what(), producedKey);
+                }
             }
             if (outputPerPattern.signum() <= 0) {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
@@ -204,6 +231,21 @@ public final class CraftingNetworkCompiler {
             id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
             recordedReason, netGrowthValidated, semantics, specialAnalysis
         );
+    }
+
+    private static List<GenericStack> aliasPrimaryOutput(List<GenericStack> outputs,
+            AEKey physicalPrimaryOutput, AEKey plannerKey) {
+        List<GenericStack> aliased = new ArrayList<>(outputs.size());
+        for (GenericStack output : outputs) {
+            aliased.add(output != null && physicalPrimaryOutput.equals(output.what())
+                ? new GenericStack(plannerKey, output.amount()) : output);
+        }
+        return List.copyOf(aliased);
+    }
+
+    private static boolean sameItem(AEKey left, AEKey right) {
+        return left instanceof AEItemKey leftItem && right instanceof AEItemKey rightItem
+            && leftItem.getItem() == rightItem.getItem();
     }
 
     private static List<CompiledInput> compileRawInputs(IPatternDetails details,

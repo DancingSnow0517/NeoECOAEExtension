@@ -567,7 +567,22 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG) < amount - 0.01D) {
             return false;
         }
-        return energyService.extractAEPower(amount, Actionable.MODULATE, PowerMultiplier.CONFIG) >= amount - 0.01D;
+        double charged = energyService.extractAEPower(amount, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        if (Double.isFinite(charged) && charged >= amount - 0.01D && charged <= amount + 0.01D) {
+            return true;
+        }
+        if (Double.isFinite(charged) && charged > 0.0D) {
+            try {
+                double overflow = energyService.injectPower(charged, Actionable.MODULATE);
+                if (!Double.isFinite(overflow) || overflow > 0.01D) {
+                    LOGGER.error(
+                        "ECO virtual crafting energy refund was incomplete: overflow {} of {}", overflow, charged);
+                }
+            } catch (RuntimeException failure) {
+                LOGGER.error("ECO virtual crafting energy refund failed for {} energy", charged, failure);
+            }
+        }
+        return false;
     }
 
     @Nullable

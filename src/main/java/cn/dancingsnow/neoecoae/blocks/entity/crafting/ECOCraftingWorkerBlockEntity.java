@@ -6,6 +6,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
+import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
@@ -17,11 +18,15 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -64,6 +69,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Nullable
     private GenericStack displayedJob;
     private boolean displayDirty = true;
+    private boolean portableRecoveryExported;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
@@ -597,8 +603,41 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        for (ECOCraftingThread thread : craftingThreads) {
-            thread.dropRecoverablesAndClear(drops);
+        if (!preparePortableRecoveryThreads() || portableRecoveryExported) {
+            return;
         }
+
+        ItemStack recoveryCarrier = null;
+        for (ItemStack drop : drops) {
+            if (drop.is(getBlockState().getBlock().asItem()) && drop.getCount() == 1) {
+                recoveryCarrier = drop;
+                break;
+            }
+        }
+        if (recoveryCarrier == null) {
+            recoveryCarrier = new ItemStack(getBlockState().getBlock());
+            drops.add(recoveryCarrier);
+        }
+        saveToItem(recoveryCarrier, level.registryAccess());
+    }
+
+    @Override
+    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder, @Nullable Player player) {
+        super.exportSettings(mode, builder, player);
+        if (mode != SettingsFrom.DISMANTLE_ITEM || level == null || !preparePortableRecoveryThreads()) {
+            return;
+        }
+        CompoundTag blockEntityData = saveCustomOnly(level.registryAccess());
+        net.minecraft.world.level.block.entity.BlockEntity.addEntityType(blockEntityData, getType());
+        builder.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(blockEntityData));
+        portableRecoveryExported = true;
+    }
+
+    private boolean preparePortableRecoveryThreads() {
+        boolean hasPortableRecovery = false;
+        for (ECOCraftingThread thread : craftingThreads) {
+            hasPortableRecovery |= thread.preparePortableRecovery();
+        }
+        return hasPortableRecovery;
     }
 }

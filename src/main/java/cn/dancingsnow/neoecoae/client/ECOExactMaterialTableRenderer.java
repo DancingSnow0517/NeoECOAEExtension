@@ -88,9 +88,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
+        if (entry.missingBigInteger().signum() > 0) return MISSING_OVERLAY;
         if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
         if (fuzzyPlanningItem.test(entry.key())) return FUZZY_PLANNING_OVERLAY;
-        return entry.missingBigInteger().signum() > 0 ? MISSING_OVERLAY : 0;
+        return 0;
     }
 
     static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes) {

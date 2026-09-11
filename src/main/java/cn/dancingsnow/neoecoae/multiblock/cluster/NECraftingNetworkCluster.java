@@ -357,6 +357,10 @@ public class NECraftingNetworkCluster {
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
+        if (amount <= 0) return true;
+        // Keep this multi-controller debit all-or-nothing. Otherwise earlier members are permanently drained when
+        // the aggregate amount or required coolant tier turns out to be insufficient on a later member.
+        if (!hasCoolant(amount, requiredOverclock)) return false;
         int remaining = amount;
         for (NECraftingCluster member : members) {
             var controller = member.getController();

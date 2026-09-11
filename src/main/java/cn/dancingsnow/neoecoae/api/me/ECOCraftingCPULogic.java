@@ -84,6 +84,10 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
 
     private boolean deliveringFinalOutput;
+    /** Energy already debited for a rejected dispatch that the full grid could not accept back. */
+    private double prepaidEnergyCredit;
+    private long lastEnergyAccountingFailureLogTick = Long.MIN_VALUE;
+    private long lastIdleEnergyRefundAttemptTick = Long.MIN_VALUE;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
@@ -175,6 +179,7 @@ public class ECOCraftingCPULogic {
         cantStoreItems = false;
         // 无任务时只需尝试清空物品。
         if (this.job == null) {
+            returnIdleEnergyCredit(eg);
             this.storeItems();
             if (!this.inventory.list.isEmpty()) {
                 cantStoreItems = true;
@@ -441,50 +446,56 @@ public class ECOCraftingCPULogic {
                         }
                         if (batchRegistration != null) {
                             power = batch.power();
-                            boolean acceptedBatch;
-                            try {
-                                providerCursor.advanceAfter(pattern, provider);
-                                acceptedBatch = batch.push(inventory);
-                            } catch (RuntimeException failure) {
-                                LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
-                                acceptedBatch = false;
-                            }
-                            if (acceptedBatch) {
-                                // Once accepted, the worker owns the inputs even if the energy service fails.
-                                chargeAcceptedEnergy(energyService, power);
-                                for (var output : batch.outputs()) {
-                                    current.waitingFor.insert(output.what(), output.amount(), Actionable.MODULATE);
-                                }
-                                for (var remainder : batch.remainders()) {
-                                    current.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
-                                    current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
-                                }
-                                progress.value -= craftCount;
-                                if (current.executionRuntime != null) {
-                                    current.executionRuntime.onAccepted(candidate, craftCount, inputs);
-                                }
+                            EnergyReservation energyReservation = reserveEnergy(energyService, power);
+                            if (energyReservation == null) {
+                                stallDiagnostics.insufficientPower(power, 0.0D);
+                                power = singlePower;
+                            } else {
+                                boolean acceptedBatch;
                                 try {
-                                    batchRegistration.commit(current.link.getCraftingID(),
-                                        current.finalOutput == null ? null : current.finalOutput.what());
+                                    providerCursor.advanceAfter(pattern, provider);
+                                    acceptedBatch = batch.push(inventory);
                                 } catch (RuntimeException failure) {
-                                    // The provider already owns this batch. Never replay its inputs or task on a
-                                    // notification failure.
-                                    LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
+                                    LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
+                                    acceptedBatch = false;
                                 }
-                                for (var output : pattern.getOutputs()) postChange(output.what());
-                                markCpuDirty();
-                                stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
-                                // Refresh the runtime candidates after every accepted batch so phase transitions are
-                                // visible immediately, while retaining the fixed Mixin entry point below.
-                                resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
-                                totalPushed = addPushed(totalPushed, craftCount);
-                                acceptedInPass = true;
-                                break;
+                                if (acceptedBatch) {
+                                    energyReservation.commit();
+                                    for (var output : batch.outputs()) {
+                                        current.waitingFor.insert(output.what(), output.amount(), Actionable.MODULATE);
+                                    }
+                                    for (var remainder : batch.remainders()) {
+                                        current.waitingFor.insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
+                                        current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
+                                    }
+                                    progress.value -= craftCount;
+                                    if (current.executionRuntime != null) {
+                                        current.executionRuntime.onAccepted(candidate, craftCount, inputs);
+                                    }
+                                    try {
+                                        batchRegistration.commit(current.link.getCraftingID(),
+                                            current.finalOutput == null ? null : current.finalOutput.what());
+                                    } catch (RuntimeException failure) {
+                                        // The provider already owns this batch. Never replay its inputs or task on a
+                                        // notification failure.
+                                        LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
+                                    }
+                                    for (var output : pattern.getOutputs()) postChange(output.what());
+                                    markCpuDirty();
+                                    stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
+                                    // Refresh the runtime candidates after every accepted batch so phase transitions are
+                                    // visible immediately, while retaining the fixed Mixin entry point below.
+                                    resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
+                                    totalPushed = addPushed(totalPushed, craftCount);
+                                    acceptedInPass = true;
+                                    break;
+                                }
+                                energyReservation.refund();
+                                stallDiagnostics.batchRejected(pattern, provider);
+                                // A rejected batch restores its own extraction. The ordinary fallback is exactly one
+                                // copy, so it must use the per-copy power rather than the rejected batch total.
+                                power = singlePower;
                             }
-                            stallDiagnostics.batchRejected(pattern, provider);
-                            // A rejected batch restores its own extraction. The ordinary fallback is exactly one
-                            // copy, so it must use the per-copy power rather than the rejected batch total.
-                            power = singlePower;
                         }
                     }
 
@@ -505,9 +516,22 @@ public class ECOCraftingCPULogic {
                     if (ordinaryInputStacks == null) {
                         ordinaryInputStacks = ECOFastPathStacks.copyCounters(inputs);
                     }
-                    if (!ECOBatchCraftingHelper.extractExact(inventory, ordinaryInputStacks)) {
+                    EnergyReservation energyReservation = reserveEnergy(energyService, power);
+                    if (energyReservation == null) {
+                        stallDiagnostics.insufficientPower(power, 0.0D);
+                        break;
+                    }
+                    boolean inputsExtracted;
+                    try {
+                        inputsExtracted = ECOBatchCraftingHelper.extractExact(inventory, ordinaryInputStacks);
+                    } catch (RuntimeException failure) {
+                        energyReservation.refund();
+                        throw failure;
+                    }
+                    if (!inputsExtracted) {
                         // extractExact already restored the partial extraction. Do not reinject the complete
                         // resolved input set, and do not offer that stale set to another provider.
+                        energyReservation.refund();
                         break;
                     }
                     boolean acceptedSingle = false;
@@ -532,8 +556,7 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
-                        // Once accepted, the worker owns the inputs even if the energy service fails.
-                        chargeAcceptedEnergy(energyService, power);
+                        energyReservation.commit();
                         for (var output : outputs) {
                             current.waitingFor.insert(output.getKey(), output.getLongValue(), Actionable.MODULATE);
                         }
@@ -556,6 +579,7 @@ public class ECOCraftingCPULogic {
                         // the same provider-first-fit pass.
                         if (!acceptedSingle) {
                             CraftingCpuHelper.reinjectPatternInputs(inventory, inputs);
+                            energyReservation.refund();
                         }
                     }
                 }
@@ -607,15 +631,120 @@ public class ECOCraftingCPULogic {
         return result;
     }
 
-    private void chargeAcceptedEnergy(IEnergyService energyService, double power) {
-        if (power == 0.0D) return;
+    @Nullable
+    private EnergyReservation reserveEnergy(IEnergyService energyService, double power) {
+        if (power == 0.0D) return new EnergyReservation(energyService, 0.0D, 0.0D);
+        if (!Double.isFinite(power) || power < 0.0D) return null;
+        double credit = Math.min(power, prepaidEnergyCredit);
+        prepaidEnergyCredit -= credit;
+        double networkPower = power - credit;
+        if (networkPower <= 0.0D) {
+            return new EnergyReservation(energyService, credit, 0.0D);
+        }
         try {
-            double charged = energyService.extractAEPower(power, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            if (!Double.isFinite(charged) || charged < power - 0.01D) {
-                LOGGER.error("ECO crafting was accepted, but only {} of {} energy was charged", charged, power);
+            double charged = energyService.extractAEPower(networkPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            if (!Double.isFinite(charged)
+                    || charged < networkPower - 0.01D
+                    || charged > networkPower + 0.01D) {
+                restoreEnergyCredit(credit);
+                if (Double.isFinite(charged) && charged > 0.0D) {
+                    refundEnergyOrRetainCredit(energyService, charged);
+                }
+                logEnergyAccountingFailure(
+                    "reservation charged " + charged + " of " + networkPower
+                        + " after " + credit + " prepaid credit",
+                    null);
+                return null;
+            }
+            return new EnergyReservation(energyService, credit, charged);
+        } catch (RuntimeException failure) {
+            restoreEnergyCredit(credit);
+            logEnergyAccountingFailure("energy reservation failed", failure);
+            return null;
+        }
+    }
+
+    private void refundEnergyOrRetainCredit(IEnergyService energyService, double amount) {
+        if (amount <= 0.0D) return;
+        try {
+            double overflow = energyService.injectPower(amount, Actionable.MODULATE);
+            if (!Double.isFinite(overflow) || overflow < -0.01D || overflow > amount + 0.01D) {
+                restoreEnergyCredit(amount);
+                logEnergyAccountingFailure("invalid refund overflow " + overflow + " of " + amount, null);
+                return;
+            }
+            restoreEnergyCredit(Math.max(0.0D, overflow));
+        } catch (RuntimeException failure) {
+            restoreEnergyCredit(amount);
+            logEnergyAccountingFailure("refund failed for " + amount + " energy", failure);
+        }
+    }
+
+    private void restoreEnergyCredit(double amount) {
+        if (!Double.isFinite(amount) || amount <= 0.0D) return;
+        double updated = prepaidEnergyCredit + amount;
+        prepaidEnergyCredit = Double.isFinite(updated) ? updated : Double.MAX_VALUE;
+        markCpuDirty();
+    }
+
+    private void returnIdleEnergyCredit(IEnergyService energyService) {
+        if (prepaidEnergyCredit <= 0.0D || !Double.isFinite(prepaidEnergyCredit)) return;
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastIdleEnergyRefundAttemptTick;
+        if (lastIdleEnergyRefundAttemptTick != Long.MIN_VALUE && elapsed >= 0L && elapsed < 20L) return;
+        lastIdleEnergyRefundAttemptTick = tick;
+        double offered = prepaidEnergyCredit;
+        try {
+            double overflow = energyService.injectPower(offered, Actionable.MODULATE);
+            if (!Double.isFinite(overflow) || overflow < -0.01D || overflow > offered + 0.01D) {
+                logEnergyAccountingFailure("invalid idle-credit overflow " + overflow + " of " + offered, null);
+                return;
+            }
+            double retained = Math.max(0.0D, overflow);
+            if (retained != prepaidEnergyCredit) {
+                prepaidEnergyCredit = retained;
+                markCpuDirty();
             }
         } catch (RuntimeException failure) {
-            LOGGER.error("ECO crafting was accepted, but its energy could not be charged", failure);
+            logEnergyAccountingFailure("idle-credit refund failed for " + offered + " energy", failure);
+        }
+    }
+
+    private void logEnergyAccountingFailure(String reason, @Nullable RuntimeException failure) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastEnergyAccountingFailureLogTick;
+        if (lastEnergyAccountingFailureLogTick != Long.MIN_VALUE && elapsed >= 0L && elapsed < 1200L) return;
+        lastEnergyAccountingFailureLogTick = tick;
+        if (failure == null) {
+            LOGGER.error("ECO crafting energy accounting anomaly: {}", reason);
+        } else {
+            LOGGER.error("ECO crafting energy accounting anomaly: {}", reason, failure);
+        }
+    }
+
+    private final class EnergyReservation {
+        private final IEnergyService energyService;
+        private final double reservedCredit;
+        private final double networkDebit;
+        private boolean settled;
+
+        private EnergyReservation(IEnergyService energyService, double reservedCredit, double networkDebit) {
+            this.energyService = energyService;
+            this.reservedCredit = reservedCredit;
+            this.networkDebit = networkDebit;
+        }
+
+        private void commit() {
+            settled = true;
+            if (reservedCredit > 0.0D) markCpuDirty();
+        }
+
+        private void refund() {
+            if (!settled) {
+                settled = true;
+                restoreEnergyCredit(reservedCredit);
+                refundEnergyOrRetainCredit(energyService, networkDebit);
+            }
         }
     }
 
@@ -800,6 +929,9 @@ public class ECOCraftingCPULogic {
         resumeDispatchPattern = null;
         dispatchStrategy.reset();
         stallDiagnostics.reset();
+        double restoredEnergyCredit = data.getDouble("prepaidEnergyCredit");
+        prepaidEnergyCredit = Double.isFinite(restoredEnergyCredit) && restoredEnergyCredit > 0.0D
+            ? restoredEnergyCredit : 0.0D;
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
         if (data.contains("job")) {
             var jobData = data.getCompound("job");
@@ -823,6 +955,11 @@ public class ECOCraftingCPULogic {
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
         data.put("inventory", this.inventory.writeToNBT(registries));
+        if (prepaidEnergyCredit > 0.0D && Double.isFinite(prepaidEnergyCredit)) {
+            data.putDouble("prepaidEnergyCredit", prepaidEnergyCredit);
+        } else {
+            data.remove("prepaidEnergyCredit");
+        }
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
         } else {
@@ -874,7 +1011,7 @@ public class ECOCraftingCPULogic {
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
                     if (template.matches(output)) {
-                        count += output.amount() * t.getValue().value;
+                        count = saturatingAdd(count, saturatingMultiply(output.amount(), t.getValue().value));
                     }
                 }
             }
@@ -886,12 +1023,13 @@ public class ECOCraftingCPULogic {
      * 供菜单使用，收集所有类型的存储物品。
      */
     public void getAllItems(KeyCounter out) {
-        out.addAll(this.inventory.list);
+        addAllSaturating(out, this.inventory.list);
         if (this.job != null) {
-            out.addAll(job.waitingFor.list);
+            addAllSaturating(out, job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
-                    out.add(output.what(), output.amount() * t.getValue().value);
+                    long amount = saturatingMultiply(output.amount(), t.getValue().value);
+                    out.set(output.what(), saturatingAdd(out.get(output.what()), amount));
                 }
             }
         }
@@ -900,6 +1038,25 @@ public class ECOCraftingCPULogic {
     /** Collects only items physically owned by this CPU, excluding planned and in-flight outputs. */
     public void getOwnedItems(KeyCounter out) {
         out.addAll(this.inventory.list);
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) return 0L;
+        if (left > Long.MAX_VALUE / right) return Long.MAX_VALUE;
+        return left * right;
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (left <= 0L) return Math.max(0L, right);
+        if (right <= 0L) return left;
+        if (left > Long.MAX_VALUE - right) return Long.MAX_VALUE;
+        return left + right;
+    }
+
+    private static void addAllSaturating(KeyCounter target, KeyCounter source) {
+        for (var entry : source) {
+            target.set(entry.getKey(), saturatingAdd(target.get(entry.getKey()), entry.getLongValue()));
+        }
     }
 
     /** Allocation-free counterpart of {@link #getOwnedItems(KeyCounter)}; must cover the same ledgers. */

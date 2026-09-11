@@ -378,7 +378,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @RPCMethod
     public void actOnPatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !supportsCraftingInterfaceUi() || payload == null) return;
+                || !supportsCraftingInterfaceUi() || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
@@ -446,7 +446,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @RPCMethod
     public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !supportsCraftingInterfaceUi() || payload == null) return;
+                || !supportsCraftingInterfaceUi() || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
@@ -489,6 +489,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public boolean isPatternTransferInProgress() {
         return patternTransferInProgress || patternOrganizeInProgress;
+    }
+
+    private boolean isPatternMutationLocked() {
+        return patternTransferTask != null || patternOrganizeTask != null;
     }
 
     public float getPatternTransferProgress() {
@@ -736,6 +740,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
+    private boolean compareAndSetPatternStack(PatternSlotRef ref, ItemStack expected, ItemStack stack) {
+        if (!ItemStack.matches(getPatternStack(ref), expected)) {
+            return false;
+        }
+        setPatternStack(ref, stack);
+        return true;
+    }
+
     private boolean hasDuplicatePattern(PatternSlotRef target, ItemStack candidate) {
         AEItemKey candidateKey = AEItemKey.of(candidate);
         if (candidateKey == null) {
@@ -835,7 +847,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     /** Server-authoritative single-slot quick move shared by RPC and menu integrations. */
     public boolean tryInsertPatternFromPlayer(ServerPlayer player, int inventorySlot) {
         if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide
-                || !formed || !supportsCraftingInterfaceUi() || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
+                || !formed || !supportsCraftingInterfaceUi() || isPatternMutationLocked()
+                || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
             return false;
         }
         ItemStack source = player.getInventory().getItem(inventorySlot);
@@ -953,7 +966,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 ItemStack moved = stack.copy();
                 task.ensureBatch(targetRef.bus());
                 task.ensureBatch(sourceRef.bus());
-                setPatternStack(targetRef, moved);
+                if (!compareAndSetPatternStack(targetRef, ItemStack.EMPTY, moved)) {
+                    task.abortForTargetConflict();
+                    patternOrganizeRecoveryBlocked++;
+                    break;
+                }
                 setPatternStack(sourceRef, ItemStack.EMPTY);
             }
             task.advanceWriteSlot();
@@ -1238,6 +1255,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private void blockRecovery() {
             recoveryBlocked = true;
+        }
+
+        private void abortForTargetConflict() {
+            recoveryBlocked = true;
+            nextReadSlot = records.size();
         }
 
         private void beginBatch() {

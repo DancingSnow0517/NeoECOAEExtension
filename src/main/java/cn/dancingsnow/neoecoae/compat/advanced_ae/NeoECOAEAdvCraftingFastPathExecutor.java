@@ -83,6 +83,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
             boolean ownershipTransferred = false;
             boolean additionalInputsExtracted = false;
             int acceptedBatchSize = 0;
+            EnergyReservation energyReservation = null;
             List<GenericStack> additionalInputs = List.of();
             try {
                 ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
@@ -161,6 +162,14 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                     continue;
                 }
 
+                if (!flatRatePower) {
+                    energyReservation = reserveEnergy(energyService, patternPower * batchSize);
+                    if (energyReservation == null) {
+                        reinject(inventory, craftingContainer);
+                        continue;
+                    }
+                }
+
                 // Materialize all worker-owned totals before the provider takes ownership. The later accounting
                 // step then cannot fail while the batch is already in flight.
                 List<GenericStack> outputTotal = ECOBatchCraftingHelper.multiply(
@@ -168,6 +177,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                 List<GenericStack> remainderTotal = recipe.batchRemainders(batchSize);
                 additionalInputs = recipe.additionalInputs(batchSize);
                 if (!ECOBatchCraftingHelper.extractExact(inventory, additionalInputs)) {
+                    refund(energyReservation);
                     reinject(inventory, craftingContainer);
                     continue;
                 }
@@ -177,14 +187,12 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                         batchSize, jobAccess.neoecoae$getLink().getCraftingID());
                 if (verified == null || !selected.bus().acceptVerifiedBatch(verified, selected.offer())) {
                     rollback(inventory, craftingContainer, additionalInputs, additionalInputsExtracted);
+                    refund(energyReservation);
                     continue;
                 }
                 ownershipTransferred = true;
                 acceptedBatchSize = batchSize;
-
-                if (!flatRatePower) {
-                    chargeAcceptedEnergy(energyService, patternPower * batchSize);
-                }
+                if (energyReservation != null) energyReservation.commit();
                 recordAcceptedBatch(cpu, jobAccess, task, outputTotal, remainderTotal, batchSize);
                 pushedOperations++;
             } catch (RuntimeException failure) {
@@ -197,6 +205,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                     LOGGER.error("AdvancedAE FastPath batch was accepted but post-acceptance accounting failed", failure);
                 } else {
                     rollback(inventory, craftingContainer, additionalInputs, additionalInputsExtracted);
+                    refund(energyReservation);
                     LOGGER.debug("AdvancedAE FastPath batch was rejected; using native crafting on the next pass", failure);
                 }
             }
@@ -349,20 +358,63 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
         cpu.markDirty();
     }
 
-    private static void chargeAcceptedEnergy(IEnergyService energyService, double requiredPower) {
-        if (!Double.isFinite(requiredPower)) {
-            return;
-        }
+    @Nullable
+    private static EnergyReservation reserveEnergy(IEnergyService energyService, double requiredPower) {
+        if (requiredPower == 0.0D) return new EnergyReservation(energyService, 0.0D);
+        if (!Double.isFinite(requiredPower) || requiredPower < 0.0D) return null;
         try {
             double charged = energyService.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            if (Double.isNaN(charged) || charged < requiredPower - 0.01D) {
-                LOGGER.error(
-                        "AdvancedAE FastPath batch was accepted, but only {} of {} crafting energy was charged",
-                        charged,
-                        requiredPower);
+            if (!Double.isFinite(charged)
+                    || charged < requiredPower - 0.01D
+                    || charged > requiredPower + 0.01D) {
+                if (Double.isFinite(charged) && charged > 0.0D) {
+                    refundEnergy(energyService, charged);
+                }
+                LOGGER.error("AdvancedAE FastPath energy reservation failed: charged {} of {}", charged, requiredPower);
+                return null;
+            }
+            return new EnergyReservation(energyService, charged);
+        } catch (RuntimeException failure) {
+            LOGGER.error("AdvancedAE FastPath energy reservation failed", failure);
+            return null;
+        }
+    }
+
+    private static void refund(@Nullable EnergyReservation reservation) {
+        if (reservation != null) reservation.refund();
+    }
+
+    private static void refundEnergy(IEnergyService energyService, double amount) {
+        if (amount <= 0.0D) return;
+        try {
+            double overflow = energyService.injectPower(amount, Actionable.MODULATE);
+            if (!Double.isFinite(overflow) || overflow > 0.01D) {
+                LOGGER.error("AdvancedAE FastPath energy refund was incomplete: overflow {} of {}", overflow, amount);
             }
         } catch (RuntimeException failure) {
-            LOGGER.error("AdvancedAE FastPath batch was accepted, but its crafting energy could not be charged", failure);
+            LOGGER.error("AdvancedAE FastPath energy refund failed for {} energy", amount, failure);
+        }
+    }
+
+    private static final class EnergyReservation {
+        private final IEnergyService energyService;
+        private final double amount;
+        private boolean settled;
+
+        private EnergyReservation(IEnergyService energyService, double amount) {
+            this.energyService = energyService;
+            this.amount = amount;
+        }
+
+        private void commit() {
+            settled = true;
+        }
+
+        private void refund() {
+            if (!settled) {
+                settled = true;
+                refundEnergy(energyService, amount);
+            }
         }
     }
 
