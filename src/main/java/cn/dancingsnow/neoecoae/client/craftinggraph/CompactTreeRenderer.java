@@ -43,6 +43,13 @@ public final class CompactTreeRenderer {
             if (box.contains(worldMouseX, worldMouseY)) hovered = node;
         }
         drawRowFrames(graphics, layout, cameraX, cameraY, zoom);
+        for (var box : visible.nodes()) {
+            var node = graph.nodes().get(box.nodeId());
+            if (node != null && node.material() != null
+                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
+                drawNodeFrame(graphics, box, 0xffcf5e5e, cameraX, cameraY, zoom);
+            }
+        }
         profiler.update(visible.nodes().size(), visible.edges().size(), System.nanoTime() - started);
         return new GraphRenderer.Frame(hovered, tooltip(graph, hovered));
     }
@@ -89,6 +96,20 @@ public final class CompactTreeRenderer {
         graphics.fill(x, Math.max(y, b - 1), r, b, color);
         graphics.fill(x, y, Math.min(r, x + 1), b, color);
         graphics.fill(Math.max(x, r - 1), y, r, b, color);
+    }
+
+    private static void drawNodeFrame(GuiGraphics graphics, GraphLayoutSnapshot.Box box, int color,
+            float cameraX, float cameraY, float zoom) {
+        int x = screen(cameraX, box.x(), zoom);
+        int y = screen(cameraY, box.y(), zoom);
+        int right = screen(cameraX, box.x() + box.width(), zoom);
+        int bottom = screen(cameraY, box.y() + box.height(), zoom);
+        if (right <= x || bottom <= y) return;
+        int thickness = Math.min(2, Math.min(right - x, bottom - y));
+        graphics.fill(x, y, right, y + thickness, color);
+        graphics.fill(x, bottom - thickness, right, bottom, color);
+        graphics.fill(x, y, x + thickness, bottom, color);
+        graphics.fill(right - thickness, y, right, bottom, color);
     }
 
     private static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,

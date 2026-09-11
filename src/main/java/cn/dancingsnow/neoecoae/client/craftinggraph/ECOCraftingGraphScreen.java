@@ -492,12 +492,6 @@ public final class ECOCraftingGraphScreen extends Screen {
         expandedTreePaths.clear();
         fullyExpandedTreePaths.clear();
         collapsedTreePaths.clear();
-        if (missingOnly && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
-            baseGraph.nodes().values().stream()
-                .filter(node -> node.material() != null
-                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING)
-                .forEach(node -> expandedTreePaths.addAll(CompactTreeProjection.pathTo(baseGraph, node.id())));
-        }
         rebuildGraph(true);
         refreshControls();
     }
@@ -538,11 +532,15 @@ public final class ECOCraftingGraphScreen extends Screen {
             // must never silently remove a boundary or an internal pattern from this view.
             graph = baseGraph;
         } else if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
-            graph = CompactTreeProjection.project(baseGraph, depth, expandedTreePaths, fullyExpandedTreePaths,
-                collapsedTreePaths);
+            ClientCraftingGraph projectedBase = missingOnly ? baseGraph.missingPaths() : baseGraph;
+            graph = CompactTreeProjection.project(projectedBase, missingOnly ? 99 : depth, expandedTreePaths,
+                fullyExpandedTreePaths, collapsedTreePaths);
         } else {
-            int focus = selectedId != null && baseGraph.nodes().containsKey(selectedId) ? selectedId : baseGraph.rootId();
-            graph = baseGraph.limited(focus, depth, collapsed);
+            ClientCraftingGraph projectedBase = missingOnly && baseGraph.view() == ClientCraftingGraph.View.MAIN
+                ? baseGraph.missingPaths() : baseGraph;
+            int focus = selectedId != null && projectedBase.nodes().containsKey(selectedId)
+                ? selectedId : projectedBase.rootId();
+            graph = projectedBase.limited(focus, missingOnly ? 99 : depth, collapsed);
         }
         layoutCache.invalidate();
         layout = layoutCache.get(graph);

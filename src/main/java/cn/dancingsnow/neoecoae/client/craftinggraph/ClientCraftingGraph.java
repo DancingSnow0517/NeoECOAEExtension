@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -317,6 +318,55 @@ public final class ClientCraftingGraph {
         return new ClientCraftingGraph(source, view, focusId, focusedCycleId, focusedCluster, focusedMaterialId,
             subset, subsetLinks,
             Map.of(), compactTree, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
+    }
+
+    /** Keeps missing materials and every dependency node needed to connect them to the plan root. */
+    public ClientCraftingGraph missingPaths() {
+        if (view != View.MAIN || !nodes.containsKey(rootId)) return this;
+
+        boolean hasSelectedLinks = links.stream().anyMatch(Link::selected);
+        Map<Integer, Set<Integer>> activeUpstream = new HashMap<>();
+        Map<Integer, Set<Integer>> activeDownstream = new HashMap<>();
+        for (Link link : links) {
+            if (hasSelectedLinks && !link.selected()) continue;
+            activeDownstream.computeIfAbsent(link.fromId(), ignored -> new LinkedHashSet<>()).add(link.toId());
+            activeUpstream.computeIfAbsent(link.toId(), ignored -> new LinkedHashSet<>()).add(link.fromId());
+        }
+        Set<Integer> reachable = new LinkedHashSet<>();
+        var frontier = new ArrayDeque<Integer>();
+        frontier.add(rootId);
+        while (!frontier.isEmpty()) {
+            int id = frontier.removeFirst();
+            if (!reachable.add(id)) continue;
+            for (int child : activeDownstream.getOrDefault(id, Set.of())) frontier.addLast(child);
+        }
+
+        Set<Integer> visible = new LinkedHashSet<>();
+        var missingFrontier = new ArrayDeque<Integer>();
+        for (int id : reachable) {
+            Node node = nodes.get(id);
+            if (node != null && node.material() != null
+                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
+                visible.add(id);
+                missingFrontier.addLast(id);
+            }
+        }
+        while (!missingFrontier.isEmpty()) {
+            int id = missingFrontier.removeFirst();
+            for (int parent : activeUpstream.getOrDefault(id, Set.of())) {
+                if (reachable.contains(parent) && visible.add(parent)) missingFrontier.addLast(parent);
+            }
+        }
+
+        // Preserve a stable anchor when a valid plan contains no missing material.
+        visible.add(rootId);
+        Map<Integer, Node> subset = new LinkedHashMap<>();
+        for (int id : visible) subset.put(id, nodes.get(id));
+        List<Link> subsetLinks = links.stream()
+            .filter(link -> !hasSelectedLinks || link.selected())
+            .filter(link -> visible.contains(link.fromId()) && visible.contains(link.toId())).toList();
+        return new ClientCraftingGraph(source, view, rootId, focusedCycleId, focusedCluster, focusedMaterialId,
+            subset, subsetLinks, Map.of(), false, boundaryMaterialIds, externalInputIds, boundaryOutputIds);
     }
 
     public CraftingGraphSnapshot source() { return source; }
