@@ -13,6 +13,7 @@
     "ae2.crafting.PatternProviderDiagnosticsMixin",
     "ae2.menu.CellWorkbenchMenuMixin",
     "ae2.menu.CraftConfirmMenuMixin",
+    "ae2.menu.CraftConfirmMenuForceStartMixin",
     "ae2.menu.CraftingCpuListEntryMixin",
     "ae2.menu.CraftingCpuMenuMixin",
     "ae2.menu.CraftingStatusMenuMixin",

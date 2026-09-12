@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.force_start": "强制下单",
+  "tooltip.neoecoae.force_start": "忽略缺少材料并提交订单",
   "gui.ae2.ConfirmCraftCpuStatus": "可存储：%s；并行处理单元：%s",
   "gui.ae2.ConfirmCraftNoCpu": "可存储：N/A；并行处理单元：N/A",
   "block.neoecoae.aluminum_alloy_block": "铝合金块",

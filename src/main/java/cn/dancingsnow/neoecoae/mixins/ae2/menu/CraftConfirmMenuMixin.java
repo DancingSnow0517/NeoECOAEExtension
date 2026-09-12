@@ -322,7 +322,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         cancellable = true
     )
     private void neoecoae$refreshMissingIngredientsBeforeStart(CallbackInfo ci) {
-        if (result == null || result.simulation()) {
+        if (result == null || result.simulation()
+                || ((Object) this instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync force
+                    && force.neoecoae$isForceCraftStartActive())) {
             return;
         }
 

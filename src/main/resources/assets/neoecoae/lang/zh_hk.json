@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.force_start": "強制下單",
+  "tooltip.neoecoae.force_start": "忽略缺少材料並提交訂單",
   "block.neoecoae.aluminum_alloy_block": "鋁合金方塊",
   "block.neoecoae.aluminum_alloy_casing": "鋁合金機殼",
   "block.neoecoae.aluminum_block": "鋁方塊",

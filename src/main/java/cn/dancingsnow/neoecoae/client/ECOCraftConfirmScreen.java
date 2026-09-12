@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -28,10 +29,12 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
@@ -89,9 +92,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
-        boolean startable = plan != null && !plan.isSimulation() && !unrepresentable;
+        boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
+        boolean startable = plan != null && (!plan.isSimulation() || forceStart) && !unrepresentable;
         start.active = !menu.hasNoCPU() && startable;
-        selectCPU.active = startable;
+        selectCPU.active = startable || forceStart;
+        start.setMessage(forceStart
+            ? Component.translatable("gui.neoecoae.force_start") : GuiText.Start.text());
+        start.setTooltip(forceStart
+            ? net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.neoecoae.force_start"))
+            : null);
 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
@@ -268,6 +277,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
     private void start() {
         if (isUnrepresentablePlan()) return;
+        CraftingPlanSummary plan = menu.getPlan();
+        boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
+        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(forceStart));
         menu.startJob();
     }
 
