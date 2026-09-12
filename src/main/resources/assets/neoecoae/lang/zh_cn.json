@@ -558,6 +558,8 @@
   "gui.neoecoae.storage_interface.mode.storage": "存储",
   "gui.neoecoae.storage_interface.mode.input": "输入",
   "gui.neoecoae.storage_interface.mode.output": "输出",
+  "jade.neoecoae.storage_interface.input": "处于输入模式",
+  "jade.neoecoae.storage_interface.output": "处于输出模式",
   "gui.neoecoae.storage_interface.structure": "无限存储",
   "gui.neoecoae.storage_interface.infinite_ready": "可用",
   "gui.neoecoae.storage_interface.infinite_unavailable": "不可用",
@@ -670,5 +672,15 @@
   "gui.neoecoae.crafting_graph.status.unknown_budget": "求解预算不足",
   "gui.neoecoae.crafting_graph.status.too_complex": "过于复杂",
   "gui.neoecoae.crafting_graph.status.cancelled": "已取消",
-  "neoecoae.unknow_cell_type": "未知存储元件类型"
+  "neoecoae.unknow_cell_type": "未知存储元件类型",
+  "block.neoecoae.large_integrated_working_station": "大型集成工作站",
+  "block.neoecoae.large_integrated_working_station_casing": "大型集成工作站外壳",
+  "block.neoecoae.large_integrated_working_station_input_hatch": "大型集成工作站流体输入仓",
+  "block.neoecoae.large_integrated_working_station_output_hatch": "大型集成工作站流体输出仓",
+  "block.neoecoae.large_integrated_working_station_interface": "大型集成工作站通讯方块",
+  "gui.neoecoae.large_integrated_working_station.energy": "能量：%s / %s",
+  "gui.neoecoae.large_integrated_working_station.no_task": "当前任务：无",
+  "gui.neoecoae.large_integrated_working_station.task": "当前任务：%s",
+  "gui.neoecoae.large_integrated_working_station.recipe_empty": "合成任务：等待输入",
+  "gui.neoecoae.large_integrated_working_station.recipe": "合成任务：%s 个物品，%s mB 流体"
 }

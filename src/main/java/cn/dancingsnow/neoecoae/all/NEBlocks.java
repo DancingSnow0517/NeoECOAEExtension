@@ -547,7 +547,16 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .blockstate((ctx, prov) -> {
-            prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
+            ModelFile storage = prov.models().getExistingFile(prov.modLoc("block/storage_interface"));
+            ModelFile input = prov.models().getExistingFile(prov.modLoc("block/storage_interface_input"));
+            ModelFile output = prov.models().getExistingFile(prov.modLoc("block/storage_interface_output"));
+            prov.getVariantBuilder(ctx.get()).forAllStates(state -> {
+                cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode mode =
+                    state.getValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE);
+                ModelFile model = mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT
+                    ? input : mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT ? output : storage;
+                return ConfiguredModel.builder().modelFile(model).build();
+            });
         })
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -1199,11 +1208,15 @@ public class NEBlocks {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
                 ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
+                ModelFile inputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_input"));
+                ModelFile outputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_output"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel)
+                                ? (s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT ? inputModel
+                                    : s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT ? outputModel
+                                    : (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel))
                                 : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()

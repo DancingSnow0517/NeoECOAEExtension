@@ -214,6 +214,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
         provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
+        provider.add("jade.neoecoae.storage_interface.input", "Storage interface: Input mode");
+        provider.add("jade.neoecoae.storage_interface.output", "Storage interface: Output mode");
         provider.add("gui.neoecoae.storage_interface.structure", "Infinite Storage");
         provider.add("gui.neoecoae.storage_interface.infinite_ready", "Ready");
         provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Unavailable");
