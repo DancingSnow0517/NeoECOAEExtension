@@ -20,6 +20,32 @@ final class ECOCraftingInputResolver {
             KeyCounter expectedOutputs,
             KeyCounter expectedContainerItems,
             ECOCraftingRemainderCache remainderCache) {
+        return extractPatternInputs(details, sourceInventory, level, expectedOutputs,
+            expectedContainerItems, remainderCache, true);
+    }
+
+    /** Resolve against a fresh overlay whose virtual removals are discarded after a failed attempt. */
+    @Nullable
+    static KeyCounter[] extractPatternInputsFromDisposablePreview(
+            IPatternDetails details,
+            ECOCraftingInputPreview sourceInventory,
+            Level level,
+            KeyCounter expectedOutputs,
+            KeyCounter expectedContainerItems,
+            ECOCraftingRemainderCache remainderCache) {
+        return extractPatternInputs(details, sourceInventory, level, expectedOutputs,
+            expectedContainerItems, remainderCache, false);
+    }
+
+    @Nullable
+    private static KeyCounter[] extractPatternInputs(
+            IPatternDetails details,
+            ICraftingInventory sourceInventory,
+            Level level,
+            KeyCounter expectedOutputs,
+            KeyCounter expectedContainerItems,
+            ECOCraftingRemainderCache remainderCache,
+            boolean rollbackOnFailure) {
         var inputs = details.getInputs();
         KeyCounter[] inputHolder = new KeyCounter[inputs.length];
         boolean found = true;
@@ -28,6 +54,18 @@ final class ECOCraftingInputResolver {
             var input = inputs[slot];
             var extractedInputs = inputHolder[slot] = new KeyCounter();
             long remainingMultiplier = input.getMultiplier();
+            if (sourceInventory instanceof ECOCraftingInputPreview preview) {
+                long primaryCrafts = preview.extractPrimaryInput(input, remainingMultiplier, level,
+                    extractedInputs, expectedContainerItems, remainderCache);
+                if (primaryCrafts >= 0L) {
+                    remainingMultiplier -= primaryCrafts;
+                    if (remainingMultiplier > 0L) {
+                        found = false;
+                        break;
+                    }
+                    continue;
+                }
+            }
             for (var template : CraftingCpuHelper.getValidItemTemplates(sourceInventory, input, level)) {
                 long extracted = CraftingCpuHelper.extractTemplates(
                     sourceInventory, template, remainingMultiplier);
@@ -50,8 +88,10 @@ final class ECOCraftingInputResolver {
             }
         }
 
-        if (!found) {
+        if (!found && rollbackOnFailure) {
             CraftingCpuHelper.reinjectPatternInputs(sourceInventory, inputHolder);
+        }
+        if (!found) {
             return null;
         }
 

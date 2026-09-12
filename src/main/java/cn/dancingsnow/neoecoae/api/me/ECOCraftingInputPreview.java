@@ -4,8 +4,13 @@ import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
+import appeng.crafting.inv.ListCraftingInventory;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import com.google.common.collect.MapMaker;
+import net.minecraft.world.level.Level;
 
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +24,9 @@ import java.util.Set;
  * AE2's template selection and input validation while extraction remains virtual.
  */
 final class ECOCraftingInputPreview implements ICraftingInventory {
+    private static final Map<IPatternDetails, PatternMetadata> METADATA_BY_PATTERN =
+        new MapMaker().weakKeys().makeMap();
+
     private final ICraftingInventory source;
     private final KeyCounter removed = new KeyCounter();
     private final Set<AEKey> primaryInputs;
@@ -47,10 +55,25 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache) {
         this.source = source;
-        this.primaryInputs = new HashSet<>();
-        this.possibleInputs = new HashSet<>();
-        this.reusableTemplates = new HashSet<>();
+        PatternMetadata metadata = metadata(pattern, remainderCache);
+        this.primaryInputs = metadata.primaryInputs();
+        this.possibleInputs = metadata.possibleInputs();
+        this.reusableTemplates = metadata.reusableTemplates();
         this.protectedAmounts = Map.copyOf(protectedAmounts);
+    }
+
+    private static PatternMetadata metadata(IPatternDetails pattern, ECOCraftingRemainderCache remainderCache) {
+        long reloadGeneration = AE2PatternIntrospection.reloadGeneration();
+        return METADATA_BY_PATTERN.compute(pattern, (ignored, cached) ->
+            cached != null && cached.reloadGeneration() == reloadGeneration
+                ? cached : buildMetadata(pattern, remainderCache, reloadGeneration));
+    }
+
+    private static PatternMetadata buildMetadata(IPatternDetails pattern,
+            ECOCraftingRemainderCache remainderCache, long reloadGeneration) {
+        Set<AEKey> primaryInputs = new HashSet<>();
+        Set<AEKey> possibleInputs = new HashSet<>();
+        Set<AEKey> reusableTemplates = new HashSet<>();
         for (var input : pattern.getInputs()) {
             if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
             var possible = input.getPossibleInputs();
@@ -65,6 +88,8 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
                 }
             }
         }
+        return new PatternMetadata(reloadGeneration, Set.copyOf(primaryInputs),
+            Set.copyOf(possibleInputs), Set.copyOf(reusableTemplates));
     }
 
     private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key,
@@ -90,12 +115,70 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
-        long available = Math.max(0L,
-            source.extract(key, Long.MAX_VALUE, Actionable.SIMULATE) - removed.get(key));
+        long available = Math.max(0L, availableExact(key) - removed.get(key));
         available = Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
         long extracted = Math.min(amount, available);
         if (mode == Actionable.MODULATE) removed.add(key, extracted);
         return extracted;
+    }
+
+    /**
+     * Resolves a planned ordinary input without asking AE2 to enumerate fuzzy templates. The planner has already
+     * selected the first concrete possible input for substitution slots. Reusable inputs deliberately return a
+     * negative sentinel and continue through AE2's normal template path because their concrete key may change after
+     * each craft.
+     */
+    long extractPrimaryInput(IPatternDetails.IInput input, long multiplier, Level level,
+            KeyCounter extractedInputs, KeyCounter expectedContainerItems,
+            ECOCraftingRemainderCache remainderCache) {
+        GenericStack primary = primaryInput(input);
+        if (primary == null || multiplier < 0L || primary.amount() <= 0L
+                || reusableTemplates.contains(primary.what())) return -1L;
+        try {
+            if (!input.isValid(primary.what(), level)) return -1L;
+        } catch (RuntimeException unavailable) {
+            return -1L;
+        }
+
+        long available = availableExact(primary.what());
+        long removedAmount = removed.get(primary.what());
+        if (removedAmount >= available) return 0L;
+        available -= removedAmount;
+        long protectedAmount = protectedAmounts.getOrDefault(primary.what(), 0L);
+        if (protectedAmount >= available) return 0L;
+        available -= protectedAmount;
+
+        long crafts = Math.min(multiplier, available / primary.amount());
+        if (crafts <= 0L) return 0L;
+        long amount = Math.multiplyExact(crafts, primary.amount());
+        long extracted = extract(primary.what(), amount, Actionable.MODULATE);
+        if (extracted != amount) {
+            throw new IllegalStateException("Failed to extract planned primary input: " + primary.what());
+        }
+        extractedInputs.add(primary.what(), extracted);
+        AEKey remainder = remainderCache.get(input, primary.what());
+        if (remainder != null) expectedContainerItems.add(remainder, crafts);
+        return crafts;
+    }
+
+    static boolean hasReusableTemplates(IPatternDetails pattern, ECOCraftingRemainderCache remainderCache) {
+        return !metadata(pattern, remainderCache).reusableTemplates().isEmpty();
+    }
+
+    private GenericStack primaryInput(IPatternDetails.IInput input) {
+        try {
+            GenericStack[] possible = input.getPossibleInputs();
+            if (possible == null || possible.length == 0 || possible[0] == null
+                    || possible[0].what() == null || !primaryInputs.contains(possible[0].what())) return null;
+            return possible[0];
+        } catch (RuntimeException unavailable) {
+            return null;
+        }
+    }
+
+    private long availableExact(AEKey key) {
+        if (source instanceof ListCraftingInventory list) return Math.max(0L, list.list.get(key));
+        return Math.max(0L, source.extract(key, Long.MAX_VALUE, Actionable.SIMULATE));
     }
 
     @Override
@@ -118,5 +201,9 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
             if (key.equals(candidate) && primaryInputs.contains(candidate)) result.add(candidate);
         }
         return List.copyOf(result);
+    }
+
+    private record PatternMetadata(long reloadGeneration, Set<AEKey> primaryInputs,
+            Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {
     }
 }

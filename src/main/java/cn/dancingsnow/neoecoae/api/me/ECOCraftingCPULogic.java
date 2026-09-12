@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashSet;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -45,6 +47,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
@@ -101,6 +104,9 @@ public class ECOCraftingCPULogic {
     private IPatternDetails resumeDispatchPattern;
     private final java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer =
         new java.util.ArrayList<>();
+    private final Map<FailedCandidateKey, InputAvailabilityEpoch> missingInputFailures = new HashMap<>();
+    private final Map<AEKey, Long> physicalInsertGenerations = new HashMap<>();
+    private long physicalInsertGeneration;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -138,6 +144,7 @@ public class ECOCraftingCPULogic {
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         providerCursor.clear();
         resumeDispatchPattern = null;
+        resetMissingInputMemo();
         stallDiagnostics.bind(craftId, TickHandler.instance().getCurrentTick());
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -197,7 +204,9 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        stallDiagnostics.bind(job.link.getCraftingID(), TickHandler.instance().getCurrentTick());
+        long currentTick = TickHandler.instance().getCurrentTick();
+        stallDiagnostics.bind(job.link.getCraftingID(), currentTick);
+        stallDiagnostics.beginResolveTick(currentTick);
         deliverStoredFinalOutput();
         if (job == null || job.suspended) {
             return;
@@ -225,6 +234,7 @@ public class ECOCraftingCPULogic {
             }
         } finally {
             remainingNormalProbes = -1;
+            stallDiagnostics.finishResolveTick();
         }
         // Match the rolling three-tick accounting for ordinary pushes. Verified ECO batches are bounded
         // by the live provider capacity and deliberately do not consume this operation window.
@@ -318,6 +328,26 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        return NEConfig.fastPushEnabled
+            ? executeFastPush(maxPatterns, craftingService, energyService, level)
+            : executeNormalCrafting(maxPatterns, craftingService, energyService, level);
+    }
+
+    /** Ordinary provider dispatch for non-FastPush processing patterns. Existing fastpath remains available. */
+    public int executeNormalCrafting(
+            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        return executeCraftingInternal(maxPatterns, craftingService, energyService, level, false);
+    }
+
+    /** FastPush dispatch entry point for the optimized non-fastpath strategy. */
+    public int executeFastPush(
+            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        return executeCraftingInternal(maxPatterns, craftingService, energyService, level, true);
+    }
+
+    private int executeCraftingInternal(
+            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level,
+            boolean fastPush) {
         normalPushProbesThisPass = 0;
         lastAcceptedNormalPushes = 0;
         var current = job;
@@ -374,6 +404,24 @@ public class ECOCraftingCPULogic {
                     stallDiagnostics.phaseBarrier();
                     continue;
                 }
+                FailedCandidateKey failedCandidateKey = current.executionRuntime == null
+                    ? null : new FailedCandidateKey(candidate.phaseIndex(), candidate.taskId());
+                Set<AEKey> dependencyKeys = current.executionRuntime == null
+                    ? Set.of() : current.executionRuntime.inputKeys(candidate.taskId());
+                boolean preciseFailureEpoch = failedCandidateKey != null && !dependencyKeys.isEmpty()
+                    && !ECOCraftingInputPreview.hasReusableTemplates(pattern, remainderCache);
+                if (failedCandidateKey != null) {
+                    var previousFailure = missingInputFailures.get(failedCandidateKey);
+                    if (previousFailure != null && availabilityUnchanged(previousFailure, dependencyKeys,
+                            current.executionRuntime, preciseFailureEpoch)) {
+                        stallDiagnostics.repeatedFailureSameEpoch();
+                        if (candidate.blocksOrderedPhase()) {
+                            stallDiagnostics.phaseBarrier();
+                            blockedOrderedPhases.set(candidate.phaseIndex());
+                        }
+                        continue;
+                    }
+                }
                 // Skip input resolution when no eligible provider is ready for a dispatch.
                 var providers = providerCursor.availableProviders(
                     pattern, () -> collectAvailableProviders(craftingService, pattern),
@@ -391,6 +439,10 @@ public class ECOCraftingCPULogic {
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
                 }
+                long physicalGenerationBeforeResolve = physicalInsertGeneration;
+                long seedGenerationBeforeResolve = current.executionRuntime == null
+                    ? 0L : current.executionRuntime.startupSeedGeneration();
+                long reloadGenerationBeforeResolve = AE2PatternIntrospection.reloadGeneration();
                 var outputs = new KeyCounter();
                 var containers = new KeyCounter();
                 var protectedStartupSeed = current.executionRuntime == null
@@ -400,9 +452,23 @@ public class ECOCraftingCPULogic {
                     ? new ECOCraftingInputPreview(inventory)
                     : new ECOCraftingInputPreview(
                         inventory, pattern, protectedStartupSeed, remainderCache);
-                var inputs = ECOCraftingInputResolver.extractPatternInputs(
+                stallDiagnostics.resolveAttempt();
+                var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
                     pattern, inputInventory, level, outputs, containers, remainderCache);
                 if (inputs == null) {
+                    stallDiagnostics.resolveFailure();
+                    if (failedCandidateKey != null) {
+                        boolean stable = physicalGenerationBeforeResolve == physicalInsertGeneration
+                            && seedGenerationBeforeResolve == current.executionRuntime.startupSeedGeneration()
+                            && reloadGenerationBeforeResolve == AE2PatternIntrospection.reloadGeneration();
+                        if (stable) {
+                            missingInputFailures.put(failedCandidateKey,
+                                captureAvailabilityEpoch(dependencyKeys, current.executionRuntime,
+                                    preciseFailureEpoch));
+                        } else {
+                            missingInputFailures.remove(failedCandidateKey);
+                        }
+                    }
                     if (stallDiagnostics.isActive()) {
                         var diagnosticInventory = current.executionRuntime == null
                             ? new ECOCraftingInputPreview(inventory)
@@ -491,6 +557,7 @@ public class ECOCraftingCPULogic {
                                     resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
                                     totalPushed = addPushed(totalPushed, craftCount);
                                     acceptedInPass = true;
+                                    if (failedCandidateKey != null) missingInputFailures.remove(failedCandidateKey);
                                     break;
                                 }
                                 energyReservation.refund();
@@ -577,6 +644,7 @@ public class ECOCraftingCPULogic {
                         markCpuDirty();
                         stallDiagnostics.progress(TickHandler.instance().getCurrentTick());
                         acceptedInPass = true;
+                        if (failedCandidateKey != null) missingInputFailures.remove(failedCandidateKey);
                     } finally {
                         // A rejected ordinary provider does not own the extracted inputs; try the next provider in
                         // the same provider-first-fit pass.
@@ -761,6 +829,7 @@ public class ECOCraftingCPULogic {
         if (accepted <= 0L) return 0L;
         if (type == Actionable.MODULATE) {
             inventory.insert(what, accepted, Actionable.MODULATE);
+            incrementPhysicalInsertGeneration(what);
             current.waitingFor.extract(what, accepted, Actionable.MODULATE);
             current.timeTracker.decrementItems(accepted, what.getType());
             markCpuDirty();
@@ -789,6 +858,7 @@ public class ECOCraftingCPULogic {
         // Job-directed surplus belongs to this CPU too, but must not decrement unrelated waiting entries.
         if (type == Actionable.MODULATE && accepted < amount) {
             inventory.insert(what, amount - accepted, Actionable.MODULATE);
+            incrementPhysicalInsertGeneration(what);
             markCpuDirty();
         }
         return amount;
@@ -835,6 +905,7 @@ public class ECOCraftingCPULogic {
         this.job = null;
         providerCursor.clear();
         resumeDispatchPattern = null;
+        resetMissingInputMemo();
         stallDiagnostics.reset();
 
         // 存储所有剩余物品。
@@ -930,6 +1001,7 @@ public class ECOCraftingCPULogic {
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         providerCursor.clear();
         resumeDispatchPattern = null;
+        resetMissingInputMemo();
         dispatchStrategy.reset();
         stallDiagnostics.reset();
         double restoredEnergyCredit = data.getDouble("prepaidEnergyCredit");
@@ -1109,5 +1181,57 @@ public class ECOCraftingCPULogic {
 
     public void markForDeletion() {
         this.markedForDeletion = true;
+    }
+
+    private void resetMissingInputMemo() {
+        missingInputFailures.clear();
+        physicalInsertGenerations.clear();
+        physicalInsertGeneration = 0L;
+    }
+
+    private void incrementPhysicalInsertGeneration(AEKey key) {
+        if (key == null) return;
+        long current = physicalInsertGenerations.getOrDefault(key, 0L);
+        if (current != Long.MAX_VALUE) physicalInsertGenerations.put(key, current + 1L);
+        if (physicalInsertGeneration != Long.MAX_VALUE) physicalInsertGeneration++;
+    }
+
+    private record FailedCandidateKey(int phaseIndex, int taskId) {
+    }
+
+    private InputAvailabilityEpoch captureAvailabilityEpoch(Set<AEKey> dependencyKeys,
+            ECOExecutionRuntime runtime, boolean precise) {
+        Map<AEKey, Long> physical = new HashMap<>();
+        Map<AEKey, Long> startupSeeds = new HashMap<>();
+        if (precise) {
+            for (AEKey key : dependencyKeys) {
+                physical.put(key, physicalInsertGenerations.getOrDefault(key, 0L));
+                startupSeeds.put(key, runtime.startupSeedGeneration(key));
+            }
+        }
+        return new InputAvailabilityEpoch(precise, physicalInsertGeneration, runtime.startupSeedGeneration(),
+            Map.copyOf(physical), Map.copyOf(startupSeeds), AE2PatternIntrospection.reloadGeneration());
+    }
+
+    private boolean availabilityUnchanged(InputAvailabilityEpoch previous, Set<AEKey> dependencyKeys,
+            ECOExecutionRuntime runtime, boolean precise) {
+        if (previous.reloadGeneration() != AE2PatternIntrospection.reloadGeneration()) return false;
+        if (previous.precise() != precise) return false;
+        if (!precise) {
+            return previous.globalPhysicalInsertGeneration() == physicalInsertGeneration
+                && previous.globalStartupSeedGeneration() == runtime.startupSeedGeneration();
+        }
+        for (AEKey key : dependencyKeys) {
+            if (previous.physicalInsertGenerations().getOrDefault(key, 0L)
+                    != physicalInsertGenerations.getOrDefault(key, 0L)
+                    || previous.startupSeedGenerations().getOrDefault(key, 0L)
+                    != runtime.startupSeedGeneration(key)) return false;
+        }
+        return true;
+    }
+
+    private record InputAvailabilityEpoch(boolean precise, long globalPhysicalInsertGeneration,
+            long globalStartupSeedGeneration, Map<AEKey, Long> physicalInsertGenerations,
+            Map<AEKey, Long> startupSeedGenerations, long reloadGeneration) {
     }
 }

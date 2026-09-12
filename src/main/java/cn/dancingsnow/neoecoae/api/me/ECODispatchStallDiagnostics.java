@@ -53,6 +53,10 @@ final class ECODispatchStallDiagnostics {
     private int candidates;
     private int operationLimit;
     private int probeLimit;
+    private long resolveStatsTick = Long.MIN_VALUE;
+    private long resolveAttempts;
+    private long resolveFailures;
+    private long repeatedFailureSameEpoch;
     private final EnumMap<Cause, Long> causes = new EnumMap<>(Cause.class);
     private final EnumMap<ECOPatternPushDiagnostics.Reason, Long> pushReasons =
         new EnumMap<>(ECOPatternPushDiagnostics.Reason.class);
@@ -81,6 +85,10 @@ final class ECODispatchStallDiagnostics {
         lastProgressTick = 0L;
         lastReportTick = 0L;
         reported = false;
+        resolveStatsTick = Long.MIN_VALUE;
+        resolveAttempts = 0L;
+        resolveFailures = 0L;
+        repeatedFailureSameEpoch = 0L;
         clearObservations();
     }
 
@@ -100,6 +108,32 @@ final class ECODispatchStallDiagnostics {
         if (jobId == null) return;
         this.operationLimit = operationLimit;
         this.probeLimit = probeLimit;
+    }
+
+    void beginResolveTick(long tick) {
+        if (jobId == null || resolveStatsTick == tick) return;
+        resolveStatsTick = tick;
+        resolveAttempts = 0L;
+        resolveFailures = 0L;
+        repeatedFailureSameEpoch = 0L;
+    }
+
+    void resolveAttempt() {
+        if (jobId != null) resolveAttempts = saturatingIncrement(resolveAttempts);
+    }
+
+    void resolveFailure() {
+        if (jobId != null) resolveFailures = saturatingIncrement(resolveFailures);
+    }
+
+    void repeatedFailureSameEpoch() {
+        if (jobId != null) repeatedFailureSameEpoch = saturatingIncrement(repeatedFailureSameEpoch);
+    }
+
+    void finishResolveTick() {
+        if (jobId == null || (resolveFailures == 0L && repeatedFailureSameEpoch == 0L)) return;
+        LOGGER.info("[ECO Dispatch Resolve] tick={} resolveAttempts={} resolveFailures={} repeatedFailureSameEpoch={}",
+            resolveStatsTick, resolveAttempts, resolveFailures, repeatedFailureSameEpoch);
     }
 
     void candidates(int count) {

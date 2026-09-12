@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +63,8 @@ public final class ECOExecutionRuntime {
     // Reused by the dispatch loop; callers consume the snapshot before requesting the next one.
     private final List<DispatchCandidate> candidateBuffer = new ArrayList<>();
     private final List<Map<AEKey, Long>> startupSeedRemainingByPhase;
+    private final Map<AEKey, Long> startupSeedGenerations = new HashMap<>();
+    private long startupSeedGeneration;
     private boolean reconciledEmptyCandidates;
 
     public ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById) {
@@ -274,6 +277,19 @@ public final class ECOExecutionRuntime {
         refreshTaskState(candidate.taskId());
         maybeCompletePhase(phaseIndex);
         consumeStartupSeed(candidate, inputs, count);
+    }
+
+    long startupSeedGeneration(AEKey key) {
+        return key == null ? 0L : startupSeedGenerations.getOrDefault(key, 0L);
+    }
+
+    long startupSeedGeneration() {
+        return startupSeedGeneration;
+    }
+
+    Set<AEKey> inputKeys(int taskId) {
+        if (taskId < 0 || taskId >= inputKeysByTaskId.size()) return Set.of();
+        return inputKeysByTaskId.get(taskId);
     }
 
     public boolean isComplete() {
@@ -669,7 +685,13 @@ public final class ECOExecutionRuntime {
             for (var entry : input) {
                 long consumed = NEMath.saturatingMultiply(entry.getLongValue(), count);
                 long reserved = ownedSeeds.getOrDefault(entry.getKey(), 0L);
-                if (reserved > 0L) ownedSeeds.put(entry.getKey(), Math.max(0L, reserved - consumed));
+                if (reserved > 0L && consumed > 0L) {
+                    long remaining = Math.max(0L, reserved - consumed);
+                    if (remaining != reserved) {
+                        ownedSeeds.put(entry.getKey(), remaining);
+                        incrementStartupSeedGeneration(entry.getKey());
+                    }
+                }
             }
         }
         ownedSeeds.entrySet().removeIf(entry -> entry.getValue() <= 0L);
@@ -804,10 +826,21 @@ public final class ECOExecutionRuntime {
     private void markPhaseCompleted(int phaseIndex) {
         if (completedPhases.get(phaseIndex)) return;
         completedPhases.set(phaseIndex);
-        startupSeedRemainingByPhase.get(phaseIndex).clear();
+        Map<AEKey, Long> releasedSeeds = startupSeedRemainingByPhase.get(phaseIndex);
+        if (!releasedSeeds.isEmpty()) {
+            for (AEKey key : releasedSeeds.keySet()) incrementStartupSeedGeneration(key);
+            releasedSeeds.clear();
+        }
         for (int dependent : dependentsByPhase.get(phaseIndex)) {
             if (remainingDependencies[dependent] > 0) remainingDependencies[dependent]--;
         }
+    }
+
+    private void incrementStartupSeedGeneration(AEKey key) {
+        if (key == null) return;
+        long current = startupSeedGenerations.getOrDefault(key, 0L);
+        if (current != Long.MAX_VALUE) startupSeedGenerations.put(key, current + 1L);
+        if (startupSeedGeneration != Long.MAX_VALUE) startupSeedGeneration++;
     }
 
     private void rebuildProgressState() {
