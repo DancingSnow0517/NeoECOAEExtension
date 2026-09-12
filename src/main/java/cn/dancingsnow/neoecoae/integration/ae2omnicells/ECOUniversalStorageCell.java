@@ -8,7 +8,7 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
@@ -17,7 +17,7 @@ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-public final class ECOUniversalStorageCell implements IECOStorageCell {
+public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
     private final StorageCell delegate;
     private final ItemStack stack;
     private final ECOUniversalStorageCellItem item;
@@ -95,6 +95,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         return delegate.insert(what, amount, mode, source);
     }
 
+    @Override
     public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (amount <= 0L) return 0L;
         // Migration must not mistake Omni's void-card overflow for physically stored data.
@@ -111,7 +112,14 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
      * still point at OmniCells' SavedData, so using {@code MODULATE} here would write into the live matrix during the
      * preflight and the real restore would write the same amount again.
      */
-    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+    @Override
+    public long simulateInsertForMigration(
+        AEKey what,
+        long amount,
+        KeyCounter simulatedContents,
+        long simulatedTypes,
+        long simulatedAmount
+    ) {
         if (amount <= 0L || simulatedContents == null) {
             return 0L;
         }
@@ -134,6 +142,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         return Math.min(amount, capacity);
     }
 
+    @Override
     public long getUsedBytesForMigration(KeyCounter simulatedContents) {
         return simulatedContents == null ? 0L : snapshot(simulatedContents).usedBytes();
     }
@@ -208,8 +217,10 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         delegate.getAvailableStacks(out);
     }
 
+    @Override
     public void getMigrationStacks(KeyCounter out) { delegate.getAvailableStacks(out); }
 
+    @Override
     public void clearMigrationStacks() {
         KeyCounter contents = new KeyCounter();
         delegate.getAvailableStacks(contents);

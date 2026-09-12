@@ -20,7 +20,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.util.NEMath;
@@ -38,7 +38,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOStorageCell implements IECOStorageCell {
+public class ECOStorageCell implements IECOStorageMigrationCell {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Nullable
@@ -333,6 +333,11 @@ public class ECOStorageCell implements IECOStorageCell {
         return innerInsert(what, amount, mode);
     }
 
+    @Override
+    public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
+        return insertForMigration(what, amount, mode);
+    }
+
     /**
      * Computes migration capacity against a caller-owned inventory snapshot. A restore preflight must not mutate a
      * real cell because some cell implementations back copied ItemStacks with world-level storage.
@@ -386,6 +391,19 @@ public class ECOStorageCell implements IECOStorageCell {
         return Math.min(amount, remainingItemCount);
     }
 
+    @Override
+    public long simulateInsertForMigration(
+        AEKey what,
+        long amount,
+        KeyCounter simulatedContents,
+        long simulatedTypes,
+        long simulatedAmount
+    ) {
+        return simulateInsertForMigration(
+            what, amount, simulatedContents.get(what), simulatedTypes, simulatedAmount);
+    }
+
+    @Override
     public long getUsedBytesForMigration(KeyCounter simulatedContents) {
         if (simulatedContents == null) {
             return 0L;
@@ -495,12 +513,14 @@ public class ECOStorageCell implements IECOStorageCell {
         getMigrationStacks(out);
     }
 
+    @Override
     public void getMigrationStacks(KeyCounter out) {
         for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
             out.add(entry.getKey(), entry.getLongValue());
         }
     }
 
+    @Override
     public java.util.Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
         return getCellItems().object2LongEntrySet().iterator();
     }
@@ -535,6 +555,11 @@ public class ECOStorageCell implements IECOStorageCell {
         storedItems = 0;
         storedItemCount = 0;
         saveChanges();
+    }
+
+    @Override
+    public void clearMigrationStacks() {
+        clearAllStoredStacks();
     }
 
 }

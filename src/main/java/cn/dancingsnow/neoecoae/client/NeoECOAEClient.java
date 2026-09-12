@@ -4,14 +4,13 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import cn.dancingsnow.neoecoae.mixins.client.accessor.MenuScreensAccessor;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
@@ -72,8 +71,7 @@ public class NeoECOAEClient {
         // eco_cell_compat housing set. The tint index is ignored by models that have no status-light
         // layer, so registering an extra item is harmless.
         Item[] cells = BuiltInRegistries.ITEM.stream()
-            .filter(item -> item instanceof ECOStorageCellItem
-                || item instanceof ECOUniversalStorageCellItem)
+            .filter(item -> item instanceof IECOStorageCellItem)
             .toArray(Item[]::new);
         event.register(NEItemColors::getCellColor, cells);
     }

@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -109,8 +110,8 @@ public final class ECOInfiniteStorageMember {
             return;
         }
         var inventory = ECOStorageCells.getCellInventory(stack, null);
-        if (inventory instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universal) {
-            universal.clearMigrationStacks();
+        if (inventory instanceof IECOStorageMigrationCell migrationCell) {
+            migrationCell.clearMigrationStacks();
         } else if (inventory != null) {
             var available = inventory.getAvailableStacks();
             for (var entry : available) {

@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
@@ -1570,20 +1571,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void migrateDriveToDomain(ECODriveBlockEntity drive, IECOStorageCell cell, ECOInfiniteStorageEngine engine, UUID domainId) {
-        if (!(cell instanceof ECOStorageCell)
-            && !(cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell)) {
+        if (!(cell instanceof IECOStorageMigrationCell migrationCell)) {
             throw new IllegalStateException("Cell handler does not support resumable migration");
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
         MigrationCursor cursor = migrationCursors.get(migration);
         if (cursor == null) {
-            java.util.Iterator<Object2LongMap.Entry<AEKey>> entries;
-            if (cell instanceof ECOStorageCell storageCell) entries = storageCell.migrationEntries();
-            else if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universal) {
-                KeyCounter available = new KeyCounter();
-                universal.getMigrationStacks(available);
-                entries = available.iterator();
-            } else throw new IllegalStateException("Cell handler does not support resumable migration");
+            java.util.Iterator<Object2LongMap.Entry<AEKey>> entries = migrationCell.migrationEntries();
             drive.setChanged();
             IStorageProvider.requestUpdate(drive.getMainNode());
             // The source seal must reach its chunk before the domain can expose a second copy.
@@ -1609,9 +1603,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (cursor.pending != null || cursor.entries.hasNext()) return;
         if (!engine.commit().successful()) {
             return;
-        }
-        if (cell instanceof ECOStorageCell storageCell) {
-            storageCell.clearAllStoredStacks();
         }
         drive.convertCellToInfiniteMember(domainId);
         migrationCursors.remove(migration);
@@ -1728,8 +1719,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             ItemStack simulationStack = stack.copy();
             ECOInfiniteStorageMember.clearMember(simulationStack);
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
-            if ((simulatedCell instanceof ECOStorageCell
-                || simulatedCell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell)
+            if (simulatedCell instanceof IECOStorageMigrationCell
                 && simulatedCell.getTier() == ECOTier.L9
                 && simulatedCell.isInfiniteStorageEligible()) {
                 KeyCounter simulatedContents = new KeyCounter();
@@ -1765,12 +1755,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         IActionSource source
     ) {
         IECOStorageCell cell = target.simulatedCell();
-        if (cell instanceof ECOStorageCell storageCell) {
-            return storageCell.simulateInsertForMigration(key, amount, target.simulatedContents().get(key),
-                target.simulatedTypes, target.simulatedAmount);
-        }
-        if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universalCell) {
-            return universalCell.simulateInsertForMigration(key, amount, target.simulatedContents());
+        if (cell instanceof IECOStorageMigrationCell migrationCell) {
+            return migrationCell.simulateInsertForMigration(
+                key, amount, target.simulatedContents(), target.simulatedTypes, target.simulatedAmount);
         }
         // Unknown handlers must still be probed without mutation. Such handlers are allowed to return a conservative
         // capacity; the real restore below remains authoritative and verifies the final aggregate.
@@ -1779,11 +1766,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private long getUsedBytesForRestore(RestoreTarget target) {
         IECOStorageCell cell = target.simulatedCell();
-        if (cell instanceof ECOStorageCell storageCell) {
-            return storageCell.getUsedBytesForMigration(target.simulatedContents());
-        }
-        if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universalCell) {
-            return universalCell.getUsedBytesForMigration(target.simulatedContents());
+        if (cell instanceof IECOStorageMigrationCell migrationCell) {
+            return migrationCell.getUsedBytesForMigration(target.simulatedContents());
         }
         return cell.getUsedBytes();
     }
@@ -1919,10 +1903,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         KeyCounter restored = new KeyCounter();
         for (RestoreTarget target : targets) {
             IECOStorageCell cell = target.drive().getCellInventory();
-            if (cell instanceof ECOStorageCell storageCell) storageCell.getMigrationStacks(restored);
-            else if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universal) {
-                universal.getMigrationStacks(restored);
-            } else if (cell != null) cell.getAvailableStacks(restored);
+            if (cell instanceof IECOStorageMigrationCell migrationCell) migrationCell.getMigrationStacks(restored);
+            else if (cell != null) cell.getAvailableStacks(restored);
         }
         return restored;
     }
@@ -1934,11 +1916,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         Actionable mode,
         IActionSource source
     ) {
-        if (cell instanceof ECOStorageCell storageCell) {
-            return storageCell.insertForMigration(key, amount, mode);
-        }
-        if (cell instanceof cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalStorageCell universal) {
-            return universal.insertForMigration(key, amount, mode, source);
+        if (cell instanceof IECOStorageMigrationCell migrationCell) {
+            return migrationCell.insertForMigration(key, amount, mode, source);
         }
         return cell.insert(key, amount, mode, source);
     }
