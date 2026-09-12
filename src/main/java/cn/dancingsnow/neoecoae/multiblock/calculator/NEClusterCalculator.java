@@ -43,9 +43,18 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) candidate;
             c.addBlockEntity(blockEntity);
         }
-        c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
+        c.getBlockEntities().forEachRemaining(it -> {
+            if (it instanceof NEBlockEntity<?, ?> blockEntity) {
+                updateClusterUnchecked(blockEntity, c);
+            }
+        });
         c.updateFormed(true);
         this.onClusterAttached(c);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void updateClusterUnchecked(NEBlockEntity<?, ?> blockEntity, NECluster<?> cluster) {
+        ((NEBlockEntity) blockEntity).updateCluster(cluster);
     }
 
     protected void onClusterAttached(C cluster) {

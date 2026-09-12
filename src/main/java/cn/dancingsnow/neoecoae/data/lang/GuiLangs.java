@@ -9,6 +9,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
+        provider.add("gui.neoecoae.large_integrated_working_station.input_fluid", "Input Fluid");
+        provider.add("gui.neoecoae.large_integrated_working_station.output_fluid", "Output Fluid");
         provider.add("gui.neoecoae.multiblock.builder", "Structure Builder");
         provider.add("gui.neoecoae.multiblock.close_builder", "Close builder");
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");

@@ -4,6 +4,7 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegratedWorkingStationBlockEntity> implements BlockUIMenuType.BlockUI {
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final Property<Boolean> WORKING = BooleanProperty.create("working");
+    public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     private static final VoxelShape NORTH = Stream.of(
         Block.box(4, 4, 1, 12, 15, 12),
@@ -79,7 +81,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     public ECOIntegratedWorkingStation(Properties props) {
         super(props);
-        registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false));
+        registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false).setValue(FORMED, false));
     }
 
     @Override
@@ -90,7 +92,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(WORKING);
+        builder.add(WORKING, FORMED);
     }
 
     @Override
@@ -104,6 +106,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        if (state.getValue(FORMED)) return Shapes.block();
         return switch (state.getValue(FACING)) {
             case NORTH -> NORTH;
             case EAST -> EAST;
@@ -115,9 +118,29 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity be) {
+            return be.createUI(holder);
+        }
         if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOIntegratedWorkingStationBlockEntity be) {
             return be.createUI(holder);
         }
         return null;
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (newState.getBlock() != state.getBlock()
+            && level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity be) {
+            be.breakCluster();
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        if (level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity be) {
+            be.updateMultiBlock(neighborPos);
+        }
     }
 }

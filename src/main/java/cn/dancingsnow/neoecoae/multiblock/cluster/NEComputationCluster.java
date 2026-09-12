@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.me.helpers.IGridConnectedBlockEntity;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
@@ -462,7 +463,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         boolean posted = false;
 
         for (var r : this.blockEntities) {
-            IGridNode n = r.getActionableNode();
+            IGridNode n = r instanceof IGridConnectedBlockEntity connected ? connected.getActionableNode() : null;
             if (n != null && n.getGrid() != null && !posted) {
                 n.getGrid().postEvent(new GridCraftingCpuChange(n));
                 posted = true;

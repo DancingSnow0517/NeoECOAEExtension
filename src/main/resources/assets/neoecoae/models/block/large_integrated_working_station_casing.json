@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "neoecoae:block/large_integrated_working_station/casing"
+  }
+}

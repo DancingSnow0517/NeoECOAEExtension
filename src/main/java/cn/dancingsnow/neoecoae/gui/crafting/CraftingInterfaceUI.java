@@ -58,7 +58,7 @@ public final class CraftingInterfaceUI {
     }
 
     public static ModularUI create(
-            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
+            ECOMachineInterfaceBlockEntity<?> craftingInterface,
             Player player) {
         CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
 
@@ -114,7 +114,7 @@ public final class CraftingInterfaceUI {
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
     }
 
-    private static Button transferButton(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+    private static Button transferButton(ECOMachineInterfaceBlockEntity<?> craftingInterface) {
         Button button = new Button()
                 .setText(Component.translatable("gui.neoecoae.host.crafting.pattern_transfer"))
                 .setOnServerClick(event -> craftingInterface.startNetworkPatternTransfer());
@@ -127,7 +127,7 @@ public final class CraftingInterfaceUI {
     }
 
     private static UIElement patternTransferProgress(
-            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+            ECOMachineInterfaceBlockEntity<?> craftingInterface) {
         UIElement container = HostElements.syncedDisplay(craftingInterface::isPatternTransferInProgress);
         ProgressBar progressBar = new ProgressBar();
         progressBar.label(label -> label.setText(""));
@@ -140,7 +140,7 @@ public final class CraftingInterfaceUI {
         return container;
     }
 
-    private static UIElement secondaryStatus(ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface) {
+    private static UIElement secondaryStatus(ECOMachineInterfaceBlockEntity<?> craftingInterface) {
         UIElement container = HostElements.syncedDisplay(craftingInterface::hasPatternTransferSecondaryStatus);
         container.addChild(statusLabel(craftingInterface::getPatternTransferSecondaryStatus));
         container.layout(layout -> layout.widthPercent(100).height(12));
@@ -148,7 +148,7 @@ public final class CraftingInterfaceUI {
     }
 
     private static UIElement previewHeader(
-            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
+            ECOMachineInterfaceBlockEntity<?> craftingInterface,
             CraftingPatternPreviewState previewState,
             Player player) {
         UIElement header = new UIElement().layout(layout -> layout
@@ -226,7 +226,7 @@ public final class CraftingInterfaceUI {
     }
 
     private static UIElement previewSection(
-            ECOMachineInterfaceBlockEntity<NECraftingCluster> craftingInterface,
+            ECOMachineInterfaceBlockEntity<?> craftingInterface,
             CraftingPatternPreviewState previewState,
             Player player) {
         UIElement section = new UIElement().layout(layout -> layout

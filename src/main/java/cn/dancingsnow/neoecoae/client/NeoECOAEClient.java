@@ -10,7 +10,10 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.mixins.client.accessor.MenuScreensAccessor;
+import appeng.init.client.InitScreens;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
@@ -57,6 +60,16 @@ public class NeoECOAEClient {
                     menu, inventory, title, StyleManager.loadStyleDoc("/screens/craft_confirm.json"));
             MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
         });
+    }
+
+    @SubscribeEvent
+    public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
+        InitScreens.register(
+            event,
+            LargeIntegratedWorkingStationPatternProviderMenu.TYPE,
+            LargeIntegratedWorkingStationPatternProviderScreen::new,
+            "/screens/large_integrated_working_station_interface.json"
+        );
     }
 
     @SubscribeEvent

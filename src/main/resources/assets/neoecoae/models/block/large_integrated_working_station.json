@@ -1,0 +1,559 @@
+{
+  "credit": "Adapted from desktop large_eco_iws_model/bigeco1 - Converted.json",
+  "textures": {
+    "atlas": "neoecoae:block/large_integrated_working_station/large_integrated_working_station_atlas",
+    "front": "neoecoae:block/large_integrated_working_station/front",
+    "top": "neoecoae:block/large_integrated_working_station/top",
+    "screen": "neoecoae:block/large_integrated_working_station/screen_off",
+    "particle": "neoecoae:block/large_integrated_working_station/large_integrated_working_station_atlas"
+  },
+  "elements": [
+    {
+      "name": "Body_lower_merged",
+      "from": [
+        -16,
+        -16,
+        0
+      ],
+      "to": [
+        32,
+        0,
+        32
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -8,
+          -16,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            2.125,
+            3,
+            4
+          ],
+          "texture": "#atlas"
+        },
+        "east": {
+          "uv": [
+            2,
+            6,
+            4,
+            8
+          ],
+          "texture": "#atlas"
+        },
+        "south": {
+          "uv": [
+            3,
+            2,
+            6,
+            4
+          ],
+          "texture": "#atlas"
+        },
+        "west": {
+          "uv": [
+            0,
+            6,
+            2,
+            8
+          ],
+          "texture": "#atlas"
+        },
+        "down": {
+          "uv": [
+            9,
+            0,
+            12,
+            4
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Body_upper_left_merged",
+      "from": [
+        -16,
+        0,
+        0
+      ],
+      "to": [
+        0,
+        16,
+        32
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            0,
+            3,
+            2
+          ],
+          "texture": "#atlas"
+        },
+        "south": {
+          "uv": [
+            3,
+            0,
+            4,
+            2
+          ],
+          "texture": "#atlas"
+        },
+        "west": {
+          "uv": [
+            0,
+            4,
+            2,
+            6
+          ],
+          "texture": "#atlas"
+        },
+        "up": {
+          "uv": [
+            6.0625,
+            0.125,
+            7.0625,
+            4
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Body_upper_right_merged",
+      "from": [
+        16,
+        0,
+        0
+      ],
+      "to": [
+        32,
+        16,
+        32
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -8,
+          -16,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            1,
+            2
+          ],
+          "texture": "#atlas"
+        },
+        "east": {
+          "uv": [
+            2,
+            4,
+            4,
+            6
+          ],
+          "texture": "#atlas"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            6,
+            2
+          ],
+          "texture": "#atlas"
+        },
+        "up": {
+          "uv": [
+            8,
+            0.125,
+            9,
+            4
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Body_upper_rear_merged",
+      "from": [
+        0,
+        0,
+        24
+      ],
+      "to": [
+        16,
+        16,
+        32
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          8
+        ]
+      },
+      "faces": {
+        "south": {
+          "uv": [
+            4,
+            0,
+            5,
+            2
+          ],
+          "texture": "#atlas"
+        },
+        "up": {
+          "uv": [
+            7,
+            3,
+            8,
+            4
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Controller_screen_0",
+      "from": [
+        2,
+        -2,
+        1.5
+      ],
+      "to": [
+        14,
+        14.5,
+        18
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            0.66667,
+            12,
+            12
+          ],
+          "texture": "#screen"
+        },
+        "up": {
+          "uv": [
+            4,
+            0.66667,
+            12.08333,
+            12.0625
+          ],
+          "texture": "#screen"
+        }
+      },
+      "shade": false
+    },
+    {
+      "name": "Controller_front_pillar_a_2",
+      "from": [
+        2,
+        -1,
+        0
+      ],
+      "to": [
+        14,
+        0,
+        1.5
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            5.5625,
+            5.125,
+            7.0625,
+            5.875
+          ],
+          "texture": "#atlas"
+        },
+        "up": {
+          "uv": [
+            0.79167,
+            1.5,
+            0.20833,
+            1.54167
+          ],
+          "texture": "#front"
+        }
+      }
+    },
+    {
+      "name": "Controller_front_pillar_b_3",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        2,
+        16,
+        1.5
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            1.875,
+            0.125,
+            2,
+            2.25
+          ],
+          "texture": "#atlas"
+        },
+        "east": {
+          "uv": [
+            0.75,
+            0,
+            0.8125,
+            1.5
+          ],
+          "texture": "#front"
+        },
+        "up": {
+          "uv": [
+            7,
+            0.125,
+            7.125,
+            0.3125
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Controller_front_pillar_b_4",
+      "from": [
+        14,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        1.5
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            0.125,
+            1.125,
+            2.25
+          ],
+          "texture": "#atlas"
+        },
+        "west": {
+          "uv": [
+            0.20833,
+            0,
+            0.25,
+            1.54167
+          ],
+          "texture": "#front"
+        },
+        "up": {
+          "uv": [
+            7.875,
+            0.125,
+            8,
+            0.3125
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Controller_top_pillar_a_5",
+      "from": [
+        0,
+        14.5,
+        18
+      ],
+      "to": [
+        16,
+        16,
+        24
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0.20833,
+            1.5,
+            0.79167,
+            1.54167
+          ],
+          "texture": "#top"
+        },
+        "up": {
+          "uv": [
+            7,
+            2.125,
+            8,
+            2.875
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Controller_top_pillar_b_6",
+      "from": [
+        14,
+        14.5,
+        1.5
+      ],
+      "to": [
+        16,
+        16,
+        18
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "west": {
+          "uv": [
+            0.75,
+            0,
+            0.79167,
+            1.54167
+          ],
+          "rotation": 90,
+          "texture": "#top"
+        },
+        "up": {
+          "uv": [
+            7.875,
+            0.25,
+            8,
+            2.1875
+          ],
+          "texture": "#atlas"
+        }
+      }
+    },
+    {
+      "name": "Controller_top_pillar_b_7",
+      "from": [
+        0,
+        14.5,
+        1.5
+      ],
+      "to": [
+        2,
+        16,
+        18
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          -16,
+          -16,
+          0
+        ]
+      },
+      "faces": {
+        "east": {
+          "uv": [
+            0.20833,
+            0,
+            0.25,
+            1.5
+          ],
+          "rotation": 270,
+          "texture": "#top"
+        },
+        "up": {
+          "uv": [
+            7,
+            0.25,
+            7.125,
+            2.0625
+          ],
+          "texture": "#atlas"
+        }
+      }
+    }
+  ],
+  "ambientocclusion": false
+}

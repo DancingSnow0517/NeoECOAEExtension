@@ -147,8 +147,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     private final IUpgradeInventory upgrades;
     private final IConfigManager configManager;
 
-    private final AppEngInternalInventory inputInv = new AppEngInternalInventory(this, MAX_INPUT_SLOTS, 64);
-    private final AppEngInternalInventory outputInv = new AppEngInternalInventory(this, 1, 64);
+    protected final AppEngInternalInventory inputInv = new AppEngInternalInventory(this, MAX_INPUT_SLOTS, 64);
+    protected final AppEngInternalInventory outputInv = new AppEngInternalInventory(this, 1, 64);
     private final InternalInventory inv = new CombinedInternalInventory(this.inputInv, this.outputInv);
 
     private final FilteredInternalInventory inputExposed = new FilteredInternalInventory(this.inputInv, AEItemFilters.INSERT_ONLY);
@@ -240,7 +240,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     private boolean dirty = false;
 
-    private @Nullable IntegratedWorkingStationRecipe cachedTask = null;
+    protected @Nullable IntegratedWorkingStationRecipe cachedTask = null;
 
     @SuppressWarnings("UnstableApiUsage")
     private final HashMap<Direction, Map<AEKeyType, ExternalStorageStrategy>> exportStrategies = new HashMap<>();

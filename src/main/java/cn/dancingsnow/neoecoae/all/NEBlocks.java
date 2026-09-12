@@ -32,7 +32,9 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.BlockStateUtil;
 import cn.dancingsnow.neoecoae.util.LootTableUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -497,11 +499,14 @@ public class NEBlocks {
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
             ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
+            ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_off"));
+            ModelFile formedWorkingModel = prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_on"));
             prov.getVariantBuilder(ctx.get())
                 .forAllStates(s -> {
                     boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
+                    boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
                     return ConfiguredModel.builder()
-                        .modelFile(working ? modelFileWorking : modelFile)
+                        .modelFile(formed ? (working ? formedWorkingModel : formedModel) : (working ? modelFileWorking : modelFile))
                         .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
                         .build();
                 });
@@ -530,6 +535,84 @@ public class NEBlocks {
         })
         .build()
         .lang("ECO Integrated Working Station")
+        .register();
+
+    public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
+        .block("large_integrated_working_station_casing", ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(BlockBehaviour.Properties::noOcclusion)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_casing"))))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING, 4)
+            .require(AEBlocks.SKY_STONE_BLOCK, 2)
+            .require(AEItems.ENGINEERING_PROCESSOR, 2)
+            .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+            .require(NEItems.ECO_CELL_COMPONENT_64M)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 8)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+            .itemOutput(ctx.get())
+            .energy(256_000)
+            .save(prov))
+        .simpleItem()
+        .lang("Large Integrated Working Station Casing")
+        .register();
+
+    public static final BlockEntry<ECOLargeIntegratedWorkingStationInputHatch> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
+        .block("large_integrated_working_station_input_hatch", ECOLargeIntegratedWorkingStationInputHatch::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_input_hatch"))))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
+            .require(AEParts.IMPORT_BUS, 2)
+            .require(AEBlocks.INTERFACE)
+            .require(NEItems.ECO_FLUID_CELL_HOUSING)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 2)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 2)
+            .itemOutput(ctx.get())
+            .energy(128_000)
+            .save(prov))
+        .simpleItem()
+        .lang("Large Integrated Working Station Fluid Input Hatch")
+        .register();
+
+    public static final BlockEntry<ECOLargeIntegratedWorkingStationOutputHatch> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
+        .block("large_integrated_working_station_output_hatch", ECOLargeIntegratedWorkingStationOutputHatch::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_output_hatch"))))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
+            .require(AEParts.EXPORT_BUS, 2)
+            .require(AEBlocks.INTERFACE)
+            .require(NEItems.ECO_FLUID_CELL_HOUSING)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 2)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 2)
+            .itemOutput(ctx.get())
+            .energy(128_000)
+            .save(prov))
+        .simpleItem()
+        .lang("Large Integrated Working Station Fluid Output Hatch")
+        .register();
+
+    public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
+        .block("large_integrated_working_station_interface", ECOMachineInterface<NEIntegratedWorkingStationCluster>::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_interface"))))
+        .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
+            .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
+            .require(AEBlocks.INTERFACE)
+            .require(AEItems.SINGULARITY, 2)
+            .require(NEItems.ECO_CELL_COMPONENT_64M)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 4)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
+            .itemOutput(ctx.get())
+            .energy(256_000)
+            .save(prov))
+        .simpleItem()
+        .lang("Large Integrated Working Station Communication Interface")
         .register();
 
     // ************************************ //

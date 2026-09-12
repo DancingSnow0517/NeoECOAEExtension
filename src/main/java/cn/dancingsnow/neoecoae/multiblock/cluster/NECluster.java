@@ -5,6 +5,7 @@ import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
@@ -16,7 +17,7 @@ import java.util.List;
 public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private final BlockPos boundMin;
     private final BlockPos boundMax;
-    protected final List<NEBlockEntity<T, ?>> blockEntities = new ArrayList<>();
+    protected final List<BlockEntity> blockEntities = new ArrayList<>();
 
     @Getter
     private boolean destroyed = false;
@@ -37,8 +38,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     }
 
     public void updateFormed(boolean formed) {
-        for (NEBlockEntity<T, ?> be : this.blockEntities) {
-            be.setFormed(formed);
+        for (BlockEntity blockEntity : this.blockEntities) {
+            if (blockEntity instanceof NEBlockEntity<?, ?> be) {
+                be.setFormed(formed);
+            }
         }
     }
 
@@ -79,17 +82,23 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         this.blockEntities.add(blockEntity);
     }
 
+    public void addBlockEntity(BlockEntity blockEntity) {
+        this.blockEntities.add(blockEntity);
+    }
+
     @Override
     @MustBeInvokedByOverriders
-    public Iterator<? extends NEBlockEntity<T, ?>> getBlockEntities() {
+    public Iterator<? extends BlockEntity> getBlockEntities() {
         return blockEntities.listIterator();
     }
 
     @Override
     @MustBeInvokedByOverriders
     public void updateStatus(boolean updateGrid) {
-        for (NEBlockEntity<T, ?> be : blockEntities) {
-            be.updateState(updateGrid);
+        for (BlockEntity blockEntity : blockEntities) {
+            if (blockEntity instanceof NEBlockEntity<?, ?> be) {
+                be.updateState(updateGrid);
+            }
         }
     }
 
@@ -110,8 +119,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
             MBCalculator.setModificationInProgress(this);
         }
         try {
-            for (NEBlockEntity<T, ?> blockEntity : blockEntities) {
-                blockEntity.updateCluster(null);
+            for (BlockEntity blockEntity : blockEntities) {
+                if (blockEntity instanceof NEBlockEntity<?, ?> neBlockEntity) {
+                    neBlockEntity.updateCluster(null);
+                }
             }
         } finally {
             if (ownsModification) {

@@ -1050,6 +1050,12 @@ public class NEItems {
         Rarity.EPIC
     );
 
+    public static final ItemEntry<cn.dancingsnow.neoecoae.items.ECOIntegratedWorkingStationDebugWandItem> INTEGRATED_WORKING_STATION_DEBUG_WAND = REGISTRATE
+        .item("integrated_working_station_debug_wand", cn.dancingsnow.neoecoae.items.ECOIntegratedWorkingStationDebugWandItem::new)
+        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
+        .lang("Integrated Working Station Debug Wand")
+        .register();
+
     private static ItemEntry<ECOComputationCellItem> createComputationCell(
         String tierString,
         IECOTier tier,

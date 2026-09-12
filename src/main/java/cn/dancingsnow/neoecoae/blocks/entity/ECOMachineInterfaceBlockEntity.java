@@ -9,20 +9,28 @@ import appeng.api.stacks.AEItemKey;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.core.definitions.AEItems;
 import appeng.helpers.patternprovider.PatternContainer;
+import appeng.helpers.patternprovider.PatternProviderLogic;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
+import appeng.menu.ISubMenu;
+import appeng.menu.MenuOpener;
+import appeng.menu.locator.MenuHostLocator;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
 import cn.dancingsnow.neoecoae.grid.PatternCatalog;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
@@ -31,6 +39,7 @@ import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
+import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -73,7 +82,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, PatternProviderLogicHost {
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
@@ -81,6 +90,57 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
     private static final String PATTERN_BUS_POSITIONS_SYNC_KEY = "patternBusPositions";
     private static final String PATTERN_BUS_SLOT_COUNTS_SYNC_KEY = "patternBusSlotCounts";
+
+    @Nullable
+    private LargeWorkstationPatternProvider workstationProvider;
+    private transient boolean workstationProviderRefreshQueued;
+
+    public LargeWorkstationPatternProvider getWorkstationProvider() {
+        if (workstationProvider == null) {
+            throw new IllegalStateException("This interface is not a large integrated working station interface");
+        }
+        return workstationProvider;
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        super.saveAdditional(data, registries);
+        if (workstationProvider != null) {
+            workstationProvider.writeToNBT(data, registries);
+        }
+    }
+
+    @Override
+    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
+        super.loadTag(data, registries);
+        if (workstationProvider != null) {
+            workstationProvider.readFromNBT(data, registries);
+            readLegacyWorkstationPatterns(data, registries);
+        }
+    }
+
+    private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
+        if (workstationProvider == null
+            || data.contains(PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, Tag.TAG_LIST)
+            || !data.contains("workstationPatterns", Tag.TAG_LIST)
+            || !workstationProvider.getPatternInv().isEmpty()) {
+            return;
+        }
+
+        var legacy = new AppEngInternalInventory(this, workstationProvider.getPatternInv().size(), 1);
+        legacy.readFromNBT(data, "workstationPatterns", registries);
+        for (int slot = 0; slot < legacy.size(); slot++) {
+            workstationProvider.getPatternInv().setItemDirect(slot, legacy.getStackInSlot(slot));
+        }
+    }
+
+    @Override
+    public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        if (workstationProvider != null) {
+            workstationProvider.addDrops(drops);
+        }
+    }
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -154,6 +214,94 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         NEClusterCalculator.Factory<C> calculator
     ) {
         super(type, pos, blockState, calculator);
+        if (supportsIntegratedWorkingStationInterfaceUi()) {
+            workstationProvider = new LargeWorkstationPatternProvider(this);
+            // PatternProviderLogic configures the shared node for a normal provider.
+            // Restore the multiblock flag required by this interface's cluster.
+            getMainNode().setFlags(appeng.api.networking.GridFlags.MULTIBLOCK,
+                appeng.api.networking.GridFlags.REQUIRE_CHANNEL);
+        }
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        if (workstationProvider != null) {
+            refreshWorkstationProviderLifecycle();
+        }
+    }
+
+    /**
+     * Rebuilds the dynamic workstation provider view after the node and the multiblock have had a chance to settle.
+     * The immediate refresh covers normal placement, while the deferred refresh covers world-load ordering where the
+     * provider can initially be mounted before the controller or its final AE2 grid is available.
+     */
+    private void refreshWorkstationProviderLifecycle() {
+        LargeWorkstationPatternProvider provider = workstationProvider;
+        if (provider == null || !(level instanceof ServerLevel serverLevel)
+            || isServerStopping() || !getMainNode().isReady()) {
+            return;
+        }
+
+        provider.updatePatterns();
+        if (workstationProviderRefreshQueued) {
+            return;
+        }
+
+        workstationProviderRefreshQueued = true;
+        serverLevel.getServer().executeIfPossible(() -> {
+            workstationProviderRefreshQueued = false;
+            if (!isServerStopping() && !isRemoved() && level == serverLevel
+                && getMainNode().isReady() && workstationProvider == provider) {
+                provider.updatePatterns();
+            }
+        });
+    }
+
+    @Override
+    public PatternProviderLogic getLogic() {
+        return getWorkstationProvider();
+    }
+
+    @Override
+    public ECOMachineInterfaceBlockEntity<C> getBlockEntity() {
+        return this;
+    }
+
+    @Override
+    public EnumSet<Direction> getTargets() {
+        return EnumSet.allOf(Direction.class);
+    }
+
+    @Override
+    public void saveChanges() {
+        setChanged();
+        markForUpdate();
+    }
+
+    @Override
+    public AEItemKey getTerminalIcon() {
+        return AEItemKey.of(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.asItem());
+    }
+
+    @Override
+    public ItemStack getMainMenuIcon() {
+        return NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.asStack();
+    }
+
+    @Override
+    public void openMenu(Player player, MenuHostLocator locator) {
+        if (workstationProvider != null) {
+            MenuOpener.open(LargeIntegratedWorkingStationPatternProviderMenu.TYPE, player, locator);
+        }
+    }
+
+    @Override
+    public void returnToMainMenu(Player player, ISubMenu subMenu) {
+        if (workstationProvider != null) {
+            MenuOpener.returnTo(LargeIntegratedWorkingStationPatternProviderMenu.TYPE, player,
+                subMenu.getLocator());
+        }
     }
 
     @Override
@@ -197,11 +345,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public boolean supportsCraftingInterfaceUi() {
         return cluster instanceof NECraftingCluster || calculator instanceof NECraftingClusterCalculator;
     }
+    public boolean supportsIntegratedWorkingStationInterfaceUi() {
+        return cluster instanceof NEIntegratedWorkingStationCluster
+            || calculator instanceof NEIntegratedWorkingStationClusterCalculator;
+    }
     public boolean supportsComputationInterfaceUi() {
         return cluster instanceof NEComputationCluster || calculator instanceof NEComputationClusterCalculator;
     }
     public boolean supportsInterfaceUi() {
-        return supportsStorageInterfaceUi() || supportsCraftingInterfaceUi() || supportsComputationInterfaceUi();
+        return supportsStorageInterfaceUi() || supportsCraftingInterfaceUi()
+            || supportsIntegratedWorkingStationInterfaceUi() || supportsComputationInterfaceUi();
     }
 
     public IItemHandlerModifiable getFuzzyPlanningItemHandler() {
@@ -384,7 +537,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @RPCMethod
     public void actOnPatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !supportsCraftingInterfaceUi() || isPatternMutationLocked() || payload == null) return;
+                || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
@@ -452,7 +605,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @RPCMethod
     public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
         if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !supportsCraftingInterfaceUi() || isPatternMutationLocked() || payload == null) return;
+                || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
                 || payload.getInt("menu") != player.containerMenu.containerId) return;
@@ -548,6 +701,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         super.updateCluster(nextCluster);
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
+        refreshWorkstationProviderLifecycle();
         if (level instanceof ServerLevel) {
             closePatternInterfaceMenus();
         }
@@ -563,6 +717,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
         ensurePatternInterfaceMapping();
+        refreshWorkstationProviderLifecycle();
     }
 
     @Override
@@ -583,6 +738,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         super.onMainNodeStateChanged(reason);
+        if (workstationProvider != null) {
+            workstationProvider.onMainNodeStateChanged();
+            if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
+                refreshWorkstationProviderLifecycle();
+            }
+            return;
+        }
         if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
             patternInterfaceMappingInitialized = false;
             if (level instanceof ServerLevel) {
@@ -806,7 +968,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void organizePatternBuses(ServerPlayer player) {
         if (!(level instanceof ServerLevel serverLevel)
                 || !formed
-                || !supportsCraftingInterfaceUi()
+                || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi())
                 || patternTransferTask != null
                 || patternOrganizeTask != null
                 || !isPatternInterfacePlayer(player, serverLevel)) {
@@ -840,7 +1002,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @RPCMethod
     public void insertPatternFromPlayer(RPCSender sender, int inventorySlot) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)
-                || inventorySlot < 0 || inventorySlot >= 36 || !formed || !supportsCraftingInterfaceUi()) {
+                || inventorySlot < 0 || inventorySlot >= 36 || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi())) {
             return;
         }
         ServerPlayer player = sender.asPlayer();
@@ -853,7 +1015,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     /** Server-authoritative single-slot quick move shared by RPC and menu integrations. */
     public boolean tryInsertPatternFromPlayer(ServerPlayer player, int inventorySlot) {
         if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide
-                || !formed || !supportsCraftingInterfaceUi() || isPatternMutationLocked()
+                || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked()
                 || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
             return false;
         }
@@ -917,7 +1079,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (task == null) {
             return;
         }
-        if (!formed || !supportsCraftingInterfaceUi() || !task.matches(patternSlotRefs)) {
+        if (!formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || !task.matches(patternSlotRefs)) {
             finishPatternOrganize(serverLevel);
             return;
         }
@@ -993,7 +1155,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Nullable
     private PatternTransferTask createPatternTransferTask() {
-        if (!formed || !supportsCraftingInterfaceUi()) {
+        if (!formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi())) {
             return null;
         }
         IGrid grid = getMainNode().getGrid();
@@ -1458,8 +1620,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (supportsStorageInterfaceUi()) {
             return StorageInterfaceUI.create((ECOMachineInterfaceBlockEntity<NEStorageCluster>) this, holder.player);
         }
+        if (supportsIntegratedWorkingStationInterfaceUi()) {
+            // The large workstation interface uses the copied AE2/ExtendedAE menu opened
+            // from useWithoutItem. It must never fall back to the old LDLib2 panel.
+            return null;
+        }
         if (supportsCraftingInterfaceUi()) {
-            return CraftingInterfaceUI.create((ECOMachineInterfaceBlockEntity<NECraftingCluster>) this, holder.player);
+            return CraftingInterfaceUI.create(this, holder.player);
         }
         if (supportsComputationInterfaceUi()) {
             return ComputationInterfaceUI.create((ECOMachineInterfaceBlockEntity<NEComputationCluster>) this, holder.player);

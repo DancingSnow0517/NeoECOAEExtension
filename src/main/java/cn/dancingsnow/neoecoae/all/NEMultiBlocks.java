@@ -28,6 +28,8 @@ import java.util.List;
 public class NEMultiBlocks {
     public static final List<MultiBlockDefinition> DEFINITIONS = new ArrayList<>();
 
+    public static final MultiBlockDefinition LARGE_INTEGRATED_WORKING_STATION = createLargeIntegratedWorkingStation();
+
     public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = storageSystem(
         NEBlocks.STORAGE_SYSTEM_L4,
         NEBlocks.STORAGE_SYSTEM_L4.getDefaultState(),
@@ -79,6 +81,39 @@ public class NEMultiBlocks {
         NEBlocks.CRAFTING_SYSTEM_L9,
         NEBlocks.CRAFTING_PARALLEL_CORE_L9
     );
+
+    private static MultiBlockDefinition createLargeIntegratedWorkingStation() {
+        BlockState casing = NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING.getDefaultState();
+        return MultiBlockDefinition.builder(NEBlocks.INTEGRATED_WORKING_STATION)
+            // Upper layer: casing, controller, casing in front and three casings behind it.
+            .setBlock(pos(0, 1, 0), casing)
+            .setBlock(pos(1, 1, 0), NEBlocks.INTEGRATED_WORKING_STATION.getDefaultState())
+            .setBlock(pos(2, 1, 0), casing)
+            .setBlock(pos(0, 1, 1), casing)
+            .setBlock(pos(1, 1, 1), casing)
+            .setBlock(pos(2, 1, 1), casing)
+            // Lower layer: three casings in front and input, communication, output behind them.
+            .setBlock(pos(0, 0, 0), casing)
+            .setBlock(pos(1, 0, 0), casing)
+            .setBlock(pos(2, 0, 0), casing)
+            .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
+            .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState())
+            .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
+            .onFormed((blockPos, level) -> {
+                BlockState state = level.getBlockState(blockPos);
+                BlockState next = state;
+                if (next.hasProperty(NEBlock.FORMED)) {
+                    next = next.setValue(NEBlock.FORMED, true);
+                }
+                if (next.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                    next = next.setValue(ECOMachineCasing.INVISIBLE, true);
+                }
+                if (next != state) {
+                    level.setBlockAndUpdate(blockPos, next);
+                }
+            })
+            .create(DEFINITIONS::add);
+    }
 
     private static MultiBlockDefinition createCraftingSystem(
         BlockEntry<ECOCraftingSystem> main,

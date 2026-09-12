@@ -10,6 +10,7 @@ import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.helpers.BlockEntityNodeListener;
+import appeng.me.helpers.IGridConnectedBlockEntity;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
@@ -131,7 +132,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (level != null) {
             for (Direction value : Direction.values()) {
                 BlockPos adjacentPos = this.worldPosition.relative(value);
-                if (level.hasChunkAt(adjacentPos) && level.getBlockEntity(adjacentPos) instanceof NEBlockEntity) {
+                if (level.hasChunkAt(adjacentPos)
+                    && level.getBlockEntity(adjacentPos) instanceof IGridConnectedBlockEntity) {
                     directions.add(value);
                 }
             }

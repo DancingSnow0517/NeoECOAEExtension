@@ -682,5 +682,7 @@
   "gui.neoecoae.large_integrated_working_station.no_task": "当前任务：无",
   "gui.neoecoae.large_integrated_working_station.task": "当前任务：%s",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "合成任务：等待输入",
-  "gui.neoecoae.large_integrated_working_station.recipe": "合成任务：%s 个物品，%s mB 流体"
+  "gui.neoecoae.large_integrated_working_station.recipe": "合成任务：%s 个物品，%s mB 流体",
+  "gui.neoecoae.large_integrated_working_station.input_fluid": "输入流体",
+  "gui.neoecoae.large_integrated_working_station.output_fluid": "输出流体"
 }

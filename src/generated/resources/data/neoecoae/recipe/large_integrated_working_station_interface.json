@@ -1,0 +1,32 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 256000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:large_integrated_working_station_casing"
+    },
+    {
+      "item": "ae2:interface"
+    },
+    {
+      "count": 2,
+      "item": "ae2:singularity"
+    },
+    {
+      "item": "neoecoae:eco_cell_component_64m"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:superconducting_processor"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:large_integrated_working_station_interface"
+  }
+}

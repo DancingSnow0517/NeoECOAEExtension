@@ -1,0 +1,36 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 256000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:black_tungsten_alloy_casing"
+    },
+    {
+      "count": 2,
+      "item": "ae2:sky_stone_block"
+    },
+    {
+      "count": 2,
+      "item": "ae2:engineering_processor"
+    },
+    {
+      "tag": "c:storage_blocks/energized_fluix_crystal"
+    },
+    {
+      "item": "neoecoae:eco_cell_component_64m"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:superconducting_processor"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:large_integrated_working_station_casing"
+  }
+}

@@ -43,6 +43,7 @@ public class NELangGenerator {
         provider.add("category.neoecoae.cooling.max_overclock", "Max Overclock: %d");
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
+        provider.add("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");

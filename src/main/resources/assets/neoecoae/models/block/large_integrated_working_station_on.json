@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station",
+  "textures": {
+    "screen": "neoecoae:block/large_integrated_working_station/screen_on"
+  }
+}
