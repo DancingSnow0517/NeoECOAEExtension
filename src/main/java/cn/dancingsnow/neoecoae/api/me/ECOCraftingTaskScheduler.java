@@ -118,6 +118,7 @@ final class ECOCraftingTaskScheduler {
             Function<IPatternDetails, Iterable<ICraftingProvider>> providerSupplier,
             BooleanSupplier jobStillActive, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
+        providerDispatcher.beginTick(TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
         int probeLimit = sharedRemainingNormalProbes >= 0
                 ? sharedRemainingNormalProbes : Math.max(MIN_NORMAL_PROBES_PER_TICK, ordinaryLimit);

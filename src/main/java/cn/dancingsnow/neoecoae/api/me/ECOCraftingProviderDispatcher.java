@@ -19,18 +19,26 @@ import appeng.hooks.ticking.TickHandler;
  */
 final class ECOCraftingProviderDispatcher {
     private final ECOCraftingFastPathDispatcher fastPath;
+    private final ECOProcessingPatternDispatcher processing;
     private final ECOCraftingEnergyTransaction energyTransaction;
     private final ECOCraftingDispatchAccounting accounting;
 
     ECOCraftingProviderDispatcher(ECOCraftingFastPathDispatcher fastPath,
             ECOCraftingEnergyTransaction energyTransaction, ECOCraftingDispatchAccounting accounting) {
         this.fastPath = fastPath;
+        this.processing = new ECOProcessingPatternDispatcher(energyTransaction, accounting);
         this.energyTransaction = energyTransaction;
         this.accounting = accounting;
     }
 
+    void beginTick(long gameTick) {
+        processing.beginTick(gameTick);
+    }
+
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
-        return budget.canAttemptOrdinary() || fastPath.supportsBatch(provider);
+        return budget.canAttemptOrdinary()
+                || fastPath.supportsBatch(provider)
+                || processing.supports(provider, null);
     }
 
     Result dispatchCandidate(ECOCraftingDispatchRequest request, List<ICraftingProvider> providers,
@@ -41,6 +49,12 @@ final class ECOCraftingProviderDispatcher {
         List<appeng.api.stacks.GenericStack> ordinaryInputStacks = null;
 
         for (var provider : providers) {
+            var processingResult = processing.tryDispatch(
+                    request, provider, singlePower, energyService, markProviderAttempt);
+            if (processingResult != null) {
+                return Result.accepted(processingResult.acceptedCrafts(), true);
+            }
+
             var fastResult = fastPath.tryDispatch(
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
             if (fastResult != null) {

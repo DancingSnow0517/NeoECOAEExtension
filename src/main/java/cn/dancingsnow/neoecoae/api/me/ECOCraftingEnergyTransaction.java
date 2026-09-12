@@ -160,5 +160,17 @@ final class ECOCraftingEnergyTransaction {
                 refundEnergyOrRetainCredit(energyService, networkDebit);
             }
         }
+
+        void refundUnaccepted(long acceptedCopies, long offeredCopies) {
+            if (offeredCopies <= 0L || acceptedCopies >= offeredCopies) {
+                commit();
+                return;
+            }
+            double fraction = Math.max(0.0D, Math.min(1.0D,
+                    (double) acceptedCopies / (double) offeredCopies));
+            settled = true;
+            restoreEnergyCredit(reservedCredit * (1.0D - fraction));
+            refundEnergyOrRetainCredit(energyService, networkDebit * (1.0D - fraction));
+        }
     }
 }
