@@ -9,9 +9,13 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import appeng.hooks.ticking.TickHandler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tries providers in the already-selected order. This is the boundary between task scheduling and provider-level
@@ -38,6 +42,7 @@ final class ECOCraftingProviderDispatcher {
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
+                || provider instanceof ECOParallelCraftingProvider
                 || processing.supports(provider, null);
     }
 
@@ -59,6 +64,13 @@ final class ECOCraftingProviderDispatcher {
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
             if (fastResult != null) {
                 return Result.accepted(fastResult.acceptedCrafts(), true);
+            }
+
+            var parallelResult = tryDispatchOrdinaryBatch(
+                    request, provider, singlePower, energyService, budget, diagnostics,
+                    markProviderAttempt, markNormalResume);
+            if (parallelResult != null) {
+                return parallelResult;
             }
 
             // A batch is an optional optimization. If it is unavailable, rejected, or dynamically ambiguous,
@@ -133,6 +145,110 @@ final class ECOCraftingProviderDispatcher {
         }
 
         return Result.none();
+    }
+
+    /**
+     * Ordinary-path batch dispatch for providers that explicitly own a parallel queue. This does not use the
+     * FastPath cache or any FastPath recipe proof; the provider validates the complete scaled input contract.
+     */
+    @Nullable
+    private Result tryDispatchOrdinaryBatch(
+            ECOCraftingDispatchRequest request,
+            ICraftingProvider provider,
+            double singlePower,
+            IEnergyService energyService,
+            ECOCraftingDispatchBudget budget,
+            ECODispatchStallDiagnostics diagnostics,
+            Consumer<ICraftingProvider> markProviderAttempt,
+            Runnable markNormalResume) {
+        if (!(provider instanceof ECOParallelCraftingProvider parallelProvider)) {
+            return null;
+        }
+
+        int providerCapacity;
+        try {
+            providerCapacity = parallelProvider.eco$getAvailableParallelSlots();
+        } catch (RuntimeException unavailable) {
+            return null;
+        }
+        long requested = Math.min(request.allowedCrafts(), Math.max(0L, providerCapacity));
+        if (requested <= 0L) {
+            return null;
+        }
+
+        List<appeng.api.stacks.GenericStack> perCraftInputs = ECOFastPathStacks.copyCounters(request.inputs());
+        long materialLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+                perCraftInputs,
+                ECOFastPathStacks.copyCounter(request.outputs()),
+                ECOFastPathStacks.copyCounter(request.remainders()));
+        requested = Math.min(requested, materialLimit);
+        requested = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), perCraftInputs, requested);
+        requested = ECOBatchCraftingHelper.maxAffordableCrafts(
+                singlePower,
+                requested,
+                amount -> energyService.extractAEPower(
+                        amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+        if (requested <= 0L) {
+            return null;
+        }
+
+        List<appeng.api.stacks.GenericStack> totalInputs =
+                ECOBatchCraftingHelper.multiply(perCraftInputs, requested);
+        KeyCounter[] scaledCounters = scaleCounters(request.inputs(), requested);
+        double batchPower = singlePower * requested;
+        if (!Double.isFinite(batchPower) || batchPower < 0.0D) {
+            return null;
+        }
+
+        var reservation = energyTransaction.reserve(energyService, batchPower);
+        if (reservation == null) {
+            diagnostics.insufficientPower(batchPower, 0.0D);
+            return null;
+        }
+
+        boolean accepted = false;
+        try {
+            markProviderAttempt.accept(provider);
+            budget.recordNormalProbe();
+            diagnostics.probe();
+            markNormalResume.run();
+            accepted = parallelProvider.eco$pushPatternBatch(
+                    request.pattern(), scaledCounters, requested, request.job().link.getCraftingID());
+            if (!accepted) {
+                diagnostics.pushRejected(request.pattern(), provider);
+                return null;
+            }
+
+            reservation.commit();
+            var result = ECOCraftingDispatchResult.batch(
+                    requested,
+                    ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), requested),
+                    ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), requested));
+            accounting.apply(request, result, budget::recordAcceptedNormalPush);
+            diagnostics.progress(TickHandler.instance().getCurrentTick());
+            return Result.accepted(requested, false);
+        } finally {
+            if (!accepted) {
+                ECOBatchCraftingHelper.insertAll(request.inventory(), totalInputs);
+                reservation.refund();
+            }
+        }
+    }
+
+    private static KeyCounter[] scaleCounters(KeyCounter[] source, long multiplier) {
+        KeyCounter[] result = new KeyCounter[source.length];
+        for (int slot = 0; slot < source.length; slot++) {
+            KeyCounter scaled = new KeyCounter();
+            KeyCounter counter = source[slot];
+            if (counter != null) {
+                for (var entry : counter) {
+                    long amount = Math.multiplyExact(entry.getLongValue(), multiplier);
+                    scaled.add(entry.getKey(), amount);
+                }
+            }
+            result[slot] = scaled;
+        }
+        return result;
     }
 
     private static void clearProviderDiagnostics(ICraftingProvider provider) {

@@ -46,6 +46,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 
@@ -336,6 +337,11 @@ public class ECOCraftingCPULogic {
                     request.remainders(),
                     request.level(),
                     request.job().link.getCraftingID());
+        }
+
+        if (provider instanceof ECOParallelCraftingProvider parallelProvider) {
+            return parallelProvider.eco$pushPatternBatch(
+                    request.pattern(), request.inputs(), 1L, request.job().link.getCraftingID());
         }
 
         // 兼容性约定：
