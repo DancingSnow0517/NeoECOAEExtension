@@ -101,6 +101,9 @@ public final class CraftingHostPanelUI {
         IntSupplier activeWorkerCores,
         IntSupplier workerCores,
         IntSupplier singleCoreCapacity,
+        LongSupplier ftParallelCapacity,
+        LongSupplier overflowCapacity,
+        IntSupplier theoreticalOverclockTimes,
         IntSupplier effectiveOverclockTimes,
         IntSupplier executionTicks,
         LongSupplier performanceAverageNanos,
@@ -229,7 +232,33 @@ public final class CraftingHostPanelUI {
         panel.addChild(sectionLabel("gui.neoecoae.crafting.ui.status"));
         panel.addChild(statusRow("gui.neoecoae.crafting.ui.overclock_short", config.overclocked));
         panel.addChild(statusRow("gui.neoecoae.crafting.ui.cooling_short", config.activeCooling));
+        panel.addChild(overflowLabel(config));
         return panel;
+    }
+
+    private static Label overflowLabel(Config config) {
+        Label label = boundLabel(() -> {
+            long total = config.ftParallelCapacity.getAsLong();
+            double ratio = total > 0L ? 100.0D * config.overflowCapacity.getAsLong() / total : 0.0D;
+            return Component.translatable("gui.neoecoae.host.crafting.overflow")
+                .append(": ").append(Component.literal(String.format(Locale.ROOT, "%.1f%%", ratio))
+                    .withColor(PANEL_VALUE));
+        }, PANEL_MUTED);
+        label.layout(layout -> layout.widthPercent(100).height(10));
+
+        BindableValue<Component> amount = syncedComponent(() ->
+            Component.translatable("gui.neoecoae.host.crafting.overflow").append(": ")
+                .append(Tooltips.ofNumber(config.overflowCapacity.getAsLong()))
+                .append(" / ").append(Tooltips.ofNumber(config.ftParallelCapacity.getAsLong())));
+        BindableValue<Component> overclock = syncedComponent(() ->
+            Component.translatable("gui.neoecoae.crafting.capability.overclock",
+                config.theoreticalOverclockTimes.getAsInt(), config.effectiveOverclockTimes.getAsInt()));
+        amount.setDisplay(false);
+        overclock.setDisplay(false);
+        label.addChildren(amount, overclock);
+        label.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(amount.getValue(), overclock.getValue()));
+        return label;
     }
 
     private static UIElement statusRow(String key, BooleanSupplier value) {

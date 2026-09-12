@@ -1014,6 +1014,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getPooledActiveWorkerCount,
             this::getPooledWorkerCount,
             this::getSingleCoreProcessingCapacity,
+            () -> getCapabilitySnapshot().ftParallelCapacity(),
+            () -> getCapabilitySnapshot().overflowCapacity(),
+            this::getOverlockTimes,
             this::getEffectiveOverclockTimes,
             () -> getCapabilitySnapshot().virtualMode()
                 ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getEffectiveOverclockTimes()),

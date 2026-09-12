@@ -109,9 +109,18 @@ public record CraftingCapabilitySnapshot(
         );
     }
 
+    /** 与耗时加速使用相同的基础 FX 容量，不受超频批量或交换网络倍率影响。 */
+    public long overflowCapacity() {
+        return calculateOverflow(ftParallelCapacity, NEMath.saturatingMultiply(physicalFxCount, BASE_BATCH_PER_FX));
+    }
+
+    private static long calculateOverflow(long ftParallelCapacity, long baseFxCapacity) {
+        return Math.max(0L, Math.max(0L, ftParallelCapacity) - Math.max(0L, baseFxCapacity));
+    }
+
     static int calculateOverclock(long ftParallelCapacity, long baseFxCapacity) {
         long ft = Math.max(0L, ftParallelCapacity);
-        long overflow = ft - Math.max(0L, baseFxCapacity);
+        long overflow = calculateOverflow(ft, baseFxCapacity);
         if (ft <= 0L || overflow <= 0L) {
             return 0;
         }

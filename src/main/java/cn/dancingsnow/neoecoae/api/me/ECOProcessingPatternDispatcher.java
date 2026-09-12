@@ -4,8 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.pattern.AEProcessingPattern;
-import com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -39,7 +39,7 @@ final class ECOProcessingPatternDispatcher {
     }
 
     boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
-        return provider instanceof IBatchCraftingProvider
+        return BatchProvider.METHOD != null && BatchProvider.TYPE.isInstance(provider)
                 && (pattern == null || isProcessingPattern(pattern));
     }
 
@@ -48,7 +48,7 @@ final class ECOProcessingPatternDispatcher {
             ICraftingProvider provider, double oneCopyPower,
             appeng.api.networking.energy.IEnergyService energyService,
             Consumer<ICraftingProvider> markProviderAttempt) {
-        if (!(provider instanceof IBatchCraftingProvider batchProvider)) {
+        if (!supports(provider, request.pattern())) {
             return null;
         }
         IPatternDetails providerPattern;
@@ -80,8 +80,8 @@ final class ECOProcessingPatternDispatcher {
             markProviderAttempt.accept(provider);
             long leftover;
             try {
-                leftover = batchProvider.pushBatch(providerPattern, oneCopy, offer);
-            } catch (Throwable failure) {
+                leftover = (long) BatchProvider.METHOD.invoke(provider, providerPattern, oneCopy, offer);
+            } catch (InvocationTargetException | IllegalAccessException | LinkageError failure) {
                 leftover = offer;
             }
             if (leftover < 0L || leftover > offer) leftover = offer;
@@ -151,6 +151,40 @@ final class ECOProcessingPatternDispatcher {
     private static final class ProviderLookup {
         // Mod classes are fixed for this class loader, including an absent optional compatibility class.
         private static final Method METHOD = resolveProviderLookup();
+    }
+
+    /** Resolves both the legacy and refactored Thunderbolt batch-provider contracts. */
+    private static final class BatchProvider {
+        private static final String[] TYPE_NAMES = {
+                "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider",
+                "com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider"
+        };
+        private static final Class<?> TYPE = resolveType();
+        private static final Method METHOD = resolveMethod();
+
+        private static Class<?> resolveType() {
+            for (String name : TYPE_NAMES) {
+                try {
+                    return Class.forName(name, false, ECOProcessingPatternDispatcher.class.getClassLoader());
+                } catch (ClassNotFoundException | LinkageError ignored) {
+                    // Try the other known Thunderbolt API package.
+                }
+            }
+            return MissingType.class;
+        }
+
+        private static Method resolveMethod() {
+            if (TYPE == MissingType.class) return null;
+            try {
+                return TYPE.getMethod("pushBatch", IPatternDetails.class, appeng.api.stacks.KeyCounter[].class,
+                        long.class);
+            } catch (NoSuchMethodException | LinkageError ignored) {
+                return null;
+            }
+        }
+
+        private static final class MissingType {
+        }
     }
 
     private static long saturatingAdd(long left, long right) {
