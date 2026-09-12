@@ -221,6 +221,43 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
     public void getMigrationStacks(KeyCounter out) { delegate.getAvailableStacks(out); }
 
     @Override
+    public long getMigrationAmount(AEKey key) {
+        return delegate.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, IActionSource.empty());
+    }
+
+    @Override
+    public void persistMigrationContents(net.minecraft.server.level.ServerLevel level) {
+        delegate.persist();
+        var id = stack.get(com.wintercogs.ae2omnicells.common.init.OCDataComponents.CELL_UUID.get());
+        if (id == null) throw new IllegalStateException("Universal source has no storage UUID");
+        var data = com.wintercogs.ae2omnicells.common.me.AEUniversalCellData.getCellDataByUUID(id);
+        if (data == null) throw new IllegalStateException("Universal source data is unavailable");
+        var target = level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("data/ae_universal_cell_data").resolve(id + ".dat");
+        if (!data.isDirty() && java.nio.file.Files.isRegularFile(target)) return;
+        var encoded = data.save(new net.minecraft.nbt.CompoundTag(), level.registryAccess());
+        // Omni's serializer skips keys whose codec throws. A transfer must never accept that partial snapshot.
+        if (encoded.getCompound("inventory").getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND).size()
+                != data.getOriginalStorage().size()) throw new IllegalStateException("Incomplete universal cell snapshot");
+        var root = new net.minecraft.nbt.CompoundTag();
+        root.put("data", encoded);
+        net.minecraft.nbt.NbtUtils.addCurrentDataVersion(root);
+        try {
+            java.nio.file.Files.createDirectories(target.getParent());
+            var temp = target.resolveSibling(target.getFileName() + ".transfer.temp");
+            net.minecraft.nbt.NbtIo.writeCompressed(root, temp);
+            try (var channel = java.nio.channels.FileChannel.open(temp, java.nio.file.StandardOpenOption.WRITE)) {
+                channel.force(true);
+            }
+            java.nio.file.Files.move(temp, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            data.setDirty(false);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Cannot persist universal transfer contents", e);
+        }
+    }
+
+    @Override
     public void clearMigrationStacks() {
         KeyCounter contents = new KeyCounter();
         delegate.getAvailableStacks(contents);

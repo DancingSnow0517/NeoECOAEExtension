@@ -36,8 +36,13 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static boolean isMigrating(@Nullable ItemStack stack) {
-        return stack != null && !stack.isEmpty()
-            && stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().hasUUID(MIGRATION_TAG);
+        return getMigrationId(stack) != null;
+    }
+
+    public static @Nullable UUID getMigrationId(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return tag.hasUUID(MIGRATION_TAG) ? tag.getUUID(MIGRATION_TAG) : null;
     }
 
     public static UUID beginMigration(ItemStack stack, UUID domain) {

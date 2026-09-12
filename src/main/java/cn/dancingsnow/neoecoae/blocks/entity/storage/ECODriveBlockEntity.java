@@ -132,7 +132,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             && storageCluster.getController() != null
             && storageCluster.getController().isInfiniteMode()
             && cellStack != null
-            && !cellStack.isEmpty();
+            && !cellStack.isEmpty()
+            && ECOInfiniteStorageMember.isMember(cellStack);
     }
 
     private void updateState() {
@@ -284,7 +285,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (cellStack == null || cellStack.isEmpty()) {
             return;
         }
-        ECOInfiniteStorageMember.clearStoredContents(cellStack);
+        // Use the live handler: clearing a separately constructed inventory leaves this drive's cache stale.
+        var inventory = getCellInventory();
+        if (!(inventory instanceof cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell migrationCell)) {
+            throw new IllegalStateException("Missing transfer-capable source cell");
+        }
+        migrationCell.clearMigrationStacks();
+        migrationCell.persistMigrationContents((ServerLevel) level);
         ECOInfiniteStorageMember.markMember(cellStack, domainId);
         setChanged();
         markForUpdate();

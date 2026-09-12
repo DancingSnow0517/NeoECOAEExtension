@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.Iterator;
+import net.minecraft.server.level.ServerLevel;
 
 /**
  * Optional-neutral contract for storage cells that can participate in resumable infinite-domain migration.
@@ -14,6 +15,15 @@ import java.util.Iterator;
  */
 public interface IECOStorageMigrationCell extends IECOStorageCell {
     void getMigrationStacks(KeyCounter out);
+
+    default long getMigrationAmount(AEKey key) {
+        KeyCounter contents = new KeyCounter();
+        getMigrationStacks(contents);
+        return contents.get(key);
+    }
+
+    /** Flushes contents before the controller saves the source seal or destination receipt to its chunk. */
+    default void persistMigrationContents(ServerLevel level) { persist(); }
 
     default Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
         KeyCounter contents = new KeyCounter();

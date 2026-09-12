@@ -8,358 +8,200 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import java.math.BigInteger;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
 
-/**
- * Infinite storage domain backed by {@link ECOInfiniteStorageData}. Every operation runs on the calling thread and
- * marks the world data dirty; periodic journal batches run in the background and save/migration barriers wait for them.
- */
+/** Server-thread facade: primitive quantities, incremental statistics, world-save persistence. */
 public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageEngine {
-
     private final ECOInfiniteStorageData data;
     private final HolderLookup.Provider registries;
     private final Path dataFile;
-
-    // Views derived from the stored amounts. They exist so the storage network and the UI do not have to walk the
-    // whole domain on every query; they carry no state of their own.
-    private final KeyCounter visibleStacks = new KeyCounter();
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
-    private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
-    private List<TypeStats> typeStatsSnapshot = List.of();
-    private boolean typeStatsSnapshotDirty = true;
-    private List<HugeStack> hugeStacksSnapshot = List.of();
-    private boolean hugeStacksSnapshotDirty = true;
-    private String statisticsFailure;
+    private List<TypeStats> snapshot = List.of();
+    private boolean statisticsDirty = true;
 
     public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data, HolderLookup.Provider registries, Path dataFile) {
         this.data = data;
         this.registries = registries;
         this.dataFile = dataFile;
-        rebuildIndexes();
+        data.amounts.forEach((key, amount) -> {
+            MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
+            stats.types++;
+            stats.total = stats.total.add(amount);
+        });
     }
 
-    private long acceptableInsertAmount(AEKey key, long amount) {
-        if (key == null || amount <= 0L || data.hasRawEntries() || !data.canWrite(key)) {
-            return 0L;
-        }
+    @Override
+    public long insert(AEKey key, long amount, Actionable mode) {
+        if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
+        if (mode == Actionable.MODULATE) change(key, amount, true);
         return amount;
     }
 
     @Override
-    public synchronized BigInteger usedBytes() {
+    public long insertOnce(UUID transaction, AEKey key, long amount) {
+        if (key == null || amount <= 0 || !data.canMigrate()) return 0;
+        if (transaction == null) return insert(key, amount, Actionable.MODULATE);
+        if (data.hasMigrationReceipt(transaction)) return amount;
+        if (!data.canWrite(key)) return 0;
+        change(key, amount, true);
+        // Quantity and receipt share an atomic snapshot; a sealed source can safely retry after a restart.
+        data.addMigrationReceipt(transaction);
+        return amount;
+    }
+
+    @Override
+    public long extract(AEKey key, long amount, Actionable mode) {
+        if (key == null || amount <= 0 || !data.canRead(key)) return 0;
+        long extracted = Math.min(amount, data.amounts.visible(key));
+        if (mode == Actionable.SIMULATE || extracted == 0) return extracted;
+        if (!data.canWrite(key)) return 0;
+        change(key, extracted, false);
+        return extracted;
+    }
+
+    private void change(AEKey key, long amount, boolean added) {
+        MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
+        boolean wasEmpty = data.amounts.visible(key) == 0;
+        if (added) data.add(key, amount);
+        else data.subtract(key, amount);
+        boolean empty = data.amounts.visible(key) == 0;
+        stats.types += (wasEmpty ? 0 : -1) + (empty ? 0 : 1);
+        stats.total = added ? stats.total.add(amount) : stats.total.subtract(amount);
+        if (stats.types == 0) typeStats.remove(key.getType());
+        statisticsDirty = true;
+    }
+
+    @Override
+    public HugeAmount getAmount(AEKey key) { return data.canRead(key) ? data.getAmount(key) : HugeAmount.ZERO; }
+
+    @Override
+    public void getAvailableStacks(KeyCounter out) {
+        if (!data.canRead()) return;
+        data.amounts.visitVisible((key, amount) -> { if (data.canRead(key)) addVisible(out, key, amount); });
+    }
+
+    static void addVisible(KeyCounter out, AEKey key, long amount) {
+        long existing = out.get(key);
+        long headroom = existing > 0 ? Long.MAX_VALUE - existing : Long.MAX_VALUE;
+        if (headroom > 0) out.add(key, Math.min(amount, headroom));
+    }
+
+    @Override
+    public BigInteger usedBytes() {
         BigInteger used = BigInteger.ZERO;
-        for (Map.Entry<AEKeyType, MutableTypeStats> entry : typeStats.entrySet()) {
-            MutableTypeStats stats = entry.getValue();
-            used = used.add(StorageByteAccounting.usedBytes(
-                stats.storedTypes,
-                stats.storedAmount.toBigInteger(),
-                entry.getKey().getAmountPerByte(),
-                bytesPerType()
-            ));
+        for (TypeStats stats : getTypeStats()) {
+            used = used.add(StorageByteAccounting.usedBytes(stats.storedTypes(), stats.storedAmount().toBigInteger(),
+                stats.keyType().getAmountPerByte(), 1L << (12 + ECOTier.L9.getTier())));
         }
         return used;
     }
 
-    private static long bytesPerType() {
-        return 1L << (12 + ECOTier.L9.getTier());
+    @Override
+    public Collection<TypeStats> getTypeStats() {
+        if (statisticsDirty) {
+            snapshot = typeStats.entrySet().stream()
+                .map(e -> new TypeStats(e.getKey(), e.getValue().types, e.getValue().total)).toList();
+            statisticsDirty = false;
+        }
+        return snapshot;
     }
 
     @Override
-    public synchronized long insert(AEKey key, long amount, Actionable mode) {
-        long accepted = acceptableInsertAmount(key, amount);
-        if (accepted > 0L && mode == Actionable.MODULATE) {
-            applyDelta(key, accepted, true);
-        }
-        return accepted;
-    }
+    public boolean isEmpty() { return data.isEmpty(); }
+    @Override
+    public boolean isHealthy() { return data.canWrite(); }
+    @Override
+    public ECOInfiniteStorageData.DomainStatus status() { return data.status(); }
+    @Override
+    public boolean canExitOrRestore() { return data.canExitOrRestore(); }
+    @Override
+    public boolean hasHugeStacks() { return data.amounts.hasOverflow(); }
+    @Override
+    public boolean hasMigrationReceipt(UUID transaction) { return data.hasMigrationReceipt(transaction); }
+    @Override
+    public long revision() { return data.revision(); }
 
     @Override
-    public synchronized long insertOnce(UUID transactionId, AEKey key, long amount) {
-        if (!data.canMigrate()) return 0L;
-        if (transactionId == null) {
-            return insert(key, amount, Actionable.MODULATE);
-        }
-        if (data.hasMigrationReceipt(transactionId)) {
-            return amount;
-        }
-        long accepted = acceptableInsertAmount(key, amount);
-        if (accepted < amount) {
-            return 0L;
-        }
-        applyDelta(key, amount, true);
-        // The amount and its receipt live in the same file, so they become durable together.
-        data.addMigrationReceipt(transactionId, key);
-        return amount;
-    }
-
-    @Override
-    public synchronized long extract(AEKey key, long amount, Actionable mode) {
-        if (key == null || amount <= 0L || !data.canRead(key)) {
-            return 0L;
-        }
-        long available = Math.min(amount, data.getAmount(key).toLongSaturated());
-        if (available == 0L) {
-            return 0L;
-        }
-        if (mode == Actionable.SIMULATE) {
-            // A pure read of the trusted in-memory data: it must keep working even while degraded, so players and
-            // the network can always see what could be withdrawn.
-            return available;
-        }
-        if (data.canWrite(key)) {
-            applyDelta(key, available, false);
-            return available;
-        }
-        if (data.status() != ECOInfiniteStorageData.DomainStatus.RECOVERY_READ_ONLY) {
-            // UNAVAILABLE: data.canRead() above already excludes this, so this is unreachable in practice; kept as
-            // an explicit floor rather than falling through to the rescue path below.
-            return 0L;
-        }
-        // Recovery rescue extraction: the domain cannot currently be written to, but a player pulling out items they
-        // already own only ever shrinks what is stored, so it is safe to allow it if — and only if — we can prove
-        // the withdrawal reached disk before reporting success. Apply the change, then commit synchronously; keep
-        // it only if that commit actually succeeds, otherwise roll back and refuse. This never runs on the normal
-        // insert/extract hot path, only while already degraded.
-        applyDelta(key, available, false);
-        if (commit().successful()) {
-            return available;
-        }
-        applyDelta(key, available, true);
-        return 0L;
-    }
-
-    @Override
-    public synchronized HugeAmount getAmount(AEKey key) {
-        return data.canRead(key) ? data.getAmount(key) : HugeAmount.ZERO;
-    }
-
-    @Override
-    public synchronized void getAvailableStacks(KeyCounter out) {
-        if (!data.canRead()) return;
-        if (!data.hasFilteredKeys()) {
-            out.addAll(visibleStacks);
-            return;
-        }
-        for (var entry : visibleStacks) {
-            if (data.canRead(entry.getKey())) out.add(entry.getKey(), entry.getLongValue());
-        }
-    }
-
-    @Override
-    public synchronized boolean isEmpty() {
-        return data.isEmpty();
-    }
-
-    @Override
-    public synchronized boolean isHealthy() {
-        return data.isHealthy();
-    }
-
-    @Override
-    public synchronized ECOInfiniteStorageData.DomainStatus status() {
-        var status = data.status();
-        return statisticsFailure != null && status == ECOInfiniteStorageData.DomainStatus.HEALTHY
-            ? ECOInfiniteStorageData.DomainStatus.DEGRADED : status;
-    }
-
-    @Override
-    public synchronized boolean canExitOrRestore() {
-        return data.canExitOrRestore();
-    }
-
-    @Override
-    public synchronized Collection<TypeStats> getTypeStats() {
-        if (statisticsFailure != null) return typeStatsSnapshot;
-        if (!typeStatsSnapshotDirty) {
-            return typeStatsSnapshot;
-        }
-        List<TypeStats> snapshot = new ArrayList<>(typeStats.size());
-        for (Map.Entry<AEKeyType, MutableTypeStats> entry : typeStats.entrySet()) {
-            MutableTypeStats stats = entry.getValue();
-            if (stats.storedTypes > 0L && !stats.storedAmount.isZero()) {
-                snapshot.add(new TypeStats(entry.getKey(), stats.storedTypes, stats.storedAmount));
-            }
-        }
-        typeStatsSnapshot = List.copyOf(snapshot);
-        typeStatsSnapshotDirty = false;
-        return typeStatsSnapshot;
-    }
-
-    @Override
-    public synchronized Collection<HugeStack> getHugeStacks() {
-        if (!hugeStacksSnapshotDirty) {
-            return hugeStacksSnapshot;
-        }
-        List<HugeStack> snapshot = new ArrayList<>(hugeStacks.size());
-        for (Map.Entry<AEKey, HugeAmount> entry : hugeStacks.entrySet()) {
-            snapshot.add(new HugeStack(entry.getKey(), entry.getValue()));
-        }
-        snapshot.sort((left, right) -> right.amount().compareTo(left.amount()));
-        hugeStacksSnapshot = List.copyOf(snapshot);
-        hugeStacksSnapshotDirty = false;
-        return hugeStacksSnapshot;
-    }
-
-    @Override
-    public synchronized CommitResult commit() {
+    public CommitResult commit() {
         data.save(dataFile.toFile(), registries);
         return new CommitResult(data.canWrite() && !data.isDirty(), data.durableRevision(), data.lastFailureReason());
     }
 
-    @Override
-    public synchronized boolean hasMigrationReceipt(UUID transactionId) { return data.hasMigrationReceipt(transactionId); }
-
-    @Override
-    public synchronized boolean hasHugeStacks() { return !hugeStacks.isEmpty(); }
-
-    @Override
-    public synchronized Collection<HugeStack> getLargestStacks(int limit) {
-        if (limit <= 0) return List.of();
-        var largest = new java.util.PriorityQueue<HugeStack>(java.util.Comparator.comparing(HugeStack::amount));
-        for (var entry : hugeStacks.entrySet()) {
-            if (largest.size() < limit) largest.add(new HugeStack(entry.getKey(), entry.getValue()));
-            else if (entry.getValue().compareTo(largest.peek().amount()) > 0) {
-                largest.remove();
-                largest.add(new HugeStack(entry.getKey(), entry.getValue()));
-            }
+    public void close() {
+        if (data.isDirty() && !commit().successful()) {
+            throw new IllegalStateException("Infinite domain snapshot is still unsaved: " + data.lastFailureReason());
         }
-        List<HugeStack> result = new ArrayList<>(largest);
-        result.sort((left, right) -> right.amount().compareTo(left.amount()));
-        return List.copyOf(result);
+    }
+    public List<String> failures() { return data.failures(); }
+    public String persistenceSummary() {
+        return "SavedData revision: " + data.revision() + "; saved revision: " + data.durableRevision();
     }
 
     @Override
-    public synchronized long revision() { return data.revision(); }
-
-    @Override
-    public synchronized void tick(long gameTime) { data.tick(gameTime); }
-
-    public synchronized void close() { data.closeJournal(); }
-
-    public synchronized List<String> failures() {
-        List<String> failures = new ArrayList<>(data.failures());
-        if (statisticsFailure != null) failures.add("statistics: " + statisticsFailure);
-        return List.copyOf(failures);
-    }
-
-    public synchronized String persistenceSummary() {
-        return "Pending keys: " + data.pendingKeyCount() + "; revision: " + data.revision()
-            + "; saved revision: " + data.durableRevision();
+    public boolean reserveRestore(AEKey key, UUID transaction, Set<UUID> targets) {
+        return reserveRestores(Map.of(key, transaction), targets, Map.of(key, Map.of()));
     }
 
     @Override
-    public synchronized boolean reserveRestore(AEKey key, UUID transaction) {
-        return data.reserveRestore(key, transaction) && commit().successful();
-    }
-
-    @Override
-    public synchronized boolean reserveRestore(AEKey key, UUID transaction, java.util.Set<UUID> targets) {
-        return data.reserveRestore(key, transaction, targets) && commit().successful();
-    }
-
-    @Override
-    public synchronized java.util.Set<UUID> restoreTargetIds(AEKey key) { return data.restoreTargetIds(key); }
-
-    @Override
-    public synchronized UUID restoreTransaction(AEKey key) { return data.restoreTransaction(key); }
-
-    @Override
-    public synchronized boolean hasPendingRestore() { return data.hasPendingRestore(); }
-
-    @Override
-    public synchronized void failRestore(AEKey key, String reason) { data.failRestore(key, reason); commit(); }
-
-    @Override
-    public synchronized boolean finishRestore(AEKey key, UUID transaction) {
-        HugeAmount previous = data.getAmount(key);
-        if (!data.finishRestore(key, transaction)) return false;
-        updateIndexes(key, previous, HugeAmount.ZERO, previous, false);
+    public boolean reserveRestores(Map<AEKey, UUID> transactions, Set<UUID> targets,
+                                  Map<AEKey, Map<UUID, RestoreTargetAmounts>> plans) {
+        if (!data.canExitOrRestore()) return false;
+        for (var entry : transactions.entrySet()) {
+            if (!data.canReserveRestore(entry.getKey(), entry.getValue(), targets, plans.getOrDefault(entry.getKey(), Map.of()))) return false;
+        }
+        for (var entry : transactions.entrySet()) {
+            if (!data.reserveRestore(entry.getKey(), entry.getValue(), targets, plans.getOrDefault(entry.getKey(), Map.of()))) return false;
+        }
         return commit().successful();
     }
 
     @Override
-    public synchronized HugeAmount getRestoreAmount(AEKey key) { return data.getAmount(key); }
+    public Set<UUID> restoreTargetIds(AEKey key) { return data.restoreTargetIds(key); }
+    @Override
+    public UUID restoreTransaction(AEKey key) { return data.restoreTransaction(key); }
+    @Override
+    public Map<UUID, RestoreTargetAmounts> restorePlan(AEKey key) { return data.restorePlan(key); }
+    @Override
+    public boolean hasPendingRestore() { return data.hasPendingRestore(); }
+    @Override
+    public void failRestore(AEKey key, String reason) { data.failRestore(key, reason); commit(); }
 
     @Override
-    public synchronized void getRestoreStacks(KeyCounter out) { if (data.canExitOrRestore()) out.addAll(visibleStacks); }
+    public boolean finishRestore(AEKey key, UUID transaction) { return finishRestores(Map.of(key, transaction)); }
 
     @Override
-    public synchronized void clearMigrationReceipts() {
-        data.clearMigrationReceipts();
-    }
-
-    private void applyDelta(AEKey key, long changed, boolean added) {
-        if (changed == 0L) {
-            return;
+    public boolean finishRestores(Map<AEKey, UUID> transactions) {
+        for (var entry : transactions.entrySet()) {
+            if (!data.canFinishRestore(entry.getKey(), entry.getValue())) return false;
         }
-        HugeAmount current = data.getAmount(key);
-        long effective = added ? changed : Math.min(changed, current.toLongSaturated());
-        if (effective == 0L) {
-            return;
-        }
-        HugeAmount next = added ? current.add(effective) : current.subtract(effective);
-        data.setAmount(key, next);
-        updateIndexes(key, current, next, HugeAmount.of(effective), added);
-    }
-
-    private void rebuildIndexes() {
-        visibleStacks.clear();
-        typeStats.clear();
-        hugeStacks.clear();
-        typeStatsSnapshot = List.of();
-        typeStatsSnapshotDirty = true;
-        hugeStacksSnapshot = List.of();
-        hugeStacksSnapshotDirty = true;
-        for (Map.Entry<AEKey, HugeAmount> entry : data.getAmounts().entrySet()) {
-            updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue(), entry.getValue(), true);
-        }
-    }
-
-    /**
-     * Refreshes the derived views after a single key changed from {@code previous} to {@code next}.
-     */
-    private void updateIndexes(AEKey key, HugeAmount previous, HugeAmount next, HugeAmount changed, boolean added) {
-        if (next.isZero()) {
-            visibleStacks.remove(key);
-        } else {
-            visibleStacks.set(key, next.toLongSaturated());
-        }
-        if (next.isBig()) {
-            hugeStacks.put(key, next);
-            hugeStacksSnapshotDirty = true;
-        } else if (hugeStacks.remove(key) != null) {
-            hugeStacksSnapshotDirty = true;
-        }
-
-        int typeDelta = (previous.isZero() ? 0 : -1) + (next.isZero() ? 0 : 1);
-        if (changed.isZero() && typeDelta == 0) {
-            return;
-        }
-
-        try {
-            AEKeyType keyType = key.getType();
-            MutableTypeStats stats = typeStats.computeIfAbsent(keyType, ignored -> new MutableTypeStats());
-            stats.storedTypes += typeDelta;
-            stats.storedAmount = added ? stats.storedAmount.add(changed) : stats.storedAmount.subtract(changed);
-            if (stats.storedTypes <= 0L || stats.storedAmount.isZero()) {
-                typeStats.remove(keyType);
+        for (var entry : transactions.entrySet()) {
+            HugeAmount previous = data.getAmount(entry.getKey());
+            if (!data.finishRestore(entry.getKey(), entry.getValue())) return false;
+            MutableTypeStats stats = typeStats.get(entry.getKey().getType());
+            if (stats != null) {
+                stats.total = stats.total.subtract(previous);
+                if (--stats.types == 0) typeStats.remove(entry.getKey().getType());
             }
-            typeStatsSnapshotDirty = true;
-        } catch (RuntimeException e) {
-            if (statisticsFailure == null) org.slf4j.LoggerFactory.getLogger(SavedDataInfiniteStorageEngine.class)
-                .error("ECO statistics update failed; inventory operations remain available", e);
-            statisticsFailure = e.toString();
         }
+        statisticsDirty = true;
+        return commit().successful();
+    }
+
+    @Override
+    public HugeAmount getRestoreAmount(AEKey key) { return data.getAmount(key); }
+    @Override
+    public void getRestoreStacks(KeyCounter out) {
+        if (data.canExitOrRestore()) data.amounts.visitVisible((key, amount) -> addVisible(out, key, amount));
     }
 
     private static final class MutableTypeStats {
-        private long storedTypes;
-        private HugeAmount storedAmount = HugeAmount.ZERO;
+        private long types;
+        private HugeAmount total = HugeAmount.ZERO;
     }
 }

@@ -526,6 +526,9 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     }
 
     @Override
+    public long getMigrationAmount(AEKey key) { return getCellItems().getLong(key); }
+
+    @Override
     public Component getDescription() {
         return cellStack.getHoverName();
     }

@@ -34,6 +34,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageData;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.util.NEMath;
@@ -181,16 +182,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private transient UUID mountedInfiniteDomainId;
     @Nullable
     private transient ECOInfiniteStorageEngine mountedInfiniteEngine;
-    private final Map<UUID, MigrationCursor> migrationCursors = new HashMap<>();
+    private final ECOInfiniteStorageTransfer infiniteTransfer = new ECOInfiniteStorageTransfer();
+    private final java.util.Set<UUID> durableInfiniteSourceSeals = new java.util.HashSet<>();
     private int migrationDriveCursor;
     private RestorePlan activeRestorePlan;
     private final java.util.ArrayDeque<AEKey> restoreQueue = new java.util.ArrayDeque<>();
     private long currentStorageBudget = STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK;
-    private static final class MigrationCursor {
-        private final java.util.Iterator<Object2LongMap.Entry<AEKey>> entries;
-        private Object2LongMap.Entry<AEKey> pending;
-        private MigrationCursor(java.util.Iterator<Object2LongMap.Entry<AEKey>> entries) { this.entries = entries; }
-    }
     @Getter
     @DescSynced
     private long performanceAverageNanos = 0L;
@@ -1094,7 +1091,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canInsertIntoInfiniteDomain() {
-        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null;
+        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null
+            && !infiniteExitRequested && activeRestorePlan == null
+            && (mountedInfiniteEngine == null || !mountedInfiniteEngine.hasPendingRestore());
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
@@ -1463,7 +1462,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             && !finiteDomainRestoreFailed
             && !isStorageInterfaceTransferMode()
             && hasRequiredInfiniteComponents()
+            && countInfiniteMigrationSources() >= 12
             && !hasForeignInfiniteMembers();
+    }
+
+    private int countInfiniteMigrationSources() {
+        return countInfiniteMembers() + countPendingInfiniteMigrationTargets();
     }
 
     private boolean hasForeignInfiniteMembers() {
@@ -1499,9 +1503,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             IECOStorageCell cell = drive.getCellInventory();
             if (stack != null
                 && !stack.isEmpty()
-                && cell != null
-                && cell.getTier() == ECOTier.L9
-                && cell.isInfiniteStorageEligible()
+                && ECOInfiniteStorageTransfer.isEligible(cell)
                 && !ECOInfiniteStorageMember.isMember(stack)) {
                 count++;
             }
@@ -1534,6 +1536,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!engine.isHealthy()) {
             return;
         }
+        sealInfiniteTransferSources(serverLevel, domainId);
         boolean hasPending = false;
         List<ECODriveBlockEntity> drives = new ArrayList<>(cluster.getDrives());
         for (int visited = 0; visited < drives.size(); visited++) {
@@ -1553,9 +1556,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     continue;
                 }
                 IECOStorageCell cell = drive.getCellInventory();
-                if (stack == null || stack.isEmpty() || cell == null || cell.getTier() != ECOTier.L9
-                    || !cell.isInfiniteStorageEligible()) continue;
+                if (stack == null || stack.isEmpty() || !ECOInfiniteStorageTransfer.isEligible(cell)) continue;
                 hasPending = true;
+                if (!durableInfiniteSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))) continue;
                 migrateDriveToDomain(drive, cell, engine, domainId);
                 storageFaults.recovered(stage);
                 break;
@@ -1575,41 +1578,49 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             throw new IllegalStateException("Cell handler does not support resumable migration");
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
-        MigrationCursor cursor = migrationCursors.get(migration);
-        if (cursor == null) {
-            java.util.Iterator<Object2LongMap.Entry<AEKey>> entries = migrationCell.migrationEntries();
-            drive.setChanged();
-            IStorageProvider.requestUpdate(drive.getMainNode());
-            // The source seal must reach its chunk before the domain can expose a second copy.
-            ((ServerLevel) level).getChunkSource().save(true);
-            cursor = new MigrationCursor(entries);
-            migrationCursors.put(migration, cursor);
-        }
-        long start = System.nanoTime();
-        int processed = 0;
-        while ((cursor.pending != null || cursor.entries.hasNext()) && processed++ < 64) {
-            if (System.nanoTime() - start >= currentStorageBudget) break;
-            if (cursor.pending == null) cursor.pending = cursor.entries.next();
-            AEKey key = cursor.pending.getKey();
-            long amount = cursor.pending.getLongValue();
-            if (amount > 0L) {
-                UUID legacyReceipt = migrationTransactionId(domainId, drive, key, amount, "to-domain");
-                UUID transaction = engine.hasMigrationReceipt(legacyReceipt) ? legacyReceipt
-                    : UUID.nameUUIDFromBytes((migration + ":" + key.toTagGeneric(level.registryAccess())).getBytes(StandardCharsets.UTF_8));
-                if (engine.insertOnce(transaction, key, amount) != amount) return;
-            }
-            cursor.pending = null;
-        }
-        if (cursor.pending != null || cursor.entries.hasNext()) return;
-        if (!engine.commit().successful()) {
-            return;
-        }
-        drive.convertCellToInfiniteMember(domainId);
-        migrationCursors.remove(migration);
+        boolean finished = infiniteTransfer.step(drive.getCellStack(), migrationCell, domainId, engine,
+            level.registryAccess(), () -> {
+                if (!durableInfiniteSourceSeals.contains(migration)) throw new IllegalStateException("Source seal is not durable");
+            }, () -> drive.convertCellToInfiniteMember(domainId),
+            (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"),
+            NEConfig.storageTransferKeysPerTick, currentStorageBudget);
+        if (!finished) return;
+        durableInfiniteSourceSeals.remove(migration);
         IStorageProvider.requestUpdate(drive.getMainNode());
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         setChanged();
         markForUpdate();
+    }
+
+    private void sealInfiniteTransferSources(ServerLevel serverLevel, UUID domainId) {
+        java.util.Set<UUID> prepared = new java.util.HashSet<>();
+        long started = System.nanoTime();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            if (prepared.size() >= NEConfig.storageTransferKeysPerTick
+                || (!prepared.isEmpty() && System.nanoTime() - started >= currentStorageBudget)) break;
+            String stage = "migration drive " + drive.getBlockPos();
+            if (level.getGameTime() < stageRetryTicks.getOrDefault(stage, Long.MIN_VALUE)) continue;
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell cell = drive.getCellInventory();
+            if (stack == null || stack.isEmpty() || ECOInfiniteStorageMember.isMember(stack)
+                || !ECOInfiniteStorageTransfer.isEligible(cell)) continue;
+            try {
+                UUID migration = ECOInfiniteStorageMember.beginMigration(stack, domainId);
+                if (durableInfiniteSourceSeals.contains(migration)) continue;
+                ((IECOStorageMigrationCell) cell).persistMigrationContents(serverLevel);
+                drive.setChanged();
+                IStorageProvider.requestUpdate(drive.getMainNode());
+                prepared.add(migration);
+            } catch (RuntimeException e) {
+                stageRetryTicks.put(stage, level.getGameTime() + 200L);
+                storageFaults.report(stage, e.toString(), level.getGameTime(), e);
+            }
+        }
+        if (!prepared.isEmpty()) {
+            // Save a batch of seals together, rather than saving the dimension separately for every source disk.
+            serverLevel.getChunkSource().save(true);
+            durableInfiniteSourceSeals.addAll(prepared);
+        }
     }
 
     private void restoreInfiniteDomainToNormalStorage() {
@@ -1674,6 +1685,19 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             HugeAmount amount = engine.getRestoreAmount(key);
             if (amount.compareTo(HugeAmount.of(Long.MAX_VALUE)) > 0) {
                 return RestorePlan.blocked("domain contains stacks larger than a normal storage cell can hold");
+            }
+            var savedPlan = engine.restorePlan(key);
+            if (!savedPlan.isEmpty()) {
+                for (RestoreTarget target : targets) {
+                    var goal = savedPlan.get(target.identity);
+                    if (goal == null) continue;
+                    long current = target.simulatedContents().get(key);
+                    if (current < goal.before() || current > goal.after()) {
+                        return RestorePlan.blocked("restore target contents differ from the saved transfer plan");
+                    }
+                    target.addSimulated(key, goal.after() - current);
+                }
+                continue;
             }
             long remaining = amount.toLongSaturated();
             for (RestoreTarget target : targets) {
@@ -1799,114 +1823,76 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 return;
             }
         }
-        KeyCounter pending = new KeyCounter();
         if (activeRestorePlan == null) {
+            KeyCounter pending = new KeyCounter();
             engine.getRestoreStacks(pending);
-            for (var entry : pending) restoreQueue.addLast(entry.getKey());
-            activeRestorePlan = plan;
-        }
-        pending.clear();
-        while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero()) restoreQueue.removeFirst();
-        if (restoreQueue.isEmpty()) {
-            activeRestorePlan = null;
-            exitInfiniteModeIfSafe();
-            return;
-        }
-        AEKey restoringKey = restoreQueue.peekFirst();
-        long restoringAmount = engine.getRestoreAmount(restoringKey).toLongSaturated();
-        pending.add(restoringKey, restoringAmount);
-        UUID restoreId = engine.restoreTransaction(restoringKey);
-        if (restoreId == null) restoreId = UUID.randomUUID();
-        if (!engine.reserveRestore(restoringKey, restoreId, targetIds)) return;
-        IStorageProvider.requestUpdate(getMainNode());
-        IActionSource source = IActionSource.ofMachine(this);
-        Map<AEKey, BigInteger> expectedFinalAmounts = expectedFinalRestoreAmounts(plan.targets(), pending);
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            AEKey key = entry.getKey();
-            long remaining = engine.getRestoreAmount(key).toLongSaturated();
-            long original = remaining;
-            for (RestoreTarget target : plan.targets()) {
-                IECOStorageCell cell = target.drive().getCellInventory();
-                if (cell == null || !ECOInfiniteStorageMember.isMemberOf(target.drive().getCellStack(), infiniteDomainId)) {
+            Map<AEKey, UUID> transactions = new HashMap<>();
+            Map<AEKey, Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts>> goals = new HashMap<>();
+            for (var entry : pending) {
+                AEKey key = entry.getKey();
+                UUID transaction = engine.restoreTransaction(key);
+                transactions.put(key, transaction == null ? UUID.randomUUID() : transaction);
+                var savedPlan = engine.restorePlan(key);
+                if (!savedPlan.isEmpty()) {
+                    goals.put(key, savedPlan);
                     continue;
                 }
-                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
-                long inserted = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
-                if (inserted <= 0L) {
-                    try {
-                        inserted = insertForRestore(cell, key, remaining, Actionable.MODULATE, source);
-                    } catch (RuntimeException e) {
-                        engine.failRestore(key, "Restore outcome uncertain at " + target.drive().getBlockPos() + ": " + e);
-                        throw e;
-                    }
-                    target.drive().putRestoreReceipt(transactionId, inserted);
+                Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> amounts = new HashMap<>();
+                for (RestoreTarget target : plan.targets()) {
+                    var cell = (IECOStorageMigrationCell) target.drive().getCellInventory();
+                    long before = cell.getMigrationAmount(key);
+                    long after = target.simulatedContents().get(key);
+                    UUID oldReceipt = migrationTransactionId(infiniteDomainId, target.drive(), key,
+                        entry.getLongValue(), "from-domain");
+                    long transferred = Math.addExact(target.drive().getRestoreReceipt(oldReceipt), after - before);
+                    amounts.put(target.identity, new ECOInfiniteStorageEngine.RestoreTargetAmounts(before, after, transferred));
                 }
-                cell.persist();
-                remaining -= inserted;
-                if (remaining <= 0L) {
-                    break;
+                goals.put(key, amounts);
+            }
+            // Freeze all source keys before any target changes. The durable target quantities also make a crash
+            // between an external cell's SavedData write and its chunk receipt recoverable without reinsertion.
+            if (!engine.reserveRestores(transactions, targetIds, goals)) return;
+            restoreQueue.clear();
+            for (var entry : pending) restoreQueue.addLast(entry.getKey());
+            activeRestorePlan = plan;
+            IStorageProvider.requestUpdate(getMainNode());
+        }
+        while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero()) restoreQueue.removeFirst();
+        Map<AEKey, UUID> completed = new HashMap<>();
+        java.util.Set<IECOStorageMigrationCell> changedCells = new java.util.HashSet<>();
+        IActionSource source = IActionSource.ofMachine(this);
+        long started = System.nanoTime();
+        for (AEKey key : restoreQueue) {
+            if (completed.size() >= NEConfig.storageTransferKeysPerTick
+                || (!completed.isEmpty() && System.nanoTime() - started >= currentStorageBudget)) break;
+            var goals = engine.restorePlan(key);
+            for (RestoreTarget target : plan.targets()) {
+                var goal = goals.get(target.identity);
+                if (goal == null) continue;
+                var cell = (IECOStorageMigrationCell) target.drive().getCellInventory();
+                if (!ECOInfiniteStorageTransfer.restoreTarget(cell, key, goal, source)) {
+                    storageFaults.report("restore", "Waiting for compatible target capacity", level.getGameTime());
+                    return;
                 }
+                UUID receipt = migrationTransactionId(infiniteDomainId, target.drive(), key,
+                    engine.getRestoreAmount(key).toLongSaturated(), "from-domain");
+                target.drive().putRestoreReceipt(receipt, goal.transferred());
+                changedCells.add(cell);
             }
-            if (remaining > 0L) {
-                LOGGER.warn("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
-                engine.commit();
-                return;
-            }
+            completed.put(key, engine.restoreTransaction(key));
         }
-        serverLevel.getChunkSource().save(true);
-        if (!verifyRestoredContents(plan.targets(), expectedFinalAmounts)) {
-            LOGGER.error(
-                "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
-                infiniteDomainId
-            );
-            engine.commit();
-            return;
+        if (!completed.isEmpty()) {
+            for (var cell : changedCells) cell.persistMigrationContents(serverLevel);
+            serverLevel.getChunkSource().save(true);
+            if (!engine.finishRestores(completed)) return;
+            restoreQueue.removeIf(completed::containsKey);
+            storageFaults.recovered("restore");
+            IStorageProvider.requestUpdate(getMainNode());
         }
-        if (!engine.finishRestore(restoringKey, restoreId)) return;
-        storageFaults.recovered("restore");
-        IStorageProvider.requestUpdate(getMainNode());
-        restoreQueue.removeFirst();
         if (restoreQueue.isEmpty()) {
             activeRestorePlan = null;
             exitInfiniteModeIfSafe();
         }
-    }
-
-    private Map<AEKey, BigInteger> expectedFinalRestoreAmounts(List<RestoreTarget> targets, KeyCounter pending) {
-        KeyCounter baseline = collectRestoreTargetContents(targets);
-        Map<AEKey, BigInteger> expected = new HashMap<>();
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            AEKey key = entry.getKey();
-            long domainAmount = entry.getLongValue();
-            long alreadyRestored = 0L;
-            for (RestoreTarget target : targets) {
-                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
-                alreadyRestored = NEMath.saturatingAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
-            }
-            long outstanding = Math.max(0L, domainAmount - Math.min(domainAmount, alreadyRestored));
-            expected.put(key, BigInteger.valueOf(baseline.get(key)).add(BigInteger.valueOf(outstanding)));
-        }
-        return expected;
-    }
-
-    private boolean verifyRestoredContents(List<RestoreTarget> targets, Map<AEKey, BigInteger> expected) {
-        KeyCounter restored = collectRestoreTargetContents(targets);
-        for (Map.Entry<AEKey, BigInteger> entry : expected.entrySet()) {
-            if (!BigInteger.valueOf(restored.get(entry.getKey())).equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private KeyCounter collectRestoreTargetContents(List<RestoreTarget> targets) {
-        KeyCounter restored = new KeyCounter();
-        for (RestoreTarget target : targets) {
-            IECOStorageCell cell = target.drive().getCellInventory();
-            if (cell instanceof IECOStorageMigrationCell migrationCell) migrationCell.getMigrationStacks(restored);
-            else if (cell != null) cell.getAvailableStacks(restored);
-        }
-        return restored;
     }
 
     private long insertForRestore(
@@ -1952,9 +1938,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         hostMode = formed ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED;
         if (level instanceof ServerLevel serverLevel && domainId != null) {
-            // Journal receipts remain as ownership tombstones for stale source chunks.
-            engine.clearMigrationReceipts();
-            engine.commit();
+            // Retain transfer receipts: an old source chunk must not import the same inventory again.
             releaseMountedInfiniteEngine();
         }
         infiniteDomainId = null;
@@ -2020,6 +2004,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void releaseMountedInfiniteEngine() {
+        infiniteTransfer.reset();
+        durableInfiniteSourceSeals.clear();
         if (mountedInfiniteServer != null && mountedInfiniteDomainId != null) {
             ECOInfiniteStorageDomains.release(mountedInfiniteServer, mountedInfiniteDomainId);
         }
@@ -2137,6 +2123,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         private IECOStorageCell simulatedCell() { return simulatedCell; }
         private KeyCounter simulatedContents() { return simulatedContents; }
         private void addSimulated(AEKey key, long amount) {
+            if (amount <= 0L) return;
             if (simulatedContents.get(key) == 0L) simulatedTypes++;
             simulatedAmount = NEMath.saturatingAdd(simulatedAmount, amount);
             simulatedContents.add(key, amount);

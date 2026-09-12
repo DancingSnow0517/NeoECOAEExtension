@@ -157,18 +157,6 @@ public class NEConfig {
     private static final ModConfigSpec.LongValue STORAGE_SERVER_NANOS = BUILDER
         .comment("Shared storage controller time budget per server tick, in nanoseconds.")
         .defineInRange("storageServerNanosPerTick", 4_000_000L, 100_000L, 40_000_000L);
-    private static final ModConfigSpec.IntValue INFINITE_FLUSH_TICKS = BUILDER
-        .comment("Interval between asynchronous infinite-storage journal batches. Unflushed changes may roll back on a process crash.",
-            "World saves and migration boundaries wait for a durable journal commit.")
-        .defineInRange("infiniteStorageFlushIntervalTicks", 20, 1, 1200);
-    private static final ModConfigSpec.IntValue INFINITE_DIRTY_KEYS = BUILDER
-        .comment("Backpressure limit for distinct unsaved keys in one infinite domain.")
-        .defineInRange("infiniteStorageMaxDirtyKeys", 65_536, 256, 1_048_576);
-    private static final ModConfigSpec.LongValue INFINITE_CHECKPOINT_MIN_BYTES = BUILDER
-        .comment(
-            "Minimum journal size before an infinite-storage checkpoint is scheduled.",
-            "The effective threshold is also at least 25% of the current snapshot size to avoid repeated full-snapshot write amplification.")
-        .defineInRange("infiniteStorageCheckpointMinBytes", 32L * 1024 * 1024, 1L * 1024 * 1024, 1L * 1024 * 1024 * 1024);
     private static final ModConfigSpec.LongValue INFINITE_MAX_SNAPSHOT_BYTES = BUILDER
         .comment(
             "Maximum accounted size of one infinite-storage shard snapshot while loading.",
@@ -179,11 +167,6 @@ public class NEConfig {
             "Maximum number of entries in one shard snapshot during recovery.",
             "This is a corruption/OOM guard, not an item-amount capacity limit.")
         .defineInRange("infiniteStorageMaxSnapshotEntries", 4_000_000, 1_024, 16_000_000);
-    private static final ModConfigSpec.LongValue INFINITE_PREPARE_NANOS = BUILDER
-        .comment(
-            "Cooperative main-thread time budget for preparing one asynchronous infinite-storage journal batch.",
-            "Save barriers drain all remaining changes synchronously and are not limited by this budget.")
-        .defineInRange("infiniteStoragePrepareNanos", 1_000_000L, 100_000L, 10_000_000L);
 
     static {
         BUILDER.pop();
@@ -247,12 +230,8 @@ public class NEConfig {
     public static int storageTransferKeysPerTick = 256;
     public static long storageTransferNanosPerTick = 2_000_000L;
     public static long storageServerNanosPerTick = 4_000_000L;
-    public static int infiniteStorageFlushIntervalTicks = 20;
-    public static int infiniteStorageMaxDirtyKeys = 65_536;
-    public static long infiniteStorageCheckpointMinBytes = 32L * 1024 * 1024;
     public static long infiniteStorageMaxSnapshotBytes = 2L * 1024 * 1024 * 1024;
     public static int infiniteStorageMaxSnapshotEntries = 4_000_000;
-    public static long infiniteStoragePrepareNanos = 1_000_000L;
     public static boolean ecoDispatchWatchdogDebug = false;
     public static boolean ecoCraftingOutputDeliveryDebug = false;
     public static boolean ecoCraftConfirmDebug = false;
@@ -282,12 +261,8 @@ public class NEConfig {
         storageTransferKeysPerTick = STORAGE_TRANSFER_KEYS.get();
         storageTransferNanosPerTick = STORAGE_TRANSFER_NANOS.get();
         storageServerNanosPerTick = STORAGE_SERVER_NANOS.get();
-        infiniteStorageFlushIntervalTicks = INFINITE_FLUSH_TICKS.get();
-        infiniteStorageMaxDirtyKeys = INFINITE_DIRTY_KEYS.get();
-        infiniteStorageCheckpointMinBytes = INFINITE_CHECKPOINT_MIN_BYTES.get();
         infiniteStorageMaxSnapshotBytes = INFINITE_MAX_SNAPSHOT_BYTES.get();
         infiniteStorageMaxSnapshotEntries = INFINITE_MAX_SNAPSHOT_ENTRIES.get();
-        infiniteStoragePrepareNanos = INFINITE_PREPARE_NANOS.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
         ecoCraftingOutputDeliveryDebug = ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG.get();
         ecoCraftConfirmDebug = ECO_CRAFT_CONFIRM_DEBUG.get();

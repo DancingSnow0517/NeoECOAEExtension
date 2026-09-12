@@ -11,8 +11,6 @@ import java.util.UUID;
 public interface ECOInfiniteStorageEngine {
     record TypeStats(AEKeyType keyType, long storedTypes, HugeAmount storedAmount) {}
 
-    record HugeStack(AEKey key, HugeAmount amount) {}
-
     long insert(AEKey key, long amount, Actionable mode);
 
     BigInteger usedBytes();
@@ -60,13 +58,7 @@ public interface ECOInfiniteStorageEngine {
 
     Collection<TypeStats> getTypeStats();
 
-    Collection<HugeStack> getHugeStacks();
-
-    default boolean hasHugeStacks() { return !getHugeStacks().isEmpty(); }
-
-    default Collection<HugeStack> getLargestStacks(int limit) {
-        return getHugeStacks().stream().limit(Math.max(0, limit)).toList();
-    }
+    boolean hasHugeStacks();
 
     default boolean hasMigrationReceipt(UUID transactionId) { return false; }
 
@@ -80,8 +72,6 @@ public interface ECOInfiniteStorageEngine {
     CommitResult commit();
 
     default long revision() { return 0L; }
-
-    default void tick(long gameTime) {}
 
     default boolean reserveRestore(AEKey key, UUID transaction) { return false; }
 
@@ -97,12 +87,23 @@ public interface ECOInfiniteStorageEngine {
 
     default boolean finishRestore(AEKey key, UUID transaction) { return false; }
 
+    record RestoreTargetAmounts(long before, long after, long transferred) {
+        public RestoreTargetAmounts {
+            if (before < 0 || after < before || transferred < after - before || transferred > after) {
+                throw new IllegalArgumentException("Invalid restore target amounts");
+            }
+        }
+    }
+
+    boolean reserveRestores(java.util.Map<AEKey, UUID> transactions, java.util.Set<UUID> targets,
+        java.util.Map<AEKey, java.util.Map<UUID, RestoreTargetAmounts>> plans);
+
+    java.util.Map<UUID, RestoreTargetAmounts> restorePlan(AEKey key);
+
+    boolean finishRestores(java.util.Map<AEKey, UUID> transactions);
+
     default HugeAmount getRestoreAmount(AEKey key) { return getAmount(key); }
 
     default void getRestoreStacks(KeyCounter out) { getAvailableStacks(out); }
 
-    /**
-     * Legacy cleanup hook. Journal-backed domains retain ownership receipts to reject stale source copies.
-     */
-    void clearMigrationReceipts();
 }

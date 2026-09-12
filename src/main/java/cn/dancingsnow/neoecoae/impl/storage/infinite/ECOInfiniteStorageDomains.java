@@ -7,10 +7,13 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +29,6 @@ public final class ECOInfiniteStorageDomains {
     private static final long IDLE_EVICTION_TICKS = 20L * 60L;
 
     private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
-    private static final Map<MinecraftServer, cn.dancingsnow.neoecoae.impl.storage.StorageFaults> FAULTS = new IdentityHashMap<>();
 
     private ECOInfiniteStorageDomains() {}
 
@@ -42,7 +44,7 @@ public final class ECOInfiniteStorageDomains {
 
     /**
      * Releases one host mount. The last release starts an idle grace period, after which the cached engine is flushed
-     * and closed; world data, journals and ownership receipts remain owned by the level for later recovery.
+     * and discarded. The level retains the SavedData inventory and transfer receipts.
      */
     public static synchronized void release(MinecraftServer server, UUID domainId) {
         Map<UUID, DomainEntry> engines = ENGINES.get(server);
@@ -64,7 +66,6 @@ public final class ECOInfiniteStorageDomains {
                 catch (RuntimeException e) { LOGGER.error("ECO domain {} shutdown flush failed", entry.getKey(), e); }
             }
         }
-        FAULTS.remove(server);
     }
 
     public static synchronized void tick(MinecraftServer server, long tick) {
@@ -84,14 +85,6 @@ public final class ECOInfiniteStorageDomains {
                     iterator.remove();
                     continue;
                 }
-                UUID id = domain.getKey();
-                ECOInfiniteStorageEngine engine = entry.engine;
-                var faults = FAULTS.computeIfAbsent(
-                    server,
-                    ignored -> new cn.dancingsnow.neoecoae.impl.storage.StorageFaults()
-                );
-                try { engine.tick(tick); faults.recovered(id.toString()); }
-                catch (RuntimeException e) { faults.report(id.toString(), "Domain tick failed: " + e, tick, e); }
             }
             if (engines.isEmpty()) ENGINES.remove(server);
         }
@@ -118,8 +111,6 @@ public final class ECOInfiniteStorageDomains {
             domains.add(domain);
         });
         report.add("domains", domains);
-        var faults = FAULTS.get(server);
-        if (faults != null) report.add("lifecycleFailures", new com.google.gson.Gson().toJsonTree(faults.snapshot()));
         return report;
     }
 
@@ -143,51 +134,44 @@ public final class ECOInfiniteStorageDomains {
             throw new IllegalStateException("Cannot open ECO infinite storage domain " + domainId + " without a level");
         }
         HolderLookup.Provider registries = overworld.registryAccess();
-        String dataName = DATA_NAME_PREFIX + domainId;
+        String legacyName = DATA_NAME_PREFIX + domainId;
+        // A separate name keeps every old .dat/.store byte intact. Once v3 exists it is authoritative;
+        // never fall back to the stale legacy inventory when the newer file is damaged.
+        String dataName = legacyName + "_v3";
         Path worldRoot = server.getWorldPath(LevelResource.ROOT);
         Path dataFile = worldRoot.resolve("data").resolve(dataName + ".dat");
-        boolean fileExisted = Files.isRegularFile(dataFile);
-
-        ECOInfiniteStorageData data = overworld.getDataStorage()
-                .computeIfAbsent(
-                        new SavedData.Factory<>(ECOInfiniteStorageData::createNew, ECOInfiniteStorageData::load, null),
-                        dataName);
-        data.bindDomainId(domainId);
-
-        // Only meaningful right after the instance was built; a cached instance may well have written the file since.
-        if (data.claimFirstLookup()) {
-            if (isSilentlySubstitutedEmpty(fileExisted, data.wasLoadedFromDisk())) {
-                // DimensionDataStorage logs read failures and hands back an empty instance, which is indistinguishable
-                // from an empty domain. Left alone that would let the storage host convert every member cell back and
-                // throw the contents away, so lock the domain instead.
-                LOGGER.error(
-                        "ECO infinite storage domain {} could not be read from {}; it stays locked until the file is"
-                                + " repaired or removed",
-                        domainId,
-                        dataFile);
-                data.markUnreadable();
-            }
-        }
+        var storage = overworld.getDataStorage();
+        ECOInfiniteStorageData data;
         try {
-            data.openJournal(dataFile, registries);
+            if (Files.isRegularFile(dataFile)) {
+                CompoundTag root = NbtIo.readCompressed(dataFile, NbtAccounter.unlimitedHeap());
+                if (!root.contains("data", Tag.TAG_COMPOUND)) {
+                    throw new java.io.IOException("Missing data compound in authoritative snapshot");
+                }
+                data = ECOInfiniteStorageData.load(root.getCompound("data"), registries);
+            } else {
+                data = ECOInfiniteStorageData.createNew();
+                Path legacyFile = worldRoot.resolve("data").resolve(legacyName + ".dat");
+                if (LegacyInfiniteStorageReader.exists(legacyFile)) {
+                    var recovered = LegacyInfiniteStorageReader.readAvailable(legacyFile);
+                    data = ECOInfiniteStorageData.load(recovered.data(), registries);
+                    if (!recovered.failures().isEmpty()) data.markIncompleteLegacy(recovered.failures());
+                }
+                if (data.canWrite()) {
+                    data.setDirty();
+                    data.save(dataFile.toFile(), registries);
+                }
+            }
         } catch (java.io.IOException | RuntimeException e) {
-            if (Files.exists(dataFile.resolveSibling(dataFile.getFileName() + ".store"))) data.markUnreadable();
-            data.markWriteFailed("Cannot open storage journal: " + e);
-            LOGGER.error("Cannot open ECO domain {} journal", domainId, e);
+            data = ECOInfiniteStorageData.createNew();
+            data.markUnreadable("Cannot read authoritative domain snapshot; original files retained: " + e);
+            LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
         }
+        storage.set(dataName, data);
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }
         return new SavedDataInfiniteStorageEngine(data, registries, dataFile);
     }
 
-    /**
-     * {@code true} when a domain file exists on disk but the {@code SavedData} instance we got back was not built
-     * from it. {@code DimensionDataStorage} silently swallows load failures and hands back a fresh empty instance in
-     * that case, which is otherwise indistinguishable from a domain that is genuinely empty. Extracted as a pure
-     * function so this decision is unit-testable without a real {@code ServerLevel}.
-     */
-    static boolean isSilentlySubstitutedEmpty(boolean fileExisted, boolean wasLoadedFromDisk) {
-        return fileExisted && !wasLoadedFromDisk;
-    }
 }
