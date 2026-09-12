@@ -66,9 +66,18 @@ final class ECOCraftingInputResolver {
                     continue;
                 }
             }
-            for (var template : CraftingCpuHelper.getValidItemTemplates(sourceInventory, input, level)) {
-                long extracted = CraftingCpuHelper.extractTemplates(
-                    sourceInventory, template, remainingMultiplier);
+            var preview = sourceInventory instanceof ECOCraftingInputPreview overlay ? overlay : null;
+            var templates = preview == null
+                ? CraftingCpuHelper.getValidItemTemplates(sourceInventory, input, level)
+                : preview.inputTemplates(input, level);
+            for (var template : templates) {
+                if (preview != null && preview.needsTemplateValidation() && !input.isValid(template.key(), level)) {
+                    continue;
+                }
+                long extracted = preview == null
+                    ? CraftingCpuHelper.extractTemplates(sourceInventory, template, remainingMultiplier)
+                    : preview.extractTemplates(template, remainingMultiplier);
+                if (extracted <= 0L) continue;
                 extractedInputs.add(template.key(), extracted * template.amount());
 
                 var remainder = remainderCache.get(input, template.key());

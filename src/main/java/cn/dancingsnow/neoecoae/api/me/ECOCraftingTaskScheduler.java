@@ -28,6 +28,7 @@ final class ECOCraftingTaskScheduler {
     private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
 
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
+    private final ECOCraftingInputTemplateCache inputTemplateCache = new ECOCraftingInputTemplateCache();
     private final ECOCraftingRemainderCache remainderCache = ECOCraftingRemainderCache.shared();
     private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
     private final ECOCraftingProviderDispatcher providerDispatcher;
@@ -45,6 +46,7 @@ final class ECOCraftingTaskScheduler {
     }
 
     void resetDispatchState() {
+        inputTemplateCache.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
         resetMissingInputMemo();
@@ -93,6 +95,10 @@ final class ECOCraftingTaskScheduler {
         long current = physicalInsertGenerations.getOrDefault(key, 0L);
         if (current != Long.MAX_VALUE) physicalInsertGenerations.put(key, current + 1L);
         if (physicalInsertGeneration != Long.MAX_VALUE) physicalInsertGeneration++;
+    }
+
+    void invalidateInputTemplates(@org.jetbrains.annotations.Nullable AEKey key) {
+        inputTemplateCache.inventoryChanged(key);
     }
 
     void beginSharedProbeBudget(int operationLimit) {
@@ -209,7 +215,7 @@ final class ECOCraftingTaskScheduler {
                         ? java.util.Map.<AEKey, Long>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null
-                        ? new ECOCraftingInputPreview(inventory)
+                        ? new ECOCraftingInputPreview(inventory, inputTemplateCache)
                         : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache);
                 stallDiagnostics.resolveAttempt();
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(

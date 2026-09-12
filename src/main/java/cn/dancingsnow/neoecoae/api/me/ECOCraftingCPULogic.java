@@ -460,6 +460,7 @@ public class ECOCraftingCPULogic {
     }
 
     private void postChange(@Nullable AEKey what) {
+        taskScheduler.invalidateInputTemplates(what);
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         notifyListeners(what);
     }

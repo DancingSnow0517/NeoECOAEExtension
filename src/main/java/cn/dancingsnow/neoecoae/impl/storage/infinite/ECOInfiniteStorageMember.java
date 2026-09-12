@@ -23,7 +23,19 @@ public final class ECOInfiniteStorageMember {
     private ECOInfiniteStorageMember() {}
 
     public static boolean isSealed(@Nullable ItemStack stack) {
-        return isMigrating(stack) || isMember(stack);
+        if (stack == null || stack.isEmpty()) return false;
+        return isSealedData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+    }
+
+    static boolean isSealedData(CustomData data) {
+        CompoundTag tag = readTag(data);
+        return tag.hasUUID(MIGRATION_TAG) || tag.getBoolean(MEMBER_TAG);
+    }
+
+    /** Read-only access: mutations must still copy the tag and replace the component. */
+    @SuppressWarnings("deprecation")
+    private static CompoundTag readTag(CustomData data) {
+        return data.getUnsafe();
     }
 
     public static UUID identity(ItemStack stack) {
@@ -41,7 +53,11 @@ public final class ECOInfiniteStorageMember {
 
     public static @Nullable UUID getMigrationId(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return null;
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return migrationId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+    }
+
+    static @Nullable UUID migrationId(CustomData data) {
+        CompoundTag tag = readTag(data);
         return tag.hasUUID(MIGRATION_TAG) ? tag.getUUID(MIGRATION_TAG) : null;
     }
 
@@ -63,17 +79,23 @@ public final class ECOInfiniteStorageMember {
     public static boolean isMember(@Nullable ItemStack stack) {
         return stack != null
                 && !stack.isEmpty()
-                && stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY)
-                        .copyTag()
-                        .getBoolean(MEMBER_TAG);
+                && isMemberData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+    }
+
+    static boolean isMemberData(CustomData data) {
+        return readTag(data).getBoolean(MEMBER_TAG);
     }
 
     public static Optional<UUID> getDomainId(@Nullable ItemStack stack) {
-        if (!isMember(stack)) {
+        if (stack == null || stack.isEmpty()) {
             return Optional.empty();
         }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.hasUUID(DOMAIN_TAG)) {
+        return domainId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+    }
+
+    static Optional<UUID> domainId(CustomData data) {
+        CompoundTag tag = readTag(data);
+        if (!tag.getBoolean(MEMBER_TAG) || !tag.hasUUID(DOMAIN_TAG)) {
             return Optional.empty();
         }
         return Optional.of(tag.getUUID(DOMAIN_TAG));

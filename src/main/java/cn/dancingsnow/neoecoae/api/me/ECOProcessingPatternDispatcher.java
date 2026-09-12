@@ -48,16 +48,21 @@ final class ECOProcessingPatternDispatcher {
             ICraftingProvider provider, double oneCopyPower,
             appeng.api.networking.energy.IEnergyService energyService,
             Consumer<ICraftingProvider> markProviderAttempt) {
-        if (!isProcessingPattern(request.pattern())
-                || !(provider instanceof IBatchCraftingProvider batchProvider)) {
+        if (!(provider instanceof IBatchCraftingProvider batchProvider)) {
             return null;
         }
+        IPatternDetails providerPattern;
+        try {
+            providerPattern = providerLookupPattern(request.pattern());
+        } catch (RuntimeException unavailable) {
+            return null;
+        }
+        if (!(providerPattern instanceof AEProcessingPattern)) return null;
         long remaining = Math.min(request.allowedCrafts(), TICK_BUDGET - usedThisTick);
         if (remaining <= 0L) return null;
 
         var state = states.computeIfAbsent(provider, ignored -> new IdentityHashMap<>())
                 .computeIfAbsent(request.pattern(), ignored -> new ProbeState());
-        IPatternDetails providerPattern = providerLookupPattern(request.pattern());
         long acceptedTotal = 0L;
         while (remaining > 0L) {
             long offer = Math.min(remaining, Math.max(1L, state.nextProbe));
@@ -121,16 +126,31 @@ final class ECOProcessingPatternDispatcher {
     }
 
     private static IPatternDetails providerLookupPattern(IPatternDetails pattern) {
+        Method method = ProviderLookup.METHOD;
+        if (method == null) return pattern;
         try {
-            Class<?> delegates = Class.forName(
-                    "com.moakiee.thunderbolt.core.crafting.support.CraftingPatternDelegates",
-                    false, ECOProcessingPatternDispatcher.class.getClassLoader());
-            Method method = delegates.getMethod("forProviderLookup", IPatternDetails.class);
             Object result = method.invoke(null, pattern);
             return result instanceof IPatternDetails details ? details : pattern;
         } catch (ReflectiveOperationException | LinkageError unavailable) {
             return pattern;
         }
+    }
+
+    @Nullable
+    private static Method resolveProviderLookup() {
+        try {
+            Class<?> delegates = Class.forName(
+                    "com.moakiee.thunderbolt.core.crafting.support.CraftingPatternDelegates",
+                    false, ECOProcessingPatternDispatcher.class.getClassLoader());
+            return delegates.getMethod("forProviderLookup", IPatternDetails.class);
+        } catch (ReflectiveOperationException | LinkageError | SecurityException unavailable) {
+            return null;
+        }
+    }
+
+    private static final class ProviderLookup {
+        // Mod classes are fixed for this class loader, including an absent optional compatibility class.
+        private static final Method METHOD = resolveProviderLookup();
     }
 
     private static long saturatingAdd(long left, long right) {

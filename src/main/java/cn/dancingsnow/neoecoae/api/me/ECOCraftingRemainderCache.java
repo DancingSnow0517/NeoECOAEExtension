@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import com.google.common.collect.MapMaker;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,6 +25,7 @@ final class ECOCraftingRemainderCache {
     private final Map<IPatternDetails.IInput, Map<AEKey, CachedRemainder>> byInput =
         new MapMaker().weakKeys().makeMap();
     private long reloadGeneration = Long.MIN_VALUE;
+    private final Map<IPatternDetails.IInput, Map<AEKey, CachedRemainder>> recentInputs = new IdentityHashMap<>();
 
     static ECOCraftingRemainderCache shared() {
         return SHARED;
@@ -34,10 +36,17 @@ final class ECOCraftingRemainderCache {
         long currentGeneration = AE2PatternIntrospection.reloadGeneration();
         if (reloadGeneration != currentGeneration) {
             byInput.clear();
+            recentInputs.clear();
             reloadGeneration = currentGeneration;
         }
 
-        Map<AEKey, CachedRemainder> byKey = byInput.computeIfAbsent(input, ignored -> new HashMap<>());
+        Map<AEKey, CachedRemainder> byKey = recentInputs.get(input);
+        if (byKey == null) {
+            byKey = byInput.computeIfAbsent(input, ignored -> new HashMap<>());
+            // Bound strong references while avoiding weak-map lookups for frequently reused inputs.
+            if (recentInputs.size() >= 128) recentInputs.clear();
+            recentInputs.put(input, byKey);
+        }
         CachedRemainder cached = byKey.get(key);
         if (cached != null) {
             return cached.key;

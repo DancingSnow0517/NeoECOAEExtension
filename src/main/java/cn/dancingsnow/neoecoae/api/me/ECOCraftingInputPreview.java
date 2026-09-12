@@ -8,9 +8,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
+import appeng.crafting.execution.InputTemplate;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import com.google.common.collect.MapMaker;
 import net.minecraft.world.level.Level;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 import java.util.HashSet;
 import java.util.List;
@@ -28,11 +30,13 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         new MapMaker().weakKeys().makeMap();
 
     private final ICraftingInventory source;
-    private final KeyCounter removed = new KeyCounter();
+    // Virtual removals only use exact keys; a fuzzy KeyCounter index needlessly queries item components.
+    private final Object2LongOpenHashMap<AEKey> removed = new Object2LongOpenHashMap<>();
     private final Set<AEKey> primaryInputs;
     private final Set<AEKey> possibleInputs;
     private final Set<AEKey> reusableTemplates;
     private final Map<AEKey, Long> protectedAmounts;
+    private ECOCraftingInputTemplateCache templateCache;
 
     /** Native AE2 dispatch keeps substitution/fuzzy selection unrestricted while extraction stays virtual. */
     ECOCraftingInputPreview(ICraftingInventory source) {
@@ -50,6 +54,31 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts) {
         this(source, pattern, protectedAmounts, ECOCraftingRemainderCache.shared());
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, ECOCraftingInputTemplateCache templateCache) {
+        this(source);
+        this.templateCache = templateCache;
+    }
+
+    Iterable<InputTemplate> inputTemplates(IPatternDetails.IInput input, Level level) {
+        if (templateCache == null) {
+            return appeng.crafting.execution.CraftingCpuHelper.getValidItemTemplates(this, input, level);
+        }
+        return templateCache.get(source, input);
+    }
+
+    boolean needsTemplateValidation() {
+        return templateCache != null;
+    }
+
+    long extractTemplates(InputTemplate template, long multiplier) {
+        long available = Math.max(0L, availableExact(template.key()) - removed.getLong(template.key()));
+        available = Math.max(0L, available - protectedAmounts.getOrDefault(template.key(), 0L));
+        long crafts = Math.min(multiplier, available / template.amount());
+        if (crafts <= 0L) return 0L;
+        removed.addTo(template.key(), Math.multiplyExact(crafts, template.amount()));
+        return crafts;
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
@@ -110,15 +139,15 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     @Override
     public void insert(AEKey key, long amount, Actionable mode) {
-        if (mode == Actionable.MODULATE) removed.remove(key, amount);
+        if (mode == Actionable.MODULATE) removed.addTo(key, -amount);
     }
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
-        long available = Math.max(0L, availableExact(key) - removed.get(key));
+        long available = Math.max(0L, availableExact(key) - removed.getLong(key));
         available = Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
         long extracted = Math.min(amount, available);
-        if (mode == Actionable.MODULATE) removed.add(key, extracted);
+        if (mode == Actionable.MODULATE && extracted > 0L) removed.addTo(key, extracted);
         return extracted;
     }
 
@@ -141,7 +170,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         }
 
         long available = availableExact(primary.what());
-        long removedAmount = removed.get(primary.what());
+        long removedAmount = removed.getLong(primary.what());
         if (removedAmount >= available) return 0L;
         available -= removedAmount;
         long protectedAmount = protectedAmounts.getOrDefault(primary.what(), 0L);
@@ -151,11 +180,8 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         long crafts = Math.min(multiplier, available / primary.amount());
         if (crafts <= 0L) return 0L;
         long amount = Math.multiplyExact(crafts, primary.amount());
-        long extracted = extract(primary.what(), amount, Actionable.MODULATE);
-        if (extracted != amount) {
-            throw new IllegalStateException("Failed to extract planned primary input: " + primary.what());
-        }
-        extractedInputs.add(primary.what(), extracted);
+        removed.addTo(primary.what(), amount);
+        extractedInputs.add(primary.what(), amount);
         AEKey remainder = remainderCache.get(input, primary.what());
         if (remainder != null) expectedContainerItems.add(remainder, crafts);
         return crafts;
