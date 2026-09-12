@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 
 import java.util.function.Consumer;
 
@@ -37,7 +37,7 @@ final class ECOCraftingFastPathDispatcher {
     }
 
     boolean supportsBatch(ICraftingProvider provider) {
-        return provider instanceof ECOBatchCapacityProvider
+        return provider instanceof ECOFastPathDispatchProvider
                 || ECOUselessBatchProviderBridge.supports(provider);
     }
 
@@ -48,7 +48,7 @@ final class ECOCraftingFastPathDispatcher {
     ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
             double singlePower, IEnergyService energyService, ECODispatchStallDiagnostics diagnostics,
             Consumer<ICraftingProvider> recordProviderAttempt) {
-        var batchProvider = provider instanceof ECOBatchCapacityProvider nativeProvider
+        var batchProvider = provider instanceof ECOFastPathDispatchProvider nativeProvider
                 ? nativeProvider : ECOUselessBatchProviderBridge.adapt(provider);
         if (batchProvider == null) return null;
 

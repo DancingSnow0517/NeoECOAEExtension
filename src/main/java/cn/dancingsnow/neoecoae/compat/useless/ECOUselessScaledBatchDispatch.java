@@ -5,7 +5,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import com.sorrowmist.useless.content.blockentities.AdvancedAlloyFurnaceBlockEntity;
 import com.sorrowmist.useless.content.blockentities.multiblock.MePatternAssemblyBlockEntity;
@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 /** Scales only the accepted dispatch, preserving the confirmed ECO plan and its logical task counts. */
-final class ECOUselessScaledBatchDispatch implements ECOBatchCapacityProvider {
+final class ECOUselessScaledBatchDispatch implements ECOFastPathDispatchProvider {
     private static final BigInteger MAX_AMOUNT = BigInteger.valueOf(Long.MAX_VALUE);
     private final ICraftingProvider provider;
 
@@ -47,7 +47,7 @@ final class ECOUselessScaledBatchDispatch implements ECOBatchCapacityProvider {
     }
 
     @Override
-    public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+    public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         var pattern = context.pattern();
         var prototype = context.inputCounters();
         long capacity = availableCount(pattern, prototype, Long.MAX_VALUE);

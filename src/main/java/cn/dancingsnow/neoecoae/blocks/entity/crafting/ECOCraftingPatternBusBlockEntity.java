@@ -24,7 +24,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
@@ -83,7 +83,7 @@ import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
-    ECOBatchCapacityProvider {
+    ECOFastPathDispatchProvider {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -190,7 +190,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     @Override
-    public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+    public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         var controller = getCraftingController();
         if (controller == null || context.level() != getLevel()) return null;
         var execution = context.execution();

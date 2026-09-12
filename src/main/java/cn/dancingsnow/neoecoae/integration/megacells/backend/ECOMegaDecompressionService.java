@@ -13,7 +13,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.StorageCell;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.util.NEMath;
@@ -38,7 +38,7 @@ import gripe._90.megacells.misc.DecompressionService;
  * service. The existing MEGA service only recognises its own BulkCellInventory implementation.
  */
 public final class ECOMegaDecompressionService implements IGridService, IGridServiceProvider, ICraftingProvider,
-    ECOBatchCapacityProvider {
+    ECOFastPathDispatchProvider {
     private final List<IChestOrDrive> cellHosts = new ArrayList<>();
     private final List<ECODriveBlockEntity> ecoDrives = new ArrayList<>();
     private final List<IPatternDetails> patterns = new ArrayList<>();
@@ -149,7 +149,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     }
 
     @Override
-    public Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+    public Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         long capacity = batchCapacity(context);
         return capacity <= 0L ? null : new Preparation(capacity, null, false,
             batch -> pushBatch(context, batch.craftCount()));

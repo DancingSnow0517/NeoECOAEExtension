@@ -12,7 +12,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -27,14 +27,14 @@ public final class ECOBatchCraftingExecutor {
 
     @Nullable
     public static PreparedBatch prepare(
-            ECOBatchCapacityProvider provider, IPatternDetails pattern,
+            ECOFastPathDispatchProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
             ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
             Level level, UUID craftingJobId) {
         if (maxCrafts <= 0) return null;
         try {
             var context = ECOBatchDispatchContext.create(pattern, inputs, outputs, containers, level, craftingJobId);
-            var preparation = provider.eco$prepareBatch(context);
+            var preparation = provider.eco$prepareFastPath(context);
             if (preparation == null) return null;
             long capacity = preparation.capacity();
             var perCopy = context.inputItems();
@@ -62,7 +62,7 @@ public final class ECOBatchCraftingExecutor {
             var remainderTotal = statefulCalculator == null
                 ? ECOBatchCraftingHelper.multiply(context.containerItems(), size)
                 : statefulCalculator.batchRemainders(size);
-            var batch = new ECOBatchCapacityProvider.Batch(size, inputTotal,
+            var batch = new ECOFastPathDispatchProvider.Batch(size, inputTotal,
                 ECOBatchCraftingHelper.multiply(context.outputs(), size), remainderTotal);
             return new PreparedBatch(batch.craftCount(), batch.inputTotal(), batch.outputTotal(),
                 batch.remainingTotal(), power * size, () -> preparation.push(batch));

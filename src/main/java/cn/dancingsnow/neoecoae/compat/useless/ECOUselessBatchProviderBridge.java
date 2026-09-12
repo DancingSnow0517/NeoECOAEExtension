@@ -4,7 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -33,7 +33,7 @@ public final class ECOUselessBatchProviderBridge {
     }
 
     @Nullable
-    public static ECOBatchCapacityProvider adapt(ICraftingProvider provider) {
+    public static ECOFastPathDispatchProvider adapt(ICraftingProvider provider) {
         if (!supports(provider)) return null;
         if (SCALED_API_AVAILABLE) return new ECOUselessScaledBatchDispatch(provider);
         try {
@@ -92,9 +92,9 @@ public final class ECOUselessBatchProviderBridge {
         }
     }
 
-    record Adapter(ReflectionApi api, Object dispatcher) implements ECOBatchCapacityProvider {
+    record Adapter(ReflectionApi api, Object dispatcher) implements ECOFastPathDispatchProvider {
         @Override
-        public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+        public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
             long capacity = (long) invoke(api.availableCount, dispatcher,
                 context.pattern(), context.inputCounters(), Long.MAX_VALUE);
             if (capacity <= 0L) return null;
