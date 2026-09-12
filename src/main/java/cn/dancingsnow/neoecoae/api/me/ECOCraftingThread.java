@@ -681,6 +681,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             recoveryState = RecoveryState.ACTIVE;
             reboot = true;
             isBusy = true;
+            worker.onThreadAvailabilityChanged();
         } catch (RuntimeException | Error e) {
             // Error is included so partially installed work is cleared before the failure escapes.
             clearWork();
@@ -718,6 +719,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             recoveryState = RecoveryState.ACTIVE;
             reboot = true;
             isBusy = true;
+            worker.onThreadAvailabilityChanged();
         } catch (RuntimeException | Error e) {
             // Error is included so partially installed batch work is cleared before the failure escapes.
             clearWork();
@@ -749,6 +751,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             recoveryState = RecoveryState.ACTIVE;
             reboot = true;
             isBusy = true;
+            worker.onThreadAvailabilityChanged();
         } catch (RuntimeException | Error e) {
             clearWork();
             throw e;
@@ -1487,6 +1490,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        boolean availabilityChanged = isBusy;
         finishBlockedOutputDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
@@ -1512,6 +1516,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         owningCpuMissingSinceGameTime = Long.MIN_VALUE;
         lastBlockedProgressLogTick = Long.MIN_VALUE;
         resetUnownedBlockedOutputDiagnostic();
+        if (availabilityChanged) {
+            worker.onThreadAvailabilityChanged();
+        }
     }
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {

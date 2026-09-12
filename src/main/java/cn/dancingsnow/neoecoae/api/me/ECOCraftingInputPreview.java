@@ -41,6 +41,11 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts) {
+        this(source, pattern, protectedAmounts, ECOCraftingRemainderCache.shared());
+    }
+
+    ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
+            Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache) {
         this.source = source;
         this.primaryInputs = new HashSet<>();
         this.possibleInputs = new HashSet<>();
@@ -54,15 +59,18 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
             for (var candidate : possible) {
                 if (candidate != null && candidate.what() != null) {
                     possibleInputs.add(candidate.what());
-                    if (isReusableTemplate(input, candidate.what())) reusableTemplates.add(candidate.what());
+                    if (isReusableTemplate(input, candidate.what(), remainderCache)) {
+                        reusableTemplates.add(candidate.what());
+                    }
                 }
             }
         }
     }
 
-    private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
+    private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key,
+            ECOCraftingRemainderCache remainderCache) {
         try {
-            AEKey remainder = input.getRemainingKey(key);
+            AEKey remainder = remainderCache.get(input, key);
             if (key.equals(remainder)) return true;
             if (!(key instanceof AEItemKey item) || !(remainder instanceof AEItemKey returned)
                     || item.getItem() != returned.getItem()) return false;

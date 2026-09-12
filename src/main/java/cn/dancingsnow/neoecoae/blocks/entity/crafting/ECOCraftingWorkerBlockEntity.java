@@ -99,6 +99,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void setRemoved() {
         unregisterLoadedWorker();
         super.setRemoved();
+        onThreadAvailabilityChanged();
     }
 
     private void unregisterLoadedWorker() {
@@ -353,6 +354,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     public int getAvailableThreadSlots() {
         return getAvailableBatchCapacity();
+    }
+
+    /** Updates a previously-built tick-local cluster snapshot after this worker starts or stops work. */
+    public void onThreadAvailabilityChanged() {
+        if (cluster != null) {
+            cluster.onWorkerAvailabilityChanged(this);
+        }
     }
 
     /** Remaining craft count accepted by this physical FX lane's next batch. */

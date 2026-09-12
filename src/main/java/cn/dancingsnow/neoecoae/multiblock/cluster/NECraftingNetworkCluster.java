@@ -6,11 +6,15 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.util.NEMath;
+import appeng.hooks.ticking.TickHandler;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.function.DoublePredicate;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +33,9 @@ public class NECraftingNetworkCluster {
     public static final long VIRTUAL_CRAFTING_POWER_PER_TICK = 10_000_000L;
 
     private final List<NECraftingCluster> members = new ArrayList<>();
+    private final Set<ECOCraftingWorkerBlockEntity> availableWorkerSnapshot =
+        Collections.newSetFromMap(new IdentityHashMap<>());
+    private long availabilitySnapshotTick = Long.MIN_VALUE;
 
     /** Group-wide once-per-tick bookkeeping for {@link #VIRTUAL_CRAFTING_POWER_PER_TICK}. */
     private long virtualPowerTick = Long.MIN_VALUE;
@@ -53,6 +60,7 @@ public class NECraftingNetworkCluster {
     public void configure(List<NECraftingCluster> newMembers) {
         capabilitySnapshotCache = null;
         capabilityCapacityCache = null;
+        invalidateDispatchAvailability();
         boolean membershipChanged = !isSameMembership(newMembers);
         this.members.clear();
         this.members.addAll(newMembers);
@@ -158,20 +166,56 @@ public class NECraftingNetworkCluster {
 
     /** Allocation-free counterpart of {@link #collectCandidateWorkers()} for busy checks. */
     public boolean hasAvailableCandidateWorker() {
+        refreshDispatchAvailability();
+        return !availableWorkerSnapshot.isEmpty();
+    }
+
+    /** Invalidates membership-derived availability after a network topology change. */
+    public void invalidateDispatchAvailability() {
+        availabilitySnapshotTick = Long.MIN_VALUE;
+        availableWorkerSnapshot.clear();
+    }
+
+    /** Keeps an already-built tick snapshot exact without rescanning every member for every candidate. */
+    public void onWorkerAvailabilityChanged(ECOCraftingWorkerBlockEntity worker) {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (availabilitySnapshotTick != currentTick) {
+            return;
+        }
+        if (isDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
+            availableWorkerSnapshot.add(worker);
+        } else {
+            availableWorkerSnapshot.remove(worker);
+        }
+    }
+
+    private void refreshDispatchAvailability() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (availabilitySnapshotTick == currentTick) {
+            return;
+        }
+        availableWorkerSnapshot.clear();
         for (NECraftingCluster member : members) {
             if (member.isDestroyed() || member.getController() == null) {
                 continue;
             }
             for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
-                if (worker.isRemoved() || worker.getCluster() != member) {
-                    continue;
-                }
-                if (worker.getAvailableThreadSlots() > 0) {
-                    return true;
+                if (isDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
+                    availableWorkerSnapshot.add(worker);
                 }
             }
         }
-        return false;
+        availabilitySnapshotTick = currentTick;
+    }
+
+    private boolean isDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
+        if (worker.isRemoved()) {
+            return false;
+        }
+        NECraftingCluster owner = worker.getCluster();
+        return owner != null && !owner.isDestroyed()
+            && owner.getController() != null
+            && owner.getNetworkCluster() == this;
     }
 
     public boolean isOverclocked() {

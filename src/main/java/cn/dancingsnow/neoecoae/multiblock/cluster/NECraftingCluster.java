@@ -11,11 +11,15 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEn
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
+import appeng.hooks.ticking.TickHandler;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
@@ -35,6 +39,9 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private NECraftingNetworkCluster networkCluster;
 
     private final ECOCraftingFastPathCache localFastPathCache = new ECOCraftingFastPathCache();
+    private final Set<ECOCraftingWorkerBlockEntity> localAvailableWorkers =
+        Collections.newSetFromMap(new IdentityHashMap<>());
+    private long localAvailabilityTick = Long.MIN_VALUE;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -65,7 +72,15 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
+        if (this.networkCluster != null) {
+            this.networkCluster.invalidateDispatchAvailability();
+        }
         this.networkCluster = networkCluster;
+        localAvailabilityTick = Long.MIN_VALUE;
+        localAvailableWorkers.clear();
+        if (networkCluster != null) {
+            networkCluster.invalidateDispatchAvailability();
+        }
     }
 
     /**
@@ -104,15 +119,45 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (network != null) {
             return network.hasAvailableCandidateWorker();
         }
+        refreshLocalDispatchAvailability();
+        return !localAvailableWorkers.isEmpty();
+    }
+
+    /** Keeps the tick-local busy snapshot exact when a worker starts or stops owning work. */
+    public void onWorkerAvailabilityChanged(ECOCraftingWorkerBlockEntity worker) {
+        NECraftingNetworkCluster network = this.networkCluster;
+        if (network != null) {
+            network.onWorkerAvailabilityChanged(worker);
+            return;
+        }
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (localAvailabilityTick != currentTick) {
+            return;
+        }
+        if (isLocalDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
+            localAvailableWorkers.add(worker);
+        } else {
+            localAvailableWorkers.remove(worker);
+        }
+    }
+
+    private void refreshLocalDispatchAvailability() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (localAvailabilityTick == currentTick) {
+            return;
+        }
+        localAvailableWorkers.clear();
         for (ECOCraftingWorkerBlockEntity worker : workers) {
-            if (worker.isRemoved() || worker.getCluster() != this) {
-                continue;
-            }
-            if (worker.getAvailableThreadSlots() > 0) {
-                return true;
+            if (isLocalDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
+                localAvailableWorkers.add(worker);
             }
         }
-        return false;
+        localAvailabilityTick = currentTick;
+    }
+
+    private boolean isLocalDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
+        return !isDestroyed() && controller != null
+            && !worker.isRemoved() && worker.getCluster() == this;
     }
 
     /** True when {@code worker} is still reachable for dispatch from this host. */
@@ -149,6 +194,11 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Override
     public void addBlockEntity(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
+        localAvailabilityTick = Long.MIN_VALUE;
+        localAvailableWorkers.clear();
+        if (networkCluster != null) {
+            networkCluster.invalidateDispatchAvailability();
+        }
         if (blockEntity instanceof ECOCraftingParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
         }

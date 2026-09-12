@@ -89,6 +89,7 @@ public class ECOCraftingCPULogic {
     private long lastEnergyAccountingFailureLogTick = Long.MIN_VALUE;
     private long lastIdleEnergyRefundAttemptTick = Long.MIN_VALUE;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
+    private final ECOCraftingRemainderCache remainderCache = ECOCraftingRemainderCache.shared();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
@@ -397,14 +398,16 @@ public class ECOCraftingCPULogic {
                     : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null
                     ? new ECOCraftingInputPreview(inventory)
-                    : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
-                var inputs = CraftingCpuHelper.extractPatternInputs(
-                    pattern, inputInventory, level, outputs, containers);
+                    : new ECOCraftingInputPreview(
+                        inventory, pattern, protectedStartupSeed, remainderCache);
+                var inputs = ECOCraftingInputResolver.extractPatternInputs(
+                    pattern, inputInventory, level, outputs, containers, remainderCache);
                 if (inputs == null) {
                     if (stallDiagnostics.isActive()) {
                         var diagnosticInventory = current.executionRuntime == null
                             ? new ECOCraftingInputPreview(inventory)
-                            : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed);
+                            : new ECOCraftingInputPreview(
+                                inventory, pattern, protectedStartupSeed, remainderCache);
                         stallDiagnostics.missingInputs(pattern, diagnosticInventory);
                     }
                     // Missing intermediates do not prevent another ready DAG/dynamic candidate from running, but an
