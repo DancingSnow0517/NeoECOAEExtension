@@ -138,11 +138,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    private static final int MAX_INPUT_SLOTS = 9;
-    private static final int MAX_PROCESSING_STEPS = 200;
+    protected static final int MAX_INPUT_SLOTS = 9;
+    protected static final int MAX_PROCESSING_STEPS = 200;
     // Holds one full high-energy network-switch recipe.
-    private static final int MAX_POWER_STORAGE = 16_000_000;
-    private static final int MAX_TANK_CAPACITY = 64_000;
+    protected static final int MAX_POWER_STORAGE = 16_000_000;
+    protected static final int MAX_TANK_CAPACITY = 64_000;
 
     private final IUpgradeInventory upgrades;
     private final IConfigManager configManager;
@@ -155,7 +155,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
 
-    private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
+    protected final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
             markForUpdate();
@@ -163,7 +163,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             onChangeTank();
         }
     };
-    private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
+    protected final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
             markForUpdate();
@@ -171,6 +171,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             onChangeTank();
         }
     };
+
+    /**
+     * Fluid sources and sinks can be supplied by a formed multiblock controller.
+     * The standalone workstation keeps using its own tanks.
+     */
+    protected FluidTank getInputTank() {
+        return inputTank;
+    }
+
+    protected FluidTank getOutputTank() {
+        return outputTank;
+    }
 
     @DescSynced
     boolean shouldAutoExport;
@@ -184,7 +196,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         @Override
         public FluidStack getFluidInTank(int tank) {
-            return tank == 0 ? inputTank.getFluid() : outputTank.getFluid();
+            return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid();
         }
 
         @Override
@@ -194,22 +206,22 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         @Override
         public boolean isFluidValid(int tank, FluidStack stack) {
-            return tank == 0 ? inputTank.isFluidValid(stack) : outputTank.isFluidValid(stack);
+            return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack);
         }
 
         @Override
         public int fill(FluidStack resource, FluidAction action) {
-            return inputTank.fill(resource, action);
+            return getInputTank().fill(resource, action);
         }
 
         @Override
         public FluidStack drain(FluidStack resource, FluidAction action) {
-            return outputTank.drain(resource, action);
+            return getOutputTank().drain(resource, action);
         }
 
         @Override
         public FluidStack drain(int maxDrain, FluidAction action) {
-            return outputTank.drain(maxDrain, action);
+            return getOutputTank().drain(maxDrain, action);
         }
     };
 
@@ -369,7 +381,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private boolean hasAutoExportWork() {
-        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.outputTank.getFluid().isEmpty());
+        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.getOutputTank().getFluid().isEmpty());
     }
 
     private boolean hasCraftWork() {
@@ -380,7 +392,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             }
             if (task.hasFluidOutput()) {
                 FluidStack fluidOutput = task.fluidOutput();
-                if (outputTank.fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
+                if (getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
                     return true;
                 }
 
@@ -407,7 +419,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
         return level.getRecipeManager().getRecipeFor(
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-            new IntegratedWorkingStationRecipe.Input(inputs, this.inputTank.getFluid()),
+            new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid()),
             level
         ).map(RecipeHolder::value).orElse(null);
     }
@@ -501,7 +513,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     }
 
                     if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
+                        fluidCanInsert = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
                     }
 
                     // Only execute if both outputs can be placed; otherwise keep progress to retry later
@@ -515,7 +527,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         }
 
                         if (!fluidOut.isEmpty()) {
-                            int added = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
+                            int added = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
                             fluidInserted = added >= fluidOut.getAmount() - 0.01;
                         }
 
@@ -542,9 +554,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                                 }
                             }
 
-                            FluidStack fluidStack = this.inputTank.getFluid();
+                            FluidStack fluidStack = this.getInputTank().getFluid();
                             if (out.inputFluid().test(fluidStack)) {
-                                inputTank.drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
+                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
                             }
 
                             this.setProcessingTime(0);
@@ -585,14 +597,14 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     movedStacks |= inserted > 0;
                 }
 
-                FluidStack outFluid = this.outputTank.getFluid();
+                FluidStack outFluid = this.getOutputTank().getFluid();
                 GenericStack fluid = GenericStack.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = this.outputTank.drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
+                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.outputTank.fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    this.getOutputTank().fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
 
-                    if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
+                    if (this.getOutputTank().getFluidAmount() == 0) clearFluidOut();
 
                     movedStacks |= inserted > 0;
                 }
@@ -678,17 +690,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Override
     public void clearContent() {
         super.clearContent();
-        this.inputTank.setFluid(FluidStack.EMPTY);
-        this.outputTank.setFluid(FluidStack.EMPTY);
+        this.getInputTank().setFluid(FluidStack.EMPTY);
+        this.getOutputTank().setFluid(FluidStack.EMPTY);
         this.upgrades.clear();
     }
 
     public void clearFluid() {
-        this.inputTank.setFluid(FluidStack.EMPTY);
+        this.getInputTank().setFluid(FluidStack.EMPTY);
     }
 
     public void clearFluidOut() {
-        this.outputTank.setFluid(FluidStack.EMPTY);
+        this.getOutputTank().setFluid(FluidStack.EMPTY);
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
@@ -710,7 +722,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // Input Fluid
         UIElement inputFluid = new UIElement().addClass("panel_border");
         inputFluid.addChild(new FluidSlot()
-            .bind(inputTank, 0)
+            .bind(getInputTank(), 0)
             .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
             .setAllowClickDrained(true)
             .setAllowClickDrained(true)
@@ -779,7 +791,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // output fluid
         UIElement outputFluid = new UIElement().addClass("panel_border");
         outputFluid.addChild(new FluidSlot()
-            .bind(outputTank, 0)
+            .bind(getOutputTank(), 0)
             .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
             .setAllowClickFilled(true)
             .setAllowClickDrained(false)

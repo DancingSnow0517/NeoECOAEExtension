@@ -177,9 +177,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             return new ChainedIterator<>();
         }
         List<IGridNode> nodes = new ArrayList<>();
-        Iterator<? extends NEBlockEntity<C, ?>> it = cluster.getBlockEntities();
+        Iterator<? extends net.minecraft.world.level.block.entity.BlockEntity> it = cluster.getBlockEntities();
         while (it.hasNext()) {
-            IGridNode node = it.next().getGridNode();
+            net.minecraft.world.level.block.entity.BlockEntity blockEntity = it.next();
+            IGridNode node = blockEntity instanceof NEBlockEntity<?, ?> member ? member.getGridNode() : null;
             if (node != null) {
                 nodes.add(node);
             }

@@ -7,11 +7,14 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOComputationSystemProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingSystemProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingWorkerProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECODriveProvider;
+import cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageInterfaceProvider;
 import snownee.jade.api.IWailaClientRegistration;
 import snownee.jade.api.IWailaCommonRegistration;
 import snownee.jade.api.IWailaPlugin;
@@ -22,6 +25,7 @@ public class NEJadePlugin implements IWailaPlugin {
     @Override
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(ECODriveProvider.INSTANCE, ECODriveBlockEntity.class);
+        registration.registerBlockDataProvider(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterfaceBlockEntity.class);
         registration.registerBlockDataProvider(
             ECOComputationSystemProvider.INSTANCE, ECOComputationSystemBlockEntity.class);
         registration.registerBlockDataProvider(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorkerBlockEntity.class);
@@ -31,6 +35,7 @@ public class NEJadePlugin implements IWailaPlugin {
     @Override
     public void registerClient(IWailaClientRegistration registration) {
         registration.registerBlockComponent(ECODriveProvider.INSTANCE, ECODriveBlock.class);
+        registration.registerBlockComponent(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterface.class);
         registration.registerBlockComponent(ECOComputationSystemProvider.INSTANCE, ECOComputationSystem.class);
         registration.registerBlockComponent(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorker.class);
         registration.registerBlockComponent(ECOCraftingSystemProvider.INSTANCE, ECOCraftingSystem.class);

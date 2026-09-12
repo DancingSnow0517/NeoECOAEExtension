@@ -148,7 +148,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Nullable
     private UUID infiniteDomainId;
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
-    @DescSynced
+    // Keep the component inventory persisted and exposed to the regular UI container, but do not include
+    // every ItemStack in LDLib's descriptive/advanced-data synchronization packet. A populated infinite
+    // component inventory can exceed the packet's fixed 2392-byte buffer before the UI is even opened.
     private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
     private final IItemHandlerModifiable infiniteComponentItemHandler =
         new InfiniteComponentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
@@ -268,7 +270,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
-                BlockState newState = state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored);
+                var interfaceMode = getStorageInterface();
+                var mode = interfaceMode == null ? cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE
+                    : interfaceMode.getStorageInterfaceMode();
+                BlockState newState = state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored)
+                    .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode);
                 if (newState != state) {
                     level.setBlock(
                         worldPosition,
@@ -1113,6 +1119,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
+            var mode = storageInterface == null ? cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE
+                : storageInterface.getStorageInterfaceMode();
+            level.setBlockAndUpdate(worldPosition, level.getBlockState(worldPosition)
+                .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
+        }
         if (storageInterface != null) {
             updateFiniteTransferDomain(storageInterface);
         }

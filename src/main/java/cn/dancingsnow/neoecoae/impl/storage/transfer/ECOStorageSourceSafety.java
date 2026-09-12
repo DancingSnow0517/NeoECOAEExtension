@@ -16,14 +16,13 @@ public final class ECOStorageSourceSafety {
         long visibleAmount,
         IActionSource source
     ) {
-        // MEStorage is aggregated. If simulating an unbounded extraction is still unbounded,
-        // conservatively treat the whole key as infinite instead of importing from it.
-        if (storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE) {
-            return true;
-        }
-
         long amountPerUnit = Math.max(1L, key.getAmountPerUnit());
         long conventionalInfiniteAmount = NEMath.saturatingMultiply(Integer.MAX_VALUE, amountPerUnit);
-        return visibleAmount >= conventionalInfiniteAmount;
+        if (visibleAmount < conventionalInfiniteAmount) {
+            return false;
+        }
+        // Only probe keys already at the conventional infinity threshold. Ordinary finite
+        // aggregated storage must remain importable even if its unbounded simulation saturates.
+        return storage.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, source) == Long.MAX_VALUE;
     }
 }

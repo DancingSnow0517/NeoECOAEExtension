@@ -7,6 +7,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -19,8 +21,19 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMachineInterfaceBlockEntity<C>> implements BlockUIMenuType.BlockUI {
+    public static final EnumProperty<cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.class);
+
     public ECOMachineInterface(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(STORAGE_MODE,
+            cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(STORAGE_MODE);
     }
 
     @Override

@@ -23,7 +23,6 @@ import net.minecraft.world.level.ItemLike;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -200,41 +199,18 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
             return;
         }
 
-        Map<appeng.api.stacks.AEItemKey, Long> stored = cell.getStoredEntries();
-        if (stored.isEmpty()) {
-            lines.add(Component.translatable("gui.tooltips.megacells.Empty")
-                .withStyle(ChatFormatting.GRAY));
-        } else {
-            for (Map.Entry<appeng.api.stacks.AEItemKey, Long> entry : stored.entrySet()) {
-                lines.add(Component.translatable("gui.tooltips.megacells.Contains",
-                        entry.getKey().getDisplayName()).withStyle(ChatFormatting.GRAY));
-                lines.add(Component.translatable("gui.tooltips.megacells.Quantity",
-                        entry.getValue() == Long.MAX_VALUE ? Component.translatable("gui.tooltips.megacells.ALot")
-                            .withStyle(ChatFormatting.BLUE) : Component.literal(Long.toString(entry.getValue()))
-                                .withStyle(ChatFormatting.BLUE)));
-            }
-        }
-
-        List<appeng.api.stacks.AEItemKey> filters = cell.getEffectiveConfiguredFilters();
-        if (filters.isEmpty()) {
-            lines.add(Component.translatable("gui.tooltips.megacells.NotPartitioned")
-                .withStyle(ChatFormatting.GRAY));
-        } else {
-            for (appeng.api.stacks.AEItemKey filter : filters) {
-                lines.add(Component.translatable("gui.tooltips.megacells.PartitionedFor",
-                    filter.getDisplayName()).withStyle(ChatFormatting.GRAY));
-            }
-        }
-
         lines.add(Component.translatable("gui.tooltips.megacells.Compression",
                 Component.translatable(cell.isCompressionEnabled()
                     ? "gui.tooltips.megacells.Enabled" : "gui.tooltips.megacells.Disabled")
                     .withStyle(cell.isCompressionEnabled() ? ChatFormatting.GREEN : ChatFormatting.RED)));
 
-        boolean mismatched = !stored.isEmpty() && (filters.isEmpty()
-            || cell.getStoredChainFilters().stream().anyMatch(storedFilter -> !filters.contains(storedFilter)));
-        if (mismatched) {
-            lines.add(Component.translatable("gui.tooltips.megacells.MismatchedFilter")
+        List<appeng.api.stacks.AEItemKey> storedFilters = cell.getStoredChainFilters();
+        List<appeng.api.stacks.AEItemKey> configuredFilters = cell.getEffectiveConfiguredFilters();
+        long mismatchedCount = storedFilters.stream()
+            .filter(storedFilter -> !configuredFilters.contains(storedFilter))
+            .count();
+        if (!storedFilters.isEmpty() && (configuredFilters.isEmpty() || mismatchedCount > 0)) {
+            lines.add(Component.literal("过滤不匹配 " + mismatchedCount + " 种物品")
                 .withStyle(ChatFormatting.DARK_RED));
         }
     }

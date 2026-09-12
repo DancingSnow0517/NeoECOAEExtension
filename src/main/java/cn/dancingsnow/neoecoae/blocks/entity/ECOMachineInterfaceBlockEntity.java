@@ -180,10 +180,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternBusSlotCounts = slotCounts;
     }
 
-    public ECOStorageInterfaceMode getStorageInterfaceMode() { return storageInterfaceMode; }
+    public ECOStorageInterfaceMode getStorageInterfaceMode() {
+        return storageInterfaceMode == null ? ECOStorageInterfaceMode.STORAGE : storageInterfaceMode;
+    }
     public long getTransferredLastTick() { return transferredLastTick; }
-    public boolean isStorageInputMode() { return storageInterfaceMode == ECOStorageInterfaceMode.INPUT; }
-    public boolean isStorageTransferMode() { return storageInterfaceMode != ECOStorageInterfaceMode.STORAGE; }
+    public boolean isStorageInputMode() { return getStorageInterfaceMode() == ECOStorageInterfaceMode.INPUT; }
+    public boolean isStorageTransferMode() { return getStorageInterfaceMode() != ECOStorageInterfaceMode.STORAGE; }
     public boolean isInfiniteTransferAvailable() {
         return formed && cluster instanceof NEStorageCluster storage && storage.getController() != null
             && storage.getController().isFormedInfiniteMode();
@@ -239,8 +241,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
         ECOStorageInterfaceMode next = mode == null ? ECOStorageInterfaceMode.STORAGE : mode;
-        if (storageInterfaceMode == next) return;
+        if (getStorageInterfaceMode() == next && storageInterfaceMode != null) return;
         storageInterfaceMode = next;
+        if (level != null && !level.isClientSide && getBlockState().getBlock() instanceof cn.dancingsnow.neoecoae.blocks.ECOMachineInterface<?>) {
+            level.setBlockAndUpdate(worldPosition, getBlockState()
+                .setValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE, next));
+        }
         transferredLastTick = 0L;
         setChanged();
         markForUpdate();
