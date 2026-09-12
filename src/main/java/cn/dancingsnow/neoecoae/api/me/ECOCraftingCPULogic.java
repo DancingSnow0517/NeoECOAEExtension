@@ -328,9 +328,20 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        // Binary Mixin anchor: Thunderbolt wraps this exact invocation in this method. Keep the call in place
+        // while the actual dispatch implementation is split into strategy-specific methods below. The guard is
+        // deliberately false at runtime; this is only a compatibility anchor and never touches a provider.
+        if (thunderboltMixinAnchorEnabled()) {
+            ICraftingProvider anchorProvider = null;
+            anchorProvider.pushPattern(null, null);
+        }
         return NEConfig.fastPushEnabled
             ? executeFastPush(maxPatterns, craftingService, energyService, level)
             : executeNormalCrafting(maxPatterns, craftingService, energyService, level);
+    }
+
+    private static boolean thunderboltMixinAnchorEnabled() {
+        return false;
     }
 
     /** Ordinary provider dispatch for non-FastPush processing patterns. Existing fastpath remains available. */
