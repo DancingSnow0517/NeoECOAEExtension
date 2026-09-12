@@ -52,6 +52,7 @@ config="${mod_id}.mixins.json"
 
 [[mixins]]
 config="${mod_id}.compat.advanced_ae.mixins.json"
+requiredMods=["advanced_ae"]
 
 [[mixins]]
 config="${mod_id}.compat.extendedae.mixins.json"
