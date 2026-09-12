@@ -83,7 +83,7 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
     private static boolean hasTooManyMarkers(ItemStack stack) {
         List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
         return configured.stream().filter(java.util.Objects::nonNull).count()
-            >= MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
+            > MegaCellCapacities.LONG_BULK_TYPE_LIMIT;
     }
 
     private static void compactMarkers(ItemStack stack) {

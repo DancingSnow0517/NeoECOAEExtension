@@ -335,30 +335,21 @@ public class ECOCraftingCPULogic {
             ICraftingProvider anchorProvider = null;
             anchorProvider.pushPattern(null, null);
         }
-        return NEConfig.fastPushEnabled
-            ? executeFastPush(maxPatterns, craftingService, energyService, level)
-            : executeNormalCrafting(maxPatterns, craftingService, energyService, level);
+        return executeNormalCrafting(maxPatterns, craftingService, energyService, level);
     }
 
     private static boolean thunderboltMixinAnchorEnabled() {
         return false;
     }
 
-    /** Ordinary provider dispatch for non-FastPush processing patterns. Existing fastpath remains available. */
+    /** Ordinary provider dispatch; verified batch FastPath remains handled by its dedicated executor. */
     public int executeNormalCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        return executeCraftingInternal(maxPatterns, craftingService, energyService, level, false);
-    }
-
-    /** FastPush dispatch entry point for the optimized non-fastpath strategy. */
-    public int executeFastPush(
-            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        return executeCraftingInternal(maxPatterns, craftingService, energyService, level, true);
+        return executeCraftingInternal(maxPatterns, craftingService, energyService, level);
     }
 
     private int executeCraftingInternal(
-            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level,
-            boolean fastPush) {
+            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         normalPushProbesThisPass = 0;
         lastAcceptedNormalPushes = 0;
         var current = job;
@@ -669,6 +660,7 @@ public class ECOCraftingCPULogic {
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
             if (!acceptedInPass) break;
+            break;
         }
         return totalPushed;
     }

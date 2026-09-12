@@ -50,11 +50,6 @@ public class ConfigLangs {
                 "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\n" +
                 "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics."
         );
-        provider.add("neoecoae.configuration.fastPush", "Enable FastPush Dispatch");
-        provider.add(
-            "neoecoae.configuration.fastPush.tooltip",
-            "Enable the ECO CPU FastPush dispatch path. When disabled, ECO uses ordinary one-by-one provider dispatch."
-        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",

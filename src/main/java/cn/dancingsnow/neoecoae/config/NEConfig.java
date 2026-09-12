@@ -109,12 +109,6 @@ public class NEConfig {
             "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
         .define("ecoAe2FastPathEnabled", true);
 
-    private static final ModConfigSpec.BooleanValue ECO_FAST_PUSH_ENABLED = BUILDER
-        .comment(
-            "启用 ECO CPU 的 FastPush 发配路径；关闭时使用普通逐次发配逻辑。",
-            "Enable the ECO CPU FastPush dispatch path; when disabled, use ordinary one-by-one dispatch.")
-        .define("fastPush", false);
-
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
@@ -246,7 +240,6 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
-    public static boolean fastPushEnabled = false;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
     public static boolean enableSophisticatedTransferOptimization = true;
@@ -282,7 +275,6 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
-        fastPushEnabled = ECO_FAST_PUSH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
