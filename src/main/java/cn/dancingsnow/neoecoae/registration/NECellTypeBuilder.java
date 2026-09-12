@@ -30,6 +30,11 @@ public class NECellTypeBuilder<P> extends AbstractBuilder<ECOCellType, ECOCellTy
         return this;
     }
 
+    public NECellTypeBuilder<P> visible(boolean visible) {
+        builder.visible(visible);
+        return this;
+    }
+
     @Override
     protected NECellTypeEntry createEntryWrapper(DeferredHolder<ECOCellType, ECOCellType> delegate) {
         return new NECellTypeEntry(getOwner(), delegate);

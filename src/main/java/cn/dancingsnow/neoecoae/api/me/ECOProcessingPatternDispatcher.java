@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.pattern.AEProcessingPattern;
 import com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider;
+import java.lang.reflect.Method;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -39,7 +40,7 @@ final class ECOProcessingPatternDispatcher {
 
     boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
         return provider instanceof IBatchCraftingProvider
-                && (pattern == null || pattern instanceof AEProcessingPattern);
+                && (pattern == null || isProcessingPattern(pattern));
     }
 
     @Nullable
@@ -47,7 +48,7 @@ final class ECOProcessingPatternDispatcher {
             ICraftingProvider provider, double oneCopyPower,
             appeng.api.networking.energy.IEnergyService energyService,
             Consumer<ICraftingProvider> markProviderAttempt) {
-        if (!(request.pattern() instanceof AEProcessingPattern)
+        if (!isProcessingPattern(request.pattern())
                 || !(provider instanceof IBatchCraftingProvider batchProvider)) {
             return null;
         }
@@ -56,6 +57,7 @@ final class ECOProcessingPatternDispatcher {
 
         var state = states.computeIfAbsent(provider, ignored -> new IdentityHashMap<>())
                 .computeIfAbsent(request.pattern(), ignored -> new ProbeState());
+        IPatternDetails providerPattern = providerLookupPattern(request.pattern());
         long acceptedTotal = 0L;
         while (remaining > 0L) {
             long offer = Math.min(remaining, Math.max(1L, state.nextProbe));
@@ -73,7 +75,7 @@ final class ECOProcessingPatternDispatcher {
             markProviderAttempt.accept(provider);
             long leftover;
             try {
-                leftover = batchProvider.pushBatch(request.pattern(), oneCopy, offer);
+                leftover = batchProvider.pushBatch(providerPattern, oneCopy, offer);
             } catch (Throwable failure) {
                 leftover = offer;
             }
@@ -108,6 +110,27 @@ final class ECOProcessingPatternDispatcher {
         var result = ECOCraftingDispatchResult.batch(acceptedTotal, outputs, remainders);
         accounting.apply(request, result, () -> {});
         return result;
+    }
+
+    private static boolean isProcessingPattern(IPatternDetails pattern) {
+        try {
+            return providerLookupPattern(pattern) instanceof AEProcessingPattern;
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    private static IPatternDetails providerLookupPattern(IPatternDetails pattern) {
+        try {
+            Class<?> delegates = Class.forName(
+                    "com.moakiee.thunderbolt.core.crafting.support.CraftingPatternDelegates",
+                    false, ECOProcessingPatternDispatcher.class.getClassLoader());
+            Method method = delegates.getMethod("forProviderLookup", IPatternDetails.class);
+            Object result = method.invoke(null, pattern);
+            return result instanceof IPatternDetails details ? details : pattern;
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            return pattern;
+        }
     }
 
     private static long saturatingAdd(long left, long right) {

@@ -242,6 +242,9 @@ public final class StorageHostUI {
         list.viewContainer(view -> view.layout(layout -> layout.paddingAll(2).gapAll(5)
             .flexDirection(FlexDirection.COLUMN)));
         for (StorageTypeLine line : config.storageTypes()) {
+            if (!line.type().visible()) {
+                continue;
+            }
             UIElement block = HostElements.syncedDisplay(() -> line.usedTypes().getAsLong() > 0
                 || line.usedBytes().getAsLong() > 0 || safeEntries(config.cellEntries()).stream()
                 .anyMatch(entry -> entry.typeId() == line.registryIndex()));
