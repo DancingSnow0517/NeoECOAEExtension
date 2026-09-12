@@ -123,7 +123,7 @@ public class ECOCraftingCPULogic {
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
         taskScheduler.resetDispatchState();
         taskScheduler.bindDiagnostics(craftId, TickHandler.instance().getCurrentTick());
-        // Publish planned outputs immediately so AE2 can display and cancel the new job before its first machine event.
+        // 立即发布计划产物，使 AE2 能在首次机器事件发生前显示并取消新任务。
         var initialStatusItems = new KeyCounter();
         getAllItems(initialStatusItems);
         for (var entry : initialStatusItems) postChange(entry.getKey());
@@ -185,7 +185,7 @@ public class ECOCraftingCPULogic {
 
         int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
         int acceptedNormalPushes = 0;
-        // Thunderbolt wraps this exact executeCrafting invocation; FastPath batches do not consume this slow-path budget.
+        // Thunderbolt 会包装此处的 executeCrafting 调用；快速路径的批量操作不消耗此慢速路径额度。
         taskScheduler.beginSharedProbeBudget(operationLimit);
         try {
             while (job != null) {
@@ -200,14 +200,14 @@ public class ECOCraftingCPULogic {
             taskScheduler.endSharedProbeBudget();
             taskScheduler.finishResolveTick();
         }
-        // Only ordinary pushes participate in the rolling operation window.
+        // 只有普通推送计入滚动操作窗口。
         dispatchStrategy.finishTick(acceptedNormalPushes);
         if (job != null) {
             taskScheduler.check(job);
         }
     }
 
-    /** Retry delivery from the same physical inventory used for all recipe inputs. */
+    /** 从所有配方输入共用的实际库存中重试交付产物。 */
     private void deliverStoredFinalOutput() {
         var current = job;
         if (current == null) return;
@@ -222,7 +222,7 @@ public class ECOCraftingCPULogic {
             if (current.executionRuntime != null) {
                 reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
             }
-                // Keep feedback needed by the next growth wave before delivering surplus.
+                // 先保留下一轮增殖所需的回流物料，再交付多余产物。
             PlannerAmount deliverable = PlannerAmount.of(storedFinalOutput)
                 .subtract(reserve).max(PlannerAmount.ZERO);
             long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
@@ -278,22 +278,21 @@ public class ECOCraftingCPULogic {
 
     private Iterable<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
             IPatternDetails details) {
-        // Binary Mixin contract: Thunderbolt 1.0.6 wraps this exact invocation in this method.
-        // Keep exactly one getProviders call here; a forwarding stub in the CPU is not sufficient.
+        // 此处必须且只能保留一次 getProviders 调用；仅在 CPU 中提供转发桩方法不足以满足兼容要求。
         return craftingService.getProviders(details);
     }
 
     /**
-     * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
+     * 尝试将样板推送到可用接口中，即执行实际的合成操作。
      *
-     * @param maxPatterns remaining accepted ordinary pushes; verified batches do not consume this budget
-     * @return 成功推送的 pattern 数量。
+     * @param maxPatterns 剩余可接受的普通推送次数；已验证的批量操作不消耗此额度。
+     * @return 成功推送的样板数量。
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        // Binary Mixin anchor: Thunderbolt wraps this exact invocation in this method. Keep the call in place
-        // while the actual dispatch implementation is split into strategy-specific methods below. The guard is
-        // deliberately false at runtime; this is only a compatibility anchor and never touches a provider.
+        // Mixin 二进制兼容锚点：Thunderbolt 会包装本方法中的这一调用，必须保留其调用位置。
+        // 实际调度实现拆分到下方各策略对应的方法中；此处的守卫条件在运行时刻意保持为假。
+        // 这里仅用于提供兼容锚点，绝不会访问合成提供者。
         if (thunderboltMixinAnchorEnabled()) {
             ICraftingProvider anchorProvider = null;
             anchorProvider.pushPattern(null, null);
@@ -305,7 +304,7 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
-    /** Dispatches one scheduler pass. */
+    /** 执行一轮调度。 */
     public int executeNormalCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         var current = job;
@@ -324,8 +323,8 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Compatibility adapter for the ordinary provider call. The scheduler owns candidate/provider order;
-     * this small island keeps provider-specific AE2/Thunderbolt/Useless invocation behavior in the CPU owner.
+     * 普通合成提供者调用的兼容适配器。候选项和提供者的顺序由调度器管理；
+     * 此处将各提供者特有的 AE2、Thunderbolt 和 Useless 调用行为保留在所属 CPU 中。
      */
     private boolean invokeNormalProvider(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity) {
@@ -339,13 +338,13 @@ public class ECOCraftingCPULogic {
                     request.job().link.getCraftingID());
         }
 
-        // COMPATIBILITY CONTRACT:
-        // Keep this exact ICraftingProvider.pushPattern invocation in ECOCraftingCPULogic.
-        // Useless/Thunderbolt integrations may wrap its owner, descriptor, or call site.
+        // 兼容性约定：
+        // 必须在 ECOCraftingCPULogic 中原样保留此 ICraftingProvider.pushPattern 调用。
+        // Useless 和 Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
         return provider.pushPattern(request.pattern(), request.inputs());
     }
 
-    /** Accept outstanding outputs into the CPU-owned physical inventory. */
+    /** 将尚待接收的产物存入 CPU 自有的实际库存。 */
     public long insert(AEKey what, long amount, Actionable type) {
         var current = job;
         if (what == null || amount <= 0L || current == null) return 0L;
@@ -365,11 +364,10 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Accepts a worker output only when this CPU still owns the supplied crafting job, retaining surplus locally.
+     * 仅在此 CPU 仍持有所指定的合成任务时接收工作单元的产物，并将多余产物保留在本地。
      *
-     * <p>Worker outputs carry the job id, but AE2's legacy {@code insertIntoCpus} API does not. Keeping this
-     * guard at the CPU boundary prevents an output from being assigned to another CPU that happens to wait for
-     * the same key.</p>
+     * <p>工作单元的产物携带任务标识，但 AE2 的旧版 {@code insertIntoCpus} 接口不携带该信息。
+     * 在 CPU 边界保留此检查，可防止产物被分配给恰好也在等待相同资源键的其他 CPU。</p>
      */
     public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         if (what == null || amount <= 0L || craftingJobId == null || job == null
@@ -381,7 +379,7 @@ public class ECOCraftingCPULogic {
         if (accepted < 0L || accepted > amount) {
             throw new IllegalStateException("Invalid CPU insertion amount: " + accepted + " for " + amount);
         }
-        // Job-directed surplus belongs to this CPU but must not decrement unrelated waiting entries.
+        // 定向交付给该任务的多余产物归此 CPU 所有，但不得扣减无关的等待条目。
         if (type == Actionable.MODULATE && accepted < amount) {
             inventory.insert(what, amount - accepted, Actionable.MODULATE);
             taskScheduler.recordPhysicalInsert(what);
@@ -505,11 +503,11 @@ public class ECOCraftingCPULogic {
             this.job = new ExecutingCraftingJob(jobData, registries, this::postChange, this);
             IGrid grid = cpu.getGrid();
             if (grid != null) {
-                // Publish the restored link only after the complete job decoded successfully. A failed restore stays
-                // quarantined in the threading core and must not leave an orphan link in the crafting service.
+                // 仅在整个任务成功解码后发布恢复的链接。恢复失败的任务会继续隔离在多线程核心中，
+                // 不得在合成服务中留下孤立链接。
                 ((CraftingService) grid.getCraftingService()).addLink(this.job.link);
             }
-            // Migrate physical items held in the former separate final-output buffer once.
+            // 将旧版独立最终产物缓冲区中保存的实际物品迁移一次。
             long buffered = jobData.getLong("bufferedFinalOutput");
             if (buffered > 0L && job.finalOutput != null) {
                 inventory.insert(job.finalOutput.what(), buffered, Actionable.MODULATE);
@@ -598,7 +596,7 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    /** Collects only items physically owned by this CPU, excluding planned and in-flight outputs. */
+    /** 仅收集此 CPU 实际持有的物品，不包括计划产物和尚未返回的产物。 */
     public void getOwnedItems(KeyCounter out) {
         out.addAll(this.inventory.list);
     }
@@ -622,7 +620,7 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    /** Allocation-free counterpart of {@link #getOwnedItems(KeyCounter)}; must cover the same ledgers. */
+    /** {@link #getOwnedItems(KeyCounter)} 对应的无内存分配检查；必须覆盖相同的库存记录。 */
     public boolean hasOwnedItems() {
         return !this.inventory.list.isEmpty();
     }
@@ -631,7 +629,7 @@ public class ECOCraftingCPULogic {
         return job != null && job.suspended;
     }
 
-    /** Stable diagnostic hook for CPU menus/integrations; null means the job is still executable. */
+    /** 供 CPU 菜单和集成使用的稳定诊断接口；返回 null 表示任务仍可执行。 */
     public @Nullable String getPermanentExecutionError() {
         return null;
     }
