@@ -69,11 +69,6 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     }
 
     @Override
-    public FastPathCapability capability() {
-        return FastPathCapability.DURABILITY_LINEAR;
-    }
-
-    @Override
     public long maxBatchSize() {
         return maxBatchSize;
     }
@@ -199,15 +194,6 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
                 && sameCounter(sourceRemainderCounter, currentRemainderCounter)
             ? Optional.of(new ECODurabilityBatchModel(rebased))
             : Optional.empty();
-    }
-
-    List<GenericStack> initialEntries() {
-        KeyCounter counter = new KeyCounter();
-        for (Transition transition : transitions) {
-            GenericStack initial = GenericStack.fromItemStack(transition.initialStack());
-            if (initial != null) counter.add(initial.what(), 1L);
-        }
-        return ECOFastPathStacks.copyCounter(counter);
     }
 
     private static KeyCounter toCounter(List<GenericStack> stacks) {

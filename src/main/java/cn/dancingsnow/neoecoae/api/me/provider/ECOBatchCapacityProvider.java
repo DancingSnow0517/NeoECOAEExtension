@@ -1,14 +1,45 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
-/** Optional server-thread capability. Counts always represent complete pattern copies. */
-public interface ECOBatchCapacityProvider {
-    /** Side-effect-free current capacity; no inputs, queues, energy or job state may change. */
-    long eco$getBatchCapacity(ECOBatchDispatchContext context);
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import org.jetbrains.annotations.Nullable;
 
-    /**
-     * Atomically accepts all inputs for craftCount copies. False (or an exception) means no input
-     * was accepted and no output was published. The CPU owns and restores inputs on rejection.
-     * Implementations must revalidate live capacity, and must never partially accept a batch.
-     */
-    boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount);
+/** Optional synchronous batch capability. Counts always represent complete pattern copies. */
+public interface ECOBatchCapacityProvider {
+    /** Resolves capacity, material rules and the matching commit target once for this dispatch. */
+    @Nullable
+    Preparation eco$prepareBatch(ECOBatchDispatchContext context);
+
+    record Preparation(
+        long capacity,
+        @Nullable ECOStatefulBatchCalculator statefulCalculator,
+        boolean statefulCalculatorRequired,
+        Predicate<Batch> dispatch
+    ) {
+        public Preparation {
+            if (capacity <= 0L) throw new IllegalArgumentException("capacity must be positive");
+            Objects.requireNonNull(dispatch, "dispatch");
+        }
+
+        public boolean push(Batch batch) {
+            return batch.craftCount() <= capacity && dispatch.test(batch);
+        }
+    }
+
+    record Batch(
+        long craftCount,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal
+    ) {
+        public Batch {
+            if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
+            inputTotal = List.copyOf(inputTotal);
+            outputTotal = List.copyOf(outputTotal);
+            remainingTotal = List.copyOf(remainingTotal);
+        }
+    }
 }

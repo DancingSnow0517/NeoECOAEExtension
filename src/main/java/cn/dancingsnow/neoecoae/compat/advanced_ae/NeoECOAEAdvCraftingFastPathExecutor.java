@@ -239,7 +239,6 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
             VirtualSelectedOffer selected) {
         ECOVerifiedFastPathRecipe recipe = selected.offer().recipe();
         if (!recipe.isVerifiedFor(execution)) {
-            reinject(inventory, craftingContainer);
             return 0;
         }
 
@@ -250,7 +249,6 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
         try {
             long requested = Math.min(task.neoecoae$getValue(), recipe.arithmeticBatchLimit());
             if (requested <= 1L) {
-                reinject(inventory, craftingContainer);
                 return 0;
             }
 
@@ -266,7 +264,6 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                         recipe::additionalInputs);
             }
             if (craftCount <= 1L) {
-                reinject(inventory, craftingContainer);
                 return 0;
             }
 
@@ -275,7 +272,6 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
             List<GenericStack> remainderTotal = recipe.batchRemainders(craftCount);
             additionalInputs = recipe.additionalInputs(craftCount);
             if (!ECOBatchCraftingHelper.extractExact(inventory, additionalInputs)) {
-                reinject(inventory, craftingContainer);
                 return 0;
             }
             additionalInputsExtracted = true;
@@ -284,7 +280,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                     craftCount,
                     job.neoecoae$getLink().getCraftingID());
             if (verified == null || !selected.bus().pushVirtualBatch(verified, selected.offer())) {
-                rollback(inventory, craftingContainer, additionalInputs, additionalInputsExtracted);
+                restoreAdditionalInputs(inventory, additionalInputs, additionalInputsExtracted);
                 return 0;
             }
             ownershipTransferred = true;
@@ -301,7 +297,7 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
                         failure);
                 return 1;
             } else {
-                rollback(inventory, craftingContainer, additionalInputs, additionalInputsExtracted);
+                restoreAdditionalInputs(inventory, additionalInputs, additionalInputsExtracted);
                 LOGGER.debug(
                         "AdvancedAE virtual FastPath batch was rejected; using native crafting on the next pass",
                         failure);
@@ -430,6 +426,15 @@ public final class NeoECOAEAdvCraftingFastPathExecutor {
             List<GenericStack> additionalInputs,
             boolean additionalInputsExtracted) {
         reinject(inventory, craftingContainer);
+        if (additionalInputsExtracted) {
+            ECOBatchCraftingHelper.insertAll(inventory, additionalInputs);
+        }
+    }
+
+    private static void restoreAdditionalInputs(
+            ListCraftingInventory inventory,
+            List<GenericStack> additionalInputs,
+            boolean additionalInputsExtracted) {
         if (additionalInputsExtracted) {
             ECOBatchCraftingHelper.insertAll(inventory, additionalInputs);
         }

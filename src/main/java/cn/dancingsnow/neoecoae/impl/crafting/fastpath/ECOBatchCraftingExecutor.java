@@ -14,7 +14,6 @@ import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOStatefulBatchProvider;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,13 +34,12 @@ public final class ECOBatchCraftingExecutor {
         if (maxCrafts <= 0) return null;
         try {
             var context = ECOBatchDispatchContext.create(pattern, inputs, outputs, containers, level, craftingJobId);
-            // Capacity is local to this dispatch, never retained in a job, cursor, or save.
-            long capacity = Math.max(0L, provider.eco$getBatchCapacity(context));
-            if (capacity == 0L) return null;
+            var preparation = provider.eco$prepareBatch(context);
+            if (preparation == null) return null;
+            long capacity = preparation.capacity();
             var perCopy = context.inputItems();
-            var statefulCalculator = provider instanceof ECOStatefulBatchProvider statefulProvider
-                ? statefulProvider.eco$getStatefulBatchCalculator(context) : null;
-            if (provider instanceof ECOStatefulBatchProvider
+            var statefulCalculator = preparation.statefulCalculator();
+            if (preparation.statefulCalculatorRequired()
                     && context.execution().fastPathType() != ECORecipeClassifier.Type.NORMAL
                     && statefulCalculator == null) {
                 return null;
@@ -64,10 +62,10 @@ public final class ECOBatchCraftingExecutor {
             var remainderTotal = statefulCalculator == null
                 ? ECOBatchCraftingHelper.multiply(context.containerItems(), size)
                 : statefulCalculator.batchRemainders(size);
-            return new PreparedBatch(size, inputTotal,
-                ECOBatchCraftingHelper.multiply(context.outputs(), size),
-                remainderTotal, power * size,
-                () -> provider.eco$pushBatch(context, size));
+            var batch = new ECOBatchCapacityProvider.Batch(size, inputTotal,
+                ECOBatchCraftingHelper.multiply(context.outputs(), size), remainderTotal);
+            return new PreparedBatch(batch.craftCount(), batch.inputTotal(), batch.outputTotal(),
+                batch.remainingTotal(), power * size, () -> preparation.push(batch));
         } catch (RuntimeException unavailable) {
             LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);
             return null;

@@ -47,8 +47,13 @@ final class ECOUselessScaledBatchDispatch implements ECOBatchCapacityProvider {
     }
 
     @Override
-    public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
-        return availableCount(context.pattern(), context.inputCounters(), Long.MAX_VALUE);
+    public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+        var pattern = context.pattern();
+        var prototype = context.inputCounters();
+        long capacity = availableCount(pattern, prototype, Long.MAX_VALUE);
+        if (capacity <= 0L) return null;
+        return new Preparation(capacity, null, false,
+            batch -> pushBatch(pattern, prototype, batch.craftCount()));
     }
 
     private long availableCount(IPatternDetails pattern, KeyCounter[] prototype, long requested) {
@@ -96,10 +101,7 @@ final class ECOUselessScaledBatchDispatch implements ECOBatchCapacityProvider {
         return limit(maximum, hidden, actualOperations);
     }
 
-    @Override
-    public boolean eco$pushBatch(ECOBatchDispatchContext context, long count) {
-        var pattern = context.pattern();
-        var prototype = context.inputCounters();
+    private boolean pushBatch(IPatternDetails pattern, KeyCounter[] prototype, long count) {
         if (availableCount(pattern, prototype, count) < count || count <= 0) return false;
         var scaledPattern = SmartDoublingPatterns.scale(pattern, count);
         KeyCounter[] scaled = new KeyCounter[prototype.length];

@@ -1,10 +1,8 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +10,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Recipe-level fast-path knowledge.
@@ -34,31 +30,12 @@ public final class ECOCraftingFastPathCache {
     public static final int MIN_CACHE_SIZE = 16;
     public static final int MAX_CACHE_SIZE = 16_384;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final long NEGATIVE_CACHE_TTL_TICKS = 1_200L;
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
     private final Map<ECOFastPathKey, ECOFastPathResult> entries;
     private final Map<ECOFastPathPatternKey, ECOPatternEligibility> patternEntries;
-    private final Map<String, Long> ineligibleReasonCounts = new LinkedHashMap<>();
-    private final Map<String, String> ineligibleReasonExamples = new LinkedHashMap<>();
-
-    private long hitCount;
-    private long missCount;
-    private long verifySuccessCount;
-    private long verifyRejectCount;
-    private long negativeHitCount;
-    private long disabledCount;
-    private long fallbackSlowPathCount;
-    private long fastPathAcceptedCount;
-    private long slowPathAcceptedCount;
-    private long coolantRejectCount;
-    private long noThreadRejectCount;
-    private long expectedMismatchCount;
-    private long nonItemKeyCount;
-    private long keyBuildFailedCount;
-    private long exceptionCount;
     private long credentialEpoch;
 
     public ECOCraftingFastPathCache() {
@@ -93,18 +70,11 @@ public final class ECOCraftingFastPathCache {
     public ECOFastPathResult get(ECOFastPathKey key, long tick) {
         ECOFastPathResult result = entries.get(key);
         if (result == null) {
-            missCount++;
             return null;
         }
         if (result.isNegative() && isNegativeExpired(result, tick)) {
             entries.remove(key);
-            missCount++;
             return null;
-        }
-        if (result.isNegative()) {
-            negativeHitCount++;
-        } else {
-            hitCount++;
         }
         return result;
     }
@@ -127,28 +97,9 @@ public final class ECOCraftingFastPathCache {
         long tick,
         @Nullable ECOReusableStateModel reusableStateModel
     ) {
-        putPositive(key, outputs, remaining, inputs, tick, reusableStateModel,
-            ECORecipeClassifier.Type.NORMAL, List.of(), List.of(), List.of(), List.of());
-    }
-
-    public void putPositive(
-        ECOFastPathKey key,
-        List<GenericStack> outputs,
-        List<GenericStack> remaining,
-        List<GenericStack> inputs,
-        long tick,
-        @Nullable ECOReusableStateModel reusableStateModel,
-        ECORecipeClassifier.Type type,
-        List<ECOFastPathComponentChange> inputComponentChanges,
-        List<ECOFastPathComponentChange> outputComponentChanges,
-        List<ECOFastPathDurabilityDelta> durabilityDeltas,
-        List<GenericStack> reusableInputs
-    ) {
-        ECOFastPathStacks.ItemStackValidation resultValidation =
-            inputComponentChanges.isEmpty() && outputComponentChanges.isEmpty()
-                    && durabilityDeltas.isEmpty() && reusableInputs.isEmpty()
-                ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
-                : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
+        ECOFastPathStacks.ItemStackValidation resultValidation = reusableStateModel == null
+            ? ECOFastPathStacks.ItemStackValidation.FAST_PATH
+            : ECOFastPathStacks.ItemStackValidation.FAST_PATH_MUTATION;
         if (!ECOFastPathStacks.areValidItemStacks(
                 outputs, Integer.MAX_VALUE, true, resultValidation)
             || !ECOFastPathStacks.areValidItemStacks(
@@ -158,20 +109,7 @@ public final class ECOCraftingFastPathCache {
             putNegative(key, tick, "VERIFIED_STACK_VALIDATION_FAILED");
             return;
         }
-        if (!reusableInputs.isEmpty() && reusableStateModel == null) {
-            putNegative(key, tick, "REUSABLE_STATE_MODEL_MISSING");
-            return;
-        }
-        ECOPatternEligibility eligibility = patternEntries.get(key.patternKey());
-        EnumSet<FastPathCapability> capabilities = EnumSet.of(
-            eligibility != null && eligibility.hasSubstitutionInput()
-                ? FastPathCapability.TAG_RESOLVED_LINEAR
-                : FastPathCapability.PURE_LINEAR);
-        if (reusableStateModel != null) capabilities.add(reusableStateModel.capability());
-        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel,
-            capabilities, type,
-            inputComponentChanges, outputComponentChanges, durabilityDeltas, reusableInputs));
-        verifySuccessCount++;
+        entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick, reusableStateModel));
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {
@@ -180,8 +118,6 @@ public final class ECOCraftingFastPathCache {
 
     public void putNegative(ECOFastPathKey key, long tick, String reason) {
         entries.put(key, ECOFastPathResult.negative(tick, reason));
-        verifyRejectCount++;
-        recordRejectReason(reason, key.toString());
     }
 
     /**
@@ -192,20 +128,17 @@ public final class ECOCraftingFastPathCache {
     public ECOFastPathLookup lookup(ECOExtractedPatternExecution execution, long tick, long reloadGeneration) {
         ECOFastPathKey key = execution.key();
         if (key == null) {
-            keyBuildFailedCount++;
             return ECOFastPathLookup.miss();
         }
         // Do not mint a current credential from an execution context constructed before the latest reload,
         // even if an obsolete entry somehow survived memory clearing.
         if (!key.isForReloadGeneration(reloadGeneration)) {
             entries.remove(key);
-            expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }
         ECOPatternEligibility eligibility = patternEntries.computeIfAbsent(
             key.patternKey(), ignored -> execution.patternEligibility());
         if (!eligibility.supported()) {
-            recordRejectReasonLazy(eligibility.rejectReason(), () -> execution.expectedOutputs().toString());
             return ECOFastPathLookup.negative(eligibility.rejectReason());
         }
         ECOFastPathResult result = get(key, tick);
@@ -222,7 +155,6 @@ public final class ECOCraftingFastPathCache {
             // longer matches, discard it so the caller can run the assembler again and replace it with fresh
             // evidence. Turning this into a negative entry would suppress re-verification for the full TTL.
             entries.remove(key);
-            expectedMismatchCount++;
             return ECOFastPathLookup.mismatch();
         }
         return ECOFastPathLookup.verified(
@@ -263,27 +195,17 @@ public final class ECOCraftingFastPathCache {
             }
             if (rebased.isEmpty()) continue;
 
-            EnumSet<FastPathCapability> capabilities = EnumSet.noneOf(FastPathCapability.class);
-            capabilities.addAll(cached.capabilities());
-            capabilities.add(FastPathCapability.DURABILITY_LINEAR);
             rebasedResult = ECOFastPathResult.positive(
                 execution.expectedOutputs(),
                 execution.expectedContainerItems(),
                 execution.inputItems(),
                 tick,
-                rebased.get(),
-                capabilities,
-                cached.type(),
-                List.of(),
-                List.of(),
-                List.of(),
-                rebased.get().initialEntries()
+                rebased.get()
             );
             break;
         }
         if (rebasedResult == null) return null;
         entries.put(currentKey, rebasedResult);
-        hitCount++;
         return ECOFastPathLookup.verified(
             ECOVerifiedFastPathRecipe.trusted(this, execution, currentKey, rebasedResult,
                 currentKey.reloadGeneration())
@@ -311,84 +233,6 @@ public final class ECOCraftingFastPathCache {
                 cache.clear();
             }
         }
-    }
-
-    public void recordDisabled() {
-        disabledCount++;
-    }
-
-    public void recordDisabled(String reason) {
-        recordDisabled();
-        recordRejectReason(reason, null);
-    }
-
-    public void recordDisabled(ECOExtractedPatternExecution execution) {
-        String reason = execution == null ? "UNKNOWN" : execution.fastPathReason();
-        recordDisabled();
-        if (execution == null) recordRejectReason(reason, null);
-        else recordRejectReasonLazy(reason, () -> execution.expectedOutputs().toString());
-    }
-
-    public void recordFallbackSlowPath() {
-        fallbackSlowPathCount++;
-    }
-
-    public void recordFastPathAccepted() {
-        fastPathAcceptedCount++;
-    }
-
-    public void recordSlowPathAccepted() {
-        slowPathAcceptedCount++;
-    }
-
-    public void recordCoolantReject() {
-        coolantRejectCount++;
-    }
-
-    public void recordNoThreadReject() {
-        noThreadRejectCount++;
-    }
-
-    public void recordExpectedMismatch() {
-        expectedMismatchCount++;
-    }
-
-    public void recordNonItemKey() {
-        nonItemKeyCount++;
-    }
-
-    public void recordKeyBuildFailed() {
-        keyBuildFailedCount++;
-    }
-
-    public void recordException() {
-        exceptionCount++;
-    }
-
-    @Nullable
-    ECOPatternEligibility getPatternEligibility(ECOFastPathPatternKey key) {
-        return patternEntries.get(key);
-    }
-
-    /** Package-private test seam for registry-independent AEKey fixtures. */
-    void putResolvedForTesting(ECOFastPathKey key, ECOFastPathResult result) {
-        entries.put(key, result);
-    }
-
-    private void recordRejectReason(@Nullable String reason, @Nullable String example) {
-        String normalized = normalizeRejectReason(reason);
-        ineligibleReasonCounts.merge(normalized, 1L, Long::sum);
-        if (example != null) ineligibleReasonExamples.putIfAbsent(normalized, example);
-    }
-
-    private void recordRejectReasonLazy(@Nullable String reason, java.util.function.Supplier<String> example) {
-        String normalized = normalizeRejectReason(reason);
-        ineligibleReasonCounts.merge(normalized, 1L, Long::sum);
-        ineligibleReasonExamples.computeIfAbsent(normalized, ignored -> example.get());
-    }
-
-    private static String normalizeRejectReason(@Nullable String reason) {
-        return reason == null || reason.isBlank() ? "UNKNOWN" : reason;
     }
 
     private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {

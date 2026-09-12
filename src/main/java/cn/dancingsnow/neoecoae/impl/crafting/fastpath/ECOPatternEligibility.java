@@ -14,7 +14,4 @@ public record ECOPatternEligibility(boolean supported, List<InputType> inputType
         rejectReason = rejectReason == null ? "" : rejectReason;
     }
 
-    public boolean hasSubstitutionInput() {
-        return inputTypes.contains(InputType.TAG_OR_SUBSTITUTION);
-    }
 }

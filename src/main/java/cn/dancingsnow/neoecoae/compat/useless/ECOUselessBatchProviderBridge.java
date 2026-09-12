@@ -94,15 +94,12 @@ public final class ECOUselessBatchProviderBridge {
 
     record Adapter(ReflectionApi api, Object dispatcher) implements ECOBatchCapacityProvider {
         @Override
-        public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
-            return (long) invoke(api.availableCount, dispatcher,
+        public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+            long capacity = (long) invoke(api.availableCount, dispatcher,
                 context.pattern(), context.inputCounters(), Long.MAX_VALUE);
-        }
-
-        @Override
-        public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
-            return (boolean) invoke(api.dispatch, dispatcher,
-                context.pattern(), context.inputCounters(), craftCount);
+            if (capacity <= 0L) return null;
+            return new Preparation(capacity, null, false, batch -> (boolean) invoke(api.dispatch, dispatcher,
+                context.pattern(), context.inputCounters(), batch.craftCount()));
         }
     }
 

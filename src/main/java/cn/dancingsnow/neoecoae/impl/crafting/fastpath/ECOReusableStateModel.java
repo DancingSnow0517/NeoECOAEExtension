@@ -5,8 +5,6 @@ import java.util.List;
 
 /** A composable proof for reusable input state across an entire batch. */
 public interface ECOReusableStateModel {
-    FastPathCapability capability();
-
     long maxBatchSize();
 
     List<GenericStack> batchInputs(List<GenericStack> ordinaryInputs, long crafts);

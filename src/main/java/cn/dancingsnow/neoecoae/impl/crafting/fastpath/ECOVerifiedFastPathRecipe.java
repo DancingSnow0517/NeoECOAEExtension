@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -99,24 +98,6 @@ public final class ECOVerifiedFastPathRecipe {
     @Nullable
     public ECOReusableStateModel reusableStateModel() { return result.reusableStateModel(); }
 
-    public Set<FastPathCapability> capabilities() { return result.capabilities(); }
-
-    public ECORecipeClassifier.Type type() { return result.type(); }
-
-    public List<ECOFastPathComponentChange> inputComponentChanges() {
-        return result.inputComponentChanges();
-    }
-
-    public List<ECOFastPathComponentChange> outputComponentChanges() {
-        return result.outputComponentChanges();
-    }
-
-    public List<ECOFastPathDurabilityDelta> durabilityDeltas() {
-        return result.durabilityDeltas();
-    }
-
-    public List<GenericStack> reusableInputs() { return result.reusableInputs(); }
-
     /** Physical inputs owned by one worker for an entire verified batch. */
     public List<GenericStack> batchInputs(long craftCount) {
         if (craftCount <= 0L) return List.of();
@@ -136,17 +117,6 @@ public final class ECOVerifiedFastPathRecipe {
     /** Inputs beyond the first craft, which are still owned by the CPU at dispatch time. */
     public List<GenericStack> additionalInputs(long craftCount) {
         return ECOBatchCraftingHelper.subtract(batchInputs(craftCount), inputsPerCraft());
-    }
-
-    /** Component-mutating reusable items need a verified state model before they may be multiplied. */
-    public boolean batchSafe() {
-        boolean resolvedLinear = capabilities().contains(FastPathCapability.PURE_LINEAR)
-            || capabilities().contains(FastPathCapability.TAG_RESOLVED_LINEAR);
-        if (!resolvedLinear) return false;
-        ECOReusableStateModel model = reusableStateModel();
-        return reusableInputs().isEmpty()
-            ? model == null || capabilities().contains(model.capability())
-            : model != null && capabilities().contains(model.capability());
     }
 
     /** True only for the very execution context this credential was verified against. */
@@ -176,15 +146,42 @@ public final class ECOVerifiedFastPathRecipe {
      */
     @Nullable
     public ECOVerifiedFastPathExecution withBatch(int batchSize, @Nullable UUID craftingJobId) {
-        if (batchSize <= 0 || batchSize > arithmeticBatchLimit() || !batchSafe()) {
+        if (batchSize <= 0 || batchSize > arithmeticBatchLimit()) return null;
+        return withBatch(batchSize, craftingJobId, batchInputs(batchSize),
+            ECOBatchCraftingHelper.multiply(outputsPerCraft(), batchSize), batchRemainders(batchSize));
+    }
+
+    @Nullable
+    public ECOVerifiedFastPathExecution withBatch(
+        int batchSize,
+        @Nullable UUID craftingJobId,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal
+    ) {
+        if (batchSize <= 0 || batchSize > arithmeticBatchLimit()) {
             return null;
         }
-        return ECOVerifiedFastPathExecution.trusted(this, batchSize, craftingJobId);
+        return ECOVerifiedFastPathExecution.trusted(this, batchSize, craftingJobId,
+            inputTotal, outputTotal, remainingTotal);
     }
 
     /** Virtual mode has no int/arithmetic batch ceiling; totals are validated as 64-bit values when materialized. */
     public ECOVerifiedVirtualExecution withVirtualBatch(long craftCount, @Nullable UUID craftingJobId) {
-        return craftCount <= 0L || craftCount > arithmeticBatchLimit() || !batchSafe()
-            ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId);
+        if (craftCount <= 0L || craftCount > arithmeticBatchLimit()) return null;
+        return withVirtualBatch(craftCount, craftingJobId, batchInputs(craftCount),
+            ECOBatchCraftingHelper.multiply(outputsPerCraft(), craftCount), batchRemainders(craftCount));
+    }
+
+    public ECOVerifiedVirtualExecution withVirtualBatch(
+        long craftCount,
+        @Nullable UUID craftingJobId,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal
+    ) {
+        return craftCount <= 0L || craftCount > arithmeticBatchLimit()
+            ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId,
+                inputTotal, outputTotal, remainingTotal);
     }
 }

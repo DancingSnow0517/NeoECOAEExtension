@@ -56,11 +56,6 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
     }
 
     @Override
-    public FastPathCapability capability() {
-        return FastPathCapability.STATE_TRANSITION_LINEAR;
-    }
-
-    @Override
     public long maxBatchSize() {
         return maxBatchSize;
     }
@@ -115,8 +110,21 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                 ? Map.of() : left.customDataDelta.deltas;
             Map<String, NumericDelta> rightDeltas = right.customDataDelta == null
                 ? Map.of() : right.customDataDelta.deltas;
-            if (left.countDelta != right.countDelta || !leftDeltas.equals(rightDeltas)
+            if (left.countDelta != right.countDelta || !sameRules(leftDeltas, rightDeltas)
                     || !ItemStack.isSameItem(left.initial, right.initial)) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameRules(Map<String, NumericDelta> left, Map<String, NumericDelta> right) {
+        if (!left.keySet().equals(right.keySet())) return false;
+        for (String key : left.keySet()) {
+            NumericDelta a = left.get(key);
+            NumericDelta b = right.get(key);
+            if (a.type != b.type || a.deltaLong != b.deltaLong
+                    || Double.doubleToLongBits(a.deltaDouble) != Double.doubleToLongBits(b.deltaDouble)) {
+                return false;
+            }
         }
         return true;
     }

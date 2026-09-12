@@ -201,7 +201,6 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             if (getAvailableBatchCapacity() <= 0) {
-                getFastPathCache().recordNoThreadReject();
                 return false;
             }
             int threadObjectCapacity = controller.getThreadObjectCapacityForWorker(this);
@@ -245,21 +244,18 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushBatch(ECOVerifiedFastPathExecution verified) {
         ECOCraftingFastPathCache cache = getFastPathCache();
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
-            cache.recordDisabled();
             return false;
         }
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
         if (!verified.recipe().isIssuedBy(cache)) {
-            cache.recordExpectedMismatch();
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         int workerThreadCapacity = controller.getThreadObjectCapacityForWorker(this);
         if (verified.batchSize() > getAvailableThreadSlots()
             || verified.batchSize() > getControllerAvailableThreadSlots(controller)) {
-            cache.recordNoThreadReject();
             return false;
         }
 
@@ -299,7 +295,6 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
         ECOCraftingFastPathCache cache = getFastPathCache();
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
-            cache.recordDisabled();
             return false;
         }
         if (cluster == null || cluster.getController() == null || isWorking()) {
@@ -307,7 +302,6 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         if (!controller.isFullVirtualCraftingMode() || !verified.recipe().isIssuedBy(cache)) {
-            cache.recordExpectedMismatch();
             return false;
         }
         for (int index = 0; index < craftingThreads.size(); index++) {

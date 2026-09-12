@@ -23,6 +23,9 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOVerifiedFastPathExecution {
     private final ECOVerifiedFastPathRecipe recipe;
     private final int batchSize;
+    private final List<GenericStack> inputTotal;
+    private final List<GenericStack> outputTotal;
+    private final List<GenericStack> remainingTotal;
 
     @Nullable
     private final UUID craftingJobId;
@@ -30,20 +33,30 @@ public final class ECOVerifiedFastPathExecution {
     private ECOVerifiedFastPathExecution(
         ECOVerifiedFastPathRecipe recipe,
         int batchSize,
-        @Nullable UUID craftingJobId
+        @Nullable UUID craftingJobId,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal
     ) {
         this.recipe = recipe;
         this.batchSize = batchSize;
         this.craftingJobId = craftingJobId;
+        this.inputTotal = List.copyOf(inputTotal);
+        this.outputTotal = List.copyOf(outputTotal);
+        this.remainingTotal = List.copyOf(remainingTotal);
     }
 
     static ECOVerifiedFastPathExecution trusted(
         ECOVerifiedFastPathRecipe recipe,
         int batchSize,
-        @Nullable UUID craftingJobId
+        @Nullable UUID craftingJobId,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal
     ) {
         ECOBatchCraftingHelper.validateBatchSize(batchSize);
-        return new ECOVerifiedFastPathExecution(recipe, batchSize, craftingJobId);
+        return new ECOVerifiedFastPathExecution(recipe, batchSize, craftingJobId,
+            inputTotal, outputTotal, remainingTotal);
     }
 
     public ECOVerifiedFastPathRecipe recipe() {
@@ -59,21 +72,11 @@ public final class ECOVerifiedFastPathExecution {
         return craftingJobId;
     }
 
-    public ECOFastPathKey key() {
-        return recipe.key();
-    }
+    public List<GenericStack> inputTotal() { return inputTotal; }
 
-    public List<GenericStack> outputsPerCraft() {
-        return recipe.outputsPerCraft();
-    }
+    public List<GenericStack> outputTotal() { return outputTotal; }
 
-    public List<GenericStack> remainingPerCraft() {
-        return recipe.remainingPerCraft();
-    }
-
-    public List<GenericStack> inputsPerCraft() {
-        return recipe.inputsPerCraft();
-    }
+    public List<GenericStack> remainingTotal() { return remainingTotal; }
 
     /** True while no recipe/datapack/server reload happened since the underlying verification. */
     public boolean isCurrent(long currentReloadGeneration) {

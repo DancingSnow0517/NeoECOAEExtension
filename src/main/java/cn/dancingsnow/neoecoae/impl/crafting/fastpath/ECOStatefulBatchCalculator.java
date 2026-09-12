@@ -22,8 +22,7 @@ public final class ECOStatefulBatchCalculator {
     @Nullable
     public static ECOStatefulBatchCalculator create(
             @Nullable ECOVerifiedFastPathRecipe recipe, ECOExtractedPatternExecution execution) {
-        if (recipe == null || recipe.reusableStateModel() == null
-                || !recipe.batchSafe() || !recipe.isVerifiedFor(execution)) {
+        if (recipe == null || recipe.reusableStateModel() == null || !recipe.isVerifiedFor(execution)) {
             return null;
         }
         return new ECOStatefulBatchCalculator(recipe);

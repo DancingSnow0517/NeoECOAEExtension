@@ -24,7 +24,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOStatefulBatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
@@ -83,7 +83,7 @@ import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
-    ECOStatefulBatchProvider {
+    ECOBatchCapacityProvider {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -190,70 +190,39 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     @Override
-    public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
-        var controller = getCraftingController();
-        if (controller == null || context.level() != getLevel()) return 0;
-        var execution = context.execution();
-        if (!execution.canUseFastPath()) return 0;
-        if (controller.isFullVirtualCraftingMode()) {
-            var offer = findVirtualFastPathOffer(execution);
-            return offer != null && batchRecipe(offer.recipe(), execution)
-                ? offer.recipe().arithmeticBatchLimit() : 0;
-        }
-        var offer = findBatchFastPathOffer(execution, Integer.MAX_VALUE);
-        if (offer == null || !batchRecipe(offer.recipe(), execution)) return 0;
-        return Math.max(0, controller.getCraftingCoolantCraftLimit(
-            5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()));
-    }
-
-    @Override
-    public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
-        if (craftCount <= 0) return false;
-        var controller = getCraftingController();
-        if (controller == null || context.level() != getLevel()) return false;
-        var execution = context.execution();
-        if (!execution.canUseFastPath()) return false;
-        // Revalidate against one fresh offer instead of resolving the same recipe again through a capacity probe.
-        if (controller.isFullVirtualCraftingMode()) {
-            var offer = findVirtualFastPathOffer(execution);
-            if (offer == null || !batchRecipe(offer.recipe(), execution)) return false;
-            var verified = offer.recipe().withVirtualBatch(craftCount, context.craftingJobId());
-            return verified != null && pushVirtualBatch(verified, offer);
-        }
-        if (craftCount > Integer.MAX_VALUE) return false;
-        var offer = findBatchFastPathOffer(execution, (int) craftCount);
-        if (offer == null || offer.maxBatchSize() < craftCount
-                || !batchRecipe(offer.recipe(), execution)
-                || controller.getCraftingCoolantCraftLimit(
-                    5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()) < craftCount) return false;
-        var verified = offer.recipe().withBatch((int) craftCount, context.craftingJobId());
-        return verified != null && acceptVerifiedBatch(verified, offer);
-    }
-
-    @Override
-    public @Nullable ECOStatefulBatchCalculator eco$getStatefulBatchCalculator(ECOBatchDispatchContext context) {
+    public @Nullable Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
         var controller = getCraftingController();
         if (controller == null || context.level() != getLevel()) return null;
         var execution = context.execution();
         if (!execution.canUseFastPath()) return null;
-        var recipe = controller.isFullVirtualCraftingMode()
-            ? recipeOf(findVirtualFastPathOffer(execution))
-            : recipeOf(findBatchFastPathOffer(execution, Integer.MAX_VALUE));
-        return ECOStatefulBatchCalculator.create(recipe, execution);
-    }
-
-    @Nullable
-    private static ECOVerifiedFastPathRecipe recipeOf(@Nullable VirtualFastPathOffer offer) {
-        return offer == null ? null : offer.recipe();
-    }
-
-    @Nullable
-    private static ECOVerifiedFastPathRecipe recipeOf(@Nullable BatchFastPathOffer offer) {
-        return offer == null ? null : offer.recipe();
+        if (controller.isFullVirtualCraftingMode()) {
+            var offer = findVirtualFastPathOffer(execution);
+            if (offer == null || !batchRecipe(offer.recipe(), execution)) return null;
+            var recipe = offer.recipe();
+            long capacity = recipe.arithmeticBatchLimit();
+            var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
+            return capacity <= 0L ? null : new Preparation(capacity, calculator, true, batch -> {
+                var verified = recipe.withVirtualBatch(batch.craftCount(), context.craftingJobId(),
+                    batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
+                return verified != null && pushVirtualBatch(verified, offer);
+            });
+        }
+        var offer = findBatchFastPathOffer(execution, Integer.MAX_VALUE);
+        if (offer == null || !batchRecipe(offer.recipe(), execution)) return null;
+        long capacity = Math.max(0, controller.getCraftingCoolantCraftLimit(
+            5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()));
+        var recipe = offer.recipe();
+        var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
+        return capacity <= 0L ? null : new Preparation(capacity, calculator, true, batch -> {
+            if (batch.craftCount() > Integer.MAX_VALUE) return false;
+            var verified = recipe.withBatch((int) batch.craftCount(), context.craftingJobId(),
+                batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
+            return verified != null && acceptVerifiedBatch(verified, offer);
+        });
     }
 
     private static boolean batchRecipe(ECOVerifiedFastPathRecipe recipe, ECOExtractedPatternExecution execution) {
-        return recipe.batchSafe() && recipe.isVerifiedFor(execution);
+        return recipe.isVerifiedFor(execution);
     }
 
     public boolean acceptVerifiedBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {

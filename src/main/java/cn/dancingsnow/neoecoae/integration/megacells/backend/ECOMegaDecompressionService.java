@@ -149,7 +149,13 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     }
 
     @Override
-    public long eco$getBatchCapacity(ECOBatchDispatchContext context) {
+    public Preparation eco$prepareBatch(ECOBatchDispatchContext context) {
+        long capacity = batchCapacity(context);
+        return capacity <= 0L ? null : new Preparation(capacity, null, false,
+            batch -> pushBatch(context, batch.craftCount()));
+    }
+
+    private long batchCapacity(ECOBatchDispatchContext context) {
         if (installedModules <= 0 || !(context.pattern() instanceof DecompressionPattern)
                 || !patterns.contains(context.pattern()) || !context.containerItems().isEmpty()) return 0;
         var perCopy = new KeyCounter();
@@ -173,9 +179,8 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         return capacity;
     }
 
-    @Override
-    public boolean eco$pushBatch(ECOBatchDispatchContext context, long craftCount) {
-        if (craftCount <= 0 || craftCount > eco$getBatchCapacity(context)) {
+    private boolean pushBatch(ECOBatchDispatchContext context, long craftCount) {
+        if (craftCount <= 0 || craftCount > batchCapacity(context)) {
             return false;
         }
 

@@ -29,7 +29,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
@@ -298,11 +297,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         if (!worker.isControlledBy(controller)) {
-            cache.recordNoThreadReject();
             return false;
         }
         if (!verified.recipe().isIssuedBy(cache)) {
-            cache.recordExpectedMismatch();
             return false;
         }
         // The credential was minted by the shared cache after a full value verification of this very dispatch,
@@ -310,22 +307,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         // that its batch size still fits the live thread capacity. Re-comparing the three per-craft stack lists
         // a third time in the same synchronous call chain could not detect anything new.
         if (!verified.isCurrent(AE2PatternIntrospection.reloadGeneration())) {
-            cache.recordExpectedMismatch();
             return false;
         }
         int batchSize = verified.batchSize();
         if (batchSize > worker.getAvailableBatchCapacity()) {
-            cache.recordNoThreadReject();
             return false;
         }
-        var outputTotal = ECOBatchCraftingHelper.multiply(verified.outputsPerCraft(), batchSize);
-        var inputTotal = verified.recipe().batchInputs(batchSize);
-        var remainingTotal = verified.recipe().batchRemainders(batchSize);
         var work = new ECOBatchCraftingWork(
             batchSize,
-            inputTotal,
-            outputTotal,
-            remainingTotal,
+            verified.inputTotal(),
+            verified.outputTotal(),
+            verified.remainingTotal(),
             verified.craftingJobId()
         );
         return acceptBatch(work, controller);
@@ -342,25 +334,22 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (!worker.isControlledBy(controller)
             || !verified.recipe().isIssuedBy(cache)
             || !verified.isCurrent(AE2PatternIntrospection.reloadGeneration())) {
-            cache.recordExpectedMismatch();
             return false;
         }
         ECOVirtualCraftingWork work = new ECOVirtualCraftingWork(
             verified.craftCount(),
-            verified.recipe().batchInputs(verified.craftCount()),
-            ECOBatchCraftingHelper.multiply(verified.recipe().outputsPerCraft(), verified.craftCount()),
-            verified.recipe().batchRemainders(verified.craftCount()),
+            verified.inputTotal(),
+            verified.outputTotal(),
+            verified.remainingTotal(),
             verified.craftingJobId()
         );
         if (!canRetainGenericStacks(work.outputTotal())
             || !canRetainGenericStacks(work.inputTotal(), true)
             || !canRetainGenericStacks(work.remainingTotal())) {
-            cache.recordNonItemKey();
             return false;
         }
         startVirtualWork(work);
         fastPathReason = "FAST_PATH_HIT";
-        cache.recordFastPathAccepted();
         return true;
     }
 
@@ -368,11 +357,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (!canRetainGenericStacks(work.outputTotal())
             || !canRetainGenericStacks(work.inputTotal(), true)
             || !canRetainGenericStacks(work.remainingTotal())) {
-            worker.getFastPathCache().recordNonItemKey();
             return false;
         }
         if (!consumeCraftingCoolant(controller, work.batchSize())) {
-            worker.getFastPathCache().recordCoolantReject();
             return false;
         }
         startBatchWork(
@@ -383,7 +370,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             work.batchSize()
         );
         fastPathReason = "FAST_PATH_HIT";
-        worker.getFastPathCache().recordFastPathAccepted();
         return true;
     }
 
@@ -397,7 +383,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOFastPathKey key = execution.key();
         if (!execution.canUseFastPath()) {
             fastPathReason = execution.fastPathReason();
-            cache.recordDisabled(execution);
             return calcPatternSlow(execution, controller, craftingJobId, false, tick);
         }
 
@@ -407,12 +392,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         switch (lookup.status()) {
             case NEGATIVE -> {
                 fastPathReason = lookup.reason() == null ? "NEGATIVE_CACHE" : lookup.reason();
-                cache.recordFallbackSlowPath();
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick);
             }
             case MISMATCH -> {
                 fastPathReason = lookup.reason() == null ? "CACHE_RESULT_MISMATCH" : lookup.reason();
-                cache.recordFallbackSlowPath();
                 return calcPatternSlow(execution, controller, craftingJobId, true, tick);
             }
             case VERIFIED -> {
@@ -422,21 +405,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                     // the raw fluid key. Keep the verified cache positive for batch dispatches and verify this
                     // one craft through AE2's normal container-aware assembler path.
                     fastPathReason = "FLUID_INPUT_SINGLE_CRAFT";
-                    cache.recordFallbackSlowPath();
                     return calcPatternSlow(execution, controller, craftingJobId, false, tick);
                 }
                 FastPathWork fastPathWork = createFastPathWork(recipe);
                 if (fastPathWork == null) {
                     fastPathReason = "CACHED_RESULT_MATERIALIZATION_FAILED";
                     cache.putNegative(key, tick, "CACHED_RESULT_MATERIALIZATION_FAILED");
-                    cache.recordFallbackSlowPath();
                     return calcPatternSlow(execution, controller, craftingJobId, false, tick);
                 }
                 if (!consumeCraftingCoolant(controller, 1)) {
-                    cache.recordCoolantReject();
                     return false;
                 }
-                cache.recordFastPathAccepted();
                 fastPathReason = "FAST_PATH_HIT";
                 startWork(
                     List.of(fastPathWork.output()), fastPathWork.inputs(), fastPathWork.remaining(),
@@ -508,7 +487,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 execution, outputItem, inputs, list, beforeSlots, remainingSlots, tick);
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
-        cache.recordSlowPathAccepted();
         startWork(List.of(outputItem.copy()), inputs, list, craftingJobId, 1);
         return true;
     }
@@ -562,15 +540,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             cache.putNegative(key, tick, reason);
             return reason;
         }
-        List<ItemStack> expectedOutputStacks = ECOFastPathStacks.toSingleItemStack(execution.expectedOutputs())
-            .map(List::of).orElse(List.of());
         cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries, tick,
-            stateAnalysis.model(),
-            execution.fastPathType(),
-            ECOFastPathResult.componentChanges(beforeSlots, remainingSlots),
-            ECOFastPathResult.componentChanges(expectedOutputStacks, List.of(outputItem)),
-            ECOFastPathResult.durabilityDeltas(beforeSlots, remainingSlots),
-            ECOFastPathResult.reusableInputs(beforeSlots, remainingSlots));
+            stateAnalysis.model());
         // This craft used the assembler; the newly verified cache only accelerates subsequent crafts.
         return "CACHE_MISS";
     }
