@@ -8,7 +8,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
@@ -179,7 +179,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void terminateRunningJobs() {
         if (!(level instanceof ServerLevel)) return;
         for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
-            cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
+            cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
         }
         reconcileJobTermination();
     }

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.worker;
 
 import java.util.HashMap;
 import java.util.Map;

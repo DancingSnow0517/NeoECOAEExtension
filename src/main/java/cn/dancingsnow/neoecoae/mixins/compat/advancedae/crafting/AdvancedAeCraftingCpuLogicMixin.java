@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.ECOJobOutputReceiver;
+import cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import java.util.UUID;
 import appeng.api.networking.energy.IEnergyService;

@@ -7,7 +7,7 @@ import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingTreeNode;
 import appeng.crafting.execution.InputTemplate;
 import appeng.crafting.inv.ICraftingInventory;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCalculationSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.api.me.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;

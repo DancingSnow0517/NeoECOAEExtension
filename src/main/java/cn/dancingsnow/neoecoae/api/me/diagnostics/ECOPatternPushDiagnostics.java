@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.diagnostics;
 
 import java.util.Set;
 

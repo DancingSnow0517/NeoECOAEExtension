@@ -1,4 +1,6 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.worker;
+
+import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;

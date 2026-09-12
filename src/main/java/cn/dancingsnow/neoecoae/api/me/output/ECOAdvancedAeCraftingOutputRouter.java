@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.output;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;

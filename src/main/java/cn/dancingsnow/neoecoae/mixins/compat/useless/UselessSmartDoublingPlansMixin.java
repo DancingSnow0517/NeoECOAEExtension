@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.compat.useless;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
-import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import java.util.function.Function;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

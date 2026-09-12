@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.planning;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import org.jetbrains.annotations.Nullable;

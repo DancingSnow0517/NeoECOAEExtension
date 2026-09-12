@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.provider;
 
 /** Optional server-thread capability. Counts always represent complete pattern copies. */
 public interface ECOBatchCapacityProvider {

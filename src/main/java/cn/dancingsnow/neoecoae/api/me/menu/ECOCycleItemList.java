@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.menu;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;

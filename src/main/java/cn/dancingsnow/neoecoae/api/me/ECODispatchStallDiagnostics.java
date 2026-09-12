@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
+
 import java.util.EnumMap;
 import java.util.UUID;
 

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.provider;
 
 import appeng.api.stacks.AEKey;
 import java.util.Map;

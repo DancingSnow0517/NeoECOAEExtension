@@ -8,7 +8,7 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
-import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
 import java.text.NumberFormat;

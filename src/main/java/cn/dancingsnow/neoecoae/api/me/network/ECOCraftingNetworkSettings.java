@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.api.me.network;
 
 import appeng.api.networking.IGrid;
 import java.util.Set;

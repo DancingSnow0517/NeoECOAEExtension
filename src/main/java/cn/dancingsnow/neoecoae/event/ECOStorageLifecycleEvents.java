@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.event;
 
-import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;

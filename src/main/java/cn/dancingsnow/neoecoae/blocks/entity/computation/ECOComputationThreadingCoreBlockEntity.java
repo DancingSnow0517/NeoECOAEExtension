@@ -8,7 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;

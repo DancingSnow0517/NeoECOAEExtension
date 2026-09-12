@@ -4,7 +4,7 @@ import appeng.client.gui.me.crafting.CraftConfirmScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.style.StyleManager;
 import appeng.menu.me.crafting.CraftConfirmMenu;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
