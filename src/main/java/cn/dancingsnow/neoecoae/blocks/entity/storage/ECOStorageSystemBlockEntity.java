@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -58,6 +59,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
@@ -117,11 +119,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final ResourceLocation ECO_MEGA_UPGRADE_CARD_ID = NeoECOAE.id("eco_mega_upgrade_card");
     private static final int ECO_MEGA_SLOTS_PER_PAGE = 25;
     private static final int ECO_MEGA_PAGE_COUNT = 2;
-    // Synthetic IDs used by the infinite-mode UI to group the actual network key types.
-    private static final int INFINITE_ITEM_TYPE = -1;
-    private static final int INFINITE_FLUID_TYPE = -2;
-    private static final int INFINITE_OTHER_TYPE = -3;
-
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -410,20 +407,19 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 );
             })
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
-        lines.add(infiniteStorageTypeLine(INFINITE_ITEM_TYPE,
-            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.item")));
-        lines.add(infiniteStorageTypeLine(INFINITE_FLUID_TYPE,
-            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.fluid")));
-        lines.add(infiniteStorageTypeLine(INFINITE_OTHER_TYPE,
-            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.other")));
+        for (AEKeyType keyType : AEKeyTypes.getAll()) {
+            int id = infiniteUiTypeId(keyType);
+            if (id != Integer.MIN_VALUE) {
+                lines.add(infiniteStorageTypeLine(keyType, id));
+            }
+        }
         return List.copyOf(lines);
     }
 
-    private StorageHostUI.StorageTypeLine infiniteStorageTypeLine(
-        int id, java.util.function.Supplier<net.minecraft.network.chat.Component> name
-    ) {
+    private StorageHostUI.StorageTypeLine infiniteStorageTypeLine(AEKeyType keyType, int id) {
+        java.util.function.Supplier<net.minecraft.network.chat.Component> name = keyType::getDescription;
         return new StorageHostUI.StorageTypeLine(
-            new cn.dancingsnow.neoecoae.api.storage.ECOCellType(name.get(), 1, true), id,
+            new ECOCellType(name.get(), 1, true), id,
             name, this::isFormedInfiniteMode,
             () -> getStorageValue(id, StorageValue.USED_TYPES),
             () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
@@ -872,6 +868,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
             int cellTypeId = infiniteUiTypeId(stats.keyType());
+            if (cellTypeId == Integer.MIN_VALUE) {
+                continue;
+            }
             BigInteger usedBytes = infiniteUsedBytes(stats);
             storageTypes.merge(
                 cellTypeId,
@@ -1050,9 +1049,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private static int infiniteUiTypeId(AEKeyType keyType) {
-        if (keyType == AEKeyType.items()) return INFINITE_ITEM_TYPE;
-        if (keyType == AEKeyType.fluids()) return INFINITE_FLUID_TYPE;
-        return INFINITE_OTHER_TYPE;
+        int index = 0;
+        for (AEKeyType registered : AEKeyTypes.getAll()) {
+            if (registered == keyType) {
+                return -1 - index;
+            }
+            index++;
+        }
+        return Integer.MIN_VALUE;
     }
 
     public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
@@ -2360,7 +2364,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return delegate.getStackInSlot(slot);
+            ItemStack stack = delegate.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            // The component's serialized data can be very large. The UI only needs the item
+            // identity/icon; sending its full tag through the open-screen advanced packet can
+            // overflow LDLib's fixed buffer. Keep the authoritative stack in the delegate.
+            return new ItemStack(stack.getItem(), stack.getCount());
         }
 
         @Override

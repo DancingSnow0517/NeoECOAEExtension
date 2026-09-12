@@ -256,25 +256,21 @@ public final class StorageHostUI {
         list.viewContainer(view -> view.layout(layout -> layout.paddingAll(2).gapAll(5)
             .flexDirection(FlexDirection.COLUMN)));
         for (StorageTypeLine line : config.storageTypes()) {
-            if (!line.visible().getAsBoolean()) {
-                continue;
-            }
-            UIElement block = HostElements.syncedDisplay(() -> line.usedTypes().getAsLong() > 0
+            // Both sides must register the same bindings in the same order, even before the
+            // client's host mode is current. Sync visibility instead of changing the UI tree.
+            UIElement block = HostElements.syncedDisplay(() -> line.visible().getAsBoolean()
+                && (line.usedTypes().getAsLong() > 0
                 || line.usedBytes().getAsLong() > 0 || safeEntries(config.cellEntries()).stream()
-                .anyMatch(entry -> entry.typeId() == line.registryIndex()));
+                .anyMatch(entry -> entry.typeId() == line.registryIndex())));
             block.layout(layout -> layout.widthPercent(100).gapAll(2).flexDirection(FlexDirection.COLUMN));
             block.addChild(HostElements.textSegment(line.displayName(),
                 () -> HostText.storageTypeAccentColor(line.type(), line.registryIndex()))
                 .textStyle(style -> style.fontSize(9).adaptiveWidth(false).textWrap(TextWrap.NONE))
                 .layout(layout -> layout.widthPercent(100).height(11)));
-            block.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.legacy.cell_types",
-                HostText.ae2Amount(line.usedTypes().getAsLong()),
-                isInfinite(config) ? "\u221E" : formatCapacity(line.totalTypes().getAsLong())), HostText.PRIMARY));
-            block.addChild(storageProgressBar(line.usedTypes(), line.totalTypes()));
-            block.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                isInfinite(config) ? line.infiniteBytesText().get() : HostText.ae2Amount(line.usedBytes().getAsLong()),
-                isInfinite(config) ? "\u221E" : formatCapacity(line.totalBytes().getAsLong())), HostText.PRIMARY));
-            block.addChild(storageProgressBar(line.usedBytes(), line.totalBytes()));
+            block.addChild(compactLabel(() -> storageTypesText(config, line), HostText.PRIMARY));
+            block.addChild(storageProgressBar(line.usedTypes(), line.totalTypes(), () -> !isInfinite(config)));
+            block.addChild(compactLabel(() -> storageBytesText(config, line), HostText.PRIMARY));
+            block.addChild(storageProgressBar(line.usedBytes(), line.totalBytes(), () -> !isInfinite(config)));
             list.addScrollViewChild(block);
         }
         return list;
@@ -286,14 +282,50 @@ public final class StorageHostUI {
             .layout(layout -> layout.widthPercent(100).height(8));
     }
 
-    private static UIElement storageProgressBar(LongSupplier used, LongSupplier total) {
-        return new ProgressBar().label(label -> label.setText(""))
+    private static Component storageTypesText(Config config, StorageTypeLine line) {
+        String used = HostText.ae2Amount(line.usedTypes().getAsLong());
+        if (isInfinite(config)) {
+            return usedOnlyText("gui.neoecoae.storage.legacy.cell_types", used);
+        }
+        return Component.translatable("gui.neoecoae.storage.legacy.cell_types", used,
+            formatCapacity(line.totalTypes().getAsLong())).withColor(HostText.PRIMARY);
+    }
+
+    private static Component storageBytesText(Config config, StorageTypeLine line) {
+        if (isInfinite(config)) {
+            return usedOnlyText("gui.neoecoae.storage.legacy.cell_bytes", line.infiniteBytesText().get());
+        }
+        return Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
+            HostText.ae2Amount(line.usedBytes().getAsLong()),
+            formatCapacity(line.totalBytes().getAsLong())).withColor(HostText.PRIMARY);
+    }
+
+    private static Component usedOnlyText(String translationKey, String used) {
+        String marker = "\\u0001";
+        String rendered = Component.translatable(translationKey, used, marker).getString();
+        int markerIndex = rendered.indexOf(marker);
+        if (markerIndex < 0) {
+            return Component.literal(rendered).withColor(HostText.PRIMARY);
+        }
+        String prefix = rendered.substring(0, markerIndex);
+        int separator = prefix.lastIndexOf('/');
+        if (separator >= 0) {
+            prefix = prefix.substring(0, separator).stripTrailing();
+        }
+        return Component.literal(prefix).withColor(HostText.PRIMARY);
+    }
+
+    private static UIElement storageProgressBar(LongSupplier used, LongSupplier total, BooleanSupplier visible) {
+        UIElement wrapper = HostElements.syncedDisplay(visible);
+        wrapper.layout(layout -> layout.widthPercent(100).height(4));
+        wrapper.addChild(new ProgressBar().label(label -> label.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
             // A nonpositive total denotes unbounded capacity and has no finite usage percentage.
             .bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(
                 used.getAsLong(), total.getAsLong())).build())
             .addClass("eco-host-progress")
-            .layout(layout -> layout.widthPercent(100).height(4));
+            .layout(layout -> layout.widthPercent(100).height(4)));
+        return wrapper;
     }
 
     private static LegacyGraphElement graph(
@@ -588,8 +620,13 @@ public final class StorageHostUI {
         private static final String NBT_USED_BYTES = "ub";
         private static final String NBT_TOTAL_BYTES = "tb";
         private static final String NBT_INFINITE = "inf";
-        private static final int MAX_SYNCED_CELLS = 256;
-        private static final int MAX_SYNC_BYTES = 30_000;
+        private static final String NBT_META = "m";
+        private static final String NBT_AMOUNTS = "a";
+        private static final String NBT_FLAGS = "f";
+        private static final int MAX_SYNCED_CELLS = 48;
+        // LowDragLib carries this binding in a small fixed-size advanced-data packet (about 2.4 KiB).
+        // Keep headroom for the packet envelope so a full cell list cannot overrun the reader buffer.
+        private static final int MAX_SYNC_BYTES = 2_100;
         private static final int ROW_HEIGHT = 26;
         private static final int ROW_GAP = 2;
         private static final int ROW_STRIDE = ROW_HEIGHT + ROW_GAP;
@@ -718,35 +755,59 @@ public final class StorageHostUI {
 
         private static CompoundTag writeEntries(List<CellEntry> source) {
             CompoundTag result = new CompoundTag();
-            ListTag cells = new ListTag();
+            int[] meta = new int[MAX_SYNCED_CELLS * 3];
+            long[] amounts = new long[MAX_SYNCED_CELLS * 4];
+            byte[] flags = new byte[MAX_SYNCED_CELLS];
+            int count = 0;
             int remainingBytes = MAX_SYNC_BYTES;
             if (source != null) {
                 for (CellEntry entry : source) {
-                    if (entry == null || cells.size() >= MAX_SYNCED_CELLS) {
+                    if (entry == null || count >= MAX_SYNCED_CELLS) {
                         break;
                     }
-                    CompoundTag cell = new CompoundTag();
-                    cell.putInt(NBT_TYPE, entry.typeId());
-                    cell.putInt(NBT_TIER, entry.tier());
-                    cell.putInt(NBT_KIND, entry.kind());
-                    cell.putLong(NBT_USED_TYPES, Math.max(0L, entry.usedTypes()));
-                    cell.putLong(NBT_TOTAL_TYPES, entry.totalTypes());
-                    cell.putLong(NBT_USED_BYTES, Math.max(0L, entry.usedBytes()));
-                    cell.putLong(NBT_TOTAL_BYTES, entry.totalBytes());
-                    cell.putBoolean(NBT_INFINITE, entry.infinite());
-                    int size = Math.toIntExact(Math.min(Integer.MAX_VALUE, cell.sizeInBytes()));
-                    if (size > remainingBytes) {
+                    int entrySize = 3 * Integer.BYTES + 4 * Long.BYTES + 1;
+                    if (entrySize > remainingBytes) {
                         break;
                     }
-                    cells.add(cell);
-                    remainingBytes -= size;
+                    int metaIndex = count * 3;
+                    int amountIndex = count * 4;
+                    meta[metaIndex] = entry.typeId();
+                    meta[metaIndex + 1] = entry.tier();
+                    meta[metaIndex + 2] = entry.kind();
+                    amounts[amountIndex] = Math.max(0L, entry.usedTypes());
+                    amounts[amountIndex + 1] = entry.totalTypes();
+                    amounts[amountIndex + 2] = Math.max(0L, entry.usedBytes());
+                    amounts[amountIndex + 3] = entry.totalBytes();
+                    flags[count] = (byte) (entry.infinite() ? 1 : 0);
+                    count++;
+                    remainingBytes -= entrySize;
                 }
             }
-            result.put(NBT_CELLS, cells);
+            result.putInt("n", count);
+            result.putIntArray(NBT_META, java.util.Arrays.copyOf(meta, count * 3));
+            result.putLongArray(NBT_AMOUNTS, java.util.Arrays.copyOf(amounts, count * 4));
+            result.putByteArray(NBT_FLAGS, java.util.Arrays.copyOf(flags, count));
             return result;
         }
 
         private static List<CellEntry> readEntries(CompoundTag tag) {
+            int count = Math.clamp(tag.getInt("n"), 0, MAX_SYNCED_CELLS);
+            int[] meta = tag.getIntArray(NBT_META);
+            long[] amounts = tag.getLongArray(NBT_AMOUNTS);
+            byte[] flags = tag.getByteArray(NBT_FLAGS);
+            if (meta.length >= count * 3 && amounts.length >= count * 4 && flags.length >= count) {
+                List<CellEntry> result = new ArrayList<>(count);
+                for (int i = 0; i < count; i++) {
+                    result.add(new CellEntry(
+                        meta[i * 3], Math.clamp(meta[i * 3 + 1], 1, 3),
+                        Math.clamp(meta[i * 3 + 2], KIND_EMPTY, KIND_OTHER),
+                        Math.max(0L, amounts[i * 4]), amounts[i * 4 + 1],
+                        Math.max(0L, amounts[i * 4 + 2]), amounts[i * 4 + 3],
+                        flags[i] != 0));
+                }
+                return List.copyOf(result);
+            }
+            // Accept the old representation while clients with an older menu are still connected.
             ListTag cells = tag.getList(NBT_CELLS, Tag.TAG_COMPOUND);
             List<CellEntry> result = new ArrayList<>(Math.min(cells.size(), MAX_SYNCED_CELLS));
             for (int i = 0; i < cells.size() && result.size() < MAX_SYNCED_CELLS; i++) {
