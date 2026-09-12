@@ -7,8 +7,10 @@ import java.util.Map;
 import net.pedroksl.advanced_ae.common.logic.ElapsedTimeTracker;
 import net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
+@Pseudo
 @Mixin(value = ExecutingCraftingJob.class, remap = false)
 public interface AdvancedAeCraftingJobAccessor {
     @Accessor("link")

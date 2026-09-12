@@ -6,11 +6,13 @@ import com.wintercogs.ae2omnicells.common.init.OCDataComponents;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Keeps OmniCells' cached item state consistent with the long-capacity inventory bridge. */
+@Pseudo
 @Mixin(value = IAEUniversalCell.class, remap = false)
 public interface IAEUniversalCellMixin {
     @Inject(method = "setCellState", at = @At("HEAD"), cancellable = true)

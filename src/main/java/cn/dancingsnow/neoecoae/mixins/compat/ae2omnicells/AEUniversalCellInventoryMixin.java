@@ -9,6 +9,7 @@ import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Bridges ECO's long cell capacity into OmniCells' existing long-based inventory accounting.
  */
+@Pseudo
 @Mixin(value = AEUniversalCellInventory.class, remap = false)
 public abstract class AEUniversalCellInventoryMixin {
     @Shadow @Final @Mutable private long totalBytesEff;
