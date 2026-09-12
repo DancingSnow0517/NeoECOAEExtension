@@ -85,7 +85,17 @@ public class ECOInfiniteResourceCell extends ECOStorageCell {
             return;
         }
         for (AEKey key : ECOInfiniteResourceCellItem.lockedKeys()) {
-            out.add(key, OFFERED_AMOUNT);
+            // KeyCounter.add performs a plain long addition.  Adding an unbounded
+            // value after a normal cell (or after another infinite cell) would
+            // therefore wrap to a negative amount (for example -9.2P in AE2).
+            // Saturate the aggregate instead; Long.MAX_VALUE is AE2's largest
+            // representable amount and already conveys the unbounded supply.
+            long existing = out.get(key);
+            if (existing < 0L || existing >= Long.MAX_VALUE - OFFERED_AMOUNT) {
+                out.set(key, Long.MAX_VALUE);
+            } else {
+                out.add(key, OFFERED_AMOUNT);
+            }
         }
     }
 }

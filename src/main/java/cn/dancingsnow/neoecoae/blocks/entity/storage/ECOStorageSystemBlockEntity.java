@@ -117,6 +117,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final ResourceLocation ECO_MEGA_UPGRADE_CARD_ID = NeoECOAE.id("eco_mega_upgrade_card");
     private static final int ECO_MEGA_SLOTS_PER_PAGE = 25;
     private static final int ECO_MEGA_PAGE_COUNT = 2;
+    // Synthetic IDs used by the infinite-mode UI to group the actual network key types.
+    private static final int INFINITE_ITEM_TYPE = -1;
+    private static final int INFINITE_FLUID_TYPE = -2;
+    private static final int INFINITE_OTHER_TYPE = -3;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -384,12 +388,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private List<StorageHostUI.StorageTypeLine> createStorageTypeLines() {
-        return NERegistries.CELL_TYPE.stream()
+        List<StorageHostUI.StorageTypeLine> lines = NERegistries.CELL_TYPE.stream()
             .map(cellType -> {
                 int id = NERegistries.CELL_TYPE.getId(cellType);
                 return new StorageHostUI.StorageTypeLine(
                     cellType,
                     id,
+                    cellType::desc,
+                    () -> !isFormedInfiniteMode() && cellType.visible(),
                     () -> getStorageValue(id, StorageValue.USED_TYPES),
                     () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
                     () -> getStorageValue(id, StorageValue.USED_BYTES),
@@ -397,7 +403,27 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText()
                 );
             })
-            .toList();
+            .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        lines.add(infiniteStorageTypeLine(INFINITE_ITEM_TYPE,
+            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.item")));
+        lines.add(infiniteStorageTypeLine(INFINITE_FLUID_TYPE,
+            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.fluid")));
+        lines.add(infiniteStorageTypeLine(INFINITE_OTHER_TYPE,
+            () -> net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.legacy.cell_info.other")));
+        return List.copyOf(lines);
+    }
+
+    private StorageHostUI.StorageTypeLine infiniteStorageTypeLine(
+        int id, java.util.function.Supplier<net.minecraft.network.chat.Component> name
+    ) {
+        return new StorageHostUI.StorageTypeLine(
+            new cn.dancingsnow.neoecoae.api.storage.ECOCellType(name.get(), 1, true), id,
+            name, this::isFormedInfiniteMode,
+            () -> getStorageValue(id, StorageValue.USED_TYPES),
+            () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
+            () -> getStorageValue(id, StorageValue.USED_BYTES),
+            () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
+            () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText());
     }
 
     public boolean hasEcoMegaUpgradeCard() {
@@ -685,9 +711,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private long getStorageValue(int cellTypeId, StorageValue value) {
-        if (cellTypeId < 0) {
-            return 0;
-        }
         StorageTypeTotals totals = getStorageUiSnapshot().storageTypeTotals(cellTypeId);
         return switch (value) {
             case USED_TYPES -> totals.usedTypes();
@@ -731,8 +754,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         long energyConsumePerTick = 256L + (1L << (1 + 4 * tier.getTier()));
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
-        Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
-        Map<Integer, Long> infiniteCapacityByCellType = new HashMap<>();
         List<StorageHostUI.CellEntry> cellEntries = new ArrayList<>();
         driveUiSnapshots.keySet().retainAll(cluster.getDrives());
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
@@ -740,7 +761,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             if (view == null) continue;
             if (view.infiniteResource()) continue;
             int cellTypeId = view.type();
-            for (AEKeyType keyType : view.keyTypes()) cellTypesByKeyType.putIfAbsent(keyType, cellTypeId);
             boolean supported = view.inventory() != null && tier.compareTo(view.inventory().getTier()) >= 0;
             if (supported) {
                 energyConsumePerTick = NEMath.saturatingAdd(
@@ -759,10 +779,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 ));
             }
             if (view.member()) {
-                if (cellTypeId >= 0) {
-                    infiniteCapacityByCellType.merge(
-                        cellTypeId, Math.max(0L, view.totalBytes()), NEMath::saturatingAdd);
-                }
                 continue;
             }
 
@@ -779,7 +795,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             }
         }
         if (isFormedInfiniteMode()) {
-            addInfiniteStorageTypes(storageTypes, cellTypesByKeyType, infiniteCapacityByCellType);
+            addInfiniteStorageTypes(storageTypes);
         }
 
         cellEntries.sort((left, right) -> {
@@ -843,25 +859,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    private void addInfiniteStorageTypes(
-        Map<Integer, StorageTypeTotals> storageTypes,
-        Map<AEKeyType, Integer> cellTypesByKeyType,
-        Map<Integer, Long> capacityByCellType
-    ) {
+    private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null) {
             return;
         }
-        capacityByCellType.forEach((cellTypeId, capacity) -> storageTypes.merge(
-            cellTypeId,
-            new StorageTypeTotals(0L, 0L, 0L, capacity),
-            StorageTypeTotals::add
-        ));
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
-            int cellTypeId = cellTypesByKeyType.getOrDefault(stats.keyType(), -1);
-            if (cellTypeId < 0) {
-                continue;
-            }
+            int cellTypeId = infiniteUiTypeId(stats.keyType());
             BigInteger usedBytes = infiniteUsedBytes(stats);
             storageTypes.merge(
                 cellTypeId,
@@ -1037,6 +1041,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!infiniteComponent.isEmpty()) {
             drops.add(infiniteComponent);
         }
+    }
+
+    private static int infiniteUiTypeId(AEKeyType keyType) {
+        if (keyType == AEKeyType.items()) return INFINITE_ITEM_TYPE;
+        if (keyType == AEKeyType.fluids()) return INFINITE_FLUID_TYPE;
+        return INFINITE_OTHER_TYPE;
     }
 
     public void applyInfiniteDomainToControllerDrop(ItemStack drop) {

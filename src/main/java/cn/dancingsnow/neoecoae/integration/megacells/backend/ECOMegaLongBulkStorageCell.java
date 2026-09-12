@@ -446,6 +446,15 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return storedUnits.keySet().stream().map(this::storageFormFor).toList();
     }
 
+    /** Returns the persisted storage entries for the item tooltip. */
+    public Map<AEItemKey, Long> getStoredEntries() {
+        return Map.copyOf(storedUnits);
+    }
+
+    public boolean isCompressionEnabled() {
+        return hasCompressionCard();
+    }
+
     private long unitFactor(AEItemKey configured, AEItemKey item) {
         return CompressionChain.clamp(chainFor(configured).unitFactor(item), MAX_UNITS);
     }

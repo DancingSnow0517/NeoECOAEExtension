@@ -90,12 +90,26 @@ public final class StorageHostUI {
     public record StorageTypeLine(
         ECOCellType type,
         int registryIndex,
+        Supplier<Component> displayName,
+        BooleanSupplier visible,
         LongSupplier usedTypes,
         LongSupplier totalTypes,
         LongSupplier usedBytes,
         LongSupplier totalBytes,
         Supplier<String> infiniteBytesText
     ) {
+        public StorageTypeLine(
+            ECOCellType type,
+            int registryIndex,
+            LongSupplier usedTypes,
+            LongSupplier totalTypes,
+            LongSupplier usedBytes,
+            LongSupplier totalBytes,
+            Supplier<String> infiniteBytesText
+        ) {
+            this(type, registryIndex, type::desc, type::visible, usedTypes, totalTypes,
+                usedBytes, totalBytes, infiniteBytesText);
+        }
     }
 
     public record Config(
@@ -242,14 +256,14 @@ public final class StorageHostUI {
         list.viewContainer(view -> view.layout(layout -> layout.paddingAll(2).gapAll(5)
             .flexDirection(FlexDirection.COLUMN)));
         for (StorageTypeLine line : config.storageTypes()) {
-            if (!line.type().visible()) {
+            if (!line.visible().getAsBoolean()) {
                 continue;
             }
             UIElement block = HostElements.syncedDisplay(() -> line.usedTypes().getAsLong() > 0
                 || line.usedBytes().getAsLong() > 0 || safeEntries(config.cellEntries()).stream()
                 .anyMatch(entry -> entry.typeId() == line.registryIndex()));
             block.layout(layout -> layout.widthPercent(100).gapAll(2).flexDirection(FlexDirection.COLUMN));
-            block.addChild(HostElements.textSegment(() -> line.type().desc(),
+            block.addChild(HostElements.textSegment(line.displayName(),
                 () -> HostText.storageTypeAccentColor(line.type(), line.registryIndex()))
                 .textStyle(style -> style.fontSize(9).adaptiveWidth(false).textWrap(TextWrap.NONE))
                 .layout(layout -> layout.widthPercent(100).height(11)));
