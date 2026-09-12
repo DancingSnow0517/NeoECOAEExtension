@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.IdentityHashMap;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
@@ -48,7 +46,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
@@ -104,12 +101,9 @@ public class ECOCraftingCPULogic {
     private IPatternDetails resumeDispatchPattern;
     private final java.util.List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer =
         new java.util.ArrayList<>();
-    private final Deque<IPatternDetails> nativeReadyQueue = new ArrayDeque<>();
-    private ExecutingCraftingJob nativeReadyQueueJob;
-    /** Candidate index and lazily resolved template classifications, scoped to this job and recipe generation. */
+    /** Pattern input metadata is immutable for the lifetime of an encoded pattern. */
     private final IdentityHashMap<IPatternDetails, ECOCraftingInputPreview.PatternMetadata> inputPreviewMetadata =
         new IdentityHashMap<>();
-    private long inputPreviewRecipeGeneration = Long.MIN_VALUE;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -132,9 +126,8 @@ public class ECOCraftingCPULogic {
 
         var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
 
-        // Validate availability without moving the whole plan into the CPU. Inputs are pulled lazily when a
-        // concrete task has a ready provider, which avoids a large storage.extract burst at job start.
-        var missingIngredient = simulateInitialItems(plan, grid, src);
+        // 尝试提取所需物品。
+        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null) {
             return CraftingSubmitResult.missingIngredient(missingIngredient);
         }
@@ -149,8 +142,6 @@ public class ECOCraftingCPULogic {
         inputPreviewMetadata.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
-        nativeReadyQueue.clear();
-        nativeReadyQueueJob = this.job;
         stallDiagnostics.bind(craftId, TickHandler.instance().getCurrentTick());
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
         // Publish those keys now; otherwise the status table stays empty until the first machine event, and AE2
@@ -344,11 +335,6 @@ public class ECOCraftingCPULogic {
         lastAcceptedNormalPushes = 0;
         var current = job;
         if (current == null) return 0;
-        long recipeGeneration = AE2PatternIntrospection.reloadGeneration();
-        if (inputPreviewRecipeGeneration != recipeGeneration) {
-            inputPreviewMetadata.clear();
-            inputPreviewRecipeGeneration = recipeGeneration;
-        }
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
         // Direct callers get a bounded standalone pass. CPU ticks supply the shared remaining budget.
@@ -428,13 +414,6 @@ public class ECOCraftingCPULogic {
                     : new ECOCraftingInputPreview(inventory, previewMetadata(pattern), protectedStartupSeed);
                 var inputs = CraftingCpuHelper.extractPatternInputs(
                     pattern, inputInventory, level, outputs, containers);
-                if (inputs == null && ensurePatternInputs(pattern, current, level)) {
-                    inputInventory = current.executionRuntime == null
-                        ? new ECOCraftingInputPreview(inventory)
-                        : new ECOCraftingInputPreview(inventory, previewMetadata(pattern), protectedStartupSeed);
-                    inputs = CraftingCpuHelper.extractPatternInputs(
-                        pattern, inputInventory, level, outputs, containers);
-                }
                 if (inputs == null) {
                     if (stallDiagnostics.isActive()) {
                         // Input resolution is simulation-only, so the preview still reflects the same inventory.
@@ -503,7 +482,6 @@ public class ECOCraftingCPULogic {
                                         current.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
                                     }
                                     progress.value -= craftCount;
-                                    nativeDispatchAccepted(pattern);
                                     if (current.executionRuntime != null) {
                                         current.executionRuntime.onAccepted(candidate, craftCount, inputs);
                                     }
@@ -600,7 +578,6 @@ public class ECOCraftingCPULogic {
                             current.timeTracker.addMaxItems(container.getLongValue(), container.getKey().getType());
                         }
                         progress.value--;
-                        nativeDispatchAccepted(pattern);
                         if (current.executionRuntime != null) {
                             current.executionRuntime.onAccepted(candidate, 1L, inputs);
                         }
@@ -643,56 +620,6 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
-    @Nullable
-    private GenericStack simulateInitialItems(ICraftingPlan plan, IGrid grid, IActionSource src) {
-        var storage = grid.getStorageService().getInventory();
-        for (var entry : plan.usedItems()) {
-            long required = entry.getLongValue();
-            if (required <= 0L) continue;
-            long available = storage.extract(entry.getKey(), required, Actionable.SIMULATE, src);
-            if (available < required) {
-                return new GenericStack(entry.getKey(), Math.max(1L, required - available));
-            }
-        }
-        return null;
-    }
-
-    /** Pull only the inputs needed by the task currently being dispatched. */
-    private boolean ensurePatternInputs(IPatternDetails pattern, ExecutingCraftingJob current, Level level) {
-        var grid = cpu.getGrid();
-        if (grid == null) return false;
-        var storage = grid.getStorageService().getInventory();
-        var source = cpu.getActionSource();
-        var pulled = new KeyCounter();
-        try {
-            for (var input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) {
-                    continue;
-                }
-                GenericStack selected = input.getPossibleInputs()[0];
-                if (selected == null || selected.what() == null) continue;
-                long amount = Math.multiplyExact(selected.amount(), Math.max(1L, input.getMultiplier()));
-                long available = inventory.list.get(selected.what());
-                long missing = Math.max(0L, amount - available);
-                if (missing == 0L) continue;
-                long extracted = storage.extract(selected.what(), missing, Actionable.MODULATE, source);
-                if (extracted > 0L) {
-                    inventory.insert(selected.what(), extracted, Actionable.MODULATE);
-                    pulled.add(selected.what(), extracted);
-                }
-                if (extracted < missing) {
-                    CraftingCpuHelper.reinjectPatternInputs(inventory, new KeyCounter[] {pulled});
-                    return false;
-                }
-            }
-            return true;
-        } catch (RuntimeException failure) {
-            if (!pulled.isEmpty()) CraftingCpuHelper.reinjectPatternInputs(inventory, new KeyCounter[] {pulled});
-            LOGGER.warn("Lazy crafting input extraction failed for {}", pattern, failure);
-            return false;
-        }
-    }
-
     private void clearProviderDiagnostics(ICraftingProvider provider) {
         if (provider instanceof ECOPatternPushDiagnostics diagnostics) {
             try {
@@ -707,33 +634,14 @@ public class ECOCraftingCPULogic {
             ExecutingCraftingJob current) {
         var result = nativeCandidateBuffer;
         result.clear();
-        if (nativeReadyQueueJob != current) {
-            nativeReadyQueue.clear();
-            nativeReadyQueueJob = current;
-        }
-        if (nativeReadyQueue.isEmpty()) {
-            for (var entry : current.tasks.entrySet()) {
-                if (entry.getValue().value > 0L) nativeReadyQueue.addLast(entry.getKey());
-            }
-        }
-        int count = nativeReadyQueue.size();
-        for (int i = 0; i < count; i++) {
-            IPatternDetails pattern = nativeReadyQueue.removeFirst();
-            var progress = current.tasks.get(pattern);
-            if (progress != null && progress.value > 0L) {
-                result.add(new ECOExecutionRuntime.DispatchCandidate(0, 0, pattern,
-                    progress.value, false));
-                nativeReadyQueue.addLast(pattern);
+        for (var entry : current.tasks.entrySet()) {
+            if (entry.getValue().value > 0L) {
+                // Native jobs do not consult task ids; the placeholder id is never committed to a runtime.
+                result.add(new ECOExecutionRuntime.DispatchCandidate(0, 0, entry.getKey(),
+                    entry.getValue().value, false));
             }
         }
         return result;
-    }
-
-    private void nativeDispatchAccepted(IPatternDetails pattern) {
-        if (job == null || job.executionRuntime != null) return;
-        nativeReadyQueue.remove(pattern);
-        var progress = job.tasks.get(pattern);
-        if (progress != null && progress.value > 0L) nativeReadyQueue.addLast(pattern);
     }
 
     @Nullable
@@ -1031,7 +939,6 @@ public class ECOCraftingCPULogic {
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        inputPreviewMetadata.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
         dispatchStrategy.reset();

@@ -7,11 +7,10 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Extraction overlay for an ECO execution plan. The planner commits each substitution slot to its primary
@@ -22,13 +21,17 @@ import java.util.Map;
 final class ECOCraftingInputPreview implements ICraftingInventory {
     private final ICraftingInventory source;
     private final KeyCounter removed = new KeyCounter();
-    private final Map<AEKey, TemplateMetadata> templates;
+    private final Set<AEKey> primaryInputs;
+    private final Set<AEKey> possibleInputs;
+    private final Set<AEKey> reusableTemplates;
     private final Map<AEKey, Long> protectedAmounts;
 
     /** Native AE2 dispatch keeps substitution/fuzzy selection unrestricted while extraction stays virtual. */
     ECOCraftingInputPreview(ICraftingInventory source) {
         this.source = source;
-        this.templates = Map.of();
+        this.primaryInputs = Set.of();
+        this.possibleInputs = Set.of();
+        this.reusableTemplates = Set.of();
         this.protectedAmounts = Map.of();
     }
 
@@ -44,88 +47,45 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     ECOCraftingInputPreview(ICraftingInventory source, PatternMetadata metadata,
             Map<AEKey, Long> protectedAmounts) {
         this.source = source;
-        this.templates = metadata.templates;
+        this.primaryInputs = metadata.primaryInputs;
+        this.possibleInputs = metadata.possibleInputs;
+        this.reusableTemplates = metadata.reusableTemplates;
         this.protectedAmounts = protectedAmounts.isEmpty() ? Map.of() : Map.copyOf(protectedAmounts);
     }
 
     static PatternMetadata metadataFor(IPatternDetails pattern) {
-        var templates = new HashMap<AEKey, TemplateMetadata>();
+        var primaryInputs = new HashSet<AEKey>();
+        var possibleInputs = new HashSet<AEKey>();
+        var reusableTemplates = new HashSet<AEKey>();
         for (var input : pattern.getInputs()) {
-            if (input == null) continue;
+            if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
             var possible = input.getPossibleInputs();
-            if (possible == null || possible.length == 0) continue;
             if (possible[0] == null || possible[0].what() == null) continue;
+            primaryInputs.add(possible[0].what());
             for (var candidate : possible) {
                 if (candidate != null && candidate.what() != null) {
-                    var template = templates.get(candidate.what());
-                    if (template == null) {
-                        template = new TemplateMetadata(input);
-                        templates.put(candidate.what(), template);
-                    } else {
-                        template.addInput(input);
-                    }
+                    possibleInputs.add(candidate.what());
+                    if (isReusableTemplate(input, candidate.what())) reusableTemplates.add(candidate.what());
                 }
             }
-            templates.get(possible[0].what()).primary = true;
         }
-        // Indexing candidates must not invoke recipes. Large substitution lists used to build a complete
-        // crafting grid for every candidate here, even when none of those alternatives was in the inventory.
-        return new PatternMetadata(Collections.unmodifiableMap(templates));
+        return new PatternMetadata(Set.copyOf(primaryInputs), Set.copyOf(possibleInputs),
+                Set.copyOf(reusableTemplates));
     }
 
     static final class PatternMetadata {
-        private final Map<AEKey, TemplateMetadata> templates;
+        final Set<AEKey> primaryInputs;
+        final Set<AEKey> possibleInputs;
+        final Set<AEKey> reusableTemplates;
 
-        private PatternMetadata(Map<AEKey, TemplateMetadata> templates) {
-            this.templates = templates;
+        PatternMetadata(Set<AEKey> primaryInputs, Set<AEKey> possibleInputs, Set<AEKey> reusableTemplates) {
+            this.primaryInputs = primaryInputs;
+            this.possibleInputs = possibleInputs;
+            this.reusableTemplates = reusableTemplates;
         }
     }
 
-    /** Task-local, server-thread-only classification; actual recipe remainders are never cached here. */
-    private static final class TemplateMetadata {
-        private final IPatternDetails.IInput firstInput;
-        private List<IPatternDetails.IInput> otherInputs;
-        private boolean primary;
-        // null means unexamined, or that a previous recipe query failed transiently.
-        private Boolean reusable;
-
-        private TemplateMetadata(IPatternDetails.IInput input) {
-            this.firstInput = input;
-        }
-
-        private void addInput(IPatternDetails.IInput input) {
-            if (input == firstInput) return;
-            if (otherInputs == null) otherInputs = new ArrayList<>();
-            for (var other : otherInputs) if (other == input) return;
-            otherInputs.add(input);
-        }
-
-        private boolean isReusable(AEKey key) {
-            if (reusable != null) return reusable;
-            Boolean result = isReusableTemplate(firstInput, key);
-            if (Boolean.TRUE.equals(result)) {
-                reusable = true;
-                return true;
-            }
-            boolean unavailable = result == null;
-            // A concrete key may occur in more than one slot. Preserve the original union semantics:
-            // being reusable in any one of those slots permits AE2's fuzzy selection for that key.
-            if (otherInputs != null) {
-                for (var input : otherInputs) {
-                    result = isReusableTemplate(input, key);
-                    if (Boolean.TRUE.equals(result)) {
-                        reusable = true;
-                        return true;
-                    }
-                    unavailable |= result == null;
-                }
-            }
-            if (!unavailable) reusable = false;
-            return false;
-        }
-    }
-
-    private static Boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
+    private static boolean isReusableTemplate(IPatternDetails.IInput input, AEKey key) {
         try {
             AEKey remainder = input.getRemainingKey(key);
             if (key.equals(remainder)) return true;
@@ -136,8 +96,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
             return before.isDamageableItem() && after.isDamageableItem()
                 && after.getDamageValue() > before.getDamageValue();
         } catch (RuntimeException unavailable) {
-            // Do not turn a transient recipe failure into a cached negative for the rest of the job.
-            return null;
+            return false;
         }
     }
 
@@ -158,35 +117,22 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     @Override
     public Iterable<AEKey> findFuzzyTemplates(AEKey key) {
-        var template = templates.get(key);
-        if (template == null) return source.findFuzzyTemplates(key);
-        if (!template.primary && Boolean.FALSE.equals(template.reusable)) return List.of();
-
-        var candidates = source.findFuzzyTemplates(key);
         // SpecialPatternResolver may reserve a non-primary reusable ingredient (for example an unlimited
         // infusion crystal), or a partially used tool. The returned tool changes its concrete damage key after
         // every craft. Requiring the encoded key here would strand that planned stock before the next dispatch.
         // CraftingCpuHelper still calls IInput.isValid on every template before extracting it, and only stock
         // physically owned by this CPU is visible through source.
-        if (Boolean.TRUE.equals(template.reusable)) return candidates;
+        if (reusableTemplates.contains(key)) return source.findFuzzyTemplates(key);
+        // Restrict only keys that belong to this pattern's substitution slots. Other keys are left untouched so
+        // a provider integration can still inspect unrelated templates while resolving the same pattern.
+        if (possibleInputs.contains(key) && !primaryInputs.contains(key)) return List.of();
+        if (!possibleInputs.contains(key)) return source.findFuzzyTemplates(key);
 
-        boolean exactMatch = false;
-        boolean checkedReusable = false;
-        for (var candidate : candidates) {
-            if (template.primary && key.equals(candidate)) {
-                if (checkedReusable || Boolean.FALSE.equals(template.reusable)) return List.of(key);
-                exactMatch = true;
-            } else if (!checkedReusable) {
-                // Only a match that would otherwise be rejected needs recipe classification. Empty lookups
-                // and primary-key-only lookups have the same result whether the ingredient is reusable or not.
-                if (template.isReusable(key)) return source.findFuzzyTemplates(key);
-                if (!template.primary) return List.of();
-                if (exactMatch) return List.of(key);
-                checkedReusable = true;
-            }
+        // The planner's reservation is keyed by the primary concrete key. Filtering the result also prevents a
+        // fuzzy inventory match from changing that concrete key after planning.
+        for (var candidate : source.findFuzzyTemplates(key)) {
+            if (key.equals(candidate) && primaryInputs.contains(candidate)) return List.of(key);
         }
-        // Keep the planner's exact concrete reservation for ordinary materials. Reusable tools take the
-        // unrestricted branch above, including when their damage key changes after an earlier craft.
-        return exactMatch ? List.of(key) : List.of();
+        return List.of();
     }
 }
