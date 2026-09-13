@@ -83,7 +83,8 @@ public final class SpecialPatternResolver {
             ItemStack candidate = itemKey.toStack(1);
             if (candidate.isEmpty() || !candidate.isDamageableItem()
                     || !ItemStack.isSameItem(template, candidate)) continue;
-            int capacity = (candidate.getMaxDamage() - candidate.getDamageValue()) / choice.damagePerUse();
+            int capacity = durabilityUsesBeforeBreak(
+                candidate.getDamageValue(), choice.damagePerUse(), candidate.getMaxDamage());
             if (capacity <= 0) continue;
             PlannerAmount tools = requiredTools(uses, capacity).min(entry.getValue());
             if (tools.signum() <= 0) continue;
@@ -94,7 +95,8 @@ public final class SpecialPatternResolver {
         }
         if (uses.isZero()) return;
 
-        int freshCapacity = (choice.maxDamage() - template.getDamageValue()) / choice.damagePerUse();
+        int freshCapacity = durabilityUsesBeforeBreak(
+            template.getDamageValue(), choice.damagePerUse(), choice.maxDamage());
         if (freshCapacity <= 0) {
             state.unsupported.add(choice.key());
             return;
@@ -154,6 +156,13 @@ public final class SpecialPatternResolver {
     }
 
     private record DurabilityChoice(AEKey key, PlannerAmount amountPerPattern, int damagePerUse, int maxDamage) {}
+
+    /** The final use that reaches maxDamage is still a successful craft; the tool disappears afterwards. */
+    static int durabilityUsesBeforeBreak(int damage, int damagePerUse, int maxDamage) {
+        if (damage < 0 || damagePerUse <= 0 || maxDamage <= damage) return 0;
+        long remaining = (long) maxDamage - damage;
+        return Math.toIntExact((remaining + damagePerUse - 1L) / damagePerUse);
+    }
 
     private void resolveSpecialKey(CompiledPattern owner, AEKey key, PlannerAmount requested,
             boolean ignoreComponents)
