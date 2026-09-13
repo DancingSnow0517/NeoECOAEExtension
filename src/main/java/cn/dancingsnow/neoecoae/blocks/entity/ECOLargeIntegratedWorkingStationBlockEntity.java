@@ -56,6 +56,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
@@ -295,7 +296,56 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public IntegratedWorkingStationRecipe getTask() {
         if (!formed) return super.getTask();
         PendingBatch batch = pendingBatches.peekFirst();
-        return batch == null ? null : batch.recipe;
+        return batch == null ? null : resolveRecipe(batch);
+    }
+
+    @Nullable
+    private IntegratedWorkingStationRecipe resolveRecipe(PendingBatch batch) {
+        if (batch.recipe != null || level == null) return batch.recipe;
+
+        if (batch.recipeId != null) {
+            var holder = level.getRecipeManager().byKey(batch.recipeId).orElse(null);
+            if (holder != null && holder.value() instanceof IntegratedWorkingStationRecipe recipe) {
+                batch.recipe = recipe;
+                return recipe;
+            }
+        }
+
+        // Saves written before recipeId was persisted still contain the exact owned input ledger.
+        // Rebuild one craft's inputs from it so already-running jobs become visible again after updating.
+        RecipeHolder<IntegratedWorkingStationRecipe> holder = null;
+        KeyCounter perCraftInputs = divideCounter(batch.inputTotal, batch.craftCount);
+        if (perCraftInputs != null) {
+            IntegratedWorkingStationRecipe.Input input = createRecipeInput(perCraftInputs);
+            if (input != null) {
+                holder = level.getRecipeManager().getRecipeFor(
+                    NERecipeTypes.INTEGRATED_WORKING_STATION.get(), input, level).orElse(null);
+            }
+        }
+        // A completed legacy batch has already exchanged inputTotal for pendingOutput. Its saved primary
+        // pattern result plus energy still identifies the recipe well enough to restore the status display.
+        if (holder == null && batch.unlockStack != null) {
+            for (RecipeHolder<IntegratedWorkingStationRecipe> candidate
+                : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+                if (candidate.value().energy() == batch.energyPerCraft
+                    && recipeOutputMatches(candidate.value(), batch.unlockStack)) {
+                    holder = candidate;
+                    break;
+                }
+            }
+        }
+        if (holder == null) return null;
+        batch.recipeId = holder.id();
+        batch.recipe = holder.value();
+        if (!level.isClientSide) setChanged();
+        return batch.recipe;
+    }
+
+    private static boolean recipeOutputMatches(IntegratedWorkingStationRecipe recipe, GenericStack expected) {
+        GenericStack output = recipe.hasItemOutput()
+            ? GenericStack.fromItemStack(recipe.itemOutput())
+            : recipe.hasFluidOutput() ? GenericStack.fromFluidStack(recipe.fluidOutput()) : null;
+        return output != null && output.what().equals(expected.what()) && output.amount() == expected.amount();
     }
 
     @Override
@@ -670,35 +720,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         KeyCounter perCraftInputs = divideCounter(totalInputs, craftCount);
         if (perCraftInputs == null) return null;
 
-        List<ItemStack> items = new ArrayList<>();
-        FluidStack fluid = FluidStack.EMPTY;
+        IntegratedWorkingStationRecipe.Input recipeInput = createRecipeInput(perCraftInputs);
+        if (recipeInput == null) return null;
+        FluidStack fluid = recipeInput.fluid() == null ? FluidStack.EMPTY : recipeInput.fluid();
         long totalItems = 0L;
         for (var entry : perCraftInputs) {
             AEKey key = entry.getKey();
             long amount = entry.getLongValue();
             if (key == null || amount <= 0L) return null;
-            if (key instanceof AEItemKey itemKey) {
-                ItemStack one = itemKey.toStack();
-                if (one.isEmpty()) return null;
+            if (key instanceof AEItemKey) {
                 totalItems = Math.addExact(totalItems, amount);
-                int maxStackSize = Math.max(1, Math.min(64, one.getMaxStackSize()));
-                while (amount > 0L) {
-                    int count = (int) Math.min(amount, maxStackSize);
-                    items.add(itemKey.toStack(count));
-                    amount -= count;
-                }
-            } else if (key instanceof AEFluidKey fluidKey) {
-                if (!fluid.isEmpty() || amount > Integer.MAX_VALUE) return null;
-                fluid = fluidKey.toStack((int) amount);
-            } else {
+            } else if (!(key instanceof AEFluidKey)) {
                 return null;
             }
         }
 
-        IntegratedWorkingStationRecipe recipe = level.getRecipeManager().getRecipeFor(
-            NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-            new IntegratedWorkingStationRecipe.Input(items, fluid), level
-        ).map(RecipeHolder::value).orElse(null);
+        RecipeHolder<IntegratedWorkingStationRecipe> recipeHolder = level.getRecipeManager().getRecipeFor(
+            NERecipeTypes.INTEGRATED_WORKING_STATION.get(), recipeInput, level
+        ).orElse(null);
+        IntegratedWorkingStationRecipe recipe = recipeHolder == null ? null : recipeHolder.value();
         if (recipe == null
             || totalItems != recipe.inputItems().stream().mapToLong(it -> it.count()).sum()
             || fluid.getAmount() != (recipe.inputFluid().ingredient().isEmpty() ? 0 : recipe.inputFluid().amount())
@@ -729,8 +769,35 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         outputTotal.addAll(remainderTotal);
         if (isCounterEmpty(outputTotal)) return null;
         return new PendingBatch(
-            craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipe, unlockStack,
+            craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipeHolder.id(), recipe, unlockStack,
             level.getGameTime());
+    }
+
+    @Nullable
+    private static IntegratedWorkingStationRecipe.Input createRecipeInput(KeyCounter perCraftInputs) {
+        List<ItemStack> items = new ArrayList<>();
+        FluidStack fluid = FluidStack.EMPTY;
+        for (var entry : perCraftInputs) {
+            AEKey key = entry.getKey();
+            long amount = entry.getLongValue();
+            if (key == null || amount <= 0L) return null;
+            if (key instanceof AEItemKey itemKey) {
+                ItemStack one = itemKey.toStack();
+                if (one.isEmpty()) return null;
+                int maxStackSize = Math.max(1, Math.min(64, one.getMaxStackSize()));
+                while (amount > 0L) {
+                    int count = (int) Math.min(amount, maxStackSize);
+                    items.add(itemKey.toStack(count));
+                    amount -= count;
+                }
+            } else if (key instanceof AEFluidKey fluidKey) {
+                if (!fluid.isEmpty() || amount > Integer.MAX_VALUE) return null;
+                fluid = fluidKey.toStack((int) amount);
+            } else {
+                return null;
+            }
+        }
+        return new IntegratedWorkingStationRecipe.Input(items, fluid);
     }
 
     @Nullable
@@ -973,7 +1040,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private final UUID craftingJobId;
         @Nullable
-        private final IntegratedWorkingStationRecipe recipe;
+        private ResourceLocation recipeId;
+        @Nullable
+        private IntegratedWorkingStationRecipe recipe;
         @Nullable
         private final GenericStack unlockStack;
         private int progress;
@@ -985,6 +1054,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             KeyCounter inputTotal,
             KeyCounter outputTotal,
             @Nullable UUID craftingJobId,
+            @Nullable ResourceLocation recipeId,
             @Nullable IntegratedWorkingStationRecipe recipe,
             @Nullable GenericStack unlockStack,
             long createdTick
@@ -994,6 +1064,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             this.inputTotal.addAll(inputTotal);
             this.outputTotal.addAll(outputTotal);
             this.craftingJobId = craftingJobId;
+            this.recipeId = recipeId;
             this.recipe = recipe;
             this.unlockStack = unlockStack == null ? null : new GenericStack(unlockStack.what(), unlockStack.amount());
             this.createdTick = createdTick;
@@ -1006,6 +1077,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             tag.putInt("progress", progress);
             tag.putLong("createdTick", createdTick);
             if (craftingJobId != null) tag.putUUID("craftingJobId", craftingJobId);
+            if (recipeId != null) tag.putString("recipeId", recipeId.toString());
             long saveStackCount = countStackEntries(inputTotal)
                 + countStackEntries(outputTotal)
                 + countStackEntries(pendingOutput)
@@ -1045,12 +1117,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 return null;
             }
             UUID craftingJobId = tag.hasUUID("craftingJobId") ? tag.getUUID("craftingJobId") : null;
+            ResourceLocation recipeId = tag.contains("recipeId", Tag.TAG_STRING)
+                ? ResourceLocation.tryParse(tag.getString("recipeId")) : null;
             GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
                 ? GenericStack.readTag(registries, tag.getCompound("unlockStack")) : null;
             long createdTick = tag.contains("createdTick", Tag.TAG_LONG)
                 ? tag.getLong("createdTick") : currentTick;
             PendingBatch batch = new PendingBatch(
-                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, null, unlockStack, createdTick);
+                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, recipeId, null, unlockStack,
+                createdTick);
             batch.pendingOutput.addAll(pendingOutput);
             batch.progress = progress;
             return batch;
