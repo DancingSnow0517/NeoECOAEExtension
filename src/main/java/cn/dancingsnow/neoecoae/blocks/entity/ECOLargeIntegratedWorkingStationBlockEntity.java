@@ -66,6 +66,8 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
@@ -79,10 +81,15 @@ import java.util.UUID;
 public class ECOLargeIntegratedWorkingStationBlockEntity
     extends ECOIntegratedWorkingStationBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IAEMultiBlock<NEIntegratedWorkingStationCluster> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOLargeIntegratedWorkingStationBlockEntity.class);
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     /** Processing steps available per formed-controller tick; energy still limits actual progress. */
-    public static final int PARALLELISM = 1;
+    public static final int PARALLELISM = 1024;
+    private static final int MAX_PENDING_BATCHES = 512;
+    private static final long MAX_PENDING_OUTPUT_STACKS = 100_000L;
+    private static final long MAX_SAVE_STACKS = 50_000L;
+    private static final long MAX_BATCH_AGE = 72_000L;
     private static final int MAX_POWER_STORAGE = 16_000_000;
     private static final int MAX_TANK_CAPACITY = 64_000;
     private static final IGuiTexture UI_BACKGROUND = SpriteTexture.of(
@@ -90,7 +97,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     ).setSprite(0, 0, 176, 180);
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;
-    /** Accepted ordinary-path batches. The communication interface has no queue-size limit. */
+    /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
     @Nullable
     private NEIntegratedWorkingStationCluster cluster;
@@ -306,8 +313,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         super.loadTag(data, registries);
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
+        long currentTick = level == null ? 0L : level.getGameTime();
         for (int index = 0; index < batches.size(); index++) {
-            PendingBatch batch = PendingBatch.load(batches.getCompound(index), registries);
+            PendingBatch batch = PendingBatch.load(batches.getCompound(index), registries, currentTick);
             if (batch != null) {
                 pendingBatches.addLast(batch);
             }
@@ -357,9 +365,23 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public boolean canAcceptPattern() {
-        // The communication interface owns an unbounded queue. A batch is retained as generic AE keys, so the
-        // controller's nine physical preview slots and one fluid tank are not a capacity ceiling for CPU jobs.
-        return formed && getMainNode().isActive();
+        return formed
+            && getMainNode().isActive()
+            && pendingBatches.size() < MAX_PENDING_BATCHES
+            && getPendingOutputStackCount() < MAX_PENDING_OUTPUT_STACKS;
+    }
+
+    private long getPendingOutputStackCount() {
+        long count = 0L;
+        for (PendingBatch batch : pendingBatches) {
+            for (var entry : batch.pendingOutput) {
+                if (entry.getLongValue() > 0L) {
+                    if (count >= MAX_PENDING_OUTPUT_STACKS) return MAX_PENDING_OUTPUT_STACKS;
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
@@ -429,7 +451,16 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return TickRateModulation.SLOWER;
         }
 
+        // A queued batch represents work even when its progress completed in one tick or its output
+        // is temporarily waiting for a destination. Keep the controller screen on until the batch
+        // is actually removed from the queue.
+        setWorking(true);
         setProcessingTime(batch.progress);
+        if (isBatchExpired(batch)) {
+            boolean cleared = expireBatch(batch);
+            setChanged();
+            return cleared ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
+        }
         boolean terminal = batch.craftingJobId != null
             && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
         if (terminal) {
@@ -437,7 +468,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             boolean cleared = abandonedWithoutOutput
                 ? recoverCounterToNetwork(batch.inputTotal)
                 : deliverBatchOutputs(batch);
-            setWorking(false);
             if (cleared) {
                 if (abandonedWithoutOutput) notifyPatternAborted(batch.unlockStack);
                 removeFirstBatch(batch);
@@ -447,7 +477,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
 
         if (!isCounterEmpty(batch.pendingOutput)) {
-            setWorking(false);
             boolean delivered = deliverBatchOutputs(batch);
             if (delivered) removeFirstBatch(batch);
             setChanged();
@@ -460,7 +489,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             batch.progress = MAX_PROCESSING_STEPS;
             batch.inputTotal.clear();
             batch.pendingOutput.addAll(batch.outputTotal);
-            setWorking(false);
             if (deliverBatchOutputs(batch)) removeFirstBatch(batch);
             setChanged();
             return TickRateModulation.URGENT;
@@ -488,7 +516,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 Math.max(0L, (long) Math.floor(available * MAX_PROCESSING_STEPS / energyPerBatch))
             );
             if (advance <= 0) {
-                setWorking(false);
                 return TickRateModulation.SLOWER;
             }
             required = energyPerBatch * advance / MAX_PROCESSING_STEPS;
@@ -502,7 +529,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             );
         }
         if (advance <= 0) {
-            setWorking(false);
             return TickRateModulation.SLOWER;
         }
 
@@ -514,7 +540,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // ledger remains recoverable and the original input total must never be replayed.
             batch.inputTotal.clear();
             batch.pendingOutput.addAll(batch.outputTotal);
-            setWorking(false);
             if (deliverBatchOutputs(batch)) removeFirstBatch(batch);
         } else {
             setWorking(true);
@@ -523,11 +548,40 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return TickRateModulation.URGENT;
     }
 
+    private boolean isBatchExpired(PendingBatch batch) {
+        return level != null && level.getGameTime() - batch.createdTick > MAX_BATCH_AGE;
+    }
+
+    private boolean expireBatch(PendingBatch batch) {
+        long age = level == null ? MAX_BATCH_AGE : Math.max(0L, level.getGameTime() - batch.createdTick);
+        if (!batch.expirationLogged) {
+            LOGGER.warn("Expiring large workstation batch at {} after {} ticks, job={}",
+                getBlockPos(), age, batch.craftingJobId);
+            batch.expirationLogged = true;
+        }
+        if (batch.craftingJobId != null && !ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId)) {
+            ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
+        }
+
+        boolean abandonedWithoutOutput = isCounterEmpty(batch.pendingOutput);
+        boolean cleared = abandonedWithoutOutput
+            ? recoverCounterToNetwork(batch.inputTotal)
+            : deliverBatchOutputs(batch);
+        if (cleared) {
+            if (abandonedWithoutOutput) notifyPatternAborted(batch.unlockStack);
+            removeFirstBatch(batch);
+        }
+        return cleared;
+    }
+
     private void removeFirstBatch(PendingBatch batch) {
         if (pendingBatches.peekFirst() != batch) return;
         pendingBatches.removeFirst();
         PendingBatch next = pendingBatches.peekFirst();
         setProcessingTime(next == null ? 0 : next.progress);
+        if (next != null) {
+            setWorking(true);
+        }
         cachedTask = null;
         requestCommunicationProviderUpdate();
     }
@@ -674,7 +728,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         KeyCounter outputTotal = scaleCounter(outputPerCraft, craftCount);
         outputTotal.addAll(remainderTotal);
         if (isCounterEmpty(outputTotal)) return null;
-        return new PendingBatch(craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipe, unlockStack);
+        return new PendingBatch(
+            craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipe, unlockStack,
+            level.getGameTime());
     }
 
     @Nullable
@@ -913,6 +969,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         private final KeyCounter inputTotal = new KeyCounter();
         private final KeyCounter outputTotal = new KeyCounter();
         private final KeyCounter pendingOutput = new KeyCounter();
+        private final long createdTick;
         @Nullable
         private final UUID craftingJobId;
         @Nullable
@@ -920,6 +977,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private final GenericStack unlockStack;
         private int progress;
+        private boolean expirationLogged;
 
         private PendingBatch(
             long craftCount,
@@ -928,7 +986,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             KeyCounter outputTotal,
             @Nullable UUID craftingJobId,
             @Nullable IntegratedWorkingStationRecipe recipe,
-            @Nullable GenericStack unlockStack
+            @Nullable GenericStack unlockStack,
+            long createdTick
         ) {
             this.craftCount = craftCount;
             this.energyPerCraft = energyPerCraft;
@@ -937,6 +996,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             this.craftingJobId = craftingJobId;
             this.recipe = recipe;
             this.unlockStack = unlockStack == null ? null : new GenericStack(unlockStack.what(), unlockStack.amount());
+            this.createdTick = createdTick;
         }
 
         private CompoundTag save(HolderLookup.Provider registries) {
@@ -944,7 +1004,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             tag.putLong("craftCount", craftCount);
             tag.putInt("energyPerCraft", energyPerCraft);
             tag.putInt("progress", progress);
+            tag.putLong("createdTick", createdTick);
             if (craftingJobId != null) tag.putUUID("craftingJobId", craftingJobId);
+            long saveStackCount = countStackEntries(inputTotal)
+                + countStackEntries(outputTotal)
+                + countStackEntries(pendingOutput)
+                + (unlockStack == null ? 0L : 1L);
+            if (saveStackCount > MAX_SAVE_STACKS) {
+                LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
+                    createdTick, saveStackCount);
+                tag.putBoolean("pendingStateTooLarge", true);
+                return tag;
+            }
             tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(inputTotal)));
             tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(outputTotal)));
             tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(pendingOutput)));
@@ -953,7 +1024,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
 
         @Nullable
-        private static PendingBatch load(CompoundTag tag, HolderLookup.Provider registries) {
+        private static PendingBatch load(CompoundTag tag, HolderLookup.Provider registries, long currentTick) {
+            if (tag.getBoolean("pendingStateTooLarge")) {
+                LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
+                return null;
+            }
             long craftCount = tag.getLong("craftCount");
             int energyPerCraft = tag.getInt("energyPerCraft");
             int progress = tag.getInt("progress");
@@ -972,11 +1047,21 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             UUID craftingJobId = tag.hasUUID("craftingJobId") ? tag.getUUID("craftingJobId") : null;
             GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
                 ? GenericStack.readTag(registries, tag.getCompound("unlockStack")) : null;
+            long createdTick = tag.contains("createdTick", Tag.TAG_LONG)
+                ? tag.getLong("createdTick") : currentTick;
             PendingBatch batch = new PendingBatch(
-                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, null, unlockStack);
+                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, null, unlockStack, createdTick);
             batch.pendingOutput.addAll(pendingOutput);
             batch.progress = progress;
             return batch;
+        }
+
+        private static long countStackEntries(KeyCounter counter) {
+            long count = 0L;
+            for (var entry : counter) {
+                if (entry.getLongValue() > 0L) count++;
+            }
+            return count;
         }
 
         @Nullable

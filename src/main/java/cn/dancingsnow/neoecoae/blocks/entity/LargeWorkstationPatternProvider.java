@@ -94,14 +94,12 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         return accepted;
     }
 
-    /**
-     * One ordinary dispatch transfers one complete craft input batch. The queue itself is intentionally
-     * unbounded; the controller's parallel width is separate from how many requests the interface may retain.
-     */
+    /** One ordinary dispatch transfers one complete 1024-craft input batch when the controller has backpressure room. */
     @Override
     public int eco$getAvailableParallelSlots() {
         var controller = controller();
-        return controller == null || !host.getMainNode().isActive() || isCraftingLocked()
+        return controller == null || !host.getMainNode().isActive() || !controller.canAcceptPattern()
+                || isCraftingLocked()
                 || getAvailablePatterns().isEmpty()
             ? 0 : ECOLargeIntegratedWorkingStationBlockEntity.PARALLELISM;
     }
