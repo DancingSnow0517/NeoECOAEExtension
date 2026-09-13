@@ -27,16 +27,20 @@ final class ECOCraftingProviderDispatcher {
     private final ECOCraftingEnergyTransaction energyTransaction;
     private final ECOCraftingDispatchAccounting accounting;
 
-    ECOCraftingProviderDispatcher(ECOCraftingFastPathDispatcher fastPath,
+    ECOCraftingProviderDispatcher(ECOCraftingCPULogic owner, ECOCraftingFastPathDispatcher fastPath,
             ECOCraftingEnergyTransaction energyTransaction, ECOCraftingDispatchAccounting accounting) {
         this.fastPath = fastPath;
-        this.processing = new ECOProcessingPatternDispatcher(energyTransaction, accounting);
+        this.processing = new ECOProcessingPatternDispatcher(owner, energyTransaction, accounting);
         this.energyTransaction = energyTransaction;
         this.accounting = accounting;
     }
 
     void beginTick(long gameTick) {
         processing.beginTick(gameTick);
+    }
+
+    void reset() {
+        processing.reset();
     }
 
     boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
@@ -71,6 +75,12 @@ final class ECOCraftingProviderDispatcher {
                     markProviderAttempt, markNormalResume);
             if (parallelResult != null) {
                 return parallelResult;
+            }
+
+            var scaledProcessingResult = processing.tryScaledDispatch(
+                    request, provider, singlePower, energyService, markProviderAttempt, normalPush);
+            if (scaledProcessingResult != null) {
+                return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
             }
 
             // A batch is an optional optimization. If it is unavailable, rejected, or dynamically ambiguous,

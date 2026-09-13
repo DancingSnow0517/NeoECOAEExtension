@@ -83,6 +83,7 @@
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO Crafting System",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO Crafting Worker",
   "config.jade.plugin_neoecoae.eco_drive": "ECO Drive",
+  "config.jade.plugin_neoecoae.eco_storage_interface": "ECO Storage Interface",
   "emi.category.neoecoae.cooling": "Cooling",
   "emi.category.neoecoae.integrated_working_station": "Integrated Working Station",
   "emi.category.neoecoae.multiblock": "ECO Multiblock Info",

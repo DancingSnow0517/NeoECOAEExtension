@@ -45,7 +45,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private static final MathContext TIME_PRECISION = new MathContext(5, RoundingMode.HALF_UP);
     private static final long LARGE_CYCLE_INDICATOR_DELAY_NANOS = 500_000_000L;
     private static final int SOLVE_PROGRESS_X = 28;
-    private static final int SOLVE_PROGRESS_Y = 21;
+    private static final int SOLVE_PROGRESS_Y = 15;
     private static final int SOLVE_PROGRESS_WIDTH = 140;
 
     private final ECOCraftConfirmTableRenderer table;

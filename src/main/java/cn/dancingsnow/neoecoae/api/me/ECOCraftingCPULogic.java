@@ -121,7 +121,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
                 ECOCraftingLifecycle::firePatternDispatched);
         this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(this, energyTransaction, dispatchAccounting);
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
-                fastPathDispatcher, energyTransaction, dispatchAccounting);
+                this, fastPathDispatcher, energyTransaction, dispatchAccounting);
         this.taskScheduler = new ECOCraftingTaskScheduler(providerDispatcher);
     }
 

@@ -167,7 +167,8 @@ dependencies {
 
     implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 
-    // KubeJS integration is excluded from the base development source set.
+    // KubeJS integration API used by the recipe schema plugin.
+    compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}")
 }
 
 tasks.named('test', Test) {
@@ -225,10 +226,6 @@ sourceSets.main.java {
     if (!enableAppBotIntegration) {
         exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
     }
-    // KubeJS is an optional integration and is not present in the dev runtime.
-    // Keep its sources out of the base mod classpath so NeoForge can launch
-    // without KubeJS installed.
-    exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
 }
 
 // ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.

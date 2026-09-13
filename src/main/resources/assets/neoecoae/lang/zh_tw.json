@@ -79,6 +79,7 @@
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 合成系統",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO 工作核心",
   "config.jade.plugin_neoecoae.eco_drive": "ECO - 驅動器",
+  "config.jade.plugin_neoecoae.eco_storage_interface": "ECO 儲存子系統通訊接口",
   "emi.category.neoecoae.cooling": "冷卻系統",
   "emi.category.neoecoae.integrated_working_station": "整合工作站",
   "emi.category.neoecoae.multiblock": "ECO 多方塊資訊",

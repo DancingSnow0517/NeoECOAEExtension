@@ -12,6 +12,7 @@ public class NELangGenerator {
         provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
+        provider.add("config.jade.plugin_neoecoae.eco_storage_interface", "ECO Storage Interface");
 
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");

@@ -56,6 +56,7 @@ final class ECOCraftingTaskScheduler {
 
     void reset() {
         resetDispatchState();
+        providerDispatcher.reset();
         sharedRemainingNormalProbes = -1;
         lastPass = DispatchPassResult.EMPTY;
         stallDiagnostics.reset();

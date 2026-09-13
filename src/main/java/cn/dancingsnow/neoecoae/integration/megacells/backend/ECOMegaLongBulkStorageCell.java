@@ -220,7 +220,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             if (!chain.isEmpty() && hasCompressionCard()) {
                 // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
                 AEItemKey storageForm = storageFormFor(storedKey);
-                chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain), storageForm)
+                chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain, storageForm), storageForm)
                     .forEach(out::add);
             } else if (!chain.isEmpty()) {
                 out.add(storedKey, units / unitFactor(storedKey, storedKey));
@@ -230,7 +230,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         }
     }
 
-    /** Exposes decompression paths starting from the highest variant of each configured chain. */
+    /** Exposes conversion paths on both sides of each configured storage-unit marker. */
     public List<IPatternDetails> getDecompressionPatterns() {
         if (!hasCompressionCard()) {
             return List.of();
@@ -239,7 +239,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         for (AEItemKey filter : configuredFilters()) {
             CompressionChain chain = chainFor(filter);
             if (!chain.isEmpty()) {
-                result.addAll(chain.getDecompressionPatterns(cutoffFor(chain)));
+                result.addAll(chain.getDecompressionPatterns(cutoffFor(chain, filter)));
             }
         }
         return List.copyOf(result);
@@ -408,7 +408,19 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return !firstChain.isEmpty() && firstChain.equals(chainFor(second));
     }
 
-    private static int cutoffFor(CompressionChain chain) {
+    /**
+     * The configured marker is the storage unit for this chain. Variants above it must be folded
+     * down into that unit instead of being published as separate, more-compressed terminal stacks.
+     * Variants below it are only exposed for the indivisible remainder (for example fewer than
+     * nine iron nuggets when the marker is an iron ingot).
+     */
+    private static int cutoffFor(CompressionChain chain, AEItemKey storageForm) {
+        for (int index = 0; index < chain.size(); index++) {
+            AEItemKey variant = AEItemKey.of(chain.getItem(index));
+            if (storageForm.equals(variant)) {
+                return index;
+            }
+        }
         return Math.max(0, chain.size() - 1);
     }
 
