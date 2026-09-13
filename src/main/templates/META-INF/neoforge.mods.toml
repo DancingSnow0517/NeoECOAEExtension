@@ -50,6 +50,11 @@ description='''${mod_description}'''
 [[mixins]]
 config="${mod_id}.mixins.json"
 
+# Optional display-only extension. It never participates in storage interactions and is intentionally
+# non-required so AE2 UI changes degrade to the standard long amount display.
+[[mixins]]
+config="${mod_id}.terminal_big_amount.mixins.json"
+
 [[mixins]]
 config="${mod_id}.compat.advanced_ae.mixins.json"
 requiredMods=["advanced_ae"]

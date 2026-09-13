@@ -8,8 +8,10 @@ import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
+import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmount;
+import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountSource;
 
-public final class ECOInfiniteStorage implements MEStorage {
+public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
     private final BooleanSupplier allowInsert;
@@ -46,5 +48,15 @@ public final class ECOInfiniteStorage implements MEStorage {
     @Override
     public Component getDescription() {
         return description;
+    }
+
+    @Override
+    public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey, ExactAmount> visitor) {
+        KeyCounter keys = new KeyCounter();
+        engine.getAvailableStacks(keys);
+        for (var entry : keys) {
+            var amount = engine.getAmount(entry.getKey());
+            if (amount.isBig()) visitor.accept(entry.getKey(), ExactAmount.finite(amount.toBigInteger()));
+        }
     }
 }

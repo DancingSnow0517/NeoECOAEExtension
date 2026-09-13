@@ -42,4 +42,14 @@ src/generated/resources/.cache/
 logs/
 docs/
 src/test/*
+!src/test/java/
+!src/test/java/cn/
+!src/test/java/cn/dancingsnow/
+!src/test/java/cn/dancingsnow/neoecoae/
+!src/test/java/cn/dancingsnow/neoecoae/impl/
+!src/test/java/cn/dancingsnow/neoecoae/impl/storage/
+!src/test/java/cn/dancingsnow/neoecoae/impl/storage/SaturatingStackAccumulatorTest.java
+!src/test/java/cn/dancingsnow/neoecoae/terminal/
+!src/test/java/cn/dancingsnow/neoecoae/terminal/bigamount/
+!src/test/java/cn/dancingsnow/neoecoae/terminal/bigamount/ExactAmountFormatterTest.java
 STORAGE_RELIABILITY.md
