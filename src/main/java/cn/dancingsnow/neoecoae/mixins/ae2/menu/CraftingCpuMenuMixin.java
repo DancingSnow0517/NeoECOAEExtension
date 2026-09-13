@@ -153,8 +153,8 @@ public class CraftingCpuMenuMixin extends AEBaseMenu {
         }
 
         long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
-        long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
-        long startItems = logic.getElapsedTimeTracker().getStartItemCount();
+        long remainingItems = logic.getElapsedTimeTracker().getSyntheticRemainingItemCount();
+        long startItems = logic.getElapsedTimeTracker().getSyntheticStartItemCount();
         boolean suspended = logic.isJobSuspended();
         return new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build(), suspended);
     }

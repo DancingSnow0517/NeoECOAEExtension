@@ -78,16 +78,17 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return logic.hasJob();
     }
 
-    @SuppressWarnings("removal")
     @Override
     public @Nullable CraftingJobStatus getJobStatus() {
         var finalOutput = logic.getFinalJobOutput();
         if (finalOutput != null) {
             var elapsedTimeTracker = logic.getElapsedTimeTracker();
             var progress =
-                Math.max(0, elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
+                Math.max(0, elapsedTimeTracker.getSyntheticStartItemCount()
+                        - elapsedTimeTracker.getSyntheticRemainingItemCount());
             return new CraftingJobStatus(
-                finalOutput, elapsedTimeTracker.getStartItemCount(), progress, elapsedTimeTracker.getElapsedTime());
+                finalOutput, elapsedTimeTracker.getSyntheticStartItemCount(), progress,
+                elapsedTimeTracker.getElapsedTime());
         } else {
             return null;
         }

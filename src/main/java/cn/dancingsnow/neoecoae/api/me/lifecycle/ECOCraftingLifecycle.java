@@ -23,10 +23,20 @@ public final class ECOCraftingLifecycle {
         if (listener != null) LISTENERS.remove(listener);
     }
 
+    /**
+     * @deprecated Use {@link #register(ECOCraftingLifecycleListener)}. Kept as a
+     *             binary-compatible bridge for integrations compiled against older releases.
+     */
+    @Deprecated(forRemoval = true)
     public static void addListener(ECOCraftingLifecycleListener listener) {
         register(listener);
     }
 
+    /**
+     * @deprecated Use {@link #unregister(ECOCraftingLifecycleListener)}. Kept as a
+     *             binary-compatible bridge for integrations compiled against older releases.
+     */
+    @Deprecated(forRemoval = true)
     public static void removeListener(ECOCraftingLifecycleListener listener) {
         unregister(listener);
     }

@@ -117,6 +117,9 @@ public class ElapsedTimeTracker {
             completedUnits += completedForType / (double) keyType.getAmountPerUnit();
         }
 
+        // A newly-created tracker has no denominator yet. Returning zero keeps
+        // progress a proper value for packet/UI consumers instead of propagating NaN.
+        if (startedUnits <= 0.0) return 0.0F;
         return Math.clamp((float) (completedUnits / startedUnits), 0, 1);
     }
 
@@ -143,12 +146,12 @@ public class ElapsedTimeTracker {
 
     @Deprecated(forRemoval = true)
     public long getRemainingItemCount() {
-        return (int) (Integer.MAX_VALUE - (double) getProgress() * Integer.MAX_VALUE);
+        return getSyntheticRemainingItemCount();
     }
 
     @Deprecated(forRemoval = true)
     public long getStartItemCount() {
-        return Integer.MAX_VALUE;
+        return getSyntheticStartItemCount();
     }
 
     public long getSyntheticStartItemCount() {
