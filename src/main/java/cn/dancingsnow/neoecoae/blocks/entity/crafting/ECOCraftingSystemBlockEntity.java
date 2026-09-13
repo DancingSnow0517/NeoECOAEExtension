@@ -1061,8 +1061,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
     }
 
+    private boolean hasRunningCrafting() {
+        // Include every host in the network: mode changes affect all running batches.
+        return getRunningThreadCount() > 0;
+    }
+
     private void setOverclocked(Player player, boolean overclocked) {
-        if (!canPlayerInteract(player)) return;
+        if (!canPlayerInteract(player) || hasRunningCrafting()) return;
         if (cluster != null && cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().setOverclocked(overclocked);
         } else {
@@ -1071,7 +1076,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private void setActiveCooling(Player player, boolean activeCooling) {
-        if (!canPlayerInteract(player)) return;
+        if (!canPlayerInteract(player) || hasRunningCrafting()) return;
         if (cluster != null && cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().setActiveCooling(activeCooling);
         } else {
@@ -1280,4 +1285,3 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
     }
 }
-
