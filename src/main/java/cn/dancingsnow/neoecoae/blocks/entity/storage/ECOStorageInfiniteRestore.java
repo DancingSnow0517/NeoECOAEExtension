@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -333,6 +334,9 @@ final class ECOStorageInfiniteRestore {
         if (!host.hasRequiredInfiniteComponents(stack) || !host.storageHostMode().isInfiniteState()) {
             return null;
         }
+        if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
+            return "infinite storage migration is still in progress";
+        }
         long tick = host.getLevel() == null ? 0L : host.getLevel().getGameTime();
         if (extractionCheckTick == Long.MIN_VALUE || tick - extractionCheckTick >= 20L) {
             extractionCheckTick = tick;
@@ -414,6 +418,11 @@ final class ECOStorageInfiniteRestore {
             }
             if (slot == 0) {
                 ItemStack current = delegate.getStackInSlot(slot);
+                if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                    && host.hasRequiredInfiniteComponents(current)
+                    && !host.hasRequiredInfiniteComponents(stack)) {
+                    return;
+                }
                 if (host.storageHostMode().isInfiniteState()
                     && host.hasRequiredInfiniteComponents(current)
                     && !host.hasRequiredInfiniteComponents(stack)) {
@@ -451,6 +460,10 @@ final class ECOStorageInfiniteRestore {
             }
             if (!host.storageHostMode().isInfiniteState() || !host.hasRequiredInfiniteComponents(stack)) {
                 return delegate.extractItem(slot, amount, simulate);
+            }
+
+            if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
+                return ItemStack.EMPTY;
             }
 
             RestorePlan plan = createInfiniteRestorePlan(true);
