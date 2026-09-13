@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
@@ -432,9 +433,10 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
         .<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
             "large_integrated_working_station_interface", NEIntegratedWorkingStationClusterCalculator::new,
-            ECOMachineInterfaceBlockEntity::new)
+            ECOLargeIntegratedWorkingStationInterfaceBlockEntity::new)
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
+        .serverTicker(ECOMachineInterfaceBlockEntity::tick)
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

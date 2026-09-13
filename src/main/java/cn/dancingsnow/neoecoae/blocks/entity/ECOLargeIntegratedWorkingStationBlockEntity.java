@@ -7,6 +7,7 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridMultiblock;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -38,9 +39,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
@@ -361,9 +360,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return formed && getMainNode().isActive();
     }
 
+    /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
+    public boolean containsPendingPatternInput(Set<AEKey> patternInputs) {
+        if (patternInputs == null || patternInputs.isEmpty()) {
+            return false;
+        }
+        for (PendingBatch batch : pendingBatches) {
+            for (var entry : batch.inputTotal) {
+                AEKey key = entry.getKey();
+                if (entry.getLongValue() > 0L && key != null && patternInputs.contains(key.dropSecondary())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** Validate the entire input/output contract before taking ownership of CPU inputs. */
     public boolean acceptPattern(IPatternDetails pattern, KeyCounter[] holders, boolean commit) {
-        PendingBatch batch = createPendingBatch(pattern, holders, 1L, null);
+        PendingBatch batch = createPendingBatch(pattern, holders, 1L, null, pattern == null ? null : pattern.getPrimaryOutput());
         if (batch == null || (commit && !canAcceptPattern())) return false;
         if (commit) {
             enqueueBatch(batch, holders);
@@ -379,7 +394,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable UUID craftingJobId
     ) {
         if (!canAcceptPattern()) return false;
-        PendingBatch batch = createPendingBatch(pattern, inputTotal, craftCount, craftingJobId);
+        PendingBatch batch = createPendingBatch(
+            pattern,
+            inputTotal,
+            craftCount,
+            craftingJobId,
+            pattern == null ? null : pattern.getPrimaryOutput());
         if (batch == null) return false;
         enqueueBatch(batch, inputTotal);
         return true;
@@ -411,11 +431,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         boolean terminal = batch.craftingJobId != null
             && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
         if (terminal) {
-            boolean cleared = isCounterEmpty(batch.pendingOutput)
+            boolean abandonedWithoutOutput = isCounterEmpty(batch.pendingOutput);
+            boolean cleared = abandonedWithoutOutput
                 ? recoverCounterToNetwork(batch.inputTotal)
                 : deliverBatchOutputs(batch);
             setWorking(false);
-            if (cleared) removeFirstBatch(batch);
+            if (cleared) {
+                if (abandonedWithoutOutput) notifyPatternAborted(batch.unlockStack);
+                removeFirstBatch(batch);
+            }
             setChanged();
             return cleared ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
         }
@@ -503,6 +527,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         PendingBatch next = pendingBatches.peekFirst();
         setProcessingTime(next == null ? 0 : next.progress);
         cachedTask = null;
+        requestCommunicationProviderUpdate();
     }
 
     private boolean deliverBatchOutputs(PendingBatch batch) {
@@ -533,7 +558,29 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
             if (inserted < requested) return false;
         }
-        return isCounterEmpty(batch.pendingOutput);
+        boolean complete = isCounterEmpty(batch.pendingOutput);
+        if (complete) notifyPatternResult(batch.unlockStack);
+        return complete;
+    }
+
+    private void notifyPatternResult(@Nullable GenericStack result) {
+        if (result == null || cluster == null) return;
+        if (cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+            communication.getWorkstationProvider().onPatternResult(result);
+        }
+    }
+
+    private void notifyPatternAborted(@Nullable GenericStack expectedResult) {
+        if (expectedResult == null || cluster == null) return;
+        if (cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+            communication.getWorkstationProvider().onPatternAborted(expectedResult);
+        }
+    }
+
+    private void requestCommunicationProviderUpdate() {
+        if (cluster != null && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
+            ICraftingProvider.requestUpdate(communication.getMainNode());
+        }
     }
 
     private boolean recoverCounterToNetwork(KeyCounter counter) {
@@ -558,7 +605,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         IPatternDetails pattern,
         @Nullable KeyCounter[] holders,
         long craftCount,
-        @Nullable UUID craftingJobId
+        @Nullable UUID craftingJobId,
+        @Nullable GenericStack unlockStack
     ) {
         if (level == null || pattern == null || craftCount <= 0L || craftCount > PARALLELISM) return null;
         KeyCounter totalInputs = collectInputTotals(pattern, holders);
@@ -624,7 +672,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         KeyCounter outputTotal = scaleCounter(outputPerCraft, craftCount);
         outputTotal.addAll(remainderTotal);
         if (isCounterEmpty(outputTotal)) return null;
-        return new PendingBatch(craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipe);
+        return new PendingBatch(craftCount, recipe.energy(), totalInputs, outputTotal, craftingJobId, recipe, unlockStack);
     }
 
     @Nullable
@@ -766,29 +814,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         UIElement root = new UIElement().layout(layout -> layout.width(176).height(180))
             .style(style -> style.backgroundTexture(UI_BACKGROUND));
 
-        root.addChild(staticLabel("block.neoecoae.large_integrated_working_station", 8, 4, 160, 10));
-        root.addChild(staticLabel("gui.neoecoae.large_integrated_working_station.input_fluid", 8, 82, 32, 9));
+        TextElement title = staticLabel("block.neoecoae.large_integrated_working_station", 8, 4, 160, 10);
+        title.textStyle(style -> style.fontSize(8));
+        root.addChild(title);
         root.addChild(staticLabel("container.inventory", 42, 82, 92, 9));
-        root.addChild(staticLabel("gui.neoecoae.large_integrated_working_station.output_fluid", 140, 82, 28, 9));
 
         root.addChild(syncedLabel(this::getEnergyText, 42, 27, 92, 10));
-        root.addChild(syncedLabel(this::getTaskText, 42, 41, 92, 10));
-        root.addChild(syncedLabel(this::getRecipeText, 42, 55, 92, 22));
-
-        UIElement input = new FluidSlot().bind(getInputTank(), 0)
-            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).showFluidTooltips(true))
-            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(8).top(20).width(18).height(60));
-        UIElement output = new FluidSlot().bind(getOutputTank(), 0).setAllowClickDrained(false)
-            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).showFluidTooltips(true))
-            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(150).top(20).width(18).height(60));
-        root.addChild(input);
-        root.addChild(output);
+        root.addChild(syncedLabel(this::getTaskText, 42, 40, 92, 10));
+        root.addChild(syncedLabel(this::getRecipeText, 42, 53, 92, 22));
 
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 9; col++) {
                 int index = row == 3 ? col : 9 + row * 9 + col;
-                int x = 8 + col * 18;
-                int y = row == 3 ? 154 : 96 + row * 18;
+                int x = 7 + col * 18;
+                int y = row == 3 ? 153 : 95 + row * 18;
                 root.addChild(new ItemSlot(new net.minecraft.world.inventory.Slot(holder.player.getInventory(), index, 0, 0))
                     .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
                     .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(18).height(18)));
@@ -862,6 +901,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         private final UUID craftingJobId;
         @Nullable
         private final IntegratedWorkingStationRecipe recipe;
+        @Nullable
+        private final GenericStack unlockStack;
         private int progress;
 
         private PendingBatch(
@@ -870,7 +911,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             KeyCounter inputTotal,
             KeyCounter outputTotal,
             @Nullable UUID craftingJobId,
-            @Nullable IntegratedWorkingStationRecipe recipe
+            @Nullable IntegratedWorkingStationRecipe recipe,
+            @Nullable GenericStack unlockStack
         ) {
             this.craftCount = craftCount;
             this.energyPerCraft = energyPerCraft;
@@ -878,6 +920,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             this.outputTotal.addAll(outputTotal);
             this.craftingJobId = craftingJobId;
             this.recipe = recipe;
+            this.unlockStack = unlockStack == null ? null : new GenericStack(unlockStack.what(), unlockStack.amount());
         }
 
         private CompoundTag save(HolderLookup.Provider registries) {
@@ -889,6 +932,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(inputTotal)));
             tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(outputTotal)));
             tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(pendingOutput)));
+            if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(registries, unlockStack));
             return tag;
         }
 
@@ -910,8 +954,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 return null;
             }
             UUID craftingJobId = tag.hasUUID("craftingJobId") ? tag.getUUID("craftingJobId") : null;
+            GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
+                ? GenericStack.readTag(registries, tag.getCompound("unlockStack")) : null;
             PendingBatch batch = new PendingBatch(
-                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, null);
+                craftCount, energyPerCraft, inputTotal, outputTotal, craftingJobId, null, unlockStack);
             batch.pendingOutput.addAll(pendingOutput);
             batch.progress = progress;
             return batch;

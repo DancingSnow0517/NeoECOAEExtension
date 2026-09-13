@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import appeng.menu.locator.MenuLocators;
 import net.minecraft.core.BlockPos;
@@ -44,8 +45,9 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
             return InteractionResult.PASS;
         }
         if (blockEntity.supportsIntegratedWorkingStationInterfaceUi()) {
-            if (player instanceof ServerPlayer serverPlayer) {
-                blockEntity.openMenu(serverPlayer, MenuLocators.forBlockEntity(blockEntity));
+            if (player instanceof ServerPlayer serverPlayer
+                && blockEntity instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity workstationInterface) {
+                workstationInterface.openMenu(serverPlayer, MenuLocators.forBlockEntity(workstationInterface));
                 return InteractionResult.CONSUME;
             }
             return InteractionResult.SUCCESS;

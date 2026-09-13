@@ -1,12 +1,19 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,13 +28,13 @@ import org.jetbrains.annotations.Nullable;
 public final class LargeWorkstationPatternProvider extends PatternProviderLogic implements ECOParallelCraftingProvider {
     private static final int PATTERN_SLOT_COUNT = 36;
 
-    private final ECOMachineInterfaceBlockEntity<?> host;
+    private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
     private List<IPatternDetails> compatiblePatterns = List.of();
     private boolean compatiblePatternsDirty = true;
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity lastController;
 
-    public LargeWorkstationPatternProvider(ECOMachineInterfaceBlockEntity<?> host) {
+    public LargeWorkstationPatternProvider(ECOLargeIntegratedWorkingStationInterfaceBlockEntity host) {
         super(host.getMainNode(), host, PATTERN_SLOT_COUNT);
         this.host = host;
     }
@@ -35,6 +42,15 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity controller() {
         return host.getCluster() instanceof NEIntegratedWorkingStationCluster cluster ? cluster.getController() : null;
+    }
+
+    @Override
+    public void updateRedstoneState() {
+        LockCraftingMode before = getCraftingLockedReason();
+        super.updateRedstoneState();
+        if (before != getCraftingLockedReason()) {
+            requestProviderUpdate();
+        }
     }
 
     @Override
@@ -68,10 +84,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Override
     public boolean pushPattern(IPatternDetails pattern, KeyCounter[] inputs) {
         var controller = controller();
-        if (controller == null || !host.getMainNode().isActive() || !getAvailablePatterns().contains(pattern)) {
+        if (!canDispatch(controller, pattern)) {
             return false;
         }
-        return controller.acceptPattern(pattern, inputs, true);
+        boolean accepted = controller.acceptPattern(pattern, inputs, true);
+        if (accepted) {
+            onPatternAccepted(pattern);
+        }
+        return accepted;
     }
 
     /**
@@ -82,7 +102,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     @Override
     public int eco$getAvailableParallelSlots() {
         var controller = controller();
-        return controller == null || !host.getMainNode().isActive() || getAvailablePatterns().isEmpty()
+        return controller == null || !host.getMainNode().isActive() || isCraftingLocked()
+                || getAvailablePatterns().isEmpty()
             ? 0 : ECOLargeIntegratedWorkingStationBlockEntity.PARALLELISM;
     }
 
@@ -94,15 +115,94 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         @Nullable UUID craftingJobId
     ) {
         var controller = controller();
-        if (controller == null || !host.getMainNode().isActive() || !getAvailablePatterns().contains(pattern)) {
+        if (!canDispatch(controller, pattern)) {
             return false;
         }
-        return controller.acceptPatternBatch(pattern, inputTotal, craftCount, craftingJobId);
+        boolean accepted = controller.acceptPatternBatch(pattern, inputTotal, craftCount, craftingJobId);
+        if (accepted) {
+            onPatternAccepted(pattern);
+        }
+        return accepted;
     }
 
     @Override
     public boolean isBusy() {
         var controller = controller();
-        return controller == null || !controller.canAcceptPattern();
+        return controller == null || !controller.canAcceptPattern() || isCraftingLocked();
+    }
+
+    /** Called by the controller after this provider's primary result reached its final destination. */
+    public void onPatternResult(@Nullable GenericStack result) {
+        if (result == null) {
+            return;
+        }
+        GenericStack unlockStack = getUnlockStack();
+        if (unlockStack == null || !unlockStack.what().equals(result.what())
+                || result.amount() < unlockStack.amount()) {
+            return;
+        }
+        resetCraftingLock();
+        requestProviderUpdate();
+    }
+
+    /** Releases a result lock when the owning CPU job was cancelled before producing a result. */
+    public void onPatternAborted(@Nullable GenericStack expectedResult) {
+        if (expectedResult == null) {
+            return;
+        }
+        GenericStack unlockStack = getUnlockStack();
+        if (unlockStack != null && unlockStack.what().equals(expectedResult.what())
+                && unlockStack.amount() == expectedResult.amount()) {
+            resetCraftingLock();
+            requestProviderUpdate();
+        }
+    }
+
+    private boolean canDispatch(
+        @Nullable ECOLargeIntegratedWorkingStationBlockEntity controller,
+        IPatternDetails pattern
+    ) {
+        if (controller == null || !host.getMainNode().isActive() || !getAvailablePatterns().contains(pattern)
+                || isCraftingLocked()) {
+            return false;
+        }
+        if (!isBlocking()) {
+            return true;
+        }
+        return !controller.containsPendingPatternInput(patternInputKeys(pattern));
+    }
+
+    private boolean isCraftingLocked() {
+        return getCraftingLockedReason() != LockCraftingMode.NONE;
+    }
+
+    private static Set<AEKey> patternInputKeys(IPatternDetails pattern) {
+        Set<AEKey> result = new HashSet<>();
+        IPatternDetails.IInput[] inputs = pattern.getInputs();
+        if (inputs == null) {
+            return result;
+        }
+        for (IPatternDetails.IInput input : inputs) {
+            if (input == null || input.getPossibleInputs() == null) {
+                continue;
+            }
+            for (GenericStack candidate : input.getPossibleInputs()) {
+                if (candidate != null && candidate.what() != null) {
+                    result.add(candidate.what().dropSecondary());
+                }
+            }
+        }
+        return result;
+    }
+
+    private void onPatternAccepted(IPatternDetails pattern) {
+        // The specialized provider bypasses PatternProviderLogic.pushPattern, so explicitly retain AE2's
+        // lock-until-pulse/result state transition after the controller accepted the batch.
+        ((PatternProviderLogicAccessor) (Object) this).neoecoae$onPushPatternSuccess(pattern);
+        requestProviderUpdate();
+    }
+
+    private void requestProviderUpdate() {
+        ICraftingProvider.requestUpdate(host.getMainNode());
     }
 }

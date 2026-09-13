@@ -9,17 +9,11 @@ import appeng.api.stacks.AEItemKey;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.core.definitions.AEItems;
 import appeng.helpers.patternprovider.PatternContainer;
-import appeng.helpers.patternprovider.PatternProviderLogic;
-import appeng.helpers.patternprovider.PatternProviderLogicHost;
-import appeng.menu.ISubMenu;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.MenuHostLocator;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
 import cn.dancingsnow.neoecoae.grid.PatternCatalog;
@@ -39,7 +33,6 @@ import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageInterfaceUI;
-import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -50,7 +43,6 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -82,7 +74,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, PatternProviderLogicHost {
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
@@ -90,57 +82,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
     private static final String PATTERN_BUS_POSITIONS_SYNC_KEY = "patternBusPositions";
     private static final String PATTERN_BUS_SLOT_COUNTS_SYNC_KEY = "patternBusSlotCounts";
-
-    @Nullable
-    private LargeWorkstationPatternProvider workstationProvider;
-    private transient boolean workstationProviderRefreshQueued;
-
-    public LargeWorkstationPatternProvider getWorkstationProvider() {
-        if (workstationProvider == null) {
-            throw new IllegalStateException("This interface is not a large integrated working station interface");
-        }
-        return workstationProvider;
-    }
-
-    @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        if (workstationProvider != null) {
-            workstationProvider.writeToNBT(data, registries);
-        }
-    }
-
-    @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        if (workstationProvider != null) {
-            workstationProvider.readFromNBT(data, registries);
-            readLegacyWorkstationPatterns(data, registries);
-        }
-    }
-
-    private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
-        if (workstationProvider == null
-            || data.contains(PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, Tag.TAG_LIST)
-            || !data.contains("workstationPatterns", Tag.TAG_LIST)
-            || !workstationProvider.getPatternInv().isEmpty()) {
-            return;
-        }
-
-        var legacy = new AppEngInternalInventory(this, workstationProvider.getPatternInv().size(), 1);
-        legacy.readFromNBT(data, "workstationPatterns", registries);
-        for (int slot = 0; slot < legacy.size(); slot++) {
-            workstationProvider.getPatternInv().setItemDirect(slot, legacy.getStackInSlot(slot));
-        }
-    }
-
-    @Override
-    public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
-        super.addAdditionalDrops(level, pos, drops);
-        if (workstationProvider != null) {
-            workstationProvider.addDrops(drops);
-        }
-    }
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -214,94 +155,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         NEClusterCalculator.Factory<C> calculator
     ) {
         super(type, pos, blockState, calculator);
-        if (supportsIntegratedWorkingStationInterfaceUi()) {
-            workstationProvider = new LargeWorkstationPatternProvider(this);
-            // PatternProviderLogic configures the shared node for a normal provider.
-            // Restore the multiblock flag required by this interface's cluster.
-            getMainNode().setFlags(appeng.api.networking.GridFlags.MULTIBLOCK,
-                appeng.api.networking.GridFlags.REQUIRE_CHANNEL);
-        }
-    }
-
-    @Override
-    public void onReady() {
-        super.onReady();
-        if (workstationProvider != null) {
-            refreshWorkstationProviderLifecycle();
-        }
-    }
-
-    /**
-     * Rebuilds the dynamic workstation provider view after the node and the multiblock have had a chance to settle.
-     * The immediate refresh covers normal placement, while the deferred refresh covers world-load ordering where the
-     * provider can initially be mounted before the controller or its final AE2 grid is available.
-     */
-    private void refreshWorkstationProviderLifecycle() {
-        LargeWorkstationPatternProvider provider = workstationProvider;
-        if (provider == null || !(level instanceof ServerLevel serverLevel)
-            || isServerStopping() || !getMainNode().isReady()) {
-            return;
-        }
-
-        provider.updatePatterns();
-        if (workstationProviderRefreshQueued) {
-            return;
-        }
-
-        workstationProviderRefreshQueued = true;
-        serverLevel.getServer().executeIfPossible(() -> {
-            workstationProviderRefreshQueued = false;
-            if (!isServerStopping() && !isRemoved() && level == serverLevel
-                && getMainNode().isReady() && workstationProvider == provider) {
-                provider.updatePatterns();
-            }
-        });
-    }
-
-    @Override
-    public PatternProviderLogic getLogic() {
-        return getWorkstationProvider();
-    }
-
-    @Override
-    public ECOMachineInterfaceBlockEntity<C> getBlockEntity() {
-        return this;
-    }
-
-    @Override
-    public EnumSet<Direction> getTargets() {
-        return EnumSet.allOf(Direction.class);
-    }
-
-    @Override
-    public void saveChanges() {
-        setChanged();
-        markForUpdate();
-    }
-
-    @Override
-    public AEItemKey getTerminalIcon() {
-        return AEItemKey.of(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.asItem());
-    }
-
-    @Override
-    public ItemStack getMainMenuIcon() {
-        return NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.asStack();
-    }
-
-    @Override
-    public void openMenu(Player player, MenuHostLocator locator) {
-        if (workstationProvider != null) {
-            MenuOpener.open(LargeIntegratedWorkingStationPatternProviderMenu.TYPE, player, locator);
-        }
-    }
-
-    @Override
-    public void returnToMainMenu(Player player, ISubMenu subMenu) {
-        if (workstationProvider != null) {
-            MenuOpener.returnTo(LargeIntegratedWorkingStationPatternProviderMenu.TYPE, player,
-                subMenu.getLocator());
-        }
     }
 
     @Override
@@ -701,7 +554,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         super.updateCluster(nextCluster);
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
-        refreshWorkstationProviderLifecycle();
+        onInterfaceTopologyChanged();
         if (level instanceof ServerLevel) {
             closePatternInterfaceMenus();
         }
@@ -717,7 +570,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
         ensurePatternInterfaceMapping();
-        refreshWorkstationProviderLifecycle();
+        onInterfaceTopologyChanged();
     }
 
     @Override
@@ -738,11 +591,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         super.onMainNodeStateChanged(reason);
-        if (workstationProvider != null) {
-            workstationProvider.onMainNodeStateChanged();
-            if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
-                refreshWorkstationProviderLifecycle();
-            }
+        if (handleSpecializedMainNodeStateChanged(reason)) {
             return;
         }
         if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
@@ -751,6 +600,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 ensurePatternInterfaceMapping();
             }
         }
+    }
+
+    /** Hook for interface variants that own additional grid services. */
+    protected void onInterfaceTopologyChanged() {
+    }
+
+    /**
+     * @return true when a specialized interface handled the state change and the generic pattern-bus refresh should
+     *         be skipped
+     */
+    protected boolean handleSpecializedMainNodeStateChanged(IGridNodeListener.State reason) {
+        return false;
     }
 
     /** Called when a Pattern Bus joins or leaves the grid. */
