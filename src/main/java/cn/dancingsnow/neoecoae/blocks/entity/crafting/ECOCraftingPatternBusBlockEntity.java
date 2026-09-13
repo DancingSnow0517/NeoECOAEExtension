@@ -27,7 +27,6 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
@@ -247,17 +246,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return worker.pushBatch(verified);
     }
 
-    /**
-     * Binary compatibility anchor for crafting-tracker 0.2.x.
-     * Its highlight mixin targets the pre-refactor request signature; the current dispatcher
-     * deliberately does not execute legacy requests because they no longer carry a verified
-     * fast-path credential.
-     */
-    @SuppressWarnings("unused")
-    public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
-        return false;
-    }
-
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {
         if (offer == null || cluster == null || verified.recipe() != offer.recipe()) {
             return false;
@@ -282,7 +270,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (!lookup.isVerified()) {
             return null;
         }
-        RankedWorker best = findBestDispatchCandidate();
+        ECOCraftingPatternDispatch.Candidate best = findBestDispatchCandidate();
         return best == null ? null : new VirtualFastPathOffer(best.worker(), lookup.recipe());
     }
 
@@ -309,7 +297,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (verifiedRecipe == null) {
             return null;
         }
-        RankedWorker best = findBestDispatchCandidate();
+        ECOCraftingPatternDispatch.Candidate best = findBestDispatchCandidate();
         if (best == null) {
             return null;
         }
@@ -343,42 +331,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * reference to a removed or rebuilt worker is ever retained.
      */
     @Nullable
-    private RankedWorker findBestDispatchCandidate() {
-        return findBestDispatchCandidate(cluster.collectDispatchCandidateWorkers());
+    private ECOCraftingPatternDispatch.Candidate findBestDispatchCandidate() {
+        return ECOCraftingPatternDispatch.best(cluster.collectDispatchCandidateWorkers());
     }
 
     @Nullable
-    private RankedWorker findBestDispatchCandidate(List<ECOCraftingWorkerBlockEntity> candidates) {
-        RankedWorker best = null;
-        for (ECOCraftingWorkerBlockEntity worker : candidates) {
-            int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots <= 0) {
-                continue;
-            }
-            RankedWorker candidate = new RankedWorker(worker, availableSlots);
-            if (best == null || DISPATCH_ORDER.compare(candidate, best) < 0) {
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
-    private record RankedWorker(ECOCraftingWorkerBlockEntity worker, int availableSlots) {}
-
-    private static final java.util.Comparator<RankedWorker> DISPATCH_ORDER = (left, right) -> {
-        int bySlots = Integer.compare(right.availableSlots(), left.availableSlots());
-        return bySlots != 0 ? bySlots : comparePositions(left.worker().getBlockPos(), right.worker().getBlockPos());
-    };
-
-    /** Stable, predictable tie-break: no randomness, no rotation, no dependence on structure scan order. */
-    static int comparePositions(BlockPos left, BlockPos right) {
-        int byX = Integer.compare(left.getX(), right.getX());
-        if (byX != 0) {
-            return byX;
-        }
-        int byY = Integer.compare(left.getY(), right.getY());
-        return byY != 0 ? byY : Integer.compare(left.getZ(), right.getZ());
-    }
 
     public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
         if (cluster == null) {

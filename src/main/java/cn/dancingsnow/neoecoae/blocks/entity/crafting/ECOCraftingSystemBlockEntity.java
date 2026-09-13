@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingTaskSummary;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
@@ -1099,23 +1100,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (cluster == null) {
             return List.of();
         }
-        Map<TaskAggregateKey, TaskAggregate> aggregates = new LinkedHashMap<>();
-        for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
-            for (ECOCraftingThread.Snapshot snapshot : worker.getThreadSnapshots()) {
-                ItemStack output = snapshot.outputItem();
-                if (output.isEmpty()) {
-                    continue;
-                }
-                TaskAggregateKey key = new TaskAggregateKey(snapshot.craftingJobId(), output);
-                aggregates.computeIfAbsent(key, ignored -> new TaskAggregate(output.copyWithCount(1))).add(snapshot);
-            }
-        }
-        List<ComputationTaskEntry> entries = new ArrayList<>();
-        int index = 0;
-        for (TaskAggregate aggregate : aggregates.values()) {
-            entries.add(aggregate.toEntry(worldPosition, index++));
-        }
-        return List.copyOf(entries);
+        return ECOCraftingTaskSummary.collect(collectDisplayedWorkers(), worldPosition);
     }
 
     /**
@@ -1211,77 +1196,4 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         markForUpdate();
     }
 
-    private record TaskAggregateKey(UUID craftingJobId, ItemStack output) {
-        private TaskAggregateKey {
-            output = output.copyWithCount(1);
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof TaskAggregateKey that)) {
-                return false;
-            }
-            return java.util.Objects.equals(craftingJobId, that.craftingJobId)
-                && ItemStack.isSameItemSameComponents(output, that.output);
-        }
-
-        @Override
-        public int hashCode() {
-            return java.util.Objects.hash(craftingJobId, output.getItem(), output.getComponents());
-        }
-    }
-
-    private static final class TaskAggregate {
-        private final ItemStack output;
-        private long outputAmount;
-        private long craftCount;
-        private long totalProgress;
-        private long remainingProgress;
-        private boolean waitingOutput = true;
-        private final LinkedHashSet<String> fastPathReasons = new LinkedHashSet<>();
-
-        private TaskAggregate(ItemStack output) {
-            this.output = output;
-        }
-
-        private void add(ECOCraftingThread.Snapshot snapshot) {
-            long crafts = Math.max(1L, snapshot.craftCount());
-            int maxProgress = Math.max(1, snapshot.maxProgress());
-            int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount = NEMath.saturatingAdd(outputAmount, Math.max(1L, snapshot.outputAmount()));
-            craftCount = NEMath.saturatingAdd(craftCount, crafts);
-            totalProgress = NEMath.saturatingAdd(totalProgress,
-                NEMath.saturatingMultiply(maxProgress, crafts));
-            remainingProgress = NEMath.saturatingAdd(remainingProgress,
-                NEMath.saturatingMultiply(Math.max(0, maxProgress - progress), crafts));
-            waitingOutput &= snapshot.outputsReady();
-            fastPathReasons.add(snapshot.fastPathReason() == null ? "NOT_RECORDED" : snapshot.fastPathReason());
-        }
-
-        private ComputationTaskEntry toEntry(BlockPos controllerPos, int index) {
-            long safeTotal = Math.max(1L, totalProgress);
-            long safeRemaining = Math.max(0L, Math.min(safeTotal, remainingProgress));
-            float progress = Mth.clamp((safeTotal - safeRemaining) / (float)safeTotal, 0.0F, 1.0F);
-            return new ComputationTaskEntry(
-                "crafting:" + controllerPos.asLong() + ":" + index + ":" + output.getItem().hashCode(),
-                output.copyWithCount(1),
-                Math.max(1L, outputAmount),
-                Math.max(1L, craftCount),
-                safeTotal,
-                safeRemaining,
-                waitingOutput ? ComputationTaskEntry.Status.WAITING_OUTPUT : ComputationTaskEntry.Status.RUNNING,
-                index + 1,
-                Component.translatable("gui.neoecoae.host.crafting.subtitle"),
-                0L,
-                0,
-                CpuSelectionMode.ANY,
-                progress,
-                0L,
-                String.join("\n", fastPathReasons)
-            );
-        }
-    }
 }
