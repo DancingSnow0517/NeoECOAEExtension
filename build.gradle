@@ -152,7 +152,9 @@ dependencies {
 
     implementation("curse.maven:advancedae-1084104:7374386")
 
-    implementation("curse.maven:jade-324717:7428884")
+    // Jade is a client-side integration. Keep its API available for compilation,
+    // but only add the implementation to NeoForge's client runtime.
+    compileOnly("curse.maven:jade-324717:5444008") { transitive = false }
 
     // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
@@ -162,7 +164,6 @@ dependencies {
     implementation("curse.maven:ars-energistique-905641:6203425")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
-    runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     compileOnly("dev.emi:emi-neoforge:${emi_version}")
 
     implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
@@ -187,6 +188,12 @@ neoForge {
     runs {
         client {
             client()
+            additionalRuntimeClasspathConfiguration.dependencies.add(
+                project.dependencies.create("curse.maven:jade-324717:5444008") { transitive = false }
+            )
+            additionalRuntimeClasspathConfiguration.dependencies.add(
+                project.dependencies.create("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+            )
         }
 
         aeGuide {
