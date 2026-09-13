@@ -20,11 +20,14 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import net.minecraft.nbt.CompoundTag;
 
+import java.util.LinkedHashMap;
+
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
 import cn.dancingsnow.neoecoae.util.NEMath;
 
 public class ElapsedTimeTracker {
@@ -115,6 +118,27 @@ public class ElapsedTimeTracker {
         }
 
         return Math.clamp((float) (completedUnits / startedUnits), 0, 1);
+    }
+
+    /** Returns the started work for one key type without exposing the mutable backing map. */
+    public long getStartedWork(AEKeyType keyType) {
+        return keyType == null ? 0L : Math.max(0L, startedWorkByType.getLong(keyType));
+    }
+
+    /** Returns the completed work for one key type without exposing the mutable backing map. */
+    public long getCompletedWork(AEKeyType keyType) {
+        return keyType == null ? 0L : Math.max(0L, completedWorkByType.getLong(keyType));
+    }
+
+    /** Creates an immutable view that is safe to retain after the job or tracker changes. */
+    public ECOCraftingProgressSnapshot snapshot() {
+        var started = new LinkedHashMap<AEKeyType, Long>();
+        var completed = new LinkedHashMap<AEKeyType, Long>();
+        for (var keyType : AEKeyTypes.getAll()) {
+            started.put(keyType, getStartedWork(keyType));
+            completed.put(keyType, getCompletedWork(keyType));
+        }
+        return new ECOCraftingProgressSnapshot(getProgress(), getElapsedTime(), started, completed);
     }
 
     @Deprecated(forRemoval = true)

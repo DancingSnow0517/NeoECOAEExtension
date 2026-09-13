@@ -113,7 +113,7 @@ final class ECOProcessingPatternDispatcher {
                 cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks.copyCounter(request.remainders()),
                 acceptedTotal);
         var result = ECOCraftingDispatchResult.batch(acceptedTotal, outputs, remainders);
-        accounting.apply(request, result, () -> {});
+        accounting.apply(request, result, () -> {}, provider);
         return result;
     }
 

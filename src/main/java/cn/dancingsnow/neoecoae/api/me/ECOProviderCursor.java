@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.function.Predicate;
 import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -59,6 +60,17 @@ final class ECOProviderCursor {
     List<ICraftingProvider> availableProviders(IPatternDetails pattern,
             Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible,
             BiConsumer<ICraftingProvider, Boolean> observer) {
+        return availableProviders(pattern, providers, eligible, observer, (provider, busy) -> !busy);
+    }
+
+    /**
+     * Variant that lets the CPU's dispatch policy make the final availability decision after the native busy
+     * state has been observed. The observer still receives the native state for diagnostics.
+     */
+    List<ICraftingProvider> availableProviders(IPatternDetails pattern,
+            Supplier<Iterable<ICraftingProvider>> providers, Predicate<ICraftingProvider> eligible,
+            BiConsumer<ICraftingProvider, Boolean> observer,
+            BiPredicate<ICraftingProvider, Boolean> availability) {
         Cursor previous = cursors.get(pattern);
         Cursor cursor = previous;
         if (cursor == null || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
@@ -87,7 +99,7 @@ final class ECOProviderCursor {
             if (eligible.test(provider)) {
                 boolean busy = provider.isBusy();
                 observer.accept(provider, busy);
-                if (!busy) available.add(provider);
+                if (availability.test(provider, busy)) available.add(provider);
             }
         }
         return available;

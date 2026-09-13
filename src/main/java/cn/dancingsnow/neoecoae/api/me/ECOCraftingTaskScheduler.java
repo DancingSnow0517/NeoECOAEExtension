@@ -18,6 +18,8 @@ import appeng.api.stacks.AEKey;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
+import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingDispatchPolicyRegistry;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 
 /**
@@ -122,7 +124,8 @@ final class ECOCraftingTaskScheduler {
     DispatchPassResult execute(int maxPatterns, CraftingService craftingService, IEnergyService energyService,
             Level level, ExecutingCraftingJob current, ListCraftingInventory inventory,
             Function<IPatternDetails, Iterable<ICraftingProvider>> providerSupplier,
-            BooleanSupplier jobStillActive, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
+            BooleanSupplier jobStillActive, ECOCraftingCpuContext cpuContext,
+            ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
         providerCursor.beginPass(craftingService, TickHandler.instance().getCurrentTick());
         providerDispatcher.beginTick(TickHandler.instance().getCurrentTick());
         int ordinaryLimit = Math.max(0, maxPatterns);
@@ -198,7 +201,9 @@ final class ECOCraftingTaskScheduler {
                             stallDiagnostics.providerConsidered(eligible);
                             return eligible;
                         },
-                        (providerCandidate, busy) -> stallDiagnostics.provider(pattern, providerCandidate, busy));
+                        (providerCandidate, busy) -> stallDiagnostics.provider(pattern, providerCandidate, busy),
+                        (providerCandidate, busy) -> ECOCraftingDispatchPolicyRegistry.isProviderAvailable(
+                                cpuContext, providerCandidate, busy));
                 if (providers.isEmpty()) {
                     stallDiagnostics.noReadyProvider();
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());

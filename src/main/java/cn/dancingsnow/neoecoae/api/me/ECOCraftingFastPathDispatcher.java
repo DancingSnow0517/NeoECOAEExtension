@@ -114,7 +114,7 @@ final class ECOCraftingFastPathDispatcher {
                     // The provider already owns this batch. Never replay its inputs or task on a notification failure.
                     LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
                 }
-            });
+            }, provider);
             diagnostics.progress(TickHandler.instance().getCurrentTick());
             return result;
         } finally {

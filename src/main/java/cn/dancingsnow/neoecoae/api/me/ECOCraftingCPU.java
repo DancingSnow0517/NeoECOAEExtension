@@ -11,6 +11,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSink;
+import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimSink;
+import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import lombok.Getter;
@@ -36,6 +39,21 @@ public class ECOCraftingCPU implements ICraftingCPU {
     private final ECOComputationThreadingCoreBlockEntity owner;
     @Getter
     private final IECOTier tier;
+
+    /** Stable output-claim boundary for integrations that must not inspect the CPU logic internals. */
+    public ECOCraftingOutputClaimSink getOutputClaimSink() {
+        return logic;
+    }
+
+    /** Stable virtual-completion boundary for integrations that report logical virtual work. */
+    public ECOVirtualCraftingCompletionSink getVirtualCraftingCompletionSink() {
+        return logic;
+    }
+
+    /** Immutable progress view for monitors and external integrations. */
+    public ECOCraftingProgressView getProgressView() {
+        return logic.getProgressView();
+    }
 
     public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;

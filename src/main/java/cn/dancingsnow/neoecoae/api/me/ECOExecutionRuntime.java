@@ -279,6 +279,24 @@ public final class ECOExecutionRuntime {
         consumeStartupSeed(candidate, inputs, count);
     }
 
+    /**
+     * Commits a virtual execution together with its bound task progress. Virtual providers do not expose a
+     * concrete input container at this boundary, so startup-seed accounting is deliberately left unchanged; the
+     * provider has already performed its own logical input accounting.
+     */
+    public void onVirtualAccepted(DispatchCandidate candidate, long count) {
+        requireProgressBinding();
+        if (count <= 0L || count > candidate.maxDispatchCount()) {
+            throw new IllegalArgumentException("Accepted virtual dispatch exceeds scheduler allowance");
+        }
+        var progress = progressByTaskId[candidate.taskId()];
+        if (progress == null || progress.value < count) {
+            throw new IllegalArgumentException("Accepted virtual dispatch exceeds task progress");
+        }
+        progress.value -= count;
+        onAccepted(candidate, count, new KeyCounter[0]);
+    }
+
     long startupSeedGeneration(AEKey key) {
         return key == null ? 0L : startupSeedGenerations.getOrDefault(key, 0L);
     }

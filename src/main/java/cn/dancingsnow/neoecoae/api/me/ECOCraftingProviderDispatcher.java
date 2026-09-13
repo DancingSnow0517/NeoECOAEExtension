@@ -130,7 +130,7 @@ final class ECOCraftingProviderDispatcher {
                 reservation.commit();
                 accounting.apply(request,
                         ECOCraftingDispatchResult.single(request.outputs(), request.remainders()),
-                        budget::recordAcceptedNormalPush);
+                        budget::recordAcceptedNormalPush, provider);
                 diagnostics.progress(TickHandler.instance().getCurrentTick());
                 return Result.accepted(1L, false);
             } finally {
@@ -224,7 +224,7 @@ final class ECOCraftingProviderDispatcher {
                     requested,
                     ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), requested),
                     ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), requested));
-            accounting.apply(request, result, budget::recordAcceptedNormalPush);
+            accounting.apply(request, result, budget::recordAcceptedNormalPush, provider);
             diagnostics.progress(TickHandler.instance().getCurrentTick());
             return Result.accepted(requested, false);
         } finally {
