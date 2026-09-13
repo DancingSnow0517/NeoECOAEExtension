@@ -158,8 +158,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        boolean ecoPartial = hasEcoCycleDiagnostics();
-        int size = (unrepresentable || ecoPartial) ? exactMaterials().size()
+        boolean exactMaterialTable = shouldUseExactMaterialTable();
+        int size = exactMaterialTable ? exactMaterials().size()
             : plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
@@ -206,7 +206,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             graphics.fill(SOLVE_PROGRESS_X + 1, SOLVE_PROGRESS_Y + 1,
                 SOLVE_PROGRESS_X + 1 + fill, SOLVE_PROGRESS_Y + 3, 0xFF3D9B62);
         }
-        if (isUnrepresentablePlan() || isEcoPartialPlan()) {
+        if (shouldUseExactMaterialTable()) {
             exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
         }
         else if (plan != null) table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
@@ -244,7 +244,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
-        if (hovered == null) hovered = (isUnrepresentablePlan() || isEcoPartialPlan())
+        if (hovered == null) hovered = shouldUseExactMaterialTable()
             ? exactTable.getHoveredStack() : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
@@ -312,8 +312,19 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
     }
 
-    private boolean isEcoPartialPlan() {
-        return hasEcoCycleDiagnostics();
+    /**
+     * A failed ECO attempt can be attached to AE2's native fallback plan as explanation-only diagnostics. In that
+     * case the native planner is the source of truth for missing materials, so keep rendering its normal red
+     * missing-item rows instead of covering them with the rejected ECO attempt's exact material snapshot.
+     */
+    private boolean shouldUseExactMaterialTable() {
+        if (isUnrepresentablePlan()) return true;
+        if (!hasEcoCycleDiagnostics()) return false;
+        PlanningStatus status = ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$getPlanningStatus();
+        return status != PlanningStatus.MISSING_ITEMS
+            && status != PlanningStatus.PARTIAL_UNSUPPORTED
+            && status != PlanningStatus.UNSUPPORTED
+            && status != PlanningStatus.INTERNAL_ERROR;
     }
 
     private boolean hasEcoCycleDiagnostics() {

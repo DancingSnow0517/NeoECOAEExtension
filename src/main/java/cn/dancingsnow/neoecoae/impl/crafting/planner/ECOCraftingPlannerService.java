@@ -164,7 +164,14 @@ public final class ECOCraftingPlannerService {
                 + " reason=" + issue.reason();
             solved.trace().addDiagnostic(new PlannerDiagnostic(
                 PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID, message));
-            return new ComponentPlanner.Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, solved.state(), solved.trace(),
+            // Preserve AE2's normal missing-item contract. The first calculation can therefore render the
+            // deficit as a red row and disable Start, while the exact closure diagnostic remains available in
+            // the ECO report. Treating this as PARTIAL_UNSUPPORTED would invoke the native fallback, whose
+            // virtual/emittable producers can incorrectly make the same material look available.
+            if (issue.key() != null) {
+                solved.state().markMissing(issue.key(), issue.required().subtract(issue.supplied()));
+            }
+            return new ComponentPlanner.Outcome(PlanningStatus.MISSING_ITEMS, solved.state(), solved.trace(),
                 solved.cycles(), solved.components(), solved.executionComponentOrder());
         }
 

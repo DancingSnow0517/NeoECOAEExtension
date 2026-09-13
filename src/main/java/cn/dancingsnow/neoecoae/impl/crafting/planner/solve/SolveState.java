@@ -130,6 +130,12 @@ public final class SolveState {
         }
     }
 
+    /** Records an exact planner-side deficit discovered after solving (for example by raw AE2 contract validation). */
+    public void markMissing(AEKey key, PlannerAmount deficit) {
+        if (key == null || deficit == null || deficit.signum() <= 0) return;
+        missing.add(key, deficit);
+    }
+
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
     boolean applyCycleTransaction(int componentId, Map<AEKey, Long> requiredOutputs, CycleSolveResult cycle,
             Map<AEKey, Long> ownedCycleReservations,
