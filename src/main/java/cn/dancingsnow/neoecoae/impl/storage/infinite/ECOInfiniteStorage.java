@@ -32,11 +32,13 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (!allowInsert.getAsBoolean()) return 0L;
         return engine.extract(what, amount, mode);
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (!allowInsert.getAsBoolean()) return;
         engine.getAvailableStacks(out);
     }
 
@@ -52,6 +54,7 @@ public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
 
     @Override
     public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey, ExactAmount> visitor) {
+        if (!allowInsert.getAsBoolean()) return;
         KeyCounter keys = new KeyCounter();
         engine.getAvailableStacks(keys);
         for (var entry : keys) {

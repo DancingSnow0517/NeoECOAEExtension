@@ -4,6 +4,7 @@ public enum ECOStorageHostMode {
     UNFORMED("unformed"),
     FORMED_NORMAL("formed_normal"),
     MIGRATING_TO_INFINITE("migrating_to_infinite"),
+    RESTORING_TO_NORMAL("restoring_to_normal"),
     FORMED_INFINITE("formed_infinite");
 
     private final String id;
@@ -26,6 +27,10 @@ public enum ECOStorageHostMode {
     }
 
     public boolean isInfiniteState() {
-        return this == MIGRATING_TO_INFINITE || this == FORMED_INFINITE;
+        return this == MIGRATING_TO_INFINITE || this == FORMED_INFINITE || this == RESTORING_TO_NORMAL;
+    }
+
+    public boolean isTransitioning() {
+        return this == MIGRATING_TO_INFINITE || this == RESTORING_TO_NORMAL;
     }
 }

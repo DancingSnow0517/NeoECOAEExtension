@@ -140,6 +140,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
     @Persisted
     private boolean infiniteExitRequested;
+    private transient boolean infiniteComponentsDirty = true;
+    private transient boolean targetInfiniteMode;
+    private transient boolean updatingInfiniteMode;
+    private transient long infiniteModeCheckTick = Long.MIN_VALUE;
+    private transient long infiniteBackendGeneration;
     @Persisted
     @DescSynced
     @Nullable
@@ -681,7 +686,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        if (!hasRequiredInfiniteComponents()) infiniteExitRequested = false;
+        infiniteComponentsDirty = true;
+        extractionCheckTick = Long.MIN_VALUE;
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         saveChanges();
     }
@@ -693,7 +699,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         storageMounts.mount(
-            new ECOInfiniteStorage(engine, getBlockState().getBlock().getName(), this::canInsertIntoInfiniteDomain),
+            createInfiniteStorageView(engine),
             storagePriority
         );
     }
@@ -1111,9 +1117,22 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canInsertIntoInfiniteDomain() {
-        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null
+        return formed && !isRemoved() && !isServerStopping()
+            && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null
             && !infiniteExitRequested && activeRestorePlan == null
-            && (mountedInfiniteEngine == null || !mountedInfiniteEngine.hasPendingRestore());
+            && mountedInfiniteEngine != null && mountedInfiniteEngine.isHealthy()
+            && !mountedInfiniteEngine.hasPendingRestore();
+    }
+
+    private MEStorage createInfiniteStorageView(ECOInfiniteStorageEngine engine) {
+        long generation = infiniteBackendGeneration;
+        return new ECOInfiniteStorage(engine, getBlockState().getBlock().getName(),
+            () -> generation == infiniteBackendGeneration && engine == mountedInfiniteEngine
+                && canInsertIntoInfiniteDomain());
+    }
+
+    public boolean canUseNormalStorage() {
+        return formed && !isRemoved() && !isServerStopping() && !hostMode.isInfiniteState();
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
@@ -1355,15 +1374,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Nullable
     private MEStorage getStorageInterfaceHostStorage() {
+        if (hostMode.isTransitioning() || (hostMode.isInfiniteState() && infiniteExitRequested)) return null;
         if (canUseHostDomainStorage()) {
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             if (engine != cachedStorageEngine) {
                 cachedStorageEngine = engine;
-                cachedInfiniteStorage = engine == null ? null : new ECOInfiniteStorage(
-                    engine,
-                    getBlockState().getBlock().getName(),
-                    this::canInsertIntoInfiniteDomain
-                );
+                cachedInfiniteStorage = engine == null ? null : createInfiniteStorageView(engine);
             }
             return cachedInfiniteStorage;
         }
@@ -1428,50 +1444,73 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void updateInfiniteStorageMode() {
-        if (level == null || level.isClientSide || isServerStopping()) {
+        if (level == null || level.isClientSide || isServerStopping() || updatingInfiniteMode
+            || infiniteModeCheckTick == level.getGameTime()) {
             return;
         }
+        infiniteModeCheckTick = level.getGameTime();
+        updatingInfiniteMode = true;
         ECOStorageHostMode previous = hostMode;
+        try {
+            if (infiniteComponentsDirty) {
+                infiniteComponentsDirty = false;
+                targetInfiniteMode = hasRequiredInfiniteComponents();
+                // Keep a completed exit latched until the components have actually been removed.
+                if (!targetInfiniteMode && !hostMode.isInfiniteState()) infiniteExitRequested = false;
+            }
+            processInfiniteStorageMode();
+        } finally {
+            updatingInfiniteMode = false;
+            syncInfiniteModeChanges(previous);
+        }
+    }
+
+    private void processInfiniteStorageMode() {
         if (!formed || cluster == null) {
             if (!hostMode.isInfiniteState()) {
                 hostMode = ECOStorageHostMode.UNFORMED;
             }
-            syncInfiniteModeChanges(previous);
             return;
         }
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
         if (hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
+            // Finish the sealed migration before considering an exit, including after reload.
             runInfiniteMigrationStep();
-            syncInfiniteModeChanges(previous);
             return;
         }
         ECOInfiniteStorageEngine restoringEngine = getInfiniteEngine();
-        if (activeRestorePlan != null || (restoringEngine != null && restoringEngine.hasPendingRestore())
+        if (hostMode == ECOStorageHostMode.RESTORING_TO_NORMAL || activeRestorePlan != null
+            || (restoringEngine != null && restoringEngine.hasPendingRestore())
             || (infiniteExitRequested && hostMode.isInfiniteState())) {
+            hostMode = ECOStorageHostMode.RESTORING_TO_NORMAL;
             restoreInfiniteDomainToNormalStorageIfPossible();
-            syncInfiniteModeChanges(previous);
             return;
         }
-        if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
+        if (hostMode.isInfiniteState() && !targetInfiniteMode) {
+            hostMode = ECOStorageHostMode.RESTORING_TO_NORMAL;
             restoreInfiniteDomainToNormalStorageIfPossible();
-            syncInfiniteModeChanges(previous);
             return;
         }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
             ensureInfiniteDomainId();
+            // Opening the destination must succeed before changing ownership of any source.
+            ECOInfiniteStorageEngine engine = getInfiniteEngine();
+            if (engine == null || !engine.isHealthy()) return;
             hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
-            syncInfiniteModeChanges(previous);
         }
         if (hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
             runInfiniteMigrationStep();
         }
-        syncInfiniteModeChanges(previous);
     }
 
     private void syncInfiniteModeChanges(ECOStorageHostMode previous) {
         if (previous != hostMode) {
+            infiniteBackendGeneration++;
+            cachedStorageEngine = null;
+            cachedInfiniteStorage = null;
+            extractionCheckTick = Long.MIN_VALUE;
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             refreshDriveStorageProviders();
             setChanged();
@@ -1487,7 +1526,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             && pendingFiniteTransferDomain == null
             && !finiteDomainRestoreFailed
             && !isStorageInterfaceTransferMode()
-            && hasRequiredInfiniteComponents()
+            && targetInfiniteMode
             && countInfiniteMigrationSources() >= 12
             && !hasForeignInfiniteMembers();
     }
