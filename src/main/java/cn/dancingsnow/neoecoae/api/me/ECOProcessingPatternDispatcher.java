@@ -10,6 +10,7 @@ import appeng.crafting.pattern.AEProcessingPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import java.lang.reflect.Method;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -33,12 +34,14 @@ final class ECOProcessingPatternDispatcher {
     void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; } }
     void reset() { states.clear(); tick = Long.MIN_VALUE; used = 0; }
     boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
-        return Contract.forProvider(provider) != null && (pattern == null || unwrap(pattern) instanceof AEProcessingPattern);
+        return Contract.forProvider(provider) != null
+                && (pattern == null || ECOProviderPatternIntrospection.unwrap(pattern) instanceof AEProcessingPattern);
     }
 
     @Nullable ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
             double onePower, IEnergyService service, Consumer<ICraftingProvider> mark) {
-        Contract c = Contract.forProvider(provider); IPatternDetails base = unwrap(request.pattern());
+        Contract c = Contract.forProvider(provider);
+        IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
         if (c == null || !(base instanceof AEProcessingPattern)) return null;
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
@@ -60,18 +63,37 @@ final class ECOProcessingPatternDispatcher {
             List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
             if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) break;
             var reservation = energy.reserve(service, onePower * offer); if (reservation == null) { ECOBatchCraftingHelper.insertAll(request.inventory(), consumed); break; }
-            mark.accept(provider); long leftover = c.push(provider, request.pattern(), request.inputs(), offer);
+            mark.accept(provider); long leftover;
+            try {
+                leftover = c.push(provider, request.pattern(), request.inputs(), offer);
+            } catch (AmbiguousDispatchException failure) {
+                request.job().failPermanently("AMBIGUOUS_PROCESSING_PROVIDER_OWNERSHIP");
+                reservation.commit();
+                return null;
+            }
             if (leftover < 0 || leftover > offer) leftover = offer;
             long accepted = offer - leftover;
             if (leftover > 0) ECOBatchCraftingHelper.insertAll(request.inventory(), ECOBatchCraftingHelper.multiply(per, leftover));
             if (accepted <= 0) { reservation.refund(); state.fail(offer); break; }
-            overload.registerAccepted(accepted);
-            reservation.refundUnaccepted(accepted, offer); state.success(offer, accepted); totalAccepted += accepted; used += accepted; limit -= accepted;
+            try {
+                overload.registerAccepted(accepted);
+                reservation.refundUnaccepted(accepted, offer);
+            } catch (RuntimeException failure) {
+                request.job().failPermanently("POST_ACCEPT_PROCESSING_REGISTRATION_FAILURE");
+                throw failure;
+            }
+            state.success(offer, accepted); totalAccepted += accepted; used += accepted; limit -= accepted;
             if (accepted < offer) break;
         }
         if (totalAccepted <= 0) return null;
         var result = ECOCraftingDispatchResult.batch(totalAccepted, ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted), ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
-        accounting.apply(request, result, () -> {}, provider); return result;
+        try {
+            accounting.apply(request, result, () -> {}, provider);
+        } catch (RuntimeException failure) {
+            request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
+            throw failure;
+        }
+        return result;
     }
 
     /** Conservative all-or-nothing scaling for ordinary packaged providers without the native batch API. */
@@ -90,31 +112,49 @@ final class ECOProcessingPatternDispatcher {
                 n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
         if (offer <= 1) return null; // The ordinary path owns the 1x fallback and its fairness budget.
         List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
-        if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) return null;
+        var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), consumed);
+        if (inputTransaction == null) return null;
         var reservation = energy.reserve(service, onePower * offer);
-        if (reservation == null) { ECOBatchCraftingHelper.insertAll(request.inventory(), consumed); return null; }
+        if (reservation == null) { inputTransaction.rollback(); return null; }
         boolean accepted = false;
+        boolean ownershipUncertain = false;
         try {
             mark.accept(provider);
             var scaled = new ScaledProcessingPattern(request.pattern(), offer);
-            KeyCounter[] counters = scaleCounters(request.inputs(), offer);
+            KeyCounter[] counters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), offer);
             var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled, counters,
                     request.outputs(), request.remainders(), offer, request.inventory(), request.level());
-            accepted = normalPush.push(scaledRequest, provider);
+            try {
+                accepted = normalPush.push(scaledRequest, provider);
+            } catch (RuntimeException failure) {
+                ownershipUncertain = true;
+                inputTransaction.transferOwnership();
+                request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
+                reservation.commit();
+                return null;
+            }
             if (!accepted) { state.fail(offer); return null; }
+            inputTransaction.transferOwnership();
             reservation.commit(); state.success(offer, offer); used += offer;
             var result = ECOCraftingDispatchResult.batch(offer,
                     ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), offer), List.of());
             accounting.apply(request, result, () -> {}, provider); return result;
         } catch (RuntimeException failure) {
+            if (accepted) {
+                request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
+                throw failure;
+            }
             state.fail(offer); return null;
         } finally {
-            if (!accepted) { ECOBatchCraftingHelper.insertAll(request.inventory(), consumed); reservation.refund(); }
+            if (!accepted && !ownershipUncertain) {
+                inputTransaction.rollback();
+                reservation.refund();
+            }
         }
     }
 
     private static boolean safeForGenericScaling(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
-        IPatternDetails base = unwrap(request.pattern());
+        IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
         if (!(base instanceof AEProcessingPattern) || base != request.pattern() || request.remainders().size() != 0
                 || request.pattern().getInputs().length != 1
                 || request.pattern().getOutputs().isEmpty()
@@ -151,15 +191,6 @@ final class ECOProcessingPatternDispatcher {
         return true;
     }
 
-    private static KeyCounter[] scaleCounters(KeyCounter[] source, long multiplier) {
-        KeyCounter[] result = new KeyCounter[source.length];
-        for (int slot = 0; slot < source.length; slot++) {
-            result[slot] = new KeyCounter();
-            for (var entry : source[slot]) result[slot].add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
-        }
-        return result;
-    }
-
     private static final class ScaledProcessingPattern implements IPatternDetails {
         private final IPatternDetails original; private final long multiplier;
         private ScaledProcessingPattern(IPatternDetails original, long multiplier) { this.original = original; this.multiplier = multiplier; }
@@ -182,21 +213,23 @@ final class ECOProcessingPatternDispatcher {
         public appeng.api.stacks.AEKey getRemainingKey(appeng.api.stacks.AEKey template) { return null; }
     }
 
-    private static IPatternDetails unwrap(IPatternDetails p) {
-        java.util.Set<IPatternDetails> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>()); IPatternDetails cur = p;
-        while (cur != null) { if (!seen.add(cur)) return null; IPatternDetails next = invoke(cur, "providerLookupPattern"); if (next == cur) next = wrapped(cur); if (next == null) return cur; cur = next; }
-        return null;
-    }
-    private static IPatternDetails wrapped(IPatternDetails p) { for (String name : new String[]{"wrappedPatternDetails", "getWrappedPatternDetails", "wrappedPattern", "delegate"}) { IPatternDetails value = invoke(p, name); if (value != null) return value; } return null; }
-    private static IPatternDetails invoke(IPatternDetails p, String n) { try { Method m = p.getClass().getMethod(n); Object v = m.invoke(p); return v instanceof IPatternDetails d ? d : null; } catch (ReflectiveOperationException | RuntimeException e) { return null; } }
-
     private record Contract(Class<?> type, Method capacity, Method mode, Method push) {
         private static final List<Contract> ALL = resolve();
         static Contract forProvider(Object p) { for (Contract c : ALL) if (c.type.isInstance(p)) return c; return null; }
         long capacity(Object p, IPatternDetails d) { try { Object v = capacity.invoke(p, d); return v instanceof Number n ? Math.max(0, n.longValue()) : 0; } catch (ReflectiveOperationException | RuntimeException e) { return 0; } }
         boolean unbounded(Object p, IPatternDetails d) { try { Object v = mode.invoke(p, d); return v instanceof Enum<?> e && e.name().equals("UNBOUNDED"); } catch (ReflectiveOperationException | RuntimeException e) { return false; } }
-        long push(Object p, IPatternDetails d, KeyCounter[] i, long n) { try { Object v = push.invoke(p, d, i, n); return v instanceof Number x ? x.longValue() : n; } catch (ReflectiveOperationException | RuntimeException e) { return n; } }
+        long push(Object p, IPatternDetails d, KeyCounter[] i, long n) {
+            try {
+                Object v = push.invoke(p, d, i, n);
+                return v instanceof Number x ? x.longValue() : n;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                throw new AmbiguousDispatchException(e);
+            }
+        }
         private static List<Contract> resolve() { java.util.ArrayList<Contract> r = new java.util.ArrayList<>(); for (String n : new String[]{"com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider","com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider"}) try { Class<?> t = Class.forName(n, false, ECOProcessingPatternDispatcher.class.getClassLoader()); r.add(new Contract(t, t.getMethod("getBatchCapacity", IPatternDetails.class), t.getMethod("getBatchDispatchMode", IPatternDetails.class), t.getMethod("pushBatch", IPatternDetails.class, KeyCounter[].class, long.class))); } catch (ReflectiveOperationException | LinkageError ignored) {} return List.copyOf(r); }
+    }
+    private static final class AmbiguousDispatchException extends RuntimeException {
+        private AmbiguousDispatchException(Throwable cause) { super(cause); }
     }
     static final class ProbeState { long next = 1, proven; void success(long o, long a) { if (a < o) { proven = Math.max(1, a); next = Math.max(1, Math.min(o / 2, proven)); } else { proven = Math.max(proven, o); next = o >= LADDER[LADDER.length - 1] ? (o >= Long.MAX_VALUE / 2 ? Long.MAX_VALUE : o * 2) : LADDER[nextIndex(o)]; } } void fail(long o) { next = Math.max(1, (proven > 0 ? Math.min(proven, o) : o) / 2); } private int nextIndex(long o) { for (int i = 0; i < LADDER.length - 1; i++) if (o <= LADDER[i]) return i + 1; return LADDER.length - 1; } }
 }

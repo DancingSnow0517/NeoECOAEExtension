@@ -16,12 +16,15 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tries providers in the already-selected order. This is the boundary between task scheduling and provider-level
  * dispatch; it knows the optional FastPath and ordinary fallback, but not phase/candidate selection.
  */
 final class ECOCraftingProviderDispatcher {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
     private final ECOCraftingFastPathDispatcher fastPath;
     private final ECOProcessingPatternDispatcher processing;
     private final ECOCraftingEnergyTransaction energyTransaction;
@@ -63,12 +66,14 @@ final class ECOCraftingProviderDispatcher {
             if (processingResult != null) {
                 return Result.accepted(processingResult.acceptedCrafts(), true);
             }
+            if (request.job().suspended) return Result.none();
 
             var fastResult = fastPath.tryDispatch(
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
             if (fastResult != null) {
                 return Result.accepted(fastResult.acceptedCrafts(), true);
             }
+            if (request.job().suspended) return Result.none();
 
             var parallelResult = tryDispatchOrdinaryBatch(
                     request, provider, singlePower, energyService, budget, diagnostics,
@@ -82,6 +87,7 @@ final class ECOCraftingProviderDispatcher {
             if (scaledProcessingResult != null) {
                 return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
             }
+            if (request.job().suspended) return Result.none();
 
             // A batch is an optional optimization. If it is unavailable, rejected, or dynamically ambiguous,
             // the same provider still receives the normal one-copy fallback.
@@ -108,20 +114,20 @@ final class ECOCraftingProviderDispatcher {
                 break;
             }
 
-            boolean inputsExtracted;
+            ECOProviderInputTransaction inputTransaction;
             try {
-                inputsExtracted = ECOBatchCraftingHelper.extractExact(request.inventory(), ordinaryInputStacks);
+                inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), ordinaryInputStacks);
             } catch (RuntimeException failure) {
                 reservation.refund();
                 throw failure;
             }
-            if (!inputsExtracted) {
-                // extractExact already restored the partial extraction. Do not replay the full resolved input set.
+            if (inputTransaction == null) {
                 reservation.refund();
                 break;
             }
 
             boolean accepted = false;
+            boolean ownershipUncertain = false;
             try {
                 markProviderAttempt.accept(provider);
                 budget.recordNormalProbe();
@@ -131,24 +137,37 @@ final class ECOCraftingProviderDispatcher {
                 if (diagnostics.isActive()) {
                     clearProviderDiagnostics(provider);
                 }
-                accepted = normalPush.push(request, provider);
-                if (!accepted) {
+                try {
+                    accepted = normalPush.push(request, provider);
+                } catch (RuntimeException failure) {
+                    ownershipUncertain = true;
+                    inputTransaction.transferOwnership();
+                    failAmbiguousDispatch(request, provider, "ordinary", failure);
+                    reservation.commit();
+                    return Result.none();
+                }
+                if (!accepted && !ownershipUncertain) {
                     diagnostics.pushRejected(request.pattern(), provider);
                     continue;
                 }
 
+                inputTransaction.transferOwnership();
                 reservation.commit();
-                accounting.apply(request,
-                        ECOCraftingDispatchResult.single(request.outputs(), request.remainders()),
-                        budget::recordAcceptedNormalPush, provider);
+                try {
+                    accounting.apply(request,
+                            ECOCraftingDispatchResult.single(request.outputs(), request.remainders()),
+                            budget::recordAcceptedNormalPush, provider);
+                } catch (RuntimeException failure) {
+                    request.job().failPermanently("POST_ACCEPT_ORDINARY_ACCOUNTING_FAILURE");
+                    throw failure;
+                }
                 diagnostics.progress(TickHandler.instance().getCurrentTick());
                 return Result.accepted(1L, false);
             } finally {
                 // A rejected ordinary provider does not own the extracted inputs; the next provider may try the same
                 // exact snapshot. An accepted provider owns it and the reservation is already committed.
-                if (!accepted) {
-                    appeng.crafting.execution.CraftingCpuHelper.reinjectPatternInputs(
-                            request.inventory(), request.inputs());
+                if (!accepted && !ownershipUncertain) {
+                    inputTransaction.rollback();
                     reservation.refund();
                 }
             }
@@ -204,7 +223,7 @@ final class ECOCraftingProviderDispatcher {
 
         List<appeng.api.stacks.GenericStack> totalInputs =
                 ECOBatchCraftingHelper.multiply(perCraftInputs, requested);
-        KeyCounter[] scaledCounters = scaleCounters(request.inputs(), requested);
+        KeyCounter[] scaledCounters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), requested);
         double batchPower = singlePower * requested;
         if (!Double.isFinite(batchPower) || batchPower < 0.0D) {
             return null;
@@ -216,49 +235,62 @@ final class ECOCraftingProviderDispatcher {
             return null;
         }
 
+        var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), totalInputs);
+        if (inputTransaction == null) {
+            reservation.refund();
+            return null;
+        }
+
         boolean accepted = false;
+        boolean ownershipUncertain = false;
         try {
             markProviderAttempt.accept(provider);
             budget.recordNormalProbe();
             diagnostics.probe();
             markNormalResume.run();
-            accepted = parallelProvider.eco$pushPatternBatch(
-                    request.pattern(), scaledCounters, requested, request.job().link.getCraftingID());
-            if (!accepted) {
+            try {
+                accepted = parallelProvider.eco$pushPatternBatch(
+                        request.pattern(), scaledCounters, requested, request.job().link.getCraftingID());
+            } catch (RuntimeException failure) {
+                ownershipUncertain = true;
+                inputTransaction.transferOwnership();
+                failAmbiguousDispatch(request, provider, "parallel", failure);
+                reservation.commit();
+                return Result.none();
+            }
+            if (!accepted && !ownershipUncertain) {
                 diagnostics.pushRejected(request.pattern(), provider);
                 return null;
             }
 
+            inputTransaction.transferOwnership();
             reservation.commit();
             var result = ECOCraftingDispatchResult.batch(
                     requested,
                     ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), requested),
                     ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), requested));
-            accounting.apply(request, result, budget::recordAcceptedNormalPush, provider);
+            try {
+                accounting.apply(request, result, budget::recordAcceptedNormalPush, provider);
+            } catch (RuntimeException failure) {
+                request.job().failPermanently("POST_ACCEPT_PARALLEL_ACCOUNTING_FAILURE");
+                throw failure;
+            }
             diagnostics.progress(TickHandler.instance().getCurrentTick());
             return Result.accepted(requested, false);
         } finally {
-            if (!accepted) {
-                ECOBatchCraftingHelper.insertAll(request.inventory(), totalInputs);
+            if (!accepted && !ownershipUncertain) {
+                inputTransaction.rollback();
                 reservation.refund();
             }
         }
     }
 
-    private static KeyCounter[] scaleCounters(KeyCounter[] source, long multiplier) {
-        KeyCounter[] result = new KeyCounter[source.length];
-        for (int slot = 0; slot < source.length; slot++) {
-            KeyCounter scaled = new KeyCounter();
-            KeyCounter counter = source[slot];
-            if (counter != null) {
-                for (var entry : counter) {
-                    long amount = Math.multiplyExact(entry.getLongValue(), multiplier);
-                    scaled.add(entry.getKey(), amount);
-                }
-            }
-            result[slot] = scaled;
-        }
-        return result;
+    private static void failAmbiguousDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
+            String path, RuntimeException failure) {
+        String reason = "AMBIGUOUS_" + path.toUpperCase(java.util.Locale.ROOT) + "_PROVIDER_OWNERSHIP";
+        request.job().failPermanently(reason);
+        LOGGER.error("ECO {} provider {} threw after dispatch began; the job is suspended without replaying inputs",
+                path, provider.getClass().getName(), failure);
     }
 
     private static void clearProviderDiagnostics(ICraftingProvider provider) {

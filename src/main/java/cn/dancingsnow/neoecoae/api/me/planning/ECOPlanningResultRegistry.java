@@ -38,7 +38,7 @@ public final class ECOPlanningResultRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
-    private static final Map<Signature, List<Entry>> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
+    private static final Map<Signature, Entry> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {
@@ -78,13 +78,12 @@ public final class ECOPlanningResultRegistry {
         long now = System.nanoTime();
         synchronized (RESULTS) {
             removeExpired(now);
-            List<Entry> entries = RESULTS.computeIfAbsent(signature, ignored -> new ArrayList<>());
-            // Multiple aliases of one ECO planning result are one candidate. Different planning IDs remain
-            // independent even if they happen to have byte-for-byte equal plans.
-            entries.removeIf(entry -> entry.planningId().equals(planningId));
-            entries.add(new Entry(result, signature, Map.copyOf(plan.patternTimes()),
-                inspection.executionPlan(), inspection.cycleExpected(),
-                recoveryState, inspection.reason(), planningId, now));
+            // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
+            // identity made a second identical calculation poison recovery for both submissions. Replace the
+            // value atomically; the submitted pattern objects are rebound below before execution.
+            RESULTS.put(signature, new Entry(result, signature, Map.copyOf(plan.patternTimes()),
+                    inspection.executionPlan(), inspection.cycleExpected(), recoveryState,
+                    inspection.reason(), planningId, now));
             trimEntries();
         }
     }
@@ -113,7 +112,8 @@ public final class ECOPlanningResultRegistry {
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return uniqueEntry(RESULTS.get(signature));
+            Entry entry = RESULTS.get(signature);
+            return entry == null ? null : entry.result();
         }
     }
 
@@ -191,22 +191,13 @@ public final class ECOPlanningResultRegistry {
         return alias != null && PlanIdentity.matches(alias.confirmedSignature(), plan);
     }
 
-    /**
-     * The submitted plan is authoritative. This method is retained as a compatibility hook for cluster/CPU
-     * integrations, but it deliberately returns the input object on every path.
-     */
-    public static ICraftingPlan resolveSubmissionPlan(ICraftingPlan submittedPlan) {
-        return submittedPlan;
-    }
-
     /** Recover/rebind only strict metadata; no same-output or production-scaled candidate search remains. */
     public static @Nullable RecoveredExecutionMetadata recoverExecutionMetadata(ICraftingPlan plan) {
         Signature signature = PlanIdentity.of(plan);
         if (signature == null) return null;
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            List<Entry> entries = RESULTS.get(signature);
-            Entry entry = uniqueEntryObject(entries);
+            Entry entry = RESULTS.get(signature);
             if (entry == null) return null;
 
             ECOExecutionPlan rebound = rebind(entry.executionPlan(), entry.tasks(), plan.patternTimes());
@@ -229,15 +220,15 @@ public final class ECOPlanningResultRegistry {
     public static int registeredScheduleCount() {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return (int) RESULTS.values().stream().flatMap(List::stream)
-                .filter(entry -> entry.recoveryState() == RecoveryState.VALID_SCHEDULE).count();
+            return (int) RESULTS.values().stream()
+                    .filter(entry -> entry.recoveryState() == RecoveryState.VALID_SCHEDULE).count();
         }
     }
 
     public static int registeredMetadataCount() {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
-            return RESULTS.values().stream().mapToInt(List::size).sum();
+            return RESULTS.size();
         }
     }
 
@@ -255,44 +246,26 @@ public final class ECOPlanningResultRegistry {
             removeExpired(System.nanoTime());
             List<String> candidates = new ArrayList<>();
             int index = 0;
-            for (List<Entry> entries : RESULTS.values()) {
-                for (Entry entry : entries) {
-                    boolean sameOutput = entry.signature().sameFinalOutput(submittedSignature);
-                    boolean strict = entry.signature().equals(submittedSignature);
-                    candidates.add("candidate=" + index++ + ",planningId=" + entry.planningId()
-                        + ",sameFinalOutput=" + sameOutput + ",strictMatch=" + strict
-                        + ",registered=" + PlanIdentity.describe(entry.signature())
-                        + ",submitted=" + PlanIdentity.describe(submittedSignature));
-                }
+            for (Entry entry : RESULTS.values()) {
+                boolean sameOutput = entry.signature().sameFinalOutput(submittedSignature);
+                boolean strict = entry.signature().equals(submittedSignature);
+                candidates.add("candidate=" + index++ + ",planningId=" + entry.planningId()
+                    + ",sameFinalOutput=" + sameOutput + ",strictMatch=" + strict
+                    + ",registered=" + PlanIdentity.describe(entry.signature())
+                    + ",submitted=" + PlanIdentity.describe(submittedSignature));
             }
             return candidates.isEmpty() ? "strict-candidates=0" : String.join("; ", candidates);
         }
     }
 
     private static void removeExpired(long now) {
-        RESULTS.entrySet().removeIf(entry -> {
-            entry.getValue().removeIf(value -> now - value.createdNanos() > MAX_AGE_NANOS);
-            return entry.getValue().isEmpty();
-        });
+        RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
     }
 
     private static void trimEntries() {
-        while (RESULTS.values().stream().mapToInt(List::size).sum() > MAX_ENTRIES) {
-            var oldestBucket = RESULTS.entrySet().iterator().next();
-            oldestBucket.getValue().clear();
-            RESULTS.remove(oldestBucket.getKey());
+        while (RESULTS.size() > MAX_ENTRIES) {
+            RESULTS.remove(RESULTS.entrySet().iterator().next().getKey());
         }
-    }
-
-    private static @Nullable ECOPlanningResult uniqueEntry(@Nullable List<Entry> entries) {
-        Entry entry = uniqueEntryObject(entries);
-        return entry == null ? null : entry.result();
-    }
-
-    private static @Nullable Entry uniqueEntryObject(@Nullable List<Entry> entries) {
-        if (entries == null || entries.isEmpty()) return null;
-        UUID planningId = entries.getFirst().planningId();
-        return entries.stream().allMatch(entry -> entry.planningId().equals(planningId)) ? entries.getFirst() : null;
     }
 
     private static @Nullable ECOExecutionPlan rebind(@Nullable ECOExecutionPlan sourcePlan,
@@ -432,11 +405,6 @@ public final class ECOPlanningResultRegistry {
     private record RegistrationInspection(@Nullable PlanningStatus status, boolean planSimulation,
             boolean resultPlanSimulation, boolean strictPlanMatch, @Nullable ECOExecutionPlan executionPlan,
             boolean cycleExpected, @Nullable String reason) {
-        RegistrationInspection withReason(String replacement) {
-            return new RegistrationInspection(status, planSimulation, resultPlanSimulation, strictPlanMatch,
-                executionPlan, cycleExpected, replacement);
-        }
-
         boolean canStoreFailClosedMetadata() {
             if (!cycleExpected || reason == null || !strictPlanMatch) return false;
             return reason.equals("SCHEDULE_NULL") || reason.equals("SCHEDULE_EMPTY")

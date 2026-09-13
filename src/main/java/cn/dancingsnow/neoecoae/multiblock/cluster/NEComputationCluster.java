@@ -14,7 +14,6 @@ import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
@@ -291,7 +290,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (this.networkCluster != null) {
             return this.networkCluster.submitJob(grid, job, src, requestingMachine);
         }
-        job = ECOPlanningResultRegistry.resolveSubmissionPlan(job);
         if (!this.isActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }

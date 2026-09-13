@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
+import cn.dancingsnow.neoecoae.util.NEMath;
 
 import java.util.EnumMap;
 import java.util.UUID;
@@ -209,7 +210,7 @@ final class ECODispatchStallDiagnostics {
                         text.append("alternative=").append(alternative).append(" unavailable");
                         continue;
                     }
-                    long need = multiply(input.getMultiplier(), possible.amount());
+                    long need = NEMath.saturatingMultiply(input.getMultiplier(), possible.amount());
                     long available = inventory.extract(possible.what(), Long.MAX_VALUE, Actionable.SIMULATE);
                     long missing = Math.max(0L, need - available);
                     satisfied |= available >= need;
@@ -274,7 +275,7 @@ final class ECODispatchStallDiagnostics {
 
         long pendingTasks = 0L;
         for (var task : job.tasks.values()) {
-            pendingTasks = saturatingAdd(pendingTasks, Math.max(0L, task.value));
+            pendingTasks = NEMath.saturatingAdd(pendingTasks, Math.max(0L, task.value));
         }
         int waitingTypes = 0;
         var waiting = new java.util.ArrayList<WaitingEntry>();
@@ -313,7 +314,7 @@ final class ECODispatchStallDiagnostics {
     }
 
     private void cause(Cause cause) {
-        causes.merge(cause, 1L, ECODispatchStallDiagnostics::saturatingAdd);
+        causes.merge(cause, 1L, NEMath::saturatingAdd);
     }
 
     private String describeProvider(IPatternDetails pattern, ICraftingProvider provider, boolean ignoreSnapshotReasons) {
@@ -339,11 +340,11 @@ final class ECODispatchStallDiagnostics {
     private void recordPushReasons(java.util.Set<ECOPatternPushDiagnostics.Reason> observed) {
         if (observed.isEmpty()) {
             pushReasons.merge(ECOPatternPushDiagnostics.Reason.UNKNOWN, 1L,
-                ECODispatchStallDiagnostics::saturatingAdd);
+                NEMath::saturatingAdd);
             return;
         }
         for (var reason : observed) {
-            pushReasons.merge(reason, 1L, ECODispatchStallDiagnostics::saturatingAdd);
+            pushReasons.merge(reason, 1L, NEMath::saturatingAdd);
         }
     }
 
@@ -388,18 +389,8 @@ final class ECODispatchStallDiagnostics {
         return text.length() <= MAX_DETAIL_LENGTH ? text : text.substring(0, MAX_DETAIL_LENGTH) + "...";
     }
 
-    private static long multiply(long left, long right) {
-        if (left <= 0L || right <= 0L) return 0L;
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
-    }
-
     private static long saturatingIncrement(long value) {
         return value == Long.MAX_VALUE ? value : value + 1L;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right <= 0L) return left;
-        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     private record WaitingEntry(AEKey key, long amount) {}

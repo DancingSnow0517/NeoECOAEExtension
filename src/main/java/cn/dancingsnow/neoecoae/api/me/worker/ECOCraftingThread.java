@@ -13,7 +13,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import appeng.menu.AutoCraftingMenu;
@@ -22,26 +21,17 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateAnalyzer;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableStateModel;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingStateSlots;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVirtualCraftingWork;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,15 +60,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
     private static final int MAX_PERSISTED_ITEM_STACK_ENTRIES = 256;
     private static final long BLOCKED_PROGRESS_LOG_INTERVAL_TICKS = 100L;
-    private static final long BLOCKED_OUTPUT_LOG_GRACE_TICKS = 200L;
-    private static final long BLOCKED_OUTPUT_LOG_INTERVAL_TICKS = 1_200L;
-    private static final long BLOCKED_OUTPUT_ACTIVE_LANE_TICKS = 40L;
-    private static final long BLOCKED_OUTPUT_STALE_JOB_TICKS = 2_400L;
     private static final long OWNING_CPU_RECOVERY_TIMEOUT_TICKS = 2_400L;
-    private static final int BLOCKED_OUTPUT_LOG_POSITION_LIMIT = 8;
-    private static final Object BLOCKED_OUTPUT_DIAGNOSTIC_LOCK = new Object();
-    private static final Map<UUID, BlockedOutputDiagnostic> BLOCKED_OUTPUT_DIAGNOSTICS = new HashMap<>();
-    private static volatile boolean blockedOutputDiagnosticsEnabled;
 
     private enum RecoveryState {
         ACTIVE,
@@ -124,17 +106,18 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
     private long lastRecoveryFailureLogTick = Long.MIN_VALUE;
     private long lastBlockedProgressLogTick = Long.MIN_VALUE;
-    private long unownedBlockedOutputSinceTick = Long.MIN_VALUE;
-    private long lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
     private long owningCpuMissingSinceGameTime = Long.MIN_VALUE;
-    private final String outputDiagnosticLaneId = Integer.toHexString(System.identityHashCode(this));
+    private final ECOCraftingThreadOutputDiagnostics outputDiagnostics =
+        new ECOCraftingThreadOutputDiagnostics();
 
     private final TransientCraftingContainer craftingInv;
+    private final ECOCraftingFastPathVerifier fastPathVerifier;
 
     public ECOCraftingThread(ECOCraftingWorkerBlockEntity worker) {
         this.worker = worker;
         this.actionSource = IActionSource.ofMachine(worker);
         this.craftingInv = new TransientCraftingContainer(new AutoCraftingMenu(), 3, 3);
+        this.fastPathVerifier = new ECOCraftingFastPathVerifier(worker, craftingInv);
     }
 
     public TickRateModulation tick(
@@ -378,241 +361,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingSystemBlockEntity controller,
         @Nullable UUID craftingJobId
     ) {
-        ECOCraftingFastPathCache cache = worker.getFastPathCache();
-        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
-        ECOFastPathKey key = execution.key();
-        if (!execution.canUseFastPath()) {
-            fastPathReason = execution.fastPathReason();
-            return calcPatternSlow(execution, controller, craftingJobId, false, tick);
-        }
-
-        // One lookup, one value verification. The status tells the three non-usable cases apart without a
-        // second map probe or a second comparison.
-        ECOFastPathLookup lookup = cache.lookup(execution, tick, AE2PatternIntrospection.reloadGeneration());
-        switch (lookup.status()) {
-            case NEGATIVE -> {
-                fastPathReason = lookup.reason() == null ? "NEGATIVE_CACHE" : lookup.reason();
-                return calcPatternSlow(execution, controller, craftingJobId, false, tick);
-            }
-            case MISMATCH -> {
-                fastPathReason = lookup.reason() == null ? "CACHE_RESULT_MISMATCH" : lookup.reason();
-                return calcPatternSlow(execution, controller, craftingJobId, true, tick);
-            }
-            case VERIFIED -> {
-                ECOVerifiedFastPathRecipe recipe = lookup.recipe();
-                if (recipe.hasFluidInput()) {
-                    // Single-craft work stores physical ItemStacks for recovery, while batch work can retain
-                    // the raw fluid key. Keep the verified cache positive for batch dispatches and verify this
-                    // one craft through AE2's normal container-aware assembler path.
-                    fastPathReason = "FLUID_INPUT_SINGLE_CRAFT";
-                    return calcPatternSlow(execution, controller, craftingJobId, false, tick);
-                }
-                FastPathWork fastPathWork = createFastPathWork(recipe);
-                if (fastPathWork == null) {
-                    fastPathReason = "CACHED_RESULT_MATERIALIZATION_FAILED";
-                    cache.putNegative(key, tick, "CACHED_RESULT_MATERIALIZATION_FAILED");
-                    return calcPatternSlow(execution, controller, craftingJobId, false, tick);
-                }
-                if (!consumeCraftingCoolant(controller, 1)) {
-                    return false;
-                }
-                fastPathReason = "FAST_PATH_HIT";
-                startWork(
-                    List.of(fastPathWork.output()), fastPathWork.inputs(), fastPathWork.remaining(),
-                    craftingJobId, 1
-                );
-                return true;
-            }
-            default -> {
-                fastPathReason = lookup.reason() == null ? "CACHE_MISS" : lookup.reason();
-                return calcPatternSlow(execution, controller, craftingJobId, true, tick);
-            }
-        }
-    }
-
-    @Nullable
-    private FastPathWork createFastPathWork(ECOVerifiedFastPathRecipe recipe) {
-        var output = ECOFastPathStacks.toSingleItemStack(recipe.outputsPerCraft());
-        var inputs = ECOFastPathStacks.toItemStacks(recipe.inputsPerCraft());
-        var remaining = ECOFastPathStacks.toItemStacks(recipe.remainingPerCraft());
-        if (output.isEmpty() || inputs.isEmpty() || remaining.isEmpty()) {
-            return null;
-        }
-        return new FastPathWork(output.get(), inputs.get(), remaining.get());
-    }
-
-    private boolean calcPatternSlow(
-        ECOExtractedPatternExecution execution,
-        ECOCraftingSystemBlockEntity controller,
-        @Nullable UUID craftingJobId,
-        boolean verifyFastPath,
-        long tick
-    ) {
-        IMolecularAssemblerSupportedPattern pattern = execution.molecularPattern();
-        if (pattern == null) {
-            return false;
-        }
-        KeyCounter[] table = execution.craftingContainer();
-        craftingInv.clearContent();
-        pattern.fillCraftingGrid(table, craftingInv::setItem);
-        List<ItemStack> beforeSlots = new ArrayList<>();
-        for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) beforeSlots.add(craftingInv.getItem(slot).copy());
-        var positionedInput = craftingInv.asPositionedCraftInput();
-        ItemStack outputItem = pattern.assemble(positionedInput.input(), worker.getLevel());
-        if (outputItem.isEmpty()) {
-            craftingInv.clearContent();
-            return false;
-        }
+        var prepared = fastPathVerifier.prepare(execution, TickHandler.instance().getCurrentTick());
+        if (prepared == null) return false;
         if (!consumeCraftingCoolant(controller, 1)) {
             craftingInv.clearContent();
             return false;
         }
-
-        List<ItemStack> remainingSlots = ECOCraftingStateSlots.expandRemainingItems(
-            positionedInput,
-            pattern.getRemainingItems(positionedInput.input()),
-            craftingInv.getWidth(),
-            craftingInv.getHeight()
-        );
-        List<ItemStack> list = new ArrayList<>();
-        for (ItemStack item : remainingSlots) {
-            if (!item.isEmpty()) {
-                list.add(item.copy());
-            }
-        }
-
-        List<ItemStack> inputs = snapshotCraftingInputs();
-        if (verifyFastPath) {
-            fastPathReason = verifyAndCacheFastPath(
-                execution, outputItem, inputs, list, beforeSlots, remainingSlots, tick);
-        }
-        ECOCraftingFastPathCache cache = worker.getFastPathCache();
-        startWork(List.of(outputItem.copy()), inputs, list, craftingJobId, 1);
+        fastPathReason = prepared.reason();
+        startWork(prepared.outputs(), prepared.inputs(), prepared.remaining(), craftingJobId, 1);
         return true;
-    }
-
-    private String verifyAndCacheFastPath(
-        ECOExtractedPatternExecution execution,
-        ItemStack outputItem,
-        List<ItemStack> inputs,
-        List<ItemStack> remaining,
-        List<ItemStack> beforeSlots,
-        List<ItemStack> remainingSlots,
-        long tick
-    ) {
-        ECOFastPathKey key = execution.key();
-        if (key == null) {
-            return "KEY_BUILD_FAILED";
-        }
-        ECOCraftingFastPathCache cache = worker.getFastPathCache();
-        var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
-        var materializedInputEntries = ECOFastPathStacks.fromItemStacks(inputs);
-        var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
-        boolean hasFluidInput = execution.inputItems().stream()
-            .anyMatch(stack -> stack.what() instanceof AEFluidKey);
-        List<GenericStack> inputEntries = hasFluidInput
-            ? execution.inputItems()
-            : materializedInputEntries.orElse(List.of());
-        if (outputEntries.isEmpty() || inputEntries.isEmpty()) {
-            String reason = "VERIFIED_OUTPUT_OR_INPUT_CONVERSION_FAILED";
-            cache.putNegative(key, tick, reason);
-            return reason;
-        }
-        if (!outputEntries.get().equals(execution.expectedOutputs())
-            || !remainingEntries.get().equals(execution.expectedContainerItems())
-            || (!hasFluidInput && !inputEntries.equals(execution.inputItems()))) {
-            String reason = "ASSEMBLY_CONTRACT_MISMATCH";
-            cache.putNegative(key, tick, reason);
-            return reason;
-        }
-        ECOReusableStateAnalyzer.Analysis stateAnalysis =
-            ECOReusableStateAnalyzer.analyze(beforeSlots, remainingSlots,
-                execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
-        if (stateAnalysis.rejected()) {
-            if ("STATE_SLOT_COUNT_MISMATCH".equals(stateAnalysis.rejectReason())) {
-                logFastPathStateSlotMismatch(beforeSlots, remainingSlots);
-            }
-            cache.putNegative(key, tick, stateAnalysis.rejectReason());
-            return stateAnalysis.rejectReason();
-        }
-        if (!verifySecondStateStep(execution, outputItem, beforeSlots, remainingSlots, stateAnalysis.model())) {
-            String reason = "STATE_SECOND_STEP_PROOF_FAILED";
-            cache.putNegative(key, tick, reason);
-            return reason;
-        }
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries, tick,
-            stateAnalysis.model());
-        // This craft used the assembler; the newly verified cache only accelerates subsequent crafts.
-        return "CACHE_MISS";
-    }
-
-    private static void logFastPathStateSlotMismatch(
-        List<ItemStack> expectedSlots,
-        List<ItemStack> actualSlots
-    ) {
-        LOGGER.warn(
-            "Fast path state slot mismatch:\nexpectedSlotCount={}\nactualSlotCount={}\nexpectedSlots:\n{}\nactualSlots:\n{}",
-            expectedSlots.size(),
-            actualSlots.size(),
-            formatFastPathStateSlots(expectedSlots),
-            formatFastPathStateSlots(actualSlots)
-        );
-    }
-
-    private static String formatFastPathStateSlots(List<ItemStack> slots) {
-        StringBuilder result = new StringBuilder("[");
-        for (int index = 0; index < slots.size(); index++) {
-            ItemStack stack = slots.get(index);
-            result.append("\n  {index=").append(index);
-            if (stack == null || stack.isEmpty()) {
-                result.append(", AEKey=null, amount=0, component/state=EMPTY}");
-            } else {
-                result.append(", AEKey=").append(AEItemKey.of(stack))
-                    .append(", amount=").append(stack.getCount())
-                    .append(", component/state={componentsPatch=").append(stack.getComponentsPatch())
-                    .append(", damage=").append(stack.getDamageValue()).append("}}");
-            }
-        }
-        return result.append("\n]").toString();
-    }
-
-    private boolean verifySecondStateStep(
-        ECOExtractedPatternExecution execution,
-        ItemStack firstOutput,
-        List<ItemStack> initialSlots,
-        List<ItemStack> firstRemainingSlots,
-        @Nullable ECOReusableStateModel model
-    ) {
-        if (model == null || !model.requiresSecondStepProof()) return true;
-        IMolecularAssemblerSupportedPattern pattern = execution.molecularPattern();
-        if (pattern == null || initialSlots.size() != firstRemainingSlots.size()) return false;
-        try {
-            for (int slot = 0; slot < initialSlots.size(); slot++) {
-                ItemStack initial = initialSlots.get(slot);
-                ItemStack firstRemainder = firstRemainingSlots.get(slot);
-                craftingInv.setItem(slot,
-                    !initial.isEmpty() && !firstRemainder.isEmpty()
-                            && ItemStack.isSameItem(initial, firstRemainder)
-                        ? firstRemainder.copy()
-                        : initial.copy());
-            }
-            var secondPositionedInput = craftingInv.asPositionedCraftInput();
-            ItemStack secondOutput = pattern.assemble(secondPositionedInput.input(), worker.getLevel());
-            if (secondOutput.isEmpty() || secondOutput.getCount() != firstOutput.getCount()
-                    || !ItemStack.isSameItemSameComponents(firstOutput, secondOutput)) return false;
-            List<ItemStack> secondRemaining = ECOCraftingStateSlots.expandRemainingItems(
-                secondPositionedInput,
-                pattern.getRemainingItems(secondPositionedInput.input()),
-                craftingInv.getWidth(),
-                craftingInv.getHeight()
-            );
-            ECOReusableStateAnalyzer.Analysis second = ECOReusableStateAnalyzer.analyze(
-                firstRemainingSlots, secondRemaining,
-                execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
-            return !second.rejected() && second.model() != null && model.sameTransition(second.model());
-        } catch (RuntimeException failure) {
-            return false;
-        }
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
@@ -931,256 +688,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void logBlockedOutput(String reason, @Nullable KeyCounter pending) {
-        if (!NEConfig.ecoCraftingOutputDeliveryDebug) {
-            disableBlockedOutputDiagnostics();
-            resetUnownedBlockedOutputDiagnostic();
-            return;
-        }
-        blockedOutputDiagnosticsEnabled = true;
-
-        long tick = TickHandler.instance().getCurrentTick();
-        if (craftingJobId != null) {
-            logBlockedJobOutput(craftingJobId, reason, pending, tick);
-            return;
-        }
-
-        if (unownedBlockedOutputSinceTick == Long.MIN_VALUE || tick < unownedBlockedOutputSinceTick) {
-            unownedBlockedOutputSinceTick = tick;
-            lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
-        }
-        long blockedTicks = tick - unownedBlockedOutputSinceTick;
-        if (blockedTicks < BLOCKED_OUTPUT_LOG_GRACE_TICKS) return;
-        long sinceLastLog = tick - lastUnownedBlockedOutputLogTick;
-        if (lastUnownedBlockedOutputLogTick != Long.MIN_VALUE && sinceLastLog >= 0L
-            && sinceLastLog < BLOCKED_OUTPUT_LOG_INTERVAL_TICKS) return;
-        lastUnownedBlockedOutputLogTick = tick;
-        LOGGER.warn(
-            "ECO crafting output delivery blocked: worker={} reason={} job=null blockedTicks={} "
-                + "progress={}/{} pending={} batchCrafts={} craftCount={} virtualBatch={}",
-            worker.getBlockPos(),
-            reason,
-            blockedTicks,
-            progress,
-            MAX_PROGRESS,
-            pending == null ? "unknown" : pending,
-            finiteBatchCraftCount,
-            craftCount,
-            virtualBatch
-        );
-    }
-
-    private void logBlockedJobOutput(UUID jobId, String reason, @Nullable KeyCounter pending, long tick) {
-        AggregatedBlockedOutputLog aggregated = null;
-        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
-            pruneBlockedOutputDiagnostics(tick);
-            BlockedOutputDiagnostic diagnostic = BLOCKED_OUTPUT_DIAGNOSTICS.computeIfAbsent(
-                jobId, ignored -> new BlockedOutputDiagnostic(tick)
-            );
-            diagnostic.lastSeenTick = tick;
-            diagnostic.lanes.values().removeIf(lane -> {
-                long age = tick - lane.lastSeenTick();
-                return age < 0L || age > BLOCKED_OUTPUT_STALE_JOB_TICKS;
-            });
-            String workerPosition = describeWorkerPosition();
-            diagnostic.lanes.put(
-                workerPosition + "#" + outputDiagnosticLaneId,
-                createBlockedOutputLane(workerPosition, reason, pending, tick)
-            );
-
-            long blockedTicks = tick - diagnostic.firstBlockedTick;
-            long sinceLastLog = tick - diagnostic.lastLogTick;
-            if (blockedTicks >= BLOCKED_OUTPUT_LOG_GRACE_TICKS
-                && (diagnostic.lastLogTick == Long.MIN_VALUE || sinceLastLog < 0L
-                    || sinceLastLog >= BLOCKED_OUTPUT_LOG_INTERVAL_TICKS)) {
-                aggregated = aggregateBlockedOutput(jobId, diagnostic, tick, blockedTicks);
-                diagnostic.lastLogTick = tick;
-                diagnostic.hasLogged = true;
-            }
-        }
-        if (aggregated != null) {
-            LOGGER.warn(
-                "ECO crafting output delivery blocked: job={} blockedTicks={} reasons={} workers={} "
-                    + "threads={} workerPositions={} pendingKeyEntries={} pendingAmount={} pendingUnknown={}",
-                aggregated.jobId(),
-                aggregated.blockedTicks(),
-                aggregated.reasons(),
-                aggregated.workerCount(),
-                aggregated.threadCount(),
-                aggregated.workerPositions(),
-                aggregated.pendingKeys(),
-                aggregated.pendingAmount(),
-                aggregated.pendingUnknown()
-            );
-        }
-    }
-
-    private BlockedOutputLane createBlockedOutputLane(
-        String workerPosition,
-        String reason,
-        @Nullable KeyCounter pending,
-        long tick
-    ) {
-        if (pending == null) return new BlockedOutputLane(workerPosition, reason, tick, 0, 0L, true);
-        int pendingKeys = 0;
-        long pendingAmount = 0L;
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            if (entry.getLongValue() <= 0L) continue;
-            pendingKeys++;
-            pendingAmount = saturatingAdd(pendingAmount, entry.getLongValue());
-        }
-        return new BlockedOutputLane(workerPosition, reason, tick, pendingKeys, pendingAmount, false);
-    }
-
-    private static AggregatedBlockedOutputLog aggregateBlockedOutput(
-        UUID jobId,
-        BlockedOutputDiagnostic diagnostic,
-        long tick,
-        long blockedTicks
-    ) {
-        Set<String> reasons = new LinkedHashSet<>();
-        Set<String> workerPositions = new LinkedHashSet<>();
-        int threadCount = 0;
-        int pendingKeys = 0;
-        long pendingAmount = 0L;
-        boolean pendingUnknown = false;
-        for (BlockedOutputLane lane : diagnostic.lanes.values()) {
-            long age = tick - lane.lastSeenTick();
-            if (age < 0L || age > BLOCKED_OUTPUT_ACTIVE_LANE_TICKS) continue;
-            threadCount++;
-            reasons.add(lane.reason());
-            workerPositions.add(lane.workerPosition());
-            pendingKeys = saturatingAdd(pendingKeys, lane.pendingKeys());
-            pendingAmount = saturatingAdd(pendingAmount, lane.pendingAmount());
-            pendingUnknown |= lane.pendingUnknown();
-        }
-        return new AggregatedBlockedOutputLog(
-            jobId,
-            blockedTicks,
-            List.copyOf(reasons),
-            workerPositions.size(),
-            threadCount,
-            summarizeWorkerPositions(workerPositions),
-            pendingKeys,
-            pendingAmount,
-            pendingUnknown
-        );
-    }
-
-    private static List<String> summarizeWorkerPositions(Set<String> positions) {
-        List<String> result = new ArrayList<>(Math.min(positions.size(), BLOCKED_OUTPUT_LOG_POSITION_LIMIT) + 1);
-        int added = 0;
-        for (String position : positions) {
-            if (added >= BLOCKED_OUTPUT_LOG_POSITION_LIMIT) break;
-            result.add(position);
-            added++;
-        }
-        if (positions.size() > added) result.add("+" + (positions.size() - added) + " more");
-        return List.copyOf(result);
-    }
-
-    private String describeWorkerPosition() {
-        return worker.getLevel() == null
-            ? worker.getBlockPos().toShortString()
-            : worker.getLevel().dimension().location() + "@" + worker.getBlockPos().toShortString();
+        outputDiagnostics.blocked(worker, craftingJobId, reason, pending, progress, MAX_PROGRESS,
+            finiteBatchCraftCount, craftCount, virtualBatch, TickHandler.instance().getCurrentTick());
     }
 
     private void finishBlockedOutputDiagnostic() {
-        UUID jobId = craftingJobId;
-        if (jobId == null) {
-            resetUnownedBlockedOutputDiagnostic();
-            return;
-        }
-        AggregatedBlockedOutputRecovery recovery = null;
-        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
-            BlockedOutputDiagnostic diagnostic = BLOCKED_OUTPUT_DIAGNOSTICS.get(jobId);
-            if (diagnostic == null) return;
-            diagnostic.lanes.remove(describeWorkerPosition() + "#" + outputDiagnosticLaneId);
-            if (diagnostic.lanes.isEmpty()) {
-                BLOCKED_OUTPUT_DIAGNOSTICS.remove(jobId);
-                if (NEConfig.ecoCraftingOutputDeliveryDebug && diagnostic.hasLogged) {
-                    long tick = TickHandler.instance().getCurrentTick();
-                    recovery = new AggregatedBlockedOutputRecovery(
-                        jobId, Math.max(0L, tick - diagnostic.firstBlockedTick)
-                    );
-                }
-            }
-        }
-        if (recovery != null) {
-            LOGGER.info(
-                "ECO crafting output delivery wait ended: job={} blockedTicks={}",
-                recovery.jobId(),
-                recovery.blockedTicks()
-            );
-        }
+        outputDiagnostics.finished(worker, craftingJobId, TickHandler.instance().getCurrentTick());
     }
-
-    private static void disableBlockedOutputDiagnostics() {
-        if (!blockedOutputDiagnosticsEnabled) return;
-        synchronized (BLOCKED_OUTPUT_DIAGNOSTIC_LOCK) {
-            if (!NEConfig.ecoCraftingOutputDeliveryDebug) {
-                BLOCKED_OUTPUT_DIAGNOSTICS.clear();
-                blockedOutputDiagnosticsEnabled = false;
-            }
-        }
-    }
-
-    private static void pruneBlockedOutputDiagnostics(long tick) {
-        BLOCKED_OUTPUT_DIAGNOSTICS.entrySet().removeIf(entry -> {
-            long age = tick - entry.getValue().lastSeenTick;
-            return age < 0L || age > BLOCKED_OUTPUT_STALE_JOB_TICKS;
-        });
-    }
-
-    private void resetUnownedBlockedOutputDiagnostic() {
-        unownedBlockedOutputSinceTick = Long.MIN_VALUE;
-        lastUnownedBlockedOutputLogTick = Long.MIN_VALUE;
-    }
-
-    private static int saturatingAdd(int left, int right) {
-        if (right > 0 && left > Integer.MAX_VALUE - right) return Integer.MAX_VALUE;
-        return left + right;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) return Long.MAX_VALUE;
-        return left + right;
-    }
-
-    private static final class BlockedOutputDiagnostic {
-        private final long firstBlockedTick;
-        private long lastSeenTick;
-        private long lastLogTick = Long.MIN_VALUE;
-        private boolean hasLogged;
-        private final Map<String, BlockedOutputLane> lanes = new HashMap<>();
-
-        private BlockedOutputDiagnostic(long tick) {
-            firstBlockedTick = tick;
-            lastSeenTick = tick;
-        }
-    }
-
-    private record BlockedOutputLane(
-        String workerPosition,
-        String reason,
-        long lastSeenTick,
-        int pendingKeys,
-        long pendingAmount,
-        boolean pendingUnknown
-    ) {}
-
-    private record AggregatedBlockedOutputLog(
-        UUID jobId,
-        long blockedTicks,
-        List<String> reasons,
-        int workerCount,
-        int threadCount,
-        List<String> workerPositions,
-        int pendingKeys,
-        long pendingAmount,
-        boolean pendingUnknown
-    ) {}
-
-    private record AggregatedBlockedOutputRecovery(UUID jobId, long blockedTicks) {}
 
     private KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
@@ -1488,7 +1002,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         recoveryState = RecoveryState.CLEARED;
         owningCpuMissingSinceGameTime = Long.MIN_VALUE;
         lastBlockedProgressLogTick = Long.MIN_VALUE;
-        resetUnownedBlockedOutputDiagnostic();
+        outputDiagnostics.reset();
         if (availabilityChanged) {
             worker.onThreadAvailabilityChanged();
         }
@@ -1964,8 +1478,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static double sanitizeProgressRemainder(double remainder) {
         return Double.isFinite(remainder) && remainder >= 0.0D && remainder < 1.0D ? remainder : 0.0D;
     }
-
-    private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {}
 
     public record Snapshot(
         boolean busy,

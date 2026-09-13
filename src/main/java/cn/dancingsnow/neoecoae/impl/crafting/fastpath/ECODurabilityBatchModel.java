@@ -5,6 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
+import cn.dancingsnow.neoecoae.util.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -109,8 +110,8 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         List<ToolStock> tools = collectToolStock(inventory, transition, toolEntryLimit);
         long availableUses = 0L;
         for (ToolStock tool : tools) {
-            availableUses = saturatingAdd(availableUses,
-                saturatingMultiply(tool.count(), tool.craftsPerTool()));
+            availableUses = NEMath.saturatingAdd(availableUses,
+                NEMath.saturatingMultiply(tool.count(), tool.craftsPerTool()));
         }
         crafts = Math.min(crafts, availableUses);
         if (crafts <= 0L) return null;
@@ -129,7 +130,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         long unallocatedUses = crafts;
         for (ToolStock tool : tools) {
             if (unallocatedUses <= 0L) break;
-            long stockUses = saturatingMultiply(tool.count(), tool.craftsPerTool());
+            long stockUses = NEMath.saturatingMultiply(tool.count(), tool.craftsPerTool());
             long assignedUses = Math.min(unallocatedUses, stockUses);
             long fullTools = assignedUses / tool.craftsPerTool();
             long partialUses = assignedUses % tool.craftsPerTool();
@@ -189,15 +190,6 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             result.add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
         }
         return result;
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) return 0L;
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
     record ToolPoolBatch(long craftCount, List<GenericStack> inputs, List<GenericStack> remainders) {

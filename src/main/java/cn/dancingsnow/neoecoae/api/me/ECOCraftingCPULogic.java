@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachment;
-import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachmentRegistry;
+import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachments;
 import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSink;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingDispatchPolicyRegistry;
@@ -12,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimRequest;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimResult;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimSink;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSink;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
@@ -35,7 +35,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
@@ -70,6 +69,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.util.NEMath;
 
 public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         ECOCraftingOutputClaimSink, ECOVirtualCraftingCompletionSink {
@@ -88,8 +88,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
-    private final Map<ResourceLocation, ECOCraftingJobAttachment> jobAttachments = new LinkedHashMap<>();
-    private final Map<ResourceLocation, CompoundTag> unboundJobAttachmentData = new LinkedHashMap<>();
+    private final ECOCraftingJobAttachments jobAttachments = new ECOCraftingJobAttachments();
     /** Dynamic final keys that still need to be delivered to the requester/network. */
     private final Map<AEKey, Long> pendingFinalOutputs = new LinkedHashMap<>();
     /**
@@ -137,7 +136,11 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         if (!inventory.list.isEmpty())
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
-        var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
+        var attachedPlanningResult = (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
+                ? diagnostics.neoecoae$getPlanningResult() : null;
+        var contract = ECOPlanningResultRegistry.resolveContract(plan, attachedPlanningResult);
+        var executionPlan = contract == null ? ECOPlanningResultRegistry.resolveExecutionPlan(plan)
+                : contract.executionPlan();
 
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null) {
@@ -486,7 +489,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             taskScheduler.recordPhysicalInsert(request.actualKey());
             if (finalOutputClaim && current.finalOutput != null
                     && !request.actualKey().equals(current.finalOutput.what())) {
-                pendingFinalOutputs.merge(request.actualKey(), route.storedInCpu(), ECOCraftingCPULogic::saturatingAdd);
+                pendingFinalOutputs.merge(request.actualKey(), route.storedInCpu(), NEMath::saturatingAdd);
             }
         }
         recordCompletedCraftingWork(claim, request.actualKey().getType());
@@ -675,7 +678,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     private record OutputRoute(long deliveredToRequester, long deliveredToNetwork, long storedInCpu) {
         long deliveredAmount() {
-            return saturatingAdd(deliveredToRequester, deliveredToNetwork);
+            return NEMath.saturatingAdd(deliveredToRequester, deliveredToNetwork);
         }
     }
 
@@ -818,8 +821,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         taskScheduler.reset();
         dispatchStrategy.reset();
-        jobAttachments.clear();
-        unboundJobAttachmentData.clear();
+        jobAttachments.reset();
         pendingFinalOutputs.clear();
         energyTransaction.readFromNBT(data);
         this.inventory.readFromNBT(data.getList("inventory", 10), registries);
@@ -866,7 +868,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             try {
                 GenericStack stack = GenericStack.readTag(registries, entries.getCompound(index));
                 if (stack != null && stack.amount() > 0L) {
-                    pendingFinalOutputs.merge(stack.what(), stack.amount(), ECOCraftingCPULogic::saturatingAdd);
+                    pendingFinalOutputs.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
             } catch (RuntimeException failure) {
                 LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
@@ -890,102 +892,19 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     }
 
     private void initializeJobAttachments() {
-        jobAttachments.clear();
-        unboundJobAttachmentData.clear();
-        if (job == null) return;
-        for (var attachment : ECOCraftingJobAttachmentRegistry.createAll(createJobContext(job))) {
-            jobAttachments.putIfAbsent(attachment.id(), attachment);
-        }
+        if (job != null) jobAttachments.initialize(createJobContext(job));
     }
 
     private void loadJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
-        initializeJobAttachments();
-        CompoundTag persisted = jobData.getCompound("attachments");
-        for (var entry : List.copyOf(jobAttachments.entrySet())) {
-            String id = entry.getKey().toString();
-            if (!persisted.contains(id, Tag.TAG_COMPOUND)) continue;
-            try {
-                entry.getValue().load(persisted.getCompound(id).copy(), registries);
-                // Keep the last known-good payload as a fail-closed fallback if a later save implementation throws.
-                unboundJobAttachmentData.put(entry.getKey(), persisted.getCompound(id).copy());
-            } catch (RuntimeException failure) {
-                LOGGER.error("ECO job attachment {} could not be restored; preserving raw state", id, failure);
-                jobAttachments.remove(entry.getKey());
-                unboundJobAttachmentData.put(entry.getKey(), persisted.getCompound(id).copy());
-            }
-        }
-        for (String idString : persisted.getAllKeys()) {
-            ResourceLocation id = ResourceLocation.tryParse(idString);
-            if (id == null) {
-                LOGGER.warn("Ignoring ECO job attachment with invalid id {}", idString);
-            } else if (!jobAttachments.containsKey(id)) {
-                unboundJobAttachmentData.put(id, persisted.getCompound(idString).copy());
-            }
-        }
-    }
-
-    private void resolveUnboundJobAttachments(HolderLookup.Provider registries) {
-        if (job == null || unboundJobAttachmentData.isEmpty()) return;
-        var context = createJobContext(job);
-        for (var entry : List.copyOf(unboundJobAttachmentData.entrySet())) {
-            if (jobAttachments.containsKey(entry.getKey())) continue;
-            var attachment = ECOCraftingJobAttachmentRegistry.create(entry.getKey(), context);
-            if (attachment == null) continue;
-            try {
-                attachment.load(entry.getValue().copy(), registries);
-                jobAttachments.put(entry.getKey(), attachment);
-                unboundJobAttachmentData.remove(entry.getKey());
-            } catch (RuntimeException failure) {
-                LOGGER.error("ECO job attachment {} could not be restored", entry.getKey(), failure);
-            }
-        }
+        if (job != null) jobAttachments.load(jobData, registries, createJobContext(job));
     }
 
     private void writeJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
-        resolveUnboundJobAttachments(registries);
-        CompoundTag persisted = new CompoundTag();
-        for (var entry : jobAttachments.entrySet()) {
-            try {
-                CompoundTag attachmentData = entry.getValue().save(registries);
-                if (attachmentData == null) {
-                    throw new IllegalStateException("save returned null");
-                }
-                persisted.put(entry.getKey().toString(), attachmentData.copy());
-                unboundJobAttachmentData.put(entry.getKey(), attachmentData.copy());
-            } catch (RuntimeException failure) {
-                // Do not silently replace a broken attachment with an empty tag. A previous raw payload can still
-                // be carried forward; if none exists, fail the save rather than pretending the state was persisted.
-                CompoundTag previous = unboundJobAttachmentData.get(entry.getKey());
-                if (previous != null) {
-                    persisted.put(entry.getKey().toString(), previous.copy());
-                    LOGGER.error("ECO job attachment {} save failed; retaining its previous payload",
-                            entry.getKey(), failure);
-                } else {
-                    throw new IllegalStateException("Unable to persist ECO job attachment " + entry.getKey(), failure);
-                }
-            }
-        }
-        for (var entry : unboundJobAttachmentData.entrySet()) {
-            String id = entry.getKey().toString();
-            if (!persisted.contains(id)) persisted.put(id, entry.getValue().copy());
-        }
-        if (persisted.isEmpty()) {
-            jobData.remove("attachments");
-        } else {
-            jobData.put("attachments", persisted);
-        }
+        if (job != null) jobAttachments.save(jobData, registries, createJobContext(job));
     }
 
     private void clearJobAttachments(ECOCraftingJobResult result) {
-        for (var attachment : List.copyOf(jobAttachments.values())) {
-            try {
-                attachment.clear(result);
-            } catch (RuntimeException failure) {
-                LOGGER.warn("ECO job attachment {} failed to clear", attachment.id(), failure);
-            }
-        }
-        jobAttachments.clear();
-        unboundJobAttachmentData.clear();
+        jobAttachments.clear(result);
     }
 
     public ICraftingLink getLastLink() {
@@ -1032,7 +951,8 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
                     if (template.matches(output)) {
-                        count = saturatingAdd(count, saturatingMultiply(output.amount(), t.getValue().value));
+                        count = NEMath.saturatingAdd(count,
+                                NEMath.saturatingMultiply(output.amount(), t.getValue().value));
                     }
                 }
             }
@@ -1049,8 +969,8 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             addAllSaturating(out, job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
-                    long amount = saturatingMultiply(output.amount(), t.getValue().value);
-                    out.set(output.what(), saturatingAdd(out.get(output.what()), amount));
+                    long amount = NEMath.saturatingMultiply(output.amount(), t.getValue().value);
+                    out.set(output.what(), NEMath.saturatingAdd(out.get(output.what()), amount));
                 }
             }
         }
@@ -1061,22 +981,9 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         out.addAll(this.inventory.list);
     }
 
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) return 0L;
-        if (left > Long.MAX_VALUE / right) return Long.MAX_VALUE;
-        return left * right;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (left <= 0L) return Math.max(0L, right);
-        if (right <= 0L) return left;
-        if (left > Long.MAX_VALUE - right) return Long.MAX_VALUE;
-        return left + right;
-    }
-
     private static void addAllSaturating(KeyCounter target, KeyCounter source) {
         for (var entry : source) {
-            target.set(entry.getKey(), saturatingAdd(target.get(entry.getKey()), entry.getLongValue()));
+            target.set(entry.getKey(), NEMath.saturatingAdd(target.get(entry.getKey()), entry.getLongValue()));
         }
     }
 
@@ -1091,10 +998,13 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     /** 供 CPU 菜单和集成使用的稳定诊断接口；返回 null 表示任务仍可执行。 */
     public @Nullable String getPermanentExecutionError() {
-        return null;
+        return job == null ? null : job.permanentExecutionError;
     }
 
     public void setJobSuspended(boolean suspended) {
+        if (!suspended && job != null && job.permanentExecutionError != null) {
+            return;
+        }
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
             taskScheduler.progress(TickHandler.instance().getCurrentTick());

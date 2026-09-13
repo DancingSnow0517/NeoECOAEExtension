@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import org.jetbrains.annotations.Nullable;
 
 /** Reflection-only AE2LT overload output registration. It intentionally never touches seed/time-wheel APIs. */
@@ -44,20 +45,8 @@ public final class ECOOverloadCpuAccountingBridge {
 
     @Nullable
     private static Object findOverloadPattern(IPatternDetails original) {
-        Object current = original;
-        java.util.Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        while (current != null && seen.add(current)) {
+        for (Object current : ECOProviderPatternIntrospection.wrapperChain(original)) {
             if (method(current.getClass(), "overloadPatternDetailsView") != null) return current;
-            Method lookup = method(current.getClass(), "providerLookupPattern");
-            Method wrapped = firstMethod(current.getClass(), "wrappedPatternDetails", "getWrappedPatternDetails",
-                    "wrappedPattern", "delegate");
-            try {
-                Object next = lookup != null ? lookup.invoke(current) : wrapped != null ? wrapped.invoke(current) : null;
-                if (next == current && wrapped != null) next = wrapped.invoke(current);
-                current = next;
-            } catch (ReflectiveOperationException | RuntimeException failure) {
-                return null;
-            }
         }
         return null;
     }
@@ -65,11 +54,6 @@ public final class ECOOverloadCpuAccountingBridge {
     @Nullable private static Method method(Class<?> type, String name, Class<?>... args) {
         try { return type.getMethod(name, args); } catch (NoSuchMethodException unavailable) { return null; }
     }
-    @Nullable private static Method firstMethod(Class<?> type, String... names) {
-        for (String name : names) { Method found = method(type, name); if (found != null) return found; }
-        return null;
-    }
-
     private static boolean hasIdOnlyOutput(Object details) throws ReflectiveOperationException {
         Object value = details.getClass().getMethod("outputs").invoke(details);
         if (!(value instanceof Iterable<?> outputs)) return false;

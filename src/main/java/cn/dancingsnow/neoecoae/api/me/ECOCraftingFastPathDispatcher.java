@@ -99,22 +99,25 @@ final class ECOCraftingFastPathDispatcher {
             }
             if (!accepted) {
                 diagnostics.batchRejected(request.pattern(), provider);
-                reservation.refund();
                 return null;
             }
 
             reservation.commit();
             ECOCraftingDispatchResult result = ECOCraftingDispatchResult.batch(
                     batch.craftCount(), batch.outputs(), batch.remainders());
-            accounting.apply(request, result, () -> {
-                try {
-                    registration.commit(request.job().link.getCraftingID(),
-                            request.job().finalOutput == null ? null : request.job().finalOutput.what());
-                } catch (RuntimeException failure) {
-                    // The provider already owns this batch. Never replay its inputs or task on a notification failure.
-                    LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
-                }
-            }, provider);
+            try {
+                accounting.apply(request, result, () -> {
+                    try {
+                        registration.commit(request.job().link.getCraftingID(),
+                                request.job().finalOutput == null ? null : request.job().finalOutput.what());
+                    } catch (RuntimeException failure) {
+                        LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
+                    }
+                }, provider);
+            } catch (RuntimeException failure) {
+                request.job().failPermanently("POST_ACCEPT_FAST_PATH_ACCOUNTING_FAILURE");
+                throw failure;
+            }
             diagnostics.progress(TickHandler.instance().getCurrentTick());
             return result;
         } finally {

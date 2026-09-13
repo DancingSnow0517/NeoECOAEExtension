@@ -60,6 +60,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_REMAINING_AMOUNT = "remainingAmount";
     private static final String NBT_TASKS = "tasks";
     private static final String NBT_SUSPENDED = "suspended";
+    private static final String NBT_PERMANENT_EXECUTION_ERROR = "permanentExecutionError";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_EXECUTION_PLAN = "executionPlan";
     private static final String NBT_EXECUTION_RUNTIME = "executionRuntime";
@@ -79,6 +80,8 @@ public class ExecutingCraftingJob {
     @Nullable
     Integer playerId;
     boolean suspended;
+    @Nullable
+    String permanentExecutionError;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -121,6 +124,7 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+        this.permanentExecutionError = null;
     }
 
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
@@ -171,6 +175,11 @@ public class ExecutingCraftingJob {
         this.executionPlan = restoredPlan;
         this.executionRuntime = restoredRuntime;
         this.suspended = data.getBoolean(NBT_SUSPENDED) || executionMetadataLost;
+        this.permanentExecutionError = data.contains(NBT_PERMANENT_EXECUTION_ERROR, Tag.TAG_STRING)
+            ? data.getString(NBT_PERMANENT_EXECUTION_ERROR) : null;
+        if (executionMetadataLost && this.permanentExecutionError == null) {
+            this.permanentExecutionError = "EXECUTION_METADATA_LOST";
+        }
     }
 
     private Map<Integer, IPatternDetails> bindExecutionPatterns(ECOExecutionPlan plan) {
@@ -399,6 +408,11 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        if (permanentExecutionError == null) {
+            data.remove(NBT_PERMANENT_EXECUTION_ERROR);
+        } else {
+            data.putString(NBT_PERMANENT_EXECUTION_ERROR, permanentExecutionError);
+        }
         if (executionPlan != null && executionRuntime != null) {
             try {
                 data.put(NBT_EXECUTION_PLAN, writeExecutionPlan(executionPlan, registries));
@@ -423,6 +437,11 @@ public class ExecutingCraftingJob {
             var task = tasks.get(member);
             return task == null ? 0L : task.value;
         });
+    }
+
+    void failPermanently(String reason) {
+        permanentExecutionError = reason;
+        suspended = true;
     }
 
     static class TaskProgress {
