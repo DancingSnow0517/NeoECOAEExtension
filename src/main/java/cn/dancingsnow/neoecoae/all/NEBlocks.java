@@ -495,6 +495,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
         .block("integrated_working_station", ECOIntegratedWorkingStation::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
@@ -540,7 +541,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
         .block("large_integrated_working_station_casing", ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
-        .properties(BlockBehaviour.Properties::noOcclusion)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_casing"))))
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
@@ -561,6 +562,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOLargeIntegratedWorkingStationInputHatch> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
         .block("large_integrated_working_station_input_hatch", ECOLargeIntegratedWorkingStationInputHatch::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_input_hatch"))))
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
@@ -580,6 +582,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOLargeIntegratedWorkingStationOutputHatch> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
         .block("large_integrated_working_station_output_hatch", ECOLargeIntegratedWorkingStationOutputHatch::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_output_hatch"))))
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
@@ -599,6 +602,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
         .block("large_integrated_working_station_interface", ECOMachineInterface<NEIntegratedWorkingStationCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_interface"))))
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()

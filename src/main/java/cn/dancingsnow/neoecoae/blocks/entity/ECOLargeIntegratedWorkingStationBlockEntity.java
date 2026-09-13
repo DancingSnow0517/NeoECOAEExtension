@@ -176,10 +176,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void updateCluster(@Nullable NEIntegratedWorkingStationCluster next) {
         cluster = next;
         setFormed(next != null);
-        if (next != null) {
-            transferStoredFluid(inputTank, getInputTank());
-            transferStoredFluid(outputTank, getOutputTank());
-        }
     }
 
     private void transferStoredFluid(FluidTank source, FluidTank destination) {
@@ -244,25 +240,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     protected FluidTank getInputTank() {
-        if (level != null && level.isClientSide && getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)) {
-            Direction front = getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FACING);
-            if (level.getBlockEntity(worldPosition.below().relative(front.getOpposite()).relative(front.getCounterClockWise()))
-                instanceof ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch) return hatch.getTank();
-        }
-        NEIntegratedWorkingStationCluster cluster = getCluster();
-        return cluster != null && cluster.getInputHatch() != null
-            ? cluster.getInputHatch().getTank() : inputTank;
+        return inputTank;
     }
 
     protected FluidTank getOutputTank() {
-        if (level != null && level.isClientSide && getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)) {
-            Direction front = getBlockState().getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FACING);
-            if (level.getBlockEntity(worldPosition.below().relative(front.getOpposite()).relative(front.getClockWise()))
-                instanceof ECOLargeIntegratedWorkingStationOutputHatchBlockEntity hatch) return hatch.getTank();
-        }
-        NEIntegratedWorkingStationCluster cluster = getCluster();
-        return cluster != null && cluster.getOutputHatch() != null
-            ? cluster.getOutputHatch().getTank() : outputTank;
+        return outputTank;
     }
 
     public IFluidHandler getFluidCombined() {

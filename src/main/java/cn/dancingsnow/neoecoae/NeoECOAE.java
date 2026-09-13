@@ -128,16 +128,6 @@ public class NeoECOAE {
             (be, side) -> be.tank
         );
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
-            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get(),
-            (be, side) -> be.getTank()
-        );
-        event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
-            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
-            (be, side) -> be.getTank()
-        );
-        event.registerBlockEntity(
             Capabilities.ItemHandler.BLOCK,
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
             (be, side) -> be.itemHandler
