@@ -27,7 +27,7 @@ final class ECOStorageHostStatistics {
     private transient long storageUiSnapshotGameTime = Long.MIN_VALUE;
     private long storageUiRevision = Long.MIN_VALUE;
     private final Map<ECODriveBlockEntity, DriveUiSnapshot> driveUiSnapshots = new HashMap<>();
-    private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int host.getTier(),
+    private record DriveUiSnapshot(IECOStorageCell inventory, long revision, long tick, int type, int tier,
         List<AEKeyType> keyTypes, boolean member, long usedTypes, long totalTypes, long usedBytes, long totalBytes,
         boolean infiniteResource) {}
 
