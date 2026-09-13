@@ -131,6 +131,16 @@ file="META-INF/accesstransformer.cfg"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="megacells"
+    type="optional"
+    # The MEGA integration links against the 4.11.x API (including
+    # DecompressionService#getPatternPriority). Older releases, such as
+    # 4.2.2, do not expose that method and crash during server ticks.
+    versionRange="[4.11.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="extendedae"
     type="optional"
     versionRange="[0,)"
