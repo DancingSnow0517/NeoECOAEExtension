@@ -141,6 +141,15 @@ public final class ECOVerifiedFastPathRecipe {
     }
 
     /**
+     * Native stateful dispatch can aggregate a verified single durability transition across multiple concrete
+     * tools. Other callers keep the conservative single-state ceiling exposed by {@link #arithmeticBatchLimit()}.
+     */
+    public long statefulDispatchArithmeticBatchLimit() {
+        return durabilityModel() != null && durabilityModel().supportsToolPool()
+            ? execution.arithmeticBatchLimit() : arithmeticBatchLimit();
+    }
+
+    /**
      * Binds this recipe-level credential to one concrete batch size. The returned object is what the Pattern
      * Bus, Worker and Crafting Thread pass around instead of re-verifying stack lists.
      */
@@ -159,7 +168,7 @@ public final class ECOVerifiedFastPathRecipe {
         List<GenericStack> outputTotal,
         List<GenericStack> remainingTotal
     ) {
-        if (batchSize <= 0 || batchSize > arithmeticBatchLimit()) {
+        if (batchSize <= 0 || batchSize > statefulDispatchArithmeticBatchLimit()) {
             return null;
         }
         return ECOVerifiedFastPathExecution.trusted(this, batchSize, craftingJobId,
@@ -180,7 +189,7 @@ public final class ECOVerifiedFastPathRecipe {
         List<GenericStack> outputTotal,
         List<GenericStack> remainingTotal
     ) {
-        return craftCount <= 0L || craftCount > arithmeticBatchLimit()
+        return craftCount <= 0L || craftCount > statefulDispatchArithmeticBatchLimit()
             ? null : new ECOVerifiedVirtualExecution(this, craftCount, craftingJobId,
                 inputTotal, outputTotal, remainingTotal);
     }

@@ -199,8 +199,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             var offer = findVirtualFastPathOffer(execution);
             if (offer == null || !batchRecipe(offer.recipe(), execution)) return null;
             var recipe = offer.recipe();
-            long capacity = recipe.arithmeticBatchLimit();
             var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
+            long capacity = calculator == null
+                ? recipe.arithmeticBatchLimit() : calculator.arithmeticBatchLimit();
             return capacity <= 0L ? null : new Preparation(capacity, calculator, true, batch -> {
                 var verified = recipe.withVirtualBatch(batch.craftCount(), context.craftingJobId(),
                     batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
@@ -306,12 +307,20 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             requestedBatchSize,
             best.availableSlots(),
             globalAvailableSlots,
-            verifiedRecipe.arithmeticBatchLimit()
+            statefulDispatchLimit(verifiedRecipe, execution)
         );
         if (maxBatchSize <= 0) {
             return null;
         }
         return new BatchFastPathOffer(best.worker(), verifiedRecipe, maxBatchSize);
+    }
+
+    private static long statefulDispatchLimit(
+        ECOVerifiedFastPathRecipe recipe,
+        ECOExtractedPatternExecution execution
+    ) {
+        var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
+        return calculator == null ? recipe.arithmeticBatchLimit() : calculator.arithmeticBatchLimit();
     }
 
     /**

@@ -51,17 +51,25 @@ public final class ECOBatchCraftingExecutor {
             long requested = Math.min(maxCrafts, Math.min(capacity,
                 materialLimit));
             if (requested <= 0) return null;
-            requested = statefulCalculator == null
-                ? ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested)
-                : statefulCalculator.maxCraftsFromInventory(inventory, requested);
+            ECOStatefulBatchCalculator.BatchContract statefulBatch = null;
+            if (statefulCalculator == null) {
+                requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
+            } else {
+                statefulBatch = statefulCalculator.prepareBatch(inventory, requested);
+                requested = statefulBatch == null ? 0L : statefulBatch.craftCount();
+            }
             long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
             if (size <= 0) return null;
+            if (statefulCalculator != null && size != requested) {
+                statefulBatch = statefulCalculator.prepareBatch(inventory, size);
+                if (statefulBatch == null || statefulBatch.craftCount() != size) return null;
+            }
             var inputTotal = statefulCalculator == null
-                ? ECOBatchCraftingHelper.multiply(perCopy, size) : statefulCalculator.batchInputs(size);
+                ? ECOBatchCraftingHelper.multiply(perCopy, size) : statefulBatch.inputs();
             var remainderTotal = statefulCalculator == null
                 ? ECOBatchCraftingHelper.multiply(context.containerItems(), size)
-                : statefulCalculator.batchRemainders(size);
+                : statefulBatch.remainders();
             var batch = new ECOFastPathDispatchProvider.Batch(size, inputTotal,
                 ECOBatchCraftingHelper.multiply(context.outputs(), size), remainderTotal);
             return new PreparedBatch(batch.craftCount(), batch.inputTotal(), batch.outputTotal(),

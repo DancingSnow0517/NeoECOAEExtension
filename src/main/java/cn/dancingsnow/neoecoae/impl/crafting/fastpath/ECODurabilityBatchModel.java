@@ -4,11 +4,15 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.crafting.inv.ListCraftingInventory;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 /** Linear durability transition for one or more reusable crafting tools. */
 public final class ECODurabilityBatchModel implements ECOReusableStateModel {
@@ -72,6 +76,139 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     public long maxBatchSize() {
         return maxBatchSize;
     }
+
+    /**
+     * A single durability slot may be backed by a pool of concrete tools with different damage values. Multiple
+     * stateful slots are deliberately left on the original per-tool path because their pools would need a
+     * cross-slot matching proof.
+     */
+    boolean supportsToolPool() {
+        return transitions.size() == 1 && transitions.getFirst().damageDelta() > 0;
+    }
+
+    @Nullable
+    ToolPoolBatch prepareToolPoolBatch(
+        ListCraftingInventory inventory,
+        List<GenericStack> ordinaryInputs,
+        List<GenericStack> ordinaryRemainders,
+        long requestedCrafts
+    ) {
+        if (!supportsToolPool() || requestedCrafts <= 0L) return null;
+        Transition transition = transitions.getFirst();
+
+        KeyCounter consumedPerCraft = toCounter(ordinaryInputs);
+        AEItemKey resolvedTool = AEItemKey.of(transition.initialStack());
+        if (resolvedTool == null || !removeOne(consumedPerCraft, resolvedTool)) return null;
+        List<GenericStack> ordinaryConsumed = ECOFastPathStacks.copyCounter(consumedPerCraft);
+        long crafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, ordinaryConsumed, requestedCrafts);
+        if (crafts <= 0L) return null;
+
+        int toolEntryLimit = Math.max(1,
+            ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES - ordinaryConsumed.size());
+        List<ToolStock> tools = collectToolStock(inventory, transition, toolEntryLimit);
+        long availableUses = 0L;
+        for (ToolStock tool : tools) {
+            availableUses = saturatingAdd(availableUses,
+                saturatingMultiply(tool.count(), tool.craftsPerTool()));
+        }
+        crafts = Math.min(crafts, availableUses);
+        if (crafts <= 0L) return null;
+
+        KeyCounter totalInputs = new KeyCounter();
+        for (GenericStack input : ordinaryConsumed) {
+            totalInputs.add(input.what(), Math.multiplyExact(input.amount(), crafts));
+        }
+        KeyCounter totalRemainders = toCounter(ordinaryRemainders);
+        if (!transition.observedResult().isEmpty()) {
+            AEItemKey observed = AEItemKey.of(transition.observedResult());
+            if (observed == null || !removeOne(totalRemainders, observed)) return null;
+        }
+        totalRemainders = multiplyCounter(totalRemainders, crafts);
+
+        long unallocatedUses = crafts;
+        for (ToolStock tool : tools) {
+            if (unallocatedUses <= 0L) break;
+            long stockUses = saturatingMultiply(tool.count(), tool.craftsPerTool());
+            long assignedUses = Math.min(unallocatedUses, stockUses);
+            long fullTools = assignedUses / tool.craftsPerTool();
+            long partialUses = assignedUses % tool.craftsPerTool();
+            long toolsTaken = fullTools + (partialUses > 0L ? 1L : 0L);
+            totalInputs.add(tool.key(), toolsTaken);
+
+            // A fully-used tool reaches or crosses maxDamage and disappears. Only the final partially-used tool
+            // survives, carrying the exact damage state that the worker must return to the CPU.
+            if (partialUses > 0L) {
+                ItemStack remainder = tool.stack().copyWithCount(1);
+                long finalDamage = Math.addExact(remainder.getDamageValue(),
+                    Math.multiplyExact((long) transition.damageDelta(), partialUses));
+                if (finalDamage >= transition.maxDamage() || finalDamage > Integer.MAX_VALUE) return null;
+                remainder.setDamageValue((int) finalDamage);
+                GenericStack generic = GenericStack.fromItemStack(remainder);
+                if (generic == null || generic.amount() <= 0L) return null;
+                totalRemainders.add(generic.what(), 1L);
+            }
+            unallocatedUses -= assignedUses;
+        }
+        if (unallocatedUses != 0L) return null;
+        return new ToolPoolBatch(
+            crafts,
+            ECOFastPathStacks.copyCounter(totalInputs),
+            ECOFastPathStacks.copyCounter(totalRemainders)
+        );
+    }
+
+    private static List<ToolStock> collectToolStock(
+        ListCraftingInventory inventory,
+        Transition transition,
+        int entryLimit
+    ) {
+        List<ToolStock> result = new ArrayList<>();
+        for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
+            if (!(entry.getKey() instanceof AEItemKey key) || entry.getLongValue() <= 0L) continue;
+            ItemStack stack = key.toStack(1);
+            if (stack.isEmpty() || stack.getMaxDamage() != transition.maxDamage()
+                    || !sameItemAndComponentsIgnoringDamage(transition.initialStack(), stack)) continue;
+            long craftsPerTool = maxCraftsBeforeBreak(
+                stack.getDamageValue(), transition.damageDelta(), transition.maxDamage());
+            if (craftsPerTool > 0L) {
+                result.add(new ToolStock(key, stack, entry.getLongValue(), craftsPerTool));
+            }
+        }
+        // Consume the most damaged tools first. Besides being deterministic, this collapses fragmented durability
+        // stock instead of leaving a growing collection of almost-broken AE keys in the CPU.
+        result.sort(Comparator
+            .comparingInt((ToolStock stock) -> stock.stack().getDamageValue()).reversed()
+            .thenComparing(stock -> ECOFastPathStacks.keySortId(stock.key())));
+        return result.size() <= entryLimit ? List.copyOf(result) : List.copyOf(result.subList(0, entryLimit));
+    }
+
+    private static KeyCounter multiplyCounter(KeyCounter source, long multiplier) {
+        KeyCounter result = new KeyCounter();
+        for (var entry : source) {
+            result.add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
+        }
+        return result;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) return 0L;
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
+    }
+
+    record ToolPoolBatch(long craftCount, List<GenericStack> inputs, List<GenericStack> remainders) {
+        ToolPoolBatch {
+            if (craftCount <= 0L) throw new IllegalArgumentException("craftCount must be positive");
+            inputs = List.copyOf(inputs);
+            remainders = List.copyOf(remainders);
+        }
+    }
+
+    private record ToolStock(AEItemKey key, ItemStack stack, long count, long craftsPerTool) {}
 
     @Override
     public List<GenericStack> batchInputs(List<GenericStack> ordinaryInputs, long crafts) {
