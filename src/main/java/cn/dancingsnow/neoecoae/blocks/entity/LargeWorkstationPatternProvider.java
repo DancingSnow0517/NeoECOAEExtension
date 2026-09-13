@@ -95,9 +95,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     }
 
     /**
-     * One ordinary dispatch transfers one complete 1024-craft input batch. The queue itself is intentionally
-     * unbounded; this number is the per-dispatch parallel width, not a limit on how many requests the interface
-     * may retain.
+     * One ordinary dispatch transfers one complete craft input batch. The queue itself is intentionally
+     * unbounded; the controller's parallel width is separate from how many requests the interface may retain.
      */
     @Override
     public int eco$getAvailableParallelSlots() {

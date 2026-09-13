@@ -71,8 +71,8 @@
 		},
 		{
 			"name": "Controller_front_pillar_a_2",
-			"from": [2, -1, 0],
-			"to": [14, 0, 1.5],
+			"from": [2, -1, 0.03],
+			"to": [14, 0, 1.53],
 			"rotation": {"angle": 0, "axis": "y", "origin": [-16, -16, 0]},
 			"faces": {
 				"north": {"uv": [10.1875, 5.625, 14.25, 7.25], "texture": "#atlas"},

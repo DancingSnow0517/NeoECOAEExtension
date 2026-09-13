@@ -31,6 +31,8 @@ import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.gui.common.GuideButton;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -80,7 +82,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     /** Processing steps available per formed-controller tick; energy still limits actual progress. */
-    public static final int PARALLELISM = 1024;
+    public static final int PARALLELISM = 1;
     private static final int MAX_POWER_STORAGE = 16_000_000;
     private static final int MAX_TANK_CAPACITY = 64_000;
     private static final IGuiTexture UI_BACKGROUND = SpriteTexture.of(
@@ -820,8 +822,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         root.addChild(staticLabel("container.inventory", 42, 82, 92, 9));
 
         root.addChild(syncedLabel(this::getEnergyText, 42, 27, 92, 10));
-        root.addChild(syncedLabel(this::getTaskText, 42, 40, 92, 10));
-        root.addChild(syncedLabel(this::getRecipeText, 42, 53, 92, 22));
+        root.addChild(syncedLabel(this::getTaskText, 42, 38, 92, 10));
+        root.addChild(syncedLabel(this::getRecipeText, 42, 49, 92, 22, TextWrap.NONE));
 
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 9; col++) {
@@ -833,6 +835,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(18).height(18)));
             }
         }
+        root.addChild(HostSideButtonBar.left(
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/integrated_working_station.md")
+        ));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(
             cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets.ECO))), holder.player);
     }
@@ -857,10 +862,21 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private static Label syncedLabel(java.util.function.Supplier<Component> supplier, int left, int top, int width, int height) {
+        return syncedLabel(supplier, left, top, width, height, TextWrap.HOVER_ROLL);
+    }
+
+    private static Label syncedLabel(
+        java.util.function.Supplier<Component> supplier,
+        int left,
+        int top,
+        int width,
+        int height,
+        TextWrap textWrap
+    ) {
         Label label = new Label();
         label.setText(supplier.get());
         label.bind(DataBindingBuilder.componentS2C(supplier).build());
-        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403E53));
+        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(textWrap).adaptiveHeight(true).textShadow(false).textColor(0x403E53));
         label.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(left).top(top).width(width).height(height));
         return label;
     }
