@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
@@ -244,6 +245,17 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return false;
         }
         return worker.pushBatch(verified);
+    }
+
+    /**
+     * Binary compatibility anchor for crafting-tracker 0.2.x.
+     * Its highlight mixin targets the pre-refactor request signature; the current dispatcher
+     * deliberately does not execute legacy requests because they no longer carry a verified
+     * fast-path credential.
+     */
+    @SuppressWarnings("unused")
+    public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
+        return false;
     }
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {
