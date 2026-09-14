@@ -218,6 +218,8 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
                         graphics, absX(PATTERN_BG_X + col * SLOT_SIZE), absY(PATTERN_BG_Y + row * SLOT_SIZE));
             }
         }
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(
+                graphics, this::absX, this::absY, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, this::absX, this::absY, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
         drawGhostPatterns(graphics);

@@ -157,6 +157,7 @@ public final class NECraftingInterfaceWidget extends NELDLibSyncedStateWidget<NE
                         graphics, absX(GRID_X + column * SLOT_SIZE), absY(GRID_Y + row * SLOT_SIZE));
             }
         }
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(graphics, this::absX, this::absY, INV_X, INV_Y, HOTBAR_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(graphics, this::absX, this::absY, INV_X, INV_Y, HOTBAR_Y);
     }
 
