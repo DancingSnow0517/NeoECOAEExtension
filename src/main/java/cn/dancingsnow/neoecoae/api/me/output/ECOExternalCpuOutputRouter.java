@@ -29,9 +29,8 @@ public final class ECOExternalCpuOutputRouter {
             }
             return inserted;
         }
-        if (!cpu.getClass().getName().equals("com.moakiee.thunderbolt.ae2.timewheel.TimeWheelCraftingCPU")) return 0;
         var api = TIME_WHEEL;
-        if (api == null) return 0;
+        if (api == null || !api.logic.getDeclaringClass().isInstance(cpu)) return 0;
         try {
             Object logic = api.logic.invoke(cpu);
             var link = (ICraftingLink) api.link.invoke(logic);
@@ -55,18 +54,23 @@ public final class ECOExternalCpuOutputRouter {
 
     private record TimeWheelApi(Method logic, Method link, Method waiting, Method insert, Method inventory) {
         private static TimeWheelApi load() {
-            try {
-                var cpu = Class.forName("com.moakiee.thunderbolt.ae2.timewheel.TimeWheelCraftingCPU",
-                    false, ECOExternalCpuOutputRouter.class.getClassLoader());
-                var getter = cpu.getMethod("getCraftingLogic");
-                var logic = getter.getReturnType();
-                return new TimeWheelApi(getter, logic.getMethod("getLastLink"),
-                    logic.getMethod("getWaitingFor", AEKey.class),
-                    logic.getMethod("insert", AEKey.class, long.class, Actionable.class),
-                    logic.getMethod("getInventory"));
-            } catch (ReflectiveOperationException | LinkageError unavailable) {
-                return null;
+            for (String name : new String[]{
+                    "com.moakiee.ae2lt.crafting.timewheel.TimeWheelCraftingCPU",
+                    "com.moakiee.thunderbolt.ae2.timewheel.TimeWheelCraftingCPU"}) {
+                try {
+                    var cpu = Class.forName(name,
+                        false, ECOExternalCpuOutputRouter.class.getClassLoader());
+                    var getter = cpu.getMethod("getCraftingLogic");
+                    var logic = getter.getReturnType();
+                    return new TimeWheelApi(getter, logic.getMethod("getLastLink"),
+                        logic.getMethod("getWaitingFor", AEKey.class),
+                        logic.getMethod("insert", AEKey.class, long.class, Actionable.class),
+                        logic.getMethod("getInventory"));
+                } catch (ReflectiveOperationException | LinkageError unavailable) {
+                    // Try the other supported package layout.
+                }
             }
+            return null;
         }
     }
 }

@@ -98,12 +98,24 @@ public final class ECOOverloadCpuAccountingBridge {
     private record Api(Class<?> managerType, Object manager, Class<?> referenceType) {
         private static final Api INSTANCE = resolve();
         @Nullable private static Api resolve() {
-            try {
-                ClassLoader loader = ECOOverloadCpuAccountingBridge.class.getClassLoader();
-                Class<?> manager = Class.forName("com.moakiee.thunderbolt.ae2.overload.cpu.OverloadCpuStateManager", false, loader);
-                Class<?> reference = Class.forName("com.moakiee.thunderbolt.ae2.overload.cpu.OverloadPatternReference", false, loader);
-                return new Api(manager, manager.getField("INSTANCE").get(null), reference);
-            } catch (ReflectiveOperationException | LinkageError unavailable) { return null; }
+            ClassLoader loader = ECOOverloadCpuAccountingBridge.class.getClassLoader();
+            // Changed in AE2LT 2.1: overload runtime ownership moved out of Thunderbolt's old ae2 package.
+            String[][] contracts = {
+                {"com.moakiee.ae2lt.overload.runtime.cpu.OverloadCpuStateManager",
+                    "com.moakiee.ae2lt.overload.runtime.cpu.OverloadPatternReference"},
+                {"com.moakiee.thunderbolt.ae2.overload.cpu.OverloadCpuStateManager",
+                    "com.moakiee.thunderbolt.ae2.overload.cpu.OverloadPatternReference"}
+            };
+            for (String[] contract : contracts) {
+                try {
+                    Class<?> manager = Class.forName(contract[0], false, loader);
+                    Class<?> reference = Class.forName(contract[1], false, loader);
+                    return new Api(manager, manager.getField("INSTANCE").get(null), reference);
+                } catch (ReflectiveOperationException | LinkageError unavailable) {
+                    // Try the next supported package layout.
+                }
+            }
+            return null;
         }
     }
 }

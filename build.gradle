@@ -133,8 +133,8 @@ dependencies {
 
     implementation("curse.maven:omni-cells-1359517:8050965")
 
-    implementation("curse.maven:ae2-lightning-tech-1527395:8567287") { transitive = false }
-    implementation("curse.maven:thunderbolt-core-1631756:8566512") { transitive = false }
+    implementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+    implementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
     runtimeOnly("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1")
@@ -143,18 +143,18 @@ dependencies {
     compileOnly("org.appliedenergistics.yoga:yoga:${yoga_version}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
 
-    implementation("curse.maven:mekanism-268560:7132168")
+    implementation("curse.maven:mekanism-268560:7904058")
     implementation("curse.maven:applied-mekanistics-574300:7096962")
 
     implementation("curse.maven:glodium-957920:5821676")
-    implementation("curse.maven:ex-pattern-provider-892005:7478960")
+    implementation("curse.maven:ex-pattern-provider-892005:8811572")
     implementation("curse.maven:applied-flux-965012:8204513")
 
-    implementation("curse.maven:advancedae-1084104:7374386")
+    implementation("curse.maven:advancedae-1084104:8564177")
 
     // Jade is a client-side integration. Keep its API available for compilation,
     // but only add the implementation to NeoForge's client runtime.
-    compileOnly("curse.maven:jade-324717:5444008") { transitive = false }
+    compileOnly("curse.maven:jade-324717:8591319") { transitive = false }
 
     // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
@@ -192,7 +192,7 @@ neoForge {
         client {
             client()
             additionalRuntimeClasspathConfiguration.dependencies.add(
-                project.dependencies.create("curse.maven:jade-324717:5444008") { transitive = false }
+                project.dependencies.create("curse.maven:jade-324717:8591319") { transitive = false }
             )
             additionalRuntimeClasspathConfiguration.dependencies.add(
                 project.dependencies.create("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
@@ -252,6 +252,25 @@ sourceSets.test.runtimeClasspath += sourceSets.omniApi.output
 
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+
+// Run the same compiled ECO classes against the pre-2.x Thunderbolt API, without leaking modern jars.
+configurations { thunderboltLegacyTestRuntime }
+dependencies {
+    thunderboltLegacyTestRuntime("curse.maven:thunderbolt-core-1631756:8638565") { transitive = false }
+    thunderboltLegacyTestRuntime("curse.maven:ae2-lightning-tech-1527395:8638573") { transitive = false }
+}
+tasks.register('testThunderboltLegacy', Test) {
+    group = 'verification'
+    description = 'Checks ECO compatibility with Thunderbolt 1.0.6 and AE2LT 2.0.9.'
+    useJUnitPlatform()
+    javaLauncher = tasks.named('test', Test).get().javaLauncher
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath.filter {
+        !it.name.startsWith('thunderbolt-core-1631756-') && !it.name.startsWith('ae2-lightning-tech-1527395-')
+    } + configurations.thunderboltLegacyTestRuntime
+    filter { includeTestsMatching 'cn.dancingsnow.neoecoae.compat.thunderbolt.*Test' }
+    systemProperty 'eco.test.thunderbolt.legacy', 'true'
+}
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'

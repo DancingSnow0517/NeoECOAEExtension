@@ -4,8 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
-import com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails;
-import com.moakiee.thunderbolt.ae2.overload.pattern.WrappedPatternDetails;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Locale;
@@ -30,7 +28,7 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
     @Override
     public boolean supports(IPatternDetails pattern) {
         if (pattern == null) return false;
-        if (pattern instanceof OverloadedProviderOnlyPatternDetails) return true;
+        if (isOverload(pattern)) return true;
         for (Class<?> type : hierarchy(pattern.getClass())) {
             String lowerName = type.getName().toLowerCase(Locale.ROOT);
             if (lowerName.contains("thunder") || lowerName.contains("ae2lt")) return true;
@@ -46,7 +44,7 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
         Object definition = null;
         try {
             definition = pattern.getDefinition();
-            if (!(pattern instanceof OverloadedProviderOnlyPatternDetails overloadPattern)) {
+            if (!isOverload(pattern)) {
                 return PatternSemantics.unsupported(pattern, definition, "THUNDER_UNSUPPORTED_SEMANTICS");
             }
 
@@ -57,10 +55,10 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
                     ae2.unsupportedReason() == null ? "THUNDER_INVALID_SOURCE_PATTERN" : ae2.unsupportedReason());
             }
 
-            boolean hasIdOnlyInput = overloadPattern.hasFuzzyInputs();
+            boolean hasIdOnlyInput = flag(pattern, "hasFuzzyInputs");
             boolean hasIdOnlyOutput = false;
             for (int slot = 0; slot < pattern.getOutputs().size(); slot++) {
-                if (overloadPattern.isFuzzyOutput(slot)) {
+                if (flag(pattern, "isFuzzyOutput", slot)) {
                     hasIdOnlyOutput = true;
                     break;
                 }
@@ -84,9 +82,7 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
 
     @Override
     public boolean ignoresComponents(IPatternDetails pattern, int inputSlot) {
-        return pattern instanceof OverloadedProviderOnlyPatternDetails overload
-            && inputSlot >= 0
-            && overload.isFuzzyInput(inputSlot);
+        return isOverload(pattern) && inputSlot >= 0 && flag(pattern, "isFuzzyInput", inputSlot);
     }
 
     @Override
@@ -97,13 +93,41 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
     private static IPatternDetails unwrap(IPatternDetails pattern) {
         Set<IPatternDetails> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         IPatternDetails current = pattern;
-        while (current instanceof WrappedPatternDetails wrapped) {
+        while (isWrapper(current)) {
             if (!visited.add(current)) throw new IllegalArgumentException("Cyclic Thunder pattern wrapper");
-            IPatternDetails next = wrapped.wrappedPatternDetails();
+            IPatternDetails next = (IPatternDetails) invoke(current, "wrappedPatternDetails");
             if (next == null) throw new IllegalArgumentException("Null Thunder wrapped pattern");
             current = next;
         }
         return current;
+    }
+
+    private static boolean isOverload(Object pattern) {
+        return hasContract(pattern, "com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails")
+            || hasContract(pattern, "com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails");
+    }
+
+    private static boolean isWrapper(Object pattern) {
+        return hasContract(pattern, "com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails")
+            || hasContract(pattern, "com.moakiee.thunderbolt.ae2.overload.pattern.WrappedPatternDetails");
+    }
+
+    private static boolean hasContract(Object value, String name) {
+        for (Class<?> type : hierarchy(value.getClass())) if (type.getName().equals(name)) return true;
+        return false;
+    }
+
+    private static boolean flag(Object value, String name, Object... args) {
+        return Boolean.TRUE.equals(invoke(value, name, args));
+    }
+
+    private static Object invoke(Object value, String name, Object... args) {
+        try {
+            Class<?>[] parameters = args.length == 0 ? new Class<?>[0] : new Class<?>[]{int.class};
+            return value.getClass().getMethod(name, parameters).invoke(value, args);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalArgumentException("Unsupported Thunderbolt pattern contract: " + name, failure);
+        }
     }
 
     private static Iterable<Class<?>> hierarchy(Class<?> start) {

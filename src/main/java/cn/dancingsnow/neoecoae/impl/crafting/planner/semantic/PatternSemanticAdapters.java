@@ -14,7 +14,8 @@ public final class PatternSemanticAdapters {
 
     public static List<PatternSemanticAdapter> defaults() {
         List<PatternSemanticAdapter> adapters = new ArrayList<>();
-        if (classPresent("com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails")) {
+        if (classPresent("com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails")
+                || classPresent("com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails")) {
             adapters.add(new ThunderPatternSemanticAdapter());
         }
         adapters.add(new UselessPatternSemanticAdapter());
