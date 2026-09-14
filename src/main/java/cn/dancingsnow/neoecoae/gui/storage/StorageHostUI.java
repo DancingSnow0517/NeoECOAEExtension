@@ -47,8 +47,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private static final int CELL_LIST_WIDTH = 83;
     private static final int CELL_LIST_HEIGHT = 172;
     private static final int TYPE_LIST_PADDING = 2;
-    private static final int TYPE_BLOCK_HEIGHT = 43;
     private static final int TYPE_BLOCK_STRIDE = 48;
+    private static final int INFINITE_TYPE_BLOCK_STRIDE = 36;
     private static final ResourceLocation MEGA_BACKGROUND =
             cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/eco_mega_storage.png");
     private static final int MEGA_PANEL_WIDTH = 103;
@@ -202,8 +202,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     public void detectAndSendChanges() {
         super.detectAndSendChanges();
         long currentMegaFingerprint = storage.getEcoMegaConfigurationFingerprint();
-        if (length != storage.getSelectedBuildLength()
-                || megaFingerprint != currentMegaFingerprint) {
+        if (length != storage.getSelectedBuildLength() || megaFingerprint != currentMegaFingerprint) {
             length = storage.getSelectedBuildLength();
             megaFingerprint = currentMegaFingerprint;
             writeUpdateInfo(CONFIG, this::writeConfig);
@@ -370,14 +369,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private void small(
-            GuiGraphics g,
-            Component text,
-            int x,
-            int y,
-            int maxWidth,
-            float scale,
-            boolean rightAlign,
-            int color) {
+            GuiGraphics g, Component text, int x, int y, int maxWidth, float scale, boolean rightAlign, int color) {
         g.pose().pushPose();
         g.pose().translate(absX(x), absY(y), 0);
         g.pose().scale(scale, scale, 1);
@@ -441,7 +433,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     private void drawStorageTypeList(GuiGraphics g) {
         var types = currentState().typeStates();
-        int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / TYPE_BLOCK_STRIDE);
+        boolean infinite = currentState().infiniteMode() || currentState().migratingToInfinite();
+        int stride = infinite ? INFINITE_TYPE_BLOCK_STRIDE : TYPE_BLOCK_STRIDE;
+        int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / stride);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, types.size() - visibleBlocks)));
         g.enableScissor(
                 absX(CELL_LIST_LEFT),
@@ -449,7 +443,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                 absX(CELL_LIST_LEFT + CELL_LIST_WIDTH),
                 absY(CELL_LIST_TOP + CELL_LIST_HEIGHT));
         for (int row = 0; scroll + row < types.size(); row++) {
-            int y = CELL_LIST_TOP + TYPE_LIST_PADDING + row * TYPE_BLOCK_STRIDE;
+            int y = CELL_LIST_TOP + TYPE_LIST_PADDING + row * stride;
             if (y >= CELL_LIST_TOP + CELL_LIST_HEIGHT) break;
             var type = types.get(scroll + row);
             small(
@@ -461,7 +455,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     0.9F,
                     false,
                     storageTypeAccentColor(row));
-            boolean infinite = currentState().infiniteMode() || currentState().migratingToInfinite();
             small(
                     g,
                     infinite
@@ -475,7 +468,10 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     CELL_LIST_WIDTH - 4,
                     0.6F,
                     false);
-            drawTypeProgress(g, CELL_LIST_LEFT + 2, y + 21, CELL_LIST_WIDTH - 4, type.usedTypes(), type.totalTypes());
+            if (!infinite) {
+                drawTypeProgress(
+                        g, CELL_LIST_LEFT + 2, y + 21, CELL_LIST_WIDTH - 4, type.usedTypes(), type.totalTypes());
+            }
             small(
                     g,
                     infinite
@@ -487,11 +483,14 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                                     capacity(type.usedBytes()),
                                     capacity(type.totalBytes())),
                     CELL_LIST_LEFT + 2,
-                    y + 27,
+                    y + (infinite ? 21 : 27),
                     CELL_LIST_WIDTH - 4,
                     0.6F,
                     false);
-            drawTypeProgress(g, CELL_LIST_LEFT + 2, y + 36, CELL_LIST_WIDTH - 4, type.usedBytes(), type.totalBytes());
+            if (!infinite) {
+                drawTypeProgress(
+                        g, CELL_LIST_LEFT + 2, y + 36, CELL_LIST_WIDTH - 4, type.usedBytes(), type.totalBytes());
+            }
         }
         g.disableScissor();
     }
@@ -512,7 +511,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private void drawTypeProgress(GuiGraphics g, int x, int y, int width, long used, long total) {
-        if (currentState().infiniteMode() || currentState().migratingToInfinite()) return;
         g.fill(absX(x), absY(y), absX(x + width), absY(y + 4), 0x281F2F34);
         int fill = (int) Math.round(width * percent(used, total));
         if (fill > 0) g.fill(absX(x), absY(y), absX(x + fill), absY(y + 4), 0xFF26A6BD);
@@ -613,9 +611,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                 small(g, type.displayComponent(), 12, 28 + i * 24, 154);
                 small(
                         g,
-                        Component.literal(
-                                NELDLibText.hugeAmount(type.safeUsedAmount()) + " / "
-                                        + capacity(type.totalBytes()) + " B"),
+                        Component.literal(NELDLibText.hugeAmount(type.safeUsedAmount()) + " / "
+                                + capacity(type.totalBytes()) + " B"),
                         12,
                         38 + i * 24,
                         154);
@@ -702,7 +699,10 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             return true;
         }
         if (isMouseIn(CELL_LIST_LEFT, CELL_LIST_TOP, CELL_LIST_WIDTH, CELL_LIST_HEIGHT, (int) x, (int) y)) {
-            int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / TYPE_BLOCK_STRIDE);
+            int stride = currentState().infiniteMode() || currentState().migratingToInfinite()
+                    ? INFINITE_TYPE_BLOCK_STRIDE
+                    : TYPE_BLOCK_STRIDE;
+            int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / stride);
             scroll = Math.max(
                     0,
                     Math.min(

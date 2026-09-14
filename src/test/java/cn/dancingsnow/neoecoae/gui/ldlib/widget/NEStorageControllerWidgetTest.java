@@ -86,6 +86,7 @@ class NEStorageControllerWidgetTest {
                 0,
                 0,
                 0,
+                0,
                 true,
                 true,
                 true,

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.state;
 
-import java.util.Locale;
+import appeng.api.stacks.AEKeyTypes;
+import cn.dancingsnow.neoecoae.all.NERegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -27,16 +28,27 @@ public record NEStorageUiTypeState(
     }
 
     public Component displayComponent() {
-        String path = typeId.getPath().toLowerCase(Locale.ROOT);
-        if (path.equals("items") || path.equals("item")) {
-            return Component.translatable("gui.neoecoae.storage.items");
+        try {
+            for (var keyType : AEKeyTypes.getAll()) {
+                if (typeId.equals(keyType.getId())) {
+                    return keyType.getDescription();
+                }
+            }
+        } catch (LinkageError | RuntimeException ignored) {
+            // AE2 registry is unavailable in isolated clients/tests.
         }
-        if (path.equals("fluids") || path.equals("fluid")) {
-            return Component.translatable("gui.neoecoae.storage.fluids");
+        try {
+            var cellTypes = NERegistries.cellTypeRegistry();
+            if (cellTypes != null) {
+                for (var cellType : cellTypes) {
+                    if (typeId.equals(cellType.id())) {
+                        return cellType.desc();
+                    }
+                }
+            }
+        } catch (LinkageError | RuntimeException ignored) {
+            // Registrate is unavailable in isolated clients/tests.
         }
-        if (path.equals("infinite")) {
-            return Component.translatable("gui.neoecoae.storage.infinite_domain");
-        }
-        return Component.translatable("cell_type." + typeId.getNamespace() + "." + typeId.getPath());
+        return Component.literal(displayName);
     }
 }

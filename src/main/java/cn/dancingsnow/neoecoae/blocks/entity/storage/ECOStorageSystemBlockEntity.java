@@ -31,7 +31,6 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
@@ -1500,7 +1499,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (cluster != null) {
             // Group by cell type key; LinkedHashMap preserves insertion order
             Map<ResourceLocation, NEStorageUiTypeState> grouped = new LinkedHashMap<>();
-            Map<AEKeyType, CellTypePresentation> keyTypePresentations = new HashMap<>();
             matrixStates = new ArrayList<>(cluster.getDrives().size());
             IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
             Direction top = strategy.getSide(getBlockState(), RelativeSide.TOP);
@@ -1521,11 +1519,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 ECOCellType cellType = inv.getCellType();
                 ResourceLocation typeId = getCellTypeKey(cellType);
                 String displayName = cellType.desc().getString();
-                if (cellStack.getItem() instanceof IECOStorageCellItem cellItem) {
-                    for (AEKeyType keyType : cellItem.getKeyTypes()) {
-                        keyTypePresentations.putIfAbsent(keyType, new CellTypePresentation(typeId, displayName));
-                    }
-                }
                 boolean infiniteMember = isInfiniteMemberCell(cellStack);
                 if (infiniteMember) {
                     int matrixTier = Math.max(0, Math.min(3, inv.getTier().getTier()));
@@ -1554,7 +1547,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             if (engine != null && canUseHostDomainStorage()) {
-                mergeInfiniteDomainTypeStates(grouped, keyTypePresentations, engine);
+                mergeInfiniteDomainTypeStates(grouped, engine);
             }
             typeStates = new ArrayList<>(grouped.values());
             // Stable ordering: Items first, Fluids second, others by typeId string
@@ -1596,7 +1589,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private long networkEnergyUsage() {
         var grid = getMainNode().getGrid();
-        return grid == null ? 0L : Math.max(0L, Math.round(grid.getEnergyService().getAvgPowerUsage()));
+        return grid == null
+                ? 0L
+                : Math.max(0L, Math.round(grid.getEnergyService().getAvgPowerUsage()));
     }
 
     private String getInfiniteDomainStateForUi(@Nullable ECOInfiniteStorageEngine engine) {
@@ -1627,16 +1622,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private static void mergeInfiniteDomainTypeStates(
-            Map<ResourceLocation, NEStorageUiTypeState> grouped,
-            Map<AEKeyType, CellTypePresentation> keyTypePresentations,
-            ECOInfiniteStorageEngine engine) {
-        String fallbackDisplayName =
-                Component.translatable("gui.neoecoae.storage.infinite_domain").getString();
+            Map<ResourceLocation, NEStorageUiTypeState> grouped, ECOInfiniteStorageEngine engine) {
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
             long amount = stats.storedAmount().toLongSaturated();
-            CellTypePresentation presentation = keyTypePresentations.get(stats.keyType());
-            ResourceLocation typeId = presentation == null ? NeoECOAE.id("infinite") : presentation.typeId();
-            String displayName = presentation == null ? fallbackDisplayName : presentation.displayName();
+            ResourceLocation typeId = stats.keyType().getId();
+            String displayName = stats.keyType().getDescription().getString();
             mergeStorageTypeState(
                     grouped,
                     typeId,
@@ -1694,8 +1684,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
-    private record CellTypePresentation(ResourceLocation typeId, String displayName) {}
-
     private static int directionDistance(BlockPos offset, Direction direction) {
         return offset.getX() * direction.getStepX()
                 + offset.getY() * direction.getStepY()
@@ -1724,10 +1712,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
      * by their full typeId string.
      */
     private static int storageTypeSortPriority(ResourceLocation id) {
-        if (id.equals(NeoECOAE.id("items"))) {
+        if (id.equals(NeoECOAE.id("items")) || id.equals(AEKeyType.items().getId())) {
             return 0;
         }
-        if (id.equals(NeoECOAE.id("fluids"))) {
+        if (id.equals(NeoECOAE.id("fluids")) || id.equals(AEKeyType.fluids().getId())) {
             return 1;
         }
         if (id.equals(NeoECOAE.id("infinite"))) {
