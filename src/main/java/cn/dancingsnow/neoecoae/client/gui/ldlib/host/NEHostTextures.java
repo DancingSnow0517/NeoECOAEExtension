@@ -43,11 +43,12 @@ public final class NEHostTextures {
             boolean active) {
         ResourceLocation texture =
                 !active ? ECO_BUTTON_DISABLED : hovered || pressed ? ECO_BUTTON_HIGHLIGHTED : ECO_BUTTON;
+        int drawY = y + ((hovered || pressed) ? 1 : 0);
         if (width == 16 && height == 16) {
-            graphics.blit(ECO_STATES, x - 1, y, hovered || pressed ? 212 : 176, 128, 18, 20, 256, 256);
+            graphics.blit(ECO_STATES, x - 1, drawY, hovered || pressed ? 212 : 176, 128, 18, 20, 256, 256);
             return;
         }
-        drawNineSlice(graphics, texture, x, y, width, height, 200, 20, 3, 3, 3, 3);
+        drawNineSlice(graphics, texture, x, drawY, width, height, 200, 20, 3, 3, 3, 3);
     }
 
     private static void drawNineSlice(

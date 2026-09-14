@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import appeng.client.gui.Icon;
 import appeng.core.localization.ButtonToolTips;
+import appeng.menu.MenuOpener;
+import appeng.menu.implementations.PriorityMenu;
+import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostSideButtonRenderer;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.storage.NEStorageGaugeRenderer;
@@ -9,12 +12,12 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.sync.NEStorageUiStateCodec;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEAe2IconButtonWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NELDLibSyncedStateWidget;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
-import com.lowdragmc.lowdraglib.gui.widget.TextFieldWidget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,11 +69,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private int scroll;
     private int detailScroll;
     private int panel;
-    private int priority;
     private int length = 1;
     private boolean mirrored;
     private double animatedRatio;
-    private TextFieldWidget priorityField;
     private SlotWidget infiniteSlot;
     private SlotWidget megaUpgradeSlot;
     private NEAe2IconButtonWidget megaPreviousCellButton;
@@ -122,18 +123,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     @Override
     protected void initLdWidgets() {
         addWidget(new NEAe2IconButtonWidget(-17, 25, 16, 16, NEAe2IconButtonWidget.Ae2Icon.WRENCH, click -> {
-                    if (click.isRemote) panel = panel == 1 ? 0 : 1;
-                })
-                .useEcoButton());
-        // Structure construction is configured through the Structure Terminal.
-        // The storage host only exposes storage controls; keeping the old build tab
-        // here made the migrated 1.20.1 screen advertise a removed workflow.
-        addWidget(new NEAe2IconButtonWidget(WIDTH + 3, 4, 16, 16, Icon.LEVEL_ENERGY, click -> {
-                    if (click.isRemote) panel = panel == 4 ? 0 : 4;
-                })
-                .useEcoButton());
-        addWidget(new NEAe2IconButtonWidget(WIDTH + 3, 26, 16, 16, Icon.POWER_UNIT_AE, click -> {
-                    if (click.isRemote) panel = panel == 5 ? 0 : 5;
+                    if (!click.isRemote && player instanceof ServerPlayer serverPlayer) {
+                        MenuOpener.open(PriorityMenu.TYPE, serverPlayer, MenuLocators.forBlockEntity(storage));
+                    }
                 })
                 .useEcoButton());
         addWidget(new NEAe2IconButtonWidget(-17, 3, 16, 16, Icon.HELP, click -> {
@@ -194,20 +186,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         megaUpgradeSlot.setVisible(false);
         megaUpgradeSlot.setActive(false);
         addWidget(megaUpgradeSlot);
-        priorityField = new TextFieldWidget(60, 55, 92, 14, () -> Integer.toString(priority), text -> {
-            try {
-                if (player instanceof ServerPlayer
-                        && !storage.isRemoved()
-                        && player.distanceToSqr(storage.getBlockPos().getCenter()) <= 64) {
-                    storage.setPriority(Integer.parseInt(text));
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        });
-        priorityField.setNumbersOnly(Integer.MIN_VALUE, Integer.MAX_VALUE).setMaxStringLength(11);
-        priorityField.setVisible(false);
-        priorityField.setActive(false);
-        addWidget(priorityField);
     }
 
     private NEAe2IconButtonWidget megaArrowButton(int x, int y, int direction) {
@@ -224,10 +202,8 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     public void detectAndSendChanges() {
         super.detectAndSendChanges();
         long currentMegaFingerprint = storage.getEcoMegaConfigurationFingerprint();
-        if (priority != storage.getPriority()
-                || length != storage.getSelectedBuildLength()
+        if (length != storage.getSelectedBuildLength()
                 || megaFingerprint != currentMegaFingerprint) {
-            priority = storage.getPriority();
             length = storage.getSelectedBuildLength();
             megaFingerprint = currentMegaFingerprint;
             writeUpdateInfo(CONFIG, this::writeConfig);
@@ -235,7 +211,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private void writeConfig(FriendlyByteBuf buf) {
-        buf.writeInt(storage.getPriority());
         buf.writeVarInt(storage.getSelectedBuildLength());
         buf.writeVarInt(storage.getEcoMegaBulkCellCount());
         buf.writeVarInt(storage.getSelectedEcoMegaBulkCell());
@@ -245,7 +220,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private void readConfig(FriendlyByteBuf buf) {
-        priority = buf.readInt();
         length = buf.readVarInt();
         megaCellCount = buf.readVarInt();
         megaCellIndex = buf.readVarInt();
@@ -304,17 +278,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                 || storage.isRemoved()
                 || player.distanceToSqr(storage.getBlockPos().getCenter()) > 64) return;
         switch (action) {
-            case 1 -> storage.setPriority(value);
-            case 2 -> {
-                if (value == 1
-                        || value == 10
-                        || value == 100
-                        || value == 1000
-                        || value == -1
-                        || value == -10
-                        || value == -100
-                        || value == -1000) storage.setPriority(StoragePriority.adjust(storage.getPriority(), value));
-            }
             case 6 -> {
                 if (value >= 0 && value < currentState().hugeStackPageCount()) pageSession.page = value;
             }
@@ -350,7 +313,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     protected void drawMachineBackground(GuiGraphics g, int mx, int my, float partial) {
         g.blit(BACKGROUND, absX(0), absY(0), 0, 0, WIDTH, HEIGHT, 288, 256);
         NEHostSideButtonRenderer.drawLeft(g, absX(0), absY(0), 2, mx, my);
-        NEHostSideButtonRenderer.drawRight(g, absX(0), absY(0), WIDTH, 2, mx, my);
         double target = percent(currentState().totalUsedBytes(), currentState().totalBytes());
         animatedRatio += (target - animatedRatio) * 0.15;
         drawGraphLines(g, mx, my);
@@ -359,8 +321,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
         } else {
             drawGauge(g, 72, 22, animatedRatio, NEStorageGaugeRenderer.colorForPercent(animatedRatio));
         }
-        priorityField.setVisible(panel == 1);
-        priorityField.setActive(panel == 1);
         infiniteSlot.setVisible(panel == 0);
         infiniteSlot.setActive(panel == 0);
         boolean showMega = megaCellCount > 0;
@@ -398,7 +358,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private String capacity(long value) {
-        return value < 0 ? "∞" : fmt(value);
+        return value < 0 ? "∞" : NELDLibText.ae2Amount(value);
     }
 
     private void small(GuiGraphics g, Component text, int x, int y, int maxWidth) {
@@ -519,7 +479,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             small(
                     g,
                     infinite
-                            ? usedOnly("gui.neoecoae.storage.legacy.cell_bytes", type.safeUsedAmount())
+                            ? usedOnly(
+                                    "gui.neoecoae.storage.legacy.cell_bytes",
+                                    NELDLibText.hugeAmount(type.safeUsedAmount()))
                             : Component.translatable(
                                     "gui.neoecoae.storage.legacy.cell_bytes",
                                     capacity(type.usedBytes()),
@@ -562,7 +524,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             small(g, title, 8, 6, 160, 0.65F, false, 0xFF3F3D52);
             small(
                     g,
-                    Component.literal(fmt(currentState().performanceAverageNanos()) + " ns/t"),
+                    Component.literal(NELDLibText.ae2Amount(currentState().energyUsage()) + " AE/t"),
                     18,
                     30,
                     60,
@@ -588,7 +550,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                     g,
                     Component.translatable(
                             "gui.neoecoae.storage.legacy.graph.total_bytes",
-                            fmt(currentState().totalUsedBytes())),
+                            NELDLibText.ae2Amount(currentState().totalUsedBytes())),
                     18,
                     49,
                     60,
@@ -634,7 +596,7 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             for (int i = 0; i < 4 && i + detailScroll < entries.size(); i++) {
                 var entry = entries.get(i + detailScroll);
                 small(g, entry.key().getDisplayName(), 12, 28 + i * 16, 72);
-                small(g, Component.literal(entry.amount()), 86, 28 + i * 16, 80);
+                small(g, Component.literal(NELDLibText.hugeAmount(entry.amount())), 86, 28 + i * 16, 80);
             }
             small(
                     g,
@@ -651,7 +613,9 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                 small(g, type.displayComponent(), 12, 28 + i * 24, 154);
                 small(
                         g,
-                        Component.literal(type.safeUsedAmount() + " / " + capacity(type.totalBytes()) + " B"),
+                        Component.literal(
+                                NELDLibText.hugeAmount(type.safeUsedAmount()) + " / "
+                                        + capacity(type.totalBytes()) + " B"),
                         12,
                         38 + i * 24,
                         154);
@@ -765,13 +729,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             g.renderComponentTooltip(
                     font(), List.of(Component.translatable("gui.neoecoae.storage_priority.open")), x, y);
             return;
-        }
-        String[] rightKeys = {"gui.neoecoae.storage.infinite_domain", "gui.neoecoae.storage.host.details"};
-        for (int i = 0; i < rightKeys.length; i++) {
-            if (isMouseIn(WIDTH + 3, 4 + i * 22, 16, 16, x, y)) {
-                g.renderComponentTooltip(font(), List.of(Component.translatable(rightKeys[i])), x, y);
-                return;
-            }
         }
         if (megaCellCount > 0 && isMouseIn(MEGA_ACTION_LEFT, MEGA_ACTION_TOP, 16, 16, x, y)) {
             g.renderComponentTooltip(font(), List.of(Component.translatable("gui.neoecoae.storage.bulk_mark")), x, y);

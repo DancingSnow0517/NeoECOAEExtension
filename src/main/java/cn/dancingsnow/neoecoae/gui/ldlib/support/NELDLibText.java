@@ -19,7 +19,7 @@ public final class NELDLibText {
     private static final long DECIMAL_K = 1_000L;
     private static final String[] DECIMAL_BYTE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E"};
     private static final BigInteger BIG_1024 = BigInteger.valueOf(1024L);
-    private static final String[] HUGE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
+    private static final String[] HUGE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
 
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
             ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
@@ -40,6 +40,24 @@ public final class NELDLibText {
 
     public static String number(int value) {
         return number((long) value);
+    }
+
+    /** Formats ordinary AE2 quantities with binary (1024-based) compact units. */
+    public static String ae2Amount(long value) {
+        if (value <= 0L) {
+            return "0";
+        }
+        String[] suffixes = {"", "K", "M", "G", "T", "P", "E"};
+        double scaled = value;
+        int suffix = 0;
+        while (suffix < suffixes.length - 1 && scaled >= 1024.0D) {
+            scaled /= 1024.0D;
+            suffix++;
+        }
+        if (suffix == 0) {
+            return Long.toString(value);
+        }
+        return COMPACT_DECIMAL.get().format(scaled) + suffixes[suffix];
     }
 
     public static String percent(double value) {

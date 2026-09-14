@@ -25,6 +25,7 @@ public final class NEStorageUiStateCodec {
         buf.writeLong(state.storedEnergy());
         buf.writeLong(state.maxEnergy());
         buf.writeVarLong(Math.max(0L, state.performanceAverageNanos()));
+        buf.writeVarLong(Math.max(0L, state.energyUsage()));
         buf.writeBoolean(state.formed());
         buf.writeBoolean(state.infiniteSlotVisible());
         buf.writeBoolean(state.infiniteMode());
@@ -83,6 +84,7 @@ public final class NEStorageUiStateCodec {
         long storedEnergy = buf.readLong();
         long maxEnergy = buf.readLong();
         long performanceAverageNanos = buf.readVarLong();
+        long energyUsage = buf.readVarLong();
         boolean formed = buf.readBoolean();
         boolean infiniteSlotVisible = buf.readBoolean();
         boolean infiniteMode = buf.readBoolean();
@@ -141,6 +143,7 @@ public final class NEStorageUiStateCodec {
                 storedEnergy,
                 maxEnergy,
                 performanceAverageNanos,
+                energyUsage,
                 formed,
                 infiniteSlotVisible,
                 infiniteMode,

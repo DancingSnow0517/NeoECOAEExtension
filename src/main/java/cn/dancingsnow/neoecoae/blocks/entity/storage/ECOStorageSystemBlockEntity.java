@@ -1582,6 +1582,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 storedEnergy,
                 maxEnergy,
                 performanceAverageNanos,
+                networkEnergyUsage(),
                 formed,
                 isInfiniteSlotVisible(),
                 isInfiniteMode(),
@@ -1591,6 +1592,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 canTakeInfiniteStorageComponent(),
                 engine == null || engine.isEmpty(),
                 getInfiniteDomainStateForUi(engine));
+    }
+
+    private long networkEnergyUsage() {
+        var grid = getMainNode().getGrid();
+        return grid == null ? 0L : Math.max(0L, Math.round(grid.getEnergyService().getAvgPowerUsage()));
     }
 
     private String getInfiniteDomainStateForUi(@Nullable ECOInfiniteStorageEngine engine) {

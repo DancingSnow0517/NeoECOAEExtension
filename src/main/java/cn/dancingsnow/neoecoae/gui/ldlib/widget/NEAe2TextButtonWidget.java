@@ -139,7 +139,10 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
         int color = !isActive() ? inactiveColor : selectedSupplier.getAsBoolean() ? selectedColor : normalColor;
-        int labelY = getPositionY() + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2 + textOffsetY;
+        int labelY = getPositionY()
+                + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2
+                + textOffsetY
+                + ((pressed || isMouseOverElement(mouseX, mouseY)) ? 1 : 0);
         NELDLibClientStyle.drawCenteredClipped(
                 graphics, fittedLabel(), getPositionX() + textOffsetX, labelY, getSizeWidth(), color);
     }
