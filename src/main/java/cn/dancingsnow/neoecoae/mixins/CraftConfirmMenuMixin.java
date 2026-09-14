@@ -1,13 +1,8 @@
 package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.api.networking.crafting.CalculationStrategy;
-import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.networking.crafting.ICraftingService;
-import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionHost;
-import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ISubMenuHost;
 import appeng.menu.guisync.GuiSync;
@@ -21,8 +16,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -174,42 +167,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             }
         }
         neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
-    }
-
-    /**
-     * Bind only the synchronous submission represented by this confirmation menu to its complete ECO plan,
-     * execution schedule and independent cycle expectation. The latter remains true when schedule propagation
-     * fails, allowing the executor to stop instead of silently treating a solved cycle as a vanilla DAG.
-     */
-    @WrapOperation(
-            method = "startJob",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lappeng/api/networking/crafting/ICraftingService;submitJob("
-                                    + "Lappeng/api/networking/crafting/ICraftingPlan;"
-                                    + "Lappeng/api/networking/crafting/ICraftingRequester;"
-                                    + "Lappeng/api/networking/crafting/ICraftingCPU;"
-                                    + "ZLappeng/api/networking/security/IActionSource;"
-                                    + ")Lappeng/api/networking/crafting/ICraftingSubmitResult;"))
-    private ICraftingSubmitResult submitConfirmedCyclePlan(
-            ICraftingService service,
-            ICraftingPlan submittedPlan,
-            @Nullable ICraftingRequester requestingMachine,
-            @Nullable ICraftingCPU target,
-            boolean prioritizePower,
-            IActionSource source,
-            Operation<ICraftingSubmitResult> original) {
-        ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
-                ? diagnostics.neoecoae$getPlanningResult()
-                : null;
-        if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
-        if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
-        ECOPlanningResult boundResult = planningResult;
-        return ECOPlanningResultRegistry.withSubmissionAlias(
-                submittedPlan,
-                boundResult,
-                () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
     }
 
     @Unique private static long neoecoae$amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {

@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 /** Verifies injection targets without initializing Minecraft or loading transformed classes. */
 class ECOCraftingMixinContractTest {
@@ -59,11 +60,37 @@ class ECOCraftingMixinContractTest {
                                         value -> value.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;"))));
     }
 
+    @Test
+    void submissionMetadataBindingDoesNotCompeteForCraftConfirmCallSite() throws Exception {
+        var menuMixin = read("cn/dancingsnow/neoecoae/mixins/CraftConfirmMenuMixin");
+        assertTrue(menuMixin.methods.stream()
+                .flatMap(method -> method.visibleAnnotations == null
+                        ? java.util.stream.Stream.empty()
+                        : method.visibleAnnotations.stream())
+                .noneMatch(annotation ->
+                        annotation.desc.equals("Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;")));
+
+        var serviceMixin = read("cn/dancingsnow/neoecoae/mixins/CraftingServiceMixin");
+        var submitHandler = serviceMixin.methods.stream()
+                .filter(method -> method.name.equals("neoecoae$handleSubmitJob"))
+                .findFirst()
+                .orElseThrow();
+        boolean bindsAlias = false;
+        for (var instruction : submitHandler.instructions) {
+            if (instruction instanceof MethodInsnNode call
+                    && call.owner.equals("cn/dancingsnow/neoecoae/api/me/ECOPlanningResultRegistry")
+                    && call.name.equals("withSubmissionAlias")) {
+                bindsAlias = true;
+            }
+        }
+        assertTrue(bindsAlias);
+    }
+
     private ClassNode read(String name) throws Exception {
         try (var stream = getClass().getResourceAsStream("/" + name + ".class")) {
             assertNotNull(stream);
             var node = new ClassNode();
-            new ClassReader(stream).accept(node, ClassReader.SKIP_CODE);
+            new ClassReader(stream).accept(node, 0);
             return node;
         }
     }

@@ -15,9 +15,12 @@ import appeng.crafting.CraftingLink;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceTicker;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -255,8 +258,16 @@ public abstract class CraftingServiceMixin
             ICraftingCPU target,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
-        ICraftingSubmitResult result =
-                NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, target, src);
+        ECOPlanningResult planningResult =
+                job instanceof ECOCraftingPlanDiagnostics diagnostics ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (planningResult == null) {
+            planningResult = ECOPlanningResultRegistry.find(job);
+        }
+        ECOPlanningResult boundResult = planningResult;
+        ICraftingSubmitResult result = ECOPlanningResultRegistry.withSubmissionAlias(
+                job,
+                boundResult,
+                () -> NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, target, src));
         if (result != null) {
             if (result.successful()) {
                 this.updateList = true;
