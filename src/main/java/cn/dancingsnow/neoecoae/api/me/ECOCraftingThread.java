@@ -291,9 +291,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 ECOBatchCraftingHelper.multiply(verified.recipe().outputsPerCraft(), verified.craftCount()),
                 verified.recipe().batchRemainders(verified.craftCount()),
                 verified.craftingJobId());
-        if (!canRetainGenericStacks(work.outputTotal())
-                || !canRetainGenericStacks(work.inputTotal(), true)
-                || !canRetainGenericStacks(work.remainingTotal())) {
+        if (!ECOCraftingStackCodec.canRetain(work.outputTotal(), false)
+                || !ECOCraftingStackCodec.canRetain(work.inputTotal(), true)
+                || !ECOCraftingStackCodec.canRetain(work.remainingTotal(), false)) {
             cache.recordNonItemKey();
             return false;
         }
@@ -304,9 +304,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean acceptBatch(ECOBatchCraftingWork work, ECOCraftingSystemBlockEntity controller) {
-        if (!canRetainGenericStacks(work.outputTotal())
-                || !canRetainGenericStacks(work.inputTotal(), true)
-                || !canRetainGenericStacks(work.remainingTotal())) {
+        if (!ECOCraftingStackCodec.canRetain(work.outputTotal(), false)
+                || !ECOCraftingStackCodec.canRetain(work.inputTotal(), true)
+                || !ECOCraftingStackCodec.canRetain(work.remainingTotal(), false)) {
             worker.getFastPathCache().recordNonItemKey();
             return false;
         }
@@ -793,7 +793,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         KeyCounter outputs = collectOutputItems();
 
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
-        if (!isEmpty(remainder)) {
+        if (!ECOCraftingStackCodec.isEmpty(remainder)) {
             RecoveryState retryState = recoveryState == RecoveryState.WAITING_FOR_OWNER
                     ? RecoveryState.WAITING_FOR_OWNER
                     : RecoveryState.ACTIVE;
@@ -894,8 +894,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (ItemStack remainingItem : remainingItems) {
             addStack(outputs, remainingItem);
         }
-        addGenericStacks(outputs, batchOutputItems);
-        addGenericStacks(outputs, batchRemainingItems);
+        ECOCraftingStackCodec.addGenericStacks(outputs, batchOutputItems);
+        ECOCraftingStackCodec.addGenericStacks(outputs, batchRemainingItems);
         return outputs;
     }
 
@@ -920,8 +920,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private KeyCounter ejectAllAndCollectRemainder(
             CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
-        List<GenericStack> pendingEntries = keyCounterToGenericStacks(stacks);
-        if (pendingEntries.isEmpty() && !isEmpty(stacks)) {
+        List<GenericStack> pendingEntries = ECOCraftingStackCodec.toGenericStacks(stacks, false);
+        if (pendingEntries.isEmpty() && !ECOCraftingStackCodec.isEmpty(stacks)) {
             throw new IllegalStateException("Cannot retain non-item crafting outputs for retry");
         }
 
@@ -990,8 +990,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private KeyCounter insertAllAndCollectRemainder(MEStorage storage, KeyCounter stacks, boolean recoverOutputs) {
-        List<GenericStack> pendingEntries = keyCounterToGenericStacks(stacks, !recoverOutputs);
-        if (pendingEntries.isEmpty() && !isEmpty(stacks)) {
+        List<GenericStack> pendingEntries = ECOCraftingStackCodec.toGenericStacks(stacks, !recoverOutputs);
+        if (pendingEntries.isEmpty() && !ECOCraftingStackCodec.isEmpty(stacks)) {
             throw new IllegalStateException("Cannot retain non-item crafting recovery stacks");
         }
         stacks.removeZeros();
@@ -1056,14 +1056,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return true;
         }
         try {
-            KeyCounter stacks = collectStacks(recoverable);
-            addGenericStacks(stacks, recoverableGeneric);
+            KeyCounter stacks = ECOCraftingStackCodec.collectItems(recoverable);
+            ECOCraftingStackCodec.addGenericStacks(stacks, recoverableGeneric);
             if (!canInsertAll(storage, stacks)) {
                 markRecoveryPending(recoverOutputs);
                 return false;
             }
             KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks, recoverOutputs);
-            if (!isEmpty(remainder)) {
+            if (!ECOCraftingStackCodec.isEmpty(remainder)) {
                 retainRecoveryRemainder(remainder, recoverOutputs);
                 return false;
             }
@@ -1138,14 +1138,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         setChanged();
     }
 
-    private static KeyCounter collectStacks(List<ItemStack> stacks) {
-        KeyCounter counter = new KeyCounter();
-        for (ItemStack stack : stacks) {
-            addStack(counter, stack);
-        }
-        return counter;
-    }
-
     private List<ItemStack> outputAndRemainingItems() {
         List<ItemStack> stacks = new ArrayList<>();
         stacks.addAll(outputItems);
@@ -1188,8 +1180,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
         worker.markDisplayDirty();
-        List<GenericStack> stacks = keyCounterToGenericStacks(remainder);
-        if (stacks.isEmpty() && !isEmpty(remainder)) {
+        List<GenericStack> stacks = ECOCraftingStackCodec.toGenericStacks(remainder, false);
+        if (stacks.isEmpty() && !ECOCraftingStackCodec.isEmpty(remainder)) {
             LOGGER.error(
                     "ECO crafting thread cannot retain non-item output remainder for retry: worker={}",
                     worker.getBlockPos());
@@ -1213,8 +1205,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private void retainInputRemainderForRetry(KeyCounter remainder) {
         worker.markDisplayDirty();
-        List<GenericStack> stacks = keyCounterToGenericStacks(remainder, true);
-        if (stacks.isEmpty() && !isEmpty(remainder)) {
+        List<GenericStack> stacks = ECOCraftingStackCodec.toGenericStacks(remainder, true);
+        if (stacks.isEmpty() && !ECOCraftingStackCodec.isEmpty(remainder)) {
             LOGGER.error(
                     "ECO crafting thread cannot retain non-item input remainder for retry: worker={}",
                     worker.getBlockPos());
@@ -1236,31 +1228,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         setChanged();
     }
 
-    private static List<GenericStack> keyCounterToGenericStacks(KeyCounter counter) {
-        return keyCounterToGenericStacks(counter, false);
-    }
-
-    private static List<GenericStack> keyCounterToGenericStacks(KeyCounter counter, boolean allowFluid) {
-        List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() <= 0) {
-                continue;
-            }
-            if (!(entry.getKey() instanceof AEItemKey) && !(allowFluid && entry.getKey() instanceof AEFluidKey)) {
-                return List.of();
-            }
-            stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-        }
-        return List.copyOf(stacks);
-    }
-
-    private static boolean isEmpty(KeyCounter counter) {
-        for (var ignored : counter) {
-            return false;
-        }
-        return true;
-    }
-
     private void logRecoveryFailure(RuntimeException e) {
         long tick = TickHandler.instance().getCurrentTick();
         long elapsed = tick - lastRecoveryFailureLogTick;
@@ -1268,21 +1235,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             lastRecoveryFailureLogTick = tick;
             LOGGER.error("ECO crafting recovery failed; pending items will be retried", e);
         }
-    }
-
-    private static boolean canRetainGenericStacks(List<GenericStack> stacks) {
-        return canRetainGenericStacks(stacks, false);
-    }
-
-    private static boolean canRetainGenericStacks(List<GenericStack> stacks, boolean allowFluid) {
-        for (GenericStack stack : stacks) {
-            if (stack == null
-                    || stack.amount() <= 0
-                    || (!(stack.what() instanceof AEItemKey) && !(allowFluid && stack.what() instanceof AEFluidKey))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static void copyGenericStackToDrops(GenericStack stack, List<ItemStack> drops) {
@@ -1423,14 +1375,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (ItemStack stack : stacks) {
             if (!stack.isEmpty()) {
                 copySerializableStacks(stack, tag, provider);
-            }
-        }
-    }
-
-    private static void addGenericStacks(KeyCounter counter, List<GenericStack> stacks) {
-        for (GenericStack stack : stacks) {
-            if (stack != null && stack.amount() > 0) {
-                counter.add(stack.what(), stack.amount());
             }
         }
     }
