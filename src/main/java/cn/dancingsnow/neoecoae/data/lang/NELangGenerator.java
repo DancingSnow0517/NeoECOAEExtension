@@ -4,6 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.exact_stored_amount", "Stored: %s");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
 

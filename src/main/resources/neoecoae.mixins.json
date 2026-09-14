@@ -5,6 +5,9 @@
   "refmap": "neoecoae.refmap.json",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "MEStorageMenuMixin",
+    "NetworkStorageMixin",
+    "ae2.NetworkStorageAccessor",
     "CraftConfirmMenuMixin",
     "CraftingCalculationMixin",
     "CraftingPlanMixin",
@@ -24,6 +27,8 @@
     "aae.TileExIOPortMixin"
   ],
   "client": [
+    "client.MEStorageScreenMixin",
+    "client.CraftConfirmScreenMixin",
     "CraftingCPUScreenMixin",
     "CraftingStatusTableRendererMixin",
     "CPUSelectionListMixin",

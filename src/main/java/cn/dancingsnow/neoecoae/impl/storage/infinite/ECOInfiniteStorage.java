@@ -35,6 +35,14 @@ public final class ECOInfiniteStorage implements MEStorage {
         engine.getAvailableStacks(out);
     }
 
+    public HugeAmount getExactAmount(AEKey key) {
+        return engine.getAmount(key);
+    }
+
+    Object exactInventoryIdentity() {
+        return engine;
+    }
+
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
         return engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
