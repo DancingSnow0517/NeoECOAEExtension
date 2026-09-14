@@ -198,6 +198,29 @@ public final class NELDLibClientStyle {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
+    public static void drawEcoSideIcon(GuiGraphics graphics, Object icon, int x, int y, float alpha) {
+        Icon resolved = resolveAeIcon(icon);
+        if (resolved == null) {
+            return;
+        }
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+        graphics.blit(
+                Icon.TEXTURE,
+                x,
+                y,
+                14,
+                14,
+                resolved.x,
+                resolved.y,
+                resolved.width,
+                resolved.height,
+                Icon.TEXTURE_WIDTH,
+                Icon.TEXTURE_HEIGHT);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
     private static void drawAeSprite(GuiGraphics graphics, Icon icon, int x, int y, int width, int height) {
         RenderSystem.enableBlend();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);

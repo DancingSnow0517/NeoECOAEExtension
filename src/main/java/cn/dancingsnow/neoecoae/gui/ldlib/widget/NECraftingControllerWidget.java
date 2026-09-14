@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 import static cn.dancingsnow.neoecoae.gui.ldlib.crafting.NECraftingLayout.*;
 
 import appeng.client.gui.Icon;
+import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingGaugePanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingHeaderPanel;
@@ -10,9 +11,10 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingRenderContext
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingStatsPanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingStatusPanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingTaskPanel;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostSideButtonRenderer;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import java.util.List;
@@ -22,21 +24,22 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 
-/** Coordinates crafting state, server actions, inventory slots, and focused client-side host panels. */
+/**
+ * Coordinates crafting state, server actions, inventory slots, and focused client-side host panels.
+ */
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
     public static final int UI_WIDTH = cn.dancingsnow.neoecoae.gui.ldlib.crafting.NECraftingLayout.UI_WIDTH;
     public static final int UI_HEIGHT = cn.dancingsnow.neoecoae.gui.ldlib.crafting.NECraftingLayout.UI_HEIGHT;
-    private static final int TOOLBAR_BUTTON_OFFSET_X = -5;
-    private static final int TOOLBAR_BUTTON_OFFSET_Y = 3;
+    private static final int SIDE_BUTTON_COUNT = 5;
 
     private final ECOCraftingSystemBlockEntity crafting;
     private final Inventory playerInventory;
+    private final Player player;
     private final NECraftingHeaderPanel headerPanel = new NECraftingHeaderPanel();
     private final NECraftingStatusPanel statusPanel = new NECraftingStatusPanel();
     private final NECraftingStatsPanel statsPanel = new NECraftingStatsPanel();
     private final NECraftingGaugePanel gaugePanel = new NECraftingGaugePanel();
     private final NECraftingTaskPanel taskPanel = new NECraftingTaskPanel();
-    private NEAe2TextButtonWidget networkFrequencyButton;
     private final NEAe2IconButtonWidget[] toolbarButtons = new NEAe2IconButtonWidget[3];
 
     public NECraftingControllerWidget(ECOCraftingSystemBlockEntity crafting, Player player) {
@@ -51,6 +54,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 10);
         this.crafting = crafting;
         this.playerInventory = player.getInventory();
+        this.player = player;
     }
 
     @Override
@@ -59,26 +63,29 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     @Override
+    protected boolean shouldDrawBasePanel() {
+        return false;
+    }
+
+    @Override
     protected void initLdWidgets() {
-        networkFrequencyButton = new NEAe2TextButtonWidget(
-                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X,
-                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
-                TOOLBAR_BUTTON_SIZE,
-                TOOLBAR_BUTTON_SIZE,
-                () -> Component.literal(
-                        Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
-                click -> {
-                    if (!click.isRemote && (click.button == 0 || click.button == 1)) {
-                        crafting.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
-                        syncStateNow();
+        addWidget(new NEAe2IconButtonWidget(-17, NEHostSideButtonRenderer.buttonY(0), 16, 16, Icon.HELP, click -> {
+                    if (!click.isRemote && net.minecraftforge.fml.ModList.get().isLoaded("guideme")) {
+                        guideme.GuidesCommon.openGuide(
+                                player,
+                                appeng.core.AppEng.makeId("guide"),
+                                guideme.PageAnchor.parse("neoecoae:neoecoae_intro/crafting_system.md"));
                     }
-                },
-                () -> currentState().networkMemberCount() > 1,
-                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
-        networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_MUTED);
-        networkFrequencyButton.setTextOffset(1, 1);
-        addWidget(networkFrequencyButton);
+                })
+                .useEcoButton());
+        addWidget(new NEAe2IconButtonWidget(
+                        -17, NEHostSideButtonRenderer.buttonY(4), 16, 16, Icon.SCHEDULING_ROUND_ROBIN, click -> {
+                            if (!click.isRemote && (click.button == 0 || click.button == 1)) {
+                                crafting.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
+                                syncStateNow();
+                            }
+                        })
+                .useEcoButton());
         addToolbarButton(0, click -> {
             if (!click.isRemote) {
                 crafting.toggleOverclocked();
@@ -103,12 +110,16 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        NEHostTextures.drawHostBackground(graphics, getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
+        NEHostSideButtonRenderer.drawLeft(graphics, getPositionX(), getPositionY(), SIDE_BUTTON_COUNT, mouseX, mouseY);
         NECraftingUiState state = currentState();
         NECraftingRenderContext context = context(graphics);
         updateToolbarIcons(state);
         statusPanel.drawBackground(context, mouseX, mouseY);
         statsPanel.drawBackground(context, state, mouseX, mouseY);
         gaugePanel.drawBackground(context, state, mouseX, mouseY);
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(
+                graphics, this::absX, this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, this::absX, this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
         taskPanel.drawBackground(context, mouseX, mouseY);
@@ -131,6 +142,16 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
         NECraftingUiState state = currentState();
         NECraftingRenderContext context = context(graphics);
+        if (isMouseIn(-17, NEHostSideButtonRenderer.buttonY(0), 16, 16, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            ButtonToolTips.OpenGuide.text().withStyle(style -> style.withColor(0xFFFFFF)),
+                            ButtonToolTips.OpenGuideDetail.text().withStyle(net.minecraft.ChatFormatting.GRAY)),
+                    mouseX,
+                    mouseY);
+            return;
+        }
         if (drawToolbarTooltip(graphics, state, mouseX, mouseY)) {
             return;
         }
@@ -156,12 +177,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private void addToolbarButton(int index, Consumer<ClickData> action) {
         toolbarButtons[index] = new NEAe2IconButtonWidget(
-                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE,
-                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
-                TOOLBAR_BUTTON_SIZE,
-                TOOLBAR_BUTTON_SIZE,
-                toolbarIcon(currentState(), index),
-                action);
+                        -17,
+                        NEHostSideButtonRenderer.buttonY(index + 1),
+                        16,
+                        16,
+                        toolbarIcon(currentState(), index),
+                        action)
+                .useEcoButton();
         addWidget(toolbarButtons[index]);
     }
 
@@ -175,37 +197,25 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private boolean drawToolbarTooltip(GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
         for (int index = 0; index < toolbarButtons.length; index++) {
-            int x = TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE;
-            if (!isMouseIn(
-                    x, TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
+            int x = -17;
+            if (!isMouseIn(x, NEHostSideButtonRenderer.buttonY(index + 1), 16, 16, mouseX, mouseY)) {
                 continue;
             }
-            graphics.renderComponentTooltip(font(), toolbarTooltipLines(state, index), mouseX, mouseY);
+            graphics.renderComponentTooltip(
+                    font(), List.of(Component.translatable(toolbarTooltipKey(state, index))), mouseX, mouseY);
             return true;
         }
         return false;
     }
 
     private boolean drawNetworkFrequencyTooltip(GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
-        if (!isMouseIn(
-                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X,
-                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
-                TOOLBAR_BUTTON_SIZE,
-                TOOLBAR_BUTTON_SIZE,
-                mouseX,
-                mouseY)) {
+        if (!isMouseIn(-17, NEHostSideButtonRenderer.buttonY(4), 16, 16, mouseX, mouseY)) {
             return false;
         }
-        int frequency = Math.max(0, state.networkFrequency()) + 1;
+        int frequency = state.networkFrequency();
         graphics.renderComponentTooltip(
                 font(),
-                List.of(
-                        Component.translatable(
-                                        "gui.neoecoae.host.network.frequency",
-                                        coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_BLUE))
-                                .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED))),
-                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")
-                                .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED)))),
+                List.of(Component.translatable("gui.neoecoae.host.network_frequency.cycle", frequency)),
                 mouseX,
                 mouseY);
         return true;
@@ -235,46 +245,5 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     ? "gui.neoecoae.crafting.auto_clear_coolant.on"
                     : "gui.neoecoae.crafting.auto_clear_coolant.off";
         };
-    }
-
-    private static List<Component> toolbarTooltipLines(NECraftingUiState state, int index) {
-        boolean enabled = toolbarEnabled(state, index);
-        int titleColor =
-                switch (index) {
-                    case 0 -> NELDLibStyle.DARK_TEXT_ORANGE;
-                    case 1 -> NELDLibStyle.DARK_TEXT_BLUE;
-                    default -> NELDLibStyle.DARK_TEXT_WARNING;
-                };
-        int actionColor = index == 2
-                ? enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR
-                : enabled ? NELDLibStyle.DARK_TEXT_WARNING : NELDLibStyle.DARK_TEXT_SUCCESS;
-        return List.of(
-                Component.translatable(toolbarTitleKey(index)).withStyle(style -> style.withColor(rgb(titleColor))),
-                Component.translatable(toolbarTooltipKey(state, index))
-                        .withStyle(style -> style.withColor(rgb(actionColor))));
-    }
-
-    private static String toolbarTitleKey(int index) {
-        return switch (index) {
-            case 0 -> "gui.neoecoae.crafting.overclock";
-            case 1 -> "gui.neoecoae.crafting.active_cooling";
-            default -> "gui.neoecoae.crafting.auto_clear_coolant";
-        };
-    }
-
-    private static boolean toolbarEnabled(NECraftingUiState state, int index) {
-        return switch (index) {
-            case 0 -> state.overclocked();
-            case 1 -> state.activeCooling();
-            default -> state.autoClearCoolingWaste();
-        };
-    }
-
-    private static Component coloredText(String text, int color) {
-        return Component.literal(text).withStyle(style -> style.withColor(rgb(color)));
-    }
-
-    private static int rgb(int color) {
-        return color & 0x00FFFFFF;
     }
 }

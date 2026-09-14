@@ -1,7 +1,10 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import appeng.client.gui.Icon;
+import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostSideButtonRenderer;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.storage.NEStorageGaugeRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.sync.NEStorageUiStateCodec;
@@ -12,6 +15,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.widget.NELDLibSyncedStateWidget;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextFieldWidget;
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -22,7 +26,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
-/** LDLib1 implementation of the 1.21 storage host surface. Server storage remains authoritative. */
+/**
+ * LDLib1 implementation of the 1.21 storage host surface. Server storage remains authoritative.
+ */
 public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiState> {
     public static final int WIDTH = 272;
     public static final int HEIGHT = 216;
@@ -30,6 +36,16 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private static final int CONFIG = FIRST_CUSTOM_UPDATE_ID + 2;
     private static final ResourceLocation BACKGROUND =
             cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/estorage_infinite_controller.png");
+    private static final ResourceLocation ELEMENTS =
+            cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/estorage_controller_elements.png");
+    private static final int ELEMENTS_SIZE = 256;
+    private static final int CELL_LIST_LEFT = 178;
+    private static final int CELL_LIST_TOP = 22;
+    private static final int CELL_LIST_WIDTH = 83;
+    private static final int CELL_LIST_HEIGHT = 172;
+    private static final int TYPE_LIST_PADDING = 2;
+    private static final int TYPE_BLOCK_HEIGHT = 43;
+    private static final int TYPE_BLOCK_STRIDE = 48;
     private static final ResourceLocation MEGA_BACKGROUND =
             cn.dancingsnow.neoecoae.NeoECOAE.id("textures/gui/storage/eco_mega_storage.png");
     private static final int MEGA_PANEL_WIDTH = 103;
@@ -49,7 +65,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private final Player player;
     private int scroll;
     private int detailScroll;
-    private int selected = -1;
     private int panel;
     private int priority;
     private int length = 1;
@@ -106,22 +121,22 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     @Override
     protected void initLdWidgets() {
-        addWidget(new NEAe2IconButtonWidget(-20, 0, 18, 20, NEAe2IconButtonWidget.Ae2Icon.WRENCH, click -> {
+        addWidget(new NEAe2IconButtonWidget(-17, 25, 16, 16, NEAe2IconButtonWidget.Ae2Icon.WRENCH, click -> {
                     if (click.isRemote) panel = panel == 1 ? 0 : 1;
                 })
-                .useAeTabButton());
+                .useEcoButton());
         // Structure construction is configured through the Structure Terminal.
         // The storage host only exposes storage controls; keeping the old build tab
         // here made the migrated 1.20.1 screen advertise a removed workflow.
-        addWidget(new NEAe2IconButtonWidget(WIDTH + 2, 0, 18, 20, Icon.LEVEL_ENERGY, click -> {
+        addWidget(new NEAe2IconButtonWidget(WIDTH + 3, 4, 16, 16, Icon.LEVEL_ENERGY, click -> {
                     if (click.isRemote) panel = panel == 4 ? 0 : 4;
                 })
-                .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(WIDTH + 2, 22, 18, 20, Icon.POWER_UNIT_AE, click -> {
+                .useEcoButton());
+        addWidget(new NEAe2IconButtonWidget(WIDTH + 3, 26, 16, 16, Icon.POWER_UNIT_AE, click -> {
                     if (click.isRemote) panel = panel == 5 ? 0 : 5;
                 })
-                .useAeTabButton());
-        addWidget(new NEAe2IconButtonWidget(-20, 44, 18, 20, Icon.HELP, click -> {
+                .useEcoButton());
+        addWidget(new NEAe2IconButtonWidget(-17, 3, 16, 16, Icon.HELP, click -> {
                     if (!click.isRemote && net.minecraftforge.fml.ModList.get().isLoaded("guideme")) {
                         guideme.GuidesCommon.openGuide(
                                 player,
@@ -129,15 +144,21 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                                 guideme.PageAnchor.parse("neoecoae:neoecoae_intro/storage_system.md"));
                     }
                 })
-                .useAeTabButton());
+                .useEcoButton());
         megaPreviousCellButton = megaArrowButton(MEGA_CONTROLS_LEFT, MEGA_CELL_CONTROLS_TOP, -1);
         megaNextCellButton = megaArrowButton(MEGA_CONTROLS_LEFT + 30, MEGA_CELL_CONTROLS_TOP, 1);
         megaPreviousPageButton = megaArrowButton(MEGA_CONTROLS_LEFT, MEGA_PAGE_CONTROLS_TOP, -2);
         megaNextPageButton = megaArrowButton(MEGA_CONTROLS_LEFT + 30, MEGA_PAGE_CONTROLS_TOP, 2);
         megaBulkMarkingButton = new NEAe2IconButtonWidget(
-                MEGA_ACTION_LEFT, MEGA_ACTION_TOP, 16, 16, NEAe2IconButtonWidget.Ae2Icon.TYPE_FILTER_ALL, click -> {
-                    if (click.isRemote) send(10, 0);
-                });
+                        MEGA_ACTION_LEFT,
+                        MEGA_ACTION_TOP,
+                        16,
+                        16,
+                        NEAe2IconButtonWidget.Ae2Icon.TYPE_FILTER_ALL,
+                        click -> {
+                            if (click.isRemote) send(10, 0);
+                        })
+                .useEcoButton();
         addWidget(megaPreviousCellButton);
         addWidget(megaNextCellButton);
         addWidget(megaPreviousPageButton);
@@ -192,10 +213,11 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     private NEAe2IconButtonWidget megaArrowButton(int x, int y, int direction) {
         Icon icon = direction < 0 ? Icon.ARROW_LEFT : Icon.ARROW_RIGHT;
         return new NEAe2IconButtonWidget(x, y, 10, 10, icon, click -> {
-            if (!click.isRemote) return;
-            if (Math.abs(direction) == 1) send(7, direction);
-            else send(8, direction);
-        });
+                    if (!click.isRemote) return;
+                    if (Math.abs(direction) == 1) send(7, direction);
+                    else send(8, direction);
+                })
+                .useEcoButton();
     }
 
     @Override
@@ -327,12 +349,16 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     @Override
     protected void drawMachineBackground(GuiGraphics g, int mx, int my, float partial) {
         g.blit(BACKGROUND, absX(0), absY(0), 0, 0, WIDTH, HEIGHT, 288, 256);
-        NEPlayerInventoryWidgets.drawPlayerInventorySlots(g, this::absX, this::absY, 7, 129, 187);
+        NEHostSideButtonRenderer.drawLeft(g, absX(0), absY(0), 2, mx, my);
+        NEHostSideButtonRenderer.drawRight(g, absX(0), absY(0), WIDTH, 2, mx, my);
         double target = percent(currentState().totalUsedBytes(), currentState().totalBytes());
         animatedRatio += (target - animatedRatio) * 0.15;
-        g.fill(absX(72), absY(22), absX(104), absY(114), 0xFF302C42);
-        int fill = (int) Math.round(animatedRatio * 90);
-        g.fill(absX(73), absY(113 - fill), absX(103), absY(113), 0xFF9178C5);
+        drawGraphLines(g, mx, my);
+        if (currentState().infiniteMode() || currentState().migratingToInfinite()) {
+            drawGauge(g, 72, 22, 1.0D, 0xD8CA6CFF);
+        } else {
+            drawGauge(g, 72, 22, animatedRatio, NEStorageGaugeRenderer.colorForPercent(animatedRatio));
+        }
         priorityField.setVisible(panel == 1);
         priorityField.setActive(panel == 1);
         infiniteSlot.setVisible(panel == 0);
@@ -376,67 +402,210 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
     }
 
     private void small(GuiGraphics g, Component text, int x, int y, int maxWidth) {
+        small(g, text, x, y, maxWidth, 0.65F, false, 0xFFD6D0E0);
+    }
+
+    private void small(GuiGraphics g, Component text, int x, int y, int maxWidth, float scale, boolean rightAlign) {
+        small(g, text, x, y, maxWidth, scale, rightAlign, 0xFFD6D0E0);
+    }
+
+    private void small(
+            GuiGraphics g,
+            Component text,
+            int x,
+            int y,
+            int maxWidth,
+            float scale,
+            boolean rightAlign,
+            int color) {
         g.pose().pushPose();
         g.pose().translate(absX(x), absY(y), 0);
-        g.pose().scale(0.65F, 0.65F, 1);
-        g.drawString(
-                font(), font().plainSubstrByWidth(text.getString(), (int) (maxWidth / 0.65F)), 0, 0, 0xFF413F54, false);
+        g.pose().scale(scale, scale, 1);
+        String clipped = font().plainSubstrByWidth(text.getString(), (int) (maxWidth / scale));
+        int textX = rightAlign ? Math.max(0, Math.round(maxWidth / scale) - font().width(clipped) - 2) : 0;
+        g.drawString(font(), clipped, textX, 0, color, false);
         g.pose().popPose();
+    }
+
+    private void drawGraphLines(GuiGraphics g, int mouseX, int mouseY) {
+        drawGraphLine(g, 18, 38, 60, 6, 6, 225, mouseX, mouseY);
+        drawGraphLine(g, 95, 35, 59, 6, 1, 197, mouseX, mouseY);
+        drawGraphLine(g, 18, 57, 60, 6, 6, 225, mouseX, mouseY);
+        drawGraphLine(g, 95, 54, 59, 6, 1, 197, mouseX, mouseY);
+    }
+
+    private void drawGraphLine(
+            GuiGraphics g, int x, int y, int width, int height, int u, int v, int mouseX, int mouseY) {
+        boolean hovered = isMouseIn(x, y, width, height, mouseX, mouseY);
+        float tint = hovered ? 1.0F : 0.4F;
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, tint);
+        g.blit(ELEMENTS, absX(x), absY(y), width, height, u, v, width, height, ELEMENTS_SIZE, ELEMENTS_SIZE);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private void drawGauge(GuiGraphics g, int x, int y, double ratio, int color) {
+        double clamped = Math.max(0.0D, Math.min(1.0D, ratio));
+        if (clamped <= 0.0D) return;
+        int height = 92;
+        int capHeight = 8;
+        int bottom = absY(y + height);
+        int barHeight = (int) Math.round((height - capHeight) * clamped);
+        int top = bottom - barHeight - capHeight;
+        float alpha = ((color >>> 24) & 0xFF) / 255.0F;
+        float red = ((color >>> 16) & 0xFF) / 255.0F;
+        float green = ((color >>> 8) & 0xFF) / 255.0F;
+        float blue = (color & 0xFF) / 255.0F;
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(red, green, blue, alpha);
+        g.blit(ELEMENTS, absX(x), top, 32, capHeight, 1, 246, 32, capHeight, ELEMENTS_SIZE, ELEMENTS_SIZE);
+        for (int drawY = top + capHeight / 2 + 1; drawY < bottom - capHeight / 2 + 1; drawY++) {
+            g.blit(ELEMENTS, absX(x), drawY, 32, 4, 34, 250, 32, 4, ELEMENTS_SIZE, ELEMENTS_SIZE);
+        }
+        g.blit(
+                ELEMENTS,
+                absX(x),
+                bottom - capHeight,
+                32,
+                capHeight,
+                1,
+                246,
+                32,
+                capHeight,
+                ELEMENTS_SIZE,
+                ELEMENTS_SIZE);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private void drawStorageTypeList(GuiGraphics g) {
+        var types = currentState().typeStates();
+        int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / TYPE_BLOCK_STRIDE);
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, types.size() - visibleBlocks)));
+        g.enableScissor(
+                absX(CELL_LIST_LEFT),
+                absY(CELL_LIST_TOP),
+                absX(CELL_LIST_LEFT + CELL_LIST_WIDTH),
+                absY(CELL_LIST_TOP + CELL_LIST_HEIGHT));
+        for (int row = 0; scroll + row < types.size(); row++) {
+            int y = CELL_LIST_TOP + TYPE_LIST_PADDING + row * TYPE_BLOCK_STRIDE;
+            if (y >= CELL_LIST_TOP + CELL_LIST_HEIGHT) break;
+            var type = types.get(scroll + row);
+            small(
+                    g,
+                    type.displayComponent(),
+                    CELL_LIST_LEFT + 2,
+                    y,
+                    CELL_LIST_WIDTH - 4,
+                    0.9F,
+                    false,
+                    storageTypeAccentColor(row));
+            boolean infinite = currentState().infiniteMode() || currentState().migratingToInfinite();
+            small(
+                    g,
+                    infinite
+                            ? usedOnly("gui.neoecoae.storage.legacy.cell_types", capacity(type.usedTypes()))
+                            : Component.translatable(
+                                    "gui.neoecoae.storage.legacy.cell_types",
+                                    capacity(type.usedTypes()),
+                                    capacity(type.totalTypes())),
+                    CELL_LIST_LEFT + 2,
+                    y + 12,
+                    CELL_LIST_WIDTH - 4,
+                    0.6F,
+                    false);
+            drawTypeProgress(g, CELL_LIST_LEFT + 2, y + 21, CELL_LIST_WIDTH - 4, type.usedTypes(), type.totalTypes());
+            small(
+                    g,
+                    infinite
+                            ? usedOnly("gui.neoecoae.storage.legacy.cell_bytes", type.safeUsedAmount())
+                            : Component.translatable(
+                                    "gui.neoecoae.storage.legacy.cell_bytes",
+                                    capacity(type.usedBytes()),
+                                    capacity(type.totalBytes())),
+                    CELL_LIST_LEFT + 2,
+                    y + 27,
+                    CELL_LIST_WIDTH - 4,
+                    0.6F,
+                    false);
+            drawTypeProgress(g, CELL_LIST_LEFT + 2, y + 36, CELL_LIST_WIDTH - 4, type.usedBytes(), type.totalBytes());
+        }
+        g.disableScissor();
+    }
+
+    private Component usedOnly(String translationKey, String used) {
+        String marker = "\u0001";
+        String rendered = Component.translatable(translationKey, used, marker).getString();
+        int markerIndex = rendered.indexOf(marker);
+        if (markerIndex < 0) return Component.literal(rendered);
+        String prefix = rendered.substring(0, markerIndex);
+        int separator = prefix.lastIndexOf('/');
+        return Component.literal(separator >= 0 ? prefix.substring(0, separator).stripTrailing() : prefix);
+    }
+
+    private int storageTypeAccentColor(int visibleRow) {
+        int[] palette = {0xFFE06C75, 0xFF61AFEF, 0xFF98C379, 0xFFD19A66, 0xFFC678DD};
+        return palette[Math.floorMod(scroll + visibleRow, palette.length)];
+    }
+
+    private void drawTypeProgress(GuiGraphics g, int x, int y, int width, long used, long total) {
+        if (currentState().infiniteMode() || currentState().migratingToInfinite()) return;
+        g.fill(absX(x), absY(y), absX(x + width), absY(y + 4), 0x281F2F34);
+        int fill = (int) Math.round(width * percent(used, total));
+        if (fill > 0) g.fill(absX(x), absY(y), absX(x + fill), absY(y + 4), 0xFF26A6BD);
     }
 
     @Override
     protected void drawMachineForeground(GuiGraphics g, int mx, int my, float partial) {
         if (panel == 0) {
-            small(g, title, 8, 6, 160);
+            small(g, title, 8, 6, 160, 0.65F, false, 0xFF3F3D52);
+            small(
+                    g,
+                    Component.literal(fmt(currentState().performanceAverageNanos()) + " ns/t"),
+                    18,
+                    30,
+                    60,
+                    0.6F,
+                    false);
+            small(
+                    g,
+                    Component.translatable(
+                            "gui.neoecoae.storage.legacy.graph.energy_stored",
+                            String.format(
+                                    java.util.Locale.ROOT,
+                                    "%.1f%%",
+                                    percent(
+                                                    currentState().storedEnergy(),
+                                                    currentState().maxEnergy())
+                                            * 100.0D)),
+                    95,
+                    27,
+                    59,
+                    0.6F,
+                    true);
             small(
                     g,
                     Component.translatable(
                             "gui.neoecoae.storage.legacy.graph.total_bytes",
                             fmt(currentState().totalUsedBytes())),
-                    10,
-                    51,
-                    60);
+                    18,
+                    49,
+                    60,
+                    0.6F,
+                    false);
             small(
                     g,
-                    Component.literal(String.format(java.util.Locale.ROOT, "%.1f%%", animatedRatio * 100)),
-                    108,
-                    51,
-                    58);
-            small(
-                    g,
-                    Component.literal(fmt(currentState().storedEnergy()) + " / "
-                            + fmt(currentState().maxEnergy()) + " AE"),
-                    10,
-                    32,
-                    60);
-            small(
-                    g,
-                    Component.literal(fmt(currentState().totalUsedTypes()) + " / "
-                            + capacity(currentState().totalTypes())),
-                    108,
-                    32,
-                    58);
+                    Component.translatable(
+                            "gui.neoecoae.storage.legacy.graph.total_usage",
+                            String.format(java.util.Locale.ROOT, "%.1f%%", animatedRatio * 100.0D)),
+                    95,
+                    46,
+                    59,
+                    0.6F,
+                    true);
         }
-        var cells = cells();
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, cells.size() - 6)));
-        for (int row = 0; row < 6 && scroll + row < cells.size(); row++) {
-            var cell = cells.get(scroll + row);
-            int y = 22 + row * 28;
-            g.fill(absX(178), absY(y), absX(261), absY(y + 26), selected == scroll + row ? 0xFFECE5F7 : 0xFFC6B8DC);
-            small(g, cell.stack().getHoverName(), 180, y + 2, 78);
-            small(
-                    g,
-                    Component.literal(capacity(cell.usedTypes()) + " / " + capacity(cell.totalTypes())),
-                    180,
-                    y + 10,
-                    78);
-            small(
-                    g,
-                    Component.literal(capacity(cell.usedBytes()) + " / " + capacity(cell.totalBytes()) + " B"),
-                    180,
-                    y + 18,
-                    78);
-        }
+        drawStorageTypeList(g);
         if (megaCellCount > 0) drawMegaPanel(g, mx, my);
         if (panel != 0) drawFloatingPanel(g);
     }
@@ -488,17 +657,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
                         154);
             }
             small(g, Component.literal(currentState().infiniteDomainState()), 12, 105, 154);
-        } else if (selected >= 0 && selected < cells().size()) {
-            var cell = cells().get(selected);
-            small(g, cell.stack().getHoverName(), 12, 32, 154);
-            small(g, Component.literal("L" + (cell.tier() == 3 ? 9 : cell.tier() == 2 ? 6 : 4)), 12, 48, 154);
-            small(
-                    g,
-                    Component.literal(capacity(cell.usedBytes()) + " / " + capacity(cell.totalBytes()) + " B"),
-                    12,
-                    65,
-                    154);
-            small(g, Component.literal(capacity(cell.usedTypes()) + " / " + capacity(cell.totalTypes())), 12, 82, 154);
         }
         g.pose().popPose();
     }
@@ -567,11 +725,6 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             else if (button == 0 && !carried.isEmpty()) sendFilter(slot, carried);
             return true;
         }
-        if (isMouseIn(178, 22, 83, 168, mx, my)) {
-            selected = scroll + (my - absY(22)) / 28;
-            if (selected < cells().size()) panel = 3;
-            return true;
-        }
         return super.mouseClicked(x, y, button);
     }
 
@@ -584,8 +737,13 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
             detailScroll = Math.max(0, Math.min(Math.max(0, maximum), detailScroll + (delta < 0 ? 1 : -1)));
             return true;
         }
-        if (isMouseIn(178, 22, 83, 172, (int) x, (int) y)) {
-            scroll = Math.max(0, Math.min(Math.max(0, cells().size() - 6), scroll + (delta < 0 ? 1 : -1)));
+        if (isMouseIn(CELL_LIST_LEFT, CELL_LIST_TOP, CELL_LIST_WIDTH, CELL_LIST_HEIGHT, (int) x, (int) y)) {
+            int visibleBlocks = Math.max(1, CELL_LIST_HEIGHT / TYPE_BLOCK_STRIDE);
+            scroll = Math.max(
+                    0,
+                    Math.min(
+                            Math.max(0, currentState().typeStates().size() - visibleBlocks),
+                            scroll + (delta < 0 ? 1 : -1)));
             return true;
         }
         return super.mouseWheelMove(x, y, delta);
@@ -593,17 +751,24 @@ public final class StorageHostUI extends NELDLibSyncedStateWidget<NEStorageUiSta
 
     @Override
     protected void drawMachineTooltips(GuiGraphics g, int x, int y) {
-        String[] leftKeys = {"gui.ae2.Priority", "gui.neoecoae.storage.host.guide"};
-        int[] leftYs = {0, 44};
-        for (int i = 0; i < leftKeys.length; i++) {
-            if (isMouseIn(-20, leftYs[i], 18, 20, x, y)) {
-                g.renderComponentTooltip(font(), List.of(Component.translatable(leftKeys[i])), x, y);
-                return;
-            }
+        if (isMouseIn(-17, 3, 16, 16, x, y)) {
+            g.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            ButtonToolTips.OpenGuide.text().withStyle(style -> style.withColor(0xFFFFFF)),
+                            ButtonToolTips.OpenGuideDetail.text().withStyle(net.minecraft.ChatFormatting.GRAY)),
+                    x,
+                    y);
+            return;
+        }
+        if (isMouseIn(-17, 25, 16, 16, x, y)) {
+            g.renderComponentTooltip(
+                    font(), List.of(Component.translatable("gui.neoecoae.storage_priority.open")), x, y);
+            return;
         }
         String[] rightKeys = {"gui.neoecoae.storage.infinite_domain", "gui.neoecoae.storage.host.details"};
         for (int i = 0; i < rightKeys.length; i++) {
-            if (isMouseIn(WIDTH + 2, i * 22, 18, 20, x, y)) {
+            if (isMouseIn(WIDTH + 3, 4 + i * 22, 16, 16, x, y)) {
                 g.renderComponentTooltip(font(), List.of(Component.translatable(rightKeys[i])), x, y);
                 return;
             }
