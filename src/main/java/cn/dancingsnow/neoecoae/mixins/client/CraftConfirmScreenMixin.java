@@ -11,10 +11,13 @@ import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Inventory;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -25,6 +28,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmMenu> {
 
     @Unique private boolean neoecoae$fastPlannerReportRouted;
+
+    @Shadow
+    @Final
+    private Button start;
+
+    @Shadow
+    @Final
+    private Button selectCPU;
 
     protected CraftConfirmScreenMixin(
             CraftConfirmMenu menu, Inventory playerInventory, Component title, ScreenStyle style) {
@@ -56,6 +67,10 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
     private void neoecoae$routeFastPlannerReport(CallbackInfo ci) {
+        if ((Object) this.menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$isMissingCraftAvailable()) {
+            this.start.active = !this.menu.hasNoCPU();
+            this.selectCPU.active = true;
+        }
         if (this.neoecoae$fastPlannerReportRouted
                 || Minecraft.getInstance().screen != (Object) this
                 || !((Object) this.menu instanceof ECOCraftConfirmMenuMode mode)

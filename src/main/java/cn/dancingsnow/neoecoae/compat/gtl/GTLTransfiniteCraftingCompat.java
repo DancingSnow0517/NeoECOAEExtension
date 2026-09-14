@@ -21,6 +21,39 @@ public final class GTLTransfiniteCraftingCompat {
         return target != null && target.getClass().getName().equals(CPU_CLASS);
     }
 
+    public static boolean isUsableMissingCraftCpu(
+            @Nullable ICraftingCPU target,
+            @Nullable ICraftingPlan plan,
+            IActionSource source,
+            boolean automaticSelection) {
+        if (!isTransfiniteCpu(target) || !isMissingCraftingEnabled()) return false;
+        try {
+            boolean capacityView =
+                    (boolean) target.getClass().getMethod("isCapacityView").invoke(target);
+            boolean active = (boolean) target.getClass().getMethod("isActive").invoke(target);
+            Object host = target.getClass().getMethod("getHost").invoke(target);
+            boolean selectable = (boolean) host.getClass()
+                    .getMethod("canBeAutoSelectedFor", IActionSource.class)
+                    .invoke(host, source);
+            return capacityView
+                    && active
+                    && (!automaticSelection || selectable)
+                    && (plan == null || target.getAvailableStorage() >= plan.bytes());
+        } catch (ReflectiveOperationException failure) {
+            return false;
+        }
+    }
+
+    private static boolean isMissingCraftingEnabled() {
+        try {
+            Class<?> config = Class.forName("org.gtlcore.gtlcore.config.ConfigHolder");
+            Object instance = config.getField("INSTANCE").get(null);
+            return config.getField("enableAe2MissingCrafting").getBoolean(instance);
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return false;
+        }
+    }
+
     @Nullable public static ICraftingSubmitResult submit(
             IGrid grid, ICraftingPlan plan, ICraftingRequester requester, ICraftingCPU target, IActionSource source) {
         if (!isTransfiniteCpu(target)) return null;

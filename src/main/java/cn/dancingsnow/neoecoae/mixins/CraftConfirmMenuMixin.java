@@ -1,17 +1,23 @@
 package cn.dancingsnow.neoecoae.mixins;
 
+import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ISubMenuHost;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.api.me.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.compat.gtl.GTLTransfiniteCraftingCompat;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -50,6 +56,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique @GuiSync(29006)
     private String neoecoae$theoreticalBytes = "0";
 
+    @Unique @GuiSync(29007)
+    private boolean neoecoae$missingCraftAvailable;
+
     /** Zero means absent; otherwise this is {@code PlanningStatus.ordinal() + 1}. */
     @Unique @GuiSync(29002)
     private int neoecoae$planningStatusCode;
@@ -65,6 +74,19 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Shadow
     private ICraftingPlan result;
+
+    @Shadow
+    private ICraftingCPU selectedCpu;
+
+    @Shadow
+    private IGrid getGrid() {
+        throw new AssertionError();
+    }
+
+    @Shadow
+    private IActionSource getActionSrc() {
+        throw new AssertionError();
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void captureFastPlannerMode(int id, Inventory inventory, ISubMenuHost host, CallbackInfo ci) {
@@ -94,6 +116,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             at = @At("TAIL"),
             require = 1)
     private void capturePlannerDiagnostics(CallbackInfo ci) {
+        neoecoae$missingCraftAvailable = result != null
+                && result.simulation()
+                && (neoecoae$findMissingCraftCpu(result) != null || neoecoae$hasUsableTransfiniteCraftCpu(result));
         ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
                 ? diagnostics.neoecoae$getPlanningResult()
                 : null;
@@ -171,6 +196,55 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
     }
 
+    @Inject(method = "startJob", at = @At("HEAD"))
+    private void neoecoae$prepareMissingCraft(CallbackInfo ci) {
+        if (result == null || !result.simulation()) return;
+        ECOCraftingCPU cpu = neoecoae$findMissingCraftCpu(result);
+        if (cpu == null) return;
+        selectedCpu = cpu;
+        result = new ECOMissingCraftingPlan(result);
+    }
+
+    @Unique private @Nullable ECOCraftingCPU neoecoae$findMissingCraftCpu(@Nullable ICraftingPlan plan) {
+        if (selectedCpu instanceof ECOCraftingCPU selected) {
+            return neoecoae$isUsableMissingCraftCpu(selected, plan, false) ? selected : null;
+        }
+        if (selectedCpu != null) return null;
+
+        IGrid grid = getGrid();
+        if (grid == null) return null;
+        // Keep GTLCore's established automatic preference when an eligible transfinite CPU is present.
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (GTLTransfiniteCraftingCompat.isUsableMissingCraftCpu(cpu, plan, getActionSrc(), true)) return null;
+        }
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (cpu instanceof ECOCraftingCPU candidate && neoecoae$isUsableMissingCraftCpu(candidate, plan, true)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    @Unique private boolean neoecoae$hasUsableTransfiniteCraftCpu(@Nullable ICraftingPlan plan) {
+        if (selectedCpu != null) {
+            return GTLTransfiniteCraftingCompat.isUsableMissingCraftCpu(selectedCpu, plan, getActionSrc(), false);
+        }
+        IGrid grid = getGrid();
+        if (grid == null) return false;
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (GTLTransfiniteCraftingCompat.isUsableMissingCraftCpu(cpu, plan, getActionSrc(), true)) return true;
+        }
+        return false;
+    }
+
+    @Unique private boolean neoecoae$isUsableMissingCraftCpu(
+            ECOCraftingCPU cpu, @Nullable ICraftingPlan plan, boolean automaticSelection) {
+        return cpu.isAllocationProxy()
+                && cpu.isActive()
+                && (plan == null || cpu.hasAvailableStorage(plan.bytes()))
+                && (!automaticSelection || cpu.getCluster().canBeAutoSelectedFor(getActionSrc()));
+    }
+
     @Unique private static long neoecoae$amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream()
                 .filter(value -> value.key().equals(key))
@@ -198,6 +272,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 .filter(node -> node.key().equals(key))
                 .findFirst()
                 .orElse(null);
+    }
+
+    @Override
+    public boolean neoecoae$isMissingCraftAvailable() {
+        return neoecoae$missingCraftAvailable;
     }
 
     @Override

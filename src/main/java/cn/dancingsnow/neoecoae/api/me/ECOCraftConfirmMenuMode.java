@@ -8,6 +8,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Client-synchronized ECO state for the AE2 crafting confirmation menu. */
 public interface ECOCraftConfirmMenuMode {
+    boolean neoecoae$isMissingCraftAvailable();
+
     boolean neoecoae$shouldShowFastPlannerReport();
 
     boolean neoecoae$isCyclePlanningEnabled();

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 
 /** Verifies injection targets without initializing Minecraft or loading transformed classes. */
 class ECOCraftingMixinContractTest {
@@ -113,6 +114,26 @@ class ECOCraftingMixinContractTest {
             }
         }
         assertTrue(bindsAlias);
+    }
+
+    @Test
+    void missingCraftingIsPreparedAtTheMenuEntryPoint() throws Exception {
+        var menuMixin = read("cn/dancingsnow/neoecoae/mixins/CraftConfirmMenuMixin");
+        var handler = menuMixin.methods.stream()
+                .filter(method -> method.name.equals("neoecoae$prepareMissingCraft"))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(handler.visibleAnnotations.stream()
+                .anyMatch(annotation -> annotation.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;")));
+        boolean wrapsMissingPlan = false;
+        for (var instruction : handler.instructions) {
+            if (instruction instanceof TypeInsnNode type
+                    && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                    && type.desc.equals("cn/dancingsnow/neoecoae/api/me/ECOMissingCraftingPlan")) {
+                wrapsMissingPlan = true;
+            }
+        }
+        assertTrue(wrapsMissingPlan);
     }
 
     @Test

@@ -25,6 +25,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
@@ -97,6 +98,16 @@ public class ExecutingCraftingJob {
             CraftingDifferenceListener postCraftingDifference,
             CraftingLink link,
             @Nullable Integer playerId) {
+        this(plan, executionPlan, null, postCraftingDifference, link, playerId);
+    }
+
+    ExecutingCraftingJob(
+            ICraftingPlan plan,
+            @Nullable ECOExecutionPlan executionPlan,
+            @Nullable KeyCounter extractionShortfall,
+            CraftingDifferenceListener postCraftingDifference,
+            CraftingLink link,
+            @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
@@ -106,6 +117,10 @@ public class ExecutingCraftingJob {
         for (var entry : plan.emittedItems()) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
+        }
+        if (plan instanceof ECOMissingCraftingPlan) {
+            addMissingInputs(plan.missingItems());
+            addMissingInputs(extractionShortfall);
         }
         for (var entry : plan.patternTimes().entrySet()) {
             tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress()).value += entry.getValue();
@@ -126,6 +141,14 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+    }
+
+    private void addMissingInputs(@Nullable KeyCounter missing) {
+        if (missing == null) return;
+        for (var entry : missing) {
+            waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
+            timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
+        }
     }
 
     ExecutingCraftingJob(

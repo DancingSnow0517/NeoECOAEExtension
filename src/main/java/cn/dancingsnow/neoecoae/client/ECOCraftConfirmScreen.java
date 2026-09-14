@@ -79,7 +79,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = hasUnrepresentableDiagnostic();
         boolean blockedUnrepresentable = isBlockedUnrepresentablePlan();
-        boolean startable = plan != null && !plan.isSimulation() && !blockedUnrepresentable;
+        boolean missingCraftAvailable =
+                (Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$isMissingCraftAvailable();
+        boolean startable = plan != null && (!plan.isSimulation() || missingCraftAvailable) && !blockedUnrepresentable;
         start.active = !menu.hasNoCPU() && startable;
         selectCPU.active = startable;
 

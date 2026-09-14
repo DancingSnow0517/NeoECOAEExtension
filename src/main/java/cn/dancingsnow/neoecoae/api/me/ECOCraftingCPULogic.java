@@ -107,12 +107,18 @@ public class ECOCraftingCPULogic {
 
         if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
-        var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(plan);
+        var executionPlan = ECOPlanningResultRegistry.resolveExecutionPlan(
+                plan instanceof ECOMissingCraftingPlan missingPlan ? missingPlan.delegate() : plan);
 
-        // 尝试提取所需物品。
-        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
-        if (missingIngredient != null) {
-            return CraftingSubmitResult.missingIngredient(missingIngredient);
+        KeyCounter extractionShortfall = null;
+        if (plan instanceof ECOMissingCraftingPlan) {
+            extractionShortfall = extractAvailableInitialItems(plan, grid, src);
+        } else {
+            // 尝试提取所需物品。
+            var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
+            if (missingIngredient != null) {
+                return CraftingSubmitResult.missingIngredient(missingIngredient);
+            }
         }
 
         // 设置 CPU 链接与任务。
@@ -121,7 +127,8 @@ public class ECOCraftingCPULogic {
                 .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
+        this.job =
+                new ExecutingCraftingJob(plan, executionPlan, extractionShortfall, this::postChange, linkCpu, playerId);
         ECOBigCraftingOrders.bindSubmittedJob(craftId);
         this.requesterLink = null;
         providerCursor.clear();
@@ -154,6 +161,23 @@ public class ECOCraftingCPULogic {
         } else {
             return CraftingSubmitResult.successful(null);
         }
+    }
+
+    private KeyCounter extractAvailableInitialItems(ICraftingPlan plan, IGrid grid, IActionSource source) {
+        KeyCounter shortfall = new KeyCounter();
+        var storage = grid.getStorageService().getInventory();
+        for (var entry : plan.usedItems()) {
+            AEKey key = entry.getKey();
+            long required = entry.getLongValue();
+            long extracted = storage.extract(key, required, Actionable.MODULATE, source);
+            if (extracted > 0L) {
+                inventory.insert(key, extracted, Actionable.MODULATE);
+            }
+            if (extracted < required) {
+                shortfall.add(key, required - extracted);
+            }
+        }
+        return shortfall;
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {

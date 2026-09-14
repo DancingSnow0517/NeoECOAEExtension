@@ -15,6 +15,7 @@ import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.gtl.GTLTransfiniteCraftingCompat;
@@ -111,7 +112,7 @@ public final class NeoECOCraftingServiceBridge {
         // AE2 invokes this bridge before its native implementation validates
         // simulation plans. Preserve that validation for automatic selection
         // and ECO CPUs, while leaving third-party CPUs to their owner above.
-        if (job.simulation()) {
+        if (job.simulation() && !(job instanceof ECOMissingCraftingPlan)) {
             return CraftingSubmitResult.INCOMPLETE_PLAN;
         }
 
