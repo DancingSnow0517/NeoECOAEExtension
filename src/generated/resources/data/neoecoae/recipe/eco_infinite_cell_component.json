@@ -3,9 +3,11 @@
   "energy": 144000,
   "inputItems": [
     {
+      "count": 1,
       "item": "minecraft:water_bucket"
     },
     {
+      "count": 1,
       "item": "minecraft:lava_bucket"
     },
     {
@@ -13,6 +15,7 @@
       "item": "minecraft:cobblestone"
     },
     {
+      "count": 1,
       "item": "neoecoae:eco_cell_component_256m"
     },
     {

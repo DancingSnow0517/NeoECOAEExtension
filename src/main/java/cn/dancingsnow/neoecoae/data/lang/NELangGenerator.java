@@ -45,6 +45,10 @@ public class NELangGenerator {
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
         provider.add("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
+        provider.add("block.neoecoae.large_integrated_working_station_casing", "Large Integrated Working Station Casing");
+        provider.add("block.neoecoae.large_integrated_working_station_input_hatch", "Large Integrated Working Station Input Hatch");
+        provider.add("block.neoecoae.large_integrated_working_station_output_hatch", "Large Integrated Working Station Output Hatch");
+        provider.add("block.neoecoae.large_integrated_working_station_interface", "Large Integrated Working Station Interface");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
@@ -101,6 +105,10 @@ public class NELangGenerator {
             "Component slots: 64 infinite storage components in the storage host");
         provider.add("tooltip.neoecoae.infinite_component.matrices",
             "Drives: any 12 L9 storage matrices in the same storage host");
+        provider.add("tooltip.neoecoae.storage.infinite_member", "Managed by the storage host");
+        provider.add("tooltip.neoecoae.infinite_resource.contents", "Infinite supply: Water / Cobblestone / Lava");
+        provider.add("tooltip.neoecoae.infinite_resource.unbounded", "Can be extracted directly by the ME network and never runs out");
+        provider.add("tooltip.neoecoae.infinite_resource.sink", "Accepts only the three listed resources; inserted resources are destroyed");
         provider.add("gui.neoecoae.storage.status.degraded", "Infinite storage data needs repair");
         provider.add("gui.neoecoae.storage.status.recovery", "Infinite storage is temporarily read-only");
         provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");

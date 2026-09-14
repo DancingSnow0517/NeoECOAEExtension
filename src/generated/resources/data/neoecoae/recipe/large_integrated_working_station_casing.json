@@ -15,9 +15,11 @@
       "item": "ae2:engineering_processor"
     },
     {
+      "count": 1,
       "tag": "c:storage_blocks/energized_fluix_crystal"
     },
     {
+      "count": 1,
       "item": "neoecoae:eco_cell_component_64m"
     },
     {

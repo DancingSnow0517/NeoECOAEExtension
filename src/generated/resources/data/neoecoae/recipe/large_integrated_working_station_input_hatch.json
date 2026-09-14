@@ -11,9 +11,11 @@
       "item": "ae2:import_bus"
     },
     {
+      "count": 1,
       "item": "ae2:interface"
     },
     {
+      "count": 1,
       "item": "neoecoae:eco_fluid_cell_housing"
     },
     {

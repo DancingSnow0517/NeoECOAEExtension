@@ -388,6 +388,7 @@
   "jade.neoecoae.drive_unmounted": "ECO 驱动器未挂载",
   "jade.neoecoae.fast_planner.disabled": "未开启ECO快速规划",
   "jade.neoecoae.fast_planner.enabled": "已开启ECO快速规划",
+  "jade.neoecoae.overclock_status": "理论/生效超频: %d/%d",
   "jade.neoecoae.overclocked": "超频已启用",
   "jade.neoecoae.overclock_disabled": "超频未启用",
   "jade.neoecoae.network_composition": "网络组成：%d台%s+%d台%s",

@@ -416,28 +416,15 @@ final class ECOStorageInfiniteRestore {
             if (slot != 0 || (!stack.isEmpty() && !ECOStorageSystemBlockEntity.isInfiniteComponent(stack))) {
                 return;
             }
-            if (slot == 0) {
-                ItemStack current = delegate.getStackInSlot(slot);
-                if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
-                    && host.hasRequiredInfiniteComponents(current)
-                    && !host.hasRequiredInfiniteComponents(stack)) {
-                    return;
-                }
-                if (host.storageHostMode().isInfiniteState()
-                    && host.hasRequiredInfiniteComponents(current)
-                    && !host.hasRequiredInfiniteComponents(stack)) {
-                    RestorePlan plan = createInfiniteRestorePlan(true);
-                    if (!plan.canRestore()) {
-                        return;
-                    }
-                    host.requestInfiniteExit();
-                    host.setChanged();
-                    restoreInfiniteDomainToNormalStorage(plan);
-                    if (host.storageHostMode().isInfiniteState()) {
-                        return;
-                    }
-                }
+            ItemStack current = delegate.getStackInSlot(slot);
+            if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                && host.hasRequiredInfiniteComponents(current)
+                && !host.hasRequiredInfiniteComponents(stack)) {
+                return;
             }
+            // ItemHandlerSlot.getMaxStackSize() temporarily clears and restores the slot while
+            // simulating a quick-move insertion. This setter must therefore remain side-effect-free;
+            // real removal is handled by extractItem(), which has the restoration guard.
             delegate.setStackInSlot(slot, stack);
         }
 

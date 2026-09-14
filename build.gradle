@@ -160,7 +160,10 @@ dependencies {
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
     // implementation(name: "appbot-1.6.0")
 
-    implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182")
+    implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182") {
+        // The Ars Nouveau POM pins an older JEI build; use the project-wide client version instead.
+        exclude group: "mezz.jei", module: "jei-${minecraft_version}-neoforge"
+    }
     implementation("curse.maven:ars-energistique-905641:6203425")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")

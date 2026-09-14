@@ -11,6 +11,8 @@ public final class ClassicPackDetector {
     private ClassicPackDetector() {}
 
     public static boolean isActive() {
-        return Minecraft.getInstance().getResourceManager().getResource(NeoECOAE.id("classic_pack_marker")).isPresent();
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null
+            && minecraft.getResourceManager().getResource(NeoECOAE.id("classic_pack_marker")).isPresent();
     }
 }

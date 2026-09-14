@@ -1,5 +1,10 @@
 {
-  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "ae2omnicells"}],
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
   "type": "neoecoae:integrated_working_station",
   "energy": 12000,
   "inputItems": [

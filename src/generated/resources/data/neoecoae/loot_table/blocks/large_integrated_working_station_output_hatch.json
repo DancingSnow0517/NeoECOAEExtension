@@ -11,11 +11,11 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "neoecoae:fx_monitor_core"
+          "name": "neoecoae:large_integrated_working_station_output_hatch"
         }
       ],
       "rolls": 1.0
     }
   ],
-  "random_sequence": "neoecoae:blocks/fx_monitor_core"
+  "random_sequence": "neoecoae:blocks/large_integrated_working_station_output_hatch"
 }
