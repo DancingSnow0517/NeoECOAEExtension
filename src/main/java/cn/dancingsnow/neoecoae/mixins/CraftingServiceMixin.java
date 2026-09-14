@@ -7,16 +7,20 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceTicker;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,6 +28,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(value = CraftingService.class, priority = 900, remap = false)
 public abstract class CraftingServiceMixin
@@ -31,6 +36,7 @@ public abstract class CraftingServiceMixin
                 cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings,
                 cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter,
                 cn.dancingsnow.neoecoae.api.me.ECOCraftingProviderRevision,
+                ECOCraftingServiceTicker,
                 appeng.api.networking.IGridServiceProvider {
     @org.spongepowered.asm.mixin.Unique private long neoecoae$providerRevision;
 
@@ -165,8 +171,8 @@ public abstract class CraftingServiceMixin
         NeoECOCraftingServiceBridge.addRestoredLinks((CraftingService) (Object) this, this.grid);
     }
 
-    @Inject(method = "onServerEndTick", at = @At("HEAD"))
-    private void neoecoae$tickComputationCpus(CallbackInfo ci) {
+    @Override
+    public void neoecoae$tickComputationCpusNow() {
         Set<AEKey> computationCrafting = new HashSet<>();
         if (NeoECOCraftingServiceBridge.tickComputationCpus(
                 (CraftingService) (Object) this, this.grid, this.energyGrid, computationCrafting)) {
@@ -205,7 +211,42 @@ public abstract class CraftingServiceMixin
             boolean prioritizePower,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
+        if (target == null) {
+            return;
+        }
         this.neoecoae$handleSubmitJob(job, requestingMachine, target, src, cir);
+    }
+
+    @Inject(
+            method = "submitJob(Lappeng/api/networking/crafting/ICraftingPlan;"
+                    + "Lappeng/api/networking/crafting/ICraftingRequester;"
+                    + "Lappeng/api/networking/crafting/ICraftingCPU;"
+                    + "Z"
+                    + "Lappeng/api/networking/security/IActionSource;)"
+                    + "Lappeng/api/networking/crafting/ICraftingSubmitResult;",
+            at =
+                    @At(
+                            value = "INVOKE_ASSIGN",
+                            target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU("
+                                    + "Lappeng/api/networking/crafting/ICraftingPlan;"
+                                    + "Z"
+                                    + "Lappeng/api/networking/security/IActionSource;"
+                                    + "Lorg/apache/commons/lang3/mutable/MutableObject;)"
+                                    + "Lappeng/me/cluster/implementations/CraftingCPUCluster;"),
+            cancellable = true,
+            locals = LocalCapture.CAPTURE_FAILHARD)
+    private void neoecoae$autoSubmitAfterCompatibilityCpus(
+            ICraftingPlan job,
+            ICraftingRequester requestingMachine,
+            ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource src,
+            CallbackInfoReturnable<ICraftingSubmitResult> cir,
+            CraftingCPUCluster nativeCpu,
+            MutableObject<UnsuitableCpus> unsuitableCpus) {
+        if (target == null) {
+            this.neoecoae$handleSubmitJob(job, requestingMachine, null, src, cir);
+        }
     }
 
     private void neoecoae$handleSubmitJob(

@@ -189,7 +189,7 @@ public class ECOCraftingCPULogic {
 
         int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
         int acceptedNormalPushes = 0;
-        // Thunderbolt wraps this exact executeCrafting invocation in tickCraftingLogic.
+        // Provider execution remains isolated from the CPU scheduler.
         // FastPath batches are bounded by live worker capacity, materials and power, not the slow-path budget.
         remainingNormalProbes = Math.max(MIN_NORMAL_PROBES_PER_TICK, operationLimit);
         try {
@@ -274,7 +274,7 @@ public class ECOCraftingCPULogic {
 
     private Iterable<ICraftingProvider> collectAvailableProviders(
             CraftingService craftingService, IPatternDetails details) {
-        // Binary Mixin contract: Thunderbolt 1.0.6 wraps this exact invocation in this method.
+        // Keep provider execution as the only owner of pattern-side effects.
         // Keep exactly one getProviders call here; a forwarding stub in the CPU is not sufficient.
         return craftingService.getProviders(details);
     }

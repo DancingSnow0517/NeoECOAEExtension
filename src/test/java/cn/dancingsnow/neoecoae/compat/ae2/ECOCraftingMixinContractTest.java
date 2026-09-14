@@ -30,9 +30,30 @@ class ECOCraftingMixinContractTest {
             }
         }
         assertTrue(mixin.interfaces.contains("cn/dancingsnow/neoecoae/api/me/ECOCraftingOutputRouter"));
+        assertTrue(mixin.interfaces.contains("cn/dancingsnow/neoecoae/api/me/ECOCraftingServiceTicker"));
+        assertTrue(mixin.methods.stream().anyMatch(method -> method.name.equals("neoecoae$autoSubmitAfterCompatibilityCpus")));
         assertTrue(mixin.methods.stream()
                 .anyMatch(method -> method.name.equals("saveNodeData")
                         && method.desc.equals("(Lappeng/api/networking/IGridNode;Lnet/minecraft/nbt/CompoundTag;)V")));
+    }
+
+    @Test
+    void customCpuTickRunsBeforeCompatibilityThrottle() throws Exception {
+        var mixin = read("cn/dancingsnow/neoecoae/mixins/CraftingServiceEarlyTickMixin");
+        var annotation = mixin.invisibleAnnotations.stream()
+                .filter(value -> value.desc.equals("Lorg/spongepowered/asm/mixin/Mixin;"))
+                .findFirst()
+                .orElseThrow();
+        int priority = 1000;
+        for (int i = 0; i < annotation.values.size(); i += 2) {
+            if (annotation.values.get(i).equals("priority")) {
+                priority = (Integer) annotation.values.get(i + 1);
+            }
+        }
+        assertEquals(1100, priority);
+        assertTrue(mixin.methods.stream().anyMatch(method -> method.name.equals("neoecoae$tickBeforeCompatibilityThrottle")
+                && method.visibleAnnotations.stream().anyMatch(value ->
+                        value.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;"))));
     }
 
     private ClassNode read(String name) throws Exception {

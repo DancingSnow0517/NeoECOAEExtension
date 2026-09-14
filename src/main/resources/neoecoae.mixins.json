@@ -9,6 +9,7 @@
     "CraftingCalculationMixin",
     "CraftingPlanMixin",
     "CraftingServiceMixin",
+    "CraftingServiceEarlyTickMixin",
     "CraftingServiceCpuListMixin",
     "CraftingCPUMenuMixin",
     "CraftingStatusMenuMixin",
