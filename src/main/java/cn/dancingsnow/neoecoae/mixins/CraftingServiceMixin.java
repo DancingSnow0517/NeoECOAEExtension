@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
@@ -277,6 +278,54 @@ public abstract class CraftingServiceMixin
             }
             cir.setReturnValue(result);
         }
+    }
+
+    /**
+     * Compatibility CPU providers may cancel automatic submission before AE2 reaches
+     * {@code findSuitableCraftingCPU}, which bypasses the call-site injection above. Retry with an ECO CPU only when
+     * the completed foreign/native path found no usable CPU.
+     */
+    @WrapMethod(
+            method = "submitJob(Lappeng/api/networking/crafting/ICraftingPlan;"
+                    + "Lappeng/api/networking/crafting/ICraftingRequester;"
+                    + "Lappeng/api/networking/crafting/ICraftingCPU;"
+                    + "Z"
+                    + "Lappeng/api/networking/security/IActionSource;)"
+                    + "Lappeng/api/networking/crafting/ICraftingSubmitResult;")
+    private ICraftingSubmitResult neoecoae$submitJobFallback(
+            ICraftingPlan job,
+            ICraftingRequester requestingMachine,
+            ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource src,
+            Operation<ICraftingSubmitResult> original) {
+        ICraftingSubmitResult result = original.call(job, requestingMachine, target, prioritizePower, src);
+        if (target != null || !neoecoae$shouldTryAutomaticEcoFallback(result)) {
+            return result;
+        }
+
+        ECOPlanningResult planningResult =
+                job instanceof ECOCraftingPlanDiagnostics diagnostics ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (planningResult == null) {
+            planningResult = ECOPlanningResultRegistry.find(job);
+        }
+        ECOPlanningResult boundResult = planningResult;
+        ICraftingSubmitResult ecoResult = ECOPlanningResultRegistry.withSubmissionAlias(
+                job,
+                boundResult,
+                () -> NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, null, src));
+        if (ecoResult != null && ecoResult.successful()) {
+            this.updateList = true;
+        }
+        return ecoResult != null ? ecoResult : result;
+    }
+
+    @org.spongepowered.asm.mixin.Unique private static boolean neoecoae$shouldTryAutomaticEcoFallback(ICraftingSubmitResult result) {
+        if (result == null) {
+            return true;
+        }
+        CraftingSubmitErrorCode error = result.errorCode();
+        return error == CraftingSubmitErrorCode.NO_CPU_FOUND || error == CraftingSubmitErrorCode.NO_SUITABLE_CPU_FOUND;
     }
 
     @WrapMethod(method = "insertIntoCpus")

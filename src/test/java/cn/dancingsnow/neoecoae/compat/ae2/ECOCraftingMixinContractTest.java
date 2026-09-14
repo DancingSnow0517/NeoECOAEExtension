@@ -115,6 +115,28 @@ class ECOCraftingMixinContractTest {
         assertTrue(bindsAlias);
     }
 
+    @Test
+    void automaticEcoFallbackWrapsTheCompletedSubmissionPath() throws Exception {
+        var mixin = read("cn/dancingsnow/neoecoae/mixins/CraftingServiceMixin");
+        var handler = mixin.methods.stream()
+                .filter(method -> method.name.equals("neoecoae$submitJobFallback"))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(handler.visibleAnnotations.stream()
+                .anyMatch(annotation ->
+                        annotation.desc.equals("Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;")));
+
+        int originalCalls = 0;
+        for (var instruction : handler.instructions) {
+            if (instruction instanceof MethodInsnNode call
+                    && call.owner.equals("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
+                    && call.name.equals("call")) {
+                originalCalls++;
+            }
+        }
+        assertEquals(1, originalCalls, "The compatibility/native submission path must run exactly once");
+    }
+
     private ClassNode read(String name) throws Exception {
         try (var stream = getClass().getResourceAsStream("/" + name + ".class")) {
             assertNotNull(stream);
