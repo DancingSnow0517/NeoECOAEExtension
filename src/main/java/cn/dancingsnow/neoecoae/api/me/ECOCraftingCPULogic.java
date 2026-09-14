@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOSingleCraftingExecutor;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
@@ -386,6 +387,12 @@ public class ECOCraftingCPULogic {
                             try {
                                 providerCursor.advanceAfter(pattern, provider);
                                 acceptedBatch = batch.push(inventory);
+                            } catch (ECOIndeterminateBatchException indeterminate) {
+                                providerCursor.suppressIndeterminate(provider);
+                                LOGGER.error(
+                                        "Batch dispatch result is indeterminate; suppressing provider for this pass",
+                                        indeterminate);
+                                acceptedBatch = false;
                             } catch (RuntimeException failure) {
                                 LOGGER.warn(
                                         "Atomic batch rejected; inputs restored, trying ordinary provider push",

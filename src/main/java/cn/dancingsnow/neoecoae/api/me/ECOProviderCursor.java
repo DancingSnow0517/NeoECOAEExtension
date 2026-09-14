@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -18,17 +20,26 @@ final class ECOProviderCursor {
     private CraftingService service;
     private long revision;
     private long tick;
+    private final Set<ICraftingProvider> indeterminate = new HashSet<>();
 
     void beginPass(CraftingService currentService, long tick) {
+        boolean newTick = this.tick != tick;
         this.tick = tick;
+        if (newTick) indeterminate.clear();
         long currentRevision = currentService instanceof ECOCraftingProviderRevision source
                 ? source.neoecoae$getProviderRevision()
                 : 0;
         if (service != currentService || revision != currentRevision) {
             cursors.clear();
+            indeterminate.clear();
             service = currentService;
             revision = currentRevision;
         }
+    }
+
+    /** Suppress a provider after a commit whose result could not be determined. */
+    void suppressIndeterminate(ICraftingProvider provider) {
+        indeterminate.add(provider);
     }
 
     @Nullable ICraftingProvider nextAvailable(
@@ -87,6 +98,7 @@ final class ECOProviderCursor {
         for (int checked = 0; checked < size; checked++) {
             var provider = cursor.providers.get(scanIndex);
             scanIndex = (scanIndex + 1) % size;
+            if (indeterminate.contains(provider)) continue;
             // Enumeration never moves the shared cursor, even if a provider's busy check throws.
             // Only advanceAfter records a dispatch attempt.
             if (eligible.test(provider)) {
@@ -118,6 +130,7 @@ final class ECOProviderCursor {
 
     void clear() {
         cursors.clear();
+        indeterminate.clear();
         service = null;
     }
 

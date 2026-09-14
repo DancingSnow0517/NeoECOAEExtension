@@ -103,11 +103,18 @@ public final class ECOBatchCraftingExecutor {
         public boolean push(ListCraftingInventory inventory) {
             ECOBatchCraftingHelper.extractExact(inventory, inputTotal);
             boolean accepted = false;
+            boolean indeterminate = false;
             try {
                 accepted = dispatch.getAsBoolean();
                 return accepted;
+            } catch (RuntimeException failure) {
+                // An exception after input extraction does not prove that the provider rejected the
+                // operation. Preserve the local rollback, but surface an indeterminate result so the
+                // scheduler will not immediately retry the same provider and duplicate a committed batch.
+                indeterminate = true;
+                throw new ECOIndeterminateBatchException(failure);
             } finally {
-                if (!accepted) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+                if (!accepted && !indeterminate) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
             }
         }
     }
