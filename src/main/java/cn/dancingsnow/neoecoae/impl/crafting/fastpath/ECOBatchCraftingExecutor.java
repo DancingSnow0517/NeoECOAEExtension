@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.ECOStatefulBatchProvider;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import net.minecraft.world.level.Level;
@@ -97,6 +98,14 @@ public final class ECOBatchCraftingExecutor {
             inputTotal = List.copyOf(inputTotal);
             outputs = List.copyOf(outputs);
             remainders = List.copyOf(remainders);
+            BooleanSupplier target = dispatch;
+            AtomicBoolean submitted = new AtomicBoolean();
+            dispatch = () -> {
+                if (!submitted.compareAndSet(false, true)) {
+                    throw new IllegalStateException("Batch already submitted");
+                }
+                return target.getAsBoolean();
+            };
         }
 
         /** Extract the prepared input total once and restore that exact total on rejection. */
@@ -107,6 +116,11 @@ public final class ECOBatchCraftingExecutor {
             try {
                 accepted = dispatch.getAsBoolean();
                 return accepted;
+            } catch (ECOIndeterminateBatchException failure) {
+                // The provider may already have committed the batch. Never restore
+                // inputs or retry after an indeterminate result.
+                accepted = true;
+                throw failure;
             } catch (RuntimeException failure) {
                 // An exception after input extraction does not prove that the provider rejected the
                 // operation. Preserve the local rollback, but surface an indeterminate result so the

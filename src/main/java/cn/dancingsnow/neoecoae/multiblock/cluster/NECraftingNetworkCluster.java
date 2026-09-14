@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchFairnessTracker;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import java.util.ArrayList;
@@ -48,7 +47,6 @@ public final class NECraftingNetworkCluster {
     private int nextPhysicalClusterIndex;
     private int nextCoolantControllerIndex;
     private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
-    private final ECOBatchFairnessTracker batchFairnessTracker = new ECOBatchFairnessTracker();
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
     private boolean overclocked;
     private boolean activeCooling;
@@ -158,11 +156,13 @@ public final class NECraftingNetworkCluster {
     }
 
     public boolean isBatchFairSchedulingEnabled() {
-        return batchFairnessTracker.isEnabled();
+        // Kept for the 1.20.1 mixin/API surface. Fairness is no longer an
+        // execution mode; provider rotation is owned by ECOProviderCursor.
+        return false;
     }
 
     public void setBatchFairSchedulingEnabled(boolean enabled) {
-        batchFairnessTracker.setEnabled(enabled);
+        // Compatibility no-op. Do not reintroduce a second backend scheduler.
     }
 
     /** A complete high-energy F9 exchange is required for virtual ledger work. */
