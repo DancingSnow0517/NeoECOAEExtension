@@ -136,7 +136,7 @@ final class ECOCraftingEnergyTransaction {
         }
     }
 
-    final class Reservation {
+    final class Reservation implements ECOFastPathFacade.Reservation {
         private final IEnergyService energyService;
         private final double reservedCredit;
         private final double networkDebit;
@@ -148,12 +148,12 @@ final class ECOCraftingEnergyTransaction {
             this.networkDebit = networkDebit;
         }
 
-        void commit() {
+        public void commit() {
             settled = true;
             if (reservedCredit > 0.0D) markDirty.run();
         }
 
-        void refund() {
+        public void refund() {
             if (!settled) {
                 settled = true;
                 restoreEnergyCredit(reservedCredit);

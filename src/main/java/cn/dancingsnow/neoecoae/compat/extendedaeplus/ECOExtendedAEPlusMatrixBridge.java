@@ -5,6 +5,14 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import java.lang.reflect.Constructor;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import appeng.menu.AutoCraftingMenu;
+import net.minecraft.world.inventory.TransientCraftingContainer;
+import java.util.ArrayList;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -18,6 +26,52 @@ public final class ECOExtendedAEPlusMatrixBridge {
     private static final ReflectionApi API = ReflectionApi.load();
 
     private ECOExtendedAEPlusMatrixBridge() {
+    }
+
+    public static boolean supportsProvider(ICraftingProvider provider) {
+        // EAP represents both normal and ultimate structures with this same provider superclass.
+        return API != null && API.matrixProviderType().isInstance(provider);
+    }
+
+    @Nullable
+    public static ECOFastPathDispatchProvider adapt(ICraftingProvider provider) {
+        if (!supportsProvider(provider)) return null;
+        return context -> {
+            if (!supports(provider, context.pattern()) || provider.isBusy()
+                    || !context.containerItems().isEmpty() || !verify(context)) return null;
+            return new ECOFastPathDispatchProvider.Preparation(Long.MAX_VALUE, null, false, batch -> {
+                IPatternDetails scaled = batch.craftCount() == 1 ? context.pattern()
+                    : scale(context.pattern(), batch.craftCount());
+                KeyCounter[] inputs = multiplyInputHolder(context.inputCounters(), batch.craftCount());
+                if (scaled == null || inputs == null) return false;
+                try {
+                    return provider.pushPattern(scaled, inputs);
+                } catch (RuntimeException failure) {
+                    throw new ECOIndeterminateBatchException("EAP matrix acceptance is unknown", failure);
+                }
+            });
+        };
+    }
+
+    static boolean verify(ECOBatchDispatchContext context) {
+        var pattern = (IMolecularAssemblerSupportedPattern) context.pattern();
+        var grid = new TransientCraftingContainer(new AutoCraftingMenu(), 3, 3);
+        var counters = context.inputCounters();
+        pattern.fillCraftingGrid(counters, grid::setItem);
+        for (var counter : counters) {
+            counter.removeZeros();
+            if (!counter.isEmpty()) return false;
+        }
+        var materialized = new ArrayList<ItemStack>();
+        for (int slot = 0; slot < grid.getContainerSize(); slot++) {
+            if (!grid.getItem(slot).isEmpty()) materialized.add(grid.getItem(slot).copy());
+        }
+        var input = grid.asPositionedCraftInput().input();
+        var output = ECOFastPathStacks.fromItemStack(pattern.assemble(input, context.level()));
+        var consumed = ECOFastPathStacks.fromItemStacks(materialized);
+        return output.isPresent() && output.get().equals(context.outputs())
+            && consumed.isPresent() && consumed.get().equals(context.inputItems())
+            && pattern.getRemainingItems(input).stream().allMatch(ItemStack::isEmpty);
     }
 
     /** Returns whether this provider/pattern pair can use the EAP counted dispatch contract. */

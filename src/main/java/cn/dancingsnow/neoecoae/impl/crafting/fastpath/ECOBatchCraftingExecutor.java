@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.atomic.AtomicBoolean;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -87,6 +89,14 @@ public final class ECOBatchCraftingExecutor {
             inputTotal = List.copyOf(inputTotal);
             outputs = List.copyOf(outputs);
             remainders = List.copyOf(remainders);
+            BooleanSupplier target = dispatch;
+            AtomicBoolean submitted = new AtomicBoolean();
+            dispatch = () -> {
+                if (!submitted.compareAndSet(false, true)) {
+                    throw new IllegalStateException("Batch already submitted");
+                }
+                return target.getAsBoolean();
+            };
         }
 
         /** Extract the prepared input total once and restore that exact total on rejection. */
@@ -98,6 +108,9 @@ public final class ECOBatchCraftingExecutor {
             try {
                 accepted = dispatch.getAsBoolean();
                 return accepted;
+            } catch (ECOIndeterminateBatchException failure) {
+                accepted = true;
+                throw failure;
             } finally {
                 if (!accepted) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
             }

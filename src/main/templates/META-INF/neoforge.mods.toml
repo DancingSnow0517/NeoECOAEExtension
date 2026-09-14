@@ -66,7 +66,19 @@ config="${mod_id}.compat.extendedae.mixins.json"
 config="${mod_id}.compat.ae2omnicells.mixins.json"
 
 [[mixins]]
+config="${mod_id}.compat.omnicpu.mixins.json"
+requiredMods=["ae2omnicells"]
+
+[[mixins]]
 config="${mod_id}.compat.useless_mod.mixins.json"
+
+[[mixins]]
+config="${mod_id}.compat.thunderbolt.mixins.json"
+requiredMods=["thunderbolt"]
+
+[[mixins]]
+config="${mod_id}.compat.omnisequence.mixins.json"
+requiredMods=["molecularmanipulator"]
 
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg

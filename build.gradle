@@ -239,6 +239,17 @@ sourceSets.main.java {
 }
 
 // ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.
+// ABI declarations only: OmniSequence's optional v1 SPI is not published as a separate API artifact.
+sourceSets {
+    omniApi {
+        java.srcDir 'src/omniApi/java'
+        compileClasspath = sourceSets.main.compileClasspath
+    }
+}
+sourceSets.main.compileClasspath += sourceSets.omniApi.output
+sourceSets.test.compileClasspath += sourceSets.omniApi.output
+sourceSets.test.runtimeClasspath += sourceSets.omniApi.output
+
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 

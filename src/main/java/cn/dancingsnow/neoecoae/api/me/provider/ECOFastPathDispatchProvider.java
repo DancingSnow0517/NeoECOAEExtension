@@ -13,6 +13,10 @@ import org.jetbrains.annotations.Nullable;
  * <p>This contract is for verified ECO/F9 execution and provider integrations that can commit a
  * complete batch synchronously. Processing-pattern dispatch has a separate contract and must not
  * be added here.</p>
+ * <p>Preparation must not consume resources. Dispatch returns true only after accepting every input and
+ * output in the batch. False or an ordinary exception guarantees no batch was accepted; the caller then
+ * restores inputs. If acceptance is uncertain, throw {@link ECOIndeterminateBatchException} instead.
+ * Providers never debit or refund the CPU inventory or energy themselves.</p>
  */
 public interface ECOFastPathDispatchProvider {
     /** Resolves FastPath capacity, material rules and the matching commit target. */

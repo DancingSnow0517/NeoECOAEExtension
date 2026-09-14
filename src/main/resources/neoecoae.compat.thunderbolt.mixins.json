@@ -1,0 +1,8 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["ECOThunderboltProviderMixin"],
+  "injectors": {"defaultRequire": 1}
+}

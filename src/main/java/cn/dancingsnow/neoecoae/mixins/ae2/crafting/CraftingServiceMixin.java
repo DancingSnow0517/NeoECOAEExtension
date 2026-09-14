@@ -505,7 +505,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
         }
         if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
-            return advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
+            long advanced = advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
+            if (advanced > 0) return advanced;
+        }
+        for (var cpu : getCpus()) {
+            long external = cn.dancingsnow.neoecoae.api.me.output.ECOExternalCpuOutputRouter
+                .insert(cpu, craftingJobId, what, amount, type);
+            if (external > 0) return external;
         }
         return 0L;
     }
