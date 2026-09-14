@@ -13,7 +13,8 @@ public final class MaterialProvenance {
 
     public void credit(AEKey key, IPatternDetails pattern, PlannerAmount amount) {
         requirePositive(amount);
-        creditLedger.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(pattern, amount, PlannerAmount::add);
+        creditLedger.computeIfAbsent(key, ignored -> new LinkedHashMap<>())
+            .merge(pattern, amount, PlannerAmount::add);
     }
 
     /** Consumes at most {@code amount} in insertion order and attributes every consumed portion. */
@@ -32,8 +33,7 @@ public final class MaterialProvenance {
             supplied(key, new MaterialSource.PatternOutput(entry.getKey(), false), drawn);
             remaining = remaining.subtract(drawn);
             PlannerAmount left = entry.getValue().subtract(drawn);
-            if (left.isZero()) iterator.remove();
-            else entry.setValue(left);
+            if (left.isZero()) iterator.remove(); else entry.setValue(left);
         }
         if (credits.isEmpty()) creditLedger.remove(key);
         if (remaining.signum() > 0) {
@@ -44,7 +44,8 @@ public final class MaterialProvenance {
 
     public void supplied(AEKey key, MaterialSource source, PlannerAmount amount) {
         requirePositive(amount);
-        suppliers.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(source, amount, PlannerAmount::add);
+        suppliers.computeIfAbsent(key, ignored -> new LinkedHashMap<>())
+            .merge(source, amount, PlannerAmount::add);
     }
 
     public MaterialProvenance copy() {
@@ -55,14 +56,14 @@ public final class MaterialProvenance {
 
     public void mergeFrom(MaterialProvenance other) {
         mergeSuppliersFrom(other);
-        other.creditLedger.forEach((key, credits) -> credits.forEach((pattern, amount) -> creditLedger
-                .computeIfAbsent(key, ignored -> new LinkedHashMap<>())
+        other.creditLedger.forEach((key, credits) -> credits.forEach((pattern, amount) ->
+            creditLedger.computeIfAbsent(key, ignored -> new LinkedHashMap<>())
                 .merge(pattern, amount, PlannerAmount::add)));
     }
 
     public void mergeSuppliersFrom(MaterialProvenance other) {
-        other.suppliers.forEach((key, sources) -> sources.forEach((source, amount) -> suppliers
-                .computeIfAbsent(key, ignored -> new LinkedHashMap<>())
+        other.suppliers.forEach((key, sources) -> sources.forEach((source, amount) ->
+            suppliers.computeIfAbsent(key, ignored -> new LinkedHashMap<>())
                 .merge(source, amount, PlannerAmount::add)));
     }
 

@@ -20,7 +20,5 @@ public record ExactCycleAmount(BigInteger value) {
         return value == 0L ? ZERO : new ExactCycleAmount(BigInteger.valueOf(value));
     }
 
-    public PlannerAmount plannerAmount() {
-        return PlannerAmount.of(value);
-    }
+    public PlannerAmount plannerAmount() { return PlannerAmount.of(value); }
 }

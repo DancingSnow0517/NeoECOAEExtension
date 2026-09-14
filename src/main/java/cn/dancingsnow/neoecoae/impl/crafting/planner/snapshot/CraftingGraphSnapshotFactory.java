@@ -4,10 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.CycleDiagnostic;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.CandidateStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Edge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.EdgeKind;
@@ -17,8 +15,10 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnaps
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.PatternAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.PatternNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceNode;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -48,14 +48,12 @@ public final class CraftingGraphSnapshotFactory {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null) continue;
             try {
                 for (GenericStack output : node.pattern().getOutputs()) {
-                    if (output != null && output.what() != null)
-                        materials.computeIfAbsent(output.what(), MutableMaterial::new);
+                    if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
                 }
                 for (IPatternDetails.IInput input : node.pattern().getInputs()) {
                     if (input == null || input.getPossibleInputs() == null) continue;
                     for (GenericStack possible : input.getPossibleInputs()) {
-                        if (possible != null && possible.what() != null)
-                            materials.computeIfAbsent(possible.what(), MutableMaterial::new);
+                        if (possible != null && possible.what() != null) materials.computeIfAbsent(possible.what(), MutableMaterial::new);
                     }
                 }
             } catch (RuntimeException ignored) {
@@ -65,14 +63,12 @@ public final class CraftingGraphSnapshotFactory {
             for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
             // Surface the deficit on the actual startup key. Projecting the aggregate seed deficit onto every
             // requested cycle output makes unrelated outputs appear to be missing the same startup material.
-            if (cycle.solveResult() != null
-                    && !cycle.solveResult().seedShortfall().isEmpty()) {
+            if (cycle.solveResult() != null && !cycle.solveResult().seedShortfall().isEmpty()) {
                 cycle.solveResult().seedShortfall().forEach((key, amount) -> {
                     var material = materials.computeIfAbsent(key, MutableMaterial::new);
                     PlannerAmount deficit = PlannerAmount.of(amount);
                     material.exactMissing = material.exactMissing.max(deficit);
-                    material.missing =
-                            material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
+                    material.missing = material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
                 });
             }
             for (var internalEdge : cycle.internalEdges()) {
@@ -106,22 +102,14 @@ public final class CraftingGraphSnapshotFactory {
                 outputs = new ArrayList<>(outputs);
                 outputs.add(new Relationship(outputId, 0));
             }
-            CandidateStatus status =
-                    switch (node.selection()) {
-                        case SELECTED -> CandidateStatus.SELECTED;
-                        case REJECTED -> CandidateStatus.REJECTED;
-                        default -> CandidateStatus.UNSUPPORTED;
-                    };
+            CandidateStatus status = switch (node.selection()) {
+                case SELECTED -> CandidateStatus.SELECTED;
+                case REJECTED -> CandidateStatus.REJECTED;
+                default -> CandidateStatus.UNSUPPORTED;
+            };
             int componentId = componentFor(node.key(), trace.components());
-            PatternNode pattern = new PatternNode(
-                    patternNodeId,
-                    displayIdentity(node.pattern()),
-                    inputs,
-                    outputs,
-                    node.firingCount(),
-                    status,
-                    node.reason(),
-                    componentId);
+            PatternNode pattern = new PatternNode(patternNodeId, displayIdentity(node.pattern()), inputs, outputs,
+                node.firingCount(), status, node.reason(), componentId);
             patterns.add(pattern);
             boolean selected = status == CandidateStatus.SELECTED;
             for (Relationship output : outputs) {
@@ -129,8 +117,8 @@ public final class CraftingGraphSnapshotFactory {
                 edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), kind, selected));
             }
             for (Relationship input : inputs) {
-                edges.add(new Edge(
-                        patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT, selected));
+                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                    selected));
             }
         }
 
@@ -143,64 +131,39 @@ public final class CraftingGraphSnapshotFactory {
                 int patternNodeId = patternNodeId(patterns.size());
                 patternIds.put(details, patternNodeId);
                 List<Relationship> inputs = internalEdge.pattern().inputs().stream()
-                        .map(input -> {
-                            Integer inputId = nodeIds.get(input.key());
-                            return inputId == null || !input.amountPerPattern().fitsLong()
-                                    ? null
-                                    : new Relationship(
-                                            inputId, input.amountPerPattern().longValueExact());
-                        })
-                        .filter(java.util.Objects::nonNull)
-                        .toList();
+                    .map(input -> {
+                        Integer inputId = nodeIds.get(input.key());
+                        return inputId == null || !input.amountPerPattern().fitsLong() ? null
+                            : new Relationship(inputId, input.amountPerPattern().longValueExact());
+                    })
+                    .filter(java.util.Objects::nonNull).toList();
                 List<Relationship> outputs = internalEdge.pattern().outputs().stream()
-                        .filter(output -> nodeIds.containsKey(output.what()))
-                        .map(output -> new Relationship(nodeIds.get(output.what()), output.amount()))
-                        .toList();
-                long firingCount = cycle.solveResult() == null
-                        ? 0
-                        : cycle.solveResult().patternTimes().getOrDefault(details, 0L);
-                patterns.add(new PatternNode(
-                        patternNodeId,
-                        displayIdentity(details),
-                        inputs,
-                        outputs,
-                        firingCount,
-                        firingCount > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
-                        firingCount > 0 ? null : "CYCLIC_CANDIDATE",
-                        cycle.componentId()));
+                    .filter(output -> nodeIds.containsKey(output.what()))
+                    .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
+                long firingCount = cycle.solveResult() == null ? 0
+                    : cycle.solveResult().patternTimes().getOrDefault(details, 0L);
+                patterns.add(new PatternNode(patternNodeId, displayIdentity(details), inputs, outputs, firingCount,
+                    firingCount > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
+                    firingCount > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
                 for (Relationship output : outputs) {
-                    edges.add(new Edge(
-                            output.materialNodeId(),
-                            patternNodeId,
-                            output.amount(),
-                            EdgeKind.PATTERN_OUTPUT,
-                            firingCount > 0));
+                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), EdgeKind.PATTERN_OUTPUT,
+                        firingCount > 0));
                 }
                 for (Relationship input : inputs) {
-                    edges.add(new Edge(
-                            patternNodeId,
-                            input.materialNodeId(),
-                            input.amount(),
-                            EdgeKind.PATTERN_INPUT,
-                            firingCount > 0));
+                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                        firingCount > 0));
                 }
             }
-            List<Integer> memberIds = cycle.members().stream()
-                    .map(nodeIds::get)
-                    .filter(java.util.Objects::nonNull)
-                    .toList();
+            List<Integer> memberIds = cycle.members().stream().map(nodeIds::get).filter(java.util.Objects::nonNull)
+                .toList();
             List<Edge> internal = new ArrayList<>();
             for (var internalEdge : cycle.internalEdges()) {
                 Integer from = nodeIds.get(internalEdge.producer());
                 Integer to = nodeIds.get(internalEdge.requiredInput());
                 if (from != null && to != null) {
                     if (internalEdge.input().amountPerPattern().fitsLong()) {
-                        internal.add(new Edge(
-                                from,
-                                to,
-                                internalEdge.input().amountPerPattern().longValueExact(),
-                                EdgeKind.CYCLE_INTERNAL,
-                                true));
+                        internal.add(new Edge(from, to, internalEdge.input().amountPerPattern().longValueExact(),
+                            EdgeKind.CYCLE_INTERNAL, true));
                     }
                 }
             }
@@ -209,12 +172,8 @@ public final class CraftingGraphSnapshotFactory {
                 Integer to = nodeIds.get(externalEdge.requiredInput());
                 if (from != null && to != null) {
                     if (externalEdge.input().amountPerPattern().fitsLong()) {
-                        edges.add(new Edge(
-                                from,
-                                to,
-                                externalEdge.input().amountPerPattern().longValueExact(),
-                                EdgeKind.PATTERN_INPUT,
-                                true));
+                        edges.add(new Edge(from, to, externalEdge.input().amountPerPattern().longValueExact(),
+                            EdgeKind.PATTERN_INPUT, true));
                     }
                 }
             }
@@ -229,52 +188,36 @@ public final class CraftingGraphSnapshotFactory {
             });
             if (solve != null) solve.externalDemand().forEach(externalInputValues::put);
             List<KeyAmount> externalInputs = keyAmounts(externalInputValues);
-            CycleDiagnostic diagnostic =
-                    cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
-            cycles.add(new CraftingGraphSnapshot.CycleGroup(
-                    cycle.componentId(),
-                    memberIds,
-                    internal,
-                    cycle.status().name(),
-                    keyAmounts(cycle.requiredOutputs()),
-                    externalInputs,
-                    solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
-                    solve == null
-                            ? List.of()
-                            : solve.patternTimes().entrySet().stream()
-                                    .filter(entry -> patternIds.containsKey(entry.getKey()))
-                                    .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue()))
-                                    .toList(),
-                    solve == null
-                            ? List.of()
-                            : solve.executionWitness().stream()
-                                    .map(firing ->
-                                            patternIds.get(firing.pattern().details()))
-                                    .filter(java.util.Objects::nonNull)
-                                    .toList(),
-                    diagnostic == null ? List.of() : keyAmounts(diagnostic.netOutputs()),
-                    diagnostic == null ? List.of() : keyAmounts(diagnostic.totalNetOutputs()),
-                    diagnostic == null ? List.of() : keyAmounts(diagnostic.availableAmounts()),
-                    diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactNetOutputs()),
-                    diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactTotalNetOutputs()),
-                    diagnostic == null
-                            ? cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
-                            : diagnostic.executionCountKnowledge(),
-                    diagnostic == null
-                            ? cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
-                            : diagnostic.solveStatus()));
+            CycleDiagnostic diagnostic = cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
+            cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
+                cycle.status().name(), keyAmounts(cycle.requiredOutputs()),
+                externalInputs,
+                solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
+                solve == null ? List.of() : solve.patternTimes().entrySet().stream()
+                    .filter(entry -> patternIds.containsKey(entry.getKey()))
+                    .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue())).toList(),
+                solve == null ? List.of() : solve.executionWitness().stream()
+                    .map(firing -> patternIds.get(firing.pattern().details()))
+                    .filter(java.util.Objects::nonNull).toList(),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.netOutputs()),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.totalNetOutputs()),
+                diagnostic == null ? List.of() : keyAmounts(diagnostic.availableAmounts()),
+                diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactNetOutputs()),
+                diagnostic == null ? List.of() : exactKeyAmounts(diagnostic.exactTotalNetOutputs()),
+                diagnostic == null
+                    ? cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
+                    : diagnostic.executionCountKnowledge(),
+                diagnostic == null ? cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
+                    : diagnostic.solveStatus()));
         }
 
         Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
         int rootNodeId = rootId == null ? (rootKey == null && !nodes.isEmpty() ? 0 : -1) : rootId;
-        var summary = new CraftingGraphSnapshot.Summary(
-                result.status().name(),
-                nodes.size(),
-                patterns.size(),
-                edges.size(),
-                cycles.size(),
-                result.calculationNanos());
-        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, summary);
+        var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
+            edges.size(), cycles.size(), result.calculationNanos());
+        List<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
+            .sorted(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString)).toList();
+        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, fuzzyPlanningItemIds, summary);
     }
 
     /** Pattern visual IDs never collide with material IDs and survive packet serialization. */
@@ -282,7 +225,8 @@ public final class CraftingGraphSnapshotFactory {
         return -snapshotPatternIndex - 2;
     }
 
-    private static void collectPatternMaterials(CompiledPattern pattern, Map<AEKey, MutableMaterial> materials) {
+    private static void collectPatternMaterials(CompiledPattern pattern,
+            Map<AEKey, MutableMaterial> materials) {
         for (var input : pattern.inputs()) {
             if (input.key() != null) materials.computeIfAbsent(input.key(), MutableMaterial::new);
         }
@@ -291,9 +235,7 @@ public final class CraftingGraphSnapshotFactory {
         }
     }
 
-    private static List<Relationship> selectedInputs(
-            AEKey output,
-            List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge> edges,
+    private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge> edges,
             Map<AEKey, Integer> nodeIds) {
         List<Relationship> result = new ArrayList<>();
         for (var edge : edges) {
@@ -321,8 +263,7 @@ public final class CraftingGraphSnapshotFactory {
         List<Relationship> result = new ArrayList<>();
         try {
             for (IPatternDetails.IInput input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0)
-                    continue;
+                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
                 GenericStack possible = input.getPossibleInputs()[0];
                 Integer id = nodeIds.get(possible.what());
                 PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.getMultiplier());
@@ -334,8 +275,7 @@ public final class CraftingGraphSnapshotFactory {
         return List.copyOf(result);
     }
 
-    private static int componentFor(
-            AEKey key, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ComponentTrace> components) {
+    private static int componentFor(AEKey key, List<cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ComponentTrace> components) {
         for (var component : components) if (component.members().contains(key)) return component.componentId();
         return -1;
     }
@@ -350,14 +290,13 @@ public final class CraftingGraphSnapshotFactory {
     }
 
     private static List<KeyAmount> keyAmounts(Map<AEKey, Long> values) {
-        return values.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getKey().toString()))
-                .map(entry -> new KeyAmount(entry.getKey(), entry.getValue()))
-                .toList();
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
     /** Gross material flow is derived from the final executable firing vector, not from cycle net deltas. */
-    private static void collectTaskMaterialFlow(ECOPlanningResult result, Map<AEKey, MutableMaterial> materials) {
+    private static void collectTaskMaterialFlow(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
         if (result.plan() == null) return;
         var adapters = PatternSemanticAdapters.defaults();
         for (var firing : result.plan().patternTimes().entrySet()) {
@@ -374,21 +313,20 @@ public final class CraftingGraphSnapshotFactory {
             PlannerAmount times = PlannerAmount.of(firing.getValue());
             for (var input : semantics.consumedInputs()) {
                 var material = materials.computeIfAbsent(input.key(), MutableMaterial::new);
-                material.exactConsumed =
-                        material.exactConsumed.add(input.amountPerPattern().multiply(times));
+                material.exactConsumed = material.exactConsumed.add(input.amountPerPattern().multiply(times));
             }
             for (GenericStack output : semantics.producedOutputs()) {
                 if (output != null && output.what() != null && output.amount() > 0L) {
                     var material = materials.computeIfAbsent(output.what(), MutableMaterial::new);
                     material.exactProduced = material.exactProduced.add(
-                            PlannerAmount.of(output.amount()).multiply(times));
+                        PlannerAmount.of(output.amount()).multiply(times));
                 }
             }
             for (GenericStack output : semantics.returnedOutputs()) {
                 if (output != null && output.what() != null && output.amount() > 0L) {
                     var material = materials.computeIfAbsent(output.what(), MutableMaterial::new);
                     material.exactProduced = material.exactProduced.add(
-                            PlannerAmount.of(output.amount()).multiply(times));
+                        PlannerAmount.of(output.amount()).multiply(times));
                 }
             }
         }
@@ -396,10 +334,8 @@ public final class CraftingGraphSnapshotFactory {
 
     private static List<ExactKeyAmount> exactKeyAmounts(
             Map<AEKey, cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount> values) {
-        return values.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getKey().toString()))
-                .map(entry -> new ExactKeyAmount(entry.getKey(), entry.getValue()))
-                .toList();
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new ExactKeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
     private static final class MutableMaterial {
@@ -417,9 +353,7 @@ public final class CraftingGraphSnapshotFactory {
         private boolean unsupported;
         private boolean cycle;
 
-        private MutableMaterial(AEKey key) {
-            this.key = key;
-        }
+        private MutableMaterial(AEKey key) { this.key = key; }
 
         private void merge(PlanTraceNode node) {
             exactRequested = exactRequested.max(PlannerAmount.of(node.exactRequested()));
@@ -434,27 +368,13 @@ public final class CraftingGraphSnapshotFactory {
         }
 
         private MaterialNode freeze(int id) {
-            MaterialStatus status = cycle
-                    ? MaterialStatus.CYCLE
-                    : unsupported
-                            ? MaterialStatus.UNSUPPORTED
-                            : missing > 0
-                                    ? MaterialStatus.MISSING
-                                    : toCraft > 0 ? MaterialStatus.CRAFTING : MaterialStatus.SATISFIED;
-            return new MaterialNode(
-                    id,
-                    key,
-                    requested,
-                    fromInventory,
-                    toCraft,
-                    missing,
-                    status,
-                    exactRequested.toString(),
-                    exactFromInventory.toString(),
-                    exactToCraft.toString(),
-                    exactMissing.toString(),
-                    exactConsumed.toString(),
-                    exactProduced.toString());
+            MaterialStatus status = cycle ? MaterialStatus.CYCLE
+                : unsupported ? MaterialStatus.UNSUPPORTED
+                : missing > 0 ? MaterialStatus.MISSING
+                : toCraft > 0 ? MaterialStatus.CRAFTING : MaterialStatus.SATISFIED;
+            return new MaterialNode(id, key, requested, fromInventory, toCraft, missing, status,
+                exactRequested.toString(), exactFromInventory.toString(), exactToCraft.toString(), exactMissing.toString(),
+                exactConsumed.toString(), exactProduced.toString());
         }
     }
 }

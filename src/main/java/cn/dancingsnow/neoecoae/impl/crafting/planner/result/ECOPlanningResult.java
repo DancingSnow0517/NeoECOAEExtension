@@ -6,9 +6,11 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
+import java.math.BigInteger;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable planning answer. Its execution plan is interpreted exactly once during construction. */
@@ -21,21 +23,16 @@ public final class ECOPlanningResult {
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
     private BigInteger theoreticalBytes = BigInteger.ZERO;
+    private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private final ECOExecutionRequirement executionRequirement;
     private final @Nullable ECOExecutionPlan executionPlan;
     private final @Nullable String executionPlanError;
     private final @Nullable ExecutionProvenance provenance;
 
-    public ECOPlanningResult(
-            PlanningStatus status,
-            @Nullable CraftingPlan plan,
-            ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder,
-            long calculationNanos,
-            UUID planningId,
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId,
             @Nullable ExecutionProvenance provenance) {
         this.status = status;
         this.plan = plan;
@@ -49,30 +46,21 @@ public final class ECOPlanningResult {
         if (status == PlanningStatus.SUCCESS && plan == null) {
             throw new IllegalArgumentException("A successful planning result requires a plan");
         }
-        ECOExecutionRequirement requirement = plan == null
-                ? ECOExecutionRequirement.NONE
-                : ECOExecutionRequirement.classify(this.components, plan.patternTimes());
+        ECOExecutionRequirement requirement = plan == null ? ECOExecutionRequirement.NONE
+            : ECOExecutionRequirement.classify(this.components, plan.patternTimes());
         ECOExecutionPlan built = null;
         String error = null;
-        if (status == PlanningStatus.SUCCESS
-                && plan != null
-                && requirement != ECOExecutionRequirement.BLOCKED
+        if (status == PlanningStatus.SUCCESS && plan != null && requirement != ECOExecutionRequirement.BLOCKED
                 && !this.components.isEmpty()) {
             try {
                 PlanIdentity.Signature signature = PlanIdentity.of(plan);
                 if (signature == null) throw new IllegalStateException("Plan identity unavailable");
                 ExecutionMode mode = requirement == ECOExecutionRequirement.DYNAMIC
-                        ? ExecutionMode.DYNAMIC_CYCLE
-                        : requirement == ECOExecutionRequirement.ORDERED
-                                ? ExecutionMode.ORDERED_CYCLE
-                                : ExecutionMode.PHASED_DAG;
-                built = ECOExecutionPlanBuilder.build(
-                        signature,
-                        mode,
-                        this.components,
-                        this.executionComponentOrder,
-                        plan.patternTimes(),
-                        provenance);
+                    ? ExecutionMode.DYNAMIC_CYCLE
+                    : requirement == ECOExecutionRequirement.ORDERED
+                        ? ExecutionMode.ORDERED_CYCLE : ExecutionMode.PHASED_DAG;
+                built = ECOExecutionPlanBuilder.build(signature, mode, this.components,
+                    this.executionComponentOrder, plan.patternTimes(), provenance);
                 if (built.phases().isEmpty()) {
                     // An empty phase list is never a valid cycle metadata answer. Surface it explicitly:
                     // for a cycle-expected plan this must end as an explicit FAILED state, not as a
@@ -84,7 +72,7 @@ public final class ECOPlanningResult {
                 }
             } catch (RuntimeException failure) {
                 error = "EXECUTION_PLAN_BUILD_FAILED:" + failure.getClass().getSimpleName()
-                        + (failure.getMessage() == null ? "" : ":" + failure.getMessage());
+                    + (failure.getMessage() == null ? "" : ":" + failure.getMessage());
             }
         }
         if (requirement == ECOExecutionRequirement.BLOCKED) error = "CYCLE_NOT_SOLVED";
@@ -93,134 +81,68 @@ public final class ECOPlanningResult {
         this.executionPlanError = error;
     }
 
-    public ECOPlanningResult(
-            PlanningStatus status,
-            @Nullable CraftingPlan plan,
-            ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder,
-            long calculationNanos,
-            UUID planningId) {
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId) {
         this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, planningId, null);
     }
 
-    public ECOPlanningResult(
-            PlanningStatus status,
-            @Nullable CraftingPlan plan,
-            ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder,
-            long calculationNanos) {
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos) {
         this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, UUID.randomUUID());
     }
 
-    public ECOPlanningResult(
-            PlanningStatus status,
-            @Nullable CraftingPlan plan,
-            ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder,
-            long calculationNanos,
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
+            List<Integer> executionComponentOrder, long calculationNanos,
             @Nullable ExecutionProvenance provenance) {
-        this(
-                status,
-                plan,
-                trace,
-                cycles,
-                components,
-                executionComponentOrder,
-                calculationNanos,
-                UUID.randomUUID(),
-                provenance);
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos,
+            UUID.randomUUID(), provenance);
     }
 
-    public ECOPlanningResult(
-            PlanningStatus status,
-            @Nullable CraftingPlan plan,
-            ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles,
-            long calculationNanos) {
+    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, long calculationNanos) {
         this(status, plan, trace, cycles, List.of(), List.of(), calculationNanos);
     }
 
-    public PlanningStatus status() {
-        return status;
-    }
-
-    public @Nullable CraftingPlan plan() {
-        return plan;
-    }
-
-    public ECOPlanTrace trace() {
-        return trace;
-    }
-
-    public List<CycleDiagnostic> cycles() {
-        return cycles;
-    }
-
-    public List<ComponentPlanningResult> components() {
-        return components;
-    }
-
-    public List<Integer> executionComponentOrder() {
-        return executionComponentOrder;
-    }
-
-    public long calculationNanos() {
-        return calculationNanos;
-    }
-
-    public BigInteger theoreticalBytes() {
-        return theoreticalBytes;
-    }
-
+    public PlanningStatus status() { return status; }
+    public @Nullable CraftingPlan plan() { return plan; }
+    public ECOPlanTrace trace() { return trace; }
+    public List<CycleDiagnostic> cycles() { return cycles; }
+    public List<ComponentPlanningResult> components() { return components; }
+    public List<Integer> executionComponentOrder() { return executionComponentOrder; }
+    public long calculationNanos() { return calculationNanos; }
+    public BigInteger theoreticalBytes() { return theoreticalBytes; }
     public void setTheoreticalBytes(PlannerAmount bytes) {
         theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
     }
-
-    public UUID planningId() {
-        return planningId;
+    public Set<ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
+    public void setFuzzyPlanningItemIds(Set<ResourceLocation> itemIds) {
+        fuzzyPlanningItemIds = itemIds == null ? Set.of() : Set.copyOf(itemIds);
     }
-
-    public ECOExecutionRequirement executionRequirement() {
-        return executionRequirement;
-    }
-
-    public @Nullable String executionPlanError() {
-        return executionPlanError;
-    }
-
-    public @Nullable ExecutionProvenance provenance() {
-        return provenance;
-    }
+    public UUID planningId() { return planningId; }
+    public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
+    public @Nullable String executionPlanError() { return executionPlanError; }
+    public @Nullable ExecutionProvenance provenance() { return provenance; }
 
     public boolean shouldUseNativeFallback() {
-        return status == PlanningStatus.PARTIAL_UNSUPPORTED
-                || status == PlanningStatus.UNSUPPORTED
-                || status == PlanningStatus.INTERNAL_ERROR;
+        return status == PlanningStatus.PARTIAL_UNSUPPORTED || status == PlanningStatus.UNSUPPORTED
+            || status == PlanningStatus.INTERNAL_ERROR;
     }
 
     public ECOExecutionPlan executionPlan() {
-        if (executionPlan == null)
-            throw new IllegalStateException(
-                    executionPlanError == null ? "This result has no phased execution plan" : executionPlanError);
+        if (executionPlan == null) throw new IllegalStateException(executionPlanError == null
+            ? "This result has no phased execution plan" : executionPlanError);
         return executionPlan;
     }
 
-    public ECOExecutionSchedule executionSchedule() {
-        return executionPlan().schedule();
-    }
+    public ECOExecutionSchedule executionSchedule() { return executionPlan().schedule(); }
 
     /** Expanded compatibility projection; compressed cycles deliberately do not expand here. */
     public List<IPatternDetails> cycleWitness() {
-        return executionSchedule().phases().stream()
-                .filter(p -> p.type() == ECOExecutionSchedule.Type.CYCLE)
-                .flatMap(p -> p.cycleWitness().stream())
-                .toList();
+        return executionSchedule().phases().stream().filter(p -> p.type() == ECOExecutionSchedule.Type.CYCLE)
+            .flatMap(p -> p.cycleWitness().stream()).toList();
     }
 
     public ECOExecutionContract executionContract() {
@@ -228,12 +150,8 @@ public final class ECOPlanningResult {
         PlanIdentity.Signature signature = PlanIdentity.of(plan);
         if (signature == null) throw new IllegalStateException("Plan identity unavailable");
         if (executionRequirement == ECOExecutionRequirement.BLOCKED) {
-            return new ECOExecutionContract(
-                    planningId,
-                    signature,
-                    ExecutionMode.BLOCKED,
-                    null,
-                    executionPlanError == null ? "CYCLE_METADATA_MISSING" : executionPlanError);
+            return new ECOExecutionContract(planningId, signature, ExecutionMode.BLOCKED, null,
+                executionPlanError == null ? "CYCLE_METADATA_MISSING" : executionPlanError);
         }
         if (executionPlan == null) return ECOExecutionContract.nativeContract(planningId, signature);
         return new ECOExecutionContract(planningId, signature, executionPlan.mode(), executionPlan, null);

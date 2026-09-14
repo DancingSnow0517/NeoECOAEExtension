@@ -3,23 +3,28 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.compile;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalyzer;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 
 /** Compiles only the closure reachable from one goal. Inventory and requested amount are deliberately absent. */
 public final class CraftingNetworkCompiler {
@@ -35,8 +40,8 @@ public final class CraftingNetworkCompiler {
         this(semanticAdapters, new SpecialPatternAnalyzer());
     }
 
-    public CraftingNetworkCompiler(
-            List<PatternSemanticAdapter> semanticAdapters, SpecialPatternAnalyzer specialPatternAnalyzer) {
+    public CraftingNetworkCompiler(List<PatternSemanticAdapter> semanticAdapters,
+            SpecialPatternAnalyzer specialPatternAnalyzer) {
         this.semanticAdapters = PatternSemanticAdapters.copy(semanticAdapters);
         this.specialPatternAnalyzer = java.util.Objects.requireNonNull(specialPatternAnalyzer);
     }
@@ -50,9 +55,15 @@ public final class CraftingNetworkCompiler {
      * Compiles cycle capability evidence only for the opt-in cycle-planning path. The disabled path keeps the
      * original one-pass pattern contract read and does not run the determinism probe.
      */
-    public CompiledNetwork compile(
-            ICraftingService service, AEKey goal, boolean cyclePlanningEnabled, ECOCancellation cancellation)
-            throws InterruptedException {
+    public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
+            ECOCancellation cancellation) throws InterruptedException {
+        return compile(service, goal, cyclePlanningEnabled, Set.of(), cancellation);
+    }
+
+    public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
+            Set<ResourceLocation> fuzzyPlanningItemIds, ECOCancellation cancellation) throws InterruptedException {
+        Set<ResourceLocation> ignoredItemIds = fuzzyPlanningItemIds == null ? Set.of()
+            : Set.copyOf(fuzzyPlanningItemIds);
         Map<AEKey, List<CompiledPattern>> producers = new LinkedHashMap<>();
         Set<AEKey> emittable = new HashSet<>();
         Set<AEKey> queued = new HashSet<>();
@@ -69,9 +80,11 @@ public final class CraftingNetworkCompiler {
                 emittable.add(key);
             }
             List<CompiledPattern> compiled = new ArrayList<>();
-            for (IPatternDetails details : service.getCraftingFor(key)) {
+            boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+            for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
                 cancellation.checkpoint();
-                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled);
+                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                    ignoredItemIds, componentInsensitiveOutput);
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -103,8 +116,28 @@ public final class CraftingNetworkCompiler {
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
     }
 
-    private CompiledPattern compilePattern(
-            int id, IPatternDetails details, AEKey producedKey, boolean cyclePlanningEnabled) {
+    /**
+     * Keep AE2's exact producer order first, then add deterministic same-item producers for an explicitly
+     * component-insensitive dependency. The selected physical pattern remains unchanged; only its planner-facing
+     * primary output is aliased to the dependency key below.
+     */
+    private static List<IPatternDetails> craftingFor(ICraftingService service, AEKey key,
+            boolean componentInsensitiveOutput) {
+        LinkedHashSet<IPatternDetails> result = new LinkedHashSet<>(service.getCraftingFor(key));
+        if (!componentInsensitiveOutput || !(key instanceof AEItemKey wanted)) {
+            return List.copyOf(result);
+        }
+
+        service.getCraftables(candidate -> candidate instanceof AEItemKey itemKey
+                && itemKey.getItem() == wanted.getItem()).stream()
+            .sorted(Comparator.comparing(AEKey::toString))
+            .forEach(candidate -> result.addAll(service.getCraftingFor(candidate)));
+        return List.copyOf(result);
+    }
+
+    private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
+            boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds,
+            boolean componentInsensitiveOutput) {
         List<CompiledInput> inputs;
         List<GenericStack> outputs;
         PlannerAmount outputPerPattern = PlannerAmount.ZERO;
@@ -116,13 +149,13 @@ public final class CraftingNetworkCompiler {
         SpecialPatternAnalysis specialAnalysis = SpecialPatternAnalysis.NONE;
         try {
             PatternSemantics analyzed = adapter == null
-                    ? PatternSemantics.unsupported(details, null, "NO_PATTERN_SEMANTIC_ADAPTER")
-                    : adapter.analyze(details);
-            semantics =
-                    analyzed == null ? PatternSemantics.unsupported(details, null, "NULL_PATTERN_SEMANTICS") : analyzed;
+                ? PatternSemantics.unsupported(details, null, "NO_PATTERN_SEMANTIC_ADAPTER")
+                : adapter.analyze(details);
+            semantics = analyzed == null
+                ? PatternSemantics.unsupported(details, null, "NULL_PATTERN_SEMANTICS") : analyzed;
         } catch (RuntimeException e) {
-            semantics = PatternSemantics.unsupported(
-                    details, null, "SEMANTIC_ANALYSIS_FAILED:" + e.getClass().getSimpleName());
+            semantics = PatternSemantics.unsupported(details, null,
+                "SEMANTIC_ANALYSIS_FAILED:" + e.getClass().getSimpleName());
         }
         fastClassification = ECORecipeClassifier.classify(details);
         try {
@@ -138,11 +171,13 @@ public final class CraftingNetworkCompiler {
             }
             // AE2 indexes a pattern by getPrimaryOutput(); all remaining entries in getOutputs() are
             // byproducts and must not change the firing ratio or make a byproduct look craftable on its own.
-            if (primaryOutput != null
-                    && primaryOutput.what() != null
-                    && primaryOutput.amount() > 0L
-                    && producedKey.equals(primaryOutput.what())) {
+            if (primaryOutput != null && primaryOutput.what() != null && primaryOutput.amount() > 0L
+                    && (producedKey.equals(primaryOutput.what())
+                        || componentInsensitiveOutput && sameItem(producedKey, primaryOutput.what()))) {
                 outputPerPattern = PlannerAmount.of(primaryOutput.amount());
+                if (!producedKey.equals(primaryOutput.what())) {
+                    outputs = aliasPrimaryOutput(outputs, primaryOutput.what(), producedKey);
+                }
             }
             if (outputPerPattern.signum() <= 0) {
                 unsupported = "PRIMARY_OUTPUT_MISMATCH";
@@ -150,11 +185,9 @@ public final class CraftingNetworkCompiler {
 
             if (!semantics.exactStaticAnalysis() && unsupported == null) {
                 unsupported = semantics.unsupportedReason() == null
-                        ? "UNSUPPORTED_PATTERN_SEMANTICS"
-                        : semantics.unsupportedReason();
+                    ? "UNSUPPORTED_PATTERN_SEMANTICS" : semantics.unsupportedReason();
             } else if ((semantics.matchingMode() == PatternSemantics.MatchingMode.FUZZY
-                            || semantics.matchingMode() == PatternSemantics.MatchingMode.UNKNOWN)
-                    && unsupported == null) {
+                    || semantics.matchingMode() == PatternSemantics.MatchingMode.UNKNOWN) && unsupported == null) {
                 unsupported = "UNSUPPORTED_MATCHING_SEMANTICS";
             } else if (semantics.executionRestriction() != PatternSemantics.ExecutionRestriction.NONE
                     && unsupported == null) {
@@ -162,25 +195,23 @@ public final class CraftingNetworkCompiler {
             }
 
             if (!semantics.consumedInputs().isEmpty()) {
-                inputs = compileInputs(semantics, fastClassification, adapter);
+                inputs = compileInputs(semantics, fastClassification, adapter, fuzzyPlanningItemIds);
             } else {
-                inputs = compileRawInputs(details);
+                inputs = compileRawInputs(details, fuzzyPlanningItemIds);
             }
             specialAnalysis = specialPatternAnalyzer.analyze(id, details, semantics, inputs);
             for (CompiledInput compiledInput : inputs) {
                 if (!compiledInput.unsupportedReason().isEmpty() && contractEvidence == null) {
                     contractEvidence = compiledInput.unsupportedReason();
                 }
-                if (!compiledInput.fastSupported()
-                        && unsupported == null
+                if (!compiledInput.fastSupported() && unsupported == null
                         && !specialAnalysis.excludesFromCycleGraph(compiledInput)) {
                     unsupported = compiledInput.unsupportedReason();
                 }
             }
             if (!semantics.supported() && unsupported == null) {
                 unsupported = semantics.unsupportedReason() == null
-                        ? "UNSUPPORTED_PATTERN_SEMANTICS"
-                        : semantics.unsupportedReason();
+                    ? "UNSUPPORTED_PATTERN_SEMANTICS" : semantics.unsupportedReason();
             } else if (adapter == null && unsupported == null) {
                 unsupported = "NO_PATTERN_SEMANTIC_ADAPTER";
             }
@@ -191,29 +222,40 @@ public final class CraftingNetworkCompiler {
         }
 
         boolean netGrowthValidated = cyclePlanningEnabled
-                && (NetGrowthPatternValidationRegistry.isValidated(details)
-                        || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details)
-                        || semantics.cycleSafeForStaticPlanning());
-        String recordedReason = unsupported != null ? unsupported : contractEvidence == null ? "" : contractEvidence;
+            && (NetGrowthPatternValidationRegistry.isValidated(details)
+                || NetGrowthPatternValidationRegistry.validateAndRegisterFromPlanner(details)
+                || semantics.cycleSafeForStaticPlanning());
+        String recordedReason = unsupported != null ? unsupported
+            : contractEvidence == null ? "" : contractEvidence;
         return new CompiledPattern(
-                id,
-                details,
-                producedKey,
-                outputPerPattern,
-                inputs,
-                outputs,
-                unsupported == null,
-                recordedReason,
-                netGrowthValidated,
-                semantics,
-                specialAnalysis);
+            id, details, producedKey, outputPerPattern, inputs, outputs, unsupported == null,
+            recordedReason, netGrowthValidated, semantics, specialAnalysis
+        );
     }
 
-    private static List<CompiledInput> compileRawInputs(IPatternDetails details) {
+    private static List<GenericStack> aliasPrimaryOutput(List<GenericStack> outputs,
+            AEKey physicalPrimaryOutput, AEKey plannerKey) {
+        List<GenericStack> aliased = new ArrayList<>(outputs.size());
+        for (GenericStack output : outputs) {
+            aliased.add(output != null && physicalPrimaryOutput.equals(output.what())
+                ? new GenericStack(plannerKey, output.amount()) : output);
+        }
+        return List.copyOf(aliased);
+    }
+
+    private static boolean sameItem(AEKey left, AEKey right) {
+        return left instanceof AEItemKey leftItem && right instanceof AEItemKey rightItem
+            && leftItem.getItem() == rightItem.getItem();
+    }
+
+    private static List<CompiledInput> compileRawInputs(IPatternDetails details,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         IPatternDetails.IInput[] rawInputs = details.getInputs();
         if (rawInputs == null) throw new IllegalArgumentException("null input array");
-        for (IPatternDetails.IInput input : rawInputs) inputs.addAll(compileInputs(input));
+        for (IPatternDetails.IInput input : rawInputs) {
+            inputs.addAll(compileInputs(input, fuzzyPlanningItemIds));
+        }
         return inputs;
     }
 
@@ -222,9 +264,7 @@ public final class CraftingNetworkCompiler {
         try {
             List<AEKey> alternatives = new ArrayList<>();
             for (GenericStack possible : input.source().getPossibleInputs()) {
-                if (possible == null
-                        || possible.what() == null
-                        || possible.what().equals(input.key())) continue;
+                if (possible == null || possible.what() == null || possible.what().equals(input.key())) continue;
                 if (input.source().getRemainingKey(possible.what()) != null) alternatives.add(possible.what());
             }
             return List.copyOf(alternatives);
@@ -233,10 +273,9 @@ public final class CraftingNetworkCompiler {
         }
     }
 
-    private static List<CompiledInput> compileInputs(
-            PatternSemantics semantics,
-            ECORecipeClassifier.Classification classification,
-            PatternSemanticAdapter adapter) {
+    private static List<CompiledInput> compileInputs(PatternSemantics semantics,
+            ECORecipeClassifier.Classification classification, PatternSemanticAdapter adapter,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         for (PatternSemantics.Input input : semantics.consumedInputs()) {
             String reason = "";
@@ -254,8 +293,8 @@ public final class CraftingNetworkCompiler {
             }
             // A reusable component or durability-mutating tool is proven by the FastPath classifier and
             // represented by the runtime batch model. It must not be rejected as a generic remainder.
-            boolean mutationRemainder =
-                    classification.supported() && classification.type() != ECORecipeClassifier.Type.NORMAL;
+            boolean mutationRemainder = classification.supported()
+                && classification.type() != ECORecipeClassifier.Type.NORMAL;
             if (input.returnedKey() != null && !semantics.cycleSafeForStaticPlanning() && !mutationRemainder) {
                 fastSupported = false;
                 reason = "UNSUPPORTED_REMAINDER";
@@ -264,18 +303,11 @@ public final class CraftingNetworkCompiler {
                 fastSupported = false;
                 reason = "INVALID_INPUT_AMOUNT";
             }
-            boolean ignoresComponents = input.source() != null
-                    && adapter != null
-                    && adapter.ignoresComponents(semantics.physicalPattern(), indexOfInput(semantics, input));
-            inputs.add(new CompiledInput(
-                    input.source(),
-                    input.key(),
-                    input.amountPerPattern(),
-                    fastSupported,
-                    reason,
-                    input.returnedKey(),
-                    input.returnedAmountPerPattern(),
-                    ignoresComponents));
+            boolean ignoresComponents = ignoresComponents(input.key(), fuzzyPlanningItemIds) || input.source() != null
+                && adapter != null
+                && adapter.ignoresComponents(semantics.physicalPattern(), indexOfInput(semantics, input));
+            inputs.add(new CompiledInput(input.source(), input.key(), input.amountPerPattern(), fastSupported, reason,
+                input.returnedKey(), input.returnedAmountPerPattern(), ignoresComponents));
         }
         return List.copyOf(inputs);
     }
@@ -284,7 +316,8 @@ public final class CraftingNetworkCompiler {
         return semantics.consumedInputs().indexOf(target);
     }
 
-    private static List<CompiledInput> compileInputs(IPatternDetails.IInput input) {
+    private static List<CompiledInput> compileInputs(IPatternDetails.IInput input,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
         if (input == null) {
             throw new IllegalArgumentException("null input");
         }
@@ -295,7 +328,8 @@ public final class CraftingNetworkCompiler {
         GenericStack primary = possible[0];
         long multiplier = input.getMultiplier();
         if (primary.amount() <= 0 || multiplier <= 0) {
-            return List.of(new CompiledInput(input, primary.what(), 0, false, "INVALID_INPUT_AMOUNT"));
+            return List.of(new CompiledInput(input, primary.what(), PlannerAmount.ZERO, false, "INVALID_INPUT_AMOUNT",
+                null, PlannerAmount.ZERO, ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
         }
         // A substitution set is still safe to plan when the planner commits to one concrete member. Use the
         // pattern's primary input deterministically; AE2 may accept other members at execution time, but the
@@ -303,26 +337,25 @@ public final class CraftingNetworkCompiler {
         PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(multiplier);
         AEKey remainder = input.getRemainingKey(primary.what());
         if (remainder != null) {
-            return List.of(new CompiledInput(
-                    input,
-                    primary.what(),
-                    amount,
-                    false,
-                    "UNSUPPORTED_REMAINDER",
-                    remainder,
-                    PlannerAmount.of(multiplier)));
+            return List.of(new CompiledInput(input, primary.what(), amount, false, "UNSUPPORTED_REMAINDER",
+                remainder, PlannerAmount.of(multiplier), ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
         }
-        return List.of(new CompiledInput(
-                input, primary.what(), amount, true, possible.length == 1 ? "" : "UNSUPPORTED_SUBSTITUTION"));
+        return List.of(new CompiledInput(input, primary.what(), amount, true,
+            possible.length == 1 ? "" : "UNSUPPORTED_SUBSTITUTION", null, PlannerAmount.ZERO,
+            ignoresComponents(primary.what(), fuzzyPlanningItemIds)));
+    }
+
+    private static boolean ignoresComponents(AEKey key, Set<ResourceLocation> fuzzyPlanningItemIds) {
+        return key instanceof AEItemKey itemKey
+            && fuzzyPlanningItemIds.contains(BuiltInRegistries.ITEM.getKey(itemKey.getItem()));
     }
 
     private static List<GenericStack> safeOutputs(IPatternDetails details) {
         try {
-            return details.getOutputs() == null
-                    ? List.of()
-                    : List.copyOf(java.util.Arrays.asList(details.getOutputs()));
+            return details.getOutputs() == null ? List.of() : List.of(details.getOutputs());
         } catch (RuntimeException ignored) {
             return List.of();
         }
     }
+
 }

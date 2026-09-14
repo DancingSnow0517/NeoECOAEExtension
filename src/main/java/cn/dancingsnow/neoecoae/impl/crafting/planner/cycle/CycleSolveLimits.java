@@ -19,7 +19,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
  *                     not a mathematical guarantee: targets that need more interleaving steps remain unknown.
  * @param maxSeedLadderSteps number of doubling steps the seed ladder may verify
  */
-public record CycleSolveLimits(int maxKeys, int maxPatterns, int maxStates, int maxFirings, int maxSeedLadderSteps) {
+public record CycleSolveLimits(
+    int maxKeys,
+    int maxPatterns,
+    int maxStates,
+    int maxFirings,
+    int maxSeedLadderSteps
+) {
     /** Stage-one defaults: only small, inventory-aware SCCs are attempted. */
     /**
      * The firing budget is sized for the large batch counts used by high-tier storage recipes. The bounded

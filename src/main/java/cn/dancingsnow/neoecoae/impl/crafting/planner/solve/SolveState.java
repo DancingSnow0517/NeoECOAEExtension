@@ -4,7 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialProvenance;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
@@ -16,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveResult;
 
 public final class SolveState {
     final PlannerCounter stored = new PlannerCounter();
@@ -41,29 +41,17 @@ public final class SolveState {
     }
 
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
-    public KeyCounter usedItems() {
-        return used.toKeyCounterExact("used items");
-    }
+    public KeyCounter usedItems() { return used.toKeyCounterExact("used items"); }
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
-    public KeyCounter emittedItems() {
-        return emitted.toKeyCounterExact("emitted items");
-    }
+    public KeyCounter emittedItems() { return emitted.toKeyCounterExact("emitted items"); }
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
-    public KeyCounter missingItems() {
-        return missing.toKeyCounterExact("missing items");
-    }
+    public KeyCounter missingItems() { return missing.toKeyCounterExact("missing items"); }
     /** Exact planner view of the used inventory. */
-    public Map<AEKey, PlannerAmount> usedAmounts() {
-        return used.asMap();
-    }
+    public Map<AEKey, PlannerAmount> usedAmounts() { return used.asMap(); }
     /** Exact planner view of emitted material. */
-    public Map<AEKey, PlannerAmount> emittedAmounts() {
-        return emitted.asMap();
-    }
+    public Map<AEKey, PlannerAmount> emittedAmounts() { return emitted.asMap(); }
     /** Exact planner view of missing material. */
-    public Map<AEKey, PlannerAmount> missingAmounts() {
-        return missing.asMap();
-    }
+    public Map<AEKey, PlannerAmount> missingAmounts() { return missing.asMap(); }
     /** Exact planner view of pattern firing counts. */
     public Map<IPatternDetails, PlannerAmount> plannerPatternTimes() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(patternTimes));
@@ -73,41 +61,19 @@ public final class SolveState {
         return Collections.unmodifiableMap(new LinkedHashMap<>(demand));
     }
     /** AE2-facing view retained for existing consumers. */
-    public Map<IPatternDetails, Long> patternTimes() {
-        return exactLongMap(patternTimes, "pattern times");
-    }
+    public Map<IPatternDetails, Long> patternTimes() { return exactLongMap(patternTimes, "pattern times"); }
     /** AE2-facing view retained for existing consumers. */
-    public Map<AEKey, Long> demands() {
-        return exactLongMap(demand, "demand");
-    }
+    public Map<AEKey, Long> demands() { return exactLongMap(demand, "demand"); }
     /** AE2-facing view retained for existing consumers. */
-    public long demandFor(AEKey key) {
-        return demandAmountFor(key).longValueExact();
-    }
-
-    public PlannerAmount demandAmountFor(AEKey key) {
-        return demand.getOrDefault(key, PlannerAmount.ZERO);
-    }
-
-    public boolean hasPlannedCrafting() {
-        return !patternTimes.isEmpty();
-    }
+    public long demandFor(AEKey key) { return demandAmountFor(key).longValueExact(); }
+    public PlannerAmount demandAmountFor(AEKey key) { return demand.getOrDefault(key, PlannerAmount.ZERO); }
+    public boolean hasPlannedCrafting() { return !patternTimes.isEmpty(); }
     /** AE2-facing storage size; exact only after representability has been established. */
-    public long bytes() {
-        return bytes.longValueExact();
-    }
+    public long bytes() { return bytes.longValueExact(); }
+    public PlannerAmount plannerBytes() { return bytes; }
+    public ExecutionProvenance executionProvenance() { return provenance.freeze(); }
 
-    public PlannerAmount plannerBytes() {
-        return bytes;
-    }
-
-    public ExecutionProvenance executionProvenance() {
-        return provenance.freeze();
-    }
-
-    PlannerAmount craftedAmount(AEKey key) {
-        return crafted.get(key);
-    }
+    PlannerAmount craftedAmount(AEKey key) { return crafted.get(key); }
 
     void creditCrafted(AEKey key, IPatternDetails pattern, PlannerAmount amount) {
         crafted.add(key, amount);
@@ -144,8 +110,7 @@ public final class SolveState {
     void markCycleMissing(Map<AEKey, Long> requiredOutputs) {
         for (var entry : requiredOutputs.entrySet()) {
             long amount = entry.getValue();
-            if (amount > 0)
-                missing.set(entry.getKey(), missing.get(entry.getKey()).max(PlannerAmount.of(amount)));
+            if (amount > 0) missing.set(entry.getKey(), missing.get(entry.getKey()).max(PlannerAmount.of(amount)));
         }
     }
 
@@ -165,39 +130,37 @@ public final class SolveState {
         }
     }
 
+    /** Records an exact planner-side deficit discovered after solving (for example by raw AE2 contract validation). */
+    public void markMissing(AEKey key, PlannerAmount deficit) {
+        if (key == null || deficit == null || deficit.signum() <= 0) return;
+        missing.add(key, deficit);
+    }
+
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */
-    boolean applyCycleTransaction(
-            int componentId,
-            Map<AEKey, Long> requiredOutputs,
-            CycleSolveResult cycle,
+    boolean applyCycleTransaction(int componentId, Map<AEKey, Long> requiredOutputs, CycleSolveResult cycle,
             Map<AEKey, Long> ownedCycleReservations,
-            Map<AEKey, Long> plannedCycleInputs,
-            Map<AEKey, Long> additionalCycleReservations,
-            KeyCounter inventory,
-            KeyCounter directExternalReservations,
-            List<SolveState> externalStates) {
-        if (cycle == null
-                || cycle.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
+            Map<AEKey, Long> plannedCycleInputs, Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,
+            KeyCounter directExternalReservations, List<SolveState> externalStates) {
+        if (cycle == null || cycle.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.SUCCESS
                 || !cycle.seedShortfall().isEmpty()) return false;
         SolveState candidate = copy();
         try {
             for (var entry : cycle.requiredSeed().entrySet()) {
                 if (entry.getValue() < 0) return false;
-                long availableSeed = Math.addExact(
-                        ownedCycleReservations.getOrDefault(entry.getKey(), 0L),
-                        plannedCycleInputs.getOrDefault(entry.getKey(), 0L));
+                long availableSeed = Math.addExact(ownedCycleReservations.getOrDefault(entry.getKey(), 0L),
+                    plannedCycleInputs.getOrDefault(entry.getKey(), 0L));
                 if (availableSeed < entry.getValue()) return false;
             }
             for (var entry : additionalCycleReservations.entrySet()) {
                 if (entry.getValue() < 0) return false;
                 candidate.used.add(entry.getKey(), entry.getValue());
-                candidate.provenance.supplied(
-                        entry.getKey(), MaterialSource.Stock.INSTANCE, PlannerAmount.of(entry.getValue()));
+                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
+                    PlannerAmount.of(entry.getValue()));
             }
             for (var entry : directExternalReservations) {
                 candidate.used.add(entry.getKey(), entry.getLongValue());
-                candidate.provenance.supplied(
-                        entry.getKey(), MaterialSource.Stock.INSTANCE, PlannerAmount.of(entry.getLongValue()));
+                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
+                    PlannerAmount.of(entry.getLongValue()));
             }
             for (SolveState external : externalStates) candidate.mergeExternal(external);
             for (var entry : cycle.patternTimes().entrySet()) {
@@ -206,11 +169,8 @@ public final class SolveState {
             }
             if (cycle.plannerTotalFirings().signum() > 0) {
                 for (var entry : requiredOutputs.entrySet()) {
-                    if (entry.getValue() > 0L)
-                        candidate.provenance.supplied(
-                                entry.getKey(),
-                                new MaterialSource.CycleOutput(componentId),
-                                PlannerAmount.of(entry.getValue()));
+                    if (entry.getValue() > 0L) candidate.provenance.supplied(entry.getKey(),
+                        new MaterialSource.CycleOutput(componentId), PlannerAmount.of(entry.getValue()));
                 }
             }
             for (var entry : candidate.used) {
@@ -225,18 +185,13 @@ public final class SolveState {
 
     private SolveState copy() {
         SolveState copy = new SolveState(new KeyCounter());
-        copy.stored.replaceFrom(stored);
-        copy.crafted.replaceFrom(crafted);
-        copy.used.replaceFrom(used);
-        copy.emitted.replaceFrom(emitted);
+        copy.stored.replaceFrom(stored); copy.crafted.replaceFrom(crafted);
+        copy.used.replaceFrom(used); copy.emitted.replaceFrom(emitted);
         copy.missing.replaceFrom(missing);
-        copy.demand.putAll(demand);
-        copy.patternTimes.putAll(patternTimes);
-        copy.demandProducers.putAll(demandProducers);
+        copy.demand.putAll(demand); copy.patternTimes.putAll(patternTimes); copy.demandProducers.putAll(demandProducers);
         copy.selected.putAll(selected);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
-        copy.unsupported.addAll(unsupported);
-        copy.bytes = bytes;
+        copy.unsupported.addAll(unsupported); copy.bytes = bytes;
         copy.provenance.replaceWith(provenance);
         return copy;
     }
@@ -249,40 +204,27 @@ public final class SolveState {
         external.patternTimes.forEach((key, value) -> patternTimes.merge(key, value, PlannerAmount::add));
         demandProducers.putAll(external.demandProducers);
         selected.putAll(external.selected);
-        external.parents.forEach((key, value) ->
-                parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
+        external.parents.forEach((key, value) -> parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
         // External surplus is not imported into crafted, so only its consumed-source attribution is mergeable.
         provenance.mergeSuppliersFrom(external.provenance);
         bytes = bytes.add(external.bytes);
     }
 
     private void replaceWith(SolveState source) {
-        replaceCounter(stored, source.stored);
-        replaceCounter(crafted, source.crafted);
-        replaceCounter(used, source.used);
-        replaceCounter(emitted, source.emitted);
-        replaceCounter(missing, source.missing);
-        demand.clear();
-        demand.putAll(source.demand);
-        patternTimes.clear();
-        patternTimes.putAll(source.patternTimes);
-        demandProducers.clear();
-        demandProducers.putAll(source.demandProducers);
-        selected.clear();
-        selected.putAll(source.selected);
-        parents.clear();
+        replaceCounter(stored, source.stored); replaceCounter(crafted, source.crafted);
+        replaceCounter(used, source.used); replaceCounter(emitted, source.emitted); replaceCounter(missing, source.missing);
+        demand.clear(); demand.putAll(source.demand); patternTimes.clear(); patternTimes.putAll(source.patternTimes);
+        demandProducers.clear(); demandProducers.putAll(source.demandProducers);
+        selected.clear(); selected.putAll(source.selected); parents.clear();
         source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
-        unsupported.clear();
-        unsupported.addAll(source.unsupported);
-        bytes = source.bytes;
+        unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;
         provenance.replaceWith(source.provenance);
     }
 
     private void collectExecutionIssues(List<ExecutionAmountIssue> issues, PlannerCounter counter, String stage) {
         for (var entry : counter) {
-            if (!entry.getValue().fitsLong())
-                issues.add(new ExecutionAmountIssue(
-                        entry.getKey(), demandProducers.get(entry.getKey()), entry.getValue(), stage));
+            if (!entry.getValue().fitsLong()) issues.add(new ExecutionAmountIssue(entry.getKey(),
+                demandProducers.get(entry.getKey()), entry.getValue(), stage));
         }
     }
 

@@ -34,5 +34,12 @@ public record SpecialPatternAnalysis(List<Requirement> requirements) {
         CATALYST
     }
 
-    public record Requirement(CompiledInput input, AEKey returnedKey, Type type, int damagePerUse, int maxDamage) {}
+    public record Requirement(
+        CompiledInput input,
+        AEKey returnedKey,
+        Type type,
+        int damagePerUse,
+        int maxDamage
+    ) {
+    }
 }

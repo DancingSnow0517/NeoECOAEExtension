@@ -7,11 +7,14 @@ import java.util.List;
 
 /** Ordered adapter registry. Integrations are checked before the generic AE2 contract. */
 public final class PatternSemanticAdapters {
-    private PatternSemanticAdapters() {}
+    private PatternSemanticAdapters() {
+    }
 
     public static List<PatternSemanticAdapter> defaults() {
         List<PatternSemanticAdapter> adapters = new ArrayList<>();
-        adapters.add(new ExtendedAEPlusPatternSemanticAdapter());
+        if (classPresent("com.glodblock.github.extendedae_plus.ExtendedAEPlus")) {
+            adapters.add(new ExtendedAEPlusPatternSemanticAdapter());
+        }
         adapters.add(new AE2PatternSemanticAdapter());
         return List.copyOf(adapters);
     }
@@ -25,5 +28,14 @@ public final class PatternSemanticAdapters {
         List<PatternSemanticAdapter> result = new ArrayList<>(adapters);
         if (result.isEmpty()) throw new IllegalArgumentException("At least one pattern semantic adapter is required");
         return List.copyOf(result);
+    }
+
+    private static boolean classPresent(String name) {
+        try {
+            Class.forName(name, false, PatternSemanticAdapters.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 }

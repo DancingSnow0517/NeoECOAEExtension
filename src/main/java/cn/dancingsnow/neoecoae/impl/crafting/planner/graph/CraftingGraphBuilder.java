@@ -5,10 +5,10 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,8 +31,7 @@ public final class CraftingGraphBuilder {
                 cancellation.checkpoint();
                 for (CompiledInput input : pattern.inputs()) {
                     if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                    nodes.putIfAbsent(
-                            input.key(), new CraftingGraphNode(input.key(), network.producersOf(input.key())));
+                    nodes.putIfAbsent(input.key(), new CraftingGraphNode(input.key(), network.producersOf(input.key())));
                     edges.add(new CraftingGraphEdge(key, input.key(), pattern, input));
                     if (reachable.add(input.key())) work.addLast(input.key());
                 }
@@ -40,26 +39,20 @@ public final class CraftingGraphBuilder {
                 // transitions are requirements of the local resolver, not production dependencies.
                 for (var feedback : pattern.semantics().feedbackEdges()) {
                     if (pattern.specialAnalysis().requirements().stream()
-                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey())))
-                        continue;
-                    nodes.putIfAbsent(
-                            feedback.returnedKey(),
-                            new CraftingGraphNode(feedback.returnedKey(), network.producersOf(feedback.returnedKey())));
-                    nodes.putIfAbsent(
-                            feedback.dependentOutput(),
-                            new CraftingGraphNode(
-                                    feedback.dependentOutput(), network.producersOf(feedback.dependentOutput())));
+                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey()))) continue;
+                    nodes.putIfAbsent(feedback.returnedKey(),
+                        new CraftingGraphNode(feedback.returnedKey(), network.producersOf(feedback.returnedKey())));
+                    nodes.putIfAbsent(feedback.dependentOutput(),
+                        new CraftingGraphNode(feedback.dependentOutput(),
+                            network.producersOf(feedback.dependentOutput())));
                     CompiledInput edgeInput = pattern.inputs().stream()
-                            .filter(input -> feedback.returnedKey().equals(input.remainderKey())
-                                    || feedback.returnedKey().equals(input.key()))
-                            .findFirst()
-                            .orElse(
-                                    pattern.inputs().isEmpty()
-                                            ? null
-                                            : pattern.inputs().get(0));
+                        .filter(input -> feedback.returnedKey().equals(input.remainderKey())
+                            || feedback.returnedKey().equals(input.key()))
+                        .findFirst()
+                        .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().get(0));
                     if (edgeInput != null) {
-                        edges.add(new CraftingGraphEdge(
-                                feedback.returnedKey(), feedback.dependentOutput(), pattern, edgeInput));
+                        edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
+                            pattern, edgeInput));
                     }
                     if (reachable.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
                     if (reachable.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());

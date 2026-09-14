@@ -16,12 +16,7 @@ public final class SolveWorkspace {
         this.inventory = inventory;
         this.candidateChoice = candidateChoice;
     }
+    PlannerInventorySnapshot inventory() { return inventory; }
+    Map<AEKey, Integer> candidateChoice() { return candidateChoice; }
 
-    PlannerInventorySnapshot inventory() {
-        return inventory;
-    }
-
-    Map<AEKey, Integer> candidateChoice() {
-        return candidateChoice;
-    }
 }

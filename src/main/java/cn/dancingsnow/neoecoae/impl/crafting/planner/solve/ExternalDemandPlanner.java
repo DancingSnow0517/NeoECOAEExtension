@@ -23,17 +23,10 @@ import java.util.Set;
 
 /** Plans a solved cycle's boundary inputs, delegating selected cyclic suppliers to the component planner. */
 final class ExternalDemandPlanner {
-    record Outcome(
-            CycleExternalDemandStatus status,
-            KeyCounter directReservations,
-            List<SolveState> states,
-            Map<AEKey, Long> missingLeaves,
-            Set<IPatternDetails> selectedPatterns,
-            Map<AEKey, Long> delegatedCycleDemands,
-            String diagnostic) {
-        boolean solved() {
-            return status == CycleExternalDemandStatus.SOLVED;
-        }
+    record Outcome(CycleExternalDemandStatus status, KeyCounter directReservations,
+            List<SolveState> states, Map<AEKey, Long> missingLeaves, Set<IPatternDetails> selectedPatterns,
+            Map<AEKey, Long> delegatedCycleDemands, String diagnostic) {
+        boolean solved() { return status == CycleExternalDemandStatus.SOLVED; }
     }
 
     private final AcyclicCraftingSolver acyclicSolver;
@@ -41,96 +34,40 @@ final class ExternalDemandPlanner {
     private final CraftingGraphBuilder graphBuilder = new CraftingGraphBuilder();
     private final TarjanSccAnalyzer sccAnalyzer = new TarjanSccAnalyzer();
 
-    ExternalDemandPlanner(AcyclicCraftingSolver acyclicSolver) {
-        this.acyclicSolver = acyclicSolver;
+    ExternalDemandPlanner(AcyclicCraftingSolver acyclicSolver) { this.acyclicSolver = acyclicSolver; }
+
+    Outcome solve(CompiledNetwork network, CycleComponent cycle, CycleSolveResult cycleResult,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, cycle, cycleResult, inventory, base, additionalCycleReservations,
+            delegatedCycleInputs, false, cancellation);
     }
 
-    Outcome solve(
-            CompiledNetwork network,
-            CycleComponent cycle,
-            CycleSolveResult cycleResult,
-            KeyCounter inventory,
-            SolveState base,
-            Map<AEKey, Long> additionalCycleReservations,
-            Set<AEKey> delegatedCycleInputs,
-            ECOCancellation cancellation)
-            throws InterruptedException {
-        return solve(
-                network,
-                cycle,
-                cycleResult,
-                inventory,
-                base,
-                additionalCycleReservations,
-                delegatedCycleInputs,
-                false,
-                cancellation);
+    Outcome solve(CompiledNetwork network, CycleComponent cycle, CycleSolveResult cycleResult,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
+        return solveDemands(network, cycle, cycleResult.positiveExternalDemand(), inventory, base,
+            additionalCycleReservations, delegatedCycleInputs, ignorePatternSubstitutions, cancellation);
     }
 
-    Outcome solve(
-            CompiledNetwork network,
-            CycleComponent cycle,
-            CycleSolveResult cycleResult,
-            KeyCounter inventory,
-            SolveState base,
-            Map<AEKey, Long> additionalCycleReservations,
-            Set<AEKey> delegatedCycleInputs,
-            boolean ignorePatternSubstitutions,
-            ECOCancellation cancellation)
-            throws InterruptedException {
-        return solveDemands(
-                network,
-                cycle,
-                cycleResult.positiveExternalDemand(),
-                inventory,
-                base,
-                additionalCycleReservations,
-                delegatedCycleInputs,
-                ignorePatternSubstitutions,
-                cancellation);
+    Outcome solveDemands(CompiledNetwork network, CycleComponent cycle, Map<AEKey, Long> demands,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, ECOCancellation cancellation) throws InterruptedException {
+        return solveDemands(network, cycle, demands, inventory, base, additionalCycleReservations,
+            delegatedCycleInputs, false, cancellation);
     }
 
-    Outcome solveDemands(
-            CompiledNetwork network,
-            CycleComponent cycle,
-            Map<AEKey, Long> demands,
-            KeyCounter inventory,
-            SolveState base,
-            Map<AEKey, Long> additionalCycleReservations,
-            Set<AEKey> delegatedCycleInputs,
-            ECOCancellation cancellation)
-            throws InterruptedException {
-        return solveDemands(
-                network,
-                cycle,
-                demands,
-                inventory,
-                base,
-                additionalCycleReservations,
-                delegatedCycleInputs,
-                false,
-                cancellation);
-    }
-
-    Outcome solveDemands(
-            CompiledNetwork network,
-            CycleComponent cycle,
-            Map<AEKey, Long> demands,
-            KeyCounter inventory,
-            SolveState base,
-            Map<AEKey, Long> additionalCycleReservations,
-            Set<AEKey> delegatedCycleInputs,
-            boolean ignorePatternSubstitutions,
-            ECOCancellation cancellation)
-            throws InterruptedException {
+    Outcome solveDemands(CompiledNetwork network, CycleComponent cycle, Map<AEKey, Long> demands,
+            KeyCounter inventory, SolveState base, Map<AEKey, Long> additionalCycleReservations,
+            Set<AEKey> delegatedCycleInputs, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
         KeyCounter available = remainingInventory(inventory, base);
         for (var reservation : additionalCycleReservations.entrySet()) {
             long amount = reservation.getValue();
             if (amount < 0L || available.get(reservation.getKey()) < amount) {
-                return failure(
-                        CycleExternalDemandStatus.MISSING,
-                        Map.of(reservation.getKey(), Math.max(0L, amount)),
-                        "Cycle-owned stock is unavailable before external-demand planning");
+                return failure(CycleExternalDemandStatus.MISSING, Map.of(reservation.getKey(), Math.max(0L, amount)),
+                    "Cycle-owned stock is unavailable before external-demand planning");
             }
             if (amount > 0L) available.remove(reservation.getKey(), amount);
         }
@@ -159,125 +96,76 @@ final class ExternalDemandPlanner {
             long deficit = demand.getValue() - fromStock;
             if (deficit <= 0) continue;
 
-            Outcome one = solveDeficit(
-                    network, cycle, demand.getKey(), deficit, available, ignorePatternSubstitutions, cancellation);
+            Outcome one = solveDeficit(network, cycle, demand.getKey(), deficit, available,
+                ignorePatternSubstitutions, cancellation);
             if (!one.solved()) return one;
             SolveState state = one.states().get(0);
             states.add(state);
             selected.addAll(one.selectedPatterns());
             for (var used : state.used) {
                 if (!used.getValue().fitsLong()) {
-                    return failure(
-                            CycleExternalDemandStatus.UNREPRESENTABLE,
-                            Map.of(),
-                            "External DAG used amount exceeds AE2 long range: key=" + used.getKey() + " amount="
-                                    + used.getValue() + " max=" + Long.MAX_VALUE);
+                    return failure(CycleExternalDemandStatus.UNREPRESENTABLE, Map.of(),
+                        "External DAG used amount exceeds AE2 long range: key=" + used.getKey()
+                            + " amount=" + used.getValue() + " max=" + Long.MAX_VALUE);
                 }
                 if (available.get(used.getKey()) < used.getValue().longValueExact()) {
-                    return failure(
-                            CycleExternalDemandStatus.MISSING,
-                            Map.of(used.getKey(), used.getValue().longValueExact() - available.get(used.getKey())),
-                            "External demands compete for the same remaining inventory");
+                    return failure(CycleExternalDemandStatus.MISSING,
+                        Map.of(used.getKey(), used.getValue().longValueExact() - available.get(used.getKey())),
+                        "External demands compete for the same remaining inventory");
                 }
                 available.remove(used.getKey(), used.getValue().longValueExact());
             }
         }
-        return new Outcome(
-                CycleExternalDemandStatus.SOLVED,
-                direct,
-                List.copyOf(states),
-                Map.of(),
-                Set.copyOf(selected),
-                Map.copyOf(delegated),
-                delegated.isEmpty()
-                        ? "External demand solved through inventory and acyclic routes"
-                        : "External demand solved through inventory, acyclic routes, and delegated cycle components");
+        return new Outcome(CycleExternalDemandStatus.SOLVED, direct, List.copyOf(states), Map.of(),
+            Set.copyOf(selected), Map.copyOf(delegated), delegated.isEmpty()
+                ? "External demand solved through inventory and acyclic routes"
+                : "External demand solved through inventory, acyclic routes, and delegated cycle components");
     }
 
-    private Outcome solveDeficit(
-            CompiledNetwork network,
-            CycleComponent cycle,
-            AEKey goal,
-            long amount,
-            KeyCounter inventory,
-            boolean ignorePatternSubstitutions,
-            ECOCancellation cancellation)
-            throws InterruptedException {
+    private Outcome solveDeficit(CompiledNetwork network, CycleComponent cycle, AEKey goal, long amount,
+            KeyCounter inventory, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
         Set<IPatternDetails> forbiddenPatterns = cycle.patterns().stream()
-                .map(pattern -> pattern.details())
-                .collect(java.util.stream.Collectors.toSet());
+            .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
         Set<AEKey> forbiddenMembers = Set.copyOf(cycle.members());
         Map<AEKey, List<cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern>> producers =
-                new LinkedHashMap<>();
+            new LinkedHashMap<>();
         // A cycle member may have an independent alternate producer. Exclude only this component's physical
         // patterns; blanking every producer for the member would incorrectly reject a craftable startup seed.
         // Re-entry is still detected below when the filtered route ultimately depends on a forbidden member.
-        network.producers()
-                .forEach((key, candidates) -> producers.put(
-                        key,
-                        candidates.stream()
-                                .filter(pattern -> !forbiddenPatterns.contains(pattern.details()))
-                                .toList()));
+        network.producers().forEach((key, candidates) -> producers.put(key, candidates.stream()
+            .filter(pattern -> !forbiddenPatterns.contains(pattern.details())).toList()));
         int patterns = producers.values().stream().mapToInt(List::size).sum();
-        int edges = producers.values().stream()
-                .flatMap(List::stream)
-                .mapToInt(p -> p.inputs().size())
-                .sum();
-        CompiledNetwork filtered = new CompiledNetwork(
-                goal,
-                producers,
-                network.emittable().stream()
-                        .filter(key -> !forbiddenMembers.contains(key))
-                        .collect(java.util.stream.Collectors.toSet()),
-                patterns,
-                edges);
+        int edges = producers.values().stream().flatMap(List::stream).mapToInt(p -> p.inputs().size()).sum();
+        CompiledNetwork filtered = new CompiledNetwork(goal, producers,
+            network.emittable().stream().filter(key -> !forbiddenMembers.contains(key)).collect(java.util.stream.Collectors.toSet()),
+            patterns, edges);
 
         var graph = graphBuilder.build(filtered, cancellation);
         var condensation = CondensationGraph.build(graph, sccAnalyzer.analyze(graph, cancellation), cancellation);
         var selection = routeSelector.select(condensation.source(), cancellation);
         Set<IPatternDetails> deferredCyclePatterns = selection.cyclicComponents().stream()
-                .flatMap(component -> component.patterns().stream())
-                .map(pattern -> pattern.details())
-                .collect(java.util.stream.Collectors.toSet());
+            .flatMap(component -> component.patterns().stream())
+            .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
         List<AEKey> route = selection.acyclic()
-                ? selection.condensation().topologicalOrder().stream()
-                        .filter(AcyclicComponent.class::isInstance)
-                        .map(AcyclicComponent.class::cast)
-                        .map(AcyclicComponent::key)
-                        .toList()
-                : selection.condensation().topologicalOrder().stream()
-                        .flatMap(component -> component.members().stream())
-                        .toList();
-        var solved = acyclicSolver.solve(
-                filtered,
-                new AcyclicRoutePlan(route),
-                inventory,
-                amount,
-                selection.choices(),
-                deferredCyclePatterns,
-                ignorePatternSubstitutions,
-                cancellation);
+            ? selection.condensation().topologicalOrder().stream()
+                .filter(AcyclicComponent.class::isInstance).map(AcyclicComponent.class::cast)
+                .map(AcyclicComponent::key).toList()
+            : selection.condensation().topologicalOrder().stream()
+                .flatMap(component -> component.members().stream()).toList();
+        var solved = acyclicSolver.solve(filtered, new AcyclicRoutePlan(route), inventory, amount,
+            selection.choices(), deferredCyclePatterns, ignorePatternSubstitutions, cancellation);
         if (solved.status() == PlanningStatus.SUCCESS) {
-            return new Outcome(
-                    CycleExternalDemandStatus.SOLVED,
-                    new KeyCounter(),
-                    List.of(solved.state()),
-                    Map.of(),
-                    solved.state().selected.values().stream()
-                            .map(p -> p.details())
-                            .collect(java.util.stream.Collectors.toSet()),
-                    Map.of(),
-                    deferredCyclePatterns.isEmpty()
-                            ? "External DAG solved"
-                            : "External DAG solved with cyclic suppliers deferred to component planning");
+            return new Outcome(CycleExternalDemandStatus.SOLVED, new KeyCounter(), List.of(solved.state()), Map.of(),
+                solved.state().selected.values().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
+                Map.of(), deferredCyclePatterns.isEmpty() ? "External DAG solved"
+                    : "External DAG solved with cyclic suppliers deferred to component planning");
         }
         if (solved.status() == PlanningStatus.MISSING_ITEMS) {
             Map<AEKey, Long> missing = positive(solved.state().missingItems());
             if (missing.keySet().stream().anyMatch(forbiddenMembers::contains)) {
-                return failure(
-                        CycleExternalDemandStatus.FORBIDDEN_ROUTE,
-                        missing,
-                        "All usable external routes re-enter the current cycle component");
+                return failure(CycleExternalDemandStatus.FORBIDDEN_ROUTE, missing,
+                    "All usable external routes re-enter the current cycle component");
             }
             return failure(CycleExternalDemandStatus.MISSING, missing, "External DAG leaf material is missing");
         }
@@ -285,40 +173,29 @@ final class ExternalDemandPlanner {
             return failure(CycleExternalDemandStatus.OVERFLOW, Map.of(), "External DAG arithmetic overflow");
         }
         if (solved.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE) {
-            return failure(
-                    CycleExternalDemandStatus.UNREPRESENTABLE,
-                    Map.of(),
-                    solved.trace().diagnostics().stream()
-                            .filter(diagnostic -> diagnostic.code()
-                                    == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic.Code
-                                            .EXECUTION_AMOUNT_UNREPRESENTABLE)
-                            .map(cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic::message)
-                            .findFirst()
-                            .orElse("External DAG plan exceeds AE2 long range"));
+            return failure(CycleExternalDemandStatus.UNREPRESENTABLE, Map.of(),
+                solved.trace().diagnostics().stream()
+                    .filter(diagnostic -> diagnostic.code() == cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic.Code
+                        .EXECUTION_AMOUNT_UNREPRESENTABLE)
+                    .map(cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic::message)
+                    .findFirst().orElse("External DAG plan exceeds AE2 long range"));
         }
-        return failure(
-                CycleExternalDemandStatus.UNSUPPORTED,
-                Map.of(),
-                "External DAG contains an unsupported pattern or route");
+        return failure(CycleExternalDemandStatus.UNSUPPORTED, Map.of(),
+            "External DAG contains an unsupported pattern or route");
     }
 
     private static Outcome failure(CycleExternalDemandStatus status, Map<AEKey, Long> missing, String diagnostic) {
         return new Outcome(status, new KeyCounter(), List.of(), Map.copyOf(missing), Set.of(), Map.of(), diagnostic);
     }
-
     private static KeyCounter remainingInventory(KeyCounter inventory, SolveState base) {
         KeyCounter result = new KeyCounter();
         for (var entry : inventory) {
             long remaining = base.used.get(entry.getKey()).compareTo(PlannerAmount.of(entry.getLongValue())) >= 0
-                    ? 0L
-                    : PlannerAmount.of(entry.getLongValue())
-                            .subtract(base.used.get(entry.getKey()))
-                            .longValueExact();
+                ? 0L : PlannerAmount.of(entry.getLongValue()).subtract(base.used.get(entry.getKey())).longValueExact();
             if (remaining > 0) result.add(entry.getKey(), remaining);
         }
         return result;
     }
-
     private static Map<AEKey, Long> positive(KeyCounter counter) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         for (var entry : counter) if (entry.getLongValue() > 0) result.put(entry.getKey(), entry.getLongValue());

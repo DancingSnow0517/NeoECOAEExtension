@@ -217,6 +217,10 @@ dependencies {
     compileOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
     runtimeOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
 
+    // Optional 1.20.1 ExtendedAE Plus integration. The planner adapter is reflection-gated.
+    compileOnly fg.deobf("curse.maven:extendedae-plus-1337639:${extendedae_plus_file_id}")
+    runtimeOnly fg.deobf("curse.maven:extendedae-plus-1337639:${extendedae_plus_file_id}")
+
     compileOnly fg.deobf("curse.maven:mega-cells-622112:6175008")
     runtimeOnly fg.deobf("curse.maven:mega-cells-622112:6175008")
     runtimeOnly fg.deobf("me.shedaniel.cloth:cloth-config-forge:11.1.106")

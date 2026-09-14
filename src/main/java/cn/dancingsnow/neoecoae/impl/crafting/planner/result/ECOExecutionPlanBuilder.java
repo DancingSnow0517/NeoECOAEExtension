@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,25 +17,17 @@ import org.slf4j.LoggerFactory;
 /** The only boundary that interprets planner components as an executable contract. */
 public final class ECOExecutionPlanBuilder {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOExecutionPlanBuilder.class);
+    private ECOExecutionPlanBuilder() { }
 
-    private ECOExecutionPlanBuilder() {}
-
-    public static ECOExecutionPlan build(
-            PlanIdentity.Signature signature,
-            ExecutionMode mode,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionOrder,
+    public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
+            List<ComponentPlanningResult> components, List<Integer> executionOrder,
             Map<IPatternDetails, Long> patternTimes) {
         return build(signature, mode, components, executionOrder, patternTimes, null);
     }
 
-    public static ECOExecutionPlan build(
-            PlanIdentity.Signature signature,
-            ExecutionMode mode,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionOrder,
-            Map<IPatternDetails, Long> patternTimes,
-            ExecutionProvenance provenance) {
+    public static ECOExecutionPlan build(PlanIdentity.Signature signature, ExecutionMode mode,
+            List<ComponentPlanningResult> components, List<Integer> executionOrder,
+            Map<IPatternDetails, Long> patternTimes, ExecutionProvenance provenance) {
         try {
             return buildValidated(signature, mode, components, executionOrder, patternTimes, provenance);
         } catch (IllegalArgumentException | IllegalStateException failure) {
@@ -42,13 +35,9 @@ public final class ECOExecutionPlanBuilder {
         }
     }
 
-    private static ECOExecutionPlan buildValidated(
-            PlanIdentity.Signature signature,
-            ExecutionMode mode,
-            List<ComponentPlanningResult> components,
-            List<Integer> executionOrder,
-            Map<IPatternDetails, Long> patternTimes,
-            ExecutionProvenance provenance) {
+    private static ECOExecutionPlan buildValidated(PlanIdentity.Signature signature, ExecutionMode mode,
+            List<ComponentPlanningResult> components, List<Integer> executionOrder,
+            Map<IPatternDetails, Long> patternTimes, ExecutionProvenance provenance) {
         validateCycleDispositions(signature, components);
         ECOExecutionSchedule schedule = ECOExecutionSchedule.from(components, executionOrder, patternTimes, provenance);
         Map<Integer, ComponentPlanningResult> componentById = new HashMap<>();
@@ -58,10 +47,7 @@ public final class ECOExecutionPlanBuilder {
         for (var entry : patternTimes.entrySet()) {
             if (entry.getValue() == null || entry.getValue() <= 0) continue;
             var identity = requireIdentity(entry.getKey());
-            PlannedTask existing = selected.stream()
-                    .filter(task -> task.identity().equals(identity))
-                    .findFirst()
-                    .orElse(null);
+            PlannedTask existing = selected.stream().filter(task -> task.identity().equals(identity)).findFirst().orElse(null);
             if (existing == null) selected.add(new PlannedTask(identity, entry.getKey(), entry.getValue()));
             else existing.add(entry.getValue());
         }
@@ -88,27 +74,17 @@ public final class ECOExecutionPlanBuilder {
             var phase = schedule.phases().get(phaseIndex);
             var component = componentById.get(phase.componentId());
             boolean ordered = phase.type() == ECOExecutionSchedule.Type.CYCLE
-                    && component != null
-                    && component.cycleResult() != null
-                    && !component.cycleResult().executionPlan().isEmpty();
-            var kind = phase.type() == ECOExecutionSchedule.Type.DAG
-                    ? ECOExecutionPlan.TaskKind.DAG
-                    : phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                            ? ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC
-                            : ordered
-                                    ? ECOExecutionPlan.TaskKind.CYCLE_ORDERED
-                                    : ECOExecutionPlan.TaskKind.CYCLE_REMAINDER;
+                && component != null && component.cycleResult() != null
+                && !component.cycleResult().executionPlan().isEmpty();
+            var kind = phase.type() == ECOExecutionSchedule.Type.DAG ? ECOExecutionPlan.TaskKind.DAG
+                : phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                    ? ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC
+                    : ordered ? ECOExecutionPlan.TaskKind.CYCLE_ORDERED : ECOExecutionPlan.TaskKind.CYCLE_REMAINDER;
             int id = tasks.size();
             taskIdByIdentity.put(task.identity(), id);
-            tasks.add(new ECOExecutionPlan.TaskSpec(
-                    id,
-                    task.identity(),
-                    task.pattern(),
-                    ECOExecutionPlan.PatternRuntimeInfo.from(task.pattern()),
-                    task.count(),
-                    phaseIndex,
-                    kind,
-                    defaultAllocations(task.pattern(), task.count())));
+            tasks.add(new ECOExecutionPlan.TaskSpec(id, task.identity(), task.pattern(),
+                ECOExecutionPlan.PatternRuntimeInfo.from(task.pattern()), task.count(), phaseIndex, kind,
+                defaultAllocations(task.pattern(), task.count())));
         }
 
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>();
@@ -116,15 +92,12 @@ public final class ECOExecutionPlanBuilder {
             int currentPhaseIndex = phaseIndex;
             var schedulePhase = schedule.phases().get(phaseIndex);
             List<Integer> taskIds = schedulePhase.patternSet().stream()
-                    .map(ECOExecutionPlanBuilder::requireIdentity)
-                    .map(taskIdByIdentity::get)
-                    .sorted()
-                    .toList();
+                .map(ECOExecutionPlanBuilder::requireIdentity).map(taskIdByIdentity::get)
+                .sorted().toList();
             List<ECOExecutionPlan.ExecutionStep> steps = new ArrayList<>();
             Map<Integer, Long> dynamicFirings = new LinkedHashMap<>();
             ComponentPlanningResult component = componentById.get(schedulePhase.componentId());
-            if (schedulePhase.type() == ECOExecutionSchedule.Type.CYCLE
-                    && component != null
+            if (schedulePhase.type() == ECOExecutionSchedule.Type.CYCLE && component != null
                     && component.cycleResult() != null) {
                 for (PatternRun run : component.cycleResult().executionPlan()) {
                     if (run.count() <= 0) continue;
@@ -136,8 +109,7 @@ public final class ECOExecutionPlanBuilder {
                 }
                 validateCycleCounts(component, steps, tasks);
             }
-            if (schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                    && component != null
+            if (schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && component != null
                     && component.cycleResult() != null) {
                 for (var firing : component.cycleResult().patternTimes().entrySet()) {
                     if (firing.getValue() == null || firing.getValue() <= 0L) continue;
@@ -149,23 +121,13 @@ public final class ECOExecutionPlanBuilder {
                 }
                 validateDynamicCycleCounts(component, dynamicFirings, tasks);
             }
-            phases.add(new ECOExecutionPlan.PhaseSpec(
-                    phaseIndex,
-                    schedulePhase.componentId(),
-                    schedulePhase.type(),
-                    taskIds,
-                    steps,
-                    schedule.dependencies().stream()
-                            .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
-                            .map(ECOExecutionSchedule.PhaseDependency::producerPhase)
-                            .sorted()
-                            .toList(),
-                    dynamicFirings,
-                    schedulePhase.type() != ECOExecutionSchedule.Type.DAG
-                                    && component != null
-                                    && component.cycleResult() != null
-                            ? component.cycleResult().requiredSeed()
-                            : Map.of()));
+            phases.add(new ECOExecutionPlan.PhaseSpec(phaseIndex, schedulePhase.componentId(),
+                schedulePhase.type(), taskIds, steps, schedule.dependencies().stream()
+                    .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
+                    .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList(),
+                dynamicFirings, schedulePhase.type() != ECOExecutionSchedule.Type.DAG
+                    && component != null && component.cycleResult() != null
+                        ? component.cycleResult().requiredSeed() : Map.of()));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }
@@ -177,70 +139,56 @@ public final class ECOExecutionPlanBuilder {
         for (int slot = 0; slot < inputs.length; slot++) {
             var possible = inputs[slot].getPossibleInputs();
             if (possible == null || possible.length == 0 || possible[0] == null || possible[0].what() == null) continue;
-            result.add(new PlannedInputAllocation(
-                    slot,
-                    List.of(new PlannedInputAllocation.Run(
-                            possible[0].what(),
-                            possible[0].amount() * Math.max(1L, inputs[slot].getMultiplier()),
-                            crafts))));
+            result.add(new PlannedInputAllocation(slot, List.of(new PlannedInputAllocation.Run(
+                possible[0].what(), possible[0].amount() * Math.max(1L, inputs[slot].getMultiplier()), crafts))));
         }
         return result;
     }
 
-    private static void validateCycleCounts(
-            ComponentPlanningResult component,
-            List<ECOExecutionPlan.ExecutionStep> steps,
-            List<ECOExecutionPlan.TaskSpec> tasks) {
-        Map<PlanIdentity.PatternIdentity, Long> signature =
-                PlanIdentity.taskSignature(component.cycleResult().patternTimes());
+    private static void validateCycleCounts(ComponentPlanningResult component,
+            List<ECOExecutionPlan.ExecutionStep> steps, List<ECOExecutionPlan.TaskSpec> tasks) {
+        Map<PlanIdentity.PatternIdentity, Long> signature = PlanIdentity.taskSignature(
+            component.cycleResult().patternTimes());
         if (signature == null) throw new IllegalStateException("Cycle firing vector has no stable identity");
         Map<PlanIdentity.PatternIdentity, Long> expected = new HashMap<>();
-        signature.forEach((identity, count) -> {
-            if (count != null && count > 0) expected.put(identity, count);
-        });
+        signature.forEach((identity, count) -> { if (count != null && count > 0) expected.put(identity, count); });
         Map<PlanIdentity.PatternIdentity, Long> actual = new HashMap<>();
         for (var step : steps) actual.merge(tasks.get(step.taskId()).identity(), step.count(), Math::addExact);
         if (!actual.equals(expected)) {
             throw new IllegalStateException("Compact cycle trace does not equal the solved firing vector");
         }
         for (var entry : actual.entrySet()) {
-            var task = tasks.stream()
-                    .filter(candidate -> candidate.identity().equals(entry.getKey()))
-                    .findFirst()
-                    .orElseThrow();
+            var task = tasks.stream().filter(candidate -> candidate.identity().equals(entry.getKey())).findFirst().orElseThrow();
             if (entry.getValue() > task.totalCount()) {
                 throw new IllegalStateException("Cycle trace consumes more than the aggregate AE2 task count");
             }
         }
     }
 
-    private static void validateCycleDispositions(
-            PlanIdentity.Signature signature, List<ComponentPlanningResult> components) {
+    private static void validateCycleDispositions(PlanIdentity.Signature signature,
+            List<ComponentPlanningResult> components) {
         Map<appeng.api.stacks.AEKey, Long> projectedReservations = new HashMap<>();
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
             switch (component.cycleDisposition()) {
                 case NOT_REQUIRED -> {
-                    if (hasPositiveFirings(component)
-                            || !component.stockReservations().isEmpty()) {
-                        throw componentFailure(
-                                component, "NOT_REQUIRED component has positive firings or stock reservations");
+                    if (hasPositiveFirings(component) || !component.stockReservations().isEmpty()) {
+                        throw componentFailure(component,
+                            "NOT_REQUIRED component has positive firings or stock reservations");
                     }
                 }
                 case STOCK_SATISFIED -> validateStockSatisfied(signature, component);
                 case ORDERED_EXECUTION -> validateOrdered(component);
                 case DYNAMIC_EXECUTION -> validateDynamic(component);
-                case BLOCKED -> throw componentFailure(
-                        component, "Planner marked cyclic component BLOCKED: " + component.diagnostic());
+                case BLOCKED -> throw componentFailure(component,
+                    "Planner marked cyclic component BLOCKED: " + component.diagnostic());
             }
             for (var reservation : component.stockReservations().entrySet()) {
                 long planned = reservation.getValue() == null ? -1L : reservation.getValue();
                 long finalUsed = signature.usedItems().getOrDefault(reservation.getKey(), 0L);
                 if (planned <= 0L || finalUsed < planned) {
-                    throw componentFailure(
-                            component,
-                            "Stock reservation is absent from final usedItems: key=" + reservation.getKey()
-                                    + " stockReserved=" + planned + " finalUsedItems=" + finalUsed);
+                    throw componentFailure(component, "Stock reservation is absent from final usedItems: key="
+                        + reservation.getKey() + " stockReserved=" + planned + " finalUsedItems=" + finalUsed);
                 }
                 projectedReservations.merge(reservation.getKey(), planned, Math::addExact);
             }
@@ -248,18 +196,18 @@ public final class ECOExecutionPlanBuilder {
         projectedReservations.forEach((key, projected) -> {
             long finalUsed = signature.usedItems().getOrDefault(key, 0L);
             if (projected > finalUsed) {
-                throw new IllegalStateException("Cycle stock reservation projections exceed final usedItems: key=" + key
-                        + " projected=" + projected + " finalUsedItems=" + finalUsed);
+                throw new IllegalStateException("Cycle stock reservation projections exceed final usedItems: key="
+                    + key + " projected=" + projected + " finalUsedItems=" + finalUsed);
             }
         });
     }
 
-    private static void validateStockSatisfied(PlanIdentity.Signature signature, ComponentPlanningResult component) {
+    private static void validateStockSatisfied(PlanIdentity.Signature signature,
+            ComponentPlanningResult component) {
         if (component.requiredOutputs().isEmpty()) {
             throw componentFailure(component, "STOCK_SATISFIED component has no positive demand");
         }
-        if (component.cycleResult() == null
-                || !component.cycleResult().status().solved()
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
                 || hasPositiveFirings(component)) {
             throw componentFailure(component, "STOCK_SATISFIED requires a solved zero-firing cycle result");
         }
@@ -268,44 +216,38 @@ public final class ECOExecutionPlanBuilder {
             long stockReserved = component.stockReservations().getOrDefault(requirement.getKey(), 0L);
             long finalUsed = signature.usedItems().getOrDefault(requirement.getKey(), 0L);
             if (required <= 0L || stockReserved < required || finalUsed < stockReserved) {
-                throw componentFailure(
-                        component,
-                        "STOCK_SATISFIED accounting mismatch: key="
-                                + requirement.getKey() + " required=" + required + " stockReserved=" + stockReserved
-                                + " finalUsedItems=" + finalUsed);
+                throw componentFailure(component, "STOCK_SATISFIED accounting mismatch: key="
+                    + requirement.getKey() + " required=" + required + " stockReserved=" + stockReserved
+                    + " finalUsedItems=" + finalUsed);
             }
         }
     }
 
     private static void validateOrdered(ComponentPlanningResult component) {
-        if (component.cycleResult() == null
-                || !component.cycleResult().status().solved()
-                || !hasPositiveFirings(component)
-                || component.cycleResult().executionPlan().isEmpty()) {
-            throw componentFailure(
-                    component, "ORDERED_EXECUTION requires solved positive firings and compact execution metadata");
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
+                || !hasPositiveFirings(component) || component.cycleResult().executionPlan().isEmpty()) {
+            throw componentFailure(component,
+                "ORDERED_EXECUTION requires solved positive firings and compact execution metadata");
         }
     }
 
     private static void validateDynamic(ComponentPlanningResult component) {
-        if (component.cycleResult() == null
-                || !component.cycleResult().status().solved()
-                || !component.cycleResult().hasExactExecutionCounts()
-                || !hasPositiveFirings(component)) {
-            throw componentFailure(component, "DYNAMIC_EXECUTION requires solved positive exact firing metadata");
+        if (component.cycleResult() == null || !component.cycleResult().status().solved()
+                || !component.cycleResult().hasExactExecutionCounts() || !hasPositiveFirings(component)) {
+            throw componentFailure(component,
+                "DYNAMIC_EXECUTION requires solved positive exact firing metadata");
         }
     }
 
-    private static void validateDynamicCycleCounts(
-            ComponentPlanningResult component, Map<Integer, Long> firings, List<ECOExecutionPlan.TaskSpec> tasks) {
-        Map<PlanIdentity.PatternIdentity, Long> expected =
-                PlanIdentity.taskSignature(component.cycleResult().patternTimes());
+    private static void validateDynamicCycleCounts(ComponentPlanningResult component,
+            Map<Integer, Long> firings, List<ECOExecutionPlan.TaskSpec> tasks) {
+        Map<PlanIdentity.PatternIdentity, Long> expected = PlanIdentity.taskSignature(
+            component.cycleResult().patternTimes());
         if (expected == null) throw new IllegalStateException("Dynamic cycle firing vector has no stable identity");
         Map<PlanIdentity.PatternIdentity, Long> actual = new HashMap<>();
         firings.forEach((taskId, count) -> actual.merge(tasks.get(taskId).identity(), count, Math::addExact));
-        expected = expected.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0L)
-                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        expected = expected.entrySet().stream().filter(entry -> entry.getValue() > 0L).collect(
+            java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         if (!actual.equals(expected)) {
             throw new IllegalStateException("Dynamic cycle firing vector changed at the execution boundary");
         }
@@ -317,16 +259,14 @@ public final class ECOExecutionPlanBuilder {
     }
 
     private static boolean hasPositiveFirings(ComponentPlanningResult component) {
-        return component.cycleResult() != null
-                && component.cycleResult().patternTimes().values().stream()
-                        .anyMatch(count -> count != null && count > 0L);
+        return component.cycleResult() != null && component.cycleResult().patternTimes().values().stream()
+            .anyMatch(count -> count != null && count > 0L);
     }
 
     private static IllegalStateException componentFailure(ComponentPlanningResult component, String detail) {
         return new IllegalStateException("cycleComponent=" + component.componentId() + " disposition="
-                + component.cycleDisposition() + " requiredOutputs="
-                + component.requiredOutputs().size()
-                + " stockReservations=" + component.stockReservations().size() + " detail=" + detail);
+            + component.cycleDisposition() + " requiredOutputs=" + component.requiredOutputs().size()
+            + " stockReservations=" + component.stockReservations().size() + " detail=" + detail);
     }
 
     private static PlanIdentity.PatternIdentity requireIdentity(IPatternDetails pattern) {
@@ -343,27 +283,12 @@ public final class ECOExecutionPlanBuilder {
         private final PlanIdentity.PatternIdentity identity;
         private final IPatternDetails pattern;
         private long count;
-
         private PlannedTask(PlanIdentity.PatternIdentity identity, IPatternDetails pattern, long count) {
-            this.identity = identity;
-            this.pattern = pattern;
-            this.count = count;
+            this.identity = identity; this.pattern = pattern; this.count = count;
         }
-
-        PlanIdentity.PatternIdentity identity() {
-            return identity;
-        }
-
-        IPatternDetails pattern() {
-            return pattern;
-        }
-
-        long count() {
-            return count;
-        }
-
-        void add(long amount) {
-            count = Math.addExact(count, amount);
-        }
+        PlanIdentity.PatternIdentity identity() { return identity; }
+        IPatternDetails pattern() { return pattern; }
+        long count() { return count; }
+        void add(long amount) { count = Math.addExact(count, amount); }
     }
 }

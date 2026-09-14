@@ -3,8 +3,8 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.cycle;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,22 +35,23 @@ import java.util.stream.Collectors;
  * that case the witness list is empty and the ordered {@code executionPlan} is the available execution trace.
  */
 public record CycleSolveResult(
-        CycleSolveStatus status,
-        ExecutionCountKnowledge executionCountKnowledge,
-        Map<IPatternDetails, PlannerAmount> exactPatternTimes,
-        Map<IPatternDetails, Long> patternTimes,
-        Map<AEKey, Long> externalDemand,
-        Map<AEKey, Long> requiredSeed,
-        Map<AEKey, Long> seedShortfall,
-        Map<AEKey, Long> producedOutputs,
-        Map<AEKey, Long> deliverableOutputs,
-        List<CycleFiring> executionWitness,
-        List<PatternRun> executionPlan,
-        List<CycleSolveDiagnostic> diagnostics,
-        CycleSolveMetrics metrics) {
+    CycleSolveStatus status,
+    ExecutionCountKnowledge executionCountKnowledge,
+    Map<IPatternDetails, PlannerAmount> exactPatternTimes,
+    Map<IPatternDetails, Long> patternTimes,
+    Map<AEKey, Long> externalDemand,
+    Map<AEKey, Long> requiredSeed,
+    Map<AEKey, Long> seedShortfall,
+    Map<AEKey, Long> producedOutputs,
+    Map<AEKey, Long> deliverableOutputs,
+    List<CycleFiring> executionWitness,
+    List<PatternRun> executionPlan,
+    List<CycleSolveDiagnostic> diagnostics,
+    CycleSolveMetrics metrics
+) {
     public CycleSolveResult {
-        executionCountKnowledge =
-                executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN : executionCountKnowledge;
+        executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
+            : executionCountKnowledge;
         exactPatternTimes = Map.copyOf(exactPatternTimes);
         patternTimes = Map.copyOf(patternTimes);
         externalDemand = Map.copyOf(externalDemand);
@@ -70,58 +71,24 @@ public record CycleSolveResult(
     }
 
     /** Runtime-compatible constructor. Exact counts are derived before any diagnostic arithmetic. */
-    public CycleSolveResult(
-            CycleSolveStatus status,
-            Map<IPatternDetails, Long> patternTimes,
-            Map<AEKey, Long> externalDemand,
-            Map<AEKey, Long> requiredSeed,
-            Map<AEKey, Long> seedShortfall,
-            Map<AEKey, Long> producedOutputs,
-            Map<AEKey, Long> deliverableOutputs,
-            List<CycleFiring> executionWitness,
-            List<PatternRun> executionPlan,
-            List<CycleSolveDiagnostic> diagnostics,
-            CycleSolveMetrics metrics) {
-        this(
-                status,
-                inferredKnowledge(status, patternTimes),
-                exact(patternTimes),
-                patternTimes,
-                externalDemand,
-                requiredSeed,
-                seedShortfall,
-                producedOutputs,
-                deliverableOutputs,
-                executionWitness,
-                executionPlan,
-                diagnostics,
-                metrics);
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<PatternRun> executionPlan,
+            List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
+        this(status, inferredKnowledge(status, patternTimes), exact(patternTimes), patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            diagnostics, metrics);
     }
 
     /** Legacy shape: the compact plan is the run-length encoding of the per-firing witness. */
-    public CycleSolveResult(
-            CycleSolveStatus status,
-            Map<IPatternDetails, Long> patternTimes,
-            Map<AEKey, Long> externalDemand,
-            Map<AEKey, Long> requiredSeed,
-            Map<AEKey, Long> seedShortfall,
-            Map<AEKey, Long> producedOutputs,
-            Map<AEKey, Long> deliverableOutputs,
-            List<CycleFiring> executionWitness,
-            List<CycleSolveDiagnostic> diagnostics,
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<CycleSolveDiagnostic> diagnostics,
             CycleSolveMetrics metrics) {
-        this(
-                status,
-                patternTimes,
-                externalDemand,
-                requiredSeed,
-                seedShortfall,
-                producedOutputs,
-                deliverableOutputs,
-                executionWitness,
-                compress(executionWitness),
-                diagnostics,
-                metrics);
+        this(status, patternTimes, externalDemand, requiredSeed, seedShortfall, producedOutputs,
+            deliverableOutputs, executionWitness, compress(executionWitness), diagnostics, metrics);
     }
 
     /** Order-preserving run-length encoding; it never merges non-adjacent runs. */
@@ -148,22 +115,10 @@ public record CycleSolveResult(
         return total;
     }
 
-    public static CycleSolveResult failure(
-            CycleSolveStatus status, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
-        return new CycleSolveResult(
-                status,
-                ExecutionCountKnowledge.UNKNOWN,
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                List.of(),
-                List.of(),
-                diagnostics,
-                metrics);
+    public static CycleSolveResult failure(CycleSolveStatus status, List<CycleSolveDiagnostic> diagnostics,
+            CycleSolveMetrics metrics) {
+        return new CycleSolveResult(status, ExecutionCountKnowledge.UNKNOWN, Map.of(), Map.of(), Map.of(), Map.of(),
+            Map.of(), Map.of(), Map.of(), List.of(), List.of(), diagnostics, metrics);
     }
 
     public static CycleSolveResult failure(CycleSolveStatus status, CycleSolveDiagnostic.Code code, String message) {
@@ -171,7 +126,8 @@ public record CycleSolveResult(
     }
 
     public static CycleSolveResult cancelled() {
-        return failure(CycleSolveStatus.CANCELLED, CycleSolveDiagnostic.Code.CANCELLED, "Cycle solving was cancelled");
+        return failure(CycleSolveStatus.CANCELLED, CycleSolveDiagnostic.Code.CANCELLED,
+            "Cycle solving was cancelled");
     }
 
     public static CycleSolveResult notImplemented(String message) {
@@ -183,20 +139,9 @@ public record CycleSolveResult(
         if (extra.isEmpty()) return this;
         List<CycleSolveDiagnostic> merged = new ArrayList<>(extra);
         merged.addAll(diagnostics);
-        return new CycleSolveResult(
-                status,
-                executionCountKnowledge,
-                exactPatternTimes,
-                patternTimes,
-                externalDemand,
-                requiredSeed,
-                seedShortfall,
-                producedOutputs,
-                deliverableOutputs,
-                executionWitness,
-                executionPlan,
-                merged,
-                metrics);
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            merged, metrics);
     }
 
     /** Exact total firings in the plan; it may exceed the legacy long projection. */
@@ -216,8 +161,8 @@ public record CycleSolveResult(
 
     public String summary() {
         String detail = diagnostics.stream()
-                .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
-                .collect(Collectors.joining("; "));
+            .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
+            .collect(Collectors.joining("; "));
         return detail.isEmpty() ? status.name() : status.name() + " (" + detail + ")";
     }
 
@@ -240,10 +185,9 @@ public record CycleSolveResult(
         return Map.copyOf(result);
     }
 
-    private static ExecutionCountKnowledge inferredKnowledge(
-            CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes) {
+    private static ExecutionCountKnowledge inferredKnowledge(CycleSolveStatus status,
+            Map<IPatternDetails, Long> patternTimes) {
         return status == CycleSolveStatus.SUCCESS || !patternTimes.isEmpty()
-                ? ExecutionCountKnowledge.EXACT
-                : ExecutionCountKnowledge.UNKNOWN;
+            ? ExecutionCountKnowledge.EXACT : ExecutionCountKnowledge.UNKNOWN;
     }
 }

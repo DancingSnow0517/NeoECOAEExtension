@@ -7,10 +7,12 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -21,19 +23,15 @@ import org.jetbrains.annotations.Nullable;
  * inventory vectors that affect the submitted job.</p>
  */
 public final class PlanIdentity {
-    private PlanIdentity() {}
+    private PlanIdentity() {
+    }
 
     public static @Nullable Signature of(@Nullable ICraftingPlan plan) {
         if (plan == null || plan.finalOutput() == null || plan.finalOutput().what() == null) return null;
         Map<PatternIdentity, Long> patternTimes = taskSignature(plan.patternTimes());
         if (patternTimes == null) return null;
-        return new Signature(
-                plan.finalOutput().what(),
-                plan.finalOutput().amount(),
-                patternTimes,
-                counterContents(plan.usedItems()),
-                counterContents(plan.emittedItems()),
-                counterContents(plan.missingItems()));
+        return new Signature(plan.finalOutput().what(), plan.finalOutput().amount(), patternTimes,
+            counterContents(plan.usedItems()), counterContents(plan.emittedItems()), counterContents(plan.missingItems()));
     }
 
     /** Strict full-plan equality. No output-only or production-scaled fallback is allowed here. */
@@ -60,8 +58,8 @@ public final class PlanIdentity {
     }
 
     /** Exact task-vector comparison that still permits AE2 to reconstruct wrapper instances. */
-    public static boolean sameTaskCounts(
-            @Nullable Map<IPatternDetails, Long> left, @Nullable Map<IPatternDetails, Long> right) {
+    public static boolean sameTaskCounts(@Nullable Map<IPatternDetails, Long> left,
+            @Nullable Map<IPatternDetails, Long> right) {
         Map<PatternIdentity, Long> leftSignature = taskSignature(left);
         Map<PatternIdentity, Long> rightSignature = taskSignature(right);
         return leftSignature != null && leftSignature.equals(rightSignature);
@@ -95,11 +93,11 @@ public final class PlanIdentity {
     public static String describe(@Nullable Signature signature) {
         if (signature == null) return "<unavailable>";
         return "output=" + signature.finalWhat() + "x" + signature.finalAmount()
-                + ",patternKinds=" + signature.patternTimes().size()
-                + ",taskExecutions=" + signature.executionCount()
-                + ",usedItems=" + signature.usedItems().size()
-                + ",emittedItems=" + signature.emittedItems().size()
-                + ",signatureHash=" + Integer.toHexString(signature.hashCode());
+            + ",patternKinds=" + signature.patternTimes().size()
+            + ",taskExecutions=" + signature.executionCount()
+            + ",usedItems=" + signature.usedItems().size()
+            + ",emittedItems=" + signature.emittedItems().size()
+            + ",signatureHash=" + Integer.toHexString(signature.hashCode());
     }
 
     private static Map<AEKey, Long> counterContents(@Nullable KeyCounter counter) {
@@ -138,9 +136,8 @@ public final class PlanIdentity {
                 if (output == null || output.what() == null) return objectIdentity(pattern);
                 outputs.add(new StackIdentity(output.what(), output.amount()));
             }
-            return new PatternIdentity(
-                    Kind.STRUCTURAL,
-                    new StructuralIdentity(pattern.getClass().getName(), List.copyOf(inputs), List.copyOf(outputs)));
+            return new PatternIdentity(Kind.STRUCTURAL,
+                new StructuralIdentity(pattern.getClass().getName(), List.copyOf(inputs), List.copyOf(outputs)));
         } catch (RuntimeException rejected) {
             return objectIdentity(pattern);
         }
@@ -164,13 +161,8 @@ public final class PlanIdentity {
         }
     }
 
-    public record Signature(
-            AEKey finalWhat,
-            long finalAmount,
-            Map<PatternIdentity, Long> patternTimes,
-            Map<AEKey, Long> usedItems,
-            Map<AEKey, Long> emittedItems,
-            Map<AEKey, Long> missingItems) {
+    public record Signature(AEKey finalWhat, long finalAmount, Map<PatternIdentity, Long> patternTimes,
+            Map<AEKey, Long> usedItems, Map<AEKey, Long> emittedItems, Map<AEKey, Long> missingItems) {
         public Signature {
             Objects.requireNonNull(finalWhat, "finalWhat");
             patternTimes = Map.copyOf(patternTimes);
@@ -194,10 +186,11 @@ public final class PlanIdentity {
         }
     }
 
-    private record StackIdentity(AEKey what, long amount) {}
+    private record StackIdentity(AEKey what, long amount) {
+    }
 
-    private record PatternInputIdentity(
-            List<StackIdentity> alternatives, long multiplier, Map<AEKey, AEKey> remaining) {
+    private record PatternInputIdentity(List<StackIdentity> alternatives, long multiplier,
+            Map<AEKey, AEKey> remaining) {
         private PatternInputIdentity {
             alternatives = List.copyOf(alternatives);
             // A null remainder is meaningful in the public AE2 contract; keep it while freezing the map.
@@ -205,8 +198,8 @@ public final class PlanIdentity {
         }
     }
 
-    private record StructuralIdentity(
-            String implementationClass, List<PatternInputIdentity> inputs, List<StackIdentity> outputs) {
+    private record StructuralIdentity(String implementationClass, List<PatternInputIdentity> inputs,
+            List<StackIdentity> outputs) {
         private StructuralIdentity {
             Objects.requireNonNull(implementationClass, "implementationClass");
             inputs = List.copyOf(inputs);

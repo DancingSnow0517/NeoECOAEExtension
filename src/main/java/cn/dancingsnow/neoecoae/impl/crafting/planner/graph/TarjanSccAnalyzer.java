@@ -91,8 +91,8 @@ public final class TarjanSccAnalyzer {
                     if (memberLookup.contains(edge.requiredInput())) internal.add(edge);
                 }
             }
-            boolean cyclic = members.size() > 1
-                    || internal.stream().anyMatch(edge -> edge.producer().equals(edge.requiredInput()));
+            boolean cyclic = members.size() > 1 || internal.stream()
+                .anyMatch(edge -> edge.producer().equals(edge.requiredInput()));
             result.add(new SccComponent(id++, members, internal, cyclic));
         }
         return List.copyOf(result);

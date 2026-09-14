@@ -11,8 +11,5 @@ public record AcyclicComponent(int componentId, AEKey key, List<CompiledPattern>
         patterns = List.copyOf(patterns);
     }
 
-    @Override
-    public List<AEKey> members() {
-        return List.of(key);
-    }
+    @Override public List<AEKey> members() { return List.of(key); }
 }

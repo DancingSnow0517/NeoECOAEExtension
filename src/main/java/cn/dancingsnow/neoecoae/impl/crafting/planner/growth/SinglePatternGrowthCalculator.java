@@ -72,15 +72,13 @@ public final class SinglePatternGrowthCalculator {
         try {
             return eligibleThenEvaluate(request);
         } catch (ArithmeticException overflow) {
-            return SinglePatternGrowthResult.declined(
-                    SinglePatternGrowthStatus.NOT_APPLICABLE,
-                    SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
-                    "Exact growth calculation could not be completed: " + overflow.getMessage());
+            return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.NOT_APPLICABLE,
+                SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
+                "Exact growth calculation could not be completed: " + overflow.getMessage());
         } catch (RuntimeException failure) {
-            return SinglePatternGrowthResult.declined(
-                    SinglePatternGrowthStatus.NOT_APPLICABLE,
-                    SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
-                    "Contained " + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.NOT_APPLICABLE,
+                SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
+                "Contained " + failure.getClass().getSimpleName() + ": " + failure.getMessage());
         }
     }
 
@@ -88,44 +86,41 @@ public final class SinglePatternGrowthCalculator {
         CycleComponent component = request.component();
         List<CompiledPattern> transitions = distinctTransitions(component.patterns());
         if (transitions.isEmpty()) {
-            return declined(SinglePatternGrowthResult.Reason.NO_TRANSITION, "The cycle component holds no transition");
+            return declined(SinglePatternGrowthResult.Reason.NO_TRANSITION,
+                "The cycle component holds no transition");
         }
         if (transitions.size() > 1) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.MULTIPLE_PATTERNS,
-                    "The cycle needs " + transitions.size() + " distinct patterns to close; only a single-pattern "
-                            + "self-loop is handled here");
+            return declined(SinglePatternGrowthResult.Reason.MULTIPLE_PATTERNS,
+                "The cycle needs " + transitions.size() + " distinct patterns to close; only a single-pattern "
+                    + "self-loop is handled here");
         }
         if (component.members().size() != 1) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.MULTIPLE_MEMBERS,
-                    "The component holds " + component.members().size() + " member keys");
+            return declined(SinglePatternGrowthResult.Reason.MULTIPLE_MEMBERS,
+                "The component holds " + component.members().size() + " member keys");
         }
         CompiledPattern only = transitions.get(0);
         AEKey member = component.members().get(0);
         if (component.internalEdges().isEmpty()) {
-            return declined(SinglePatternGrowthResult.Reason.NOT_A_SELF_LOOP, "The component records no internal edge");
+            return declined(SinglePatternGrowthResult.Reason.NOT_A_SELF_LOOP,
+                "The component records no internal edge");
         }
         for (CraftingGraphEdge edge : component.internalEdges()) {
             if (edge.pattern() == null || !sameTransition(edge.pattern(), only)) {
-                return declined(
-                        SinglePatternGrowthResult.Reason.FOREIGN_INTERNAL_EDGE,
-                        "An internal edge belongs to another pattern");
+                return declined(SinglePatternGrowthResult.Reason.FOREIGN_INTERNAL_EDGE,
+                    "An internal edge belongs to another pattern");
             }
             if (!member.equals(edge.producer()) || !member.equals(edge.requiredInput())) {
-                return declined(
-                        SinglePatternGrowthResult.Reason.NOT_A_SELF_LOOP,
-                        "An internal edge is not a self-loop of the single member key");
+                return declined(SinglePatternGrowthResult.Reason.NOT_A_SELF_LOOP,
+                    "An internal edge is not a self-loop of the single member key");
             }
         }
 
         ValidatedPatternProfile profile = validator.validate(only);
         SinglePatternGrowthResult result =
-                evaluate(profile, request.requiredOutputs(), request.availableRelevantStock());
+            evaluate(profile, request.requiredOutputs(), request.availableRelevantStock());
         if (result.feedbackKey() != null && !member.equals(result.feedbackKey())) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.FEEDBACK_KEY_MISMATCH,
-                    "The feedback key is not the component member");
+            return declined(SinglePatternGrowthResult.Reason.FEEDBACK_KEY_MISMATCH,
+                "The feedback key is not the component member");
         }
         return result;
     }
@@ -137,27 +132,25 @@ public final class SinglePatternGrowthCalculator {
      * @param requiredOutputs absolute on-hand targets per key, exactly as a cycle solve request states them
      * @param availableStock  the relevant stock snapshot the targets are measured against
      */
-    public SinglePatternGrowthResult evaluate(
-            ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs, Map<AEKey, Long> availableStock) {
+    public SinglePatternGrowthResult evaluate(ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, Long> availableStock) {
         try {
             return compute(profile, requiredOutputs, availableStock);
         } catch (ArithmeticException overflow) {
-            return SinglePatternGrowthResult.declined(
-                    SinglePatternGrowthStatus.NOT_APPLICABLE,
-                    SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
-                    "Exact growth calculation could not be completed: " + overflow.getMessage());
+            return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.NOT_APPLICABLE,
+                SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
+                "Exact growth calculation could not be completed: " + overflow.getMessage());
         }
     }
 
-    private SinglePatternGrowthResult compute(
-            ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs, Map<AEKey, Long> availableStock) {
+    private SinglePatternGrowthResult compute(ValidatedPatternProfile profile, Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, Long> availableStock) {
         if (profile == null) {
             return declined(SinglePatternGrowthResult.Reason.MISSING_PROFILE, "No validated profile was supplied");
         }
         if (!profile.netGrowthSafe()) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.PATTERN_NOT_NET_GROWTH_SAFE,
-                    "The pattern is not tagged NET_GROWTH_SAFE (" + profile.netGrowthRejection() + ")");
+            return declined(SinglePatternGrowthResult.Reason.PATTERN_NOT_NET_GROWTH_SAFE,
+                "The pattern is not tagged NET_GROWTH_SAFE (" + profile.netGrowthRejection() + ")");
         }
         Map<AEKey, Long> required = requiredOutputs == null ? Map.of() : requiredOutputs;
         Map<AEKey, Long> stock = availableStock == null ? Map.of() : availableStock;
@@ -167,28 +160,24 @@ public final class SinglePatternGrowthCalculator {
 
         List<AEKey> feedbackCandidates = profile.selfReferencingKeys();
         if (feedbackCandidates.isEmpty()) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.NO_FEEDBACK_KEY,
-                    "The pattern consumes and returns no common key, so it closes no loop on its own");
+            return declined(SinglePatternGrowthResult.Reason.NO_FEEDBACK_KEY,
+                "The pattern consumes and returns no common key, so it closes no loop on its own");
         }
         if (feedbackCandidates.size() > 1) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.MULTIPLE_FEEDBACK_KEYS,
-                    "Stage one handles a single feedback key; this pattern feeds back " + feedbackCandidates.size());
+            return declined(SinglePatternGrowthResult.Reason.MULTIPLE_FEEDBACK_KEYS,
+                "Stage one handles a single feedback key; this pattern feeds back " + feedbackCandidates.size());
         }
         AEKey feedback = feedbackCandidates.get(0);
         PlannerAmount consume = PlannerAmount.of(profile.consumptionOf(feedback));
         PlannerAmount produce = PlannerAmount.of(profile.grossProductionOf(feedback));
         PlannerAmount growth = produce.subtract(consume);
         if (growth.isZero()) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.ZERO_GROWTH,
-                    "consume(K) == produce(K) == " + consume + ", which is not net growth");
+            return declined(SinglePatternGrowthResult.Reason.ZERO_GROWTH,
+                "consume(K) == produce(K) == " + consume + ", which is not net growth");
         }
         if (growth.signum() < 0) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.NEGATIVE_GROWTH,
-                    "produce(K) = " + produce + " is below consume(K) = " + consume);
+            return declined(SinglePatternGrowthResult.Reason.NEGATIVE_GROWTH,
+                "produce(K) = " + produce + " is below consume(K) = " + consume);
         }
 
         PlannerAmount firings = PlannerAmount.ZERO;
@@ -200,16 +189,14 @@ public final class SinglePatternGrowthCalculator {
             if (outstanding.signum() <= 0) continue;
             PlannerAmount perFiring = PlannerAmount.of(profile.netDeltaPerFiring(entry.getKey()));
             if (perFiring.signum() <= 0) {
-                return declined(
-                        SinglePatternGrowthResult.Reason.REQUIRED_OUTPUT_NOT_PRODUCED,
-                        "Required output " + entry.getKey() + " has no positive net production in this pattern");
+                return declined(SinglePatternGrowthResult.Reason.REQUIRED_OUTPUT_NOT_PRODUCED,
+                    "Required output " + entry.getKey() + " has no positive net production in this pattern");
             }
             firings = firings.max(outstanding.ceilDiv(perFiring));
         }
         if (firings.signum() <= 0) {
-            return declined(
-                    SinglePatternGrowthResult.Reason.NO_OUTSTANDING_DEMAND,
-                    "Stock already covers every required output");
+            return declined(SinglePatternGrowthResult.Reason.NO_OUTSTANDING_DEMAND,
+                "Stock already covers every required output");
         }
 
         // The loop is self-sustaining from the first firing onwards: starting at C, every firing leaves
@@ -220,8 +207,8 @@ public final class SinglePatternGrowthCalculator {
         Map<AEKey, PlannerAmount> exactExternalDemand = new LinkedHashMap<>();
         for (AEKey key : profile.consumption().keySet()) {
             if (feedback.equals(key)) continue;
-            PlannerAmount netPerFiring =
-                    PlannerAmount.of(profile.consumptionOf(key)).subtract(profile.remainderOf(key));
+            PlannerAmount netPerFiring = PlannerAmount.of(profile.consumptionOf(key))
+                .subtract(profile.remainderOf(key));
             if (netPerFiring.signum() <= 0) continue;
             exactExternalDemand.put(key, netPerFiring.multiply(firings));
         }
@@ -238,55 +225,32 @@ public final class SinglePatternGrowthCalculator {
         Map<AEKey, PlannerAmount> exactDeliverable = new LinkedHashMap<>();
         for (AEKey key : required.keySet()) {
             PlannerAmount have = PlannerAmount.of(Math.max(0L, stock.getOrDefault(key, 0L)));
-            exactDeliverable.put(
-                    key,
-                    have.add(PlannerAmount.of(profile.netDeltaPerFiring(key)).multiply(firings)));
+            exactDeliverable.put(key, have.add(
+                PlannerAmount.of(profile.netDeltaPerFiring(key)).multiply(firings)));
         }
 
-        boolean representable = firings.fitsLong()
-                && shortfall.fitsLong()
-                && allFit(exactExternalDemand)
-                && allFit(exactProducedOutputs)
-                && allFit(exactNetDelta)
-                && allFit(exactDeliverable);
+        boolean representable = firings.fitsLong() && shortfall.fitsLong() && allFit(exactExternalDemand)
+            && allFit(exactProducedOutputs) && allFit(exactNetDelta) && allFit(exactDeliverable);
         long firingsLong = representable ? firings.longValueExact() : 0L;
-        SinglePatternGrowthStatus status = !representable
-                ? SinglePatternGrowthStatus.UNREPRESENTABLE
-                : shortfall.signum() > 0
-                        ? SinglePatternGrowthStatus.INSUFFICIENT_SEED
-                        : SinglePatternGrowthStatus.SUCCESS;
+        SinglePatternGrowthStatus status = !representable ? SinglePatternGrowthStatus.UNREPRESENTABLE
+            : shortfall.signum() > 0
+            ? SinglePatternGrowthStatus.INSUFFICIENT_SEED
+            : SinglePatternGrowthStatus.SUCCESS;
         String diagnostic = consume + " " + feedback + " -> " + produce + " " + feedback + " (delta +" + growth
-                + "), " + firings + " firing(s), seed " + consume
-                + (shortfall.signum() > 0 ? ", seed shortfall " + shortfall : " covered by stock");
+            + "), " + firings + " firing(s), seed " + consume
+            + (shortfall.signum() > 0 ? ", seed shortfall " + shortfall : " covered by stock");
         SinglePatternGrowthResult.Reason reason = status == SinglePatternGrowthStatus.UNREPRESENTABLE
-                ? SinglePatternGrowthResult.Reason.AMOUNT_UNREPRESENTABLE
-                : SinglePatternGrowthResult.Reason.NONE;
-        return new SinglePatternGrowthResult(
-                status,
-                reason,
-                profile,
-                feedback,
-                consume.longValueExact(),
-                produce.longValueExact(),
-                growth.longValueExact(),
-                firingsLong,
-                Map.of(feedback, consume.longValueExact()),
-                shortfall.signum() > 0 && shortfall.fitsLong()
-                        ? Map.of(feedback, shortfall.longValueExact())
-                        : Map.of(),
-                representableMap(exactExternalDemand),
-                representableMap(exactProducedOutputs),
-                representableMap(exactNetDelta),
-                representableMap(exactDeliverable),
-                representable ? List.of(new PatternRun(profile.pattern(), firingsLong)) : List.of(),
-                diagnostic,
-                firings,
-                Map.of(feedback, consume),
-                shortfall.signum() > 0 ? Map.of(feedback, shortfall) : Map.of(),
-                exactExternalDemand,
-                exactProducedOutputs,
-                exactNetDelta,
-                exactDeliverable);
+            ? SinglePatternGrowthResult.Reason.AMOUNT_UNREPRESENTABLE : SinglePatternGrowthResult.Reason.NONE;
+        return new SinglePatternGrowthResult(status, reason, profile, feedback,
+            consume.longValueExact(), produce.longValueExact(), growth.longValueExact(), firingsLong,
+            Map.of(feedback, consume.longValueExact()),
+            shortfall.signum() > 0 && shortfall.fitsLong() ? Map.of(feedback, shortfall.longValueExact()) : Map.of(),
+            representableMap(exactExternalDemand), representableMap(exactProducedOutputs),
+            representableMap(exactNetDelta), representableMap(exactDeliverable),
+            representable ? List.of(new PatternRun(profile.pattern(), firingsLong)) : List.of(), diagnostic,
+            firings, Map.of(feedback, consume),
+            shortfall.signum() > 0 ? Map.of(feedback, shortfall) : Map.of(), exactExternalDemand,
+            exactProducedOutputs, exactNetDelta, exactDeliverable);
     }
 
     private static boolean allFit(Map<AEKey, PlannerAmount> amounts) {

@@ -7,13 +7,13 @@ import java.util.List;
 
 /** A complete cyclic SCC, isolated from the ordinary DAG numeric solver. */
 public record CycleComponent(
-        int componentId,
-        List<AEKey> members,
-        List<CompiledPattern> patterns,
-        List<CraftingGraphEdge> internalEdges,
-        List<ComponentDependency> incomingDependencies,
-        List<ComponentDependency> outgoingDependencies)
-        implements PlanningComponent {
+    int componentId,
+    List<AEKey> members,
+    List<CompiledPattern> patterns,
+    List<CraftingGraphEdge> internalEdges,
+    List<ComponentDependency> incomingDependencies,
+    List<ComponentDependency> outgoingDependencies
+) implements PlanningComponent {
     public CycleComponent {
         members = List.copyOf(members);
         patterns = List.copyOf(patterns);

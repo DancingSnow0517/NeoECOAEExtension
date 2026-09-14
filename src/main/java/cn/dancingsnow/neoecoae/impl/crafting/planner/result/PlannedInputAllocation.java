@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import java.util.List;
 import java.util.Objects;
 

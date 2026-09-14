@@ -13,35 +13,23 @@ public final class CraftingDependencyGraph {
     private final List<CraftingGraphEdge> edges;
     private final Map<AEKey, List<CraftingGraphEdge>> outgoing;
 
-    public CraftingDependencyGraph(AEKey goal, Map<AEKey, CraftingGraphNode> nodes, List<CraftingGraphEdge> edges) {
+    public CraftingDependencyGraph(AEKey goal, Map<AEKey, CraftingGraphNode> nodes,
+            List<CraftingGraphEdge> edges) {
         this.goal = goal;
         this.nodes = Map.copyOf(nodes);
         this.edges = List.copyOf(edges);
         Map<AEKey, List<CraftingGraphEdge>> byProducer = new LinkedHashMap<>();
         for (AEKey key : nodes.keySet()) byProducer.put(key, new ArrayList<>());
         for (CraftingGraphEdge edge : edges) {
-            byProducer
-                    .computeIfAbsent(edge.producer(), ignored -> new ArrayList<>())
-                    .add(edge);
+            byProducer.computeIfAbsent(edge.producer(), ignored -> new ArrayList<>()).add(edge);
         }
         Map<AEKey, List<CraftingGraphEdge>> frozen = new LinkedHashMap<>();
         byProducer.forEach((key, value) -> frozen.put(key, List.copyOf(value)));
         this.outgoing = Map.copyOf(frozen);
     }
 
-    public AEKey goal() {
-        return goal;
-    }
-
-    public Map<AEKey, CraftingGraphNode> nodes() {
-        return nodes;
-    }
-
-    public List<CraftingGraphEdge> edges() {
-        return edges;
-    }
-
-    public List<CraftingGraphEdge> outgoing(AEKey key) {
-        return outgoing.getOrDefault(key, List.of());
-    }
+    public AEKey goal() { return goal; }
+    public Map<AEKey, CraftingGraphNode> nodes() { return nodes; }
+    public List<CraftingGraphEdge> edges() { return edges; }
+    public List<CraftingGraphEdge> outgoing(AEKey key) { return outgoing.getOrDefault(key, List.of()); }
 }

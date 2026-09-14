@@ -10,36 +10,25 @@ import java.util.Map;
 
 /** Minimal stable boundary for the cycle implementation. Amounts are request state, not graph state. */
 public record CycleSolveRequest(
-        CycleComponent component,
-        Map<AEKey, Long> requiredOutputs,
-        Map<AEKey, PlannerAmount> plannerRequiredOutputs,
-        Map<AEKey, Long> availableRelevantStock,
-        List<ComponentDependency> externalResourceBoundary,
-        PlannerOptions options) {
+    CycleComponent component,
+    Map<AEKey, Long> requiredOutputs,
+    Map<AEKey, PlannerAmount> plannerRequiredOutputs,
+    Map<AEKey, Long> availableRelevantStock,
+    List<ComponentDependency> externalResourceBoundary,
+    PlannerOptions options
+) {
     /** Source-compatible constructor for callers that only have AE2-sized request amounts. */
-    public CycleSolveRequest(
-            CycleComponent component,
-            Map<AEKey, Long> requiredOutputs,
-            Map<AEKey, Long> availableRelevantStock,
-            List<ComponentDependency> externalResourceBoundary,
+    public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, Long> availableRelevantStock, List<ComponentDependency> externalResourceBoundary,
             PlannerOptions options) {
-        this(
-                component,
-                requiredOutputs,
-                exact(requiredOutputs),
-                availableRelevantStock,
-                externalResourceBoundary,
-                options);
+        this(component, requiredOutputs, exact(requiredOutputs), availableRelevantStock, externalResourceBoundary,
+            options);
     }
 
     /** Exact planner request constructor; the legacy map is only a representable compatibility projection. */
-    public CycleSolveRequest(
-            CycleComponent component,
-            Map<AEKey, Long> requiredOutputs,
-            Map<AEKey, PlannerAmount> plannerRequiredOutputs,
-            Map<AEKey, Long> availableRelevantStock,
-            List<ComponentDependency> externalResourceBoundary,
-            PlannerOptions options) {
+    public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, PlannerAmount> plannerRequiredOutputs, Map<AEKey, Long> availableRelevantStock,
+            List<ComponentDependency> externalResourceBoundary, PlannerOptions options) {
         this.component = component;
         this.requiredOutputs = Map.copyOf(requiredOutputs);
         this.plannerRequiredOutputs = Map.copyOf(plannerRequiredOutputs);

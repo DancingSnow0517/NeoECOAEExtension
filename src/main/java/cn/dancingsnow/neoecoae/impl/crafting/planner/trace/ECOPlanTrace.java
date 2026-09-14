@@ -12,43 +12,14 @@ public final class ECOPlanTrace {
     private final List<CycleTrace> cycles = new ArrayList<>();
     private final List<PlannerDiagnostic> diagnostics = new ArrayList<>();
 
-    public void addNode(PlanTraceNode node) {
-        nodes.add(node);
-    }
-
-    public void addEdge(PlanTraceEdge edge) {
-        edges.add(edge);
-    }
-
-    public void addComponent(ComponentTrace component) {
-        components.add(component);
-    }
-
-    public void addCycle(CycleTrace cycle) {
-        cycles.add(cycle);
-    }
-
-    public void addDiagnostic(PlannerDiagnostic diagnostic) {
-        diagnostics.add(diagnostic);
-    }
-
-    public List<PlanTraceNode> nodes() {
-        return Collections.unmodifiableList(nodes);
-    }
-
-    public List<PlanTraceEdge> edges() {
-        return Collections.unmodifiableList(edges);
-    }
-
-    public List<ComponentTrace> components() {
-        return Collections.unmodifiableList(components);
-    }
-
-    public List<CycleTrace> cycles() {
-        return Collections.unmodifiableList(cycles);
-    }
-
-    public List<PlannerDiagnostic> diagnostics() {
-        return Collections.unmodifiableList(diagnostics);
-    }
+    public void addNode(PlanTraceNode node) { nodes.add(node); }
+    public void addEdge(PlanTraceEdge edge) { edges.add(edge); }
+    public void addComponent(ComponentTrace component) { components.add(component); }
+    public void addCycle(CycleTrace cycle) { cycles.add(cycle); }
+    public void addDiagnostic(PlannerDiagnostic diagnostic) { diagnostics.add(diagnostic); }
+    public List<PlanTraceNode> nodes() { return Collections.unmodifiableList(nodes); }
+    public List<PlanTraceEdge> edges() { return Collections.unmodifiableList(edges); }
+    public List<ComponentTrace> components() { return Collections.unmodifiableList(components); }
+    public List<CycleTrace> cycles() { return Collections.unmodifiableList(cycles); }
+    public List<PlannerDiagnostic> diagnostics() { return Collections.unmodifiableList(diagnostics); }
 }

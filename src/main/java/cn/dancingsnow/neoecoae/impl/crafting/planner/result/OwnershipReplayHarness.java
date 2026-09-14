@@ -4,7 +4,7 @@ import java.util.List;
 
 /** Deterministically replays semantic ownership events against the slow reference implementation. */
 public final class OwnershipReplayHarness {
-    private OwnershipReplayHarness() {}
+    private OwnershipReplayHarness() { }
 
     public static ReferenceOwnershipLedger replay(ReferenceOwnershipLedger ledger, List<OwnershipEvent> events) {
         for (OwnershipEvent event : events) {

@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CondensationGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingDependencyGraph;
@@ -10,7 +9,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphEdge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.CraftingGraphNode;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.SccComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.TarjanSccAnalyzer;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +19,12 @@ import java.util.Map;
 /** Selects one actual producer route before numeric solving; the universe never decides cyclicity. */
 public final class ActiveRouteSelector {
     public record Selection(
-            boolean acyclic,
-            Map<AEKey, Integer> choices,
-            CondensationGraph condensation,
-            List<CycleComponent> cyclicComponents,
-            List<CompiledPattern> deferredCyclicCandidates) {
+        boolean acyclic,
+        Map<AEKey, Integer> choices,
+        CondensationGraph condensation,
+        List<CycleComponent> cyclicComponents,
+        List<CompiledPattern> deferredCyclicCandidates
+    ) {
         public Selection {
             choices = Map.copyOf(choices);
             cyclicComponents = List.copyOf(cyclicComponents);
@@ -41,8 +43,8 @@ public final class ActiveRouteSelector {
      * Selects the active producer route. When cycle avoidance is disabled, the first supported producer of
      * every key is analyzed exactly once; cyclic alternatives are not searched.
      */
-    public Selection select(CraftingDependencyGraph universe, boolean avoidCycles, ECOCancellation cancellation)
-            throws InterruptedException {
+    public Selection select(CraftingDependencyGraph universe, boolean avoidCycles,
+            ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, Integer> choices = new LinkedHashMap<>();
         Map<AEKey, List<CompiledPattern>> candidatesByKey = new LinkedHashMap<>();
         List<CompiledPattern> deferred = new ArrayList<>();
@@ -62,8 +64,7 @@ public final class ActiveRouteSelector {
             cancellation.checkpoint();
             CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
             List<SccComponent> sccs = tarjan.analyze(active, cancellation);
-            List<SccComponent> cyclic =
-                    sccs.stream().filter(SccComponent::cyclic).toList();
+            List<SccComponent> cyclic = sccs.stream().filter(SccComponent::cyclic).toList();
             if (cyclic.isEmpty()) {
                 CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
                 return new Selection(true, choices, condensation, List.of(), deferred);
@@ -95,12 +96,9 @@ public final class ActiveRouteSelector {
         return new Selection(false, choices, condensation, condensation.cycles(), deferred);
     }
 
-    private static CraftingDependencyGraph activeGraph(
-            CraftingDependencyGraph universe,
-            Map<AEKey, Integer> choices,
-            Map<AEKey, List<CompiledPattern>> candidatesByKey,
-            ECOCancellation cancellation)
-            throws InterruptedException {
+    private static CraftingDependencyGraph activeGraph(CraftingDependencyGraph universe,
+            Map<AEKey, Integer> choices, Map<AEKey, List<CompiledPattern>> candidatesByKey,
+            ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, CraftingGraphNode> nodes = new LinkedHashMap<>();
         List<CraftingGraphEdge> edges = new ArrayList<>();
         for (AEKey key : universe.nodes().keySet()) {
@@ -119,19 +117,15 @@ public final class ActiveRouteSelector {
                 // Preserve genuine feedback while keeping analyzer-proven state transitions outside SCC routing.
                 for (var feedback : pattern.semantics().feedbackEdges()) {
                     if (pattern.specialAnalysis().requirements().stream()
-                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey())))
-                        continue;
+                            .anyMatch(requirement -> feedback.returnedKey().equals(requirement.returnedKey()))) continue;
                     var edgeInput = pattern.inputs().stream()
-                            .filter(input -> feedback.returnedKey().equals(input.remainderKey())
-                                    || feedback.returnedKey().equals(input.key()))
-                            .findFirst()
-                            .orElse(
-                                    pattern.inputs().isEmpty()
-                                            ? null
-                                            : pattern.inputs().get(0));
+                        .filter(input -> feedback.returnedKey().equals(input.remainderKey())
+                            || feedback.returnedKey().equals(input.key()))
+                        .findFirst()
+                        .orElse(pattern.inputs().isEmpty() ? null : pattern.inputs().get(0));
                     if (edgeInput != null) {
-                        edges.add(new CraftingGraphEdge(
-                                feedback.returnedKey(), feedback.dependentOutput(), pattern, edgeInput));
+                        edges.add(new CraftingGraphEdge(feedback.returnedKey(), feedback.dependentOutput(),
+                            pattern, edgeInput));
                     }
                 }
             }
@@ -141,7 +135,6 @@ public final class ActiveRouteSelector {
 
     private static List<CompiledPattern> fastCandidates(CraftingDependencyGraph graph, AEKey key) {
         return graph.nodes().getOrDefault(key, new CraftingGraphNode(key, List.of())).candidatePatterns().stream()
-                .filter(CompiledPattern::fastSupported)
-                .toList();
+            .filter(CompiledPattern::fastSupported).toList();
     }
 }

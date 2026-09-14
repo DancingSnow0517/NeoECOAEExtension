@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.semantic;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import java.util.ArrayList;
@@ -35,9 +35,7 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
         AEItemKey definition = null;
         try {
             definition = pattern.getDefinition();
-            List<GenericStack> outputs = pattern.getOutputs() == null
-                    ? List.of()
-                    : List.copyOf(java.util.Arrays.asList(pattern.getOutputs()));
+            List<GenericStack> outputs = pattern.getOutputs() == null ? List.of() : List.of(pattern.getOutputs());
             List<PatternSemantics.Input> inputs = new ArrayList<>();
             List<GenericStack> returned = new ArrayList<>();
             List<PatternSemantics.FeedbackEdge> feedback = new ArrayList<>();
@@ -47,7 +45,8 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
             for (IPatternDetails.IInput input : pattern.getInputs()) {
                 if (input == null) return PatternSemantics.unsupported(pattern, definition, "NULL_INPUT");
                 GenericStack[] possible = input.getPossibleInputs();
-                if (possible == null || possible.length == 0 || possible[0] == null || possible[0].what() == null) {
+                if (possible == null || possible.length == 0 || possible[0] == null
+                        || possible[0].what() == null) {
                     return PatternSemantics.unsupported(pattern, definition, "INVALID_INPUT");
                 }
                 long multiplier = input.getMultiplier();
@@ -69,31 +68,17 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
                     hasRemainder = true;
                     everyRemainderIsExactReusableStock &= choice.exactReusableStock();
                     returned.add(new GenericStack(remaining, multiplier));
-                    if (!outputs.isEmpty()
-                            && outputs.get(0) != null
-                            && outputs.get(0).what() != null) {
-                        feedback.add(new PatternSemantics.FeedbackEdge(
-                                remaining, outputs.get(0).what(), remainingAmount));
+                    if (!outputs.isEmpty() && outputs.get(0) != null && outputs.get(0).what() != null) {
+                        feedback.add(new PatternSemantics.FeedbackEdge(remaining, outputs.get(0).what(),
+                            remainingAmount));
                     }
                 }
             }
-            return new PatternSemantics(
-                    pattern,
-                    definition,
-                    inputs,
-                    outputs,
-                    returned,
-                    feedback,
-                    matching,
-                    PatternSemantics.ExecutionRestriction.NONE,
-                    true,
-                    hasRemainder && everyRemainderIsExactReusableStock,
-                    null);
+            return new PatternSemantics(pattern, definition, inputs, outputs, returned, feedback, matching,
+                PatternSemantics.ExecutionRestriction.NONE, true,
+                hasRemainder && everyRemainderIsExactReusableStock, null);
         } catch (RuntimeException rejected) {
-            return PatternSemantics.unsupported(
-                    pattern,
-                    definition,
-                    "MALFORMED_PATTERN:" + rejected.getClass().getSimpleName());
+            return PatternSemantics.unsupported(pattern, definition, "MALFORMED_PATTERN:" + rejected.getClass().getSimpleName());
         }
     }
 
@@ -107,10 +92,10 @@ public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
         }
         AEKey remaining = input.getRemainingKey(stack.what());
         boolean exactReusableStock = multiplier > 0L
-                && stack.amount() == 1L
-                && remaining != null
-                && remaining.equals(stack.what())
-                && reusableStockKeyVerifier.test(stack.what());
+            && stack.amount() == 1L
+            && remaining != null
+            && remaining.equals(stack.what())
+            && reusableStockKeyVerifier.test(stack.what());
         return new InputChoice(stack, remaining, exactReusableStock);
     }
 

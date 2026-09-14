@@ -31,14 +31,8 @@ public record ECOExecutionPlan(
         return tasks.get(taskId);
     }
 
-    public record TaskSpec(
-            int id,
-            PlanIdentity.PatternIdentity identity,
-            IPatternDetails pattern,
-            PatternRuntimeInfo runtimeInfo,
-            long totalCount,
-            int phaseIndex,
-            TaskKind kind,
+    public record TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
+            PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind,
             List<PlannedInputAllocation> inputAllocations) {
         public TaskSpec {
             Objects.requireNonNull(identity, "identity");
@@ -50,22 +44,15 @@ public record ECOExecutionPlan(
                 throw new IllegalArgumentException("Invalid execution task");
             }
         }
-
-        public TaskSpec(
-                int id,
-                PlanIdentity.PatternIdentity identity,
-                IPatternDetails pattern,
-                PatternRuntimeInfo runtimeInfo,
-                long totalCount,
-                int phaseIndex,
-                TaskKind kind) {
+        public TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
+                PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind) {
             this(id, identity, pattern, runtimeInfo, totalCount, phaseIndex, kind, List.of());
         }
     }
 
     /** Frozen fields needed by dispatch/UI without reinterpreting the planner graph. */
-    public record PatternRuntimeInfo(
-            @org.jetbrains.annotations.Nullable Object definition, int inputSlots, List<GenericStack> outputs) {
+    public record PatternRuntimeInfo(@org.jetbrains.annotations.Nullable Object definition, int inputSlots,
+            List<GenericStack> outputs) {
         public PatternRuntimeInfo {
             if (inputSlots < 0) throw new IllegalArgumentException("Negative input slot count");
             outputs = List.copyOf(outputs);
@@ -73,22 +60,14 @@ public record ECOExecutionPlan(
 
         public static PatternRuntimeInfo from(IPatternDetails pattern) {
             var inputs = pattern.getInputs();
-            return new PatternRuntimeInfo(
-                    pattern.getDefinition(),
-                    inputs == null ? 0 : inputs.length,
-                    java.util.Arrays.asList(pattern.getOutputs()));
+            return new PatternRuntimeInfo(pattern.getDefinition(), inputs == null ? 0 : inputs.length,
+                java.util.Arrays.asList(pattern.getOutputs()));
         }
     }
 
-    public record PhaseSpec(
-            int index,
-            int componentId,
-            ECOExecutionSchedule.Type type,
-            List<Integer> taskIds,
-            List<ExecutionStep> steps,
-            List<Integer> dependencies,
-            java.util.Map<Integer, Long> dynamicFirings,
-            java.util.Map<AEKey, Long> initialSeed) {
+    public record PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
+            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies,
+            java.util.Map<Integer, Long> dynamicFirings, java.util.Map<AEKey, Long> initialSeed) {
         public PhaseSpec {
             if (index < 0) throw new IllegalArgumentException("Negative phase index");
             Objects.requireNonNull(type, "type");
@@ -111,13 +90,8 @@ public record ECOExecutionPlan(
             });
         }
 
-        public PhaseSpec(
-                int index,
-                int componentId,
-                ECOExecutionSchedule.Type type,
-                List<Integer> taskIds,
-                List<ExecutionStep> steps,
-                List<Integer> dependencies) {
+        public PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
+                List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
             this(index, componentId, type, taskIds, steps, dependencies, java.util.Map.of(), java.util.Map.of());
         }
     }
@@ -129,12 +103,7 @@ public record ECOExecutionPlan(
         }
     }
 
-    public enum TaskKind {
-        DAG,
-        CYCLE_REMAINDER,
-        CYCLE_ORDERED,
-        CYCLE_DYNAMIC
-    }
+    public enum TaskKind { DAG, CYCLE_REMAINDER, CYCLE_ORDERED, CYCLE_DYNAMIC }
 
     private static void validateShape(List<TaskSpec> tasks, List<PhaseSpec> phases, ExecutionMode mode) {
         boolean[] taskOwned = new boolean[tasks.size()];
@@ -142,6 +111,16 @@ public record ECOExecutionPlan(
             TaskSpec task = tasks.get(i);
             if (task.id() != i) throw new IllegalArgumentException("Task ids must be dense and stable");
             if (task.phaseIndex() >= phases.size()) throw new IllegalArgumentException("Task phase is absent");
+            boolean[] allocatedSlots = new boolean[task.runtimeInfo().inputSlots()];
+            for (PlannedInputAllocation allocation : task.inputAllocations()) {
+                if (allocation.slot() >= allocatedSlots.length || allocatedSlots[allocation.slot()]) {
+                    throw new IllegalArgumentException("Invalid or duplicate task input allocation slot");
+                }
+                allocatedSlots[allocation.slot()] = true;
+                if (allocation.totalCrafts() != task.totalCount()) {
+                    throw new IllegalArgumentException("Task input allocation does not cover its complete count");
+                }
+            }
         }
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             PhaseSpec phase = phases.get(phaseIndex);
@@ -156,16 +135,13 @@ public record ECOExecutionPlan(
             if (phase.type() == ECOExecutionSchedule.Type.DAG && !phase.steps().isEmpty()) {
                 throw new IllegalArgumentException("A DAG phase cannot contain ordered cycle steps");
             }
-            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                    && !phase.steps().isEmpty()) {
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.steps().isEmpty()) {
                 throw new IllegalArgumentException("A dynamic cycle phase cannot contain ordered steps");
             }
-            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                    && phase.dynamicFirings().isEmpty()) {
+            if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && phase.dynamicFirings().isEmpty()) {
                 throw new IllegalArgumentException("A dynamic cycle phase requires an exact firing vector");
             }
-            if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                    && !phase.dynamicFirings().isEmpty()) {
+            if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.dynamicFirings().isEmpty()) {
                 throw new IllegalArgumentException("Only a dynamic cycle phase can contain dynamic firings");
             }
             phase.dynamicFirings().forEach((taskId, count) -> {
@@ -173,8 +149,7 @@ public record ECOExecutionPlan(
                     throw new IllegalArgumentException("Dynamic firing count exceeds its task total");
                 }
             });
-            if (phase.type() == ECOExecutionSchedule.Type.DAG
-                    && !phase.initialSeed().isEmpty()) {
+            if (phase.type() == ECOExecutionSchedule.Type.DAG && !phase.initialSeed().isEmpty()) {
                 throw new IllegalArgumentException("Only a cycle phase can retain startup seed metadata");
             }
             java.util.HashSet<Integer> uniqueDependencies = new java.util.HashSet<>();
@@ -192,20 +167,15 @@ public record ECOExecutionPlan(
                 }
             }
         }
-        for (boolean owned : taskOwned)
-            if (!owned) {
-                throw new IllegalArgumentException("Execution plan contains an unowned task");
-            }
-        if (mode == ExecutionMode.ORDERED_CYCLE
-                && phases.stream()
-                        .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.CYCLE
-                                && !p.steps().isEmpty())) {
+        for (boolean owned : taskOwned) if (!owned) {
+            throw new IllegalArgumentException("Execution plan contains an unowned task");
+        }
+        if (mode == ExecutionMode.ORDERED_CYCLE && phases.stream()
+                .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.CYCLE && !p.steps().isEmpty())) {
             throw new IllegalArgumentException("Ordered-cycle mode requires an ordered cycle trace");
         }
-        if (mode == ExecutionMode.DYNAMIC_CYCLE
-                && phases.stream()
-                        .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
-                                && !p.taskIds().isEmpty())) {
+        if (mode == ExecutionMode.DYNAMIC_CYCLE && phases.stream()
+                .noneMatch(p -> p.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !p.taskIds().isEmpty())) {
             throw new IllegalArgumentException("Dynamic-cycle mode requires a dynamic cycle phase");
         }
     }

@@ -10,51 +10,28 @@ import java.util.List;
 import java.util.Map;
 
 public record CycleDiagnostic(
-        List<AEKey> keys,
-        List<IPatternDetails> patterns,
-        Map<AEKey, Long> netOutputs,
-        Map<AEKey, Long> totalNetOutputs,
-        Map<AEKey, Long> availableAmounts,
-        Map<AEKey, ExactCycleAmount> exactNetOutputs,
-        Map<AEKey, ExactCycleAmount> exactTotalNetOutputs,
-        ExecutionCountKnowledge executionCountKnowledge,
-        CycleSolveStatus solveStatus) {
+    List<AEKey> keys,
+    List<IPatternDetails> patterns,
+    Map<AEKey, Long> netOutputs,
+    Map<AEKey, Long> totalNetOutputs,
+    Map<AEKey, Long> availableAmounts,
+    Map<AEKey, ExactCycleAmount> exactNetOutputs,
+    Map<AEKey, ExactCycleAmount> exactTotalNetOutputs,
+    ExecutionCountKnowledge executionCountKnowledge,
+    CycleSolveStatus solveStatus
+) {
     /** Legacy shape: without execution counts the total output is unknown, rather than equal to one cycle. */
-    public CycleDiagnostic(
-            List<AEKey> keys,
-            List<IPatternDetails> patterns,
-            Map<AEKey, Long> netOutputs,
-            Map<AEKey, Long> availableAmounts) {
-        this(
-                keys,
-                patterns,
-                netOutputs,
-                Map.of(),
-                availableAmounts,
-                exact(netOutputs),
-                Map.of(),
-                ExecutionCountKnowledge.UNKNOWN,
-                CycleSolveStatus.NOT_IMPLEMENTED);
+    public CycleDiagnostic(List<AEKey> keys, List<IPatternDetails> patterns,
+            Map<AEKey, Long> netOutputs, Map<AEKey, Long> availableAmounts) {
+        this(keys, patterns, netOutputs, Map.of(), availableAmounts, exact(netOutputs), Map.of(),
+            ExecutionCountKnowledge.UNKNOWN, CycleSolveStatus.NOT_IMPLEMENTED);
     }
 
-    public CycleDiagnostic(
-            List<AEKey> keys,
-            List<IPatternDetails> patterns,
-            Map<AEKey, PlannerAmount> exactNetOutputs,
-            Map<AEKey, PlannerAmount> exactTotalNetOutputs,
-            Map<AEKey, Long> availableAmounts,
-            ExecutionCountKnowledge knowledge,
-            CycleSolveStatus solveStatus) {
-        this(
-                keys,
-                patterns,
-                representable(exactNetOutputs),
-                representable(exactTotalNetOutputs),
-                availableAmounts,
-                exactAmounts(exactNetOutputs),
-                exactAmounts(exactTotalNetOutputs),
-                knowledge,
-                solveStatus);
+    public CycleDiagnostic(List<AEKey> keys, List<IPatternDetails> patterns,
+            Map<AEKey, PlannerAmount> exactNetOutputs, Map<AEKey, PlannerAmount> exactTotalNetOutputs,
+            Map<AEKey, Long> availableAmounts, ExecutionCountKnowledge knowledge, CycleSolveStatus solveStatus) {
+        this(keys, patterns, representable(exactNetOutputs), representable(exactTotalNetOutputs), availableAmounts,
+            exactAmounts(exactNetOutputs), exactAmounts(exactTotalNetOutputs), knowledge, solveStatus);
     }
 
     public CycleDiagnostic {
@@ -65,8 +42,8 @@ public record CycleDiagnostic(
         availableAmounts = Map.copyOf(availableAmounts);
         exactNetOutputs = Map.copyOf(exactNetOutputs);
         exactTotalNetOutputs = Map.copyOf(exactTotalNetOutputs);
-        executionCountKnowledge =
-                executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN : executionCountKnowledge;
+        executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
+            : executionCountKnowledge;
         solveStatus = solveStatus == null ? CycleSolveStatus.NOT_IMPLEMENTED : solveStatus;
     }
 
@@ -75,16 +52,8 @@ public record CycleDiagnostic(
         for (AEKey key : keys) {
             available.putIfAbsent(key, Math.max(0L, inventory.get(key)));
         }
-        return new CycleDiagnostic(
-                keys,
-                patterns,
-                netOutputs,
-                totalNetOutputs,
-                available,
-                exactNetOutputs,
-                exactTotalNetOutputs,
-                executionCountKnowledge,
-                solveStatus);
+        return new CycleDiagnostic(keys, patterns, netOutputs, totalNetOutputs, available, exactNetOutputs,
+            exactTotalNetOutputs, executionCountKnowledge, solveStatus);
     }
 
     private static Map<AEKey, ExactCycleAmount> exact(Map<AEKey, Long> values) {
