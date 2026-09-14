@@ -8,7 +8,6 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import java.util.ArrayList;
@@ -32,10 +31,11 @@ import org.jetbrains.annotations.Nullable;
 public final class NECraftingNetworkCluster {
     public static final long VIRTUAL_CRAFTING_POWER_PER_TICK = 100L;
     public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
-    private static final Comparator<NECraftingCluster> CLUSTER_ORDER =
-            Comparator.comparing(cluster -> cluster.getController() == null
-                    ? Long.MAX_VALUE
-                    : cluster.getController().getBlockPos().asLong());
+    private static final Comparator<NECraftingCluster> CLUSTER_ORDER = Comparator.comparing(
+            cluster -> cluster.getController().getBlockPos(),
+            Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                    .thenComparingInt(pos -> pos.getY())
+                    .thenComparingInt(pos -> pos.getZ()));
 
     private final ServerLevel level;
     private List<NECraftingCluster> physicalClusters = List.of();
@@ -65,8 +65,10 @@ public final class NECraftingNetworkCluster {
                 .filter(cluster -> cluster != null && !cluster.isDestroyed() && cluster.getController() != null)
                 .sorted(CLUSTER_ORDER)
                 .toList();
+        if (!physicalClusters.equals(clusters)) {
+            fastPathCache.clear();
+        }
         this.physicalClusters = List.copyOf(clusters);
-        fastPathCache.clear();
 
         List<ECOCraftingSystemBlockEntity> nextControllers = new ArrayList<>();
         Set<ECOCraftingWorkerBlockEntity> nextWorkers = new LinkedHashSet<>();
@@ -155,6 +157,23 @@ public final class NECraftingNetworkCluster {
         return controllers.size();
     }
 
+    public int getCombinedSwitchMultiplier() {
+        return physicalClusters.stream()
+                .mapToInt(NECraftingCluster::getConfiguredNetworkMultiplier)
+                .sum();
+    }
+
+    private long virtualPowerTick = Long.MIN_VALUE;
+    private boolean virtualPowerPaid;
+
+    public boolean tryConsumeVirtualCraftingPower(long tick, java.util.function.DoublePredicate extractor) {
+        if (virtualPowerTick != tick) {
+            virtualPowerTick = tick;
+            virtualPowerPaid = extractor.test(VIRTUAL_CRAFTING_POWER_PER_TICK);
+        }
+        return virtualPowerPaid;
+    }
+
     public boolean isBatchFairSchedulingEnabled() {
         // Kept for the 1.20.1 mixin/API surface. Fairness is no longer an
         // execution mode; provider rotation is owned by ECOProviderCursor.
@@ -167,19 +186,16 @@ public final class NECraftingNetworkCluster {
 
     /** A complete high-energy F9 exchange is required for virtual ledger work. */
     public boolean isVirtualCraftingEligible() {
-        if (!activeCooling
-                || physicalClusters.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS
+        if (physicalClusters.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS
                 || controllers.size() != VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
             return false;
         }
-        int requiredWorkersPerHost = Math.max(1, NEConfig.craftingSystemMaxLength - 4);
         for (NECraftingCluster physicalCluster : physicalClusters) {
             ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
             if (controller == null
                     || controller.getTier().getTier() != ECOTier.L9.getTier()
                     || !physicalCluster.isHighEnergyNetworkMode()
-                    || physicalCluster.getWorkers().size() != requiredWorkersPerHost
-                    || controller.getLocalThreadCount() != requiredWorkersPerHost * VIRTUAL_CRAFTING_REQUIRED_HOSTS) {
+                    || physicalCluster.getWorkers().size() != controller.getMaxBuildLength()) {
                 return false;
             }
         }
@@ -193,8 +209,7 @@ public final class NECraftingNetworkCluster {
     }
 
     /**
-     * Independent FX task threads. Exchange membership sets threads per worker;
-     * x2/x8 sets batch per thread.
+     * Physical FX execution lanes. Exchange membership only scales batch size.
      */
     public int getEffectiveValue() {
         long total = 0L;
@@ -283,6 +298,7 @@ public final class NECraftingNetworkCluster {
     }
 
     public long getMaxEnergyUsage() {
+        if (isVirtualCraftingEligible()) return VIRTUAL_CRAFTING_POWER_PER_TICK;
         long total = 0L;
         for (ECOCraftingSystemBlockEntity controller : controllers) {
             total = saturatingAdd(total, controller.getLocalMaxEnergyUsage());
@@ -332,10 +348,8 @@ public final class NECraftingNetworkCluster {
         int start = Math.floorMod(nextCoolantControllerIndex, controllers.size());
         for (int offset = 0; offset < controllers.size() && remaining > 0; offset++) {
             ECOCraftingSystemBlockEntity controller = controllers.get((start + offset) % controllers.size());
-            int participantsLeft = controllers.size() - offset;
-            int fairShare = (remaining + participantsLeft - 1) / participantsLeft;
-            int available = controller.getLocalCraftingCoolantCraftLimit(1, requiredOverclock, fairShare);
-            int consumed = Math.min(fairShare, available);
+            int available = controller.getLocalCraftingCoolantCraftLimit(1, requiredOverclock, remaining);
+            int consumed = Math.min(remaining, available);
             if (consumed > 0 && !controller.tryConsumeLocalCoolant(consumed, requiredOverclock)) {
                 return false;
             }

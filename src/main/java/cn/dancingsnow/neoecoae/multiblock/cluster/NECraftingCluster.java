@@ -105,27 +105,19 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     @Override
     public int getNetworkMultiplier() {
-        int configuredMultiplier = getConfiguredNetworkMultiplier();
-        if (configuredMultiplier <= 1 || !hasLinkedNetworkPeers()) {
-            return 1;
-        }
-        return resolveNetworkMultiplier(
-                isNetworkMode(),
-                isHighEnergyNetworkMode(),
-                networkCluster.getMemberCount(),
-                networkCluster.hasCoolingForNetworkMultiplier(configuredMultiplier));
+        return hasLinkedNetworkPeers() ? networkCluster.getCombinedSwitchMultiplier() : 1;
     }
 
     @Override
     public int getNetworkPowerMultiplier() {
-        return getNetworkMultiplier();
+        return 1;
     }
 
     static int resolveNetworkMultiplier(
             boolean networkMode, boolean highEnergyNetworkMode, int memberCount, boolean coolingAvailable) {
-        if (!networkMode || memberCount <= 1 || !coolingAvailable) {
+        if (!networkMode || memberCount <= 1) {
             return 1;
         }
-        return highEnergyNetworkMode ? 8 : 2;
+        return memberCount * (highEnergyNetworkMode ? 8 : 2);
     }
 }

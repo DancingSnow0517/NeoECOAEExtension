@@ -11,23 +11,22 @@ class ECOCraftingSystemBlockEntityTest {
     @Test
     void virtualExchangeMatches1211CoolantRate() {
         assertEquals(8, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_REQUIRED_HOSTS);
-        assertEquals(100, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
+        assertEquals(10_000, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
     }
 
     @Test
     void laneCapacityScalesBatchSize() {
         assertEquals(32, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 1));
         assertEquals(512, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 16, true, 1));
-        assertEquals(64, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 2));
-        assertEquals(256, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, true, 2));
+        assertEquals(1024, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 2));
+        assertEquals(1024, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, true, 2));
     }
 
     @Test
-    void networkExchangeGivesEachFxWorkerOneThreadPerParticipatingHost() {
-        // Two F9 hosts: 11 FX workers per host, two participating hosts.
-        int localThreadsPerHost = ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 2);
-        assertEquals(22, localThreadsPerHost);
-        assertEquals(44, localThreadsPerHost * 2);
+    void networkExchangeKeepsOneLanePerPhysicalFx() {
+        int localThreadsPerHost = ECOCraftingSystemBlockEntity.calculateWorkerThreadCount(11, 1);
+        assertEquals(11, localThreadsPerHost);
+        assertEquals(22, localThreadsPerHost * 2);
     }
 
     @Test
@@ -66,8 +65,8 @@ class ECOCraftingSystemBlockEntityTest {
     @Test
     void overflowUsesCompleteFxBatchEfficiency() {
         assertEquals(5_632, ECOCraftingSystemBlockEntity.calculateMaxSynthesisEfficiency(11, 512));
-        assertEquals(1_024, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 0, false, 2));
-        assertEquals(8_192, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 512, true, 8));
+        assertEquals(512, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 0, false, 2));
+        assertEquals(1024, ECOCraftingSystemBlockEntity.calculateParallelCapacity(1, 512, 512, true, 8));
         assertEquals(8, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_000, 600));
         assertEquals(0, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 1_024));
         assertEquals(5, ECOCraftingSystemBlockEntity.calculateOverclockTimes(1_024, 768));
@@ -78,9 +77,9 @@ class ECOCraftingSystemBlockEntityTest {
         var coreTiers = List.of(new TestCoreTier(24, 32), new TestCoreTier(72, 96), new TestCoreTier(256, 384));
 
         assertEquals(352, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, false, 1));
-        assertEquals(704, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, false, 2));
+        assertEquals(352, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, false, 2));
         assertEquals(864, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, true, 1));
-        assertEquals(6_912, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, true, 8));
+        assertEquals(864, ECOCraftingSystemBlockEntity.calculateParallelCapacity(coreTiers, true, 8));
     }
 
     private record TestCoreTier(int crafterParallel, int overclockedCrafterParallel) implements IECOTier {
