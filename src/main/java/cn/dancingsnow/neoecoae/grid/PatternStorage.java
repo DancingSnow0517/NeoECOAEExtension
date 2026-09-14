@@ -11,6 +11,8 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -42,8 +44,31 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
     }
 
     public boolean tryInsertPattern(ItemStack patternItem) {
+        // Pattern disks take priority across the whole grid. The storage map is an IdentityHashMap
+        // (unordered), so a single pass would let an arbitrary disk-less storage swallow the pattern
+        // into a slot before a storage that owns a disk is ever asked.
+        //
+        // A storage that reported disk space is dropped from the second pass: insertPattern returns
+        // false both for "nothing inserted" and for "partially inserted", so asking again could
+        // push the remainder of a stack that pass one already consumed.
+        List<IECOPatternStorage> attemptedDisks = null;
         for (IECOPatternStorage value : patternStorages.values()) {
-            if (value.insertPattern(patternItem)){
+            if (!value.canInsertIntoDisk(patternItem)) {
+                continue;
+            }
+            if (value.insertPattern(patternItem)) {
+                return true;
+            }
+            if (attemptedDisks == null) {
+                attemptedDisks = new ArrayList<>();
+            }
+            attemptedDisks.add(value);
+        }
+        for (IECOPatternStorage value : patternStorages.values()) {
+            if (attemptedDisks != null && attemptedDisks.contains(value)) {
+                continue;
+            }
+            if (value.insertPattern(patternItem)) {
                 return true;
             }
         }

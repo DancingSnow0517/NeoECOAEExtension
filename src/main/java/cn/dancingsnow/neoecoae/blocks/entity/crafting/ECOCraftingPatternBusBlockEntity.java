@@ -113,7 +113,17 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return patternDetails;
+        if (patternDiscoveryHook == null) {
+            return patternDetails;
+        }
+        var hookResult = patternDiscoveryHook.discover(this);
+        if (hookResult == null || hookResult.isEmpty()) {
+            return patternDetails;
+        }
+        var merged = new java.util.ArrayList<IPatternDetails>(patternDetails.size() + hookResult.size());
+        merged.addAll(patternDetails);
+        merged.addAll(hookResult);
+        return merged;
     }
 
     @Override
@@ -305,6 +315,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public InternalInventory getTerminalPatternInventory() {
+        if (terminalInventoryHook != null) {
+            InternalInventory hooked = terminalInventoryHook.apply(this);
+            if (hooked != null) {
+                return hooked;
+            }
+        }
         return effectiveInventory;
     }
 
@@ -337,6 +353,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (containsPatternInCluster(itemStack)) {
             return false;
         }
+        // Integration hook: try disk-aware insertion before falling back to slot storage.
+        if (diskInsertHook != null && diskInsertHook.tryInsert(this, itemStack)) {
+            return true;
+        }
         ItemStack result = effectiveInventory.addItems(itemStack.copy());
         return result.isEmpty();
     }
@@ -366,12 +386,116 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
     }
 
+    // ---- Integration hooks (set by AE2-Pattern-Disk via @Integration at runtime) ----
+
+    /**
+     * Functional interface for disk-aware pattern insertion. When set, the bus will try
+     * this hook before falling back to its slot-based storage.
+     */
+    @java.lang.FunctionalInterface
+    public interface DiskInsertHook {
+        /** @return true if the pattern was accepted by a disk (no further processing needed). */
+        boolean tryInsert(ECOCraftingPatternBusBlockEntity bus, ItemStack pattern);
+    }
+
+    /**
+     * Functional interface for disk-aware pattern discovery. When set, additional
+     * patterns from pattern disks are merged into the bus's published patterns.
+     */
+    @java.lang.FunctionalInterface
+    public interface PatternDiscoveryHook {
+        /** @return extra patterns, or null/empty if none. */
+        @Nullable java.util.List<IPatternDetails> discover(ECOCraftingPatternBusBlockEntity bus);
+    }
+
+    @Nullable
+    private static DiskInsertHook diskInsertHook;
+
+    @Nullable
+    private static PatternDiscoveryHook patternDiscoveryHook;
+
+    /**
+     * Registers a disk-aware pattern-insertion hook. Called by integration mods
+     * (AE2-Pattern-Disk) at initialisation time.
+     */
+    public static void setDiskInsertHook(@Nullable DiskInsertHook hook) {
+        diskInsertHook = hook;
+    }
+
+    /**
+     * Registers a disk-aware pattern-discovery hook. Called by integration mods
+     * at initialisation time.
+     */
+    public static void setPatternDiscoveryHook(@Nullable PatternDiscoveryHook hook) {
+        patternDiscoveryHook = hook;
+    }
+
+    @Nullable
+    private static java.util.function.BiPredicate<ItemStack, net.minecraft.world.level.Level> extraInsertFilter;
+
+    /**
+     * Registers an additional item-insertion filter. When set, items that pass this
+     * predicate are accepted by the bus's inventory alongside encoded molecular-assembler
+     * patterns. Used by integration mods to allow pattern disks into the bus.
+     */
+    public static void setExtraInsertFilter(@Nullable java.util.function.BiPredicate<ItemStack, net.minecraft.world.level.Level> filter) {
+        extraInsertFilter = filter;
+    }
+
+    @Nullable
+    private static java.util.function.BiPredicate<ECOCraftingPatternBusBlockEntity, ItemStack> diskSpaceHook;
+
+    /**
+     * Registers a disk-space predicate backing {@link #canInsertIntoDisk(ItemStack)}. Integration mods
+     * set this so {@link cn.dancingsnow.neoecoae.grid.PatternStorage} can prefer storages whose pattern
+     * disks still have room, instead of filling an arbitrary storage's slots first.
+     */
+    public static void setDiskSpaceHook(
+        @Nullable java.util.function.BiPredicate<ECOCraftingPatternBusBlockEntity, ItemStack> hook
+    ) {
+        diskSpaceHook = hook;
+    }
+
+    @Nullable
+    private static java.util.function.Function<ECOCraftingPatternBusBlockEntity, InternalInventory> terminalInventoryHook;
+
+    /**
+     * Registers a pattern-access-terminal view hook. Integration mods set this to surface patterns held
+     * inside the bus's pattern disks alongside its slot-based patterns. Returning {@code null} falls
+     * back to the slot inventory.
+     */
+    public static void setTerminalInventoryHook(
+        @Nullable java.util.function.Function<ECOCraftingPatternBusBlockEntity, InternalInventory> hook
+    ) {
+        terminalInventoryHook = hook;
+    }
+
+    @Override
+    public boolean canInsertIntoDisk(ItemStack itemStack) {
+        return diskSpaceHook != null && diskSpaceHook.test(this, itemStack);
+    }
+
+    /**
+     * @return the raw slot inventory backing this bus; slots may hold encoded patterns or pattern disks
+     */
+    public AppEngInternalInventory getPatternInventory() {
+        return inventory;
+    }
+
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-            return slot >= 0
-                && slot < getPatternSlotCount()
-                && isExecutablePattern(stack);
+            if (slot < 0 || slot >= getPatternSlotCount()) {
+                return false;
+            }
+            if (isExecutablePattern(stack)) {
+                return true;
+            }
+            // Integration hook: allow pattern disks and other disk-like items into the bus.
+            if (extraInsertFilter != null && extraInsertFilter.test(stack, level)) {
+                return true;
+            }
+            return false;
         }
     }
 
