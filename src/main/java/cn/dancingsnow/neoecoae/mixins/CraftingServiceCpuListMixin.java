@@ -5,12 +5,11 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import com.google.common.collect.ImmutableSet;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Adds ECO CPUs after compatibility mods have finished rebuilding AE2's CPU set. */
 @Mixin(value = CraftingService.class, priority = 800, remap = false)
@@ -19,8 +18,10 @@ public abstract class CraftingServiceCpuListMixin {
     @Final
     private IGrid grid;
 
-    @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
-        cir.setReturnValue(NeoECOCraftingServiceBridge.getCpus(this.grid, cir.getReturnValue()));
+    // A cancellable RETURN injection can skip GTLCore's RETURN handler at the same site.
+    // Wrap the completed method, including early returns injected by other CPU providers.
+    @WrapMethod(method = "getCpus")
+    private ImmutableSet<ICraftingCPU> neoecoae$getCpus(Operation<ImmutableSet<ICraftingCPU>> original) {
+        return NeoECOCraftingServiceBridge.getCpus(this.grid, original.call());
     }
 }

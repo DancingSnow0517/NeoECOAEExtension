@@ -12,6 +12,35 @@ import org.objectweb.asm.tree.MethodInsnNode;
 /** Verifies injection targets without initializing Minecraft or loading transformed classes. */
 class ECOCraftingMixinContractTest {
     @Test
+    void cpuMergesWrapTheCompletedForeignMethodRatherThanCancelItsReturnHandlers() throws Exception {
+        for (String[] entry : List.of(
+                new String[] {"CraftingServiceCpuListMixin", "neoecoae$getCpus", "getCpus"},
+                new String[] {"CraftingServiceMixin", "neoecoae$insertIntoCpus", "insertIntoCpus"},
+                new String[] {"CraftingServiceMixin", "neoecoae$getRequestedAmount", "getRequestedAmount"})) {
+            var mixin = read("cn/dancingsnow/neoecoae/mixins/" + entry[0]);
+            var handler = mixin.methods.stream()
+                    .filter(method -> method.name.equals(entry[1]))
+                    .findFirst()
+                    .orElseThrow();
+            assertTrue(handler.visibleAnnotations.stream()
+                    .anyMatch(annotation ->
+                            annotation.desc.equals("Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;")));
+            int originalCalls = 0;
+            for (var instruction : handler.instructions) {
+                if (instruction instanceof MethodInsnNode call) {
+                    assertFalse(
+                            call.owner.equals("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable"));
+                    if (call.owner.equals("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
+                            && call.name.equals("call")) originalCalls++;
+                }
+            }
+            assertEquals(1, originalCalls, "Foreign CPU handlers must run exactly once");
+            assertTrue(read("appeng/me/service/CraftingService").methods.stream()
+                    .anyMatch(method -> method.name.equals(entry[2])));
+        }
+    }
+
+    @Test
     void craftingServiceInjectionTargetsExistInTheActualAe2Dependency() throws Exception {
         var target = read("appeng/me/service/CraftingService");
         var mixin = read("cn/dancingsnow/neoecoae/mixins/CraftingServiceMixin");
@@ -56,8 +85,8 @@ class ECOCraftingMixinContractTest {
         assertTrue(mixin.methods.stream()
                 .anyMatch(method -> method.name.equals("neoecoae$tickBeforeCompatibilityThrottle")
                         && method.visibleAnnotations.stream()
-                                .anyMatch(
-                                        value -> value.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;"))));
+                                .anyMatch(value -> value.desc.equals(
+                                        "Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;"))));
     }
 
     @Test

@@ -34,6 +34,11 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         return data != null && data.terminatedJobs.containsKey(jobId);
     }
 
+    public static @Nullable Boolean completion(Level level, UUID jobId) {
+        var data = get(level);
+        return data == null ? null : data.terminatedJobs.get(jobId);
+    }
+
     /** Publish before clearing the owner's job or detaching its grid. First terminal decision wins. */
     public static void finish(@Nullable Level level, @Nullable UUID jobId, boolean completed) {
         if (jobId == null) return;

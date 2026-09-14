@@ -80,6 +80,8 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
 
     private boolean deliveringFinalOutput;
+    /** Link owned by the original requester; CPU link cannot route output to the terminal. */
+    @Nullable private CraftingLink requesterLink;
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
@@ -120,6 +122,8 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
+        ECOBigCraftingOrders.bindSubmittedJob(craftId);
+        this.requesterLink = null;
         providerCursor.clear();
         resumeDispatchPattern = null;
         // A newly submitted job already has pending pattern outputs even when its initial inventory is empty.
@@ -140,6 +144,7 @@ public class ECOCraftingCPULogic {
         // 非独立任务需要为请求者创建另一个链接，两个链接都需要提交到缓存。
         if (requester != null) {
             var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
+            this.requesterLink = linkReq;
 
             var craftingService = (CraftingService) grid.getCraftingService();
             craftingService.addLink(linkCpu);
@@ -242,8 +247,11 @@ public class ECOCraftingCPULogic {
                             : grid.getStorageService()
                                     .getInventory()
                                     .insert(key, amount, Actionable.MODULATE, cpu.getActionSource());
+                } else if (requesterLink != null) {
+                    inserted = requesterLink.insert(key, amount, Actionable.MODULATE);
                 } else {
-                    inserted = current.link.insert(key, amount, Actionable.MODULATE);
+                    // A restored job may not have the requester object available yet; leave output buffered.
+                    inserted = 0L;
                 }
             } catch (RuntimeException e) {
                 LOGGER.error("Final output delivery failed; items remain in the CPU inventory", e);
@@ -379,6 +387,19 @@ public class ECOCraftingCPULogic {
                                     level,
                                     current.link.getCraftingID())
                             : null;
+                    if (batch == null) {
+                        batch = ECOBatchCraftingExecutor.prepareGtlAutoExpand(
+                                provider,
+                                pattern,
+                                inputs,
+                                outputs,
+                                containers,
+                                inventory,
+                                allowedCount,
+                                energyService,
+                                level,
+                                current.link.getCraftingID());
+                    }
                     if (batch != null) {
                         craftCount = batch.craftCount();
                         {

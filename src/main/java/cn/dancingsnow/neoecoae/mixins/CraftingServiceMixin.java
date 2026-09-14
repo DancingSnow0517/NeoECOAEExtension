@@ -21,6 +21,8 @@ import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -33,7 +35,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-@Mixin(value = CraftingService.class, priority = 900, remap = false)
+// GTLCore's priority-1000 submission handler must see automatic jobs before ECO's fallback.
+@Mixin(value = CraftingService.class, priority = 1100, remap = false)
 public abstract class CraftingServiceMixin
         implements ECOBatchFairSchedulingControl,
                 cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings,
@@ -276,15 +279,15 @@ public abstract class CraftingServiceMixin
         }
     }
 
-    @Inject(method = "insertIntoCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, CallbackInfoReturnable<Long> cir) {
-        cir.setReturnValue(
-                NeoECOCraftingServiceBridge.insertIntoCpus(this.grid, what, amount, type, cir.getReturnValue()));
+    @WrapMethod(method = "insertIntoCpus")
+    private long neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, Operation<Long> original) {
+        return NeoECOCraftingServiceBridge.insertIntoCpus(
+                this.grid, what, amount, type, original.call(what, amount, type));
     }
 
-    @Inject(method = "getRequestedAmount", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getRequestedAmount(AEKey what, CallbackInfoReturnable<Long> cir) {
-        cir.setReturnValue(NeoECOCraftingServiceBridge.getRequestedAmount(this.grid, what, cir.getReturnValue()));
+    @WrapMethod(method = "getRequestedAmount")
+    private long neoecoae$getRequestedAmount(AEKey what, Operation<Long> original) {
+        return NeoECOCraftingServiceBridge.getRequestedAmount(this.grid, what, original.call(what));
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
@@ -348,7 +351,12 @@ public abstract class CraftingServiceMixin
 
     @Override
     public boolean neoecoae$hasComputationHost() {
-        return !cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge.getComputationClusters(this.grid)
-                .isEmpty();
+        for (var host : grid.getMachines(
+                cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity.class)) {
+            if (host.isFormed() && host.getMainNode().isOnline()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

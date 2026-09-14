@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -12,9 +13,10 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.ECOStatefulBatchProvider;
+import cn.dancingsnow.neoecoae.compat.gtl.GTLCraftingProviderCompat;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -85,6 +87,64 @@ public final class ECOBatchCraftingExecutor {
             LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);
             return null;
         }
+    }
+
+    /** Adapts GTLCore's expanded-input provider contract to ECO's atomic batch accounting. */
+    @Nullable public static PreparedBatch prepareGtlAutoExpand(
+            ICraftingProvider provider,
+            IPatternDetails pattern,
+            KeyCounter[] inputs,
+            KeyCounter outputs,
+            KeyCounter containers,
+            ListCraftingInventory inventory,
+            long maxCrafts,
+            IEnergyService energyService,
+            Level level,
+            UUID craftingJobId) {
+        if (maxCrafts <= 1L
+                || !pattern.supportsPushInputsToExternalInventory()
+                || !GTLCraftingProviderCompat.isAutoExpandProvider(provider)) {
+            return null;
+        }
+        try {
+            var context = ECOBatchDispatchContext.create(pattern, inputs, outputs, containers, level, craftingJobId);
+            long capacity = GTLCraftingProviderCompat.getMaxOperations(provider, pattern, maxCrafts);
+            long materialLimit = ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
+                    context.inputItems(), context.outputs(), context.containerItems());
+            long requested = Math.min(maxCrafts, Math.min(capacity, materialLimit));
+            requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, context.inputItems(), requested);
+            double singlePower = CraftingCpuHelper.calculatePatternPower(inputs);
+            long size = ECOBatchCraftingHelper.maxAffordableCrafts(
+                    singlePower,
+                    requested,
+                    amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+            if (size <= 1L) {
+                return null;
+            }
+            KeyCounter[] expandedInputs = multiplyInputSlots(context, size);
+            return new PreparedBatch(
+                    size,
+                    ECOBatchCraftingHelper.multiply(context.inputItems(), size),
+                    ECOBatchCraftingHelper.multiply(context.outputs(), size),
+                    ECOBatchCraftingHelper.multiply(context.containerItems(), size),
+                    singlePower * size,
+                    () -> provider.pushPattern(pattern, expandedInputs));
+        } catch (RuntimeException unavailable) {
+            LOGGER.debug("GTLCore auto-expand preparation unavailable; no inputs extracted", unavailable);
+            return null;
+        }
+    }
+
+    private static KeyCounter[] multiplyInputSlots(ECOBatchDispatchContext context, long multiplier) {
+        KeyCounter[] result = context.inputCounters();
+        for (int i = 0; i < result.length; i++) {
+            KeyCounter multiplied = new KeyCounter();
+            for (var entry : result[i]) {
+                multiplied.add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
+            }
+            result[i] = multiplied;
+        }
+        return result;
     }
 
     public record PreparedBatch(

@@ -2,16 +2,16 @@ package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceTicker;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Runs custom CPU work before GTLCore can cancel a throttled CraftingService tick. */
 @Mixin(value = CraftingService.class, priority = 1100, remap = false)
 public abstract class CraftingServiceEarlyTickMixin {
-    @Inject(method = "onServerEndTick", at = @At("HEAD"))
-    private void neoecoae$tickBeforeCompatibilityThrottle(CallbackInfo ci) {
+    @WrapMethod(method = "onServerEndTick")
+    private void neoecoae$tickBeforeCompatibilityThrottle(Operation<Void> original) {
         ((ECOCraftingServiceTicker) this).neoecoae$tickComputationCpusNow();
+        original.call();
     }
 }

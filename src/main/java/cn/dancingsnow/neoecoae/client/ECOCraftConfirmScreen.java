@@ -77,8 +77,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         super.updateBeforeRender();
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
-        boolean unrepresentable = isUnrepresentablePlan();
-        boolean startable = plan != null && !plan.isSimulation() && !unrepresentable;
+        boolean unrepresentable = hasUnrepresentableDiagnostic();
+        boolean blockedUnrepresentable = isBlockedUnrepresentablePlan();
+        boolean startable = plan != null && !plan.isSimulation() && !blockedUnrepresentable;
         start.active = !menu.hasNoCPU() && startable;
         selectCPU.active = startable;
 
@@ -124,7 +125,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();
             }
         }
-        if (unrepresentable) {
+        if (blockedUnrepresentable) {
             String unrepresentableBytes = (Object) menu instanceof ECOCraftConfirmMenuMode mode
                     ? HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes())
                     : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
@@ -203,7 +204,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     SOLVE_PROGRESS_Y + 3,
                     0xFF3D9B62);
         }
-        if (isUnrepresentablePlan() || isEcoPartialPlan()) {
+        if (hasUnrepresentableDiagnostic() || isEcoPartialPlan()) {
             exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
         } else if (plan != null)
             table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
@@ -242,7 +243,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
         if (hovered == null)
-            hovered = (isUnrepresentablePlan() || isEcoPartialPlan())
+            hovered = (hasUnrepresentableDiagnostic() || isEcoPartialPlan())
                     ? exactTable.getHoveredStack()
                     : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
@@ -280,7 +281,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private void start() {
-        if (isUnrepresentablePlan()) return;
+        if (isBlockedUnrepresentablePlan()) return;
         menu.startJob();
     }
 
@@ -312,9 +313,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 mode.neoecoae$getCraftingGraphSnapshot().nodes());
     }
 
-    private boolean isUnrepresentablePlan() {
+    private boolean hasUnrepresentableDiagnostic() {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+    }
+
+    private boolean isBlockedUnrepresentablePlan() {
+        CraftingPlanSummary plan = menu.getPlan();
+        return hasUnrepresentableDiagnostic() && (plan == null || plan.isSimulation());
     }
 
     private boolean isEcoPartialPlan() {

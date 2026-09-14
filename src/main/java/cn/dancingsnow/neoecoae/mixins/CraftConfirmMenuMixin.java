@@ -36,26 +36,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
 
-    @Unique @GuiSync(99)
+    // Keep ECO's fields out of the low IDs used by AE2 and other crafting addons
+    // (GTLCore uses 100 for its missing-crafting flag).
+    @Unique @GuiSync(29000)
     private boolean neoecoae$showFastPlannerReport;
 
-    @Unique @GuiSync(104)
+    @Unique @GuiSync(29005)
     private boolean neoecoae$cyclePlanningEnabled;
 
-    @Unique @GuiSync(100)
+    @Unique @GuiSync(29001)
     private long neoecoae$calculationNanos;
 
-    @Unique @GuiSync(105)
+    @Unique @GuiSync(29006)
     private String neoecoae$theoreticalBytes = "0";
 
     /** Zero means absent; otherwise this is {@code PlanningStatus.ordinal() + 1}. */
-    @Unique @GuiSync(101)
+    @Unique @GuiSync(29002)
     private int neoecoae$planningStatusCode;
 
-    @Unique @GuiSync(102)
+    @Unique @GuiSync(29003)
     public ECOCycleItemList neoecoae$cycleItems = ECOCycleItemList.EMPTY;
 
-    @Unique @GuiSync(103)
+    @Unique @GuiSync(29004)
     public CraftingGraphSnapshot neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
 
     /** Server-side result paired with the plan whose confirmation page the player actually saw. */

@@ -126,7 +126,11 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case SUCCESS -> cir.setReturnValue(result.plan());
             case MISSING_ITEMS -> cir.setReturnValue(simulate ? result.plan() : null);
             case CYCLE_UNSUPPORTED, AMOUNT_OVERFLOW -> cir.setReturnValue(result.plan());
-            case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> cir.setReturnValue(result.plan());
+            case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> {
+                // Keep ECO's exact diagnostic, but let AE2 (and compatibility planners such as
+                // GTLCore's transfinite planner) produce the executable long-valued projection.
+                fallbackBypassLocal.set(true);
+            }
             case PARTIAL, CYCLE_UNRESOLVED -> cir.setReturnValue(result.plan());
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
             case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {

@@ -212,6 +212,7 @@ public final class ECOPlanningResult {
     public boolean shouldUseNativeFallback() {
         return status == PlanningStatus.PARTIAL_UNSUPPORTED
                 || status == PlanningStatus.UNSUPPORTED
+                || status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
                 || status == PlanningStatus.INTERNAL_ERROR;
     }
 
