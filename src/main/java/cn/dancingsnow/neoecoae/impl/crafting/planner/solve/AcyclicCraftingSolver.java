@@ -1,16 +1,16 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlanTraceEdge;
@@ -27,15 +27,27 @@ import java.util.Set;
 
 public final class AcyclicCraftingSolver {
     public record Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace) {}
+
     private final CandidateResolver candidates = new CandidateResolver();
 
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            ECOCancellation cancellation) throws InterruptedException {
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            KeyCounter inventory,
+            long amount,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         return solve(network, route, inventory, amount, Map.of(), cancellation);
     }
 
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            Map<AEKey, Integer> initialChoices, ECOCancellation cancellation) throws InterruptedException {
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            KeyCounter inventory,
+            long amount,
+            Map<AEKey, Integer> initialChoices,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         return solve(network, route, inventory, amount, initialChoices, Set.of(), cancellation);
     }
 
@@ -44,26 +56,53 @@ public final class AcyclicCraftingSolver {
      * deferred wholesale to that component. This prevents one self-growing transition from being planned once
      * for an acyclic byproduct and a second time for its feedback member.
      */
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
-            ECOCancellation cancellation) throws InterruptedException {
-        return solve(network, route, inventory, amount, initialChoices, deferredPatterns,
-            false, cancellation);
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            KeyCounter inventory,
+            long amount,
+            Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns,
+            ECOCancellation cancellation)
+            throws InterruptedException {
+        return solve(network, route, inventory, amount, initialChoices, deferredPatterns, false, cancellation);
     }
 
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
-            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
-        return solve(network, route, PlannerInventorySnapshot.of(inventory), amount, initialChoices,
-            deferredPatterns, ignorePatternSubstitutions, cancellation);
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            KeyCounter inventory,
+            long amount,
+            Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
+            throws InterruptedException {
+        return solve(
+                network,
+                route,
+                PlannerInventorySnapshot.of(inventory),
+                amount,
+                initialChoices,
+                deferredPatterns,
+                ignorePatternSubstitutions,
+                cancellation);
     }
 
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, PlannerInventorySnapshot inventory,
-            long amount, Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
-            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            PlannerInventorySnapshot inventory,
+            long amount,
+            Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
-            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
+            trace.addDiagnostic(
+                    new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
             return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, new SolveState(inventory), trace);
         }
         Map<AEKey, Integer> choices = new HashMap<>(initialChoices);
@@ -71,22 +110,28 @@ public final class AcyclicCraftingSolver {
         SolveState state = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
-            List<AEKey> currentRoute = selectedRoute(
-                network, choices, deferredPatterns, cancellation);
+            List<AEKey> currentRoute = selectedRoute(network, choices, deferredPatterns, cancellation);
             if (currentRoute == null) {
                 state = new SolveState(inventory);
                 state.unsupported.add(network.goal());
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
-                    "The currently selected alternate producer route contains an undeclared cycle"));
+                trace.addDiagnostic(new PlannerDiagnostic(
+                        PlannerDiagnostic.Code.NATIVE_FALLBACK,
+                        "The currently selected alternate producer route contains an undeclared cycle"));
                 return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
             }
-            state = runOnce(network, new AcyclicRoutePlan(currentRoute),
-                new SolveWorkspace(inventory, choices), amount,
-                deferredPatterns, ignorePatternSubstitutions, cancellation);
+            state = runOnce(
+                    network,
+                    new AcyclicRoutePlan(currentRoute),
+                    new SolveWorkspace(inventory, choices),
+                    amount,
+                    deferredPatterns,
+                    ignorePatternSubstitutions,
+                    cancellation);
             if (!state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
-                    "No batch-safe candidate remains for " + state.unsupported));
+                trace.addDiagnostic(new PlannerDiagnostic(
+                        PlannerDiagnostic.Code.NATIVE_FALLBACK,
+                        "No batch-safe candidate remains for " + state.unsupported));
                 return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
             }
             if (state.missing.isEmpty()) {
@@ -102,19 +147,30 @@ public final class AcyclicCraftingSolver {
                 if (addExecutionRepresentabilityDiagnostics(state, trace)) {
                     return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
                 }
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.MISSING, "Required inputs are unavailable"));
+                trace.addDiagnostic(
+                        new PlannerDiagnostic(PlannerDiagnostic.Code.MISSING, "Required inputs are unavailable"));
                 return new Outcome(PlanningStatus.MISSING_ITEMS, state, trace);
             }
             for (var rejected : state.selected.entrySet()) {
-                trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, rejected.getKey(),
-                    rejected.getValue().details(), 0, 0, 0, 0,
-                    traceLong(state.patternTimes.getOrDefault(rejected.getValue().details(), PlannerAmount.ZERO)),
-                    PlanTraceNode.Selection.REJECTED, "DOWNSTREAM_MISSING_ROLLBACK"));
+                trace.addNode(new PlanTraceNode(
+                        PlanTraceNode.Kind.PATTERN,
+                        rejected.getKey(),
+                        rejected.getValue().details(),
+                        0,
+                        0,
+                        0,
+                        0,
+                        traceLong(state.patternTimes.getOrDefault(
+                                rejected.getValue().details(), PlannerAmount.ZERO)),
+                        PlanTraceNode.Selection.REJECTED,
+                        "DOWNSTREAM_MISSING_ROLLBACK"));
             }
-            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_REJECTED,
-                "Candidate failed downstream; rolled back attempt " + (attempt + 1)));
+            trace.addDiagnostic(new PlannerDiagnostic(
+                    PlannerDiagnostic.Code.CANDIDATE_REJECTED,
+                    "Candidate failed downstream; rolled back attempt " + (attempt + 1)));
         }
-        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK, "Candidate retry budget exhausted"));
+        trace.addDiagnostic(
+                new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK, "Candidate retry budget exhausted"));
         return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
     }
 
@@ -126,9 +182,12 @@ public final class AcyclicCraftingSolver {
      *
      * @return the selected route, or {@code null} when the selected acyclic subset now contains a cycle
      */
-    private static List<AEKey> selectedRoute(CompiledNetwork network,
-            Map<AEKey, Integer> choices, Set<IPatternDetails> deferredPatterns,
-            ECOCancellation cancellation) throws InterruptedException {
+    private static List<AEKey> selectedRoute(
+            CompiledNetwork network,
+            Map<AEKey, Integer> choices,
+            Set<IPatternDetails> deferredPatterns,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
@@ -173,8 +232,7 @@ public final class AcyclicCraftingSolver {
         return ordered.size() == reachable.size() ? List.copyOf(ordered) : null;
     }
 
-    private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key,
-            Map<AEKey, Integer> choices) {
+    private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key, Map<AEKey, Integer> choices) {
         List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (candidates.isEmpty()) return null;
         int choice = choices.getOrDefault(key, 0);
@@ -183,8 +241,13 @@ public final class AcyclicCraftingSolver {
         return candidates.get(choice);
     }
 
-    private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
-            long amount, Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+    private static SolveState runOnce(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            SolveWorkspace workspace,
+            long amount,
+            Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions,
             ECOCancellation cancellation)
             throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
@@ -192,7 +255,7 @@ public final class AcyclicCraftingSolver {
         state.demand.put(network.goal(), PlannerAmount.of(amount));
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
-            network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
+                network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
         for (AEKey key : route.keys()) {
             cancellation.checkpoint();
             PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);
@@ -202,11 +265,11 @@ public final class AcyclicCraftingSolver {
             IPatternDetails demandProducer = state.demandProducers.get(key);
             if (demandProducer != null) {
                 GenericStack[] demandOutputs = demandProducer.getOutputs();
-                for (CompiledPattern candidate : network.producersOf(demandOutputs.length == 0
-                        ? key : demandOutputs[0].what())) {
+                for (CompiledPattern candidate :
+                        network.producersOf(demandOutputs.length == 0 ? key : demandOutputs[0].what())) {
                     if (candidate.details() != demandProducer) continue;
-                    ignoreComponents = candidate.inputs().stream().anyMatch(input ->
-                        input.key().equals(key) && input.ignoresComponents());
+                    ignoreComponents = candidate.inputs().stream()
+                            .anyMatch(input -> input.key().equals(key) && input.ignoresComponents());
                     break;
                 }
             }
@@ -237,8 +300,7 @@ public final class AcyclicCraftingSolver {
             state.selected.put(key, pattern);
             if (deferredPatterns.contains(pattern.details())) {
                 // The untouched demand becomes a required output of the owning cycle component.
-                state.provenance.supplied(key,
-                    new MaterialSource.PatternOutput(pattern.details(), true), requested);
+                state.provenance.supplied(key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
                 continue;
             }
             state.provenance.supplied(key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
@@ -249,7 +311,9 @@ public final class AcyclicCraftingSolver {
             Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
             for (var output : pattern.outputs()) {
                 PlannerAmount total = PlannerAmount.of(output.amount()).multiply(times);
-                produced.put(output.what(), produced.getOrDefault(output.what(), PlannerAmount.ZERO).add(total));
+                produced.put(
+                        output.what(),
+                        produced.getOrDefault(output.what(), PlannerAmount.ZERO).add(total));
             }
             for (var output : produced.entrySet()) {
                 PlannerAmount available = output.getValue();
@@ -261,8 +325,8 @@ public final class AcyclicCraftingSolver {
                 if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
                 // Legacy semantic adapters may still express reusable stock without the special analyzer.
                 PlannerAmount required = input.reusable()
-                    ? input.amountPerPattern()
-                    : input.amountPerPattern().multiply(times);
+                        ? input.amountPerPattern()
+                        : input.amountPerPattern().multiply(times);
                 if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
                     PlannerAmount available = consumeStoredForInput(state, input.key(), required, true);
                     required = required.subtract(available);
@@ -270,14 +334,16 @@ public final class AcyclicCraftingSolver {
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
                 state.demand.put(input.key(), old.add(required));
                 state.demandProducers.put(input.key(), pattern.details());
-                state.parents.computeIfAbsent(input.key(), ignored -> new java.util.LinkedHashSet<>()).add(key);
+                state.parents
+                        .computeIfAbsent(input.key(), ignored -> new java.util.LinkedHashSet<>())
+                        .add(key);
             }
         }
         return state;
     }
 
-    private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
-            boolean ignoreComponents) {
+    private static PlannerAmount consumeStoredForInput(
+            SolveState state, AEKey key, PlannerAmount requested, boolean ignoreComponents) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount exact = requested.min(state.stored.get(key));
@@ -291,7 +357,8 @@ public final class AcyclicCraftingSolver {
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
         for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
-            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
+            if (remaining.isZero()
+                    || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
             PlannerAmount take = remaining.min(entry.getValue());
             if (take.signum() <= 0) continue;
@@ -310,39 +377,85 @@ public final class AcyclicCraftingSolver {
 
     private static void addTrace(CompiledNetwork network, SolveState state, long goalAmount, ECOPlanTrace trace) {
         PlannerAmount goal = PlannerAmount.of(goalAmount);
-        trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.GOAL, network.goal(), null, goalAmount, 0, goalAmount,
-            traceLong(state.missing.get(network.goal())), 0, PlanTraceNode.Selection.NOT_APPLICABLE, null)
-            .withExact(goal.toBigInteger(), PlannerAmount.ZERO.toBigInteger(), goal.toBigInteger(),
-                state.missing.get(network.goal()).toBigInteger(), PlannerAmount.ZERO.toBigInteger()));
+        trace.addNode(new PlanTraceNode(
+                        PlanTraceNode.Kind.GOAL,
+                        network.goal(),
+                        null,
+                        goalAmount,
+                        0,
+                        goalAmount,
+                        traceLong(state.missing.get(network.goal())),
+                        0,
+                        PlanTraceNode.Selection.NOT_APPLICABLE,
+                        null)
+                .withExact(
+                        goal.toBigInteger(),
+                        PlannerAmount.ZERO.toBigInteger(),
+                        goal.toBigInteger(),
+                        state.missing.get(network.goal()).toBigInteger(),
+                        PlannerAmount.ZERO.toBigInteger()));
         for (var demand : state.demand.entrySet()) {
             PlannerAmount used = state.used.get(demand.getKey());
             PlannerAmount missing = state.missing.get(demand.getKey());
             PlannerAmount requested = demand.getValue();
-            PlannerAmount toCraft = demand.getValue().subtract(used).subtract(missing).max(PlannerAmount.ZERO);
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.MATERIAL, demand.getKey(), null, traceLong(requested),
-                traceLong(used), traceLong(toCraft), traceLong(missing), 0,
-                PlanTraceNode.Selection.NOT_APPLICABLE, null)
-                .withExact(requested.toBigInteger(), used.toBigInteger(), toCraft.toBigInteger(),
-                    missing.toBigInteger(), java.math.BigInteger.ZERO));
+            PlannerAmount toCraft =
+                    demand.getValue().subtract(used).subtract(missing).max(PlannerAmount.ZERO);
+            trace.addNode(new PlanTraceNode(
+                            PlanTraceNode.Kind.MATERIAL,
+                            demand.getKey(),
+                            null,
+                            traceLong(requested),
+                            traceLong(used),
+                            traceLong(toCraft),
+                            traceLong(missing),
+                            0,
+                            PlanTraceNode.Selection.NOT_APPLICABLE,
+                            null)
+                    .withExact(
+                            requested.toBigInteger(),
+                            used.toBigInteger(),
+                            toCraft.toBigInteger(),
+                            missing.toBigInteger(),
+                            java.math.BigInteger.ZERO));
         }
         for (var selected : state.selected.entrySet()) {
             CompiledPattern pattern = selected.getValue();
             long times = traceLong(state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO));
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, selected.getKey(), pattern.details(), 0, 0, 0,
-                0, times, PlanTraceNode.Selection.SELECTED, null));
+            trace.addNode(new PlanTraceNode(
+                    PlanTraceNode.Kind.PATTERN,
+                    selected.getKey(),
+                    pattern.details(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    times,
+                    PlanTraceNode.Selection.SELECTED,
+                    null));
             for (CompiledInput input : pattern.inputs()) {
-                PlannerAmount exact = input.amountPerPattern().multiply(state.patternTimes
-                    .getOrDefault(pattern.details(), PlannerAmount.ZERO));
-                trace.addEdge(new PlanTraceEdge(selected.getKey(), input.key(), traceLong(exact), exact.toBigInteger()));
+                PlannerAmount exact = input.amountPerPattern()
+                        .multiply(state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO));
+                trace.addEdge(
+                        new PlanTraceEdge(selected.getKey(), input.key(), traceLong(exact), exact.toBigInteger()));
             }
         }
         for (var entry : network.producers().entrySet()) {
-            for (CompiledPattern pattern : entry.getValue()) if (!pattern.fastSupported()) {
-                trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, entry.getKey(), pattern.details(), 0, 0, 0,
-                    0, 0, PlanTraceNode.Selection.UNSUPPORTED, pattern.unsupportedReason()));
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.UNSUPPORTED_INPUT,
-                    pattern.unsupportedReason()));
-            }
+            for (CompiledPattern pattern : entry.getValue())
+                if (!pattern.fastSupported()) {
+                    trace.addNode(new PlanTraceNode(
+                            PlanTraceNode.Kind.PATTERN,
+                            entry.getKey(),
+                            pattern.details(),
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            PlanTraceNode.Selection.UNSUPPORTED,
+                            pattern.unsupportedReason()));
+                    trace.addDiagnostic(new PlannerDiagnostic(
+                            PlannerDiagnostic.Code.UNSUPPORTED_INPUT, pattern.unsupportedReason()));
+                }
         }
     }
 
@@ -350,11 +463,13 @@ public final class AcyclicCraftingSolver {
         List<SolveState.ExecutionAmountIssue> issues = state.executionAmountIssues();
         for (var issue : issues) {
             String key = issue.key() == null ? "<pattern/plan>" : issue.key().toString();
-            String producer = issue.producer() == null ? "<counter>" : issue.producer().toString();
-            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
-                "Execution amount exceeds AE2 long range: key=" + key + " producer=" + producer
-                    + " pattern=" + producer + " amount=" + issue.amount() + " max=" + Long.MAX_VALUE
-                    + " stage=" + issue.stage()));
+            String producer =
+                    issue.producer() == null ? "<counter>" : issue.producer().toString();
+            trace.addDiagnostic(new PlannerDiagnostic(
+                    PlannerDiagnostic.Code.EXECUTION_AMOUNT_UNREPRESENTABLE,
+                    "Execution amount exceeds AE2 long range: key=" + key + " producer=" + producer
+                            + " pattern=" + producer + " amount=" + issue.amount() + " max=" + Long.MAX_VALUE
+                            + " stage=" + issue.stage()));
         }
         return !issues.isEmpty();
     }

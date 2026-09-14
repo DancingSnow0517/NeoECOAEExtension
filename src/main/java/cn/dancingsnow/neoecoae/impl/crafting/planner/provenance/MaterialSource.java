@@ -19,5 +19,5 @@ public sealed interface MaterialSource {
         }
     }
 
-    record CycleOutput(int componentId) implements MaterialSource { }
+    record CycleOutput(int componentId) implements MaterialSource {}
 }

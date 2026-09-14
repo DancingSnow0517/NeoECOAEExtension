@@ -5,10 +5,4 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
 
 /** A candidate pattern's producer -> logical required-input relationship. */
-public record CraftingGraphEdge(
-    AEKey producer,
-    AEKey requiredInput,
-    CompiledPattern pattern,
-    CompiledInput input
-) {
-}
+public record CraftingGraphEdge(AEKey producer, AEKey requiredInput, CompiledPattern pattern, CompiledInput input) {}

@@ -38,8 +38,7 @@ final class ECOCraftingStackCodec {
             if (entry.getLongValue() <= 0) {
                 continue;
             }
-            if (!(entry.getKey() instanceof AEItemKey)
-                    && !(allowFluid && entry.getKey() instanceof AEFluidKey)) {
+            if (!(entry.getKey() instanceof AEItemKey) && !(allowFluid && entry.getKey() instanceof AEFluidKey)) {
                 return List.of();
             }
             stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
@@ -51,8 +50,7 @@ final class ECOCraftingStackCodec {
         for (GenericStack stack : stacks) {
             if (stack == null
                     || stack.amount() <= 0
-                    || (!(stack.what() instanceof AEItemKey)
-                            && !(allowFluid && stack.what() instanceof AEFluidKey))) {
+                    || (!(stack.what() instanceof AEItemKey) && !(allowFluid && stack.what() instanceof AEFluidKey))) {
                 return false;
             }
         }

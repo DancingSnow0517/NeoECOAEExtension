@@ -16,14 +16,37 @@ final class CycleHeuristicBudget {
         this.maxMacroSteps = maxMacroSteps;
     }
 
-    boolean candidate() { return take(++candidateEvaluations <= maxCandidateEvaluations); }
-    boolean lookahead() { return take(++lookaheadNodes <= maxLookaheadNodes); }
-    boolean macroStep() { return take(++macroSteps <= maxMacroSteps); }
-    int candidateEvaluations() { return candidateEvaluations; }
-    int lookaheadNodes() { return lookaheadNodes; }
-    int macroSteps() { return macroSteps; }
-    boolean exhausted() { return exhausted; }
-    void markExhausted() { exhausted = true; }
+    boolean candidate() {
+        return take(++candidateEvaluations <= maxCandidateEvaluations);
+    }
+
+    boolean lookahead() {
+        return take(++lookaheadNodes <= maxLookaheadNodes);
+    }
+
+    boolean macroStep() {
+        return take(++macroSteps <= maxMacroSteps);
+    }
+
+    int candidateEvaluations() {
+        return candidateEvaluations;
+    }
+
+    int lookaheadNodes() {
+        return lookaheadNodes;
+    }
+
+    int macroSteps() {
+        return macroSteps;
+    }
+
+    boolean exhausted() {
+        return exhausted;
+    }
+
+    void markExhausted() {
+        exhausted = true;
+    }
 
     private boolean take(boolean allowed) {
         if (!allowed) exhausted = true;

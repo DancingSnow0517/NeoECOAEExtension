@@ -32,8 +32,15 @@ public final class ExtendedAEPlusPatternSemanticAdapter implements PatternSemant
         return false;
     }
 
-    @Override public PatternSemantics analyze(IPatternDetails pattern) { return delegate.analyze(pattern); }
-    @Override public String name() { return "ExtendedAEPlus"; }
+    @Override
+    public PatternSemantics analyze(IPatternDetails pattern) {
+        return delegate.analyze(pattern);
+    }
+
+    @Override
+    public String name() {
+        return "ExtendedAEPlus";
+    }
 
     private static boolean isCore(AEKey key) {
         if (!(key instanceof AEItemKey item)) return false;
@@ -41,8 +48,11 @@ public final class ExtendedAEPlusPatternSemanticAdapter implements PatternSemant
             var id = BuiltInRegistries.ITEM.getKey(item.toStack(1).getItem());
             if (id == null || !"extendedae_plus".equals(id.getNamespace())) return false;
             String path = id.getPath().toLowerCase(Locale.ROOT);
-            return path.equals("basic_core") || path.equals("storage_core") || path.equals("spatial_core")
-                    || path.equals("energy_storage_core") || path.equals("quantum_storage_core");
+            return path.equals("basic_core")
+                    || path.equals("storage_core")
+                    || path.equals("spatial_core")
+                    || path.equals("energy_storage_core")
+                    || path.equals("quantum_storage_core");
         } catch (RuntimeException ignored) {
             return false;
         }

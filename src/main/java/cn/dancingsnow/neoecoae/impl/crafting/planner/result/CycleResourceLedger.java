@@ -19,18 +19,46 @@ public final class CycleResourceLedger {
 
     public CycleResourceLedger(int componentId, Map<AEKey, Long> bootstrap) {
         this.componentId = componentId;
-        if (bootstrap != null) bootstrap.forEach((key, value) -> {
-            if (key != null && value != null && value > 0) { bootstrapReserve.put(key, value); bootstrapRequirement.put(key, value); }
-        });
+        if (bootstrap != null)
+            bootstrap.forEach((key, value) -> {
+                if (key != null && value != null && value > 0) {
+                    bootstrapReserve.put(key, value);
+                    bootstrapRequirement.put(key, value);
+                }
+            });
     }
-    public int componentId() { return componentId; }
-    public Map<AEKey, Long> bootstrapReserve() { return Map.copyOf(bootstrapReserve); }
-    public Map<AEKey, Long> internalConsumed() { return Map.copyOf(internalConsumed); }
-    public Map<AEKey, Long> generated() { return Map.copyOf(generated); }
-    public Map<AEKey, Long> releasedSurplus() { return Map.copyOf(releasedSurplus); }
-    public long reserve(AEKey key) { return bootstrapReserve.getOrDefault(key, 0L); }
-    public long generated(AEKey key) { return generated.getOrDefault(key, 0L); }
-    public long released(AEKey key) { return releasedSurplus.getOrDefault(key, 0L); }
+
+    public int componentId() {
+        return componentId;
+    }
+
+    public Map<AEKey, Long> bootstrapReserve() {
+        return Map.copyOf(bootstrapReserve);
+    }
+
+    public Map<AEKey, Long> internalConsumed() {
+        return Map.copyOf(internalConsumed);
+    }
+
+    public Map<AEKey, Long> generated() {
+        return Map.copyOf(generated);
+    }
+
+    public Map<AEKey, Long> releasedSurplus() {
+        return Map.copyOf(releasedSurplus);
+    }
+
+    public long reserve(AEKey key) {
+        return bootstrapReserve.getOrDefault(key, 0L);
+    }
+
+    public long generated(AEKey key) {
+        return generated.getOrDefault(key, 0L);
+    }
+
+    public long released(AEKey key) {
+        return releasedSurplus.getOrDefault(key, 0L);
+    }
 
     public void consume(AEKey key, long amount) {
         if (key == null || amount <= 0) return;
@@ -54,7 +82,9 @@ public final class CycleResourceLedger {
     }
 
     /** The minimum reserve is the bootstrap amount; generated surplus is never required reserve. */
-    public long requiredReserve(AEKey key) { return bootstrapRequirement.getOrDefault(key, 0L); }
+    public long requiredReserve(AEKey key) {
+        return bootstrapRequirement.getOrDefault(key, 0L);
+    }
 
     public long availableForOutside(AEKey key) {
         return Math.max(0L, generated(key) - reserve(key) - released(key));
@@ -81,8 +111,15 @@ public final class CycleResourceLedger {
 
     private void log(AEKey key, long before, long after, long produced, long released, String reason) {
         if (TRACE_EVENTS) {
-            LOGGER.trace("[ECO-CYCLE-RESOURCE] cycle={} item={} bootstrapReserve={} reserveAfter={} produced={} released={} reason={}",
-                componentId, key, before, after, produced, released, reason);
+            LOGGER.trace(
+                    "[ECO-CYCLE-RESOURCE] cycle={} item={} bootstrapReserve={} reserveAfter={} produced={} released={} reason={}",
+                    componentId,
+                    key,
+                    before,
+                    after,
+                    produced,
+                    released,
+                    reason);
         }
     }
 }

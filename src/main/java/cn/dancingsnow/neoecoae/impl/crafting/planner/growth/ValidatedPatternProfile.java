@@ -42,9 +42,14 @@ public final class ValidatedPatternProfile {
     private final Map<AEKey, Long> remainder;
     private final NetGrowthRejection netGrowthRejection;
 
-    private ValidatedPatternProfile(PatternProfileValidator issuer, CompiledPattern pattern,
-            Set<PatternCapability> capabilities, Map<AEKey, Long> consumption, Map<AEKey, Long> production,
-            Map<AEKey, Long> remainder, NetGrowthRejection netGrowthRejection) {
+    private ValidatedPatternProfile(
+            PatternProfileValidator issuer,
+            CompiledPattern pattern,
+            Set<PatternCapability> capabilities,
+            Map<AEKey, Long> consumption,
+            Map<AEKey, Long> production,
+            Map<AEKey, Long> remainder,
+            NetGrowthRejection netGrowthRejection) {
         this.issuer = issuer;
         this.pattern = pattern;
         this.capabilities = Set.copyOf(capabilities);
@@ -55,11 +60,16 @@ public final class ValidatedPatternProfile {
     }
 
     /** Trusted construction. Only {@link PatternProfileValidator} may call this. */
-    static ValidatedPatternProfile trusted(PatternProfileValidator issuer, CompiledPattern pattern,
-            Set<PatternCapability> capabilities, Map<AEKey, Long> consumption, Map<AEKey, Long> production,
-            Map<AEKey, Long> remainder, NetGrowthRejection netGrowthRejection) {
-        return new ValidatedPatternProfile(issuer, pattern, capabilities, consumption, production, remainder,
-            netGrowthRejection);
+    static ValidatedPatternProfile trusted(
+            PatternProfileValidator issuer,
+            CompiledPattern pattern,
+            Set<PatternCapability> capabilities,
+            Map<AEKey, Long> consumption,
+            Map<AEKey, Long> production,
+            Map<AEKey, Long> remainder,
+            NetGrowthRejection netGrowthRejection) {
+        return new ValidatedPatternProfile(
+                issuer, pattern, capabilities, consumption, production, remainder, netGrowthRejection);
     }
 
     public CompiledPattern pattern() {
@@ -162,6 +172,6 @@ public final class ValidatedPatternProfile {
     @Override
     public String toString() {
         return "ValidatedPatternProfile[pattern=" + pattern.id() + " capabilities=" + capabilities
-            + (netGrowthSafe() ? "" : " netGrowthRejection=" + netGrowthRejection) + "]";
+                + (netGrowthSafe() ? "" : " netGrowthRejection=" + netGrowthRejection) + "]";
     }
 }

@@ -22,18 +22,17 @@ import java.util.List;
  *                             re-reading {@link IPatternDetails}.
  */
 public record CompiledPattern(
-    int id,
-    IPatternDetails details,
-    AEKey producedKey,
-    PlannerAmount outputPerPattern,
-    List<CompiledInput> inputs,
-    List<GenericStack> outputs,
-    boolean fastSupported,
-    String unsupportedReason,
-    boolean netGrowthValidated,
-    PatternSemantics semantics,
-    SpecialPatternAnalysis specialAnalysis
-) {
+        int id,
+        IPatternDetails details,
+        AEKey producedKey,
+        PlannerAmount outputPerPattern,
+        List<CompiledInput> inputs,
+        List<GenericStack> outputs,
+        boolean fastSupported,
+        String unsupportedReason,
+        boolean netGrowthValidated,
+        PatternSemantics semantics,
+        SpecialPatternAnalysis specialAnalysis) {
     public CompiledPattern {
         inputs = List.copyOf(inputs);
         outputs = List.copyOf(outputs);
@@ -46,25 +45,76 @@ public record CompiledPattern(
      * <em>unproven</em>, which is the safe direction: capabilities that need a stable static contract are
      * withheld rather than assumed.
      */
-    public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, long outputPerPattern,
-            List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
+    public CompiledPattern(
+            int id,
+            IPatternDetails details,
+            AEKey producedKey,
+            long outputPerPattern,
+            List<CompiledInput> inputs,
+            List<GenericStack> outputs,
+            boolean fastSupported,
             String unsupportedReason) {
-        this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported, unsupportedReason,
-            false, null, SpecialPatternAnalysis.NONE);
+        this(
+                id,
+                details,
+                producedKey,
+                PlannerAmount.of(outputPerPattern),
+                inputs,
+                outputs,
+                fastSupported,
+                unsupportedReason,
+                false,
+                null,
+                SpecialPatternAnalysis.NONE);
     }
 
-    public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, long outputPerPattern,
-            List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
-            String unsupportedReason, boolean netGrowthValidated) {
-        this(id, details, producedKey, PlannerAmount.of(outputPerPattern), inputs, outputs, fastSupported,
-            unsupportedReason, netGrowthValidated, null, SpecialPatternAnalysis.NONE);
+    public CompiledPattern(
+            int id,
+            IPatternDetails details,
+            AEKey producedKey,
+            long outputPerPattern,
+            List<CompiledInput> inputs,
+            List<GenericStack> outputs,
+            boolean fastSupported,
+            String unsupportedReason,
+            boolean netGrowthValidated) {
+        this(
+                id,
+                details,
+                producedKey,
+                PlannerAmount.of(outputPerPattern),
+                inputs,
+                outputs,
+                fastSupported,
+                unsupportedReason,
+                netGrowthValidated,
+                null,
+                SpecialPatternAnalysis.NONE);
     }
 
-    public CompiledPattern(int id, IPatternDetails details, AEKey producedKey, PlannerAmount outputPerPattern,
-            List<CompiledInput> inputs, List<GenericStack> outputs, boolean fastSupported,
-            String unsupportedReason, boolean netGrowthValidated, PatternSemantics semantics) {
-        this(id, details, producedKey, outputPerPattern, inputs, outputs, fastSupported, unsupportedReason,
-            netGrowthValidated, semantics, SpecialPatternAnalysis.NONE);
+    public CompiledPattern(
+            int id,
+            IPatternDetails details,
+            AEKey producedKey,
+            PlannerAmount outputPerPattern,
+            List<CompiledInput> inputs,
+            List<GenericStack> outputs,
+            boolean fastSupported,
+            String unsupportedReason,
+            boolean netGrowthValidated,
+            PatternSemantics semantics) {
+        this(
+                id,
+                details,
+                producedKey,
+                outputPerPattern,
+                inputs,
+                outputs,
+                fastSupported,
+                unsupportedReason,
+                netGrowthValidated,
+                semantics,
+                SpecialPatternAnalysis.NONE);
     }
 
     /** Gross per-firing outputs used by cycle algebra: normal products plus normalized returned/reusable stock. */

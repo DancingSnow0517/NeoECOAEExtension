@@ -7,8 +7,7 @@ import java.util.List;
 
 /** Ordered adapter registry. Integrations are checked before the generic AE2 contract. */
 public final class PatternSemanticAdapters {
-    private PatternSemanticAdapters() {
-    }
+    private PatternSemanticAdapters() {}
 
     public static List<PatternSemanticAdapter> defaults() {
         List<PatternSemanticAdapter> adapters = new ArrayList<>();

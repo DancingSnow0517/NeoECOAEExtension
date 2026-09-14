@@ -7,18 +7,19 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAda
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
-import java.util.function.ToLongFunction;
-import java.util.function.Predicate;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.function.ToLongFunction;
 
 /** Pure phase policy shared by runtime and focused scheduler tests. */
 public final class ECOPhaseScheduler {
     private ECOPhaseScheduler() {}
-    private static final ConcurrentHashMap<PlanIdentity.PatternIdentity, PatternSemantics> SEMANTIC_CACHE =
-        new ConcurrentHashMap<>();
 
-    public static boolean metadataAvailable(boolean requiresOrderedCycleExecution,
-            ECOExecutionSchedule schedule, boolean witnessMissing) {
+    private static final ConcurrentHashMap<PlanIdentity.PatternIdentity, PatternSemantics> SEMANTIC_CACHE =
+            new ConcurrentHashMap<>();
+
+    public static boolean metadataAvailable(
+            boolean requiresOrderedCycleExecution, ECOExecutionSchedule schedule, boolean witnessMissing) {
         return !requiresOrderedCycleExecution || (schedule != null && !witnessMissing);
     }
 
@@ -29,12 +30,14 @@ public final class ECOPhaseScheduler {
 
     /** A compact single-transition cycle has no expanded witness but still needs component phase ordering. */
     public static boolean requiresComponentScheduling(ECOExecutionSchedule schedule) {
-        return schedule != null && schedule.phases().stream().anyMatch(phase ->
-            phase.type() != ECOExecutionSchedule.Type.DAG && !phase.patternSet().isEmpty());
+        return schedule != null
+                && schedule.phases().stream()
+                        .anyMatch(phase -> phase.type() != ECOExecutionSchedule.Type.DAG
+                                && !phase.patternSet().isEmpty());
     }
 
-    public static boolean canDispatch(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
-            IPatternDetails pattern) {
+    public static boolean canDispatch(
+            ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex, IPatternDetails pattern) {
         if (phase.patternSet().stream().noneMatch(member -> samePattern(member, pattern))) return false;
         if (phase.type() == ECOExecutionSchedule.Type.DAG) return true;
         // A cycle phase without a per-firing witness carries a compact single-transition plan: there is only
@@ -45,8 +48,9 @@ public final class ECOPhaseScheduler {
         // proof has been replayed, keeping the witness gate closed would leave the aggregate remainder unable
         // to run and the phase unable to complete.
         if (witnessIndex >= phase.cycleWitness().size()) return true;
-        return witnessIndex >= 0 && witnessIndex < phase.cycleWitness().size()
-            && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
+        return witnessIndex >= 0
+                && witnessIndex < phase.cycleWitness().size()
+                && samePattern(phase.cycleWitness().get(witnessIndex), pattern);
     }
 
     /**
@@ -55,8 +59,10 @@ public final class ECOPhaseScheduler {
      * on hand, producing natural growth waves such as 1 -> 2 -> 4 -> 8. The caller still caps retention to
      * physical output that actually arrived.
      */
-    public static long compactCycleFeedbackReserve(ECOExecutionSchedule.ComponentExecutionPhase phase,
-            ToLongFunction<IPatternDetails> remainingTasks, AEKey key) {
+    public static long compactCycleFeedbackReserve(
+            ECOExecutionSchedule.ComponentExecutionPhase phase,
+            ToLongFunction<IPatternDetails> remainingTasks,
+            AEKey key) {
         PlannerAmount exact = compactCycleFeedbackReserveExact(phase, remainingTasks, key);
         // This method feeds a runtime long-valued reservation API. Keep the exact result above, and only
         // project at this final execution boundary where there is no BigInteger slot to pass through.
@@ -66,15 +72,18 @@ public final class ECOPhaseScheduler {
     /** Exact planner-side form of {@link #compactCycleFeedbackReserve}; no quantity is saturated here. */
     public static PlannerAmount compactCycleFeedbackReserveExact(
             ECOExecutionSchedule.ComponentExecutionPhase phase,
-            ToLongFunction<IPatternDetails> remainingTasks, AEKey key) {
-        if (phase == null || key == null || phase.type() != ECOExecutionSchedule.Type.CYCLE
-                || !phase.cycleWitness().isEmpty() || phase.patternSet().size() != 1) return PlannerAmount.ZERO;
+            ToLongFunction<IPatternDetails> remainingTasks,
+            AEKey key) {
+        if (phase == null
+                || key == null
+                || phase.type() != ECOExecutionSchedule.Type.CYCLE
+                || !phase.cycleWitness().isEmpty()
+                || phase.patternSet().size() != 1) return PlannerAmount.ZERO;
         IPatternDetails pattern = phase.patternSet().iterator().next();
         return growingPatternFeedbackReserveExact(pattern, remainingTasks.applyAsLong(pattern), key);
     }
 
-    public static PlannerAmount growingPatternFeedbackReserveExact(
-            IPatternDetails pattern, long remaining, AEKey key) {
+    public static PlannerAmount growingPatternFeedbackReserveExact(IPatternDetails pattern, long remaining, AEKey key) {
         if (remaining <= 0L) return PlannerAmount.ZERO;
         try {
             PatternSemantics semantics = semantic(pattern);
@@ -113,15 +122,18 @@ public final class ECOPhaseScheduler {
         }
         PatternSemanticAdapter adapter = PatternSemanticAdapters.find(PatternSemanticAdapters.defaults(), pattern);
         PatternSemantics result;
-        if (adapter == null) result = new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
-            .analyze(pattern);
+        if (adapter == null)
+            result = new cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter()
+                    .analyze(pattern);
         else {
-        try {
-            result = adapter.analyze(pattern);
-        } catch (RuntimeException rejected) {
-            result = PatternSemantics.unsupported(pattern, null,
-                "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
-        }
+            try {
+                result = adapter.analyze(pattern);
+            } catch (RuntimeException rejected) {
+                result = PatternSemantics.unsupported(
+                        pattern,
+                        null,
+                        "SEMANTIC_ANALYSIS_FAILED:" + rejected.getClass().getSimpleName());
+            }
         }
         if (identity != null) SEMANTIC_CACHE.putIfAbsent(identity, result);
         return result;
@@ -132,9 +144,12 @@ public final class ECOPhaseScheduler {
         return PlanIdentity.samePattern(left, right);
     }
 
-    public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
+    public static boolean isComplete(
+            ECOExecutionSchedule.ComponentExecutionPhase phase,
+            int witnessIndex,
             ToLongFunction<IPatternDetails> remainingTasks) {
-        if (phase.type() == ECOExecutionSchedule.Type.CYCLE && witnessIndex < phase.cycleWitness().size()) return false;
+        if (phase.type() == ECOExecutionSchedule.Type.CYCLE
+                && witnessIndex < phase.cycleWitness().size()) return false;
         for (var pattern : phase.patternSet()) {
             if (remainingTasks.applyAsLong(pattern) > 0) return false;
         }
@@ -147,13 +162,15 @@ public final class ECOPhaseScheduler {
      * phase-completion condition.
      */
     @Deprecated
-    public static boolean isComplete(ECOExecutionSchedule.ComponentExecutionPhase phase, int witnessIndex,
-            ToLongFunction<IPatternDetails> remainingTasks, Predicate<AEKey> ignoredInFlightPredicate) {
+    public static boolean isComplete(
+            ECOExecutionSchedule.ComponentExecutionPhase phase,
+            int witnessIndex,
+            ToLongFunction<IPatternDetails> remainingTasks,
+            Predicate<AEKey> ignoredInFlightPredicate) {
         return isComplete(phase, witnessIndex, remainingTasks);
     }
 
     public static int witnessAfterDispatch(int witnessIndex, boolean accepted) {
         return accepted ? Math.addExact(witnessIndex, 1) : witnessIndex;
     }
-
 }

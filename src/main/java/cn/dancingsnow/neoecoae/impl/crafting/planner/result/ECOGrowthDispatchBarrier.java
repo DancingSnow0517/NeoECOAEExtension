@@ -26,13 +26,17 @@ public final class ECOGrowthDispatchBarrier {
             }
             inputs.put(pattern, keys);
             for (var output : pattern.getOutputs()) {
-                producers.computeIfAbsent(output.what(), ignored -> new HashSet<>()).add(pattern);
+                producers
+                        .computeIfAbsent(output.what(), ignored -> new HashSet<>())
+                        .add(pattern);
             }
             for (var input : pattern.getInputs()) {
                 for (var stack : input.getPossibleInputs()) {
                     var remainder = input.getRemainingKey(stack.what());
                     if (remainder != null) {
-                        producers.computeIfAbsent(remainder, ignored -> new HashSet<>()).add(pattern);
+                        producers
+                                .computeIfAbsent(remainder, ignored -> new HashSet<>())
+                                .add(pattern);
                     }
                 }
             }
@@ -40,7 +44,9 @@ public final class ECOGrowthDispatchBarrier {
         for (var grow : patterns) {
             var feedback = new HashSet<AEKey>();
             for (var key : inputs.get(grow)) {
-                if (ECOPhaseScheduler.growingPatternFeedbackReserveExact(grow, 1L, key).signum() > 0) {
+                if (ECOPhaseScheduler.growingPatternFeedbackReserveExact(grow, 1L, key)
+                                .signum()
+                        > 0) {
                     feedback.add(key);
                 }
             }
@@ -62,7 +68,8 @@ public final class ECOGrowthDispatchBarrier {
             for (var consumer : patterns) {
                 if (suppliers.contains(consumer)) continue;
                 if (inputs.get(consumer).stream().anyMatch(feedback::contains)) {
-                    blockers.computeIfAbsent(consumer, ignored -> new HashSet<>()).add(grow);
+                    blockers.computeIfAbsent(consumer, ignored -> new HashSet<>())
+                            .add(grow);
                 }
             }
         }

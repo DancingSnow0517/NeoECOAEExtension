@@ -2,14 +2,14 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
 import io.netty.buffer.Unpooled;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExactCycleAmount;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.Deflater;
@@ -21,18 +21,18 @@ import org.jetbrains.annotations.Nullable;
 
 /** Immutable, solver-free network DTO consumed by the crafting graph client. */
 public record CraftingGraphSnapshot(
-    int rootNodeId,
-    List<MaterialNode> nodes,
-    List<PatternNode> patterns,
-    List<Edge> edges,
-    List<CycleGroup> cycleGroups,
-    List<ResourceLocation> fuzzyPlanningItemIds,
-    Summary summary
-) implements PacketWritable {
+        int rootNodeId,
+        List<MaterialNode> nodes,
+        List<PatternNode> patterns,
+        List<Edge> edges,
+        List<CycleGroup> cycleGroups,
+        List<ResourceLocation> fuzzyPlanningItemIds,
+        Summary summary)
+        implements PacketWritable {
     private static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
     private static final int MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
-    public static final CraftingGraphSnapshot EMPTY = new CraftingGraphSnapshot(-1, List.of(), List.of(), List.of(),
-        List.of(), List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
+    public static final CraftingGraphSnapshot EMPTY = new CraftingGraphSnapshot(
+            -1, List.of(), List.of(), List.of(), List.of(), List.of(), new Summary("EMPTY", 0, 0, 0, 0, 0));
 
     public CraftingGraphSnapshot {
         nodes = List.copyOf(nodes);
@@ -47,8 +47,14 @@ public record CraftingGraphSnapshot(
     }
 
     private CraftingGraphSnapshot(Decoded decoded) {
-        this(decoded.rootNodeId, decoded.nodes, decoded.patterns, decoded.edges, decoded.cycleGroups,
-            decoded.fuzzyPlanningItemIds, decoded.summary);
+        this(
+                decoded.rootNodeId,
+                decoded.nodes,
+                decoded.patterns,
+                decoded.edges,
+                decoded.cycleGroups,
+                decoded.fuzzyPlanningItemIds,
+                decoded.summary);
     }
 
     @Override
@@ -84,9 +90,14 @@ public record CraftingGraphSnapshot(
         byte[] uncompressed = decompress(compressed, expectedSize);
         var raw = new FriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed));
         try {
-            Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
-                readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                readList(raw, FriendlyByteBuf::readResourceLocation), Summary.read(raw));
+            Decoded result = new Decoded(
+                    raw.readVarInt(),
+                    readList(raw, MaterialNode::read),
+                    readList(raw, PatternNode::read),
+                    readList(raw, Edge::read),
+                    readList(raw, CycleGroup::read),
+                    readList(raw, FriendlyByteBuf::readResourceLocation),
+                    Summary.read(raw));
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {
@@ -114,7 +125,7 @@ public record CraftingGraphSnapshot(
                 var output = new ByteArrayOutputStream(expectedSize)) {
             byte[] chunk = new byte[8192];
             int total = 0;
-            for (int read; (read = stream.read(chunk)) >= 0;) {
+            for (int read; (read = stream.read(chunk)) >= 0; ) {
                 total += read;
                 if (total > expectedSize || total > MAX_UNCOMPRESSED_BYTES) {
                     throw new IllegalArgumentException("Crafting graph expands beyond declared size");
@@ -122,8 +133,8 @@ public record CraftingGraphSnapshot(
                 output.write(chunk, 0, read);
             }
             if (total != expectedSize) {
-                throw new IllegalArgumentException("Crafting graph size mismatch: expected " + expectedSize
-                    + ", got " + total);
+                throw new IllegalArgumentException(
+                        "Crafting graph size mismatch: expected " + expectedSize + ", got " + total);
             }
             return output.toByteArray();
         } catch (IOException e) {
@@ -131,31 +142,113 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private record Decoded(int rootNodeId, List<MaterialNode> nodes, List<PatternNode> patterns, List<Edge> edges,
-            List<CycleGroup> cycleGroups, List<ResourceLocation> fuzzyPlanningItemIds, Summary summary) {}
+    private record Decoded(
+            int rootNodeId,
+            List<MaterialNode> nodes,
+            List<PatternNode> patterns,
+            List<Edge> edges,
+            List<CycleGroup> cycleGroups,
+            List<ResourceLocation> fuzzyPlanningItemIds,
+            Summary summary) {}
 
-    public enum MaterialStatus { SATISFIED, CRAFTING, MISSING, UNSUPPORTED, CYCLE }
-    public enum CandidateStatus { SELECTED, REJECTED, UNSUPPORTED }
-    public enum EdgeKind { PATTERN_OUTPUT, PATTERN_INPUT, BYPRODUCT, CYCLE_INTERNAL }
+    public enum MaterialStatus {
+        SATISFIED,
+        CRAFTING,
+        MISSING,
+        UNSUPPORTED,
+        CYCLE
+    }
 
-    public record MaterialNode(int nodeId, AEKey key, long requested, long fromInventory, long toCraft, long missing,
-            MaterialStatus status, String exactRequested, String exactFromInventory, String exactToCraft,
-            String exactMissing, String exactConsumed, String exactProduced) {
-        public MaterialNode(int nodeId, AEKey key, long requested, long fromInventory, long toCraft, long missing,
+    public enum CandidateStatus {
+        SELECTED,
+        REJECTED,
+        UNSUPPORTED
+    }
+
+    public enum EdgeKind {
+        PATTERN_OUTPUT,
+        PATTERN_INPUT,
+        BYPRODUCT,
+        CYCLE_INTERNAL
+    }
+
+    public record MaterialNode(
+            int nodeId,
+            AEKey key,
+            long requested,
+            long fromInventory,
+            long toCraft,
+            long missing,
+            MaterialStatus status,
+            String exactRequested,
+            String exactFromInventory,
+            String exactToCraft,
+            String exactMissing,
+            String exactConsumed,
+            String exactProduced) {
+        public MaterialNode(
+                int nodeId,
+                AEKey key,
+                long requested,
+                long fromInventory,
+                long toCraft,
+                long missing,
                 MaterialStatus status) {
-            this(nodeId, key, requested, fromInventory, toCraft, missing, status, Long.toString(requested),
-                Long.toString(fromInventory), Long.toString(toCraft), Long.toString(missing), "0", "0");
+            this(
+                    nodeId,
+                    key,
+                    requested,
+                    fromInventory,
+                    toCraft,
+                    missing,
+                    status,
+                    Long.toString(requested),
+                    Long.toString(fromInventory),
+                    Long.toString(toCraft),
+                    Long.toString(missing),
+                    "0",
+                    "0");
         }
-        public BigInteger requestedBigInteger() { return new BigInteger(exactRequested); }
-        public BigInteger fromInventoryBigInteger() { return new BigInteger(exactFromInventory); }
-        public BigInteger toCraftBigInteger() { return new BigInteger(exactToCraft); }
-        public BigInteger missingBigInteger() { return new BigInteger(exactMissing); }
-        public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
-        public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
+
+        public BigInteger requestedBigInteger() {
+            return new BigInteger(exactRequested);
+        }
+
+        public BigInteger fromInventoryBigInteger() {
+            return new BigInteger(exactFromInventory);
+        }
+
+        public BigInteger toCraftBigInteger() {
+            return new BigInteger(exactToCraft);
+        }
+
+        public BigInteger missingBigInteger() {
+            return new BigInteger(exactMissing);
+        }
+
+        public BigInteger consumedBigInteger() {
+            return new BigInteger(exactConsumed);
+        }
+
+        public BigInteger producedBigInteger() {
+            return new BigInteger(exactProduced);
+        }
+
         private static MaterialNode read(FriendlyByteBuf data) {
-            return new MaterialNode(data.readVarInt(), AEKey.readKey(data), data.readVarLong(), data.readVarLong(),
-                data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
-                data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
+            return new MaterialNode(
+                    data.readVarInt(),
+                    AEKey.readKey(data),
+                    data.readVarLong(),
+                    data.readVarLong(),
+                    data.readVarLong(),
+                    data.readVarLong(),
+                    data.readEnum(MaterialStatus.class),
+                    data.readUtf(),
+                    data.readUtf(),
+                    data.readUtf(),
+                    data.readUtf(),
+                    data.readUtf(),
+                    data.readUtf());
         }
 
         private void write(FriendlyByteBuf data) {
@@ -186,18 +279,30 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record PatternNode(int patternNodeId, String displayIdentity, List<Relationship> inputs,
+    public record PatternNode(
+            int patternNodeId,
+            String displayIdentity,
+            List<Relationship> inputs,
             List<Relationship> outputs,
-            long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
+            long firingCount,
+            CandidateStatus status,
+            @Nullable String rejectionReason,
+            int componentId) {
         public PatternNode {
             inputs = List.copyOf(inputs);
             outputs = List.copyOf(outputs);
         }
 
         private static PatternNode read(FriendlyByteBuf data) {
-            return new PatternNode(data.readVarInt(), data.readUtf(), readList(data, Relationship::read),
-                readList(data, Relationship::read), data.readVarLong(), data.readEnum(CandidateStatus.class),
-                readNullableString(data), data.readVarInt());
+            return new PatternNode(
+                    data.readVarInt(),
+                    data.readUtf(),
+                    readList(data, Relationship::read),
+                    readList(data, Relationship::read),
+                    data.readVarLong(),
+                    data.readEnum(CandidateStatus.class),
+                    readNullableString(data),
+                    data.readVarInt());
         }
 
         private void write(FriendlyByteBuf data) {
@@ -215,8 +320,12 @@ public record CraftingGraphSnapshot(
     /** Edges use globally unique visual IDs: material IDs are non-negative and pattern IDs are encoded by clients. */
     public record Edge(int fromId, int toId, long amount, EdgeKind kind, boolean selected) {
         private static Edge read(FriendlyByteBuf data) {
-            return new Edge(data.readVarInt(), data.readVarInt(), data.readVarLong(), data.readEnum(EdgeKind.class),
-                data.readBoolean());
+            return new Edge(
+                    data.readVarInt(),
+                    data.readVarInt(),
+                    data.readVarLong(),
+                    data.readEnum(EdgeKind.class),
+                    data.readBoolean());
         }
 
         private void write(FriendlyByteBuf data) {
@@ -250,30 +359,83 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
-            List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
-            List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
-            List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts,
-            List<ExactKeyAmount> exactSingleNetOutputs, List<ExactKeyAmount> exactTotalNetOutputs,
-            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) {
+    public record CycleGroup(
+            int componentId,
+            List<Integer> memberNodeIds,
+            List<Edge> internalEdges,
+            String status,
+            List<KeyAmount> requiredOutputs,
+            List<KeyAmount> externalInputs,
+            List<KeyAmount> requiredSeed,
+            List<PatternAmount> patternTimes,
+            List<Integer> executionWitness,
+            List<KeyAmount> singleNetOutputs,
+            List<KeyAmount> totalNetOutputs,
+            List<KeyAmount> availableAmounts,
+            List<ExactKeyAmount> exactSingleNetOutputs,
+            List<ExactKeyAmount> exactTotalNetOutputs,
+            ExecutionCountKnowledge executionCountKnowledge,
+            CycleSolveStatus solveStatus) {
         /** Compatibility constructor for snapshots written before cycle net-output metadata was added. */
-        public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
-                List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
-                List<PatternAmount> patternTimes, List<Integer> executionWitness) {
-            this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
-                patternTimes, executionWitness, List.of(), List.of(), List.of(), List.of(), List.of(),
-                ExecutionCountKnowledge.UNKNOWN, CycleSolveStatus.NOT_IMPLEMENTED);
+        public CycleGroup(
+                int componentId,
+                List<Integer> memberNodeIds,
+                List<Edge> internalEdges,
+                String status,
+                List<KeyAmount> requiredOutputs,
+                List<KeyAmount> externalInputs,
+                List<KeyAmount> requiredSeed,
+                List<PatternAmount> patternTimes,
+                List<Integer> executionWitness) {
+            this(
+                    componentId,
+                    memberNodeIds,
+                    internalEdges,
+                    status,
+                    requiredOutputs,
+                    externalInputs,
+                    requiredSeed,
+                    patternTimes,
+                    executionWitness,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    ExecutionCountKnowledge.UNKNOWN,
+                    CycleSolveStatus.NOT_IMPLEMENTED);
         }
 
-        public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
-                List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
-                List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
-                List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts) {
-            this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
-                patternTimes, executionWitness, singleNetOutputs, totalNetOutputs, availableAmounts,
-                exact(singleNetOutputs), exact(totalNetOutputs),
-                totalNetOutputs.isEmpty() ? ExecutionCountKnowledge.UNKNOWN : ExecutionCountKnowledge.EXACT,
-                CycleSolveStatus.NOT_IMPLEMENTED);
+        public CycleGroup(
+                int componentId,
+                List<Integer> memberNodeIds,
+                List<Edge> internalEdges,
+                String status,
+                List<KeyAmount> requiredOutputs,
+                List<KeyAmount> externalInputs,
+                List<KeyAmount> requiredSeed,
+                List<PatternAmount> patternTimes,
+                List<Integer> executionWitness,
+                List<KeyAmount> singleNetOutputs,
+                List<KeyAmount> totalNetOutputs,
+                List<KeyAmount> availableAmounts) {
+            this(
+                    componentId,
+                    memberNodeIds,
+                    internalEdges,
+                    status,
+                    requiredOutputs,
+                    externalInputs,
+                    requiredSeed,
+                    patternTimes,
+                    executionWitness,
+                    singleNetOutputs,
+                    totalNetOutputs,
+                    availableAmounts,
+                    exact(singleNetOutputs),
+                    exact(totalNetOutputs),
+                    totalNetOutputs.isEmpty() ? ExecutionCountKnowledge.UNKNOWN : ExecutionCountKnowledge.EXACT,
+                    CycleSolveStatus.NOT_IMPLEMENTED);
         }
 
         public CycleGroup {
@@ -292,12 +454,23 @@ public record CraftingGraphSnapshot(
         }
 
         private static CycleGroup read(FriendlyByteBuf data) {
-            return new CycleGroup(data.readVarInt(), readIntList(data), readList(data, Edge::read), data.readUtf(),
-                readList(data, KeyAmount::read), readList(data, KeyAmount::read), readList(data, KeyAmount::read),
-                readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
-                readList(data, KeyAmount::read), readList(data, KeyAmount::read),
-                readList(data, ExactKeyAmount::read), readList(data, ExactKeyAmount::read),
-                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class));
+            return new CycleGroup(
+                    data.readVarInt(),
+                    readIntList(data),
+                    readList(data, Edge::read),
+                    data.readUtf(),
+                    readList(data, KeyAmount::read),
+                    readList(data, KeyAmount::read),
+                    readList(data, KeyAmount::read),
+                    readList(data, PatternAmount::read),
+                    readIntList(data),
+                    readList(data, KeyAmount::read),
+                    readList(data, KeyAmount::read),
+                    readList(data, KeyAmount::read),
+                    readList(data, ExactKeyAmount::read),
+                    readList(data, ExactKeyAmount::read),
+                    data.readEnum(ExecutionCountKnowledge.class),
+                    data.readEnum(CycleSolveStatus.class));
         }
 
         private void write(FriendlyByteBuf data) {
@@ -320,16 +493,27 @@ public record CraftingGraphSnapshot(
         }
 
         private static List<ExactKeyAmount> exact(List<KeyAmount> values) {
-            return values.stream().map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.amount())))
-                .toList();
+            return values.stream()
+                    .map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.amount())))
+                    .toList();
         }
     }
 
-    public record Summary(String planningStatus, int materialNodes, int patternNodes, int edges, int cycleGroups,
+    public record Summary(
+            String planningStatus,
+            int materialNodes,
+            int patternNodes,
+            int edges,
+            int cycleGroups,
             long calculationNanos) {
         private static Summary read(FriendlyByteBuf data) {
-            return new Summary(data.readUtf(), data.readVarInt(), data.readVarInt(), data.readVarInt(),
-                data.readVarInt(), data.readVarLong());
+            return new Summary(
+                    data.readUtf(),
+                    data.readVarInt(),
+                    data.readVarInt(),
+                    data.readVarInt(),
+                    data.readVarInt(),
+                    data.readVarLong());
         }
 
         private void write(FriendlyByteBuf data) {
@@ -342,8 +526,13 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private interface Reader<T> { T read(FriendlyByteBuf data); }
-    private interface Writer<T> { void write(T value, FriendlyByteBuf data); }
+    private interface Reader<T> {
+        T read(FriendlyByteBuf data);
+    }
+
+    private interface Writer<T> {
+        void write(T value, FriendlyByteBuf data);
+    }
 
     private static <T> List<T> readList(FriendlyByteBuf data, Reader<T> reader) {
         int size = data.readVarInt();

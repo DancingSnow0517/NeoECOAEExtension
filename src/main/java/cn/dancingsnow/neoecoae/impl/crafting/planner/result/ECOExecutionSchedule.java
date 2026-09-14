@@ -3,19 +3,19 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.result;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
-import java.util.List;
-import java.util.Set;
-import java.util.Map;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.HashSet;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,13 +27,26 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         phases = List.copyOf(phases);
         dependencies = List.copyOf(dependencies);
     }
-    public ECOExecutionSchedule(List<ComponentExecutionPhase> phases) { this(phases, List.of()); }
-    public record PhaseDependency(int producerPhase, int consumerPhase) { }
-    public record ComponentExecutionPhase(int componentId, Type type, Set<IPatternDetails> patternSet,
-            List<IPatternDetails> cycleWitness) {
-        public ComponentExecutionPhase { patternSet = Set.copyOf(patternSet); cycleWitness = List.copyOf(cycleWitness); }
+
+    public ECOExecutionSchedule(List<ComponentExecutionPhase> phases) {
+        this(phases, List.of());
     }
-    public enum Type { DAG, CYCLE, DYNAMIC_CYCLE }
+
+    public record PhaseDependency(int producerPhase, int consumerPhase) {}
+
+    public record ComponentExecutionPhase(
+            int componentId, Type type, Set<IPatternDetails> patternSet, List<IPatternDetails> cycleWitness) {
+        public ComponentExecutionPhase {
+            patternSet = Set.copyOf(patternSet);
+            cycleWitness = List.copyOf(cycleWitness);
+        }
+    }
+
+    public enum Type {
+        DAG,
+        CYCLE,
+        DYNAMIC_CYCLE
+    }
 
     /** Builds the final physical graph from compiler-normalized semantics. */
     public static SelectedExecutionGraph selectedGraph(Map<IPatternDetails, PatternSemantics> selectedSemantics) {
@@ -49,21 +62,28 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
      * but AE2 stores one aggregate counter per physical pattern; putting a candidate or the same physical
      * pattern into multiple phases can therefore gate real work at a phase whose inputs are not ready yet.
      */
-    public static ECOExecutionSchedule from(List<ComponentPlanningResult> components, List<Integer> executionOrder,
+    public static ECOExecutionSchedule from(
+            List<ComponentPlanningResult> components,
+            List<Integer> executionOrder,
             Map<IPatternDetails, Long> plannedTasks) {
         return from(components, executionOrder, plannedTasks, null);
     }
 
-    public static ECOExecutionSchedule from(List<ComponentPlanningResult> components, List<Integer> executionOrder,
-            Map<IPatternDetails, Long> plannedTasks, ExecutionProvenance provenance) {
-        Map<Integer, ComponentPlanningResult> byId = components.stream().collect(
-            java.util.stream.Collectors.toMap(ComponentPlanningResult::componentId, c -> c));
+    public static ECOExecutionSchedule from(
+            List<ComponentPlanningResult> components,
+            List<Integer> executionOrder,
+            Map<IPatternDetails, Long> plannedTasks,
+            ExecutionProvenance provenance) {
+        Map<Integer, ComponentPlanningResult> byId = components.stream()
+                .collect(java.util.stream.Collectors.toMap(ComponentPlanningResult::componentId, c -> c));
         List<IPatternDetails> executableTasks = plannedTasks == null
-            ? components.stream().flatMap(component -> component.executionPatterns().stream()).toList()
-            : plannedTasks.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
-                .map(Map.Entry::getKey)
-                .toList();
+                ? components.stream()
+                        .flatMap(component -> component.executionPatterns().stream())
+                        .toList()
+                : plannedTasks.entrySet().stream()
+                        .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
+                        .map(Map.Entry::getKey)
+                        .toList();
 
         // A pattern used by a solved cycle owns its entire AE2 aggregate counter, including any additional DAG
         // demand for the same physical pattern. Once the concrete witness has run, the cycle phase deliberately
@@ -85,8 +105,9 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             if (c == null) continue;
             if (c.type() == ComponentPlanningResult.Type.CYCLIC
                     && !ECOExecutionRequirement.componentIsExecutableCycle(c)) continue;
-            Type type = ECOExecutionRequirement.componentIsDynamic(c) ? Type.DYNAMIC_CYCLE
-                : c.type() == ComponentPlanningResult.Type.CYCLIC ? Type.CYCLE : Type.DAG;
+            Type type = ECOExecutionRequirement.componentIsDynamic(c)
+                    ? Type.DYNAMIC_CYCLE
+                    : c.type() == ComponentPlanningResult.Type.CYCLIC ? Type.CYCLE : Type.DAG;
             Set<IPatternDetails> patterns = new LinkedHashSet<>();
             for (IPatternDetails source : c.executionPatterns()) {
                 IPatternDetails executable = executablePattern(source, executableTasks, plannedTasks != null);
@@ -100,10 +121,11 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             List<IPatternDetails> witness = new ArrayList<>();
             if (type == Type.CYCLE && c.cycleResult() != null) {
                 for (var firing : c.cycleResult().executionWitness()) {
-                    IPatternDetails executable = executablePattern(
-                        firing.pattern().details(), executableTasks, plannedTasks != null);
+                    IPatternDetails executable =
+                            executablePattern(firing.pattern().details(), executableTasks, plannedTasks != null);
                     if (executable == null || !containsPhysicalPattern(patterns, executable)) {
-                        throw new IllegalStateException("Cycle witness contains a pattern absent from the executable plan");
+                        throw new IllegalStateException(
+                                "Cycle witness contains a pattern absent from the executable plan");
                     }
                     witness.add(executable);
                 }
@@ -113,13 +135,17 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
 
         if (plannedTasks != null) {
             List<IPatternDetails> unassigned = executableTasks.stream()
-                .filter(pattern -> !containsPhysicalPattern(assignedPatterns, pattern))
-                .toList();
+                    .filter(pattern -> !containsPhysicalPattern(assignedPatterns, pattern))
+                    .toList();
             if (!unassigned.isEmpty() && provenance == null) {
                 throw new IllegalStateException(
-                    "Execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
+                        "Execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
             }
-            int syntheticId = components.stream().mapToInt(ComponentPlanningResult::componentId).max().orElse(-1) + 1;
+            int syntheticId = components.stream()
+                            .mapToInt(ComponentPlanningResult::componentId)
+                            .max()
+                            .orElse(-1)
+                    + 1;
             for (IPatternDetails pattern : unassigned) {
                 Set<IPatternDetails> patterns = Set.of(pattern);
                 // synthetic phase, no debug log
@@ -137,8 +163,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
      * phase edges from the final physical patterns so dependencies introduced by that alternate cannot remain
      * behind their consumers in the stale component order.
      */
-    private static OrderedSchedule orderByExecutableDependencies(List<ComponentExecutionPhase> phases,
-            ExecutionProvenance provenance, List<IPatternDetails> plannedTasks) {
+    private static OrderedSchedule orderByExecutableDependencies(
+            List<ComponentExecutionPhase> phases, ExecutionProvenance provenance, List<IPatternDetails> plannedTasks) {
         Map<AEKey, Set<Integer>> producersByKey = new LinkedHashMap<>();
         Map<AEKey, Set<Integer>> primaryProducersByKey = new LinkedHashMap<>();
         Map<IPatternDetails, Integer> phaseOfPattern = new java.util.IdentityHashMap<>();
@@ -149,13 +175,15 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 phaseOfPattern.put(pattern, phaseIndex);
                 for (var output : producedOutputs(pattern)) {
                     if (output == null || output.what() == null || output.amount() <= 0L) continue;
-                    producersByKey.computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>())
-                        .add(phaseIndex);
+                    producersByKey
+                            .computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>())
+                            .add(phaseIndex);
                 }
                 GenericStack primary = primaryOutput(pattern);
                 if (primary != null && primary.what() != null && primary.amount() > 0L) {
-                    primaryProducersByKey.computeIfAbsent(primary.what(), ignored -> new LinkedHashSet<>())
-                        .add(phaseIndex);
+                    primaryProducersByKey
+                            .computeIfAbsent(primary.what(), ignored -> new LinkedHashSet<>())
+                            .add(phaseIndex);
                 }
             }
         }
@@ -171,11 +199,20 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 for (var input : semantics.consumedInputs()) {
                     AEKey key = input.key();
                     if (provenance == null || !provenance.covers(key)) {
-                        Set<Integer> fallbackProducers = primaryProducersByKey.getOrDefault(
-                            key, producersByKey.getOrDefault(key, Set.of()));
+                        Set<Integer> fallbackProducers =
+                                primaryProducersByKey.getOrDefault(key, producersByKey.getOrDefault(key, Set.of()));
                         for (int producer : fallbackProducers) {
-                            addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumerPhase,
-                                pattern, key, semantics, "fallback");
+                            addAttributedDependency(
+                                    phases,
+                                    outgoing,
+                                    indegree,
+                                    edgeKeys,
+                                    producer,
+                                    consumerPhase,
+                                    pattern,
+                                    key,
+                                    semantics,
+                                    "fallback");
                         }
                         continue;
                     }
@@ -184,11 +221,12 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                         String kind;
                         if (source instanceof MaterialSource.PatternOutput output) {
                             producer = matchingPhase(output.pattern(), phaseOfPattern);
-                            kind = output.primary() ? "primary of " + output.pattern()
-                                : "byproduct of " + output.pattern();
+                            kind = output.primary()
+                                    ? "primary of " + output.pattern()
+                                    : "byproduct of " + output.pattern();
                             if (producer == null && containsPhysicalPattern(plannedTasks, output.pattern())) {
                                 throw new IllegalStateException("Attributed supplier has no phase: key=" + key
-                                    + " pattern=" + output.pattern());
+                                        + " pattern=" + output.pattern());
                             }
                         } else if (source instanceof MaterialSource.CycleOutput output) {
                             producer = phaseOfComponent.get(output.componentId());
@@ -196,8 +234,18 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                         } else {
                             continue;
                         }
-                        if (producer != null) addAttributedDependency(phases, outgoing, indegree, edgeKeys,
-                            producer, consumerPhase, pattern, key, semantics, kind);
+                        if (producer != null)
+                            addAttributedDependency(
+                                    phases,
+                                    outgoing,
+                                    indegree,
+                                    edgeKeys,
+                                    producer,
+                                    consumerPhase,
+                                    pattern,
+                                    key,
+                                    semantics,
+                                    kind);
                     }
                 }
             }
@@ -218,7 +266,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         if (ordered.size() != phases.size()) {
             String cycles = describeResidualCycles(phases, outgoing, edgeKeys, orderedIndices);
             throw new IllegalStateException(
-                "Final executable pattern dependencies contain a cycle outside a solved cycle phase: " + cycles);
+                    "Final executable pattern dependencies contain a cycle outside a solved cycle phase: " + cycles);
         }
         int[] remapped = new int[phases.size()];
         for (int i = 0; i < orderedIndices.size(); i++) remapped[orderedIndices.get(i)] = i;
@@ -229,27 +277,32 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             }
         }
         dependencies.sort(java.util.Comparator.comparingInt(PhaseDependency::consumerPhase)
-            .thenComparingInt(PhaseDependency::producerPhase));
+                .thenComparingInt(PhaseDependency::producerPhase));
         validateScheduleTopology(dependencies);
         return new OrderedSchedule(List.copyOf(ordered), List.copyOf(dependencies));
     }
 
-    private record OrderedSchedule(List<ComponentExecutionPhase> phases,
-            List<PhaseDependency> dependencies) { }
+    private record OrderedSchedule(List<ComponentExecutionPhase> phases, List<PhaseDependency> dependencies) {}
 
     /**
      * Names every residual cycle: its member phases with their patterns, and each intra-cycle edge with the
      * item keys that created it. The scheduler derives edges from every physical output, so a phase that
      * re-emits an upstream material as a byproduct shows up here as an edge back into its own supplier.
      */
-    private static String describeResidualCycles(List<ComponentExecutionPhase> phases, List<Set<Integer>> outgoing,
-            Map<PhaseDependency, Set<String>> edgeKeys, List<Integer> orderedIndices) {
+    private static String describeResidualCycles(
+            List<ComponentExecutionPhase> phases,
+            List<Set<Integer>> outgoing,
+            Map<PhaseDependency, Set<String>> edgeKeys,
+            List<Integer> orderedIndices) {
         Set<Integer> remaining = new LinkedHashSet<>();
         for (int i = 0; i < phases.size(); i++) if (!orderedIndices.contains(i)) remaining.add(i);
         List<List<Integer>> cycles = stronglyConnectedComponents(remaining, outgoing).stream()
-            .filter(scc -> scc.size() > 1).toList();
-        StringBuilder text = new StringBuilder("remainingPhases=").append(remaining.size())
-            .append(" cyclicGroups=").append(cycles.size());
+                .filter(scc -> scc.size() > 1)
+                .toList();
+        StringBuilder text = new StringBuilder("remainingPhases=")
+                .append(remaining.size())
+                .append(" cyclicGroups=")
+                .append(cycles.size());
         for (int group = 0; group < cycles.size(); group++) {
             List<Integer> members = new ArrayList<>(cycles.get(group));
             members.sort(null);
@@ -257,9 +310,15 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             for (int i = 0; i < members.size(); i++) {
                 ComponentExecutionPhase phase = phases.get(members.get(i));
                 if (i > 0) text.append(", ");
-                text.append('p').append(members.get(i)).append('(').append(phase.type())
-                    .append(" component=").append(phase.componentId())
-                    .append(" patterns=").append(phase.patternSet()).append(')');
+                text.append('p')
+                        .append(members.get(i))
+                        .append('(')
+                        .append(phase.type())
+                        .append(" component=")
+                        .append(phase.componentId())
+                        .append(" patterns=")
+                        .append(phase.patternSet())
+                        .append(')');
             }
             text.append("] edges=[");
             boolean first = true;
@@ -268,8 +327,12 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                     if (!members.contains(consumer)) continue;
                     if (!first) text.append(", ");
                     first = false;
-                    text.append('p').append(producer).append("->p").append(consumer).append(" via ")
-                        .append(edgeKeys.getOrDefault(new PhaseDependency(producer, consumer), Set.of()));
+                    text.append('p')
+                            .append(producer)
+                            .append("->p")
+                            .append(consumer)
+                            .append(" via ")
+                            .append(edgeKeys.getOrDefault(new PhaseDependency(producer, consumer), Set.of()));
                 }
             }
             text.append(']');
@@ -283,23 +346,45 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         Set<Integer> onStack = new HashSet<>();
         java.util.ArrayDeque<Integer> stack = new java.util.ArrayDeque<>();
         int[] next = {0};
-        for (int node : nodes) if (!index.containsKey(node)) tarjan(node, nodes, outgoing, index, low, onStack, stack, next, result);
+        for (int node : nodes)
+            if (!index.containsKey(node)) tarjan(node, nodes, outgoing, index, low, onStack, stack, next, result);
         return result;
     }
 
-    private static void tarjan(int v, Set<Integer> nodes, List<Set<Integer>> outgoing, Map<Integer,Integer> index,
-            Map<Integer,Integer> low, Set<Integer> onStack, java.util.ArrayDeque<Integer> stack, int[] next,
+    private static void tarjan(
+            int v,
+            Set<Integer> nodes,
+            List<Set<Integer>> outgoing,
+            Map<Integer, Integer> index,
+            Map<Integer, Integer> low,
+            Set<Integer> onStack,
+            java.util.ArrayDeque<Integer> stack,
+            int[] next,
             List<List<Integer>> result) {
-        index.put(v, next[0]); low.put(v, next[0]++); stack.push(v); onStack.add(v);
-        for (int w : outgoing.get(v)) if (nodes.contains(w)) {
-            if (!index.containsKey(w)) { tarjan(w,nodes,outgoing,index,low,onStack,stack,next,result); low.put(v, Math.min(low.get(v), low.get(w))); }
-            else if (onStack.contains(w)) low.put(v, Math.min(low.get(v), index.get(w)));
+        index.put(v, next[0]);
+        low.put(v, next[0]++);
+        stack.push(v);
+        onStack.add(v);
+        for (int w : outgoing.get(v))
+            if (nodes.contains(w)) {
+                if (!index.containsKey(w)) {
+                    tarjan(w, nodes, outgoing, index, low, onStack, stack, next, result);
+                    low.put(v, Math.min(low.get(v), low.get(w)));
+                } else if (onStack.contains(w)) low.put(v, Math.min(low.get(v), index.get(w)));
+            }
+        if (low.get(v).equals(index.get(v))) {
+            List<Integer> scc = new ArrayList<>();
+            int w;
+            do {
+                w = stack.pop();
+                onStack.remove(w);
+                scc.add(w);
+            } while (w != v);
+            result.add(scc);
         }
-        if (low.get(v).equals(index.get(v))) { List<Integer> scc = new ArrayList<>(); int w; do { w=stack.pop(); onStack.remove(w); scc.add(w); } while (w!=v); result.add(scc); }
     }
 
-    private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree,
-            int producer, int consumer) {
+    private static boolean addDependency(List<Set<Integer>> outgoing, int[] indegree, int producer, int consumer) {
         if (producer == consumer) return false;
         if (outgoing.get(producer).add(consumer)) {
             indegree[consumer]++;
@@ -308,13 +393,20 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         return false;
     }
 
-    private static void addAttributedDependency(List<ComponentExecutionPhase> phases,
-            List<Set<Integer>> outgoing, int[] indegree, Map<PhaseDependency, Set<String>> edgeKeys,
-            int producer, int consumer, IPatternDetails consumerPattern, AEKey key,
-            PatternSemantics semantics, String source) {
+    private static void addAttributedDependency(
+            List<ComponentExecutionPhase> phases,
+            List<Set<Integer>> outgoing,
+            int[] indegree,
+            Map<PhaseDependency, Set<String>> edgeKeys,
+            int producer,
+            int consumer,
+            IPatternDetails consumerPattern,
+            AEKey key,
+            PatternSemantics semantics,
+            String source) {
         if (producer == consumer) return;
         edgeKeys.computeIfAbsent(new PhaseDependency(producer, consumer), ignored -> new LinkedHashSet<>())
-            .add(key + " (" + source + ")");
+                .add(key + " (" + source + ")");
         addDependency(outgoing, indegree, producer, consumer);
     }
 
@@ -332,13 +424,13 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         return match;
     }
 
-    private static IPatternDetails executablePattern(IPatternDetails source, List<IPatternDetails> executableTasks,
-            boolean requirePlannedTask) {
+    private static IPatternDetails executablePattern(
+            IPatternDetails source, List<IPatternDetails> executableTasks, boolean requirePlannedTask) {
         if (source == null) return null;
         for (IPatternDetails task : executableTasks) if (task == source) return task;
         List<IPatternDetails> matches = executableTasks.stream()
-            .filter(task -> ECOPhaseScheduler.samePattern(source, task))
-            .toList();
+                .filter(task -> ECOPhaseScheduler.samePattern(source, task))
+                .toList();
         if (matches.size() == 1) return matches.get(0);
         return requirePlannedTask ? null : source;
     }
@@ -367,8 +459,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
     private static void validateScheduleTopology(List<PhaseDependency> dependencies) {
         for (PhaseDependency dependency : dependencies) {
             if (dependency.producerPhase() < dependency.consumerPhase()) continue;
-            throw new IllegalStateException("Executable dependency is not in supplier-to-consumer order: "
-                + dependency);
+            throw new IllegalStateException(
+                    "Executable dependency is not in supplier-to-consumer order: " + dependency);
         }
     }
 

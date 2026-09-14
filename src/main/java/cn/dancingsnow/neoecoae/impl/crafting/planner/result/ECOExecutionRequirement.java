@@ -12,29 +12,35 @@ public enum ECOExecutionRequirement {
     DYNAMIC,
     BLOCKED;
 
-    public static ECOExecutionRequirement classify(List<ComponentPlanningResult> components,
-            Map<IPatternDetails, Long> plannedTasks) {
+    public static ECOExecutionRequirement classify(
+            List<ComponentPlanningResult> components, Map<IPatternDetails, Long> plannedTasks) {
         boolean ordered = false;
         boolean dynamic = false;
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
-            boolean plannedMember = component.executionPatterns().stream().anyMatch(pattern ->
-                plannedCount(pattern, plannedTasks) > 0);
+            boolean plannedMember =
+                    component.executionPatterns().stream().anyMatch(pattern -> plannedCount(pattern, plannedTasks) > 0);
             switch (component.cycleDisposition()) {
-                case BLOCKED -> { return BLOCKED; }
+                case BLOCKED -> {
+                    return BLOCKED;
+                }
                 case NOT_REQUIRED, STOCK_SATISFIED -> {
                     if (plannedMember) return BLOCKED;
                 }
                 case ORDERED_EXECUTION -> {
-                    if (!plannedMember || component.cycleStatus() != CyclePlanningStatus.SOLVED
-                            || component.cycleResult() == null || !component.cycleResult().status().solved()) {
+                    if (!plannedMember
+                            || component.cycleStatus() != CyclePlanningStatus.SOLVED
+                            || component.cycleResult() == null
+                            || !component.cycleResult().status().solved()) {
                         return BLOCKED;
                     }
                     ordered = true;
                 }
                 case DYNAMIC_EXECUTION -> {
-                    if (!plannedMember || component.cycleStatus() != CyclePlanningStatus.SOLVED
-                            || component.cycleResult() == null || !component.cycleResult().status().solved()
+                    if (!plannedMember
+                            || component.cycleStatus() != CyclePlanningStatus.SOLVED
+                            || component.cycleResult() == null
+                            || !component.cycleResult().status().solved()
                             || !component.cycleResult().hasExactExecutionCounts()) {
                         return BLOCKED;
                     }
@@ -46,13 +52,15 @@ public enum ECOExecutionRequirement {
     }
 
     public static boolean componentIsOrdered(ComponentPlanningResult component) {
-        return component != null && component.type() == ComponentPlanningResult.Type.CYCLIC
-            && component.cycleDisposition() == CycleExecutionDisposition.ORDERED_EXECUTION;
+        return component != null
+                && component.type() == ComponentPlanningResult.Type.CYCLIC
+                && component.cycleDisposition() == CycleExecutionDisposition.ORDERED_EXECUTION;
     }
 
     public static boolean componentIsDynamic(ComponentPlanningResult component) {
-        return component != null && component.type() == ComponentPlanningResult.Type.CYCLIC
-            && component.cycleDisposition() == CycleExecutionDisposition.DYNAMIC_EXECUTION;
+        return component != null
+                && component.type() == ComponentPlanningResult.Type.CYCLIC
+                && component.cycleDisposition() == CycleExecutionDisposition.DYNAMIC_EXECUTION;
     }
 
     public static boolean componentIsExecutableCycle(ComponentPlanningResult component) {

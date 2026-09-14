@@ -46,7 +46,7 @@ public final class PatternProfileValidator {
      * static contract. Every other code withholds {@link PatternCapability#NET_GROWTH_SAFE}.
      */
     private static final Set<String> CONTRACT_SAFE_REASONS =
-        Set.of("", "PRIMARY_OUTPUT_MISMATCH", "UNSUPPORTED_REMAINDER");
+            Set.of("", "PRIMARY_OUTPUT_MISMATCH", "UNSUPPORTED_REMAINDER");
 
     /** Reads recorded evidence only; never touches the pattern instance. */
     public ValidatedPatternProfile validate(CompiledPattern pattern) {
@@ -67,8 +67,8 @@ public final class PatternProfileValidator {
             production.clear();
             remainder.clear();
         }
-        return ValidatedPatternProfile.trusted(this, pattern, capabilities, consumption, production, remainder,
-            rejection);
+        return ValidatedPatternProfile.trusted(
+                this, pattern, capabilities, consumption, production, remainder, rejection);
     }
 
     /** Recorded fast-path verdict, pattern level and slot level. Independent of the growth rule set. */
@@ -84,8 +84,11 @@ public final class PatternProfileValidator {
      * Growth rule set. Fills the per-firing vectors as a side effect and returns
      * {@link NetGrowthRejection#NONE} exactly when the capability may be granted.
      */
-    private static NetGrowthRejection netGrowthRejection(CompiledPattern pattern, Map<AEKey, Long> consumption,
-            Map<AEKey, Long> production, Map<AEKey, Long> remainder) {
+    private static NetGrowthRejection netGrowthRejection(
+            CompiledPattern pattern,
+            Map<AEKey, Long> consumption,
+            Map<AEKey, Long> production,
+            Map<AEKey, Long> remainder) {
         if (pattern.details() == null) return NetGrowthRejection.MISSING_DETAILS;
         if (!pattern.netGrowthValidated()) return NetGrowthRejection.UNSTABLE_STATIC_CONTRACT;
 
@@ -122,11 +125,15 @@ public final class PatternProfileValidator {
             }
         }
         for (AEKey key : exactRemainder.keySet()) {
-            if (!exactProduction.getOrDefault(key, PlannerAmount.ZERO).add(exactRemainder.get(key)).fitsLong()) {
+            if (!exactProduction
+                    .getOrDefault(key, PlannerAmount.ZERO)
+                    .add(exactRemainder.get(key))
+                    .fitsLong()) {
                 return NetGrowthRejection.UNREPRESENTABLE;
             }
         }
-        if (!copyExact(exactConsumption, consumption) || !copyExact(exactProduction, production)
+        if (!copyExact(exactConsumption, consumption)
+                || !copyExact(exactProduction, production)
                 || !copyExact(exactRemainder, remainder)) {
             return NetGrowthRejection.UNREPRESENTABLE;
         }

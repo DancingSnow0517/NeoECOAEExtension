@@ -6,7 +6,12 @@ import java.util.List;
 
 public sealed interface PlanningComponent permits AcyclicComponent, CycleComponent {
     int componentId();
+
     List<AEKey> members();
+
     List<CompiledPattern> patterns();
-    default boolean cyclic() { return this instanceof CycleComponent; }
+
+    default boolean cyclic() {
+        return this instanceof CycleComponent;
+    }
 }

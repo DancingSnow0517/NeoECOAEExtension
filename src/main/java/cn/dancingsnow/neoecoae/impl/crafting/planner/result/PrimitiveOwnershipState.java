@@ -23,9 +23,17 @@ public final class PrimitiveOwnershipState {
         this.pendingEventAmount = new long[eventCapacity];
     }
 
-    public long onHand(int resourceId) { return onHand[resourceId]; }
-    public long futureNeed(int resourceId) { return futureNeed[resourceId]; }
-    public int pendingEventCount() { return pendingEventCount; }
+    public long onHand(int resourceId) {
+        return onHand[resourceId];
+    }
+
+    public long futureNeed(int resourceId) {
+        return futureNeed[resourceId];
+    }
+
+    public int pendingEventCount() {
+        return pendingEventCount;
+    }
 
     public void commitAccepted(CompiledExecutionKernel kernel, int patternId, long count) {
         if (count <= 0L || !kernel.dispatchable(patternId)) throw new IllegalArgumentException("Invalid dispatch");

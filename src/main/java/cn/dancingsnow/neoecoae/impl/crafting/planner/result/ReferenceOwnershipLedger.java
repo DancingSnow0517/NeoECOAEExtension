@@ -12,15 +12,20 @@ public final class ReferenceOwnershipLedger {
     private final List<PendingChoiceGroup> choices;
     private final List<OwnershipEvent> events = new ArrayList<>();
 
-    public ReferenceOwnershipLedger(Map<?, Long> onHand, Map<?, Long> futureNeed,
-            List<PendingChoiceGroup> choices) {
+    public ReferenceOwnershipLedger(Map<?, Long> onHand, Map<?, Long> futureNeed, List<PendingChoiceGroup> choices) {
         this.onHand.putAll(onHand);
         this.futureNeed.putAll(futureNeed);
         this.choices = new ArrayList<>(choices);
     }
 
-    public long onHand(Object key) { return onHand.getOrDefault(key, 0L); }
-    public long futureNeed(Object key) { return futureNeed.getOrDefault(key, 0L); }
+    public long onHand(Object key) {
+        return onHand.getOrDefault(key, 0L);
+    }
+
+    public long futureNeed(Object key) {
+        return futureNeed.getOrDefault(key, 0L);
+    }
+
     public long reserve(Object key) {
         long result = futureNeed(key);
         for (PendingChoiceGroup group : choices) {
@@ -33,7 +38,10 @@ public final class ReferenceOwnershipLedger {
         }
         return result;
     }
-    public long releasable(Object key) { return Math.max(0L, onHand(key) - reserve(key)); }
+
+    public long releasable(Object key) {
+        return Math.max(0L, onHand(key) - reserve(key));
+    }
 
     public void commitAccepted(Map<?, Long> consumed) {
         consumed.forEach((key, amount) -> {
@@ -66,15 +74,22 @@ public final class ReferenceOwnershipLedger {
         for (int index = 0; index < choices.size(); index++) {
             PendingChoiceGroup group = choices.get(index);
             if (!group.id().equals(id)) continue;
-            group.branches().get(branchIndex).forEach((key, amount) ->
-                futureNeed.merge(key, amount, Math::addExact));
+            group.branches().get(branchIndex).forEach((key, amount) -> futureNeed.merge(key, amount, Math::addExact));
             choices.remove(index);
             return;
         }
         throw new IllegalArgumentException("Unknown choice group " + id);
     }
 
-    public List<OwnershipEvent> events() { return List.copyOf(events); }
-    public Map<Object, Long> onHandSnapshot() { return Map.copyOf(onHand); }
-    public Map<Object, Long> futureNeedSnapshot() { return Map.copyOf(futureNeed); }
+    public List<OwnershipEvent> events() {
+        return List.copyOf(events);
+    }
+
+    public Map<Object, Long> onHandSnapshot() {
+        return Map.copyOf(onHand);
+    }
+
+    public Map<Object, Long> futureNeedSnapshot() {
+        return Map.copyOf(futureNeed);
+    }
 }

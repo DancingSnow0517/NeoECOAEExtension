@@ -27,30 +27,29 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public record SinglePatternGrowthResult(
-    SinglePatternGrowthStatus status,
-    Reason reason,
-    @Nullable ValidatedPatternProfile profile,
-    @Nullable AEKey feedbackKey,
-    long consumePerFiring,
-    long producePerFiring,
-    long growthPerFiring,
-    long firings,
-    Map<AEKey, Long> requiredSeed,
-    Map<AEKey, Long> seedShortfall,
-    Map<AEKey, Long> externalDemand,
-    Map<AEKey, Long> producedOutputs,
-    Map<AEKey, Long> netDelta,
-    Map<AEKey, Long> deliverableOutputs,
-    List<PatternRun> executionPlan,
-    String diagnostic,
-    PlannerAmount exactFirings,
-    Map<AEKey, PlannerAmount> exactRequiredSeed,
-    Map<AEKey, PlannerAmount> exactSeedShortfall,
-    Map<AEKey, PlannerAmount> exactExternalDemand,
-    Map<AEKey, PlannerAmount> exactProducedOutputs,
-    Map<AEKey, PlannerAmount> exactNetDelta,
-    Map<AEKey, PlannerAmount> exactDeliverableOutputs
-) {
+        SinglePatternGrowthStatus status,
+        Reason reason,
+        @Nullable ValidatedPatternProfile profile,
+        @Nullable AEKey feedbackKey,
+        long consumePerFiring,
+        long producePerFiring,
+        long growthPerFiring,
+        long firings,
+        Map<AEKey, Long> requiredSeed,
+        Map<AEKey, Long> seedShortfall,
+        Map<AEKey, Long> externalDemand,
+        Map<AEKey, Long> producedOutputs,
+        Map<AEKey, Long> netDelta,
+        Map<AEKey, Long> deliverableOutputs,
+        List<PatternRun> executionPlan,
+        String diagnostic,
+        PlannerAmount exactFirings,
+        Map<AEKey, PlannerAmount> exactRequiredSeed,
+        Map<AEKey, PlannerAmount> exactSeedShortfall,
+        Map<AEKey, PlannerAmount> exactExternalDemand,
+        Map<AEKey, PlannerAmount> exactProducedOutputs,
+        Map<AEKey, PlannerAmount> exactNetDelta,
+        Map<AEKey, PlannerAmount> exactDeliverableOutputs) {
     /** Why the calculator produced the status it did. {@link #NONE} accompanies a computed answer. */
     public enum Reason {
         NONE,
@@ -113,18 +112,37 @@ public record SinglePatternGrowthResult(
     }
 
     static SinglePatternGrowthResult declined(SinglePatternGrowthStatus status, Reason reason, String diagnostic) {
-        return new SinglePatternGrowthResult(status, reason, null, null, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(),
-            Map.of(), Map.of(), Map.of(), List.of(), diagnostic, PlannerAmount.ZERO, Map.of(), Map.of(), Map.of(),
-            Map.of(), Map.of(), Map.of());
+        return new SinglePatternGrowthResult(
+                status,
+                reason,
+                null,
+                null,
+                0,
+                0,
+                0,
+                0,
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                diagnostic,
+                PlannerAmount.ZERO,
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of());
     }
 
-    @Nullable
-    public CompiledPattern pattern() {
+    @Nullable public CompiledPattern pattern() {
         return profile == null ? null : profile.pattern();
     }
 
-    @Nullable
-    public IPatternDetails details() {
+    @Nullable public IPatternDetails details() {
         return profile == null ? null : profile.details();
     }
 

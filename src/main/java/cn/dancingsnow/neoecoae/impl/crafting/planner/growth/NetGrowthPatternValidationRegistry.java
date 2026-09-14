@@ -37,7 +37,8 @@ public final class NetGrowthPatternValidationRegistry {
 
     /** Client-safe tooltip classification using the same deterministic contract accepted by the bus. */
     public static boolean isSelfGrowingPattern(IPatternDetails details) {
-        if (details == null || !AE2PatternIntrospection.isKnownSafePatternType(details)
+        if (details == null
+                || !AE2PatternIntrospection.isKnownSafePatternType(details)
                 || !hasDeterministicStaticContract(details)) return false;
         try {
             Map<appeng.api.stacks.AEKey, PlannerAmount> consumed = new LinkedHashMap<>();
@@ -50,16 +51,18 @@ public final class NetGrowthPatternValidationRegistry {
             for (var input : details.getInputs()) {
                 var possible = input.getPossibleInputs();
                 var key = possible[0].what();
-                consumed.merge(key, PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier()),
-                    PlannerAmount::add);
+                consumed.merge(
+                        key,
+                        PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier()),
+                        PlannerAmount::add);
                 var remaining = input.getRemainingKey(key);
-                if (remaining != null) remainder.merge(remaining, PlannerAmount.of(input.getMultiplier()),
-                    PlannerAmount::add);
+                if (remaining != null)
+                    remainder.merge(remaining, PlannerAmount.of(input.getMultiplier()), PlannerAmount::add);
             }
             int feedbackKeys = 0;
             for (var entry : consumed.entrySet()) {
                 PlannerAmount returned = produced.getOrDefault(entry.getKey(), PlannerAmount.ZERO)
-                    .add(remainder.getOrDefault(entry.getKey(), PlannerAmount.ZERO));
+                        .add(remainder.getOrDefault(entry.getKey(), PlannerAmount.ZERO));
                 if (returned.signum() > 0) {
                     feedbackKeys++;
                     if (returned.compareTo(entry.getValue()) <= 0) return false;
@@ -82,10 +85,14 @@ public final class NetGrowthPatternValidationRegistry {
             for (var input : inputs) {
                 if (input == null || input.getMultiplier() <= 0) return false;
                 var possible = input.getPossibleInputs();
-                if (possible == null || possible.length != 1 || possible[0] == null
-                        || possible[0].what() == null || possible[0].amount() <= 0) return false;
+                if (possible == null
+                        || possible.length != 1
+                        || possible[0] == null
+                        || possible[0].what() == null
+                        || possible[0].amount() <= 0) return false;
                 PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier());
-                if (possible[0].what() instanceof AEItemKey item && item.toStack(1).isDamageableItem()) return false;
+                if (possible[0].what() instanceof AEItemKey item
+                        && item.toStack(1).isDamageableItem()) return false;
                 input.getRemainingKey(possible[0].what());
             }
             return true;

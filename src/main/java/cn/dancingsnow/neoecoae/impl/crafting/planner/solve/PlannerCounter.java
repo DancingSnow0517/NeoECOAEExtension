@@ -57,8 +57,8 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
         KeyCounter result = new KeyCounter();
         for (var entry : values.entrySet()) {
             if (!entry.getValue().fitsLong()) {
-                throw new ArithmeticException(stage + " exceeds AE2 long range for " + entry.getKey()
-                    + ": " + entry.getValue());
+                throw new ArithmeticException(
+                        stage + " exceeds AE2 long range for " + entry.getKey() + ": " + entry.getValue());
             }
             result.set(entry.getKey(), entry.getValue().longValueExact());
         }

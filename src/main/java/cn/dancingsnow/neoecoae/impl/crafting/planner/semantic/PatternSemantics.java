@@ -16,18 +16,17 @@ import org.jetbrains.annotations.Nullable;
  * checks.
  */
 public record PatternSemantics(
-    IPatternDetails physicalPattern,
-    @Nullable Object physicalDefinition,
-    List<Input> consumedInputs,
-    List<GenericStack> producedOutputs,
-    List<GenericStack> returnedOutputs,
-    List<FeedbackEdge> feedbackEdges,
-    MatchingMode matchingMode,
-    ExecutionRestriction executionRestriction,
-    boolean exactStaticAnalysis,
-    boolean cycleSafe,
-    @Nullable String unsupportedReason
-) {
+        IPatternDetails physicalPattern,
+        @Nullable Object physicalDefinition,
+        List<Input> consumedInputs,
+        List<GenericStack> producedOutputs,
+        List<GenericStack> returnedOutputs,
+        List<FeedbackEdge> feedbackEdges,
+        MatchingMode matchingMode,
+        ExecutionRestriction executionRestriction,
+        boolean exactStaticAnalysis,
+        boolean cycleSafe,
+        @Nullable String unsupportedReason) {
     public PatternSemantics {
         Objects.requireNonNull(physicalPattern, "physicalPattern");
         consumedInputs = List.copyOf(consumedInputs);
@@ -44,18 +43,17 @@ public record PatternSemantics(
 
     /** Unknown matching/restriction semantics can never be approximated into a SUCCESS result. */
     public boolean completeForStaticPlanning() {
-        return supported() && matchingMode == MatchingMode.EXACT
-            && executionRestriction == ExecutionRestriction.NONE;
+        return supported() && matchingMode == MatchingMode.EXACT && executionRestriction == ExecutionRestriction.NONE;
     }
 
     public boolean cycleSafeForStaticPlanning() {
         // A normalized AE2 substitution slot is safe here when the adapter has committed the plan to one concrete
         // member and independently proved its reusable-stock contract. Fuzzy/unknown matching remains forbidden.
         return supported()
-            && matchingMode != MatchingMode.FUZZY
-            && matchingMode != MatchingMode.UNKNOWN
-            && executionRestriction == ExecutionRestriction.NONE
-            && cycleSafe;
+                && matchingMode != MatchingMode.FUZZY
+                && matchingMode != MatchingMode.UNKNOWN
+                && executionRestriction == ExecutionRestriction.NONE
+                && cycleSafe;
     }
 
     public Set<AEKey> consumedKeys() {
@@ -66,24 +64,39 @@ public record PatternSemantics(
 
     public Set<AEKey> producedKeys() {
         Set<AEKey> keys = new LinkedHashSet<>();
-        for (GenericStack output : producedOutputs) if (output != null && output.what() != null) keys.add(output.what());
+        for (GenericStack output : producedOutputs)
+            if (output != null && output.what() != null) keys.add(output.what());
         return Set.copyOf(keys);
     }
 
     public Set<AEKey> returnedKeys() {
         Set<AEKey> keys = new LinkedHashSet<>();
-        for (GenericStack output : returnedOutputs) if (output != null && output.what() != null) keys.add(output.what());
+        for (GenericStack output : returnedOutputs)
+            if (output != null && output.what() != null) keys.add(output.what());
         return Set.copyOf(keys);
     }
 
-    public static PatternSemantics unsupported(IPatternDetails pattern, @Nullable Object definition,
-            String reason) {
-        return new PatternSemantics(pattern, definition, List.of(), List.of(), List.of(), List.of(),
-            MatchingMode.UNKNOWN, ExecutionRestriction.UNKNOWN, false, false, reason);
+    public static PatternSemantics unsupported(IPatternDetails pattern, @Nullable Object definition, String reason) {
+        return new PatternSemantics(
+                pattern,
+                definition,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                MatchingMode.UNKNOWN,
+                ExecutionRestriction.UNKNOWN,
+                false,
+                false,
+                reason);
     }
 
-    public record Input(IPatternDetails.IInput source, AEKey key, PlannerAmount amountPerPattern,
-            @Nullable AEKey returnedKey, PlannerAmount returnedAmountPerPattern) {
+    public record Input(
+            IPatternDetails.IInput source,
+            AEKey key,
+            PlannerAmount amountPerPattern,
+            @Nullable AEKey returnedKey,
+            PlannerAmount returnedAmountPerPattern) {
         public Input {
             Objects.requireNonNull(key, "key");
             Objects.requireNonNull(amountPerPattern, "amountPerPattern");

@@ -8,8 +8,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.provenance.MaterialSource;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.SpecialPatternAnalysis;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,8 +26,12 @@ public final class SpecialPatternResolver {
     private final boolean ignorePatternSubstitutions;
     private final Set<AEKey> resolving = new LinkedHashSet<>();
 
-    SpecialPatternResolver(CompiledNetwork network, SolveState state, Map<AEKey, Integer> choices,
-            ECOCancellation cancellation, boolean ignorePatternSubstitutions) {
+    SpecialPatternResolver(
+            CompiledNetwork network,
+            SolveState state,
+            Map<AEKey, Integer> choices,
+            ECOCancellation cancellation,
+            boolean ignorePatternSubstitutions) {
         this.network = network;
         this.state = state;
         this.choices = choices;
@@ -53,38 +57,52 @@ public final class SpecialPatternResolver {
                 if (fallback != null) {
                     resolveDurability(pattern, fallback, times);
                 } else {
-                    resolveSpecialKey(pattern, requirement.input().key(), requirement.input().amountPerPattern(),
-                        requirement.input().ignoresComponents());
+                    resolveSpecialKey(
+                            pattern,
+                            requirement.input().key(),
+                            requirement.input().amountPerPattern(),
+                            requirement.input().ignoresComponents());
                 }
             } else {
                 PlannerAmount count = requirement.type() == SpecialPatternAnalysis.Type.CONTAINER
-                    ? requirement.input().amountPerPattern().multiply(times)
-                    : requirement.input().amountPerPattern();
-                resolveSpecialKey(pattern, requirement.input().key(), count,
-                    requirement.input().ignoresComponents());
+                        ? requirement.input().amountPerPattern().multiply(times)
+                        : requirement.input().amountPerPattern();
+                resolveSpecialKey(
+                        pattern,
+                        requirement.input().key(),
+                        count,
+                        requirement.input().ignoresComponents());
             }
         }
     }
 
-    private void resolveDurability(CompiledPattern owner, SpecialPatternAnalysis.Requirement requirement,
-            PlannerAmount times) throws InterruptedException {
-        resolveDurability(owner, new DurabilityChoice(requirement.input().key(),
-            requirement.input().amountPerPattern(), requirement.damagePerUse(), requirement.maxDamage()), times);
+    private void resolveDurability(
+            CompiledPattern owner, SpecialPatternAnalysis.Requirement requirement, PlannerAmount times)
+            throws InterruptedException {
+        resolveDurability(
+                owner,
+                new DurabilityChoice(
+                        requirement.input().key(),
+                        requirement.input().amountPerPattern(),
+                        requirement.damagePerUse(),
+                        requirement.maxDamage()),
+                times);
     }
 
-    private void resolveDurability(CompiledPattern owner, DurabilityChoice choice,
-            PlannerAmount times) throws InterruptedException {
+    private void resolveDurability(CompiledPattern owner, DurabilityChoice choice, PlannerAmount times)
+            throws InterruptedException {
         PlannerAmount uses = choice.amountPerPattern().multiply(times);
         ItemStack template = ((AEItemKey) choice.key()).toStack(1);
-        List<Map.Entry<AEKey, PlannerAmount>> available = new ArrayList<>(state.stored.asMap().entrySet());
+        List<Map.Entry<AEKey, PlannerAmount>> available =
+                new ArrayList<>(state.stored.asMap().entrySet());
         for (var entry : available) {
             if (uses.isZero()) break;
             if (!(entry.getKey() instanceof AEItemKey itemKey)) continue;
             ItemStack candidate = itemKey.toStack(1);
-            if (candidate.isEmpty() || !candidate.isDamageableItem()
-                    || !ItemStack.isSameItem(template, candidate)) continue;
+            if (candidate.isEmpty() || !candidate.isDamageableItem() || !ItemStack.isSameItem(template, candidate))
+                continue;
             int capacity = durabilityUsesBeforeBreak(
-                candidate.getDamageValue(), choice.damagePerUse(), candidate.getMaxDamage());
+                    candidate.getDamageValue(), choice.damagePerUse(), candidate.getMaxDamage());
             if (capacity <= 0) continue;
             PlannerAmount tools = requiredTools(uses, capacity).min(entry.getValue());
             if (tools.signum() <= 0) continue;
@@ -95,8 +113,8 @@ public final class SpecialPatternResolver {
         }
         if (uses.isZero()) return;
 
-        int freshCapacity = durabilityUsesBeforeBreak(
-            template.getDamageValue(), choice.damagePerUse(), choice.maxDamage());
+        int freshCapacity =
+                durabilityUsesBeforeBreak(template.getDamageValue(), choice.damagePerUse(), choice.maxDamage());
         if (freshCapacity <= 0) {
             state.unsupported.add(choice.key());
             return;
@@ -119,7 +137,9 @@ public final class SpecialPatternResolver {
                 if (returned == null || !returned.equals(possible.what())) continue;
                 PlannerAmount needed = PlannerAmount.of(possible.amount()).multiply(source.getMultiplier());
                 if (needed.signum() <= 0
-                        || availableStored(possible.what(), input.ignoresComponents()).compareTo(needed) < 0) continue;
+                        || availableStored(possible.what(), input.ignoresComponents())
+                                        .compareTo(needed)
+                                < 0) continue;
                 consumeStored(possible.what(), needed, input.ignoresComponents());
                 return true;
             }
@@ -142,7 +162,8 @@ public final class SpecialPatternResolver {
                 if (!(returnedKey instanceof AEItemKey returned)) continue;
                 ItemStack candidate = candidateKey.toStack(1);
                 ItemStack remainder = returned.toStack(1);
-                if (!candidate.isDamageableItem() || !remainder.isDamageableItem()
+                if (!candidate.isDamageableItem()
+                        || !remainder.isDamageableItem()
                         || !ItemStack.isSameItem(candidate, remainder)) continue;
                 int damagePerUse = remainder.getDamageValue() - candidate.getDamageValue();
                 if (damagePerUse <= 0) continue;
@@ -164,8 +185,7 @@ public final class SpecialPatternResolver {
         return Math.toIntExact((remaining + damagePerUse - 1L) / damagePerUse);
     }
 
-    private void resolveSpecialKey(CompiledPattern owner, AEKey key, PlannerAmount requested,
-            boolean ignoreComponents)
+    private void resolveSpecialKey(CompiledPattern owner, AEKey key, PlannerAmount requested, boolean ignoreComponents)
             throws InterruptedException {
         if (requested.signum() <= 0) return;
         state.demand.merge(key, requested, PlannerAmount::add);
@@ -209,8 +229,8 @@ public final class SpecialPatternResolver {
             resolve(producer, times);
             for (CompiledInput input : producer.inputs()) {
                 if (producer.specialAnalysis().excludesFromCycleGraph(input)) continue;
-                resolveSpecialKey(producer, input.key(), input.amountPerPattern().multiply(times),
-                    input.ignoresComponents());
+                resolveSpecialKey(
+                        producer, input.key(), input.amountPerPattern().multiply(times), input.ignoresComponents());
             }
         } finally {
             resolving.remove(key);
@@ -245,7 +265,8 @@ public final class SpecialPatternResolver {
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
         for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
-            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
+            if (remaining.isZero()
+                    || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
             PlannerAmount take = remaining.min(entry.getValue());
             if (take.signum() <= 0) continue;

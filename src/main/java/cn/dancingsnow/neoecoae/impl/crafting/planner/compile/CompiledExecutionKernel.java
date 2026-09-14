@@ -19,8 +19,15 @@ public final class CompiledExecutionKernel {
     private final long[] slotAmount;
     private final boolean[] dispatchable;
 
-    private CompiledExecutionKernel(AEKey[] keys, int[] rowOffset, int[] rowResource, long[] rowNetDelta,
-            long[] rowConsumed, int[] slotOffset, int[] slotResource, long[] slotAmount,
+    private CompiledExecutionKernel(
+            AEKey[] keys,
+            int[] rowOffset,
+            int[] rowResource,
+            long[] rowNetDelta,
+            long[] rowConsumed,
+            int[] slotOffset,
+            int[] slotResource,
+            long[] slotAmount,
             boolean[] dispatchable) {
         this.keys = keys;
         this.rowOffset = rowOffset;
@@ -35,7 +42,9 @@ public final class CompiledExecutionKernel {
 
     public static CompiledExecutionKernel compile(CompiledNetwork network) {
         List<CompiledPattern> patterns = network.producers().values().stream()
-            .flatMap(List::stream).sorted(Comparator.comparingInt(CompiledPattern::id)).toList();
+                .flatMap(List::stream)
+                .sorted(Comparator.comparingInt(CompiledPattern::id))
+                .toList();
         for (int i = 0; i < patterns.size(); i++) {
             if (patterns.get(i).id() != i) throw new IllegalArgumentException("Pattern ids must be dense");
         }
@@ -71,7 +80,7 @@ public final class CompiledExecutionKernel {
                 for (var output : pattern.grossOutputs()) {
                     if (output != null && output.what() != null && output.amount() > 0L) {
                         totals.computeIfAbsent(ids.get(output.what()), ignored -> new Totals())
-                            .addProduced(output.amount());
+                                .addProduced(output.amount());
                     }
                 }
                 totals.forEach((resourceId, total) -> {
@@ -83,36 +92,100 @@ public final class CompiledExecutionKernel {
             rowOffsets[patternId + 1] = rowResources.size();
             slotOffsets[patternId + 1] = slotResources.size();
         }
-        return new CompiledExecutionKernel(keys.toArray(AEKey[]::new), rowOffsets, ints(rowResources),
-            longs(netDeltas), longs(consumedAmounts), slotOffsets, ints(slotResources), longs(slotAmounts),
-            dispatchable);
+        return new CompiledExecutionKernel(
+                keys.toArray(AEKey[]::new),
+                rowOffsets,
+                ints(rowResources),
+                longs(netDeltas),
+                longs(consumedAmounts),
+                slotOffsets,
+                ints(slotResources),
+                longs(slotAmounts),
+                dispatchable);
     }
 
     private static void intern(Map<AEKey, Integer> ids, List<AEKey> keys, AEKey key) {
-        if (key != null) ids.computeIfAbsent(key, ignored -> { keys.add(key); return keys.size() - 1; });
+        if (key != null)
+            ids.computeIfAbsent(key, ignored -> {
+                keys.add(key);
+                return keys.size() - 1;
+            });
     }
-    private static int[] ints(List<Integer> values) { return values.stream().mapToInt(Integer::intValue).toArray(); }
-    private static long[] longs(List<Long> values) { return values.stream().mapToLong(Long::longValue).toArray(); }
 
-    public int patternCount() { return dispatchable.length; }
-    public int resourceCount() { return keys.length; }
-    public AEKey key(int resourceId) { return keys[resourceId]; }
-    public int rowStart(int patternId) { return rowOffset[patternId]; }
-    public int rowEnd(int patternId) { return rowOffset[patternId + 1]; }
-    public int rowResource(int row) { return rowResource[row]; }
-    public long rowNetDelta(int row) { return rowNetDelta[row]; }
-    public long rowConsumed(int row) { return rowConsumed[row]; }
-    public long rowProduced(int row) { return Math.addExact(rowNetDelta[row], rowConsumed[row]); }
-    public int slotStart(int patternId) { return slotOffset[patternId]; }
-    public int slotEnd(int patternId) { return slotOffset[patternId + 1]; }
-    public int slotResource(int slot) { return slotResource[slot]; }
-    public long slotAmount(int slot) { return slotAmount[slot]; }
-    public boolean dispatchable(int patternId) { return dispatchable[patternId]; }
+    private static int[] ints(List<Integer> values) {
+        return values.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    private static long[] longs(List<Long> values) {
+        return values.stream().mapToLong(Long::longValue).toArray();
+    }
+
+    public int patternCount() {
+        return dispatchable.length;
+    }
+
+    public int resourceCount() {
+        return keys.length;
+    }
+
+    public AEKey key(int resourceId) {
+        return keys[resourceId];
+    }
+
+    public int rowStart(int patternId) {
+        return rowOffset[patternId];
+    }
+
+    public int rowEnd(int patternId) {
+        return rowOffset[patternId + 1];
+    }
+
+    public int rowResource(int row) {
+        return rowResource[row];
+    }
+
+    public long rowNetDelta(int row) {
+        return rowNetDelta[row];
+    }
+
+    public long rowConsumed(int row) {
+        return rowConsumed[row];
+    }
+
+    public long rowProduced(int row) {
+        return Math.addExact(rowNetDelta[row], rowConsumed[row]);
+    }
+
+    public int slotStart(int patternId) {
+        return slotOffset[patternId];
+    }
+
+    public int slotEnd(int patternId) {
+        return slotOffset[patternId + 1];
+    }
+
+    public int slotResource(int slot) {
+        return slotResource[slot];
+    }
+
+    public long slotAmount(int slot) {
+        return slotAmount[slot];
+    }
+
+    public boolean dispatchable(int patternId) {
+        return dispatchable[patternId];
+    }
 
     private static final class Totals {
         private long consumed;
         private long produced;
-        private void addConsumed(long amount) { consumed = Math.addExact(consumed, amount); }
-        private void addProduced(long amount) { produced = Math.addExact(produced, amount); }
+
+        private void addConsumed(long amount) {
+            consumed = Math.addExact(consumed, amount);
+        }
+
+        private void addProduced(long amount) {
+            produced = Math.addExact(produced, amount);
+        }
     }
 }

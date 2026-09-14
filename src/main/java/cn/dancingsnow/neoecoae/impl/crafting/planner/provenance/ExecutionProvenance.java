@@ -13,8 +13,7 @@ public record ExecutionProvenance(Map<AEKey, Map<MaterialSource, PlannerAmount>>
 
     public ExecutionProvenance {
         Map<AEKey, Map<MaterialSource, PlannerAmount>> frozen = new LinkedHashMap<>();
-        suppliers.forEach((key, sources) -> frozen.put(key,
-            Collections.unmodifiableMap(new LinkedHashMap<>(sources))));
+        suppliers.forEach((key, sources) -> frozen.put(key, Collections.unmodifiableMap(new LinkedHashMap<>(sources))));
         suppliers = Collections.unmodifiableMap(frozen);
     }
 
