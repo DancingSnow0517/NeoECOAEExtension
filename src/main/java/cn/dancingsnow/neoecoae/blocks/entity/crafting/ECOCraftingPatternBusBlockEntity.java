@@ -18,6 +18,7 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.AuxiliaryPatternStore;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
@@ -143,9 +144,109 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     /** Ordinary one-craft dispatch follows AdvancedAE's successful-target round-robin. */
     private int dispatchRoundRobinIndex;
 
+    // ---- auxiliary pattern store (pattern disks and the like) ----------------------------------
+
+    @Nullable
+    private static AuxiliaryPatternStore auxiliaryPatternStore;
+
+    /**
+     * Registered once by an integration mod. Left {@code null}, the bus behaves exactly as before: it
+     * stores patterns in slots and knows nothing about auxiliary containers.
+     */
+    public static void setAuxiliaryPatternStore(@Nullable AuxiliaryPatternStore store) {
+        auxiliaryPatternStore = store;
+    }
+
+    @Nullable
+    public static AuxiliaryPatternStore getAuxiliaryPatternStore() {
+        return auxiliaryPatternStore;
+    }
+
+    /**
+     * Change token for the auxiliary store's contents.
+     *
+     * <p>Kept separate from {@link #getPatternContentRevision()} on purpose. That value drives the
+     * catalog's per-slot delta, and a disk rewriting its contents does not change which item occupies
+     * the slot. Folding one into the other would let a slot delta stamp a revision that already covers
+     * patterns the catalog has not indexed yet, and the index would then never catch up.</p>
+     */
+    public long getAuxiliaryRevision() {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        return store == null ? 0L : store.revision(this);
+    }
+
+    /** Whether the bus can still take a pattern without spending a slot. */
+    public boolean hasAuxiliaryRoom() {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        return store != null && store.hasRoom(this);
+    }
+
+    /** Whether an auxiliary store recognises {@code stack} as one of its own containers. */
+    public boolean ownsAuxiliary(ItemStack stack) {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        return store != null && store.owns(this, stack);
+    }
+
+    /** Store revision the cached auxiliary lists were derived from. */
+    private long auxiliaryDecodeRevision = Long.MIN_VALUE;
+
+    private List<IPatternDetails> auxiliaryPatternDetails = List.of();
+
+    private List<ItemStack> auxiliaryEncodedPatterns = List.of();
+
+    /**
+     * Derives the patterns the auxiliary store contributes, cached against the store's revision.
+     *
+     * <p>A disk holds whatever the encoding terminal wrote to it, processing patterns included, but an
+     * ECO worker only runs molecular-assembler patterns. Advertising the rest would aim a crafting job at
+     * a route {@code pushPattern} then refuses. The filter also keeps the catalog's counts and the bus's
+     * advertised list over exactly the same set, so a pattern can never be counted as present yet be
+     * unusable.</p>
+     */
+    private void refreshAuxiliaryPatterns() {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        if (store == null) {
+            auxiliaryPatternDetails = List.of();
+            auxiliaryEncodedPatterns = List.of();
+            return;
+        }
+        long revision = store.revision(this);
+        if (revision == auxiliaryDecodeRevision) {
+            return;
+        }
+        List<IPatternDetails> decoded = new ArrayList<>();
+        List<ItemStack> encoded = new ArrayList<>();
+        for (ItemStack candidate : store.encodedPatterns(this)) {
+            IPatternDetails details = PatternDetailsHelper.decodePattern(candidate, level);
+            if (details instanceof IMolecularAssemblerSupportedPattern) {
+                decoded.add(details);
+                encoded.add(candidate);
+            }
+        }
+        auxiliaryPatternDetails = List.copyOf(decoded);
+        auxiliaryEncodedPatterns = List.copyOf(encoded);
+        // Stamped last on purpose: a decoder that throws would otherwise leave the revision marked as
+        // already decoded, freezing the cache on the previous contents until the store's revision
+        // happens to move again.
+        auxiliaryDecodeRevision = revision;
+    }
+
+    /** Encoded patterns the auxiliary store contributes to the network. */
+    public List<ItemStack> getAuxiliaryEncodedPatterns() {
+        refreshAuxiliaryPatterns();
+        return auxiliaryEncodedPatterns;
+    }
+
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return patternDetails;
+        refreshAuxiliaryPatterns();
+        if (auxiliaryPatternDetails.isEmpty()) {
+            return patternDetails;
+        }
+        List<IPatternDetails> merged = new ArrayList<>(patternDetails.size() + auxiliaryPatternDetails.size());
+        merged.addAll(patternDetails);
+        merged.addAll(auxiliaryPatternDetails);
+        return merged;
     }
 
     @Override
@@ -514,6 +615,22 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (!knownUnique && containsPatternInCluster(itemStack)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
+        // An auxiliary store (pattern disks) takes precedence over slot storage: the pattern is already
+        // being carried by the bus, and spending a slot on it would consume capacity for nothing.
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        if (store != null && store.canAccept(this, itemStack)) {
+            ECOPatternInsertionResult stored = store.insert(this, prepared);
+            if (stored == ECOPatternInsertionResult.INSERTED) {
+                // No revision bump here: a store writes through the bus's own inventory, which notifies
+                // its host, and the catalog picks the disk up from getAuxiliaryRevision() either way.
+                return stored;
+            }
+            if (stored == ECOPatternInsertionResult.ALREADY_PRESENT) {
+                return stored;
+            }
+            // Any other outcome means the store did not take it after all; the slot inventory stays
+            // the fallback, exactly as if the store had not been consulted.
+        }
         return insertPreparedStack(prepared);
     }
 
@@ -595,6 +712,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 return true;
             }
         }
+        for (ItemStack storedPattern : getAuxiliaryEncodedPatterns()) {
+            if (ItemStack.isSameItemSameComponents(storedPattern, pattern)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -658,7 +780,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 && slot < getPatternSlotCount()
                 && (activePreparedPattern != null
                     ? activePreparedPattern.matches(stack)
-                    : isExecutablePattern(stack));
+                    : isExecutablePattern(stack) || ownsAuxiliary(stack));
         }
     }
 
