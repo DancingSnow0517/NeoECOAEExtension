@@ -100,7 +100,7 @@ final class ECOProcessingPatternDispatcher {
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (Contract.forProvider(provider) != null || !safeForGenericScaling(request, provider)) return null;
+        if (Contract.forProvider(provider) != null || !safeForAtomicScaling(request, provider)) return null;
         long budget = TICK_BUDGET - used;
         if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>())
@@ -153,15 +153,16 @@ final class ECOProcessingPatternDispatcher {
         }
     }
 
-    private static boolean safeForGenericScaling(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+    /**
+     * Generic processing providers may still receive an adaptive batch when the whole push can be
+     * proven atomic. This policy belongs to dispatch, so it must not depend on a provider class name.
+     */
+    private static boolean safeForAtomicScaling(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
         if (!(base instanceof AEProcessingPattern) || base != request.pattern() || request.remainders().size() != 0
                 || request.pattern().getInputs().length != 1
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
-        String name = provider.getClass().getName().toLowerCase(java.util.Locale.ROOT);
-        if (!name.contains("patternprovider") && !name.contains("pattern_provider")) return false;
-        if (name.contains("wireless") || name.contains("direction")) return false;
         try {
             Method directBlocking = provider.getClass().getMethod("isBlocking");
             Object logic = provider;
