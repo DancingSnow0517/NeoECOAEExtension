@@ -19,6 +19,48 @@ public interface IECOPatternStorageService extends IGridService {
     }
 
     /**
+     * Like {@link #insertPreparedPattern}, but also reports whether a container absorbed the recipe.
+     *
+     * <p>Callers that clear the source slot after a successful insertion need this. Routing into a slot and
+     * routing into a container look identical in the plain result, yet the slot stored the pattern's item,
+     * so the network already holds it and the source is cleared without anything owed; a container stored
+     * only the recipe, so its item is gone and the caller has to hand a blank back. Handing a blank back on
+     * the slot path would mint one for a pattern that was merely moved.</p>
+     *
+     * <p>The default reports "not absorbed". That is only safe for a storage that keeps the pattern item
+     * itself: a storage that absorbs recipes and leaves the default in place gets its source cleared with
+     * nothing returned, so it must override this and supply a non-empty replacement.</p>
+     */
+    default ECOPatternInsertion insertPreparedPatternReporting(ECOPreparedPattern prepared) {
+        return ECOPatternInsertion.of(insertPreparedPattern(prepared));
+    }
+
+    /**
+     * The recipes the network currently exposes to autocrafting, decoded.
+     *
+     * <p>A container publishes recipes rather than items, and a consumer that needs to know what the network
+     * would offer - to decide whether a disk has to be decoded, or whether a recipe is already reachable -
+     * has no other way to ask. The default is empty rather than an exception: a grid without pattern storage
+     * exposes nothing, which is a valid answer.</p>
+     */
+    default java.util.List<appeng.api.crafting.IPatternDetails> getExposedPatterns() {
+        return java.util.List.of();
+    }
+
+    /**
+     * What a consumed pattern is replaced with.
+     *
+     * <p>Hard contract: an implementation that reports {@code absorbedByContainer} <em>must</em> answer with
+     * a non-empty stack here, one blank per encoded pattern that was consumed. The caller clears the source
+     * only after the replacement reaches the network in full, so answering empty leaves the source pattern
+     * in place - nothing is lost, but nothing is migrated either. Storages that never absorb can leave the
+     * default.</p>
+     */
+    default ItemStack blankPatternReplacementFor(ItemStack pattern) {
+        return ItemStack.EMPTY;
+    }
+
+    /**
      * Returns network-wide migration index progress. Discovered candidates are claimable while {@code ready} is
      * false; readiness only means that the scanner has reached the end of the current generation.
      */

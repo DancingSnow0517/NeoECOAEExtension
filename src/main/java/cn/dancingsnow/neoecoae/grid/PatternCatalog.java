@@ -7,7 +7,10 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.core.definitions.AEItems;
+import appeng.api.inventories.InternalInventory;
 import appeng.helpers.patternprovider.PatternContainer;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertion;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
@@ -68,6 +71,24 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             new IdentityHashMap<>();
     private final Map<AEItemKey, Set<PatternLocation>> patternLocationsByKey = new HashMap<>();
     private final Map<AEItemKey, Integer> networkPatternCounts = new HashMap<>();
+    /**
+     * Auxiliary (non-slot) pattern counts per bus, the counterpart of {@link #busPatternKeys}.
+     *
+     * <p>Kept apart because the slot deltas applied by {@link #onPatternSlotsChanged} assume one count
+     * per physical slot; folding disk-held patterns into the same map would desync those deltas.</p>
+     */
+    private final Map<ECOCraftingPatternBusBlockEntity, Map<AEItemKey, Integer>> busAuxiliaryPatternKeys =
+            new IdentityHashMap<>();
+    /** Store revision each bus's auxiliary counts were built from. */
+    private final Map<ECOCraftingPatternBusBlockEntity, Long> busAuxiliaryRevisions = new IdentityHashMap<>();
+    /**
+     * Slots currently holding an auxiliary container.
+     *
+     * <p>Disks are deliberately absent from {@link #busPatternRecords}, so the per-slot delta's
+     * "no record = was empty" shortcut does not hold for them; these slots let that delta notice a disk
+     * changing hands and fall back to a full re-derivation.</p>
+     */
+    private final Map<ECOCraftingPatternBusBlockEntity, BitSet> busAuxiliarySlots = new IdentityHashMap<>();
     private List<IECOPatternStorage> writablePatternStorages = List.of();
     private boolean writablePatternStorageCacheInitialized;
     private long patternCapacityGeneration;
@@ -136,8 +157,163 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         return tryInsertPatternInternal(prepared.stack(), prepared);
     }
 
+    /**
+     * Like {@link #insertPreparedPattern}, but reports whether a container absorbed the recipe.
+     *
+     * <p>A caller that clears the source pattern after a successful insertion needs this: routing into a
+     * slot and routing into a container are indistinguishable in the plain result, yet only the container
+     * consumes the pattern's item.</p>
+     */
+    @Override
+    public ECOPatternInsertion insertPreparedPatternReporting(ECOPreparedPattern prepared) {
+        if (prepared == null || prepared.stack().isEmpty()
+                || !(prepared.details() instanceof IMolecularAssemblerSupportedPattern)) {
+            return ECOPatternInsertion.of(ECOPatternInsertionResult.INCOMPATIBLE);
+        }
+        ItemStack patternItem = prepared.stack();
+        if (!writablePatternStorageCacheInitialized) {
+            refreshPatternIndexes();
+        }
+        AEItemKey patternKey = AEItemKey.of(patternItem);
+        if (patternKey != null && networkPatternCounts.containsKey(patternKey)) {
+            return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
+        }
+        // The container pass is the only one that consumes the pattern's item; a slot keeps it as a stack.
+        if (tryAuxiliaryPass(patternItem, prepared) == ECOPatternInsertionResult.INSERTED) {
+            return new ECOPatternInsertion(ECOPatternInsertionResult.INSERTED, true,
+                    blankPatternReplacementFor(patternItem));
+        }
+        // The container pass already ran and declined, so the slot path must not run it a second time: a
+        // second write window could absorb the pattern while this method reports it as slot-held.
+        return ECOPatternInsertion.of(tryInsertPatternInternal(patternItem, prepared, true));
+    }
+
+    /**
+     * A blank pattern is what an encoded pattern becomes once a container took its recipe: the recipe is
+     * stored, the item is not. Returning the same item the disk-encoding path returns keeps the two ways of
+     * storing a pattern consistent.
+     */
+    @Override
+    public ItemStack blankPatternReplacementFor(ItemStack pattern) {
+        return PatternRefund.blankFor(pattern);
+    }
+
+    /**
+     * Routes {@code patternItem} into a container - a pattern disk - before any slot gets a chance.
+     *
+     * <p>A pattern that belongs on a disk has to reach one first: the slot loop below hands it to whichever
+     * bus exposes a free slot, which both spends that slot and leaves the disk empty - and once the pattern
+     * sits in a slot, removing the disk can no longer take it back out.</p>
+     *
+     * @return the outcome, or {@code null} when no container took it and the slot path should run
+     */
+    /**
+     * Offers a pattern to the storage buses' disks alone, never to a slot.
+     *
+     * <p>Kept apart from {@link #insertPreparedPatternReporting} because that one falls back to a slot, and a
+     * caller that is about to clear its own source slot cannot have the pattern handed back into a slot - it
+     * could be the very one being cleared, and the clear would then destroy what was just stored.</p>
+     *
+     * @return the outcome, or {@code null} when no disk took it and the caller should carry on without it
+     */
+    @Nullable
+    public ECOPatternInsertionResult insertPatternIntoAuxiliaryOnly(ItemStack patternItem,
+                                                                   @Nullable ECOPreparedPattern prepared) {
+        return tryAuxiliaryPass(patternItem, prepared);
+    }
+
+    @Nullable
+    private ECOPatternInsertionResult tryAuxiliaryPass(ItemStack patternItem, @Nullable ECOPreparedPattern prepared) {
+        // Two rounds, so a disk already locked to this pattern's type takes it before an empty disk can. A disk
+        // locked to some other type refuses the pattern outright, so a bus whose disks hold patterns is either
+        // a match or not a candidate at all - which is what lets "already holds patterns" stand in for "its disk
+        // is the right type" without asking the store to describe its disks.
+        //
+        // The first round needs to exist because the second one alone picks whichever bus the identity-ordered
+        // candidate list happens to yield first: an empty disk would take the pattern and lock itself to it,
+        // leaving a matching disk elsewhere unreachable.
+        ECOPatternInsertionResult onHoldingBus = insertIntoCandidateBuses(patternItem, prepared, true);
+        if (onHoldingBus != null) {
+            return onHoldingBus;
+        }
+        return insertIntoCandidateBuses(patternItem, prepared, false);
+    }
+
+    /**
+     * Offers {@code patternItem} to the storage buses, optionally restricted to those already holding patterns.
+     *
+     * @return the outcome, or {@code null} when no candidate took it and the slot path should run
+     */
+    @Nullable
+    private ECOPatternInsertionResult insertIntoCandidateBuses(ItemStack patternItem,
+                                                               @Nullable ECOPreparedPattern prepared,
+                                                               boolean requireHeldPatterns) {
+        for (IECOPatternStorage value : writablePatternStorages) {
+            if (requireHeldPatterns && !holdsAuxiliaryPatterns(value)) {
+                continue;
+            }
+            if (!value.canAcceptIntoAuxiliary(patternItem)) {
+                continue;
+            }
+            switch (value.insertIntoAuxiliary(patternItem, prepared)) {
+                case INSERTED -> {
+                    preferredStorage = value;
+                    return ECOPatternInsertionResult.INSERTED;
+                }
+                case ALREADY_PRESENT -> {
+                    // Forward compatibility: no current implementation returns it from the auxiliary write.
+                    return ECOPatternInsertionResult.ALREADY_PRESENT;
+                }
+                default -> {
+                    // Either the store stopped accepting between the probe and the write, or this bus cannot
+                    // execute the pattern at all (INCOMPATIBLE). Both leave it to the slot loop below.
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @return whether the bus's disks already hold patterns, which is what makes them worth preferring
+     *
+     * <p>Known limit: the judgement is per bus, not per disk. A bus holding a disk of another type next to an
+     * empty one still counts as holding, so that bus's empty disk can take the pattern before a matching disk on
+     * another bus is ever reached. The pattern still lands on a disk that accepts it - nothing is mismatched or
+     * lost - but the preference across buses can be missed for that layout. Closing the gap needs the store to
+     * answer at disk granularity rather than bus granularity.</p>
+     */
+    private boolean holdsAuxiliaryPatterns(IECOPatternStorage storage) {
+        return storage instanceof ECOCraftingPatternBusBlockEntity bus
+                && !bus.getAuxiliaryEncodedPatterns().isEmpty();
+    }
+
+    /**
+     * Every recipe the network's pattern storage exposes right now.
+     *
+     * <p>Deliberately assembled from each bus's own advertised list instead of re-deriving one here: what a
+     * bus hands to autocrafting <em>is</em> what the network exposes, container-held patterns included, so
+     * going through it is the only way this answer cannot disagree with what autocrafting sees.</p>
+     */
+    @Override
+    public List<IPatternDetails> getExposedPatterns() {
+        refreshPatternIndexes();
+        List<IPatternDetails> exposed = new ArrayList<>();
+        for (IECOPatternStorage storage : patternStorages.values()) {
+            if (storage instanceof ECOCraftingPatternBusBlockEntity bus) {
+                exposed.addAll(bus.getAvailablePatterns());
+            }
+        }
+        return List.copyOf(exposed);
+    }
+
     private ECOPatternInsertionResult tryInsertPatternInternal(ItemStack patternItem,
                                                                  @Nullable ECOPreparedPattern prepared) {
+        return tryInsertPatternInternal(patternItem, prepared, false);
+    }
+
+    private ECOPatternInsertionResult tryInsertPatternInternal(ItemStack patternItem,
+                                                                 @Nullable ECOPreparedPattern prepared,
+                                                                 boolean auxiliaryAlreadyTried) {
         if (prepared != null && !prepared.matches(patternItem)) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
@@ -154,6 +330,14 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         // The catalog is initialized once and then maintained by slot/batch deltas. A non-null key
         // absent from it is already proven unique, so no destination may rescan its cluster.
         boolean uniquenessChecked = patternKey != null;
+
+        ECOPatternInsertionResult auxiliary = auxiliaryAlreadyTried
+                ? null
+                : tryAuxiliaryPass(patternItem, prepared);
+        if (auxiliary != null) {
+            return auxiliary;
+        }
+
         if (preferredStorage instanceof ECOCraftingPatternBusBlockEntity) {
             ECOPatternInsertionResult result = insertIntoStorage(
                     preferredStorage, patternItem, prepared, uniquenessChecked);
@@ -254,7 +438,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             ECOCraftingPatternBusBlockEntity bus = entry.getKey();
             bus.refreshPatternDetailsForCatalog();
             for (int slot : entry.getValue().keySet()) {
-                ItemStack stack = bus.getTerminalPatternInventory().getStackInSlot(slot);
+                ItemStack stack = bus.getPatternSlotInventory().getStackInSlot(slot);
                 if (!stack.isEmpty()) {
                     result.add(createRecord(bus, slot, stack));
                 }
@@ -273,7 +457,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (records == null || !records.containsKey(physicalSlot)) {
             return null;
         }
-        ItemStack stack = bus.getTerminalPatternInventory().getStackInSlot(physicalSlot);
+        ItemStack stack = bus.getPatternSlotInventory().getStackInSlot(physicalSlot);
         return stack.isEmpty() ? null : createRecord(bus, physicalSlot, stack);
     }
 
@@ -510,11 +694,25 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         externalPatternSlotIndex = 0;
         externalPatternScannedSlots = 0;
         externalPatternTotalSlots = sources.stream()
-                .mapToInt(source -> source.getTerminalPatternInventory().size())
+                .mapToInt(source -> sourceSlots(source).size())
                 .sum();
         externalPatternIndexAge = 0;
         externalPatternIndexDirty = false;
         externalPatternIndexBuilding = !sources.isEmpty();
+    }
+
+    /**
+     * The slots to index for {@code source}.
+     *
+     * <p>An FD bus answers AE2's contract with the terminal's view, and that view hides the disks and appends
+     * their recipes. Indexing it would read those appended rows as slots and then count the same recipes again
+     * through the auxiliary index, so the bus is asked for its real slots instead. Any other container only
+     * has the one view, and that is what its slot indices refer to.</p>
+     */
+    public static InternalInventory sourceSlots(PatternContainer source) {
+        return source instanceof ECOCraftingPatternBusBlockEntity bus
+                ? bus.getPatternSlotInventory()
+                : source.getTerminalPatternInventory();
     }
 
     private void scanExternalPatternIndex() {
@@ -527,7 +725,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 break;
             }
             PatternContainer source = externalPatternSources.get(externalPatternSourceIndex);
-            var inventory = source.getTerminalPatternInventory();
+            var inventory = sourceSlots(source);
             if (source.getGrid() != externalPatternIndexGrid || externalPatternSlotIndex >= inventory.size()) {
                 externalPatternSourceIndex++;
                 externalPatternSlotIndex = 0;
@@ -598,6 +796,20 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             if (revision == null || revision != bus.getPatternContentRevision()) {
                 rebuildBusPatternIndex(bus);
                 changed = true;
+                continue;
+            }
+            // A disk rewriting its contents leaves the slot layout untouched, so the slot revision above
+            // does not move. Re-derive just the auxiliary side, or the network keeps counting patterns
+            // that are gone and keeps missing ones that arrived.
+            Long auxiliaryRevision = busAuxiliaryRevisions.get(bus);
+            if (auxiliaryRevision == null || auxiliaryRevision != bus.getAuxiliaryRevision()) {
+                dropAuxiliaryCounts(bus);
+                indexAuxiliaryPatterns(bus);
+                // The disk changed without moving the slot layout, so nothing told AE2 to re-read this
+                // provider. Without the nudge its crafting service keeps dispatching the old list until an
+                // unrelated grid change forces a rescan.
+                bus.refreshAdvertisedPatterns();
+                changed = true;
             }
         }
         if (!busPatternRevisions.isEmpty()) {
@@ -622,13 +834,27 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                                       int previousRevision,
                                       int[] changedSlots) {
         Integer indexedRevision = busPatternRevisions.get(bus);
-        var inventory = bus.getTerminalPatternInventory();
+        var inventory = bus.getPatternSlotInventory();
         boolean unknownRange = Arrays.stream(changedSlots)
                 .anyMatch(slot -> slot < 0 || slot >= inventory.size());
         if (indexedRevision == null || indexedRevision != previousRevision || unknownRange) {
             rebuildBusPatternIndex(bus);
             rebuildWritablePatternStorageCache();
             return;
+        }
+        // A slot that held, or now holds, an auxiliary container voids the "no record = was empty"
+        // shortcut below, because disks never get a record. Moving one is rare, so re-derive the bus
+        // instead of guessing the empty-slot delta: guessing clamps the count, and the bus silently
+        // drops out of the writable set while it still has free slots.
+        BitSet auxiliarySlots = busAuxiliarySlots.get(bus);
+        for (int slot : changedSlots) {
+            boolean holdsAuxiliary = slot >= 0 && slot < inventory.size()
+                    && bus.ownsAuxiliary(inventory.getStackInSlot(slot));
+            if ((auxiliarySlots != null && auxiliarySlots.get(slot)) || holdsAuxiliary) {
+                rebuildBusPatternIndex(bus);
+                rebuildWritablePatternStorageCache();
+                return;
+            }
         }
         Map<AEItemKey, Integer> busCounts = busPatternKeys.computeIfAbsent(bus, ignored -> new HashMap<>());
         Map<Integer, PatternRecord> records = busPatternRecords.computeIfAbsent(bus, ignored -> new HashMap<>());
@@ -643,7 +869,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             ItemStack current = slot >= 0 && slot < inventory.size()
                     ? inventory.getStackInSlot(slot)
                     : ItemStack.EMPTY;
-            if (!current.isEmpty()) {
+            if (!current.isEmpty() && !bus.ownsAuxiliary(current)) {
                 AEItemKey key = AEItemKey.of(current);
                 if (key != null) {
                     busCounts.merge(key, 1, Integer::sum);
@@ -677,11 +903,19 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         Map<AEItemKey, Integer> counts = new HashMap<>();
         Map<Integer, PatternRecord> records = new HashMap<>();
         int emptySlots = 0;
-        var inventory = bus.getTerminalPatternInventory();
+        BitSet auxiliarySlots = new BitSet();
+        var inventory = bus.getPatternSlotInventory();
         for (int slot = 0; slot < inventory.size(); slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
             if (stack.isEmpty()) {
                 emptySlots++;
+                continue;
+            }
+            // A container the auxiliary store serves from is not itself a pattern; its contents reach
+            // networkPatternCounts through indexAuxiliaryPatterns instead. The slot is still remembered,
+            // because the per-slot delta reads "no record" as "was empty".
+            if (bus.ownsAuxiliary(stack)) {
+                auxiliarySlots.set(slot);
                 continue;
             }
             AEItemKey key = AEItemKey.of(stack);
@@ -697,6 +931,38 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         busPatternRecords.put(bus, records);
         busPatternRevisions.put(bus, bus.getPatternContentRevision());
         busEmptySlotCounts.put(bus, emptySlots);
+        busAuxiliarySlots.put(bus, auxiliarySlots);
+        indexAuxiliaryPatterns(bus);
+    }
+
+    /**
+     * Folds a bus's auxiliary patterns into the network-wide counts.
+     *
+     * <p>These are patterns the network can already craft with, so leaving them out would make
+     * {@link #tryInsertPatternInternal}'s first gate treat them as absent and accept a duplicate.</p>
+     */
+    private void indexAuxiliaryPatterns(ECOCraftingPatternBusBlockEntity bus) {
+        Map<AEItemKey, Integer> counts = new HashMap<>();
+        for (ItemStack encoded : bus.getAuxiliaryEncodedPatterns()) {
+            AEItemKey key = AEItemKey.of(encoded);
+            if (key != null) {
+                counts.merge(key, 1, Integer::sum);
+                networkPatternCounts.merge(key, 1, Integer::sum);
+            }
+        }
+        busAuxiliaryPatternKeys.put(bus, counts);
+        busAuxiliaryRevisions.put(bus, bus.getAuxiliaryRevision());
+    }
+
+    /** Drops a bus's auxiliary counts, keeping {@link #networkPatternCounts} consistent. */
+    private void dropAuxiliaryCounts(ECOCraftingPatternBusBlockEntity bus) {
+        Map<AEItemKey, Integer> counts = busAuxiliaryPatternKeys.remove(bus);
+        if (counts == null) {
+            return;
+        }
+        for (Map.Entry<AEItemKey, Integer> entry : counts.entrySet()) {
+            dropCount(networkPatternCounts, entry.getKey(), entry.getValue());
+        }
     }
 
     private void removeBusPatternIndex(ECOCraftingPatternBusBlockEntity bus) {
@@ -707,14 +973,21 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         Map<AEItemKey, Integer> counts = busPatternKeys.remove(bus);
         if (counts != null) {
             for (Map.Entry<AEItemKey, Integer> entry : counts.entrySet()) {
-                networkPatternCounts.computeIfPresent(entry.getKey(), (ignored, count) -> {
-                    int remaining = count - entry.getValue();
-                    return remaining <= 0 ? null : remaining;
-                });
+                dropCount(networkPatternCounts, entry.getKey(), entry.getValue());
             }
         }
+        dropAuxiliaryCounts(bus);
+        busAuxiliaryRevisions.remove(bus);
+        busAuxiliarySlots.remove(bus);
         busPatternRevisions.remove(bus);
         busEmptySlotCounts.remove(bus);
+    }
+
+    private static void dropCount(Map<AEItemKey, Integer> target, AEItemKey key, int amount) {
+        target.computeIfPresent(key, (ignored, count) -> {
+            int remaining = count - amount;
+            return remaining <= 0 ? null : remaining;
+        });
     }
 
     private void addLocation(@Nullable PatternRecord record) {
@@ -746,11 +1019,19 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         List<IECOPatternStorage> next = new ArrayList<>();
         for (IECOPatternStorage storage : patternStorages.values()) {
             if (storage instanceof ECOCraftingPatternBusBlockEntity bus) {
-                if (busEmptySlotCounts.getOrDefault(bus, 0) > 0) {
+                // An auxiliary store keeps the bus writable even with every slot occupied: a bus full of
+                // pattern disks is exactly the case where slot capacity says nothing about room.
+                if (busEmptySlotCounts.getOrDefault(bus, 0) > 0 || bus.hasAuxiliaryRoom()) {
                     next.add(storage);
                 }
             }
         }
+        // Ordered by position, because this list decides which bus takes a pattern and the map behind it is an
+        // identity map whose order is neither stable nor meaningful. Without this, which disk a pattern lands
+        // on could differ between runs of the same world.
+        next.sort(Comparator.comparingLong(storage -> ((ECOCraftingPatternBusBlockEntity) storage)
+                .getBlockPos()
+                .asLong()));
         if (!sameStorageList(writablePatternStorages, next)) {
             writablePatternStorages = List.copyOf(next);
             patternCapacityGeneration = patternCapacityGeneration == Long.MAX_VALUE

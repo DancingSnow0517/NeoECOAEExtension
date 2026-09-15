@@ -13,6 +13,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.api.ECOPatternSourceSlot;
 import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
@@ -135,6 +136,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternOrganizeDuplicatesRecovered;
     @DescSynced
     private int patternOrganizeRecoveryBlocked;
+
+    /** Rows the organize pass cleared by handing them to a disk, counted for the pass's own report. */
+    private int patternOrganizeAuxiliaryMoved;
     @Nullable
     private PatternOrganizeTask patternOrganizeTask;
     private long lastPatternTransferSyncTick = Long.MIN_VALUE;
@@ -351,9 +355,84 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public PatternPreviewEntry getPatternPreviewEntry(int index) {
         PatternSlotRef ref = patternSlotRefs.get(index);
         PatternCatalog.PatternRecord record = getCatalogRecord(ref);
+        if (record == null && holdsAuxiliaryDisk(ref)) {
+            return auxiliaryPreviewEntry(ref);
+        }
         ItemStack stack = record == null ? ItemStack.EMPTY : record.stack().copy();
         return new PatternPreviewEntry(ref.bus().getBlockPos().asLong(), ref.slot(), stack,
-                record == null ? "" : record.searchKeywords(), patternSearchFlags(stack));
+                record == null ? "" : record.searchKeywords(), patternSearchFlags(stack), List.of(), false);
+    }
+
+    /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
+    private final Map<Long, Long> busAuxiliaryPreviewRevisions = new HashMap<>();
+
+    /**
+     * Marks the rows of any bus whose disk contents moved, since that is what those rows now show.
+     *
+     * <p>A bus tells this interface when one of its slots changes, but a disk taking another recipe leaves the
+     * slot exactly as it was - only the disk's contents differ - so nothing else would ever ask the terminal to
+     * redraw, and the recipes it lists would stay at whatever they were when the screen opened.</p>
+     */
+    private void refreshAuxiliaryPreviewRows() {
+        int offset = 0;
+        for (int busIndex = 0; busIndex < patternBusSlotCounts.length; busIndex++) {
+            int slotCount = patternBusSlotCounts[busIndex];
+            if (slotCount > 0 && offset < patternSlotRefs.size()) {
+                noteAuxiliaryRevision(patternSlotRefs.get(offset).bus(), offset, slotCount);
+            }
+            offset += slotCount;
+        }
+    }
+
+    /** Marks {@code count} rows dirty when {@code bus}'s disks have moved since they were last drawn. */
+    private void noteAuxiliaryRevision(ECOCraftingPatternBusBlockEntity bus, int start, int count) {
+        long revision = bus.getAuxiliaryRevision();
+        Long previous = busAuxiliaryPreviewRevisions.put(bus.getBlockPos().asLong(), revision);
+        if (previous == null || previous == revision) {
+            // First sight of this bus, or its disks have not moved. The first sight is deliberately not a change:
+            // the screen that opens next builds its rows from the current contents anyway.
+            return;
+        }
+        patternPreviewSync.dirty(start, count);
+        patternContentRevision = nextPatternContentRevision();
+    }
+
+    /** @return whether the slot holds a container the auxiliary store serves from rather than a pattern */
+    protected boolean holdsAuxiliaryDisk(PatternSlotRef ref) {
+        return ref.bus().ownsAuxiliary(ref.bus().getPatternSlotInventory().getStackInSlot(ref.slot()));
+    }
+
+    /**
+     * A disk's slot, reported as the recipes the disk holds.
+     *
+     * <p>A disk is not a pattern, so the index keeps no record for its slot and the row used to come out empty.
+     * What the row is for is the recipes inside, and those are exactly what the bus advertises to autocrafting -
+     * so the row carries that list instead of the disk item.</p>
+     */
+    protected PatternPreviewEntry auxiliaryPreviewEntry(PatternSlotRef ref) {
+        var bus = ref.bus();
+        return new PatternPreviewEntry(bus.getBlockPos().asLong(), ref.slot(), ItemStack.EMPTY, "",
+                patternSearchFlags(ItemStack.EMPTY), auxiliaryPreviewRows(bus), true);
+    }
+
+    /**
+     * The recipes one of the bus's containers publishes, as preview rows.
+     *
+     * <p>A function so a variant can change what those rows carry without touching how they are assembled or how
+     * the client expands them into lines. The default is what the container advertises to autocrafting, which is
+     * the same set the terminal's own view appends.</p>
+     */
+    protected List<PatternPreviewEntry.DiskPattern> auxiliaryPreviewRows(ECOCraftingPatternBusBlockEntity bus) {
+        List<ItemStack> patterns = bus.getAuxiliaryEncodedPatterns();
+        List<String> keywords = bus.getAuxiliarySearchKeywords();
+        List<PatternPreviewEntry.DiskPattern> held = new ArrayList<>(patterns.size());
+        for (int index = 0; index < patterns.size(); index++) {
+            // Guarded: the two lists come from one store in one pass, but a row built from a short list would
+            // otherwise throw while a screen is being drawn.
+            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(),
+                    index < keywords.size() ? keywords.get(index) : ""));
+        }
+        return List.copyOf(held);
     }
 
     @Nullable
@@ -410,7 +489,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
         if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) return;
-        InternalInventory inventory = target.bus().getTerminalPatternInventory();
+        InternalInventory inventory = target.bus().getPatternSlotInventory();
         if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
         ItemStack carried = player.containerMenu.getCarried();
@@ -477,7 +556,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) {
                 continue;
             }
-            InternalInventory inventory = target.bus().getTerminalPatternInventory();
+            InternalInventory inventory = target.bus().getPatternSlotInventory();
             if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
             ItemStack existing = inventory.getStackInSlot(physicalSlot);
             ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
@@ -693,7 +772,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         IGrid grid = getMainNode().getGrid();
         List<ECOCraftingPatternBusBlockEntity> buses = new ArrayList<>();
-        if (formed && supportsCraftingInterfaceUi() && grid != null) {
+        if (formed && supportsPatternPreview() && grid != null) {
             buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
             buses.removeIf(bus -> bus.getGrid() != grid || bus.isRemoved() || bus.getBlockPos() == null);
             buses.sort(Comparator.comparingLong(bus -> bus.getBlockPos().asLong()));
@@ -751,7 +830,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private ItemStack getPatternStack(PatternSlotRef ref) {
-        InternalInventory inventory = ref.bus().getTerminalPatternInventory();
+        InternalInventory inventory = ref.bus().getPatternSlotInventory();
         return ref.slot() < inventory.size() ? inventory.getStackInSlot(ref.slot()) : ItemStack.EMPTY;
     }
 
@@ -763,7 +842,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void setPatternStack(PatternSlotRef ref, ItemStack stack) {
-        InternalInventory inventory = ref.bus().getTerminalPatternInventory();
+        InternalInventory inventory = ref.bus().getPatternSlotInventory();
         if (ref.slot() < inventory.size()) {
             ref.bus().setPatternDirect(ref.slot(), stack == null ? ItemStack.EMPTY : stack);
         }
@@ -811,7 +890,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return stack;
         }
         PatternSlotRef ref = patternSlotRefs.get(slot);
-        InternalInventory inventory = ref.bus().getTerminalPatternInventory();
+        InternalInventory inventory = ref.bus().getPatternSlotInventory();
         return ref.slot() < inventory.size() ? inventory.insertItem(ref.slot(), stack, simulate) : stack;
     }
 
@@ -891,7 +970,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (!getPatternStack(slot).isEmpty() || hasDuplicatePattern(ref, source)) {
                 continue;
             }
-            InternalInventory target = ref.bus().getTerminalPatternInventory();
+            InternalInventory target = ref.bus().getPatternSlotInventory();
             if (!target.isItemValid(ref.slot(), source)) {
                 continue;
             }
@@ -904,11 +983,30 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return false;
     }
 
+    /**
+     * @return whether this interface maintains the pattern preview rows
+     *
+     * <p>Gated on the interface rather than on the cluster type so a variant can opt in by overriding this one
+     * method: the rows, the dirty tracking driven by a container's contents moving, and the session-scoped view
+     * the rows describe are all maintained here, and an interface that shows patterns needs all three running.
+     * The crafting interface is the one that does, so it is the default.</p>
+     *
+     * <p>The same judgement also decides whether the bus-to-slot mapping is built at all, so overriding this one
+     * method is also what gives the interface something to show; an interface that is not mapped has no rows to
+     * report however the rest of the preview code behaves.</p>
+     */
+    protected boolean supportsPatternPreview() {
+        return supportsCraftingInterfaceUi();
+    }
+
     public void tick() {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        if (supportsCraftingInterfaceUi()) patternPreviewSync.tick(serverLevel);
+        if (supportsPatternPreview()) {
+            refreshAuxiliaryPreviewRows();
+            patternPreviewSync.tick(serverLevel);
+        }
         long startedNanos = System.nanoTime();
         migrationScannedThisTick = 0;
         migrationInsertedThisTick = 0;
@@ -989,16 +1087,40 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 continue;
             }
 
+            // Disks come first: they hold recipes rather than items, so a bus whose slots are all occupied can
+            // still take this pattern, which is the whole point of having them. A refusal - full, locked to
+            // another type, same primary output - leaves the record to the compaction below. It is not a failure
+            // of the pass, so it must not trip the recovery switch, which would abandon every remaining record.
+            if (organizeIntoAuxiliary(sourceRef, stack)) {
+                continue;
+            }
+
             int writeSlot = task.nextWriteSlot();
+            while (writeSlot < task.slotCount()) {
+                PatternSlotRef candidate = task.targetRef(writeSlot);
+                if (candidate.equals(sourceRef) || getPatternStack(candidate).isEmpty()) {
+                    break;
+                }
+                // Occupied by something the compaction does not own - a pattern disk parked in the bus, most
+                // of the time. A disk cannot be moved into, and abandoning the pass on the first one is what
+                // made this button look unresponsive: the layout never changes, so every retry aborted at
+                // the same slot. Step over it instead and keep the remaining records compacting.
+                writeSlot++;
+                task.advanceWriteSlot();
+            }
+            if (writeSlot >= task.slotCount()) {
+                break;
+            }
             PatternSlotRef targetRef = task.targetRef(writeSlot);
             if (!sourceRef.equals(targetRef)) {
                 ItemStack moved = stack.copy();
                 task.ensureBatch(targetRef.bus());
                 task.ensureBatch(sourceRef.bus());
                 if (!compareAndSetPatternStack(targetRef, ItemStack.EMPTY, moved)) {
-                    task.abortForTargetConflict();
-                    patternOrganizeRecoveryBlocked++;
-                    break;
+                    // Something changed under us between the check and the move. Leave this record where it is
+                    // and carry on rather than giving up on every record that follows.
+                    task.advanceWriteSlot();
+                    continue;
                 }
                 setPatternStack(sourceRef, ItemStack.EMPTY);
             }
@@ -1028,6 +1150,77 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return null;
         }
         return new PatternTransferTask(grid, storageService);
+    }
+
+    /**
+     * <p>Hands back a pattern whose item is about to be destroyed.
+     *
+     * <p>The migration path clears a source slot either way, but what that slot held differs: a bus slot
+     * stores the pattern item, so the network already holds it and nothing is owed, while an absorbed recipe -
+     * and equally a recipe the storage already reaches - leaves nothing in its place. Clearing without this is
+     * what turns "the network has that recipe" into a vanished item.</p>
+     *
+     * @return whether the replacement reached the network <em>in full</em>, and therefore whether the
+     *         source may be cleared. A partial insert is not enough: the remainder would be lost.
+     */
+    /**
+     * Hands one organizing record to the buses' disks, clearing its slot only once the blank the disk owes landed.
+     *
+     * <p>A disk holds the recipe rather than the item, so the pattern's item is gone either way and a blank is
+     * owed for it - the same debt the transfer pass pays. Paying it into the network keeps the two buttons
+     * reporting one outcome for the same event; if the network cannot take it, the source stays where it is and
+     * the next pass tries again, which loses nothing.</p>
+     *
+     * @return whether the record was dealt with, so the slot compaction should leave it alone
+     */
+    private boolean organizeIntoAuxiliary(PatternSlotRef sourceRef, ItemStack stack) {
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return false;
+        }
+        IECOPatternStorageService service = grid.getService(IECOPatternStorageService.class);
+        if (!(service instanceof PatternCatalog catalog)) {
+            return false;
+        }
+        ECOPatternInsertionResult outcome = catalog.insertPatternIntoAuxiliaryOnly(stack, null);
+        if (outcome == null) {
+            return false;
+        }
+        if (!refundConsumedPattern(catalog.blankPatternReplacementFor(stack))) {
+            return false;
+        }
+        setPatternStack(sourceRef, ItemStack.EMPTY);
+        patternOrganizeAuxiliaryMoved++;
+        return true;
+    }
+
+    private boolean refundConsumedPattern(ItemStack replacement) {
+        ItemStack blank = replacement;
+        if (blank.isEmpty()) {
+            return false;
+        }
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return false;
+        }
+        var storage = grid.getStorageService();
+        if (storage == null) {
+            return false;
+        }
+        AEItemKey key = AEItemKey.of(blank);
+        if (key == null) {
+            return false;
+        }
+        long accepted = storage.getInventory().insert(key, blank.getCount(),
+                appeng.api.config.Actionable.SIMULATE, appeng.api.networking.security.IActionSource.ofMachine(this));
+        if (!cn.dancingsnow.neoecoae.grid.PatternRefund.covers(blank, accepted)) {
+            return false;
+        }
+        // Only commit once the whole amount fits: a committed insert cannot be rolled back, and a retry after
+        // a partial one would hand out the accepted part a second time.
+        storage.getInventory().insert(key, blank.getCount(),
+                appeng.api.config.Actionable.MODULATE, appeng.api.networking.security.IActionSource.ofMachine(this));
+        return true;
     }
 
     private void tickPatternTransfer(ServerLevel serverLevel, long deadline) {
@@ -1078,20 +1271,43 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
 
             ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
-            switch (task.storageService().insertPreparedPattern(prepared)) {
+            cn.dancingsnow.neoecoae.api.ECOPatternInsertion insertion =
+                    task.storageService().insertPreparedPatternReporting(prepared);
+            switch (insertion.result()) {
                 case INSERTED -> {
-                    if (task.isSourceUnchanged(step)) {
-                        step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
-                        task.removeCandidate(step.candidate());
+                    if (!task.isSourceUnchanged(step)) {
+                        // Somebody else touched the source between the snapshot and now. Leave it to a later
+                        // pass rather than refunding for a pattern this pass did not take.
+                        break;
                     }
+                    // Only a container consumes the pattern's item. A slot stores it as a stack, so the network
+                    // already holds that exact item and the source is cleared without a refund - refunding
+                    // there would mint a blank for a pattern that was merely moved.
+                    boolean consumed = insertion.consumedSource();
+                    boolean covered = !consumed || refundConsumedPattern(insertion.blankReplacement());
+                    if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(consumed, covered)) {
+                        patternTransferNoSpace++;
+                        continue;
+                    }
+                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
+                    task.removeCandidate(step.candidate());
                     patternTransferInserted++;
                     migrationInsertedThisTick++;
                 }
                 case ALREADY_PRESENT -> {
-                    if (task.isSourceUnchanged(step)) {
-                        step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
-                        task.removeCandidate(step.candidate());
+                    if (!task.isSourceUnchanged(step)) {
+                        break;
                     }
+                    // The network already reaches this recipe, so the source item would be destroyed without
+                    // ever being stored. The player still owns that pattern, so the blank is owed here too - a
+                    // recipe the storage counts must not make the caller's copy disappear.
+                    if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(true,
+                            refundConsumedPattern(task.storageService().blankPatternReplacementFor(stack)))) {
+                        patternTransferNoSpace++;
+                        continue;
+                    }
+                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
+                    task.removeCandidate(step.candidate());
                     patternTransferAlreadyPresent++;
                     migrationInsertedThisTick++;
                 }
@@ -1137,6 +1353,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternOrganizeInvalidRecovered = 0;
         patternOrganizeDuplicatesRecovered = 0;
         patternOrganizeRecoveryBlocked = 0;
+        patternOrganizeAuxiliaryMoved = 0;
     }
 
     private void finishPatternTransfer(ServerLevel level, boolean unavailable) {
@@ -1241,6 +1458,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return records.size();
         }
 
+        private int slotCount() {
+            return refs.size();
+        }
+
         private boolean isFinished() {
             return nextReadSlot >= records.size();
         }
@@ -1284,11 +1505,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
         private void blockRecovery() {
             recoveryBlocked = true;
-        }
-
-        private void abortForTargetConflict() {
-            recoveryBlocked = true;
-            nextReadSlot = records.size();
         }
 
         private void beginBatch() {
@@ -1444,7 +1660,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                         removeCandidate(candidate);
                         continue;
                     }
-                    InternalInventory inventory = source.getTerminalPatternInventory();
+                    InternalInventory inventory = PatternCatalog.sourceSlots(source);
                     if (candidate.slot() < inventory.size()) {
                         ItemStack snapshot = inventory.getStackInSlot(candidate.slot()).copy();
                         return new PatternTransferStep(candidate, inventory, candidate.slot(), snapshot);
