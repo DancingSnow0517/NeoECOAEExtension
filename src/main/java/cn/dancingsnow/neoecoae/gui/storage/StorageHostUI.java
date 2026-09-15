@@ -171,11 +171,7 @@ public final class StorageHostUI {
                 .width(160)
                 .height(12)));
 
-        root.addChild(HostElements.absolute(HostElements.textSegment(
-            () -> config.domainId().get().isEmpty() ? Component.empty()
-                : Component.literal("UUID: " + config.domainId().get()), () -> 0x665080)
-            .textStyle(style -> style.fontSize(3).adaptiveWidth(false).textWrap(TextWrap.NONE)),
-            174, 8, 90, 8));
+        root.addChild(HostElements.absolute(new TitleDomainTooltip(config.domainId()), 8, 6, 160, 12));
 
         LegacyGraphBar graphBar = new LegacyGraphBar(() -> totalMetric(config));
         graphBar.layout(layout -> layout
@@ -200,6 +196,35 @@ public final class StorageHostUI {
             .height(INFINITE_COMPONENT_SLOT_SIZE)));
         root.addChild(playerInventory());
         return root;
+    }
+
+    /** Tooltip-only overlay over the title; the UUID remains synchronized without a visible label. */
+    private static final class TitleDomainTooltip extends UIElement implements IBindable<Component> {
+        private Component domainText = Component.empty();
+
+        private TitleDomainTooltip(Supplier<String> domainId) {
+            bind(DataBindingBuilder.componentS2C(() -> {
+                String id = domainId.get();
+                return id.isEmpty() ? Component.empty()
+                    : Component.literal("UUID: " + id).withColor(0x55FFFF);
+            }).build());
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                if (!domainText.getString().isEmpty()) {
+                    event.hoverTooltips = HoverTooltips.empty().append(domainText);
+                }
+            });
+        }
+
+        @Override
+        public Component getValue() {
+            return domainText;
+        }
+
+        @Override
+        public IDataSource<Component> setValue(@Nullable Component value) {
+            domainText = value == null ? Component.empty() : value;
+            return this;
+        }
     }
 
     private static UIElement infiniteComponentSlot(
