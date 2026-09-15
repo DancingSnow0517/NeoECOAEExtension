@@ -106,6 +106,10 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         for (int i = 0; i < transitions.size(); i++) {
             Transition left = transitions.get(i);
             Transition right = state.transitions.get(i);
+            if ((left.customDataDelta == null) != (right.customDataDelta == null)
+                    || left.customDataDelta != null && !left.customDataDelta.sameRulesAs(right.customDataDelta)) {
+                return false;
+            }
             Map<String, NumericDelta> leftDeltas = left.customDataDelta == null
                 ? Map.of() : left.customDataDelta.deltas;
             Map<String, NumericDelta> rightDeltas = right.customDataDelta == null
@@ -164,8 +168,9 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         }
     }
 
-    /** Only equal-shape compounds containing numeric leaves are admitted. */
-    private record NumericCompoundDelta(CompoundTag initial, Map<String, NumericDelta> deltas) {
+    /** Preserve unchanged metadata and model only numeric changes in equal-shape compounds. */
+    private record NumericCompoundDelta(CompoundTag initial, Map<String, NumericDelta> deltas,
+                                        Map<String, NumericCompoundDelta> children) {
         private static Optional<NumericCompoundDelta> analyze(ItemStack initialStack, ItemStack resultStack) {
             ItemStack initialBase = initialStack.copyWithCount(1);
             ItemStack resultBase = resultStack.copyWithCount(1);
@@ -182,9 +187,17 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         private static Optional<NumericCompoundDelta> analyze(CompoundTag before, CompoundTag after) {
             if (!before.getAllKeys().equals(after.getAllKeys())) return Optional.empty();
             Map<String, NumericDelta> deltas = new LinkedHashMap<>();
+            Map<String, NumericCompoundDelta> children = new LinkedHashMap<>();
             for (String key : before.getAllKeys()) {
                 Tag left = before.get(key);
                 Tag right = after.get(key);
+                if (java.util.Objects.equals(left, right)) continue;
+                if (left instanceof CompoundTag leftCompound && right instanceof CompoundTag rightCompound) {
+                    var child = analyze(leftCompound, rightCompound);
+                    if (child.isEmpty()) return Optional.empty();
+                    children.put(key, child.get());
+                    continue;
+                }
                 if (!(left instanceof NumericTag leftNumber) || !(right instanceof NumericTag rightNumber)
                         || left.getId() != right.getId()) return Optional.empty();
                 try {
@@ -197,8 +210,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                     return Optional.empty();
                 }
             }
-            return deltas.isEmpty() ? Optional.empty()
-                : Optional.of(new NumericCompoundDelta(before.copy(), Map.copyOf(deltas)));
+            return Optional.of(new NumericCompoundDelta(before.copy(), Map.copyOf(deltas), Map.copyOf(children)));
         }
 
         private CompoundTag apply(long crafts) {
@@ -206,7 +218,16 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
             for (Map.Entry<String, NumericDelta> entry : deltas.entrySet()) {
                 result.put(entry.getKey(), entry.getValue().apply(crafts));
             }
+            for (var entry : children.entrySet()) result.put(entry.getKey(), entry.getValue().apply(crafts));
             return result;
+        }
+
+        private boolean sameRulesAs(NumericCompoundDelta other) {
+            if (!sameRules(deltas, other.deltas) || !children.keySet().equals(other.children.keySet())) return false;
+            for (var entry : children.entrySet()) {
+                if (!entry.getValue().sameRulesAs(other.children.get(entry.getKey()))) return false;
+            }
+            return true;
         }
     }
 

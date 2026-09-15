@@ -47,7 +47,26 @@ public final class ECOReusableStateAnalyzer {
                 hasReusableState = true;
             }
         }
-        if (hasDurability && hasReusableState) return new Analysis(null, "MIXED_REUSABLE_STATE_MODELS");
+        if (hasDurability && hasReusableState) {
+            var durability = ECODurabilityBatchModel.analyze(before, after);
+            List<ItemStack> stateBefore = before.stream()
+                .map(stack -> stack != null && stack.isDamageableItem() ? ItemStack.EMPTY : stack).toList();
+            var state = ECOStateTransitionBatchModel.analyze(stateBefore, after);
+            if (durability.isEmpty()) return new Analysis(null, "DURABILITY_TRANSITION_INVALID");
+            // Unchanged damageable catalysts are already represented by a zero-delta durability transition.
+            if (state.isEmpty()) {
+                for (int i = 0; i < stateBefore.size(); i++) {
+                    ItemStack initial = stateBefore.get(i);
+                    ItemStack result = after.get(i);
+                    if (initial != null && result != null && !initial.isEmpty() && !result.isEmpty()
+                            && ItemStack.isSameItem(initial, result)) {
+                        return new Analysis(null, "STATE_TRANSITION_NOT_PROVABLY_LINEAR");
+                    }
+                }
+                return new Analysis(durability.get(), null);
+            }
+            return new Analysis(new ECOCombinedStateModel(durability.get(), state.get()), null);
+        }
         if (hasDurability) {
             return ECODurabilityBatchModel.analyze(before, after)
                 .<Analysis>map(model -> new Analysis(model, null))

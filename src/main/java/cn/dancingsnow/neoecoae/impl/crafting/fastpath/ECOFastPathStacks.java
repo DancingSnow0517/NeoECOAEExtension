@@ -26,9 +26,9 @@ public final class ECOFastPathStacks {
         /**
          * A deterministic crafting result may carry a component patch. The exact component-bearing AEItemKey is
          * part of both the execution snapshot and the verified cache result, so batching preserves the complete
-         * output identity. Damage remains excluded here because it requires the mutation model below.
+          * output identity, including fixed damage. Reusable input mutations are modeled separately.
          */
-        FAST_PATH(true, false, false),
+         FAST_PATH(true, true, false),
         FAST_PATH_INPUT(true, true, true),
         /** A slow-path-verified result may carry component patches and non-zero durability. */
         FAST_PATH_MUTATION(true, true, false);
