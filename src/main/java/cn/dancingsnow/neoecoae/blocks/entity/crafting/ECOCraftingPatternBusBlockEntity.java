@@ -681,6 +681,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+        if (level == null || level.isClientSide) return;
         if (patternBatchDepth > 0) {
             if (slot >= 0 && slot < inventory.size()) {
                 patternBatchChangedSlots.set(slot);
@@ -718,12 +719,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     /**
-     * Pattern additions may share the normal quiet-window refresh, but removals must be unpublished immediately.
+     * Pattern additions may share the normal quiet-window refresh, but removals and replacements must unpublish
+     * the old recipe immediately. Unknown-slot notifications require the same full refresh.
      * Leaving a removed pattern in {@link #patternDetails} until the scheduler runs allows AE2 to keep advertising it;
      * an unrelated batch operation such as organizing the buses then appears to be required to clear the stale entry.
      */
     private void refreshPatternDetailsAfterInventoryChange(int slot) {
-        if (slot >= 0 && slot < inventory.size() && inventory.getStackInSlot(slot).isEmpty()) {
+        if (slot < 0 || slot >= inventory.size() || inventory.getStackInSlot(slot).isEmpty()
+            || decodedPatternDetails[slot] != null) {
             PatternBusUpdateScheduler.remove(this);
             patternDetailsUpdateQueued = false;
             updatePatternDetailsNow();
@@ -868,6 +871,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private void updatePatternDetails() {
+        if (level == null || level.isClientSide) return;
         // Compatibility integrations historically reflectively invoked this private method when an asynchronous
         // expansion completed. Route those calls through the same quiet-window scheduler as inventory mutations;
         // otherwise N completion callbacks for one bus cause N full AE2 provider unmount/mount cycles. Keep this
@@ -1066,9 +1070,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private void queuePatternDetailsUpdate() {
         if (!(level instanceof ServerLevel serverLevel)) {
-            if (!patternDetailsUpdateInProgress) {
-                updatePatternDetailsNow();
-            }
             return;
         }
         patternDetailsUpdateTick = serverLevel.getServer().getTickCount() + PATTERN_UPDATE_QUIET_TICKS;
