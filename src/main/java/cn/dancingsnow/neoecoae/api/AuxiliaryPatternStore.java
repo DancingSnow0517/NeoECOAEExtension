@@ -73,6 +73,72 @@ public interface AuxiliaryPatternStore {
     /** Every encoded pattern this store currently holds for {@code bus}, in a stable order. */
     List<ItemStack> encodedPatterns(ECOCraftingPatternBusBlockEntity bus);
 
+    /**
+     * What a container exposes: the recipes to publish and the encoded stacks they were decoded from.
+     *
+     * @param details the decoded recipes, in the same order as {@code encoded}
+     * @param encoded the stacks {@code details} came from, one to one
+     */
+    record ExposedPatterns(List<appeng.api.crafting.IPatternDetails> details, List<ItemStack> encoded) {
+        public static final ExposedPatterns EMPTY = new ExposedPatterns(List.of(), List.of());
+    }
+
+    /**
+     * Decodes what {@code store} contributes to the network.
+     *
+     * <p>Decoding produces the {@code details} instance, while the advertisement, the network index and any
+     * caller asking what a container publishes all want the encoded stack for the <em>same</em> entry.
+     * Returning both from one pass keeps a single decode path, so those views cannot drift apart.</p>
+     *
+     * <p>Static on purpose: an integration may supply its store through a dynamic proxy, and a new interface
+     * method would land in that proxy's fallback branch - answering {@code null} - instead of here.</p>
+     */
+    static ExposedPatterns exposedPatterns(AuxiliaryPatternStore store, ECOCraftingPatternBusBlockEntity bus,
+                                           net.minecraft.world.level.Level level) {
+        if (store == null || level == null) {
+            return ExposedPatterns.EMPTY;
+        }
+        List<appeng.api.crafting.IPatternDetails> details = new java.util.ArrayList<>();
+        List<ItemStack> encoded = new java.util.ArrayList<>();
+        for (ItemStack candidate : store.encodedPatterns(bus)) {
+            appeng.api.crafting.IPatternDetails decoded =
+                    appeng.api.crafting.PatternDetailsHelper.decodePattern(candidate, level);
+            // Only what a molecular assembler can run is advertised, so the two lists describe the same set.
+            if (decoded instanceof appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern) {
+                details.add(decoded);
+                encoded.add(candidate);
+            }
+        }
+        return new ExposedPatterns(List.copyOf(details), List.copyOf(encoded));
+    }
+
+    /**
+     * Takes one pattern back out of a container and settles what that costs.
+     *
+     * <p>Written for a player-facing take: a container's recipes are listed beside the bus's own, and taking one
+     * out is two things at once - the recipe leaves the container, and what it was worth has to be paid back,
+     * since a pattern that reached the network's index came out of a blank. The store owns both halves because
+     * only it knows what its containers cost.</p>
+     *
+     * <p>Nothing in this mod calls it yet. The pattern access terminal is where a container's recipes can be
+     * taken back out, through the view the owning integration supplies there; this is the contract for a
+     * management screen in this mod to reach the same thing, when one is meant to offer it.</p>
+     *
+     * <p>All or nothing: when the cost cannot be settled nothing is removed and this answers {@code false}.
+     * Callers report that as "could not be taken" rather than working around it.</p>
+     *
+     * <p>{@code containerSlot} names which of the bus's slots holds the container, since the same pattern
+     * can sit on more than one of them. {@code encodedPattern} is compared as the listing was built - same
+     * item and components as one of {@link #encodedPatterns(ECOCraftingPatternBusBlockEntity)}.</p>
+     *
+     * <p>The default declines, which is also what an integration reached through a dynamic proxy answers
+     * until it handles the call. A listing that cannot be acted on is the safe way to be wrong; silently
+     * emptying a container without settling it is not.</p>
+     */
+    default boolean remove(ECOCraftingPatternBusBlockEntity bus, int containerSlot, ItemStack encodedPattern) {
+        return false;
+    }
+
     /** Change token for {@link #encodedPatterns}; see the revision contract on the type. */
     default long revision(ECOCraftingPatternBusBlockEntity bus) {
         return 0L;

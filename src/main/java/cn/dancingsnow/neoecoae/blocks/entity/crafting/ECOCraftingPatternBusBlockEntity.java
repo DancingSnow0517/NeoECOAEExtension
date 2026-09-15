@@ -149,6 +149,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Nullable
     private static AuxiliaryPatternStore auxiliaryPatternStore;
 
+    /** @see TerminalInventoryHook */
+    @Nullable
+    private static TerminalInventoryHook terminalInventoryHook;
+
     /**
      * Registered once by an integration mod. Left {@code null}, the bus behaves exactly as before: it
      * stores patterns in slots and knows nothing about auxiliary containers.
@@ -160,6 +164,70 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Nullable
     public static AuxiliaryPatternStore getAuxiliaryPatternStore() {
         return auxiliaryPatternStore;
+    }
+
+    /**
+     * Supplies the pattern access terminal's view of this bus.
+     *
+     * <p>Registered once by an integration mod, like {@link #setAuxiliaryPatternStore}. Left {@code null}, the
+     * bus builds its own view: the pattern slots with the auxiliary containers' recipes appended as display-only
+     * rows. An integration that owns those containers can hand over a view of its own instead, and that is what
+     * makes their contents interactive rather than display-only - the terminal reads and writes through this
+     * inventory, so whoever supplies it owns what a row means, when a removal is paid for, and when the result
+     * lands back in the container.</p>
+     *
+     * <p>Nothing inside the bus reads it: the slots, the index and the container scan all go through
+     * {@link #getPatternSlotInventory()}, so a view supplied here cannot make a container look like an empty
+     * slot to the write paths.</p>
+     *
+     * <p>What the view owes in return, since these are contracts the bus otherwise keeps itself:</p>
+     *
+     * <ul>
+     *   <li><b>A stable row count within one session.</b> The bus hands out a fresh view per revision for
+     *       exactly this reason: a pattern access terminal sizes its mirror from the container's size when the
+     *       session opens and keeps indexing it against the container's current size afterwards, so a view that
+     *       grows or shrinks mid-session walks off the end of that mirror. Return the same instance while the
+     *       session lasts, or accept that the next session is when a change shows up.</li>
+     *   <li><b>A declaration of which leading rows are the bus's own slots.</b> The terminal's move-all reads
+     *       {@code WritablePrefix.writableSlotCount()} to keep display-only rows from being copied into a
+     *       player's inventory. Returning a view that does not implement it is therefore not a compile error but
+     *       a duplication bug, so either implement it or see {@link TerminalInventoryHook#writableRows}.</li>
+     *   <li><b>Exceptions stay inside.</b> This is called from the terminal's container query, on the path where
+     *       items move, so a throw is neither caught here nor cheap to attribute afterwards.</li>
+     * </ul>
+     *
+     * <p>Registered once per process, not per bus: {@code view} is asked which bus it is looking at.</p>
+     */
+    @FunctionalInterface
+    public interface TerminalInventoryHook {
+
+        /** @return the view to hand the terminal, or {@code null} to keep the bus's own */
+        @Nullable
+        InternalInventory view(ECOCraftingPatternBusBlockEntity bus);
+
+        /**
+         * How many leading rows of that view are the bus's own writable slots.
+         *
+         * <p>Exists for an integration that stays clear of this mod's types, so that an older build lacking them
+         * still loads: implementing the prefix interface directly would turn a missing one into a load-time
+         * failure, whereas a count can simply go unasked. Return the count and the bus wraps the view in its own
+         * prefix; return {@code -1} to say the view already keeps its movable rows to itself, which amounts to
+         * declaring every row movable.</p>
+         *
+         * <p>Zero, the default, means nothing is movable. It is the safe direction: a terminal that cannot move
+         * anything shows the same rows and loses a shortcut, whereas over-reporting copies display rows out.</p>
+         *
+         * <p>This governs moving rows in bulk only. Whether one row can be taken out on its own stays with
+         * {@code view}: the bus has no way to know which rows are display-only, so it cannot stand in for that
+         * judgement.</p>
+         */
+        default int writableRows(ECOCraftingPatternBusBlockEntity bus) {
+            return 0;
+        }
+    }
+
+    public static void setTerminalInventoryHook(@Nullable TerminalInventoryHook hook) {
+        terminalInventoryHook = hook;
     }
 
     /**
@@ -243,17 +311,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (revision == auxiliaryDecodeRevision) {
             return;
         }
-        List<IPatternDetails> decoded = new ArrayList<>();
-        List<ItemStack> encoded = new ArrayList<>();
-        for (ItemStack candidate : store.encodedPatterns(this)) {
-            IPatternDetails details = PatternDetailsHelper.decodePattern(candidate, level);
-            if (details instanceof IMolecularAssemblerSupportedPattern) {
-                decoded.add(details);
-                encoded.add(candidate);
-            }
-        }
-        auxiliaryPatternDetails = List.copyOf(decoded);
-        auxiliaryEncodedPatterns = List.copyOf(encoded);
+        // One decode pass feeds both views; the store owns the filter so the advertisement, the network
+        // index and any caller asking what a disk publishes all see the same set.
+        AuxiliaryPatternStore.ExposedPatterns exposed =
+                AuxiliaryPatternStore.exposedPatterns(store, this, level);
+        auxiliaryPatternDetails = exposed.details();
+        auxiliaryEncodedPatterns = exposed.encoded();
         // Stamped last on purpose: a decoder that throws would otherwise leave the revision marked as
         // already decoded, freezing the cache on the previous contents until the store's revision
         // happens to move again.
@@ -264,6 +327,26 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public List<ItemStack> getAuxiliaryEncodedPatterns() {
         refreshAuxiliaryPatterns();
         return auxiliaryEncodedPatterns;
+    }
+
+    /**
+     * Search keywords for the auxiliary patterns, index-aligned with {@link #getAuxiliaryEncodedPatterns()}.
+     *
+     * <p>A terminal only finds a recipe through its keywords, so a pattern that reaches the list without them is
+     * visible under the unfiltered view and invisible to every search. The slot index keeps these per slot; the
+     * auxiliary list needs the same pairing, which is why the decode pass that produces both lists also feeds
+     * this one.</p>
+     */
+    public List<String> getAuxiliarySearchKeywords() {
+        refreshAuxiliaryPatterns();
+        List<String> keywords = new ArrayList<>(auxiliaryEncodedPatterns.size());
+        for (int index = 0; index < auxiliaryEncodedPatterns.size(); index++) {
+            IPatternDetails details = index < auxiliaryPatternDetails.size()
+                    ? auxiliaryPatternDetails.get(index)
+                    : null;
+            keywords.add(buildPatternSearchKeywords(auxiliaryEncodedPatterns.get(index), details));
+        }
+        return keywords;
     }
 
     @Override
@@ -560,9 +643,77 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return getGridNode().getGrid();
     }
 
+    /**
+     * The bus's real pattern slots, pattern disks included.
+     *
+     * <p>Separate from {@link #getTerminalPatternInventory()} on purpose. That one is the pattern access
+     * terminal's contract and hides the disks, whereas everything that has to see the slots as they are - the
+     * auxiliary store's disk scan, the catalog's index, this bus's own slot accessors - reads this one. Both
+     * used to be one method, which made the terminal's display semantics leak into the write paths: a disk
+     * slot then looked empty to them and got overwritten.</p>
+     */
+    public InternalInventory getPatternSlotInventory() {
+        return effectiveInventory;
+    }
+
+    /**
+     * Takes one pattern back out of an auxiliary container, settling whatever the store says it costs.
+     *
+     * <p>For the management screens: a container's recipes are listed beside the bus's own, and a pattern
+     * that went into the network's index came out of a blank, so taking one back out has to pay for it. Only
+     * the store can do that, which is why this hands the whole decision over rather than clearing the slot
+     * here and leaving the cost to whoever asked.</p>
+     *
+     * @return whether the pattern was taken; {@code false} leaves the container untouched
+     * @see AuxiliaryPatternStore#remove
+     */
+    public boolean removeAuxiliaryPattern(int containerSlot, ItemStack encodedPattern) {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        return store != null && !encodedPattern.isEmpty()
+                && store.remove(this, containerSlot, encodedPattern);
+    }
+
+    /**
+     * The rows the terminal view appends after the real slots.
+     *
+     * <p>A function rather than a call spelled out in the view itself, so a bus variant can widen or narrow what
+     * the terminal shows without touching how the view is sized or frozen. The default is what the auxiliary
+     * store publishes, which is the containers' recipes.</p>
+     */
+    protected List<ItemStack> terminalAppendedRows() {
+        return getAuxiliaryEncodedPatterns();
+    }
+
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        return effectiveInventory;
+        TerminalInventoryHook hook = terminalInventoryHook;
+        if (hook != null) {
+            // Cached against the same revision the bus's own view uses, and for the same end: the terminal must
+            // keep seeing one view for the length of a session. Holding it here rather than inside the hook is
+            // what ties the view's lifetime to this bus - a hook that cached per bus would keep every bus it was
+            // ever asked about alive, and the bus it belongs to is the only thing that knows when to let go.
+            long revision = getAuxiliaryRevision();
+            if (hookedView == null || hookedViewRevision != revision) {
+                hookedViewRevision = revision;
+                InternalInventory supplied = hook.view(this);
+                hookedView = supplied == null ? null : withWritableRows(supplied, hook.writableRows(this));
+            }
+            if (hookedView != null) {
+                return hookedView;
+            }
+        }
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        long revision = store == null ? 0L : store.revision(this);
+        if (revision != terminalViewRevision) {
+            // A fresh view per revision, the same trade the disk-backed provider makes: a session already open
+            // keeps the instance it was handed and its row count stays frozen against it, while the next
+            // session gets one built for the disks as they are now. Handing out one long-lived view instead
+            // would freeze the row count for the whole life of the block entity, so a recipe written to a disk
+            // would not show up until the chunk was reloaded.
+            terminalViewRevision = revision;
+            terminalPatternInventory = new TerminalPatternInventory();
+        }
+        return terminalPatternInventory;
     }
 
     @Override
@@ -832,7 +983,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        if (level == null || level.isClientSide) return;
+        if (level == null) return;
+        // The page count is derived from the highest occupied slot, and the paging decides which
+        // physical slot a visible index maps to. The server applies a write to the slot the *client*
+        // clicked, so both sides have to count the same pages. Inventory changes are the only source
+        // of that value, so track it before the client-side exit below.
+        trackHighestOccupiedSlot(slot);
+        if (level.isClientSide) return;
         if (patternBatchDepth > 0) {
             if (slot >= 0 && slot < inventory.size()) {
                 patternBatchChangedSlots.set(slot);
@@ -850,14 +1007,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             rebuildPatternCapacityIndex();
         } else {
             updatePatternCapacitySlot(slot);
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
-            } else if (slot == highestOccupiedSlot) {
-                highestOccupiedSlot = slot - 1;
-                while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
-                    highestOccupiedSlot--;
-                }
-            }
         }
         if (slot >= 0 && slot < decodedPatternDetails.length) {
             dirtyPatternSlots.set(slot);
@@ -867,6 +1016,41 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         refreshPatternDetailsAfterInventoryChange(slot);
         notifyPatternCatalog(previousRevision, new int[] { slot });
         notifyPatternInterfaceHosts(slot);
+    }
+
+    /**
+     * Keeps the highest occupied slot in step with the inventory on both sides.
+     *
+     * <p>The page count is derived from this value, and the paging decides which physical slot a visible
+     * index maps to. The server applies a write to the slot the <em>client</em> clicked, so a client that
+     * counted fewer pages would resolve that index differently and write somewhere else entirely.</p>
+     */
+    private void trackHighestOccupiedSlot(int slot) {
+        if (slot < 0 || slot >= inventory.size()) {
+            // A negative slot means "the whole inventory changed"; anything else is out of range. Either way
+            // the tracked maximum can no longer be trusted, and the page count is derived from it — slots
+            // past a stale maximum would stop being decoded and advertised.
+            rescanHighestOccupiedSlot();
+            return;
+        }
+        if (!inventory.getStackInSlot(slot).isEmpty()) {
+            highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
+            return;
+        }
+        if (slot != highestOccupiedSlot) {
+            return;
+        }
+        highestOccupiedSlot = slot - 1;
+        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
+            highestOccupiedSlot--;
+        }
+    }
+
+    private void rescanHighestOccupiedSlot() {
+        highestOccupiedSlot = inventory.size() - 1;
+        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
+            highestOccupiedSlot--;
+        }
     }
 
     /**
@@ -1083,6 +1267,22 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         } finally {
             patternDetailsUpdateInProgress = false;
         }
+    }
+
+    /**
+     * Republishes this provider's pattern list to AE2.
+     *
+     * <p>The auxiliary side is polled rather than notified, so a disk can change without the inventory ever
+     * reporting it. AE2 caches the list until it is asked to read it again, which is why patterns of a disk
+     * that is already gone keep being dispatched until some unrelated change to the grid forces a rescan.
+     * Re-publishing whenever the polled revision moved turns that into a self-healing tick instead of
+     * depending on luck.</p>
+     */
+    public void refreshAdvertisedPatterns() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        updatePatternDetailsNow();
     }
 
     private void updatePatternDetailsNow() {
@@ -1314,7 +1514,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             layout.width(PAGE_CONTROLS_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         });
-        controls.addChild(pageButton("<", () -> changePage(currentPage - 1)).layout(layout -> {
+        controls.addChild(pageButton("<", () -> changePage(visiblePage() - 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(0);
             layout.top(0);
@@ -1322,7 +1522,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             layout.height(PAGE_BUTTON_SIZE);
         }));
         TextElement pageNumber = new TextElement()
-            .setText(Component.literal((currentPage + 1) + "/" + getPageCount()));
+            .setText(Component.literal((visiblePage() + 1) + "/" + getPageCount()));
         controls.addChild(pageNumber.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
@@ -1330,7 +1530,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             layout.width(PAGE_LABEL_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         }));
-        controls.addChild(pageButton(">", () -> changePage(currentPage + 1)).layout(layout -> {
+        controls.addChild(pageButton(">", () -> changePage(visiblePage() + 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP);
             layout.top(0);
@@ -1347,9 +1547,25 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public int getPageCount() {
-        activePages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1));
-        currentPage = Math.clamp(currentPage, 0, activePages - 1);
-        return activePages;
+        int required = highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1;
+        int pages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), required));
+        // Only on change: this is read from every slot lookup, and a getter that writes on every call is
+        // exactly what let the two sides drift apart.
+        if (activePages != pages) {
+            activePages = pages;
+        }
+        return pages;
+    }
+
+    /**
+     * The page the UI is on, clamped to the pages that currently exist.
+     *
+     * <p>Clamping happens on read instead of inside {@link #getPageCount()}: that method is called from
+     * every slot lookup, so folding the clamp into it let each side silently rewrite {@code currentPage}
+     * using its own page count, which is exactly how the two sides drifted apart.</p>
+     */
+    private int visiblePage() {
+        return Math.clamp(currentPage, 0, getPageCount() - 1);
     }
 
     public int getPatternSlotCount() {
@@ -1359,7 +1575,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private void changePage(int targetPage) {
         int pageCount = getPageCount();
         int clamped = Math.clamp(targetPage, 0, pageCount - 1);
-        if (clamped == currentPage) {
+        if (clamped == visiblePage()) {
             return;
         }
         currentPage = clamped;
@@ -1369,6 +1585,210 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     private static int clampPages(int pages) {
         return Math.clamp(pages, NEConfig.PATTERN_BUS_MIN_PAGES, NEConfig.PATTERN_BUS_MAX_PAGES);
+    }
+
+    /**
+     * The view the pattern access terminal lists.
+     *
+     * <p>A disk is not a pattern: listed as one it is a stack the terminal cannot decode, and the recipes
+     * inside it - the reason it is there at all - appear nowhere. So the disk's slot renders empty and the
+     * recipes it publishes are appended after the slots. Appending rather than compacting keeps every index
+     * mapping straight onto the real inventory.</p>
+     *
+     * <p>This is a display contract only. Nothing that touches the slots may read it - see
+     * {@link #getPatternSlotInventory()}.</p>
+     */
+    /** Store revision the current terminal view was built from. */
+    /**
+     * Gives a supplied view the writable prefix the terminal reads, when it does not carry one itself.
+     *
+     * <p>An integration that reaches this class by reflection has no way to implement the interface that
+     * declares that prefix, so the count is taken from the hook and wrapped on here. A view that declares it
+     * itself is returned untouched, and so is one claiming no movable rows: a terminal that cannot move anything
+     * loses a shortcut, whereas one that assumes every row is movable copies the display rows into a player's
+     * inventory.</p>
+     */
+    private InternalInventory withWritableRows(InternalInventory view, int writableRows) {
+        if (view instanceof cn.dancingsnow.neoecoae.util.WritablePrefix || writableRows < 0) {
+            return view;
+        }
+        int rows = Math.max(0, Math.min(writableRows, view.size()));
+        // One wrapper per supplied view, reused: the base class promises that the platform adapter it hands out
+        // keeps its identity over time, and a fresh wrapper on every query would break that for a terminal that
+        // asks repeatedly.
+        if (view == wrappedViewSource && wrappedView instanceof WritableRowsView cached && cached.writableRows == rows) {
+            return cached;
+        }
+        WritableRowsView wrapped = new WritableRowsView(view, rows);
+        wrappedViewSource = view;
+        wrappedView = wrapped;
+        return wrapped;
+    }
+
+    @Nullable
+    private transient InternalInventory wrappedViewSource;
+
+    @Nullable
+    private transient InternalInventory wrappedView;
+
+    /** The view an integration supplied, kept until the containers' revision moves. */
+    @Nullable
+    private transient InternalInventory hookedView;
+
+    private long hookedViewRevision = Long.MIN_VALUE;
+
+    /** Delegates everything and narrows only the rows the terminal is allowed to move. */
+    private static final class WritableRowsView extends BaseInternalInventory
+            implements cn.dancingsnow.neoecoae.util.WritablePrefix {
+
+        private final InternalInventory delegate;
+        private final int writableRows;
+
+        private WritableRowsView(InternalInventory delegate, int writableRows) {
+            this.delegate = delegate;
+            this.writableRows = writableRows;
+        }
+
+        @Override
+        public int writableSlotCount() {
+            return writableRows;
+        }
+
+        @Override
+        public int size() {
+            return delegate.size();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return delegate.getStackInSlot(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            delegate.setItemDirect(slot, stack);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return delegate.isItemValid(slot, stack);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            // Delegated rather than left to the default: a bus slot takes one pattern, and the default would let
+            // a caller stack a full 64 into it before the view ever sees them.
+            return delegate.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return delegate.extractItem(slot, amount, simulate);
+        }
+    }
+
+    protected long terminalViewRevision = Long.MIN_VALUE;
+
+    private TerminalPatternInventory terminalPatternInventory = new TerminalPatternInventory();
+
+    protected final class TerminalPatternInventory extends BaseInternalInventory
+            implements cn.dancingsnow.neoecoae.util.WritablePrefix {
+
+        /**
+         * The slot count as it was when this view was built.
+         *
+         * <p>Fixed for the same reason the appended rows are: a pattern access terminal sizes its mirror from
+         * whatever the container reported when the session opened and then keeps indexing it against the
+         * container's current size, so a bus that grows a page mid-session walks off the end of that mirror. The
+         * page shows up from the next session on.</p>
+         */
+        private final int slotCount = getPatternSlotCount();
+
+        /** Only the real slots can be written to; the appended disk recipes are display-only. */
+        @Override
+        public int writableSlotCount() {
+            return slotCount;
+        }
+
+        /** Display-only rows, frozen when this view was first asked for them. */
+        private List<ItemStack> appendedRows;
+
+        private List<ItemStack> rows() {
+            if (appendedRows == null) {
+                // A subclass may return null to mean "append nothing", which is a reasonable thing to want and
+                // would otherwise fail here while a screen is being drawn.
+                List<ItemStack> fromSubclass = terminalAppendedRows();
+                appendedRows = fromSubclass == null ? List.of() : List.copyOf(fromSubclass);
+            }
+            return appendedRows;
+        }
+
+        @Override
+        public int size() {
+            return slotCount + rows().size();
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            if (slot < 0) {
+                return ItemStack.EMPTY;
+            }
+            if (slot < slotCount) {
+                ItemStack stack = inventory.getStackInSlot(slot);
+                return ownsAuxiliary(stack) ? ItemStack.EMPTY : stack;
+            }
+            List<ItemStack> exposed = rows();
+            int index = slot - slotCount;
+            // A copy: the frozen list outlives this call, and handing out the live stack lets a caller writing to
+            // it corrupt every later read.
+            return index < exposed.size() ? exposed.get(index).copy() : ItemStack.EMPTY;
+        }
+
+        /**
+         * Whether a row is one the terminal shows but must not act on: a disk's slot, or an appended disk
+         * recipe. A hidden row reads as empty, so a write aimed at it replaces whatever is really there -
+         * clicking the blank row where a disk sits would delete the disk and every recipe on it.
+         */
+        private boolean hidden(int slot) {
+            return slot < 0 || slot >= slotCount || ownsAuxiliary(inventory.getStackInSlot(slot));
+        }
+
+        /**
+         * Extraction reaches the terminal through the slot view while display goes through
+         * {@link #getStackInSlot}. Nothing here can be taken out: a disk's own contents would have to draw a
+         * blank pattern and delete the entry from the disk, and taking a disk out stays a bus-GUI action.
+         */
+        @Override
+        public InternalInventory getSlotInv(int slot) {
+            return hidden(slot) ? InternalInventory.empty() : super.getSlotInv(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            if (!hidden(slot)) {
+                inventory.setItemDirect(slot, stack);
+            }
+        }
+
+        /**
+         * The default extraction reads through {@link #getStackInSlot} and clears through
+         * {@link #setItemDirect} - on a hidden row that hands the stack out and then fails to remove it, i.e. it
+         * duplicates. Nothing here is extractable, so the row answers before the default can run.
+         */
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return hidden(slot) ? ItemStack.EMPTY : super.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return !hidden(slot) && inventory.isItemValid(slot, stack);
+        }
     }
 
     private final class EffectivePatternInventory extends BaseInternalInventory {
@@ -1440,6 +1860,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         public void setStackInSlot(int slot, ItemStack stack) {
             int actualSlot = toActualSlot(slot);
             if (actualSlot < 0) {
+                // Refusing silently would drop the write while the caller believes it succeeded, which
+                // is how a pattern disk can end up duplicated into the player inventory while staying in
+                // the bus. Out-of-range visible slots are a caller bug, so say so instead of swallowing it.
+                LOGGER.warn("[PatternBus] at {} refused a write to out-of-range pattern slot {}", worldPosition, slot);
                 return;
             }
             ItemStack next = stack == null ? ItemStack.EMPTY : stack;
@@ -1457,7 +1881,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             if (visibleSlot < 0 || visibleSlot >= SLOTS_PER_PAGE) {
                 return -1;
             }
-            int page = Math.clamp(currentPage, 0, getPageCount() - 1);
+            int page = visiblePage();
             int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
             return actualSlot < getPatternSlotCount() ? actualSlot : -1;
         }
