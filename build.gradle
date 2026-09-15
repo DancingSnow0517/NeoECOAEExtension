@@ -340,6 +340,20 @@ idea {
     }
 }
 
+// Freefair 8.7.1 passes whole source directories to delombok, ignoring source-set exclusions.
+def prepareDelombokSources = tasks.register('prepareDelombokSources', Sync) {
+    from sourceSets.main.java
+    into layout.buildDirectory.dir('delombok-input/main')
+}
+
+// Override after the plugin installs its directory inputs in afterEvaluate.
+afterEvaluate {
+    tasks.named('delombok') {
+        dependsOn prepareDelombokSources
+        input.setFrom(prepareDelombokSources)
+    }
+}
+
 tasks.register('sourcesJar', Jar) {
     dependsOn delombok
     from delombok.outputs.files
