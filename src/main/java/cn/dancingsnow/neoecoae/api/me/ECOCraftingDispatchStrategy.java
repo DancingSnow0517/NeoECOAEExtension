@@ -3,14 +3,12 @@ package cn.dancingsnow.neoecoae.api.me;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 
 /**
- * AE2-style ordinary crafting budget for an ECO CPU.
+ * Per-tick ordinary crafting budget for an ECO CPU.
  *
  * <p>The budget is deliberately limited to ordinary one-copy provider pushes. ECO FastPath batches are
  * already bounded by the live provider/worker capacity and therefore do not consume this budget.</p>
  *
- * <p>The CPU carries the number of operations used over the last three ticks. Keeping the same small rolling
- * window gives ECO predictable bursts and a cheap fairness guard without introducing another execution state
- * machine or persisting scheduler state.</p>
+ * <p>Each tick receives at most 64 ordinary pushes, independently of co-processors and previous ticks.</p>
  */
 public final class ECOCraftingDispatchStrategy {
     private static final int HISTORY_SIZE = 3;
@@ -23,13 +21,12 @@ public final class ECOCraftingDispatchStrategy {
      * @param configuredLimit ECO's ordinary-path safety limit
      */
     public int beginTick(int coProcessors, int configuredLimit) {
-        long cpuLimit = (long) Math.max(0, coProcessors) + 1L;
+        long cpuLimit = 64L;
         long safeConfiguredLimit = Math.min(
             (long) NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
             Math.max(0L, configuredLimit)
         );
-        long used = (long) usedOperations[0] + usedOperations[1] + usedOperations[2];
-        long available = Math.min(cpuLimit, safeConfiguredLimit) - used;
+        long available = Math.min(cpuLimit, safeConfiguredLimit);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, available));
     }
 

@@ -298,7 +298,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
-        long baseLimit = (long) Math.max(0, coProcessors) + 1L;
+        long baseLimit = 64L;
         long safeConfiguredLimit = Math.min(
             (long) NEConfig.MAX_ECO_CPU_PUSH_TICK_LIMIT,
             Math.max(0L, configuredLimit)
