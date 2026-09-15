@@ -181,6 +181,35 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return store != null && store.hasRoom(this);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This is what lets the catalog prefer a disk somewhere on the grid over a free slot on some
+     * other bus.</p>
+     */
+    @Override
+    public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        return store != null && store.canAccept(this, pattern);
+    }
+
+    @Override
+    public ECOPatternInsertionResult insertIntoAuxiliary(ItemStack pattern, @Nullable ECOPreparedPattern prepared) {
+        AuxiliaryPatternStore store = auxiliaryPatternStore;
+        if (store == null) {
+            return ECOPatternInsertionResult.NO_TARGET;
+        }
+        // The acceptance probe is deliberately not repeated here: callers only reach this after
+        // canAcceptIntoAuxiliary said yes for the same pattern, and probing again would re-decode every
+        // pattern on every disk a second time. A store that changes its mind reports it through the
+        // result below, which the caller already treats as "keep looking".
+        ECOPreparedPattern toStore = prepared != null ? prepared : preparePattern(pattern);
+        if (toStore == null) {
+            return ECOPatternInsertionResult.INCOMPATIBLE;
+        }
+        return store.insert(this, toStore);
+    }
+
     /** Whether an auxiliary store recognises {@code stack} as one of its own containers. */
     public boolean ownsAuxiliary(ItemStack stack) {
         AuxiliaryPatternStore store = auxiliaryPatternStore;

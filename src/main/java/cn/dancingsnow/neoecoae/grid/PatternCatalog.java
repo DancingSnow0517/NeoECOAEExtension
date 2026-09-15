@@ -172,6 +172,31 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         // The catalog is initialized once and then maintained by slot/batch deltas. A non-null key
         // absent from it is already proven unique, so no destination may rescan its cluster.
         boolean uniquenessChecked = patternKey != null;
+
+        // Disk-first pass. A pattern that belongs on a pattern disk has to reach one before any slot does:
+        // the ordinary loop below hands it to whichever bus exposes a free slot first, which both spends
+        // that slot and leaves the disk empty - and once the pattern sits in a slot, removing the disk can
+        // no longer take it back out.
+        for (IECOPatternStorage value : writablePatternStorages) {
+            if (!value.canAcceptIntoAuxiliary(patternItem)) {
+                continue;
+            }
+            switch (value.insertIntoAuxiliary(patternItem, prepared)) {
+                case INSERTED -> {
+                    preferredStorage = value;
+                    return ECOPatternInsertionResult.INSERTED;
+                }
+                case ALREADY_PRESENT -> {
+                    // Forward compatibility: no current implementation returns it from the auxiliary write.
+                    return ECOPatternInsertionResult.ALREADY_PRESENT;
+                }
+                default -> {
+                    // Either the store stopped accepting between the probe and the write, or this bus cannot
+                    // execute the pattern at all (INCOMPATIBLE). Both leave it to the slot loop below.
+                }
+            }
+        }
+
         if (preferredStorage instanceof ECOCraftingPatternBusBlockEntity) {
             ECOPatternInsertionResult result = insertIntoStorage(
                     preferredStorage, patternItem, prepared, uniquenessChecked);

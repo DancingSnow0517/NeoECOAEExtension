@@ -46,8 +46,10 @@ public interface AuxiliaryPatternStore {
     /**
      * Whether this store would take {@code pattern} right now.
      *
-     * <p>Consulted by the bus before every {@link #insert}, to decide whether a pattern goes to the
-     * store or to a slot. Must be free of side effects.</p>
+     * <p>Consulted by the bus before every {@link #insert}, to decide whether a pattern goes to the store
+     * or to a slot. The grid also probes it across every bus before handing a pattern to any slot, so a
+     * disk somewhere on the network wins over a free slot on an unrelated bus - which means this runs on
+     * every upload attempt, not only on the bus the pattern ends up on. Must be free of side effects.</p>
      */
     boolean canAccept(ECOCraftingPatternBusBlockEntity bus, ItemStack pattern);
 
