@@ -116,6 +116,10 @@ final class ECOCycleItemListRenderer {
     }
 
     private static Component totalLine(ECOCycleItemList.Entry entry, AmountFormat format) {
+        if (entry.exactMissing().signum() > 0) {
+            return Component.translatable("gui.neoecoae.crafting_graph.details.missing",
+                formatAmount(entry.exactMissing(), format));
+        }
         String translationKey = entry.isCycleProduct()
             ? "gui.neoecoae.crafting_report.total_produced"
             : "gui.neoecoae.crafting_report.total_consumed";
@@ -123,7 +127,7 @@ final class ECOCycleItemListRenderer {
     }
 
     private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
-        return entry.solveStatus() == cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+        return entry.exactMissing().signum() > 0 && entry.solveStatus() == cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
             && entry.exactSingleNetOutput().signum() == 0 && entry.exactTotalNetOutput().signum() == 0;
     }
 

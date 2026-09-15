@@ -26,7 +26,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
-                readBigInteger(data), readBigInteger(data),
+                readBigInteger(data), readBigInteger(data), readBigInteger(data),
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt()));
         }
         return items;
@@ -41,6 +41,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
             writeBigInteger(data, item.exactProduced());
             writeBigInteger(data, item.exactSingleNetOutput());
             writeBigInteger(data, item.exactTotalNetOutput());
+            writeBigInteger(data, item.exactMissing());
             data.writeEnum(item.executionCountKnowledge());
             data.writeEnum(item.solveStatus());
             data.writeVarInt(item.componentId());
@@ -48,8 +49,15 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
     }
 
     public record Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
-            BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
+            BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput, BigInteger exactMissing,
             ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+        public Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
+                BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
+                ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
+            this(what, exactConsumed, exactProduced, exactSingleNetOutput, exactTotalNetOutput, BigInteger.ZERO,
+                executionCountKnowledge, solveStatus, componentId);
+        }
+
         public Entry(AEKey what, BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput,
                 ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {
             this(what, BigInteger.ZERO, BigInteger.ZERO, exactSingleNetOutput, exactTotalNetOutput,

@@ -76,6 +76,16 @@ public final class CraftingGraphSnapshotFactory {
             }
         }
 
+        // Boundary shortages are discovered after the DAG trace was created.
+        if (result.plan() != null) {
+            for (var entry : result.plan().missingItems()) {
+                var material = materials.computeIfAbsent(entry.getKey(), MutableMaterial::new);
+                material.exactMissing = material.exactMissing.max(PlannerAmount.of(entry.getLongValue()));
+                material.missing = material.exactMissing.fitsLong()
+                    ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
+            }
+        }
+
         collectTaskMaterialFlow(result, materials);
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();

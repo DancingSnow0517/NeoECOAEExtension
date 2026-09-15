@@ -76,6 +76,8 @@ final class ExternalDemandPlanner {
         List<SolveState> states = new ArrayList<>();
         Set<IPatternDetails> selected = new LinkedHashSet<>();
         Map<AEKey, Long> delegated = new LinkedHashMap<>();
+        Map<AEKey, Long> missing = new LinkedHashMap<>();
+        Outcome failed = null;
         for (var demand : demands.entrySet()) {
             cancellation.checkpoint();
             // A cyclic supplier owns both the requested output and the stock that can bootstrap its feedback
@@ -98,7 +100,11 @@ final class ExternalDemandPlanner {
 
             Outcome one = solveDeficit(network, cycle, demand.getKey(), deficit, available,
                 ignorePatternSubstitutions, cancellation);
-            if (!one.solved()) return one;
+            if (!one.solved()) {
+                one.missingLeaves().forEach((key, value) -> missing.merge(key, value, Math::addExact));
+                if (failed == null || failed.status() == CycleExternalDemandStatus.MISSING) failed = one;
+                if (one.states().isEmpty()) continue;
+            }
             SolveState state = one.states().getFirst();
             states.add(state);
             selected.addAll(one.selectedPatterns());
@@ -116,6 +122,7 @@ final class ExternalDemandPlanner {
                 available.remove(used.getKey(), used.getValue().longValueExact());
             }
         }
+        if (failed != null) return failure(failed.status(), missing, failed.diagnostic());
         return new Outcome(CycleExternalDemandStatus.SOLVED, direct, List.copyOf(states), Map.of(),
             Set.copyOf(selected), Map.copyOf(delegated), delegated.isEmpty()
                 ? "External demand solved through inventory and acyclic routes"
@@ -167,7 +174,8 @@ final class ExternalDemandPlanner {
                 return failure(CycleExternalDemandStatus.FORBIDDEN_ROUTE, missing,
                     "All usable external routes re-enter the current cycle component");
             }
-            return failure(CycleExternalDemandStatus.MISSING, missing, "External DAG leaf material is missing");
+            return new Outcome(CycleExternalDemandStatus.MISSING, new KeyCounter(), List.of(solved.state()),
+                missing, Set.of(), Map.of(), "External DAG leaf material is missing");
         }
         if (solved.status() == PlanningStatus.AMOUNT_OVERFLOW) {
             return failure(CycleExternalDemandStatus.OVERFLOW, Map.of(), "External DAG arithmetic overflow");

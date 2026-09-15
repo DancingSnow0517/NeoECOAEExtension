@@ -187,6 +187,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         .filter(node -> node.nodeId() == materialId).findFirst().ifPresent(node -> keys.add(node.key())));
                 // A legacy/partially populated diagnostic may not have net-output entries yet. The member list
                 // still needs a selectable row so every unresolved SCC remains openable from the report.
+                planningResult.components().stream()
+                    .filter(component -> component.componentId() == cycle.componentId())
+                    .forEach(component -> keys.addAll(component.externalMissingItems().keySet()));
                 for (AEKey key : keys) {
                     // MaterialNode is built from the final executable plan. PatternNode firing counts are only
                     // structural cycle metadata and can legitimately be zero for a populated plan.
@@ -195,7 +198,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
-                        neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key), cycle.executionCountKnowledge(),
+                        neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key),
+                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
+                        cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId()));
                 }
                 // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
@@ -206,6 +211,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                         material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
+                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
                         cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId()));
                 }
             }
