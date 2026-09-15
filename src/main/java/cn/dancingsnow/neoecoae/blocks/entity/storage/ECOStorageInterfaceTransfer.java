@@ -55,7 +55,7 @@ final class ECOStorageInterfaceTransfer {
     }
 
     boolean blocksInfiniteMigration() {
-        return finiteTransferDomain != null || pendingFiniteTransferDomain != null || finiteDomainRestoreFailed;
+        return isFiniteTransferDomainLocked();
     }
 
     void invalidateInfiniteStorageView() {
@@ -70,11 +70,12 @@ final class ECOStorageInterfaceTransfer {
     }
 
     public boolean isFiniteTransferDomainLocked() {
-        return finiteTransferDomain != null;
+        // A saved domain still owns its drives before the first restore tick, and after a failed restore.
+        return finiteTransferDomain != null || pendingFiniteTransferDomain != null || finiteDomainRestoreFailed;
     }
 
     public boolean materializeFiniteTransferDomain() {
-        if (finiteTransferDomain == null) return true;
+        if (finiteTransferDomain == null) return !isFiniteTransferDomainLocked();
         if (finiteDomainRestoreFailed) {
             LOGGER.error("Finite storage transfer domain at {} cannot materialize because restore failed", host.getBlockPos());
             return false;
@@ -276,20 +277,20 @@ final class ECOStorageInterfaceTransfer {
     @Nullable
     MEStorage getStorageInterfaceHostStorage() {
         if (host.storageHostMode().isTransitioning() || (host.storageHostMode().isInfiniteState() && host.isInfiniteExitRequested())) return null;
+        List<MEStorage> cells = new ArrayList<>();
         if (host.canUseHostDomainStorage()) {
             ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
             if (engine != cachedStorageEngine) {
                 cachedStorageEngine = engine;
                 cachedInfiniteStorage = engine == null ? null : host.createInfiniteStorageView(engine);
             }
-            return cachedInfiniteStorage;
+            if (cachedInfiniteStorage != null) cells.add(cachedInfiniteStorage);
         }
         if (finiteTransferDomain != null && !finiteDomainRestoreFailed) {
             return finiteTransferDomain;
         }
         if (host.getCluster() == null) return null;
 
-        List<MEStorage> cells = new ArrayList<>();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             IECOStorageCell cell = drive.getCellInventory();
             if (cell != null

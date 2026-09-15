@@ -24,6 +24,7 @@ import snownee.jade.api.WailaPlugin;
 public class NEJadePlugin implements IWailaPlugin {
     @Override
     public void register(IWailaCommonRegistration registration) {
+        registration.registerBlockDataProvider(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.INSTANCE, cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity.class);
         registration.registerBlockDataProvider(ECODriveProvider.INSTANCE, ECODriveBlockEntity.class);
         registration.registerBlockDataProvider(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterfaceBlockEntity.class);
         registration.registerBlockDataProvider(
@@ -34,6 +35,7 @@ public class NEJadePlugin implements IWailaPlugin {
 
     @Override
     public void registerClient(IWailaClientRegistration registration) {
+        registration.registerBlockComponent(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.INSTANCE, cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock.class);
         registration.registerBlockComponent(ECODriveProvider.INSTANCE, ECODriveBlock.class);
         registration.registerBlockComponent(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterface.class);
         registration.registerBlockComponent(ECOComputationSystemProvider.INSTANCE, ECOComputationSystem.class);

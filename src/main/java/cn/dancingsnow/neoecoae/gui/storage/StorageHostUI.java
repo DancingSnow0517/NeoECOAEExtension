@@ -123,6 +123,8 @@ public final class StorageHostUI {
         BooleanSupplier infiniteStorage,
         BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents,
+        Supplier<String> domainId,
+        java.util.function.IntSupplier missingMembers,
         IItemHandlerModifiable infiniteComponentInventory
     ) {
     }
@@ -168,6 +170,12 @@ public final class StorageHostUI {
                 .top(6)
                 .width(160)
                 .height(12)));
+
+        root.addChild(HostElements.absolute(HostElements.textSegment(
+            () -> config.domainId().get().isEmpty() ? Component.empty()
+                : Component.literal("UUID: " + config.domainId().get()), () -> 0x665080)
+            .textStyle(style -> style.fontSize(3).adaptiveWidth(false).textWrap(TextWrap.NONE)),
+            174, 8, 90, 8));
 
         LegacyGraphBar graphBar = new LegacyGraphBar(() -> totalMetric(config));
         graphBar.layout(layout -> layout
@@ -255,6 +263,12 @@ public final class StorageHostUI {
             .layout(layout -> layout.paddingAll(0)));
         list.viewContainer(view -> view.layout(layout -> layout.paddingAll(2).gapAll(5)
             .flexDirection(FlexDirection.COLUMN)));
+        UIElement warning = HostElements.syncedDisplay(() -> config.missingMembers().getAsInt() > 0);
+        warning.layout(layout -> layout.widthPercent(100).gapAll(2).flexDirection(FlexDirection.COLUMN));
+        warning.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.members_missing",
+            config.missingMembers().getAsInt()), 0xFFAAAA));
+        warning.addChild(compactLabel(() -> Component.translatable("gui.neoecoae.storage.members_return"), 0xFFAAAA));
+        list.addScrollViewChild(warning);
         for (StorageTypeLine line : config.storageTypes()) {
             // Both sides must register the same bindings in the same order, even before the
             // client's host mode is current. Sync visibility instead of changing the UI tree.

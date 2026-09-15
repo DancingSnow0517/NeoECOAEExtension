@@ -19,6 +19,7 @@ import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
 import appeng.client.gui.style.StyleManager;
 import appeng.menu.me.crafting.CraftConfirmMenu;
@@ -74,7 +75,9 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
-        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, event.getSectionOrigin()));
+        // RenderSection reuses a mutable origin; snapshot it before the async rebuild runs.
+        BlockPos sectionOrigin = event.getSectionOrigin().immutable();
+        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, sectionOrigin));
     }
 
     @SubscribeEvent

@@ -55,8 +55,9 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
-                if (!be.canExtractCell()) {
-                    player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member_locked"), true);
+                var reason = be.getCellExtractionBlockReason();
+                if (reason != ECODriveBlockEntity.CellExtractionBlockReason.NONE) {
+                    player.displayClientMessage(Component.translatable(reason.translationKey()), true);
                     return InteractionResult.SUCCESS;
                 }
                 ItemStack cellStack = be.getCellStack();

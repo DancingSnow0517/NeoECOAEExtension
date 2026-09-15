@@ -66,6 +66,7 @@ final class ECOStorageInfiniteRestore {
     }
 
     private RestorePlan createInfiniteRestorePlan(boolean enforceMargin) {
+        if (host.getMissingInfiniteMembers() > 0) return RestorePlan.blocked("missing infinite member matrices; insert them again");
         if (activeRestorePlan != null) return activeRestorePlan;
         ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
         if (engine == null) {

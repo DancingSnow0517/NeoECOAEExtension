@@ -77,16 +77,12 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
-        if (isLockedByFiniteTransferDomain()) {
+        if (!canExtractCell()) {
             return;
         }
-        if (cellStack != null
-            && cluster instanceof NEStorageCluster storageCluster
-            && storageCluster.getController() != null
-            && storageCluster.getController().isInfiniteMode()
-            && !ECOInfiniteStorageMember.isMember(cellStack)) {
-            return;
-        }
+        if (cellStack != null && !isItemValid(cellStack)) return;
+        ECOStorageSystemBlockEntity controller = getStorageController();
+        if (controller != null) controller.rememberInfiniteMembers();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
         invalidateCellInventoryCache();
@@ -100,22 +96,54 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         updateState();
         this.cellStack = cellStack;
         setChanged();
+        if (controller != null) controller.notifyStorageConfigurationChanged();
     }
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        if (cluster instanceof NEStorageCluster storageCluster
-            && storageCluster.getController() != null
-            && storageCluster.getController().isInfiniteMode()
-            && !ECOInfiniteStorageMember.isMember(stack)) {
+        if (isLockedByFiniteTransferDomain()) {
             return false;
         }
+        ECOStorageSystemBlockEntity controller = getStorageController();
+        if (controller != null && !controller.canInsertStorageCell(stack)) return false;
         return ECOStorageCells.isCellHandled(stack);
     }
 
     @Override
     public boolean canExtractCell() {
-        return !ECOInfiniteStorageMember.isMigrating(cellStack) && !isLockedByInfiniteMode() && !isLockedByFiniteTransferDomain();
+        return getCellExtractionBlockReason() == CellExtractionBlockReason.NONE;
+    }
+
+    /** Shared by manual interaction and automation; querying this never releases ownership. */
+    public CellExtractionBlockReason getCellExtractionBlockReason() {
+        if (ECOInfiniteStorageMember.isMigrating(cellStack)) {
+            return CellExtractionBlockReason.INFINITE_MIGRATION;
+        }
+        if (isLockedByInfiniteMode() && (getStorageController() == null
+            || !getStorageController().isFormedInfiniteMode())) {
+            return CellExtractionBlockReason.INFINITE_MEMBER;
+        }
+        if (isLockedByFiniteTransferDomain()) {
+            return CellExtractionBlockReason.FINITE_TRANSFER;
+        }
+        return CellExtractionBlockReason.NONE;
+    }
+
+    public enum CellExtractionBlockReason {
+        NONE(""),
+        INFINITE_MIGRATION("tooltip.neoecoae.storage.infinite_migration_locked"),
+        INFINITE_MEMBER("tooltip.neoecoae.storage.infinite_member_locked"),
+        FINITE_TRANSFER("tooltip.neoecoae.storage.finite_transfer_locked");
+
+        private final String translationKey;
+
+        CellExtractionBlockReason(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public String translationKey() {
+            return translationKey;
+        }
     }
 
     public boolean isLockedByFiniteTransferDomain() {

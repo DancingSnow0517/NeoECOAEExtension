@@ -138,6 +138,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(
+                Component.literal("UUID: " + id).withStyle(ChatFormatting.AQUA)));
             return;
         }
         var handler = getCellInventory(stack);
