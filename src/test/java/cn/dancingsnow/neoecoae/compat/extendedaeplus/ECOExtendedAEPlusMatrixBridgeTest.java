@@ -33,8 +33,10 @@ class ECOExtendedAEPlusMatrixBridgeTest {
         var context = new ECOBatchDispatchContext(pattern, List.of(List.of(new GenericStack(key, 2))),
             List.of(new GenericStack(key, 1)), List.of(), null, null);
         // Queue/ownership contract test: recipe materialization is verified separately in production.
-        try (var bridge = mockStatic(ECOExtendedAEPlusMatrixBridge.class, CALLS_REAL_METHODS)) {
-            bridge.when(() -> ECOExtendedAEPlusMatrixBridge.verify(context)).thenReturn(true);
+        // Stubbing a CALLS_REAL_METHODS mock would execute verify() before the stub is installed,
+        // initializing Minecraft registries outside bootstrap and poisoning the shared test JVM.
+        try (var bridge = mockStatic(ECOExtendedAEPlusMatrixBridge.class, invocation ->
+                invocation.getMethod().getName().equals("verify") ? true : invocation.callRealMethod())) {
             var preparation = ECOExtendedAEPlusMatrixBridge.adapt(provider).eco$prepareFastPath(context);
             assertNotNull(preparation);
             when(provider.pushPattern(any(), any())).thenAnswer(call -> {
