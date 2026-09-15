@@ -6,6 +6,18 @@ public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
+        provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
+        provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
+        provider.add("tooltip.neoecoae.infinite_component.unlock", "Insert 64 components and install 12 L9 storage matrices to enable infinite storage");
+        provider.add("gui.ae2.ConfirmCraftCpuStatus", "Storage: %s; Co-Processing Units: %s");
+        provider.add("gui.ae2.ConfirmCraftNoCpu", "Storage: N/A; Co-Processing Units: N/A");
+        provider.add("gui.neoecoae.crafting.cycle_planning.off", "Cycle Planning: Disabled");
+        provider.add("gui.neoecoae.crafting.cycle_planning.on", "Cycle Planning: Enabled");
+        provider.add("gui.neoecoae.force_start", "Force Start");
+        provider.add("gui.neoecoae.storage.mega_filter.duplicate_chain", "This compression chain is already configured in another marking slot of this storage host");
+        provider.add("gui.neoecoae.storage.mega_filter.not_compressible", "Only items belonging to a MEGA compression chain can be marked");
+        provider.add("jade.neoecoae.overclock_status", "Theoretical / Effective Overclock: %d/%d");
+        provider.add("tooltip.neoecoae.force_start", "Ignore missing materials and submit the crafting job");
 
         // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");

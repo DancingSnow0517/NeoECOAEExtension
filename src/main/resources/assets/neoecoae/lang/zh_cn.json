@@ -1,4 +1,7 @@
 {
+  "gui.neoecoae.crafting.ui.batch_parallel": "批量",
+  "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
+  "tooltip.neoecoae.infinite_component.unlock": "插入 64 个组件并安装 12 个 L9 存储矩阵以启用无限存储",
   "gui.neoecoae.force_start": "强制下单",
   "tooltip.neoecoae.force_start": "忽略缺少材料并提交订单",
   "gui.ae2.ConfirmCraftCpuStatus": "可存储：%s；并行处理单元：%s",
@@ -240,7 +243,9 @@
   "gui.neoecoae.storage.legacy.cell_info.other": "其它存储矩阵",
   "gui.neoecoae.storage.legacy.cell_info.empty": "未知",
   "gui.neoecoae.storage.legacy.cell_types": "类型使用: %s / %s",
+  "gui.neoecoae.storage.legacy.cell_types.used": "类型使用: %s",
   "gui.neoecoae.storage.legacy.cell_bytes": "字节使用: %s / %s",
+  "gui.neoecoae.storage.legacy.cell_bytes.used": "字节使用: %s",
   "gui.neoecoae.storage.legacy.cell_tooltip": "%s（%s）\n字节使用: %s / %s",
   "gui.neoecoae.storage.legacy.graph.item": "物品存储占用:%s",
   "gui.neoecoae.storage.legacy.graph.fluid": "流体存储占用:%s",

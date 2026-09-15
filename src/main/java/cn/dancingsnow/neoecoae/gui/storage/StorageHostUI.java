@@ -285,7 +285,8 @@ public final class StorageHostUI {
     private static Component storageTypesText(Config config, StorageTypeLine line) {
         String used = HostText.ae2Amount(line.usedTypes().getAsLong());
         if (isInfinite(config)) {
-            return usedOnlyText("gui.neoecoae.storage.legacy.cell_types", used);
+            return Component.translatable("gui.neoecoae.storage.legacy.cell_types.used", used)
+                .withColor(HostText.PRIMARY);
         }
         return Component.translatable("gui.neoecoae.storage.legacy.cell_types", used,
             formatCapacity(line.totalTypes().getAsLong())).withColor(HostText.PRIMARY);
@@ -293,27 +294,14 @@ public final class StorageHostUI {
 
     private static Component storageBytesText(Config config, StorageTypeLine line) {
         if (isInfinite(config)) {
-            return usedOnlyText("gui.neoecoae.storage.legacy.cell_bytes", line.infiniteBytesText().get());
+            return Component.translatable("gui.neoecoae.storage.legacy.cell_bytes.used", line.infiniteBytesText().get())
+                .withColor(HostText.PRIMARY);
         }
         return Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
             HostText.ae2Amount(line.usedBytes().getAsLong()),
             formatCapacity(line.totalBytes().getAsLong())).withColor(HostText.PRIMARY);
     }
 
-    private static Component usedOnlyText(String translationKey, String used) {
-        String marker = "\\u0001";
-        String rendered = Component.translatable(translationKey, used, marker).getString();
-        int markerIndex = rendered.indexOf(marker);
-        if (markerIndex < 0) {
-            return Component.literal(rendered).withColor(HostText.PRIMARY);
-        }
-        String prefix = rendered.substring(0, markerIndex);
-        int separator = prefix.lastIndexOf('/');
-        if (separator >= 0) {
-            prefix = prefix.substring(0, separator).stripTrailing();
-        }
-        return Component.literal(prefix).withColor(HostText.PRIMARY);
-    }
 
     private static UIElement storageProgressBar(LongSupplier used, LongSupplier total, BooleanSupplier visible) {
         UIElement wrapper = HostElements.syncedDisplay(visible);

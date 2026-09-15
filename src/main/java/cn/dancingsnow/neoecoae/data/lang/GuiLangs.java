@@ -24,6 +24,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.legacy.cell_info.other", "Other Storage Matrix");
         provider.add("gui.neoecoae.storage.legacy.cell_info.empty", "Unknown");
         provider.add("gui.neoecoae.storage.legacy.cell_types", "Types: %s / %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_types.used", "Types: %s");
+        provider.add("gui.neoecoae.storage.legacy.cell_bytes.used", "Bytes: %s");
         provider.add("gui.neoecoae.storage.legacy.cell_bytes", "Bytes: %s / %s");
         provider.add("gui.neoecoae.storage.legacy.cell_tooltip", "%s (%s)\nBytes: %s / %s");
         provider.add("gui.neoecoae.storage.legacy.graph.item", "Item storage: %s");
