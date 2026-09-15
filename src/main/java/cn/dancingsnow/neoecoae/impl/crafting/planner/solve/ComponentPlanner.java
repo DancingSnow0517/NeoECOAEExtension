@@ -372,10 +372,9 @@ public final class ComponentPlanner {
                     unresolvedCycle = true;
                     if (external != null && !external.solved()) {
                         if (!externalFailureHandled) {
-                            boolean onlyUnproducibleSeed = startupRecoveryAttempted
-                                && !externalMissingItems.isEmpty()
-                                && cycleResult.seedShortfall().keySet().containsAll(externalMissingItems.keySet());
-                            if (!externalMissingItems.isEmpty() && !onlyUnproducibleSeed) {
+                            // An unproducible startup seed is still a concrete material deficit. The graph
+                            // already exposes seedShortfall; keep AE2's missing pool consistent with it.
+                            if (!externalMissingItems.isEmpty()) {
                                 acyclic.state().markMissing(externalMissingItems);
                             } else if (!startupRecoveryAttempted && !cycleResult.seedShortfall().isEmpty()) {
                                 acyclic.state().markMissing(cycleResult.seedShortfall());
