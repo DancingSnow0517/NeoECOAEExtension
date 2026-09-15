@@ -37,20 +37,25 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
         }
         boolean alreadyPresent = false;
         boolean noSpace = false;
-        for (IECOPatternStorage value : patternStorages.values()) {
-            switch (value.insertPattern(patternItem)) {
+        boolean incompatible = false;
+        for (var entry : patternStorages.entrySet()) {
+            if (!entry.getKey().isActive()) continue;
+            switch (entry.getValue().insertPattern(patternItem)) {
                 case INSERTED -> {
                     return ECOPatternInsertionResult.INSERTED;
                 }
                 case ALREADY_PRESENT -> alreadyPresent = true;
                 case NO_SPACE -> noSpace = true;
+                case INCOMPATIBLE -> incompatible = true;
                 default -> {}
             }
         }
         if (alreadyPresent) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
-        return noSpace ? ECOPatternInsertionResult.NO_SPACE : ECOPatternInsertionResult.NO_TARGET;
+        return noSpace
+                ? ECOPatternInsertionResult.NO_SPACE
+                : incompatible ? ECOPatternInsertionResult.INCOMPATIBLE : ECOPatternInsertionResult.NO_TARGET;
     }
 
     @Override

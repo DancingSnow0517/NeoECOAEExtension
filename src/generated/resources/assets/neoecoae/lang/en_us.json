@@ -849,5 +849,15 @@
   "tooltip.neoecoae.megacells.compression_builtin": "Compression variants are enabled by default; no upgrade card required",
   "tooltip.neoecoae.megacells.empty_only": "Only an empty storage matrix can be disassembled",
   "tooltip.neoecoae.megacells.housing": "MEGA Cells housing for %s storage matrices",
-  "tooltip.neoecoae.megacells.storage_type": "MEGA storage type: %s"
+  "tooltip.neoecoae.megacells.storage_type": "MEGA storage type: %s",
+  "neoecoae.pattern_upload.toggle_hint": "Shift-click: toggle automatic upload after encoding (this terminal session).",
+  "neoecoae.pattern_upload.auto_enabled": "Automatic pattern upload enabled for this terminal session.",
+  "neoecoae.pattern_upload.auto_disabled": "Automatic pattern upload disabled.",
+  "neoecoae.pattern_upload.inserted": "Pattern uploaded to an ECO fabricator.",
+  "neoecoae.pattern_upload.already_present": "This pattern already exists. The source pattern was kept.",
+  "neoecoae.pattern_upload.no_space": "Compatible ECO pattern buses are full. The pattern was kept.",
+  "neoecoae.pattern_upload.incompatible": "Unsupported pattern: ECO fabricators accept assembler-compatible crafting patterns, not processing patterns.",
+  "neoecoae.pattern_upload.no_target": "No compatible active ECO pattern bus found on this ME network.",
+  "neoecoae.pattern_upload.unavailable": "Upload unavailable: check the ME connection and access permissions.",
+  "neoecoae.pattern_upload.empty": "Encode a pattern before uploading."
 }

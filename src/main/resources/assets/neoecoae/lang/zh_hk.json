@@ -919,5 +919,15 @@
   "gui.neoecoae.storage.host.details": "存储详情",
   "gui.neoecoae.storage.host.guide": "存储系统指南",
   "gui.neoecoae.storage.mega.title": "MEGA 大宗儲存",
-  "gui.neoecoae.storage.mega.upgrade": "升級卡"
+  "gui.neoecoae.storage.mega.upgrade": "升級卡",
+  "neoecoae.pattern_upload.toggle_hint": "Shift 点击：切换编码后自动上传（仅本次终端会话）。",
+  "neoecoae.pattern_upload.auto_enabled": "已启用本次终端会话的编码后自动上传。",
+  "neoecoae.pattern_upload.auto_disabled": "已关闭编码后自动上传。",
+  "neoecoae.pattern_upload.inserted": "样板已上传到 ECO 合成系统。",
+  "neoecoae.pattern_upload.already_present": "该样板已存在，源样板已保留。",
+  "neoecoae.pattern_upload.no_space": "兼容的 ECO 样板总线已满，样板已保留。",
+  "neoecoae.pattern_upload.incompatible": "不支持此样板：ECO 合成系统仅接受分子装配室兼容的合成样板，不接受处理样板。",
+  "neoecoae.pattern_upload.no_target": "当前 ME 网络中没有兼容且在线的 ECO 样板总线。",
+  "neoecoae.pattern_upload.unavailable": "无法上传：请检查 ME 网络连接和访问权限。",
+  "neoecoae.pattern_upload.empty": "请先编码样板再上传。"
 }

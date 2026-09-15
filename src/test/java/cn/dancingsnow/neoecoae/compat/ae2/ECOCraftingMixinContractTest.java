@@ -13,6 +13,39 @@ import org.objectweb.asm.tree.TypeInsnNode;
 /** Verifies injection targets without initializing Minecraft or loading transformed classes. */
 class ECOCraftingMixinContractTest {
     @Test
+    void automaticUploadTargetsOnlyTheFinalEncodeReturn() throws Exception {
+        var menu = read("appeng/menu/me/items/PatternEncodingTermMenu");
+        var encode = menu.methods.stream()
+                .filter(method -> method.name.equals("encode"))
+                .findFirst()
+                .orElseThrow();
+        int returns = 0;
+        int outputWrites = 0;
+        for (var instruction : encode.instructions) {
+            if (instruction instanceof org.objectweb.asm.tree.FieldInsnNode field
+                    && field.name.equals("encodedPatternSlot")) outputWrites++;
+            if (instruction.getOpcode() == org.objectweb.asm.Opcodes.RETURN) {
+                if (returns == 3) assertEquals(2, outputWrites, "Final return follows the encoded output write");
+                returns++;
+            }
+        }
+        assertEquals(4, returns, "Update the automatic-upload injection when AE2 encode control flow changes");
+        var mixin = read("cn/dancingsnow/neoecoae/mixins/PatternEncodingTermMenuMixin");
+        var handler = mixin.methods.stream()
+                .filter(method -> method.name.equals("neoecoae$uploadAfterEncode"))
+                .findFirst()
+                .orElseThrow();
+        var inject = handler.visibleAnnotations.stream()
+                .filter(annotation -> annotation.desc.endsWith("/Inject;"))
+                .findFirst()
+                .orElseThrow();
+        var ats = (List<?>) inject.values.get(inject.values.indexOf("at") + 1);
+        var at = (org.objectweb.asm.tree.AnnotationNode) ats.get(0);
+        assertEquals("RETURN", at.values.get(at.values.indexOf("value") + 1));
+        assertEquals(3, at.values.get(at.values.indexOf("ordinal") + 1));
+    }
+
+    @Test
     void cpuMergesWrapTheCompletedForeignMethodRatherThanCancelItsReturnHandlers() throws Exception {
         for (String[] entry : List.of(
                 new String[] {"CraftingServiceCpuListMixin", "neoecoae$getCpus", "getCpus"},

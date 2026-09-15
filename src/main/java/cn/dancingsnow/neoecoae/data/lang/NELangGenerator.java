@@ -62,6 +62,26 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.computation.storage_usage", "Storage used: %s / %s bytes");
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern");
+        provider.add(
+                "neoecoae.pattern_upload.toggle_hint",
+                "Shift-click: toggle automatic upload after encoding (this terminal session).");
+        provider.add(
+                "neoecoae.pattern_upload.auto_enabled", "Automatic pattern upload enabled for this terminal session.");
+        provider.add("neoecoae.pattern_upload.auto_disabled", "Automatic pattern upload disabled.");
+        provider.add("neoecoae.pattern_upload.inserted", "Pattern uploaded to an ECO fabricator.");
+        provider.add(
+                "neoecoae.pattern_upload.already_present", "This pattern already exists. The source pattern was kept.");
+        provider.add(
+                "neoecoae.pattern_upload.no_space", "Compatible ECO pattern buses are full. The pattern was kept.");
+        provider.add(
+                "neoecoae.pattern_upload.incompatible",
+                "Unsupported pattern: ECO fabricators accept assembler-compatible crafting patterns, not processing patterns.");
+        provider.add(
+                "neoecoae.pattern_upload.no_target", "No compatible active ECO pattern bus found on this ME network.");
+        provider.add(
+                "neoecoae.pattern_upload.unavailable",
+                "Upload unavailable: check the ME connection and access permissions.");
+        provider.add("neoecoae.pattern_upload.empty", "Encode a pattern before uploading.");
 
         provider.add("cell_type.neoecoae.chemical", "Chemical");
         provider.add("cell_type.neoecoae.chemicals", "Chemical");
