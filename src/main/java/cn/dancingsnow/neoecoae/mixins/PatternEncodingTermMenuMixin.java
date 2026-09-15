@@ -12,6 +12,8 @@ import appeng.parts.encoding.EncodingMode;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
+import java.util.Locale;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
@@ -26,6 +28,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = PatternEncodingTermMenu.class, remap = false)
 public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu implements PatternEncodingTermMenuExtension {
     @Unique private static final String NEOECOAE_ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
+
+    @Unique private static final String NEOECOAE_ACTION_AUTO_UPLOAD = "neoecoae:autoUploadPattern";
+
+    @Unique private boolean neoecoae$autoUpload;
 
     @Shadow
     @Final
@@ -50,6 +56,30 @@ public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu impleme
             boolean bindInventory,
             CallbackInfo ci) {
         registerClientAction(NEOECOAE_ACTION_UPLOAD_PATTERN, this::neoecoae$uploadPattern);
+        registerClientAction(NEOECOAE_ACTION_AUTO_UPLOAD, this::neoecoae$toggleAutoUpload);
+    }
+
+    @Override
+    public void neoecoae$toggleAutoUpload() {
+        if (isClientSide()) {
+            sendClientAction(NEOECOAE_ACTION_AUTO_UPLOAD);
+            return;
+        }
+        if (!canInteractWithGrid()) return;
+        neoecoae$autoUpload = !neoecoae$autoUpload;
+        neoecoae$notifyUpload(neoecoae$autoUpload ? "auto_enabled" : "auto_disabled");
+    }
+
+    // Run only after a successful encode writes its output, never on an early return or clear.
+    @Inject(method = "encode", at = @At(value = "RETURN", ordinal = 3))
+    private void neoecoae$uploadAfterEncode(CallbackInfo ci) {
+        if (!isClientSide()
+                && neoecoae$autoUpload
+                && PatternDetailsHelper.isEncodedPattern(encodedPatternSlot.getItem())) neoecoae$uploadPattern();
+    }
+
+    @Unique private void neoecoae$notifyUpload(String result) {
+        getPlayer().displayClientMessage(Component.translatable("neoecoae.pattern_upload." + result), false);
     }
 
     @Override
@@ -61,27 +91,36 @@ public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu impleme
 
         IGridNode node = getNetworkNode();
         if (node == null || !node.isActive() || !canInteractWithGrid()) {
+            neoecoae$notifyUpload("unavailable");
             return;
         }
 
         if (this.mode == EncodingMode.PROCESSING) {
+            neoecoae$notifyUpload("incompatible");
             return;
         }
 
         ItemStack pattern = this.encodedPatternSlot.getItem();
         if (pattern.isEmpty()) {
+            neoecoae$notifyUpload("empty");
             return;
         }
         if (!(PatternDetailsHelper.decodePattern(pattern, getPlayer().level())
                 instanceof IMolecularAssemblerSupportedPattern)) {
+            neoecoae$notifyUpload("incompatible");
             return;
         }
 
         IECOPatternStorageService service = node.getGrid().getService(IECOPatternStorageService.class);
-        if (service != null
-                && service.getPatternStorage().insertPattern(pattern.copy()) == ECOPatternInsertionResult.INSERTED) {
-            this.encodedPatternSlot.set(ItemStack.EMPTY);
+        ECOPatternInsertionResult result = service == null
+                ? ECOPatternInsertionResult.NO_TARGET
+                : service.getPatternStorage().insertPattern(pattern.copyWithCount(1));
+        if (result == ECOPatternInsertionResult.INSERTED) {
+            ItemStack remaining = pattern.copy();
+            remaining.shrink(1);
+            this.encodedPatternSlot.set(remaining);
             this.encodedPatternSlot.setChanged();
         }
+        neoecoae$notifyUpload(result.name().toLowerCase(Locale.ROOT));
     }
 }

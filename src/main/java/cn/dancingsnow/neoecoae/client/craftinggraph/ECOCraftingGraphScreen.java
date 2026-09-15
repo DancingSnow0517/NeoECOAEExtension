@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.client.ECOPlannerAmountFormatter;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -197,8 +197,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         };
     }
 
-    @Override
-    public void renderBackground(GuiGraphics graphics) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // This screen paints its background before the graph. Screen.render() must not blur the graph afterward.
     }
 
@@ -292,7 +291,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             var value = values.get(i);
             text.append(value.key().getDisplayName().getString())
                     .append(" ×")
-                    .append(ECOPlannerAmountFormatter.ae2Amount(value.amount()));
+                    .append(HostText.ae2Amount(value.amount()));
         }
         if (values.size() > shown)
             text.append(tr("summary.more", values.size() - shown).getString());
@@ -312,7 +311,7 @@ public final class ECOCraftingGraphScreen extends Screen {
                     .orElse(null);
             text.append(pattern == null ? "Pattern #" + value.patternNodeId() : pattern.displayIdentity())
                     .append(" ×")
-                    .append(ECOPlannerAmountFormatter.ae2Amount(value.amount()));
+                    .append(HostText.ae2Amount(value.amount()));
         }
         if (cycle.patternTimes().size() > shown)
             text.append(" +")
@@ -321,12 +320,13 @@ public final class ECOCraftingGraphScreen extends Screen {
         return Component.literal(text.toString());
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-        if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollY);
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollDelta);
+        double scrollX = 0.0D;
+        double scrollY = scrollDelta;
         if (graph.isCompactTree() && !Screen.hasControlDown()) {
-            if (Screen.hasShiftDown()) cameraX -= (float) scrollY * 28;
-            else cameraY -= (float) scrollY * 28;
+            cameraX -= (float) scrollX * 28;
+            cameraY -= (float) scrollY * 28;
             return true;
         }
         float oldZoom = zoom;
@@ -749,7 +749,7 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private static Component compact(String exact) {
         try {
-            return Component.literal(ECOPlannerAmountFormatter.ae2Amount(new BigInteger(exact)));
+            return Component.literal(HostText.ae2Amount(new BigInteger(exact)));
         } catch (RuntimeException ignored) {
             return Component.literal(exact);
         }

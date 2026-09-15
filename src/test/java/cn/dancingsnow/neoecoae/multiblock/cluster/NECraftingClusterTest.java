@@ -27,14 +27,14 @@ class NECraftingClusterTest {
 
     @Test
     void exchangeMultiplierUsesTheInstalledSwitchType() {
-        assertEquals(2, NECraftingCluster.resolveNetworkMultiplier(true, false, 2, true));
-        assertEquals(8, NECraftingCluster.resolveNetworkMultiplier(true, true, 2, true));
+        assertEquals(4, NECraftingCluster.resolveNetworkMultiplier(true, false, 2, true));
+        assertEquals(16, NECraftingCluster.resolveNetworkMultiplier(true, true, 2, true));
     }
 
     @Test
-    void exchangeMultiplierFallsBackWithoutAWorkingNetworkOrCooling() {
+    void exchangeMultiplierRequiresNetworkButNotCooling() {
         assertEquals(1, NECraftingCluster.resolveNetworkMultiplier(false, true, 2, true));
-        assertEquals(1, NECraftingCluster.resolveNetworkMultiplier(true, false, 2, false));
-        assertEquals(1, NECraftingCluster.resolveNetworkMultiplier(true, true, 8, false));
+        assertEquals(4, NECraftingCluster.resolveNetworkMultiplier(true, false, 2, false));
+        assertEquals(64, NECraftingCluster.resolveNetworkMultiplier(true, true, 8, false));
     }
 }

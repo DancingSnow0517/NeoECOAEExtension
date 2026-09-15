@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.GuiGraphics;
@@ -9,6 +10,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
     private Object icon;
     private IconAlignment iconAlignment;
     private boolean pressed;
+    private boolean ecoButton;
 
     public NEAe2IconButtonWidget(
             int x,
@@ -28,6 +30,11 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         return this;
     }
 
+    public NEAe2IconButtonWidget useEcoButton() {
+        this.ecoButton = true;
+        return this;
+    }
+
     public NEAe2IconButtonWidget useAeTabButton() {
         this.iconAlignment = IconAlignment.AE_TAB;
         setButtonTexture(IGuiTexture.EMPTY);
@@ -38,7 +45,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         boolean handled = super.mouseClicked(mouseX, mouseY, button);
-        if (handled && button == 0) {
+        if (handled && (button == 0 || button == 1)) {
             pressed = true;
         }
         return handled;
@@ -53,15 +60,27 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
     @Override
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-        if (iconAlignment == IconAlignment.AE_TAB) {
+        if (ecoButton) {
+            NEHostTextures.drawEcoButton(
+                    graphics,
+                    getPositionX(),
+                    getPositionY(),
+                    getSizeWidth(),
+                    getSizeHeight(),
+                    isMouseOverElement(mouseX, mouseY),
+                    pressed,
+                    isActive());
+        } else if (iconAlignment == IconAlignment.AE_TAB) {
             NELDLibClientStyle.drawAeTabButton(
                     graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         } else {
             NELDLibClientStyle.drawAeToolbarButton(
                     graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
-        NELDLibClientStyle.drawHoverOverlay(
-                graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), pressed);
+        if (!ecoButton) {
+            NELDLibClientStyle.drawHoverOverlay(
+                    graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), pressed);
+        }
     }
 
     @Override
@@ -70,15 +89,20 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         if (icon == null) {
             return;
         }
-        int offset = pressed ? 1 : 0;
+        int yOffset = pressed || isMouseOverElement(mouseX, mouseY) ? 1 : 0;
+        if (ecoButton && getSizeWidth() == 16 && getSizeHeight() == 16) {
+            NELDLibClientStyle.drawEcoSideIcon(
+                    graphics, icon, getPositionX() + 1, getPositionY() + 3 + yOffset, isActive() ? 1.0F : 0.45F);
+            return;
+        }
         int iconWidth = NELDLibClientStyle.aeIconWidth(icon);
         int iconHeight = NELDLibClientStyle.aeIconHeight(icon);
         int iconX = iconAlignment == IconAlignment.AE_TAB
-                ? getPositionX() + 3 + offset
-                : getPositionX() + (getSizeWidth() - iconWidth) / 2 + offset;
+                ? getPositionX() + 3
+                : getPositionX() + (getSizeWidth() - iconWidth) / 2;
         int iconY = iconAlignment == IconAlignment.AE_TAB
-                ? getPositionY() + 3 + offset
-                : getPositionY() + (getSizeHeight() - iconHeight) / 2 + offset;
+                ? getPositionY() + 3 + yOffset
+                : getPositionY() + (getSizeHeight() - iconHeight) / 2 + yOffset;
         NELDLibClientStyle.drawAeIcon(graphics, icon, iconX, iconY, isActive() ? 1.0F : 0.45F);
     }
 

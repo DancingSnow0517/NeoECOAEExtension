@@ -1,0 +1,28 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "megacells"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_mega_chemical_cell_4g",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:mega_chemical_cell_housing"
+    },
+    {
+      "count": 10,
+      "id": "megacells:cell_component_256m"
+    }
+  ]
+}

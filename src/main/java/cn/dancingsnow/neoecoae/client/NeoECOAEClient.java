@@ -12,7 +12,6 @@ import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRe
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
 import cn.dancingsnow.neoecoae.network.ECOCpuOverlayPayload;
-import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.ModelEvent;
@@ -42,7 +41,6 @@ public class NeoECOAEClient {
 
     private static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
         ECOCpuOverlayPayload.clearClientOverlays();
-        ECOPlannerNoticePayload.clearAllClientNotices();
     }
 
     @SubscribeEvent

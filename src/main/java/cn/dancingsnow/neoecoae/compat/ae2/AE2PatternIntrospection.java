@@ -141,6 +141,10 @@ public final class AE2PatternIntrospection {
         return reloadGeneration;
     }
 
+    public static long reloadGeneration() {
+        return reloadGeneration;
+    }
+
     private static boolean isExternalProcessingPattern(IPatternDetails details) {
         if (details == null) {
             return false;

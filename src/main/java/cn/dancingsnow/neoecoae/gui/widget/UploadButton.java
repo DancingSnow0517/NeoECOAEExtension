@@ -34,7 +34,9 @@ public class UploadButton extends Button {
         if (isHovered()) {
             guiGraphics.renderComponentTooltip(
                     Minecraft.getInstance().font,
-                    List.of(Component.translatable("neoecoae.tooltip.upload_pattern")),
+                    List.of(
+                            Component.translatable("neoecoae.tooltip.upload_pattern"),
+                            Component.translatable("neoecoae.pattern_upload.toggle_hint")),
                     mouseX,
                     mouseY);
         }

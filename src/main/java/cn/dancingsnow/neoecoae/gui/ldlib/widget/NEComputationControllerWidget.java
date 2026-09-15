@@ -4,44 +4,40 @@ import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
+import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.NEComputationUpgradeRules;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.computation.NEComputationCapacityPanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.computation.NEComputationHeaderPanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.computation.NEComputationTaskPanel;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostSideButtonRenderer;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.IntUnaryOperator;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 
-/** Coordinates computation state, server actions, inventory slots, and focused client-side host panels. */
+/**
+ * Coordinates computation state, server actions, inventory slots, and focused client-side host panels.
+ */
 public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NEComputationUiState> {
     public static final int UI_WIDTH = NEComputationLayout.UI_WIDTH;
     public static final int UI_HEIGHT = NEComputationLayout.UI_HEIGHT;
 
     private final ECOComputationSystemBlockEntity computation;
     private final Inventory playerInventory;
+    private final Player player;
     private final NEComputationHeaderPanel headerPanel = new NEComputationHeaderPanel();
     private final NEComputationCapacityPanel capacityPanel = new NEComputationCapacityPanel();
     private final NEComputationTaskPanel taskPanel = new NEComputationTaskPanel();
-    private NEAe2TextButtonWidget networkFrequencyButton;
     private NEAe2IconButtonWidget cpuModeButton;
     private NEAe2IconButtonWidget fastTaskPlanningButton;
-    private NEAe2IconButtonWidget batchFairSchedulingButton;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -55,6 +51,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 20);
         this.computation = computation;
         this.playerInventory = player.getInventory();
+        this.player = player;
     }
 
     @Override
@@ -79,6 +76,15 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void initLdWidgets() {
+        addWidget(new NEAe2IconButtonWidget(-17, 3, 16, 16, Icon.HELP, click -> {
+                    if (!click.isRemote && net.minecraftforge.fml.ModList.get().isLoaded("guideme")) {
+                        guideme.GuidesCommon.openGuide(
+                                player,
+                                appeng.core.AppEng.makeId("guide"),
+                                guideme.PageAnchor.parse("neoecoae:neoecoae_intro/computation_system.md"));
+                    }
+                })
+                .useEcoButton());
         fastTaskPlanningButton = new NEAe2IconButtonWidget(
                         FAST_TASK_PLANNING_BUTTON_X,
                         FAST_TASK_PLANNING_BUTTON_Y,
@@ -91,84 +97,68 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                                 syncStateNow();
                             }
                         })
-                .useAeTabButton();
+                .useEcoButton();
         addWidget(fastTaskPlanningButton);
-        batchFairSchedulingButton = new NEAe2IconButtonWidget(
-                        BATCH_FAIR_SCHEDULING_BUTTON_X,
-                        BATCH_FAIR_SCHEDULING_BUTTON_Y,
-                        BATCH_FAIR_SCHEDULING_BUTTON_W,
-                        BATCH_FAIR_SCHEDULING_BUTTON_H,
-                        batchFairSchedulingIcon(),
+        addWidget(new NEAe2IconButtonWidget(-17, 69, 16, 16, Icon.LEVEL_ENERGY, click -> {
+                    if (!click.isRemote) {
+                        computation.toggleCyclePlanning();
+                        syncStateNow();
+                    }
+                })
+                .useEcoButton());
+        addWidget(new NEAe2IconButtonWidget(-17, 47, 16, 16, Icon.POWER_UNIT_AE, click -> {
+                    if (!click.isRemote) {
+                        computation.toggleIgnoringSubstitutions();
+                        syncStateNow();
+                    }
+                })
+                .useEcoButton());
+        addWidget(new NEAe2IconButtonWidget(
+                        NETWORK_FREQUENCY_BUTTON_X,
+                        NETWORK_FREQUENCY_BUTTON_Y,
+                        NETWORK_FREQUENCY_BUTTON_W,
+                        NETWORK_FREQUENCY_BUTTON_H,
+                        Icon.SCHEDULING_ROUND_ROBIN,
                         click -> {
-                            if (!click.isRemote) {
-                                computation.toggleBatchFairScheduling();
+                            if (!click.isRemote && (click.button == 0 || click.button == 1)) {
+                                computation.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
                                 syncStateNow();
                             }
                         })
-                .useAeTabButton();
-        addWidget(batchFairSchedulingButton);
-        networkFrequencyButton = new NEAe2TextButtonWidget(
-                NETWORK_FREQUENCY_BUTTON_X,
-                NETWORK_FREQUENCY_BUTTON_Y,
-                NETWORK_FREQUENCY_BUTTON_W,
-                NETWORK_FREQUENCY_BUTTON_H,
-                () -> Component.literal(
-                        Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
-                click -> {
-                    if (!click.isRemote && (click.button == 0 || click.button == 1)) {
-                        computation.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
-                        syncStateNow();
-                    }
-                },
-                () -> currentState().networkMemberCount() > 1,
-                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
-        networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_MUTED);
-        networkFrequencyButton.setTextOffset(1, 1);
-        addWidget(networkFrequencyButton);
+                .useEcoButton());
         cpuModeButton = new NEAe2IconButtonWidget(
-                mainX(CPU_BUTTON_X), CPU_BUTTON_Y, CPU_BUTTON_W, CPU_BUTTON_H, cpuModeIcon(), click -> {
-                    if (!click.isRemote) {
-                        NEComputationCluster cluster = computation.getCluster();
-                        if (cluster != null) {
-                            cluster.cycleSelectionMode();
-                        } else {
-                            computation.setCpuSelectionMode(nextCpuSelectionMode(computation.getCpuSelectionMode()));
-                        }
-                        computation.markComputationStatsDirty();
-                        computation.updateInfos();
-                        syncStateNow();
-                    }
-                });
+                        mainX(CPU_BUTTON_X), CPU_BUTTON_Y, CPU_BUTTON_W, CPU_BUTTON_H, cpuModeIcon(), click -> {
+                            if (!click.isRemote && (click.button == 0 || click.button == 1)) {
+                                NEComputationCluster cluster = computation.getCluster();
+                                int direction = click.button == 0 ? 1 : -1;
+                                if (cluster != null) {
+                                    cluster.setLocalSelectionMode(
+                                            nextCpuSelectionMode(cluster.getLocalSelectionMode(), direction));
+                                } else {
+                                    computation.setCpuSelectionMode(
+                                            nextCpuSelectionMode(computation.getCpuSelectionMode(), direction));
+                                }
+                                computation.markComputationStatsDirty();
+                                computation.updateInfos();
+                                syncStateNow();
+                            }
+                        })
+                .useEcoButton();
         addWidget(cpuModeButton);
-        if (hasUpgradeLayout()) {
-            addWidget(new SlotWidget(
-                            new NEForgeItemTransfer(
-                                    computation.getComputationUpgradeItemHandler(),
-                                    computation::onComputationUpgradeSlotChanged),
-                            0,
-                            mainX(COMPUTATION_UPGRADE_SLOT_X),
-                            COMPUTATION_UPGRADE_SLOT_Y,
-                            true,
-                            true)
-                    .setBackgroundTexture(IGuiTexture.EMPTY));
-        }
         NEPlayerInventoryWidgets.addPlayerInventorySlots(
                 this, playerInventory, mainX(PLAYER_INV_X), PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
+        NEHostTextures.drawHostBackground(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
+        NEHostSideButtonRenderer.drawLeft(graphics, absX(MAIN_X), absY(0), 6, mouseX, mouseY);
         cpuModeButton.setIcon(cpuModeIcon());
         fastTaskPlanningButton.setIcon(fastTaskPlanningIcon());
-        batchFairSchedulingButton.setIcon(batchFairSchedulingIcon());
         capacityPanel.drawBackground(graphics, mainScreenX(), this::absY, currentState(), mouseX, mouseY);
-        if (hasUpgradeLayout()) {
-            NELDLibAe2StyleRenderer.drawAeSlot(
-                    graphics, absX(mainX(COMPUTATION_UPGRADE_SLOT_X)), absY(COMPUTATION_UPGRADE_SLOT_Y));
-        }
         taskPanel.drawBackground(graphics, mainScreenX(), this::absY, mouseX, mouseY);
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(
+                graphics, mainScreenX(), this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, mainScreenX(), this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
@@ -188,16 +178,60 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (isMouseIn(-17, 3, 16, 16, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            ButtonToolTips.OpenGuide.text().withStyle(style -> style.withColor(0xFFFFFF)),
+                            ButtonToolTips.OpenGuideDetail.text().withStyle(net.minecraft.ChatFormatting.GRAY)),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        if (isMouseIn(-17, 25, 16, 16, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            ButtonToolTips.CpuSelectionMode.text(),
+                            switch (currentState().cpuSelectionMode()) {
+                                case ANY -> ButtonToolTips.CpuSelectionModeAny.text();
+                                case PLAYER_ONLY -> ButtonToolTips.CpuSelectionModePlayersOnly.text();
+                                case MACHINE_ONLY -> ButtonToolTips.CpuSelectionModeAutomationOnly.text();
+                            }),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        if (isMouseIn(-17, 69, 16, 16, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(Component.translatable(
+                            currentState().cyclePlanningEnabled()
+                                    ? "gui.neoecoae.crafting.cycle_planning.on"
+                                    : "gui.neoecoae.crafting.cycle_planning.off")),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        if (isMouseIn(-17, 47, 16, 16, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            Component.translatable(
+                                    currentState().ignoringSubstitutions()
+                                            ? "gui.neoecoae.crafting.planning.ignore_substitutions.on"
+                                            : "gui.neoecoae.crafting.planning.ignore_substitutions.off"),
+                            Component.translatable(
+                                    "gui.neoecoae.crafting.planning.substitution_pattern_count",
+                                    currentState().substitutionPatternCount())),
+                    mouseX,
+                    mouseY);
+            return;
+        }
         if (drawFastTaskPlanningTooltip(graphics, mouseX, mouseY)) {
             return;
         }
-        if (drawBatchFairSchedulingTooltip(graphics, mouseX, mouseY)) {
-            return;
-        }
         if (drawNetworkFrequencyTooltip(graphics, mouseX, mouseY)) {
-            return;
-        }
-        if (drawUpgradeTooltip(graphics, mouseX, mouseY)) {
             return;
         }
         if (taskPanel.drawTooltip(graphics, font(), mainScreenX(), this::absY, currentState(), mouseX, mouseY)) {
@@ -219,49 +253,12 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 mouseY)) {
             return false;
         }
-        boolean enabled = currentState().fastTaskPlanningEnabled();
         graphics.renderComponentTooltip(
                 font(),
-                List.of(
-                        Component.translatable("gui.neoecoae.computation.fast_task_planning")
-                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
-                        Component.translatable(
-                                        enabled
-                                                ? "gui.neoecoae.computation.fast_task_planning.on"
-                                                : "gui.neoecoae.computation.fast_task_planning.off")
-                                .withStyle(style -> style.withColor(
-                                        enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR)),
-                        Component.translatable("gui.neoecoae.computation.fast_task_planning.tooltip")
-                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
-                mouseX,
-                mouseY);
-        return true;
-    }
-
-    private boolean drawBatchFairSchedulingTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!isMouseIn(
-                BATCH_FAIR_SCHEDULING_BUTTON_X,
-                BATCH_FAIR_SCHEDULING_BUTTON_Y,
-                BATCH_FAIR_SCHEDULING_BUTTON_W,
-                BATCH_FAIR_SCHEDULING_BUTTON_H,
-                mouseX,
-                mouseY)) {
-            return false;
-        }
-        boolean enabled = currentState().batchFairSchedulingEnabled();
-        graphics.renderComponentTooltip(
-                font(),
-                List.of(
-                        Component.translatable("gui.neoecoae.computation.batch_fair_scheduling")
-                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
-                        Component.translatable(
-                                        enabled
-                                                ? "gui.neoecoae.computation.batch_fair_scheduling.on"
-                                                : "gui.neoecoae.computation.batch_fair_scheduling.off")
-                                .withStyle(style -> style.withColor(
-                                        enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR)),
-                        Component.translatable("gui.neoecoae.computation.batch_fair_scheduling.tooltip")
-                                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
+                List.of(Component.translatable(
+                        currentState().fastTaskPlanningEnabled()
+                                ? "gui.neoecoae.crafting.fast_planner.on"
+                                : "gui.neoecoae.crafting.fast_planner.off")),
                 mouseX,
                 mouseY);
         return true;
@@ -277,79 +274,13 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 mouseY)) {
             return false;
         }
-        int frequency = Math.max(0, currentState().networkFrequency()) + 1;
+        int frequency = currentState().networkFrequency();
         graphics.renderComponentTooltip(
                 font(),
-                List.of(
-                        Component.translatable(
-                                "gui.neoecoae.host.network.frequency",
-                                coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_BLUE)),
-                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")),
+                List.of(Component.translatable("gui.neoecoae.host.network_frequency.cycle", frequency)),
                 mouseX,
                 mouseY);
         return true;
-    }
-
-    private static Component coloredText(String text, int color) {
-        return Component.literal(text).withStyle(style -> style.withColor(color & 0x00FFFFFF));
-    }
-
-    private boolean drawUpgradeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!hasUpgradeLayout()
-                || !isMouseIn(mainX(COMPUTATION_UPGRADE_SLOT_X), COMPUTATION_UPGRADE_SLOT_Y, 18, 18, mouseX, mouseY)) {
-            return false;
-        }
-        ItemStack stack = computation.getComputationUpgradeItemHandler().getStackInSlot(0);
-        if (!stack.isEmpty() && NEComputationUpgradeRules.isValid(stack)) {
-            return false;
-        }
-        List<Component> lines = List.of(
-                Component.translatable("gui.neoecoae.computation.upgrade_slot")
-                        .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
-                upgradeFieldGeneratorLine(),
-                upgradeInfiniteComponentLine());
-        graphics.renderTooltip(font(), lines, Optional.empty(), mouseX, mouseY);
-        return true;
-    }
-
-    private static Component upgradeFieldGeneratorLine() {
-        Component tiers = Component.empty()
-                .append(coloredTier("IV", NELDLibStyle.DARK_TEXT_BLUE))
-                .append(separator(" / "))
-                .append(coloredTier("LuV", NELDLibStyle.DARK_TEXT_VALUE))
-                .append(separator(" / "))
-                .append(coloredTier("ZPM", NELDLibStyle.DARK_TEXT_ORANGE))
-                .append(separator(" / "))
-                .append(coloredTier("UV", NELDLibStyle.DARK_TEXT_SUCCESS));
-        return Component.translatable(
-                        "gui.neoecoae.computation.upgrade_slot.field_generators",
-                        tiers,
-                        coloredValue(NEComputationUpgradeRules.FIELD_GENERATOR_COUNT))
-                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
-    }
-
-    private static Component upgradeInfiniteComponentLine() {
-        return Component.translatable(
-                        "gui.neoecoae.computation.upgrade_slot.infinite_component",
-                        coloredValue(NEComputationUpgradeRules.INFINITE_COMPONENT_COUNT))
-                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
-    }
-
-    private static Component coloredTier(String tier, int color) {
-        return Component.literal(tier).withStyle(style -> style.withColor(color));
-    }
-
-    private static Component coloredValue(int value) {
-        return Component.literal(Integer.toString(value))
-                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_WARNING));
-    }
-
-    private static Component separator(String text) {
-        return Component.literal(text).withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
-    }
-
-    private boolean hasUpgradeLayout() {
-        return NEComputationUpgradeRules.isGregTechAvailable();
     }
 
     @Override
@@ -380,11 +311,18 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         return currentState().fastTaskPlanningEnabled() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE;
     }
 
-    private Icon batchFairSchedulingIcon() {
-        return currentState().batchFairSchedulingEnabled() ? Icon.SCHEDULING_ROUND_ROBIN : Icon.SCHEDULING_DEFAULT;
+    static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
+        return nextCpuSelectionMode(mode, 1);
     }
 
-    static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
+    static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode, int direction) {
+        if (direction < 0) {
+            return switch (mode) {
+                case ANY -> CpuSelectionMode.MACHINE_ONLY;
+                case PLAYER_ONLY -> CpuSelectionMode.ANY;
+                case MACHINE_ONLY -> CpuSelectionMode.PLAYER_ONLY;
+            };
+        }
         return switch (mode) {
             case ANY -> CpuSelectionMode.PLAYER_ONLY;
             case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;

@@ -39,6 +39,10 @@ public abstract class PatternEncodingTermScreenMixin<C extends PatternEncodingTe
                 uploadWidth,
                 uploadHeight,
                 new ItemStack(NEBlocks.CRAFTING_SYSTEM_L4.get()),
-                button -> ((PatternEncodingTermMenuExtension) this.getMenu()).neoecoae$uploadPattern()));
+                button -> {
+                    var extension = (PatternEncodingTermMenuExtension) this.getMenu();
+                    if (hasShiftDown()) extension.neoecoae$toggleAutoUpload();
+                    else extension.neoecoae$uploadPattern();
+                }));
     }
 }

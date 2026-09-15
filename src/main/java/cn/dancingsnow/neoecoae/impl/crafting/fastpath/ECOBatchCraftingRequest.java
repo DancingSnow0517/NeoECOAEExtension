@@ -1,46 +1,14 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.GenericStack;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
-
-public record ECOBatchCraftingRequest(
-        IPatternDetails details,
-        ECOFastPathKey key,
-        long batchSize,
-        List<GenericStack> inputsPerCraft,
-        List<GenericStack> outputsPerCraft,
-        List<GenericStack> remainingPerCraft,
-        @Nullable UUID craftingJobId) {
-    /** Compatibility constructor used by Thunderbolt Core's optional NeoECO bridge. */
-    public ECOBatchCraftingRequest(
-            IPatternDetails details,
-            ECOFastPathKey key,
-            int batchSize,
-            List<GenericStack> inputsPerCraft,
-            List<GenericStack> outputsPerCraft,
-            List<GenericStack> remainingPerCraft,
-            @Nullable UUID craftingJobId) {
-        this(details, key, (long) batchSize, inputsPerCraft, outputsPerCraft, remainingPerCraft, craftingJobId);
-    }
-
+/**
+ * Compatibility carrier for crafting_tracker versions that predate the verified batch execution API.
+ * The tracker only observes this request while dispatching; the current executor uses
+ * {@link ECOVerifiedFastPathExecution} as its authoritative credential.
+ */
+@Deprecated(forRemoval = false)
+public record ECOBatchCraftingRequest(ECOExtractedPatternExecution execution, int batchSize) {
     public ECOBatchCraftingRequest {
-        Objects.requireNonNull(details, "details");
-        Objects.requireNonNull(key, "key");
-        if (batchSize <= 0) {
-            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
-        }
-        inputsPerCraft = List.copyOf(inputsPerCraft);
-        outputsPerCraft = List.copyOf(outputsPerCraft);
-        remainingPerCraft = List.copyOf(remainingPerCraft);
-        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
-                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
-                || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)
-                || !ECOFastPathStacks.isSafeForFastPath(outputsPerCraft, remainingPerCraft, inputsPerCraft)) {
-            throw new IllegalArgumentException("Fast-path request contains invalid item stacks");
-        }
+        if (execution == null) throw new IllegalArgumentException("execution");
+        if (batchSize <= 0) throw new IllegalArgumentException("batchSize");
     }
 }

@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** Forge 1.20.1 transport for planner status shown by the crafting confirmation screen. */
 public final class ECOPlannerNetwork {
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "2";
     private static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder.named(NeoECOAE.id("planner"))
             .networkProtocolVersion(() -> PROTOCOL)
             .clientAcceptedVersions(PROTOCOL::equals)
@@ -25,21 +25,14 @@ public final class ECOPlannerNetwork {
             return;
         }
         CHANNEL.registerMessage(
-                0,
-                ECOPlannerNoticePayload.class,
-                ECOPlannerNoticePayload::encode,
-                ECOPlannerNoticePayload::decode,
-                ECOPlannerNoticePayload::handle,
-                java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(
                 1,
-                ECOCycleDiagnosticsPayload.class,
-                ECOCycleDiagnosticsPayload::encode,
-                ECOCycleDiagnosticsPayload::decode,
-                ECOCycleDiagnosticsPayload::handle,
+                ECOExactStoragePayload.class,
+                ECOExactStoragePayload::encode,
+                ECOExactStoragePayload::decode,
+                ECOExactStoragePayload::handle,
                 java.util.Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(
-                2,
+                0,
                 ECOCpuOverlayPayload.class,
                 ECOCpuOverlayPayload::encode,
                 ECOCpuOverlayPayload::decode,

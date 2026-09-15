@@ -22,6 +22,12 @@ public class ConfigLangs {
                 "Maximum allowed length (in blocks) for storage subsystem multiblock structures.\n"
                         + "Higher values allow longer scalable modules/components but may increase structure detection overhead.");
         provider.add("neoecoae.configuration.postCraftingEvent", "Trigger Crafting Event");
+        provider.add("neoecoae.configuration.ecoMissingCraftingEnabled", "Enable ECO Missing-Ingredient Crafting");
+        provider.add(
+                "neoecoae.configuration.ecoMissingCraftingEnabled.tooltip",
+                "Allow ECO CPUs to start jobs with missing ingredients. Disabled by default.\n"
+                        + "Jobs wait for materials to enter the ME network; no materials are generated.\n"
+                        + "Does not affect GTL's own setting or jobs that have already started.");
         provider.add(
                 "neoecoae.configuration.postCraftingEvent.tooltip",
                 "Whether to fire the vanilla crafting event (ItemCraftedEvent) when the crafting subsystem completes a recipe.\n"

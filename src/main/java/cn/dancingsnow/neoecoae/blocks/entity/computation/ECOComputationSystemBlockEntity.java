@@ -278,7 +278,36 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public boolean isFastTaskPlanningEnabled() {
+        var settings = planningSettings();
+        if (settings != null) return settings.neoecoae$isFastPlannerEnabled();
         return fastTaskPlanningEnabled;
+    }
+
+    public cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings planningSettings() {
+        var grid = getMainNode().getGrid();
+        return grid != null
+                        && grid.getCraftingService()
+                                instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings settings
+                ? settings
+                : null;
+    }
+
+    public void toggleCyclePlanning() {
+        var settings = planningSettings();
+        if (settings != null) {
+            settings.neoecoae$setCyclePlanningEnabled(!settings.neoecoae$isCyclePlanningEnabled());
+            markConfigDirty();
+            setChanged();
+        }
+    }
+
+    public void toggleIgnoringSubstitutions() {
+        var settings = planningSettings();
+        if (settings != null) {
+            settings.neoecoae$setIgnoringPatternSubstitutions(!settings.neoecoae$isIgnoringPatternSubstitutions());
+            markConfigDirty();
+            setChanged();
+        }
     }
 
     public boolean isBatchFairSchedulingEnabled() {
@@ -298,6 +327,13 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     /** Toggles accelerated task planning for this controller's logical host group. */
     public void toggleFastTaskPlanning() {
+        var settings = planningSettings();
+        if (settings != null) {
+            boolean enabled = !settings.neoecoae$isFastPlannerEnabled();
+            settings.neoecoae$setFastPlannerEnabled(enabled);
+            setFastTaskPlanningEnabled(enabled);
+            return;
+        }
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
             network.setFastTaskPlanningEnabled(!network.isFastTaskPlanningEnabled());
@@ -513,8 +549,11 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 acceleratorLimit,
                 getParallelAccelerators(),
                 hasInfiniteCapacityUpgrade() || network != null && network.isInfiniteCapacity(),
-                network == null ? fastTaskPlanningEnabled : network.isFastTaskPlanningEnabled(),
+                isFastTaskPlanningEnabled(),
                 isBatchFairSchedulingEnabled(),
+                planningSettings() == null || planningSettings().neoecoae$isCyclePlanningEnabled(),
+                planningSettings() != null && planningSettings().neoecoae$isIgnoringPatternSubstitutions(),
+                planningSettings() == null ? 0 : planningSettings().neoecoae$getSubstitutionPatternCount(),
                 mode,
                 collectComputationRecipeEntries());
     }

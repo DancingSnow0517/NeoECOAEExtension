@@ -16,6 +16,13 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
+    private final cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache fastPathCache =
+            new cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache();
+
+    public cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache getFastPathCache() {
+        return networkCluster == null ? fastPathCache : networkCluster.getFastPathCache();
+    }
+
     @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
 
@@ -98,27 +105,19 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     @Override
     public int getNetworkMultiplier() {
-        int configuredMultiplier = getConfiguredNetworkMultiplier();
-        if (configuredMultiplier <= 1 || !hasLinkedNetworkPeers()) {
-            return 1;
-        }
-        return resolveNetworkMultiplier(
-                isNetworkMode(),
-                isHighEnergyNetworkMode(),
-                networkCluster.getMemberCount(),
-                networkCluster.hasCoolingForNetworkMultiplier(configuredMultiplier));
+        return hasLinkedNetworkPeers() ? networkCluster.getCombinedSwitchMultiplier() : 1;
     }
 
     @Override
     public int getNetworkPowerMultiplier() {
-        return getNetworkMultiplier();
+        return 1;
     }
 
     static int resolveNetworkMultiplier(
             boolean networkMode, boolean highEnergyNetworkMode, int memberCount, boolean coolingAvailable) {
-        if (!networkMode || memberCount <= 1 || !coolingAvailable) {
+        if (!networkMode || memberCount <= 1) {
             return 1;
         }
-        return highEnergyNetworkMode ? 8 : 2;
+        return memberCount * (highEnergyNetworkMode ? 8 : 2);
     }
 }

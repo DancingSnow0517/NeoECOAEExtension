@@ -22,10 +22,11 @@ import java.util.List;
  */
 public final class NEComputationNetworkCluster {
     private static final int INFINITE_CAPACITY_HOSTS = 8;
-    private static final Comparator<NEComputationCluster> HOST_ORDER =
-            Comparator.comparingLong(cluster -> cluster.getController() == null
-                    ? Long.MAX_VALUE
-                    : cluster.getController().getBlockPos().asLong());
+    private static final Comparator<NEComputationCluster> HOST_ORDER = Comparator.comparing(
+            cluster -> cluster.getController().getBlockPos(),
+            Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                    .thenComparingInt(pos -> pos.getY())
+                    .thenComparingInt(pos -> pos.getZ()));
 
     private List<NEComputationCluster> members = List.of();
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
@@ -65,10 +66,24 @@ public final class NEComputationNetworkCluster {
 
     public boolean isInfiniteCapacity() {
         return members.size() == INFINITE_CAPACITY_HOSTS
-                && members.stream().allMatch(NEComputationCluster::isHighEnergyNetworkMode);
+                && members.stream().allMatch(member -> {
+                    var controller = member.getController();
+                    return controller != null
+                            && controller.getTier().getTier() == cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier()
+                            && controller.getSelectedBuildLength() == controller.getMaxBuildLength()
+                            && member.isHighEnergyNetworkMode()
+                            && !member.getUpperDrives().isEmpty()
+                            && !member.getLowerDrives().isEmpty()
+                            && java.util.stream.Stream.concat(
+                                            member.getUpperDrives().stream(), member.getLowerDrives().stream())
+                                    .allMatch(drive -> !drive.getCellStack().isEmpty()
+                                            && drive.getCellStack().getItem()
+                                                    instanceof cn.dancingsnow.neoecoae.items.ECOComputationCellItem);
+                });
     }
 
     public int getCPUAccelerators() {
+        if (isInfiniteCapacity()) return Integer.MAX_VALUE;
         long total = 0;
         for (NEComputationCluster member : members) {
             total = saturatingAdd(total, multiplied(member.getLocalCPUAccelerators(), member.getNetworkMultiplier()));
@@ -77,6 +92,7 @@ public final class NEComputationNetworkCluster {
     }
 
     public int getMaxThreads() {
+        if (isInfiniteCapacity()) return Integer.MAX_VALUE;
         long total = 0;
         for (NEComputationCluster member : members) {
             total = saturatingAdd(total, multiplied(member.getLocalMaxThreads(), member.getNetworkMultiplier()));
@@ -96,13 +112,9 @@ public final class NEComputationNetworkCluster {
     }
 
     public long getAvailableStorage() {
-        if (isInfiniteCapacity()) {
-            return Long.MAX_VALUE;
-        }
-        long total = 0;
+        long total = getTotalStorageBytes();
         long used = 0;
         for (NEComputationCluster member : members) {
-            total = saturatingAdd(total, multiplied(member.getLocalTotalStorageBytes(), member.getNetworkMultiplier()));
             used = saturatingAdd(used, Math.max(0L, member.getLocalActiveJobBytes()));
         }
         return total <= used ? 0L : total - used;

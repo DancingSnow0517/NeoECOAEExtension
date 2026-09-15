@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.semantic;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.compat.extendedaeplus.ExtendedAEPlusPatternSemanticAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +11,9 @@ public final class PatternSemanticAdapters {
 
     public static List<PatternSemanticAdapter> defaults() {
         List<PatternSemanticAdapter> adapters = new ArrayList<>();
+        if (classPresent("com.glodblock.github.extendedae_plus.ExtendedAEPlus")) {
+            adapters.add(new ExtendedAEPlusPatternSemanticAdapter());
+        }
         adapters.add(new AE2PatternSemanticAdapter());
         return List.copyOf(adapters);
     }

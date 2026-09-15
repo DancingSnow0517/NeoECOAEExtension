@@ -876,14 +876,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
             return 1;
         }
-        int configuredMultiplier = isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
-        if (configuredMultiplier <= 1 || coolingController == null) {
-            return 1;
-        }
-        if (configuredMultiplier >= 8 && coolingController.getTier().getTier() < ECOTier.L9.getTier()) {
-            return 1;
-        }
-        return configuredMultiplier;
+        return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
     }
 
     private void postGridCpuChange() {

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
@@ -108,7 +109,17 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     @Override
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-        if (style == BackgroundStyle.TOOLBAR) {
+        if (style == BackgroundStyle.ECO_BUTTON) {
+            NEHostTextures.drawEcoButton(
+                    graphics,
+                    getPositionX(),
+                    getPositionY(),
+                    getSizeWidth(),
+                    getSizeHeight(),
+                    isMouseOverElement(mouseX, mouseY),
+                    pressed,
+                    isActive());
+        } else if (style == BackgroundStyle.TOOLBAR) {
             NELDLibClientStyle.drawAeToolbarButton(
                     graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), pressed);
         } else {
@@ -128,7 +139,10 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
         int color = !isActive() ? inactiveColor : selectedSupplier.getAsBoolean() ? selectedColor : normalColor;
-        int labelY = getPositionY() + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2 + textOffsetY;
+        int labelY = getPositionY()
+                + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2
+                + textOffsetY
+                + ((pressed || isMouseOverElement(mouseX, mouseY)) ? 1 : 0);
         NELDLibClientStyle.drawCenteredClipped(
                 graphics, fittedLabel(), getPositionX() + textOffsetX, labelY, getSizeWidth(), color);
     }
@@ -152,6 +166,7 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
 
     public enum BackgroundStyle {
         INSET,
-        TOOLBAR
+        TOOLBAR,
+        ECO_BUTTON
     }
 }

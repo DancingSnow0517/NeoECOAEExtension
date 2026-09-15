@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import com.google.common.math.LongMath;
 import net.minecraft.util.Mth;
@@ -49,6 +48,12 @@ public class NEConfig {
     static {
         BUILDER.pop();
     }
+
+    private static final ForgeConfigSpec.BooleanValue ECO_MISSING_CRAFTING_ENABLED = BUILDER.comment(
+                    "Allow ECO CPUs to start crafting jobs with missing ingredients. Disabled by default.",
+                    "Jobs wait for missing materials to enter the ME network; no materials are generated.",
+                    "Does not affect GTL's own setting or jobs that have already started.")
+            .define("ecoMissingCraftingEnabled", false);
 
     private static final ForgeConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER.comment(
                     "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.",
@@ -122,12 +127,18 @@ public class NEConfig {
                     "Changing this config is fully applied after re-entering the world or restarting the server.")
             .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
 
+    private static final ForgeConfigSpec.LongValue MEGA_BULK_AUTO_MARK_THRESHOLD = BUILDER.comment(
+                    "Amount threshold used when an ECO storage host automatically marks compressible items.",
+                    "Only amounts strictly greater than this value are marked.")
+            .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
     public static int computationSystemMaxLength = 15;
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
+    public static boolean ecoMissingCraftingEnabled;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOPlanner;
@@ -135,6 +146,7 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 1;
     public static boolean increaseStorageCellCapacity;
+    public static long megaBulkAutoMarkThreshold = 20_000L;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -146,6 +158,7 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        ecoMissingCraftingEnabled = ECO_MISSING_CRAFTING_ENABLED.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
@@ -153,6 +166,7 @@ public class NEConfig {
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
+        megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
@@ -160,7 +174,7 @@ public class NEConfig {
     }
 
     public static int getEcoFastPathTickLimit() {
-        return ECOBatchCraftingHelper.MAX_BATCH_SIZE;
+        return ecoCpuPushTickLimit;
     }
 
     public static boolean isIncreaseStorageCellCapacity() {

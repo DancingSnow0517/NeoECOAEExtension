@@ -185,6 +185,11 @@ public final class NELogicalNetworkManager {
         Set<CraftingNetworkPartitionKey> activeKeys = new HashSet<>();
         for (Map.Entry<NetworkGroupKey, List<NECraftingCluster>> entry : groups.entrySet()) {
             List<NECraftingCluster> clusters = entry.getValue();
+            clusters.sort(java.util.Comparator.comparing(
+                    cluster -> cluster.getController().getBlockPos(),
+                    java.util.Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                            .thenComparingInt(net.minecraft.core.BlockPos::getY)
+                            .thenComparingInt(net.minecraft.core.BlockPos::getZ)));
             for (int start = 0; start < clusters.size(); start += CRAFTING_NETWORK_HOST_LIMIT) {
                 int partition = start / CRAFTING_NETWORK_HOST_LIMIT;
                 CraftingNetworkPartitionKey key = new CraftingNetworkPartitionKey(entry.getKey(), partition);
@@ -230,15 +235,23 @@ public final class NELogicalNetworkManager {
                     .add(cluster);
         }
 
-        Set<NetworkGroupKey> activeKeys = new HashSet<>();
+        Set<CraftingNetworkPartitionKey> activeKeys = new HashSet<>();
         for (Map.Entry<NetworkGroupKey, List<NEComputationCluster>> entry : groups.entrySet()) {
-            activeKeys.add(entry.getKey());
-            NEComputationNetworkCluster network = state.computationNetworks.computeIfAbsent(
-                    entry.getKey(), ignored -> new NEComputationNetworkCluster());
-            for (NEComputationCluster cluster : entry.getValue()) {
-                cluster.setNetworkCluster(network);
+            List<NEComputationCluster> clusters = entry.getValue();
+            clusters.sort(java.util.Comparator.comparing(
+                    cluster -> cluster.getController().getBlockPos(),
+                    java.util.Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                            .thenComparingInt(net.minecraft.core.BlockPos::getY)
+                            .thenComparingInt(net.minecraft.core.BlockPos::getZ)));
+            for (int start = 0; start < clusters.size(); start += CRAFTING_NETWORK_HOST_LIMIT) {
+                var key = new CraftingNetworkPartitionKey(entry.getKey(), start / CRAFTING_NETWORK_HOST_LIMIT);
+                activeKeys.add(key);
+                var network =
+                        state.computationNetworks.computeIfAbsent(key, ignored -> new NEComputationNetworkCluster());
+                var members = clusters.subList(start, Math.min(start + CRAFTING_NETWORK_HOST_LIMIT, clusters.size()));
+                for (var cluster : members) cluster.setNetworkCluster(network);
+                network.configure(members);
             }
-            network.configure(entry.getValue());
         }
         state.computationNetworks.entrySet().removeIf(entry -> {
             if (activeKeys.contains(entry.getKey())) {
@@ -386,7 +399,8 @@ public final class NELogicalNetworkManager {
         private final Set<NECraftingCluster> crafting = new HashSet<>();
         private final Set<NEComputationCluster> computation = new HashSet<>();
         private final Map<CraftingNetworkPartitionKey, NECraftingNetworkCluster> craftingNetworks = new HashMap<>();
-        private final Map<NetworkGroupKey, NEComputationNetworkCluster> computationNetworks = new HashMap<>();
+        private final Map<CraftingNetworkPartitionKey, NEComputationNetworkCluster> computationNetworks =
+                new HashMap<>();
         private final Set<NECluster<?>> pendingGridRefresh = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 }

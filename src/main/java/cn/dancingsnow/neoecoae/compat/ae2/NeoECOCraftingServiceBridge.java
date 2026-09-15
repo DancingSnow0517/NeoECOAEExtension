@@ -15,8 +15,10 @@ import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.compat.gtl.GTLTransfiniteCraftingCompat;
 import cn.dancingsnow.neoecoae.integration.advancedae.AdvancedAECraftingCompat;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
@@ -97,9 +99,20 @@ public final class NeoECOCraftingServiceBridge {
             ICraftingRequester requestingMachine,
             @Nullable ICraftingCPU target,
             IActionSource src) {
-        // This bridge is called from a HEAD injection, before AE2's native
-        // submitJob implementation rejects incomplete (missing-material) plans.
-        if (job.simulation()) {
+        // This bridge is also called for CPUs supplied by other compatibility
+        // mods (for example GTLCore's TransfiniteCraftingCPU). Such CPUs must
+        // be left to their owner and to AE2's normal submit path. In
+        // particular, do not reject their simulation plans here: this bridge
+        // runs from a HEAD injection and would otherwise hide them from the
+        // other compatibility layer.
+        if (target != null && !(target instanceof ECOCraftingCPU)) {
+            return GTLTransfiniteCraftingCompat.submit(grid, job, requestingMachine, target, src);
+        }
+
+        // AE2 invokes this bridge before its native implementation validates
+        // simulation plans. Preserve that validation for automatic selection
+        // and ECO CPUs, while leaving third-party CPUs to their owner above.
+        if (job.simulation() && !(job instanceof ECOMissingCraftingPlan)) {
             return CraftingSubmitResult.INCOMPLETE_PLAN;
         }
 

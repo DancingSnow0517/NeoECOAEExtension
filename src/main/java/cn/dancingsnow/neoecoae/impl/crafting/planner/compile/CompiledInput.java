@@ -11,7 +11,26 @@ public record CompiledInput(
         boolean fastSupported,
         String unsupportedReason,
         AEKey remainderKey,
-        PlannerAmount remainderAmountPerPattern) {
+        PlannerAmount remainderAmountPerPattern,
+        boolean ignoresComponents) {
+    public CompiledInput(
+            IPatternDetails.IInput source,
+            AEKey key,
+            PlannerAmount amountPerPattern,
+            boolean fastSupported,
+            String unsupportedReason,
+            AEKey remainderKey,
+            PlannerAmount remainderAmountPerPattern) {
+        this(
+                source,
+                key,
+                amountPerPattern,
+                fastSupported,
+                unsupportedReason,
+                remainderKey,
+                remainderAmountPerPattern,
+                false);
+    }
     /** Exact one-item, same-key return that can be held as working stock across a batch. */
     public boolean reusable() {
         return remainderKey != null
@@ -35,7 +54,8 @@ public record CompiledInput(
                 fastSupported,
                 unsupportedReason,
                 null,
-                PlannerAmount.ZERO);
+                PlannerAmount.ZERO,
+                false);
     }
 
     public CompiledInput(
@@ -53,7 +73,8 @@ public record CompiledInput(
                 fastSupported,
                 unsupportedReason,
                 remainderKey,
-                PlannerAmount.of(remainderAmountPerPattern));
+                PlannerAmount.of(remainderAmountPerPattern),
+                false);
     }
 
     public CompiledInput(

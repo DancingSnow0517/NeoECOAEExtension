@@ -80,7 +80,10 @@ public final class ECOPhaseScheduler {
                 || !phase.cycleWitness().isEmpty()
                 || phase.patternSet().size() != 1) return PlannerAmount.ZERO;
         IPatternDetails pattern = phase.patternSet().iterator().next();
-        long remaining = remainingTasks.applyAsLong(pattern);
+        return growingPatternFeedbackReserveExact(pattern, remainingTasks.applyAsLong(pattern), key);
+    }
+
+    public static PlannerAmount growingPatternFeedbackReserveExact(IPatternDetails pattern, long remaining, AEKey key) {
         if (remaining <= 0L) return PlannerAmount.ZERO;
         try {
             PatternSemantics semantics = semantic(pattern);

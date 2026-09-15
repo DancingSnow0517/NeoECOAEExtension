@@ -160,6 +160,16 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         markForUpdate();
     }
 
+    /** Refreshes the cached storage inventory after an in-place cell filter or upgrade change. */
+    public void onCellConfigurationChanged() {
+        flushPendingCellContent();
+        invalidateCellInventoryCache();
+        updateStorageProviderState();
+        setChanged();
+        markForUpdate();
+        notifyControllerRefresh();
+    }
+
     public ECOStorageInterfaceMode getStorageInterfaceMode() {
         ECOStorageSystemBlockEntity controller = getController();
         return controller == null ? ECOStorageInterfaceMode.STORAGE : controller.getStorageInterfaceMode();

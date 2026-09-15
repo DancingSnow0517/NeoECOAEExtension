@@ -57,4 +57,33 @@ public final class NEPlayerInventoryWidgets {
                     graphics, screenX.applyAsInt(inventoryBgX + col * SLOT_SIZE), screenY.applyAsInt(hotbarBgY));
         }
     }
+
+    public static void drawPlayerInventoryFrames(
+            GuiGraphics graphics,
+            IntUnaryOperator screenX,
+            IntUnaryOperator screenY,
+            int inventoryX,
+            int inventoryY,
+            int hotbarY) {
+        drawFrame(
+                graphics,
+                screenX.applyAsInt(inventoryX - 1),
+                screenY.applyAsInt(inventoryY - 1),
+                INVENTORY_COLUMNS * SLOT_SIZE + 2,
+                INVENTORY_ROWS * SLOT_SIZE + 2);
+        drawFrame(
+                graphics,
+                screenX.applyAsInt(inventoryX - 1),
+                screenY.applyAsInt(hotbarY - 1),
+                INVENTORY_COLUMNS * SLOT_SIZE + 2,
+                SLOT_SIZE + 2);
+    }
+
+    private static void drawFrame(GuiGraphics graphics, int x, int y, int width, int height) {
+        int color = 0xFFCBCCD4;
+        graphics.fill(x, y, x + width, y + 1, color);
+        graphics.fill(x, y + height - 1, x + width, y + height, color);
+        graphics.fill(x, y + 1, x + 1, y + height - 1, color);
+        graphics.fill(x + width - 1, y + 1, x + width, y + height - 1, color);
+    }
 }

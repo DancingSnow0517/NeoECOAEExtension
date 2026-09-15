@@ -36,6 +36,10 @@ public final class SolveState {
         for (var entry : inventory) if (entry.getLongValue() > 0) stored.add(entry.getKey(), entry.getLongValue());
     }
 
+    SolveState(PlannerInventorySnapshot inventory) {
+        inventory.initialize(stored);
+    }
+
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
     public KeyCounter usedItems() {
         return used.toKeyCounterExact("used items");
@@ -159,6 +163,12 @@ public final class SolveState {
                 missing.add(entry.getKey(), PlannerAmount.of(amount));
             }
         }
+    }
+
+    /** Records an exact planner-side deficit discovered after solving (for example by raw AE2 contract validation). */
+    public void markMissing(AEKey key, PlannerAmount deficit) {
+        if (key == null || deficit == null || deficit.signum() <= 0) return;
+        missing.add(key, deficit);
     }
 
     /** Commits external DAG work and its cycle as one copy-and-replace transaction. */

@@ -32,6 +32,9 @@ class NELDLibComputationStateCodecsTest {
                 false,
                 false,
                 true,
+                true,
+                true,
+                17,
                 CpuSelectionMode.ANY,
                 List.of());
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());

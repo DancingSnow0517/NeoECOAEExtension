@@ -3,29 +3,30 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
-import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchFairSchedulingControl;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingServiceTicker;
+import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.Future;
-import net.minecraft.world.level.Level;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -33,10 +34,43 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-@Mixin(value = CraftingService.class, remap = false)
-public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingControl {
-    private static final ECOCraftingPlannerService NEOECOAE_PLANNER = new ECOCraftingPlannerService();
+// GTLCore's priority-1000 submission handler must see automatic jobs before ECO's fallback.
+@Mixin(value = CraftingService.class, priority = 1100, remap = false)
+public abstract class CraftingServiceMixin
+        implements ECOBatchFairSchedulingControl,
+                cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings,
+                cn.dancingsnow.neoecoae.api.me.ECOCraftingOutputRouter,
+                cn.dancingsnow.neoecoae.api.me.ECOCraftingProviderRevision,
+                ECOCraftingServiceTicker,
+                appeng.api.networking.IGridServiceProvider {
+    @org.spongepowered.asm.mixin.Unique private long neoecoae$providerRevision;
+
+    @Override
+    public long neoecoae$getProviderRevision() {
+        return neoecoae$providerRevision;
+    }
+
+    @Inject(
+            method = {"addNode", "removeNode", "refreshNodeCraftingProvider"},
+            at = @At("HEAD"))
+    private void neoecoae$invalidateProviderCursors(CallbackInfo ci) {
+        neoecoae$providerRevision++;
+    }
+
+    @Override
+    public long neoecoae$insertIntoCpuForJob(java.util.UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        if (craftingJobId == null || what == null || amount <= 0L) return 0L;
+        for (var cluster : NeoECOCraftingServiceBridge.getComputationClusters(grid)) {
+            for (var cpu : cluster.getActiveCPUs(grid)) {
+                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
+                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
+                }
+            }
+        }
+        return 0L;
+    }
 
     @Shadow
     @Final
@@ -55,6 +89,10 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
 
     @Shadow
     private boolean updateList;
+
+    @Shadow
+    @Final
+    private appeng.me.service.helpers.NetworkCraftingProviders craftingProviders;
 
     @Shadow
     public abstract void addLink(CraftingLink link);
@@ -91,65 +129,38 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
         }
     }
 
-    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, require = 0)
-    private void neoecoae$beginPlanningOnECOHost(
-            Level level,
-            ICraftingSimulationRequester simRequester,
-            AEKey what,
-            long amount,
-            CalculationStrategy strategy,
-            CallbackInfoReturnable<Future<ICraftingPlan>> cir) {
-        if (level == null || simRequester == null || this.grid == null) {
-            return;
-        }
+    private boolean neoecoae$ignorePatternSubstitutions;
+    private boolean neoecoae$fastPlannerEnabled = true;
+    private boolean neoecoae$cyclePlanningEnabled = true;
+    private boolean neoecoae$settingsLoaded;
+    private long neoecoae$substitutionCountRevision = Long.MIN_VALUE;
+    private int neoecoae$substitutionCount;
 
-        var lease = ECOPlanningHostLease.tryAcquire(NeoECOCraftingServiceBridge.getComputationClusters(this.grid));
-        if (lease.isEmpty()) {
-            return;
+    private void neoecoae$markSettingsDirty() {
+        neoecoae$settingsLoaded = true;
+        for (var host : grid.getMachines(
+                cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity.class)) {
+            host.setChanged();
+            host.markComputationStatsDirty();
         }
+    }
 
-        CraftingCalculation fallback;
-        try {
-            fallback =
-                    new CraftingCalculation(level, this.grid, simRequester, new GenericStack(what, amount), strategy);
-        } catch (RuntimeException | LinkageError failure) {
-            lease.get().close();
-            return;
-        }
-
-        var inventory = this.grid.getStorageService().getInventory().getAvailableStacks();
-        var session = NEOECOAE_PLANNER.createSession(this.grid.getCraftingService(), what, inventory, true, false);
-        lease.get().close();
-        java.util.concurrent.FutureTask<ICraftingPlan> task = new java.util.concurrent.FutureTask<>(() -> {
-            try {
-                ECOPlanningResult result =
-                        session.plan(amount, strategy != CalculationStrategy.REPORT_MISSING_ITEMS, () -> {
-                            if (Thread.currentThread().isInterrupted())
-                                throw new InterruptedException("ECO planning cancelled");
-                        });
-                if (result.plan() != null
-                        && switch (result.status()) {
-                            case SUCCESS,
-                                    MISSING_ITEMS,
-                                    PARTIAL,
-                                    CYCLE_UNRESOLVED,
-                                    CYCLE_UNSUPPORTED,
-                                    AMOUNT_OVERFLOW,
-                                    PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> true;
-                            default -> false;
-                        }) return result.plan();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new java.util.concurrent.CancellationException("ECO planning cancelled");
-            }
-            return fallback.run();
-        });
-        java.util.concurrent.ForkJoinPool.commonPool().execute(task);
-        cir.setReturnValue(task);
+    @Override
+    public void saveNodeData(IGridNode node, net.minecraft.nbt.CompoundTag data) {
+        data.putBoolean("neoecoaeIgnorePatternSubstitutions", neoecoae$ignorePatternSubstitutions);
+        data.putBoolean("neoecoaeFastPlannerEnabled", neoecoae$fastPlannerEnabled);
+        data.putBoolean("neoecoaeCyclePlanningEnabled", neoecoae$cyclePlanningEnabled);
     }
 
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {
+        if (!neoecoae$settingsLoaded && savedData != null && savedData.contains("neoecoaeFastPlannerEnabled")) {
+            neoecoae$ignorePatternSubstitutions = savedData.getBoolean("neoecoaeIgnorePatternSubstitutions");
+            neoecoae$fastPlannerEnabled = savedData.getBoolean("neoecoaeFastPlannerEnabled");
+            neoecoae$cyclePlanningEnabled = !savedData.contains("neoecoaeCyclePlanningEnabled")
+                    || savedData.getBoolean("neoecoaeCyclePlanningEnabled");
+            neoecoae$settingsLoaded = true;
+        }
         if (NeoECOCraftingServiceBridge.isComputationClusterNode(gridNode)) {
             this.updateList = true;
         }
@@ -167,8 +178,8 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
         NeoECOCraftingServiceBridge.addRestoredLinks((CraftingService) (Object) this, this.grid);
     }
 
-    @Inject(method = "onServerEndTick", at = @At("HEAD"))
-    private void neoecoae$tickComputationCpus(CallbackInfo ci) {
+    @Override
+    public void neoecoae$tickComputationCpusNow() {
         Set<AEKey> computationCrafting = new HashSet<>();
         if (NeoECOCraftingServiceBridge.tickComputationCpus(
                 (CraftingService) (Object) this, this.grid, this.energyGrid, computationCrafting)) {
@@ -207,6 +218,9 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
             boolean prioritizePower,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
+        if (target == null) {
+            return;
+        }
         this.neoecoae$handleSubmitJob(job, requestingMachine, target, src, cir);
     }
 
@@ -215,21 +229,31 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
                     + "Lappeng/api/networking/crafting/ICraftingRequester;"
                     + "Lappeng/api/networking/crafting/ICraftingCPU;"
                     + "Z"
-                    + "Lappeng/api/networking/security/IActionSource;"
-                    + "Z)"
+                    + "Lappeng/api/networking/security/IActionSource;)"
                     + "Lappeng/api/networking/crafting/ICraftingSubmitResult;",
-            at = @At("HEAD"),
+            at =
+                    @At(
+                            value = "INVOKE_ASSIGN",
+                            target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU("
+                                    + "Lappeng/api/networking/crafting/ICraftingPlan;"
+                                    + "Z"
+                                    + "Lappeng/api/networking/security/IActionSource;"
+                                    + "Lorg/apache/commons/lang3/mutable/MutableObject;)"
+                                    + "Lappeng/me/cluster/implementations/CraftingCPUCluster;"),
             cancellable = true,
-            require = 0)
-    private void neoecoae$submitJobWithSimulationFlag(
+            locals = LocalCapture.CAPTURE_FAILHARD)
+    private void neoecoae$autoSubmitAfterCompatibilityCpus(
             ICraftingPlan job,
             ICraftingRequester requestingMachine,
             ICraftingCPU target,
             boolean prioritizePower,
             IActionSource src,
-            boolean simulate,
-            CallbackInfoReturnable<ICraftingSubmitResult> cir) {
-        this.neoecoae$handleSubmitJob(job, requestingMachine, target, src, cir);
+            CallbackInfoReturnable<ICraftingSubmitResult> cir,
+            CraftingCPUCluster nativeCpu,
+            MutableObject<UnsuitableCpus> unsuitableCpus) {
+        if (target == null) {
+            this.neoecoae$handleSubmitJob(job, requestingMachine, null, src, cir);
+        }
     }
 
     private void neoecoae$handleSubmitJob(
@@ -238,8 +262,16 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
             ICraftingCPU target,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
-        ICraftingSubmitResult result =
-                NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, target, src);
+        ECOPlanningResult planningResult =
+                job instanceof ECOCraftingPlanDiagnostics diagnostics ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (planningResult == null) {
+            planningResult = ECOPlanningResultRegistry.find(job);
+        }
+        ECOPlanningResult boundResult = planningResult;
+        ICraftingSubmitResult result = ECOPlanningResultRegistry.withSubmissionAlias(
+                job,
+                boundResult,
+                () -> NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, target, src));
         if (result != null) {
             if (result.successful()) {
                 this.updateList = true;
@@ -248,15 +280,63 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
         }
     }
 
-    @Inject(method = "insertIntoCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, CallbackInfoReturnable<Long> cir) {
-        cir.setReturnValue(
-                NeoECOCraftingServiceBridge.insertIntoCpus(this.grid, what, amount, type, cir.getReturnValue()));
+    /**
+     * Compatibility CPU providers may cancel automatic submission before AE2 reaches
+     * {@code findSuitableCraftingCPU}, which bypasses the call-site injection above. Retry with an ECO CPU only when
+     * the completed foreign/native path found no usable CPU.
+     */
+    @WrapMethod(
+            method = "submitJob(Lappeng/api/networking/crafting/ICraftingPlan;"
+                    + "Lappeng/api/networking/crafting/ICraftingRequester;"
+                    + "Lappeng/api/networking/crafting/ICraftingCPU;"
+                    + "Z"
+                    + "Lappeng/api/networking/security/IActionSource;)"
+                    + "Lappeng/api/networking/crafting/ICraftingSubmitResult;")
+    private ICraftingSubmitResult neoecoae$submitJobFallback(
+            ICraftingPlan job,
+            ICraftingRequester requestingMachine,
+            ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource src,
+            Operation<ICraftingSubmitResult> original) {
+        ICraftingSubmitResult result = original.call(job, requestingMachine, target, prioritizePower, src);
+        if (target != null || !neoecoae$shouldTryAutomaticEcoFallback(result)) {
+            return result;
+        }
+
+        ECOPlanningResult planningResult =
+                job instanceof ECOCraftingPlanDiagnostics diagnostics ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (planningResult == null) {
+            planningResult = ECOPlanningResultRegistry.find(job);
+        }
+        ECOPlanningResult boundResult = planningResult;
+        ICraftingSubmitResult ecoResult = ECOPlanningResultRegistry.withSubmissionAlias(
+                job,
+                boundResult,
+                () -> NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, null, src));
+        if (ecoResult != null && ecoResult.successful()) {
+            this.updateList = true;
+        }
+        return ecoResult != null ? ecoResult : result;
     }
 
-    @Inject(method = "getRequestedAmount", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getRequestedAmount(AEKey what, CallbackInfoReturnable<Long> cir) {
-        cir.setReturnValue(NeoECOCraftingServiceBridge.getRequestedAmount(this.grid, what, cir.getReturnValue()));
+    @org.spongepowered.asm.mixin.Unique private static boolean neoecoae$shouldTryAutomaticEcoFallback(ICraftingSubmitResult result) {
+        if (result == null) {
+            return true;
+        }
+        CraftingSubmitErrorCode error = result.errorCode();
+        return error == CraftingSubmitErrorCode.NO_CPU_FOUND || error == CraftingSubmitErrorCode.NO_SUITABLE_CPU_FOUND;
+    }
+
+    @WrapMethod(method = "insertIntoCpus")
+    private long neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, Operation<Long> original) {
+        return NeoECOCraftingServiceBridge.insertIntoCpus(
+                this.grid, what, amount, type, original.call(what, amount, type));
+    }
+
+    @WrapMethod(method = "getRequestedAmount")
+    private long neoecoae$getRequestedAmount(AEKey what, Operation<Long> original) {
+        return NeoECOCraftingServiceBridge.getRequestedAmount(this.grid, what, original.call(what));
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
@@ -264,5 +344,68 @@ public abstract class CraftingServiceMixin implements ECOBatchFairSchedulingCont
         if (NeoECOCraftingServiceBridge.hasCpu(this.grid, cpu)) {
             cir.setReturnValue(true);
         }
+    }
+
+    @Override
+    public boolean neoecoae$isIgnoringPatternSubstitutions() {
+        return neoecoae$ignorePatternSubstitutions;
+    }
+
+    @Override
+    public void neoecoae$setIgnoringPatternSubstitutions(boolean value) {
+        neoecoae$ignorePatternSubstitutions = value;
+        neoecoae$markSettingsDirty();
+    }
+
+    @Override
+    public int neoecoae$getSubstitutionPatternCount() {
+        if (neoecoae$substitutionCountRevision == neoecoae$providerRevision) return neoecoae$substitutionCount;
+        Set<appeng.api.crafting.IPatternDetails> patterns = new HashSet<>();
+        for (AEKey key : craftingProviders.getCraftableKeys()) patterns.addAll(craftingProviders.getCraftingFor(key));
+        int count = 0;
+        for (var pattern : patterns) {
+            boolean substitutions = pattern instanceof appeng.crafting.pattern.AECraftingPattern crafting
+                    && (crafting.canSubstitute() || crafting.canSubstituteFluids());
+            for (var input : pattern.getInputs()) {
+                if (input.getPossibleInputs().length > 1) substitutions = true;
+            }
+            if (substitutions) count++;
+        }
+        neoecoae$substitutionCountRevision = neoecoae$providerRevision;
+        neoecoae$substitutionCount = count;
+        return count;
+    }
+
+    @Override
+    public boolean neoecoae$isFastPlannerEnabled() {
+        return neoecoae$fastPlannerEnabled;
+    }
+
+    @Override
+    public void neoecoae$setFastPlannerEnabled(boolean value) {
+        neoecoae$fastPlannerEnabled = value;
+        neoecoae$markSettingsDirty();
+    }
+
+    @Override
+    public boolean neoecoae$isCyclePlanningEnabled() {
+        return neoecoae$cyclePlanningEnabled;
+    }
+
+    @Override
+    public void neoecoae$setCyclePlanningEnabled(boolean value) {
+        neoecoae$cyclePlanningEnabled = value;
+        neoecoae$markSettingsDirty();
+    }
+
+    @Override
+    public boolean neoecoae$hasComputationHost() {
+        for (var host : grid.getMachines(
+                cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity.class)) {
+            if (host.isFormed() && host.getMainNode().isOnline()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -38,15 +38,28 @@ public record ECOExecutionPlan(
             PatternRuntimeInfo runtimeInfo,
             long totalCount,
             int phaseIndex,
-            TaskKind kind) {
+            TaskKind kind,
+            List<PlannedInputAllocation> inputAllocations) {
         public TaskSpec {
             Objects.requireNonNull(identity, "identity");
             Objects.requireNonNull(pattern, "pattern");
             Objects.requireNonNull(runtimeInfo, "runtimeInfo");
             Objects.requireNonNull(kind, "kind");
+            inputAllocations = List.copyOf(inputAllocations);
             if (id < 0 || totalCount <= 0 || phaseIndex < 0) {
                 throw new IllegalArgumentException("Invalid execution task");
             }
+        }
+
+        public TaskSpec(
+                int id,
+                PlanIdentity.PatternIdentity identity,
+                IPatternDetails pattern,
+                PatternRuntimeInfo runtimeInfo,
+                long totalCount,
+                int phaseIndex,
+                TaskKind kind) {
+            this(id, identity, pattern, runtimeInfo, totalCount, phaseIndex, kind, List.of());
         }
     }
 
@@ -63,7 +76,7 @@ public record ECOExecutionPlan(
             return new PatternRuntimeInfo(
                     pattern.getDefinition(),
                     inputs == null ? 0 : inputs.length,
-                    pattern.getOutputs() == null ? List.of() : List.of(pattern.getOutputs()));
+                    java.util.Arrays.asList(pattern.getOutputs()));
         }
     }
 
@@ -129,6 +142,16 @@ public record ECOExecutionPlan(
             TaskSpec task = tasks.get(i);
             if (task.id() != i) throw new IllegalArgumentException("Task ids must be dense and stable");
             if (task.phaseIndex() >= phases.size()) throw new IllegalArgumentException("Task phase is absent");
+            boolean[] allocatedSlots = new boolean[task.runtimeInfo().inputSlots()];
+            for (PlannedInputAllocation allocation : task.inputAllocations()) {
+                if (allocation.slot() >= allocatedSlots.length || allocatedSlots[allocation.slot()]) {
+                    throw new IllegalArgumentException("Invalid or duplicate task input allocation slot");
+                }
+                allocatedSlots[allocation.slot()] = true;
+                if (allocation.totalCrafts() != task.totalCount()) {
+                    throw new IllegalArgumentException("Task input allocation does not cover its complete count");
+                }
+            }
         }
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             PhaseSpec phase = phases.get(phaseIndex);

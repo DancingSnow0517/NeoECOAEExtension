@@ -8,7 +8,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.helpers.patternprovider.PatternContainer;
-import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingInterfaceUiState;
@@ -234,14 +234,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
         clearPatternTransferResults();
         patternTransferPerformed = true;
         IGrid grid = getMainNode().getGrid();
-        IECOPatternStorageService storage = grid == null ? null : grid.getService(IECOPatternStorageService.class);
-        if (!formed || grid == null || storage == null) {
+        List<ECOCraftingPatternBusBlockEntity> targets = getScopedPatternBuses(grid);
+        if (!formed || grid == null || targets.isEmpty()) {
             patternTransferUnavailable = true;
             markForUpdate();
             return;
         }
         List<PatternContainer> sources = getExternalPatternSources(grid);
-        patternTransferTask = new PatternTransferTask(grid, storage, sources);
+        patternTransferTask = new PatternTransferTask(grid, targets, sources);
         patternTransferTotalSlots = patternTransferTask.totalSlots();
         patternTransferInProgress = true;
         markForUpdate();
@@ -339,7 +339,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     private void tickPatternTransfer(ServerLevel serverLevel) {
         PatternTransferTask task = patternTransferTask;
         if (task == null) return;
-        if (!formed || getMainNode().getGrid() != task.grid()) {
+        if (!formed
+                || getMainNode().getGrid() != task.grid()
+                || !getScopedPatternBuses(task.grid()).equals(task.targets)) {
             finishPatternTransfer(true);
             return;
         }
@@ -360,19 +362,20 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
                 continue;
             }
             insertions++;
-            switch (task.storage().getPatternStorage().insertPattern(stack.copy())) {
+            switch (task.insertPattern(stack.copyWithCount(1))) {
                 case INSERTED -> {
-                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
+                    ItemStack remaining = stack.copy();
+                    remaining.shrink(1);
+                    step.inventory().setItemDirect(step.slot(), remaining);
                     patternTransferInserted++;
                 }
                 case ALREADY_PRESENT -> {
-                    step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
                     patternTransferAlreadyPresent++;
                 }
                 case NO_SPACE -> patternTransferNoSpace++;
                 case INCOMPATIBLE -> patternTransferIncompatible++;
                 case NO_TARGET -> {
-                    finishPatternTransfer(false);
+                    finishPatternTransfer(true);
                     return;
                 }
             }
@@ -401,16 +404,34 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     private List<PatternContainer> getExternalPatternSources(IGrid grid) {
         List<PatternContainer> sources = new ArrayList<>();
         Set<PatternContainer> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        visited.addAll(getScopedPatternBuses(grid));
         for (Class<?> machineClass : grid.getMachineClasses()) {
             if (!PatternContainer.class.isAssignableFrom(machineClass)) continue;
             Class<? extends PatternContainer> type = machineClass.asSubclass(PatternContainer.class);
             for (PatternContainer container : grid.getActiveMachines(type)) {
-                if (visited.add(container) && !(container instanceof ECOCraftingPatternBusBlockEntity)) {
+                if (visited.add(container)) {
                     sources.add(container);
                 }
             }
         }
         return sources;
+    }
+
+    private List<ECOCraftingPatternBusBlockEntity> getScopedPatternBuses(@Nullable IGrid grid) {
+        if (!formed || grid == null || !(cluster instanceof NECraftingCluster craftingCluster)) {
+            return List.of();
+        }
+        var network = craftingCluster.getNetworkCluster();
+        var candidates = network == null ? craftingCluster.getPatternBuses() : network.getPatternBuses();
+        List<ECOCraftingPatternBusBlockEntity> buses = new ArrayList<>();
+        for (var bus : candidates) {
+            if (bus.getMainNode().isActive() && bus.getMainNode().getGrid() == grid) {
+                buses.add(bus);
+            }
+        }
+        buses.sort((left, right) ->
+                Long.compare(left.getBlockPos().asLong(), right.getBlockPos().asLong()));
+        return List.copyOf(buses);
     }
 
     private void refreshPatternPreviewSources() {
@@ -423,10 +444,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
             if (!allPatternPreviewEntries.isEmpty()) clearPatternPreview();
             return;
         }
-        List<ECOCraftingPatternBusBlockEntity> buses =
-                new ArrayList<>(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
-        buses.sort((left, right) ->
-                Long.compare(left.getBlockPos().asLong(), right.getBlockPos().asLong()));
+        List<ECOCraftingPatternBusBlockEntity> buses = getScopedPatternBuses(grid);
         if (buses.equals(patternPreviewBuses)) return;
         patternPreviewBuses = List.copyOf(buses);
         rebuildPatternPreviewEntries();
@@ -570,6 +588,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     }
 
     @Nullable private PatternPreviewEntry getPatternPreviewEntry(int visibleSlot) {
+        refreshPatternPreviewSources();
         int entry = patternPreviewScrollRow * PREVIEW_COLUMNS + visibleSlot;
         return entry >= 0 && entry < patternPreviewEntries.size() ? patternPreviewEntries.get(entry) : null;
     }
@@ -652,14 +671,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
 
     private final class PatternTransferTask {
         private final IGrid grid;
-        private final IECOPatternStorageService storage;
+        private final List<ECOCraftingPatternBusBlockEntity> targets;
         private final List<PatternContainer> sources;
         private int sourceIndex;
         private int slotIndex;
 
-        private PatternTransferTask(IGrid grid, IECOPatternStorageService storage, List<PatternContainer> sources) {
+        private PatternTransferTask(
+                IGrid grid, List<ECOCraftingPatternBusBlockEntity> targets, List<PatternContainer> sources) {
             this.grid = grid;
-            this.storage = storage;
+            this.targets = List.copyOf(targets);
             this.sources = sources;
         }
 
@@ -667,8 +687,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
             return grid;
         }
 
-        private IECOPatternStorageService storage() {
-            return storage;
+        private ECOPatternInsertionResult insertPattern(ItemStack pattern) {
+            for (var target : targets) {
+                var result = target.insertPattern(pattern);
+                if (result != ECOPatternInsertionResult.NO_SPACE) return result;
+            }
+            return ECOPatternInsertionResult.NO_SPACE;
         }
 
         private int totalSlots() {
@@ -722,6 +746,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
             if (level != null && level.isClientSide) {
                 return stack;
             }
+            refreshPatternPreviewSources();
             for (PatternPreviewEntry entry : allPatternPreviewEntries) {
                 if (entry.bus().itemHandler.getStackInSlot(entry.slot()).isEmpty()) {
                     ItemStack remaining = entry.bus().itemHandler.insertItem(entry.slot(), stack, simulate);

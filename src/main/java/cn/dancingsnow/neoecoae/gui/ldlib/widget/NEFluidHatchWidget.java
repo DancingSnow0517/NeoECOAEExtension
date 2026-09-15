@@ -75,6 +75,8 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     }
 
     private void drawPlayerInventoryBackground(GuiGraphics graphics) {
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(
+                graphics, this::absX, this::absY, inventoryX(), INVENTORY_Y, HOTBAR_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, this::absX, this::absY, inventoryX(), INVENTORY_Y, HOTBAR_Y);
     }

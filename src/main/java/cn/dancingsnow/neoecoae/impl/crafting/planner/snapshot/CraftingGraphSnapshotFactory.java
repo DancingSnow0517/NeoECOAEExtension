@@ -274,7 +274,10 @@ public final class CraftingGraphSnapshotFactory {
                 edges.size(),
                 cycles.size(),
                 result.calculationNanos());
-        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, summary);
+        List<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
+                .sorted(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString))
+                .toList();
+        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, fuzzyPlanningItemIds, summary);
     }
 
     /** Pattern visual IDs never collide with material IDs and survive packet serialization. */

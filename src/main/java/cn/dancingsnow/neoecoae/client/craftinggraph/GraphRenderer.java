@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.craftinggraph;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
-import cn.dancingsnow.neoecoae.client.ECOPlannerAmountFormatter;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -684,7 +684,7 @@ public final class GraphRenderer {
 
     private static String compactAmount(String value) {
         try {
-            return ECOPlannerAmountFormatter.ae2Amount(new BigInteger(value));
+            return HostText.ae2Amount(new BigInteger(value));
         } catch (RuntimeException ignored) {
             return value;
         }

@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solve;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.compile.CompiledInput;
@@ -76,6 +78,27 @@ public final class AcyclicCraftingSolver {
             boolean ignorePatternSubstitutions,
             ECOCancellation cancellation)
             throws InterruptedException {
+        return solve(
+                network,
+                route,
+                PlannerInventorySnapshot.of(inventory),
+                amount,
+                initialChoices,
+                deferredPatterns,
+                ignorePatternSubstitutions,
+                cancellation);
+    }
+
+    public Outcome solve(
+            CompiledNetwork network,
+            AcyclicRoutePlan route,
+            PlannerInventorySnapshot inventory,
+            long amount,
+            Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0) {
             trace.addDiagnostic(
@@ -87,7 +110,7 @@ public final class AcyclicCraftingSolver {
         SolveState state = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
-            List<AEKey> currentRoute = selectedRoute(network, route.keys(), choices, deferredPatterns, cancellation);
+            List<AEKey> currentRoute = selectedRoute(network, choices, deferredPatterns, cancellation);
             if (currentRoute == null) {
                 state = new SolveState(inventory);
                 state.unsupported.add(network.goal());
@@ -161,12 +184,11 @@ public final class AcyclicCraftingSolver {
      */
     private static List<AEKey> selectedRoute(
             CompiledNetwork network,
-            List<AEKey> allowedRoute,
             Map<AEKey, Integer> choices,
             Set<IPatternDetails> deferredPatterns,
             ECOCancellation cancellation)
             throws InterruptedException {
-        Set<AEKey> allowed = new LinkedHashSet<>(allowedRoute);
+        Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
         Map<AEKey, Set<AEKey>> outgoing = new LinkedHashMap<>();
@@ -211,9 +233,7 @@ public final class AcyclicCraftingSolver {
     }
 
     private static CompiledPattern selectedPattern(CompiledNetwork network, AEKey key, Map<AEKey, Integer> choices) {
-        List<CompiledPattern> candidates = network.producersOf(key).stream()
-                .filter(CompiledPattern::fastSupported)
-                .toList();
+        List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (candidates.isEmpty()) return null;
         int choice = choices.getOrDefault(key, 0);
         if (choice < 0) choice = 0;
@@ -241,11 +261,20 @@ public final class AcyclicCraftingSolver {
             PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);
             if (requested.signum() <= 0) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
-            PlannerAmount stored = requested.min(state.stored.get(key));
+            boolean ignoreComponents = false;
+            IPatternDetails demandProducer = state.demandProducers.get(key);
+            if (demandProducer != null) {
+                GenericStack[] demandOutputs = demandProducer.getOutputs();
+                for (CompiledPattern candidate :
+                        network.producersOf(demandOutputs.length == 0 ? key : demandOutputs[0].what())) {
+                    if (candidate.details() != demandProducer) continue;
+                    ignoreComponents = candidate.inputs().stream()
+                            .anyMatch(input -> input.key().equals(key) && input.ignoresComponents());
+                    break;
+                }
+            }
+            PlannerAmount stored = consumeStoredForInput(state, key, requested, ignoreComponents);
             if (stored.signum() > 0) {
-                state.stored.remove(key, stored);
-                addCounter(state.used, key, stored);
-                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, stored);
                 requested = requested.subtract(stored);
             }
             PlannerAmount crafted = requested.min(state.craftedAmount(key));
@@ -259,9 +288,7 @@ public final class AcyclicCraftingSolver {
                 state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
                 continue;
             }
-            List<CompiledPattern> fast = network.producersOf(key).stream()
-                    .filter(CompiledPattern::fastSupported)
-                    .toList();
+            List<CompiledPattern> fast = network.fastProducersOf(key);
             if (fast.isEmpty()) {
                 if (network.producersOf(key).isEmpty()) addCounter(state.missing, key, requested);
                 else state.unsupported.add(key);
@@ -300,6 +327,10 @@ public final class AcyclicCraftingSolver {
                 PlannerAmount required = input.reusable()
                         ? input.amountPerPattern()
                         : input.amountPerPattern().multiply(times);
+                if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
+                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true);
+                    required = required.subtract(available);
+                }
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
                 state.demand.put(input.key(), old.add(required));
                 state.demandProducers.put(input.key(), pattern.details());
@@ -309,6 +340,35 @@ public final class AcyclicCraftingSolver {
             }
         }
         return state;
+    }
+
+    private static PlannerAmount consumeStoredForInput(
+            SolveState state, AEKey key, PlannerAmount requested, boolean ignoreComponents) {
+        if (requested.signum() <= 0) return PlannerAmount.ZERO;
+        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
+            PlannerAmount exact = requested.min(state.stored.get(key));
+            if (exact.signum() > 0) {
+                state.stored.remove(key, exact);
+                addCounter(state.used, key, exact);
+                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, exact);
+            }
+            return exact;
+        }
+        PlannerAmount remaining = requested;
+        PlannerAmount consumed = PlannerAmount.ZERO;
+        for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
+            if (remaining.isZero()
+                    || !(entry.getKey() instanceof AEItemKey candidate)
+                    || candidate.getItem() != wanted.getItem()) continue;
+            PlannerAmount take = remaining.min(entry.getValue());
+            if (take.signum() <= 0) continue;
+            state.stored.remove(entry.getKey(), take);
+            addCounter(state.used, entry.getKey(), take);
+            state.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE, take);
+            consumed = consumed.add(take);
+            remaining = remaining.subtract(take);
+        }
+        return consumed;
     }
 
     private static void addCounter(PlannerCounter counter, AEKey key, PlannerAmount amount) {

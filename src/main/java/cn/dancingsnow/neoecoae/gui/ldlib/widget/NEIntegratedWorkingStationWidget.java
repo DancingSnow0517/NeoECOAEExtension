@@ -200,6 +200,8 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         }
         NELDLibAe2StyleRenderer.drawAeInscriberOutputFrame(
                 graphics, absX(mainX(OUTPUT_FRAME_X)), absY(OUTPUT_FRAME_Y), OUTPUT_FRAME_W, OUTPUT_FRAME_H);
+        NEPlayerInventoryWidgets.drawPlayerInventoryFrames(
+                graphics, localX -> absX(mainX(localX)), this::absY, PLAYER_INV_BG_X, PLAYER_INV_BG_Y, HOTBAR_BG_Y);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, localX -> absX(mainX(localX)), this::absY, PLAYER_INV_BG_X, PLAYER_INV_BG_Y, HOTBAR_BG_Y);
         NELDLibAe2StyleRenderer.drawAeProgressBar(

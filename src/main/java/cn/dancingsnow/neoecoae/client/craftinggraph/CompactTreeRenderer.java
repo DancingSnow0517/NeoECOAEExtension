@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.craftinggraph;
 
 import appeng.api.client.AEKeyRendering;
-import cn.dancingsnow.neoecoae.client.ECOPlannerAmountFormatter;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -284,7 +284,7 @@ public final class CompactTreeRenderer {
 
     private static String compactAmount(String value) {
         try {
-            return ECOPlannerAmountFormatter.ae2Amount(new java.math.BigInteger(value));
+            return HostText.ae2Amount(new java.math.BigInteger(value));
         } catch (RuntimeException ignored) {
             return value;
         }

@@ -15,8 +15,10 @@ import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -31,6 +33,9 @@ import org.lwjgl.glfw.GLFW;
 
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
+    // GTLCore rewrites every style path containing "craft_confirm.json".
+    public static final String STYLE_PATH = "/screens/eco_planner_report.json";
+
     private static final int AE2_TEXT_DARK = 0x403E53;
     private static final int CYCLE_STATUS_X = 237;
     private static final int CYCLE_STATUS_Y = 7;
@@ -54,8 +59,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title, ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isDisabledCycleRequirement);
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant);
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant);
         cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.DEFAULT);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.DEFAULT);
@@ -72,8 +77,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         super.updateBeforeRender();
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
-        boolean unrepresentable = isUnrepresentablePlan();
-        boolean startable = plan != null && !plan.isSimulation() && isSuccessfulPlan();
+        boolean unrepresentable = hasUnrepresentableDiagnostic();
+        boolean blockedUnrepresentable = isBlockedUnrepresentablePlan();
+        boolean missingCraftAvailable =
+                (Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$isMissingCraftAvailable();
+        boolean startable = plan != null && (!plan.isSimulation() || missingCraftAvailable) && !blockedUnrepresentable;
         start.active = !menu.hasNoCPU() && startable;
         selectCPU.active = startable;
 
@@ -88,7 +96,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
                 if (mode.neoecoae$getTheoreticalBytes().signum() > 0) {
-                    usedBytes = ECOPlannerAmountFormatter.ae2Amount(mode.neoecoae$getTheoreticalBytes());
+                    usedBytes = HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes());
                 }
                 long calculationNanos = mode.neoecoae$getCalculationNanos();
                 if (calculationNanos < 1_000_000L) {
@@ -112,14 +120,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             if (plan.isSimulation()) {
                 cpuDetails = GuiText.PartialPlan.text();
             } else if (menu.getCpuAvailableBytes() > 0) {
-                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(menu.getCpuAvailableBytes(), menu.getCpuCoProcessors());
+                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(
+                        Component.literal(NEByteFormatter.formatCpuStorage(menu.getCpuAvailableBytes())),
+                        Component.literal(NEByteFormatter.formatCpuCoProcessors(menu.getCpuCoProcessors())));
             } else {
                 cpuDetails = GuiText.ConfirmCraftNoCpu.text();
             }
         }
-        if (unrepresentable) {
+        if (blockedUnrepresentable) {
             String unrepresentableBytes = (Object) menu instanceof ECOCraftConfirmMenuMode mode
-                    ? ECOPlannerAmountFormatter.ae2Amount(mode.neoecoae$getTheoreticalBytes())
+                    ? HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes())
                     : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
                     .withStyle(style -> style.withColor(AE2_TEXT_DARK))
@@ -196,7 +206,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     SOLVE_PROGRESS_Y + 3,
                     0xFF3D9B62);
         }
-        if (isUnrepresentablePlan() || isEcoPartialPlan()) {
+        if (hasUnrepresentableDiagnostic() || isEcoPartialPlan()) {
             exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
         } else if (plan != null)
             table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
@@ -235,7 +245,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
         if (hovered == null)
-            hovered = (isUnrepresentablePlan() || isEcoPartialPlan())
+            hovered = (hasUnrepresentableDiagnostic() || isEcoPartialPlan())
                     ? exactTable.getHoveredStack()
                     : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
@@ -273,14 +283,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private void start() {
-        if (!start.active || !isSuccessfulPlan()) return;
+        if (isBlockedUnrepresentablePlan()) return;
         menu.startJob();
-    }
-
-    private boolean isSuccessfulPlan() {
-        return !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
-                || mode.neoecoae$getPlanningStatus() == null
-                || mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS;
     }
 
     private void openGraph() {
@@ -311,9 +315,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 mode.neoecoae$getCraftingGraphSnapshot().nodes());
     }
 
-    private boolean isUnrepresentablePlan() {
+    private boolean hasUnrepresentableDiagnostic() {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+    }
+
+    private boolean isBlockedUnrepresentablePlan() {
+        CraftingPlanSummary plan = menu.getPlan();
+        return hasUnrepresentableDiagnostic() && (plan == null || plan.isSimulation());
     }
 
     private boolean isEcoPartialPlan() {
@@ -325,10 +334,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 && !mode.neoecoae$getCycleItems().isEmpty();
     }
 
-    private boolean isDisabledCycleRequirement(AEKey key) {
-        // Missing startup seeds are ordinary missing materials in the report. They must use AE2's red
-        // missing overlay even when cycle planning is disabled; the old blue cycle overlay hid the deficit.
-        return false;
+    private boolean isCycleParticipant(AEKey key) {
+        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getCycleItems().stream()
+                        .anyMatch(entry -> entry.what().equals(key));
     }
 
     private static final class CraftingGraphButton extends IconButton {

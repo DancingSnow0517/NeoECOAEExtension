@@ -64,8 +64,10 @@ public final class ActiveRouteSelector {
             List<SccComponent> sccs = tarjan.analyze(active, cancellation);
             List<SccComponent> cyclic =
                     sccs.stream().filter(SccComponent::cyclic).toList();
-            CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
-            if (cyclic.isEmpty()) return new Selection(true, choices, condensation, List.of(), deferred);
+            if (cyclic.isEmpty()) {
+                CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
+                return new Selection(true, choices, condensation, List.of(), deferred);
+            }
 
             boolean advanced = false;
             for (SccComponent scc : cyclic) {
@@ -82,7 +84,10 @@ public final class ActiveRouteSelector {
                 }
                 if (advanced) break;
             }
-            if (!advanced) return new Selection(false, choices, condensation, condensation.cycles(), deferred);
+            if (!advanced) {
+                CondensationGraph condensation = CondensationGraph.build(active, sccs, cancellation);
+                return new Selection(false, choices, condensation, condensation.cycles(), deferred);
+            }
         }
         CraftingDependencyGraph active = activeGraph(universe, choices, candidatesByKey, cancellation);
         List<SccComponent> sccs = tarjan.analyze(active, cancellation);

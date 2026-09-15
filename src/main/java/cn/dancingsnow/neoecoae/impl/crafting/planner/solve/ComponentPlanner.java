@@ -94,6 +94,28 @@ public final class ComponentPlanner {
                 cancellation);
     }
 
+    public Outcome plan(
+            CompiledNetwork network,
+            CondensationGraph condensation,
+            KeyCounter inventory,
+            PlannerInventorySnapshot snapshot,
+            long amount,
+            boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
+            throws InterruptedException {
+        ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+        return plan(
+                network,
+                activeSelection,
+                inventory,
+                snapshot,
+                amount,
+                cyclePlanningEnabled,
+                ignorePatternSubstitutions,
+                cancellation);
+    }
+
     public ActiveRouteSelector.Selection selectRoutes(
             CondensationGraph condensation, boolean cyclePlanningEnabled, ECOCancellation cancellation)
             throws InterruptedException {
@@ -122,6 +144,27 @@ public final class ComponentPlanner {
             boolean ignorePatternSubstitutions,
             ECOCancellation cancellation)
             throws InterruptedException {
+        return plan(
+                network,
+                activeSelection,
+                inventory,
+                PlannerInventorySnapshot.of(inventory),
+                amount,
+                cyclePlanningEnabled,
+                ignorePatternSubstitutions,
+                cancellation);
+    }
+
+    public Outcome plan(
+            CompiledNetwork network,
+            ActiveRouteSelector.Selection activeSelection,
+            KeyCounter inventory,
+            PlannerInventorySnapshot snapshot,
+            long amount,
+            boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation)
+            throws InterruptedException {
         cancellation.checkpoint();
         CondensationGraph activeCondensation = activeSelection.condensation();
         List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
@@ -136,7 +179,7 @@ public final class ComponentPlanner {
         var acyclic = acyclicSolver.solve(
                 network,
                 new AcyclicRoutePlan(dagOrder),
-                inventory,
+                snapshot,
                 amount,
                 activeSelection.choices(),
                 cycleOwnedPatterns,
@@ -279,7 +322,7 @@ public final class ComponentPlanner {
                 Map<AEKey, Long> stock = relevantStock(
                         cycle, exactRequiredOutputs.keySet(), inventory, acyclic.state(), stockReservations);
                 Map<AEKey, PlannerAmount> solveTargets =
-                        additionalOutputTargets(exactRequiredOutputs, stock, network.goal());
+                        additionalOutputTargets(exactRequiredOutputs, stock, network.goal(), cycle);
                 if (!solveTargets.isEmpty()) {
                     cycleResult = cycleSolver.solve(
                             new CycleSolveRequest(
@@ -327,6 +370,8 @@ public final class ComponentPlanner {
                             new PlannerDiagnostic(externalDiagnosticCode(external.status()), external.diagnostic()));
                     if (external.solved()) {
                         Map<AEKey, Long> projectedStock = mergeReservations(stock, cycleResult.seedShortfall());
+                        solveTargets =
+                                additionalOutputTargets(exactRequiredOutputs, projectedStock, network.goal(), cycle);
                         CycleSolveResult recovered = cycleSolver.solve(
                                 new CycleSolveRequest(
                                         cycle,
@@ -673,9 +718,7 @@ public final class ComponentPlanner {
             int excludedComponentId) {
         if (condensation.componentFor(key) instanceof CycleComponent direct
                 && direct.componentId() != excludedComponentId) return direct;
-        List<CompiledPattern> candidates = network.producersOf(key).stream()
-                .filter(CompiledPattern::fastSupported)
-                .toList();
+        List<CompiledPattern> candidates = network.fastProducersOf(key);
         if (!candidates.isEmpty()) {
             int choice = Math.max(0, Math.min(choices.getOrDefault(key, 0), candidates.size() - 1));
             IPatternDetails selected = candidates.get(choice).details();
@@ -742,10 +785,43 @@ public final class ComponentPlanner {
      * translation, stored copies of the final output satisfy the solver target and produce an empty CPU job.
      */
     private static Map<AEKey, PlannerAmount> additionalOutputTargets(
-            Map<AEKey, PlannerAmount> requiredOutputs, Map<AEKey, Long> relevantStock, AEKey finalGoal) {
+            Map<AEKey, PlannerAmount> requiredOutputs,
+            Map<AEKey, Long> relevantStock,
+            AEKey finalGoal,
+            CycleComponent cycle) {
+        Set<AEKey> growingFeedback = new LinkedHashSet<>();
+        if (cycle.patterns().stream().map(CompiledPattern::details).distinct().count() == 1) {
+            CompiledPattern pattern = cycle.patterns().get(0);
+            var profile = new cn.dancingsnow.neoecoae.impl.crafting.planner.growth.PatternProfileValidator()
+                    .validate(pattern);
+            if (profile.netGrowthSafe() && profile.selfReferencingKeys().size() == 1) {
+                AEKey feedback = profile.selfReferencingKeys().get(0);
+                if (profile.netDeltaPerFiring(feedback) > 0L) growingFeedback.add(feedback);
+            }
+            // Stock protection is a planning contract, independent of smart-bus eligibility for the
+            // algebraic optimization. Ordinary static patterns use bounded solving and need the same
+            // net-growth target when their feedback is consumed by a downstream recipe.
+            if (pattern.fastSupported() && pattern.inputs().stream().allMatch(CompiledInput::fastSupported)) {
+                Map<AEKey, PlannerAmount> consumed = new LinkedHashMap<>();
+                Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
+                pattern.grossOutputs()
+                        .forEach(output ->
+                                produced.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add));
+                pattern.inputs().forEach(input -> {
+                    consumed.merge(input.key(), input.amountPerPattern(), PlannerAmount::add);
+                    if (input.remainderKey() != null)
+                        produced.merge(input.remainderKey(), input.remainderAmountPerPattern(), PlannerAmount::add);
+                });
+                consumed.forEach((key, amount) -> {
+                    if (produced.getOrDefault(key, PlannerAmount.ZERO).compareTo(amount) > 0) {
+                        growingFeedback.add(key);
+                    }
+                });
+            }
+        }
         Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
         requiredOutputs.forEach((key, amount) -> {
-            if (!key.equals(finalGoal)) {
+            if (!key.equals(finalGoal) && !growingFeedback.contains(key)) {
                 result.put(key, amount);
                 return;
             }

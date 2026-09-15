@@ -18,6 +18,10 @@ public interface IECOStorageCell extends StorageCell {
         return false;
     }
 
+    default boolean isInfiniteStorageEligible() {
+        return true;
+    }
+
     long getUsedBytes();
 
     long getTotalBytes();

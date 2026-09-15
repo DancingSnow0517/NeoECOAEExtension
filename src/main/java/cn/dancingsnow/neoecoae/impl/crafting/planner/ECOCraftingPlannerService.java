@@ -18,9 +18,12 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ComponentPlanner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.ECOPlanMaterialValidator;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.PlannerDiagnostic;
 import java.util.List;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +42,10 @@ public final class ECOCraftingPlannerService {
         private final ICraftingService craftingService;
         private final AEKey goal;
         private final KeyCounter inventory;
+        private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
+        private final Set<ResourceLocation> fuzzyPlanningItemIds;
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
@@ -51,12 +56,15 @@ public final class ECOCraftingPlannerService {
                 AEKey goal,
                 KeyCounter inventory,
                 boolean cyclePlanningEnabled,
-                boolean ignorePatternSubstitutions) {
+                boolean ignorePatternSubstitutions,
+                Set<ResourceLocation> fuzzyPlanningItemIds) {
             this.craftingService = craftingService;
             this.goal = goal;
-            this.inventory = copy(inventory);
+            this.inventorySnapshot = PlannerInventorySnapshot.of(inventory);
+            this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
+            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
@@ -75,16 +83,24 @@ public final class ECOCraftingPlannerService {
                             compiled,
                             activeSelection,
                             inventory,
+                            inventorySnapshot,
                             amount,
                             true,
                             ignorePatternSubstitutions,
                             cancellation);
                 } else {
                     solved = componentPlanner.plan(
-                            compiled, condensation, inventory, amount, false, ignorePatternSubstitutions, cancellation);
+                            compiled,
+                            condensation,
+                            inventory,
+                            inventorySnapshot,
+                            amount,
+                            false,
+                            ignorePatternSubstitutions,
+                            cancellation);
                 }
                 solved = rejectUnclosedSuccess(solved, amount);
-                boolean multiplePaths = compiled.producers().values().stream().anyMatch(list -> list.size() > 1);
+                boolean multiplePaths = compiled.multiplePaths();
                 var plan =
                         switch (solved.status()) {
                             case SUCCESS, MISSING_ITEMS -> bridge.success(
@@ -111,6 +127,7 @@ public final class ECOCraftingPlannerService {
                         elapsedSince(startedNanos),
                         solved.state().executionProvenance());
                 result.setTheoreticalBytes(solved.state().plannerBytes());
+                result.setFuzzyPlanningItemIds(fuzzyPlanningItemIds);
                 if (result.status() == PlanningStatus.SUCCESS
                         && ECOPlanningResultRegistry.cycleExpected(result)
                         && result.executionPlanError() != null) {
@@ -152,7 +169,8 @@ public final class ECOCraftingPlannerService {
             if (compiled != null && condensation != null) return;
             synchronized (initializationLock) {
                 if (compiled == null)
-                    compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled, cancellation);
+                    compiled = compiler.compile(
+                            craftingService, goal, cyclePlanningEnabled, fuzzyPlanningItemIds, cancellation);
                 if (condensation == null) {
                     var graph = graphBuilder.build(compiled, cancellation);
                     var sccs = sccAnalyzer.analyze(graph, cancellation);
@@ -184,7 +202,7 @@ public final class ECOCraftingPlannerService {
 
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS) return solved;
-            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory);
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled);
             if (issue == null) return solved;
 
             String key = issue.key() == null ? "<plan>" : issue.key().toString();
@@ -194,8 +212,15 @@ public final class ECOCraftingPlannerService {
             solved.trace()
                     .addDiagnostic(
                             new PlannerDiagnostic(PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID, message));
+            // Preserve AE2's normal missing-item contract. The first calculation can therefore render the
+            // deficit as a red row and disable Start, while the exact closure diagnostic remains available in
+            // the ECO report. Treating this as PARTIAL_UNSUPPORTED would invoke the native fallback, whose
+            // virtual/emittable producers can incorrectly make the same material look available.
+            if (issue.key() != null) {
+                solved.state().markMissing(issue.key(), issue.required().subtract(issue.supplied()));
+            }
             return new ComponentPlanner.Outcome(
-                    PlanningStatus.PARTIAL_UNSUPPORTED,
+                    PlanningStatus.MISSING_ITEMS,
                     solved.state(),
                     solved.trace(),
                     solved.cycles(),
@@ -219,12 +244,12 @@ public final class ECOCraftingPlannerService {
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory) {
-        return new Session(service, goal, inventory, false, false);
+        return new Session(service, goal, inventory, false, false, Set.of());
     }
 
     public Session createSession(
             ICraftingService service, AEKey goal, KeyCounter inventory, boolean cyclePlanningEnabled) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, false);
+        return new Session(service, goal, inventory, cyclePlanningEnabled, false, Set.of());
     }
 
     public Session createSession(
@@ -233,12 +258,17 @@ public final class ECOCraftingPlannerService {
             KeyCounter inventory,
             boolean cyclePlanningEnabled,
             boolean ignorePatternSubstitutions) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions);
+        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions, Set.of());
     }
 
-    private static KeyCounter copy(KeyCounter source) {
-        KeyCounter result = new KeyCounter();
-        for (var entry : source) if (entry.getLongValue() > 0) result.add(entry.getKey(), entry.getLongValue());
-        return result;
+    public Session createSession(
+            ICraftingService service,
+            AEKey goal,
+            KeyCounter inventory,
+            boolean cyclePlanningEnabled,
+            boolean ignorePatternSubstitutions,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
+        return new Session(
+                service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
     }
 }

@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.component.PlanningComponent;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -135,8 +134,8 @@ public final class CondensationGraph {
     }
     /** Execution order follows supplier -> consumer, opposite of producer->required-input edges. */
     public List<PlanningComponent> executionOrder() {
-        List<PlanningComponent> reversed = new ArrayList<>(topologicalOrder);
-        Collections.reverse(reversed);
+        List<PlanningComponent> reversed = new java.util.ArrayList<>(topologicalOrder);
+        java.util.Collections.reverse(reversed);
         return List.copyOf(reversed);
     }
 

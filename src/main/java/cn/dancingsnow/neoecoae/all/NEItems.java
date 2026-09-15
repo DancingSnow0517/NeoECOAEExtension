@@ -1049,7 +1049,7 @@ public class NEItems {
                         "eco_computation_cell_" + tierString,
                         p -> new ECOComputationCellItem(p.stacksTo(1).rarity(rarity), tier))
                 .lang("ECO - %s Flash Crystal Array".formatted(tierString.replace("l", "CE")))
-                .model((ctx, prov) -> {})
+                .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/" + ctx.getName())))
                 .register();
     }
 

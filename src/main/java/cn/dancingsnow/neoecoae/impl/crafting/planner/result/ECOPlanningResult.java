@@ -8,7 +8,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.solve.PlannerAmount;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable planning answer. Its execution plan is interpreted exactly once during construction. */
@@ -21,6 +23,7 @@ public final class ECOPlanningResult {
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
     private BigInteger theoreticalBytes = BigInteger.ZERO;
+    private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private final ECOExecutionRequirement executionRequirement;
     private final @Nullable ECOExecutionPlan executionPlan;
@@ -182,6 +185,14 @@ public final class ECOPlanningResult {
         theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
     }
 
+    public Set<ResourceLocation> fuzzyPlanningItemIds() {
+        return fuzzyPlanningItemIds;
+    }
+
+    public void setFuzzyPlanningItemIds(Set<ResourceLocation> itemIds) {
+        fuzzyPlanningItemIds = itemIds == null ? Set.of() : Set.copyOf(itemIds);
+    }
+
     public UUID planningId() {
         return planningId;
     }
@@ -201,6 +212,7 @@ public final class ECOPlanningResult {
     public boolean shouldUseNativeFallback() {
         return status == PlanningStatus.PARTIAL_UNSUPPORTED
                 || status == PlanningStatus.UNSUPPORTED
+                || status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
                 || status == PlanningStatus.INTERNAL_ERROR;
     }
 
@@ -227,10 +239,6 @@ public final class ECOPlanningResult {
         if (plan == null) throw new IllegalStateException("Cannot create an execution contract without a plan");
         PlanIdentity.Signature signature = PlanIdentity.of(plan);
         if (signature == null) throw new IllegalStateException("Plan identity unavailable");
-        if (status != PlanningStatus.SUCCESS || plan.simulation()) {
-            return new ECOExecutionContract(
-                    planningId, signature, ExecutionMode.BLOCKED, null, "PLAN_NOT_EXECUTABLE:" + status);
-        }
         if (executionRequirement == ECOExecutionRequirement.BLOCKED) {
             return new ECOExecutionContract(
                     planningId,

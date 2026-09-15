@@ -12,7 +12,7 @@ class NEComputationControllerWidgetTest {
     @Test
     void ldlib2HostGeometryFitsTheCompactCanvas() {
         assertEquals(340, BASE_UI_WIDTH);
-        assertEquals(248, NEComputationControllerWidget.UI_HEIGHT);
+        assertEquals(242, NEComputationControllerWidget.UI_HEIGHT);
         assertEquals(BASE_UI_WIDTH + MAIN_X, NEComputationControllerWidget.UI_WIDTH);
         assertEquals(108, PARALLEL_PANEL_W);
         assertEquals(48, PARALLEL_PANEL_H);
@@ -49,5 +49,14 @@ class NEComputationControllerWidgetTest {
         assertEquals(
                 CpuSelectionMode.ANY,
                 NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.MACHINE_ONLY));
+        assertEquals(
+                CpuSelectionMode.MACHINE_ONLY,
+                NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.ANY, -1));
+        assertEquals(
+                CpuSelectionMode.ANY,
+                NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.PLAYER_ONLY, -1));
+        assertEquals(
+                CpuSelectionMode.PLAYER_ONLY,
+                NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.MACHINE_ONLY, -1));
     }
 }
