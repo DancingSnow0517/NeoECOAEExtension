@@ -49,6 +49,12 @@ public class NEConfig {
         BUILDER.pop();
     }
 
+    private static final ForgeConfigSpec.BooleanValue ECO_MISSING_CRAFTING_ENABLED = BUILDER.comment(
+                    "Allow ECO CPUs to start crafting jobs with missing ingredients. Disabled by default.",
+                    "Jobs wait for missing materials to enter the ME network; no materials are generated.",
+                    "Does not affect GTL's own setting or jobs that have already started.")
+            .define("ecoMissingCraftingEnabled", false);
+
     private static final ForgeConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER.comment(
                     "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.",
                     "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.")
@@ -132,6 +138,7 @@ public class NEConfig {
     public static int computationSystemMaxLength = 15;
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
+    public static boolean ecoMissingCraftingEnabled;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOPlanner;
@@ -151,6 +158,7 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        ecoMissingCraftingEnabled = ECO_MISSING_CRAFTING_ENABLED.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         debugECOPlanner = DEBUG_ECO_PLANNER.get();

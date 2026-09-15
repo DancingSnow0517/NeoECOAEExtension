@@ -82,6 +82,7 @@ public class ECOCraftingCPULogic {
     private boolean deliveringFinalOutput;
     /** Link owned by the original requester; CPU link cannot route output to the terminal. */
     @Nullable private CraftingLink requesterLink;
+
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     // Per-call result, consumed by tickCraftingLogic after each executeCrafting invocation.
@@ -98,6 +99,9 @@ public class ECOCraftingCPULogic {
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
+        if (plan instanceof ECOMissingCraftingPlan && !NEConfig.ecoMissingCraftingEnabled) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         // 已有任务在运行。
         if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
         // 检查节点是否活跃。

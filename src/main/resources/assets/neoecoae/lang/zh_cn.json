@@ -447,6 +447,8 @@
   "neoecoae.configuration.fastPath.tooltip": "ECO AE2 快速路径缓存与批量合成选项。\n如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "启用 ECO AE2 快速路径",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "启用 ECO AE2 快速路径批量合成缓存。\n可以大幅降低重复样板执行开销；如果整合包出现配方兼容问题，可关闭此选项回退到慢速路径。\n启用触发合成事件时，为保持事件语义，快速路径会自动停用。",
+  "neoecoae.configuration.ecoMissingCraftingEnabled": "启用 ECO 缺料合成",
+  "neoecoae.configuration.ecoMissingCraftingEnabled.tooltip": "允许 ECO CPU 在缺料时启动合成任务，默认关闭。\n任务等待材料进入 ME 网络后继续，不会凭空生成材料。\n不影响 GTL 自身的配置或已经启动的任务。",
   "neoecoae.configuration.postCraftingEvent": "触发合成事件",
   "neoecoae.configuration.postCraftingEvent.tooltip": "当合成子系统完成一次配方时，是否触发原版的合成事件（ItemCraftedEvent）。\n开启后可能引入额外事件/监听开销；在安装 Balm 等模组时可能更明显。",
   "neoecoae.configuration.storageSystemMaxLength": "存储子系统最大长度",

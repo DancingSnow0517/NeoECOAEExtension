@@ -744,6 +744,8 @@
   "neoecoae.configuration.fastPath.tooltip": "ECO AE2 fast path cache and batch crafting options.\nDisable Fast Path if a modpack has recipe compatibility issues.",
   "neoecoae.configuration.increaseStorageCellCapacity": "Increase ECO Capacity",
   "neoecoae.configuration.increaseStorageCellCapacity.tooltip": "Increase ECO storage matrix capacity and enlarge computation flash capacity by 16x.\nDefaults to enabled when GregTech Modern/GTCEu is detected.\nChanges are fully applied after re-entering the world or restarting the server.",
+  "neoecoae.configuration.ecoMissingCraftingEnabled": "Enable ECO Missing-Ingredient Crafting",
+  "neoecoae.configuration.ecoMissingCraftingEnabled.tooltip": "Allow ECO CPUs to start jobs with missing ingredients. Disabled by default.\nJobs wait for materials to enter the ME network; no materials are generated.\nDoes not affect GTL's own setting or jobs that have already started.",
   "neoecoae.configuration.postCraftingEvent": "Trigger Crafting Event",
   "neoecoae.configuration.postCraftingEvent.tooltip": "Whether to fire the vanilla crafting event (ItemCraftedEvent) when the crafting subsystem completes a recipe.\nEnabling this may introduce additional event/listener overhead; it can be noticeable when mods like Balm are installed.",
   "neoecoae.configuration.storageSystemMaxLength": "Storage System Max Length",

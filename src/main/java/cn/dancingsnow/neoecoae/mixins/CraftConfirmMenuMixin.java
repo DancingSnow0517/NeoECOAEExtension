@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.ECOMissingCraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.compat.gtl.GTLTransfiniteCraftingCompat;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -206,6 +207,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique private @Nullable ECOCraftingCPU neoecoae$findMissingCraftCpu(@Nullable ICraftingPlan plan) {
+        if (!NEConfig.ecoMissingCraftingEnabled) return null;
         if (selectedCpu instanceof ECOCraftingCPU selected) {
             return neoecoae$isUsableMissingCraftCpu(selected, plan, false) ? selected : null;
         }
