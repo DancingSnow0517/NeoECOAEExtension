@@ -52,6 +52,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     private final ISaveProvider container;
     private final Map<AEItemKey, Long> storedUnits = new LinkedHashMap<>();
     private boolean persisted = true;
+    private long availableStacksSignature = Long.MIN_VALUE;
+    private KeyCounter availableStacksCache;
 
     public ECOMegaLongBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
         super(stack, container);
@@ -209,6 +211,18 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        long signature = 1L;
+        for (var entry : storedUnits.entrySet()) {
+            signature = 31 * signature + entry.getKey().hashCode() ^ entry.getValue();
+            signature = 31 * signature + chainFor(entry.getKey()).hashCode();
+        }
+        signature = 31 * signature + configuredFilters().hashCode();
+        signature = 31 * signature + (hasCompressionCard() ? 1 : 0);
+        if (availableStacksCache != null && signature == availableStacksSignature) {
+            out.addAll(availableStacksCache);
+            return;
+        }
+        KeyCounter computed = new KeyCounter();
         for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
             long units = entry.getValue();
             if (units <= 0L) {
@@ -221,13 +235,16 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
                 // MEGA's public expansion API uses BigInteger; this is an output boundary, not the storage hot path.
                 AEItemKey storageForm = storageFormFor(storedKey);
                 chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain, storageForm), storageForm)
-                    .forEach(out::add);
+                    .forEach(computed::add);
             } else if (!chain.isEmpty()) {
-                out.add(storedKey, units / unitFactor(storedKey, storedKey));
+                computed.add(storedKey, units / unitFactor(storedKey, storedKey));
             } else {
-                out.add(storedKey, units);
+                computed.add(storedKey, units);
             }
         }
+        availableStacksSignature = signature;
+        availableStacksCache = computed;
+        out.addAll(computed);
     }
 
     /** Exposes conversion paths on both sides of each configured storage-unit marker. */
@@ -328,9 +345,19 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             AEItemKey key = readKey(entry);
             long units = entry.getLong(UNITS_TAG);
             if (key != null && units > 0L) {
-                // Older versions could create one entry per configured variant in the same
-                // compression chain. Collapse those entries onto the current representative.
-                storedUnits.merge(storageFormFor(key), units, NEMath::saturatingAdd);
+                // Keep the persisted representative stable across datapack/config changes. Re-mapping
+                // here can silently change quantities when compression ratios are edited.
+                Long previous = storedUnits.putIfAbsent(key, units);
+                if (previous != null) {
+                    try {
+                        storedUnits.put(key, Math.addExact(previous, units));
+                    } catch (ArithmeticException overflow) {
+                        // Fail closed: leave the original stack data untouched instead of loading a
+                        // saturated value that would later be persisted as silent item loss.
+                        throw new IllegalStateException("ECO MEGA bulk cell contains more than Long.MAX_VALUE units of "
+                            + key.getId(), overflow);
+                    }
+                }
             }
         }
     }
@@ -391,11 +418,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      * fallback so that the old contents can still be recovered.
      */
     private AEItemKey storageFormFor(AEItemKey storedKey) {
-        for (AEItemKey filter : configuredFilters()) {
-            if (sameCompressionChain(filter, storedKey)) {
-                return filter;
-            }
-        }
+        // The persisted key defines the unit in which the amount was recorded. Configuration is
+        // only an insertion filter; changing it must never reinterpret existing contents.
         return storedKey;
     }
 
@@ -481,6 +505,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     @Override
     protected void saveChanges() {
         persisted = false;
+        availableStacksCache = null;
+        availableStacksSignature = Long.MIN_VALUE;
         if (isPersistenceDeferred()) {
             return;
         }
