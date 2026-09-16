@@ -27,6 +27,7 @@
     "ae2.storage.IOPortBlockEntityMixin",
     "ae2.storage.NetworkStorageMixin",
     "ae2.storage.StoredEnergyAmountMixin",
+    "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin"
   ],
   "client": [

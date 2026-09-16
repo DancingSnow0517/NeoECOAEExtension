@@ -317,7 +317,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         performanceAverageNanos = nextAverageNanos;
         setChanged();
-        markForUpdate();
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

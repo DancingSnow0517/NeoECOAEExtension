@@ -16,13 +16,10 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -163,15 +160,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (updateExposed) {
             onGridConnectableSidesChanged();
         }
-    }
-
-    @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
-        if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
-        }
-        return tag;
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

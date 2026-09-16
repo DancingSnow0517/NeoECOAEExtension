@@ -272,7 +272,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
         performanceAverageNanos = nextAverageNanos;
         setChanged();
-        markForUpdate();
     }
 
     private void updateInfo() {

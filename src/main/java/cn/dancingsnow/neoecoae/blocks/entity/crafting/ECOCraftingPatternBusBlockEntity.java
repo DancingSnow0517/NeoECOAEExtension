@@ -108,7 +108,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
-    @DescSynced
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
@@ -1089,7 +1088,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
-                markForUpdate();
             });
         }
     }

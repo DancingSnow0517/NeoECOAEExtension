@@ -89,7 +89,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @DescSynced
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
     @Persisted
-    @DescSynced
     private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
         this, FUZZY_PLANNING_SLOT_COUNT, 1
     );
@@ -242,7 +241,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1)
         );
         setChanged();
-        markForUpdate();
     }
 
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
@@ -1498,7 +1496,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Override
     public void saveChangedInventory(AppEngInternalInventory inventory) {
         setChanged();
-        markForUpdate();
+        if (inventory != fuzzyPlanningInventory) {
+            markForUpdate();
+        }
     }
 
     @Override
