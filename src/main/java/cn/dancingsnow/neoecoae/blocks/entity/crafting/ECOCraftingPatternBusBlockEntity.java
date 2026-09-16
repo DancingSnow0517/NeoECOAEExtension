@@ -25,6 +25,8 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
+import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
@@ -79,12 +81,14 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
-    ECOFastPathDispatchProvider {
+    ECOFastPathDispatchProvider, EcoFastpathHost {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -112,6 +116,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
     private final ECOCraftingPatternBusCatalog catalog;
     private final ECOCraftingPatternBusDispatcher dispatcher;
+    private static final int EXTERNAL_NONCE_HISTORY = 1024;
+    private final Map<UUID, FastpathSubmission> externalFastpathSubmissions =
+        new LinkedHashMap<>(64, 0.75F, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<UUID, FastpathSubmission> eldest) {
+                return size() > EXTERNAL_NONCE_HISTORY;
+            }
+        };
     private final ECOCraftingPatternBusPublisher publisher;
     public final IItemHandlerModifiable itemHandler;
     @Persisted
@@ -148,6 +160,96 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Override
     public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         return dispatcher.prepareFastPath(context);
+    }
+
+    @Override
+    public FastpathCapability inspect(FastpathRequest request) {
+        var rejection = validateExternalRequest(request);
+        if (rejection != RejectionReason.NONE) return rejectedCapability(rejection);
+        var pattern = findExternalPattern(request);
+        if (pattern == null) return rejectedCapability(RejectionReason.UNSUPPORTED_PROCESSING);
+        long accepted = Math.min(request.requestedAmount(), Math.max(0, getAvailableThreadSlots()));
+        if (accepted <= 0L) return rejectedCapability(RejectionReason.BUSY);
+        var tier = externalHostTier();
+        return new FastpathCapability(API_VERSION, CAPABILITY_ID, tier, accepted,
+            tier == HostTier.F9 ? DurationClass.IMMEDIATE : DurationClass.SHORT, RejectionReason.NONE);
+    }
+
+    @Override
+    public FastpathSubmission submit(FastpathRequest request) {
+        var previous = externalFastpathSubmissions.get(request.nonce());
+        if (previous != null) return previous;
+        var capability = inspect(request);
+        if (capability.acceptedAmount() <= 0L) {
+            return rememberExternal(request.nonce(), rejectedSubmission(request, capability.rejectionReason()));
+        }
+        var pattern = findExternalPattern(request);
+        if (pattern == null || getLevel() == null) {
+            return rememberExternal(request.nonce(), rejectedSubmission(request, RejectionReason.UNSUPPORTED_PROCESSING));
+        }
+        try {
+            var inputs = request.inputsPerCraft().stream().map(slot -> {
+                var counter = new KeyCounter();
+                for (var stack : slot) counter.add(stack.what(), stack.amount());
+                return counter;
+            }).toArray(KeyCounter[]::new);
+            var batch = ECOFastPathFacade.prepareAllocated(this, pattern, inputs,
+                capability.acceptedAmount(), getLevel(), null);
+            boolean accepted = batch != null && batch.submit(amount -> new ECOFastPathFacade.Reservation() {
+                @Override public void commit() {}
+                @Override public void refund() {}
+            });
+            long amount = accepted ? batch.craftCount() : 0L;
+            long unaccepted = request.requestedAmount() - amount;
+            var status = amount == 0L ? Status.REJECTED : unaccepted == 0L ? Status.ACCEPTED : Status.PARTIAL;
+            var results = amount == 0L ? List.<appeng.api.stacks.GenericStack>of() : batch.outputs();
+            return rememberExternal(request.nonce(), new FastpathSubmission(status, amount, results,
+                unaccepted, amount == 0L, amount == 0L ? RejectionReason.NO_CAPACITY : RejectionReason.NONE));
+        } catch (RuntimeException failure) {
+            return rememberExternal(request.nonce(), new FastpathSubmission(Status.REJECTED, 0L, List.of(),
+                request.requestedAmount(), false, RejectionReason.SUBMISSION_FAILED));
+        }
+    }
+
+    private RejectionReason validateExternalRequest(FastpathRequest request) {
+        if (request.apiVersion() != API_VERSION) return RejectionReason.VERSION_MISMATCH;
+        if (!CAPABILITY_ID.equals(request.targetCapabilityId())) return RejectionReason.CAPABILITY_MISMATCH;
+        if (!(getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread()) return RejectionReason.NOT_SERVER_THREAD;
+        return RejectionReason.NONE;
+    }
+
+    private @Nullable IPatternDetails findExternalPattern(FastpathRequest request) {
+        for (var pattern : catalog.availablePatterns()) {
+            if (pattern.getDefinition().equals(request.processingId())) return pattern;
+        }
+        return null;
+    }
+
+    private static FastpathCapability rejectedCapability(RejectionReason reason) {
+        return new FastpathCapability(API_VERSION, CAPABILITY_ID, HostTier.FASTPATH, 0L,
+            DurationClass.NORMAL, reason);
+    }
+
+    private HostTier externalHostTier() {
+        var controller = getCraftingController();
+        if (controller == null) return HostTier.FASTPATH;
+        return switch (controller.getTier().getTier()) {
+            case 4 -> HostTier.F4;
+            case 6 -> HostTier.F6;
+            case 9 -> HostTier.F9;
+            default -> HostTier.FASTPATH;
+        };
+    }
+
+    private static FastpathSubmission rejectedSubmission(FastpathRequest request, RejectionReason reason) {
+        return new FastpathSubmission(Status.REJECTED, 0L, List.of(), request.requestedAmount(),
+            reason == RejectionReason.BUSY || reason == RejectionReason.NO_CAPACITY, reason);
+    }
+
+    private FastpathSubmission rememberExternal(UUID nonce, FastpathSubmission submission) {
+        externalFastpathSubmissions.put(nonce, submission);
+        return submission;
     }
 
     public boolean acceptVerifiedBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {
