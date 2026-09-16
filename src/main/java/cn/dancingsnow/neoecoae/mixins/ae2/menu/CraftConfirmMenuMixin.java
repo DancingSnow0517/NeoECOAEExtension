@@ -6,6 +6,7 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
@@ -21,10 +22,10 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequester;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -33,19 +34,16 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,8 +59,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
-    @Unique
-    private static final String NEOECOAE_DATA_REQUESTED_AMOUNT_FIELD = "dataEnergistics$requestedAmount";
     @Unique
     @GuiSync(99)
     private boolean neoecoae$showFastPlannerReport;
@@ -105,25 +101,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
 
     @Unique
-    private @Nullable Future<ICraftingPlan> neoecoae$ecoJob;
-
-    @Unique
-    private CalculationStrategy neoecoae$calculationStrategy = CalculationStrategy.CRAFT_LESS;
-
-    @Unique
     private boolean neoecoae$craftConfirmDiagnosticLogged;
 
     @Shadow
     private ICraftingPlan result;
-
-    @Shadow
-    private AEKey whatToCraft;
-
-    @Shadow
-    private int amount;
-
-    @Shadow
-    private @Nullable Future<ICraftingPlan> job;
 
     @Shadow
     private CraftingPlanSummary plan;
@@ -161,8 +142,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Inject(method = "planJob", at = @At("HEAD"))
     private void resetPlannerDiagnostics(AEKey what, int amount, CalculationStrategy strategy,
             CallbackInfoReturnable<Boolean> cir) {
-        neoecoae$cancelEcoPlanning();
-        neoecoae$calculationStrategy = strategy;
         neoecoae$showFastPlannerReport = false;
         neoecoae$ecoReportReady = false;
         neoecoae$calculationNanos = 0;
@@ -174,143 +153,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$craftConfirmDiagnosticLogged = false;
     }
 
-    @Inject(method = "broadcastChanges", at = @At("HEAD"))
-    private void pollEcoPlanningJob(CallbackInfo ci) {
-        if (((CraftConfirmMenu) (Object) this).getPlayer().level().isClientSide()) {
-            return;
-        }
-        Future<ICraftingPlan> future = neoecoae$ecoJob;
-        if (future == null || !future.isDone()) {
-            return;
-        }
-
-        neoecoae$ecoJob = null;
-        try {
-            ICraftingPlan ecoPlan = future.get();
-            if (ecoPlan == null) {
-                return;
-            }
-            IGrid grid = getGrid();
-            if (grid == null) {
-                return;
-            }
-            result = ecoPlan;
-            neoecoae$applyPlannerDiagnostics(ecoPlan);
-            plan = CraftingPlanSummary.fromJob(grid, getActionSrc(), ecoPlan);
-            plan = neoecoae$recheckStoredAmounts(grid, getActionSrc(), plan);
-            neoecoae$showFastPlannerReport = true;
-            neoecoae$ecoReportReady = true;
-            if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player) {
-                player.connection.send(new CraftConfirmPlanPacket(plan));
-            }
-        } catch (CancellationException ignored) {
-            // Replanning or menu removal cancelled the request; no ECO result is publishable.
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            NEOECOAE_LOGGER.debug("ECO confirmation planning was interrupted", interrupted);
-        } catch (ExecutionException | RuntimeException failure) {
-            NEOECOAE_LOGGER.warn("ECO confirmation planning failed", failure);
-        }
-    }
-
-    @Override
-    public void neoecoae$startEcoPlanning() {
-        if (((CraftConfirmMenu) (Object) this).getPlayer().level().isClientSide() || whatToCraft == null) {
-            return;
-        }
-        long requestedAmount = neoecoae$getRequestedAmount();
-        if (requestedAmount <= 0L) {
-            return;
-        }
-
-        IGrid grid = getGrid();
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(grid);
-        if (grid == null || settings == null || !settings.neoecoae$shouldUseFastPlanner()) {
-            neoecoae$ecoPlannerAvailable = false;
-            return;
-        }
-        if (neoecoae$ecoJob != null && !neoecoae$ecoJob.isDone()) {
-            return;
-        }
-
-        neoecoae$cancelNativePlanning();
-        neoecoae$clearEcoReport();
-        neoecoae$ecoPlannerAvailable = true;
-        try {
-            neoecoae$ecoJob = ECOPlanningService.begin(((CraftConfirmMenu) (Object) this).getPlayer().level(), grid,
-                getActionSrc(), whatToCraft,
-                requestedAmount, neoecoae$calculationStrategy, ECOPlannerOptions.from(settings));
-        } catch (RuntimeException failure) {
-            NEOECOAE_LOGGER.warn("Unable to start ECO confirmation planning", failure);
-        }
-    }
-
     /**
-     * DataEnergistics keeps the original request as a long while AE2's menu field is only an int. Resolve that
-     * optional field without taking a compile-time dependency on Data, then fall back to the plan and AE2 value.
+     * Marks the normal AE2 request for ECO before any crafting-service wrapper chooses a planner. A wrapper that
+     * owns the request may return its own future without invoking {@code original}; ECO then never starts and never
+     * touches that future. If the call reaches AE2's CraftingCalculation, the marker enables ECO there.
      */
-    @Unique
-    private long neoecoae$getRequestedAmount() {
-        Long dataAmount = neoecoae$readOptionalDataRequestedAmount();
-        if (dataAmount != null && dataAmount > 0L) {
-            return dataAmount;
-        }
-
-        if (result != null && result.finalOutput() != null && result.finalOutput().amount() > 0L) {
-            return result.finalOutput().amount();
-        }
-        return amount;
-    }
-
-    @Unique
-    private @Nullable Long neoecoae$readOptionalDataRequestedAmount() {
-        Class<?> type = ((Object) this).getClass();
-        while (type != null) {
-            try {
-                Field field = type.getDeclaredField(NEOECOAE_DATA_REQUESTED_AMOUNT_FIELD);
-                if (!field.trySetAccessible()) {
-                    return null;
-                }
-                Object value = field.get((Object) this);
-                return value instanceof Long longValue ? longValue : null;
-            } catch (NoSuchFieldException missingField) {
-                type = type.getSuperclass();
-            } catch (ReflectiveOperationException | RuntimeException reflectionFailure) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    @Unique
-    private void neoecoae$cancelNativePlanning() {
-        if (job != null) {
-            job.cancel(true);
-            job = null;
-        }
-        result = null;
-        plan = null;
-    }
-
-    @Unique
-    private void neoecoae$cancelEcoPlanning() {
-        if (neoecoae$ecoJob != null) {
-            neoecoae$ecoJob.cancel(true);
-            neoecoae$ecoJob = null;
-        }
-    }
-
-    @Unique
-    private void neoecoae$clearEcoReport() {
-        neoecoae$showFastPlannerReport = false;
-        neoecoae$ecoReportReady = false;
-        neoecoae$confirmedPlanningResult = null;
-        neoecoae$calculationNanos = 0L;
-        neoecoae$theoreticalBytes = "0";
-        neoecoae$planningStatusCode = 0;
-        neoecoae$cycleItems = ECOCycleItemList.EMPTY;
-        neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
-        neoecoae$craftConfirmDiagnosticLogged = false;
+    @WrapOperation(
+        method = "planJob",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/api/networking/crafting/ICraftingService;beginCraftingCalculation("
+                + "Lnet/minecraft/world/level/Level;"
+                + "Lappeng/api/networking/crafting/ICraftingSimulationRequester;"
+                + "Lappeng/api/stacks/AEKey;"
+                + "J"
+                + "Lappeng/api/networking/crafting/CalculationStrategy;"
+                + ")Ljava/util/concurrent/Future;"
+        )
+    )
+    private Future<ICraftingPlan> neoecoae$markEcoPlanningRequest(
+            ICraftingService service,
+            Level level,
+            ICraftingSimulationRequester requester,
+            AEKey what,
+            long amount,
+            CalculationStrategy strategy,
+            Operation<Future<ICraftingPlan>> original) {
+        ECOCraftingNetworkSettings settings = service instanceof ECOCraftingNetworkSettings ecoSettings
+            ? ecoSettings
+            : null;
+        boolean useEco = settings != null && settings.neoecoae$shouldUseFastPlanner();
+        neoecoae$ecoPlannerAvailable = useEco;
+        ICraftingSimulationRequester effectiveRequester = useEco
+            ? new ECOPlannerRequester(requester, ECOPlannerOptions.from(settings))
+            : requester;
+        return original.call(service, level, effectiveRequester, what, amount, strategy);
     }
 
     @Inject(
@@ -325,7 +202,36 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         )
     )
     private void capturePlannerDiagnostics(CallbackInfo ci) {
-        neoecoae$applyPlannerDiagnostics(result);
+        if (neoecoae$ownsPlan(result)) {
+            neoecoae$applyPlannerDiagnostics(result);
+            neoecoae$showFastPlannerReport = true;
+            neoecoae$ecoReportReady = true;
+        } else {
+            // A service wrapper may have accepted the marked request and returned its own plan. Clear any report
+            // state left by an earlier calculation on this menu; ownership follows the result, not eligibility.
+            neoecoae$showFastPlannerReport = false;
+            neoecoae$ecoReportReady = false;
+            neoecoae$confirmedPlanningResult = null;
+        }
+    }
+
+    /**
+     * Whether ECO produced this exact plan.
+     *
+     * <p>Every {@code appeng.crafting.CraftingPlan} implements {@link ECOCraftingPlanDiagnostics} because ECO
+     * attaches that interface to the class, so the interface alone proves nothing. The result attached to this
+     * exact plan object is the provenance marker used by the confirmation flow. The global identity registry is
+     * intentionally not used here: it recovers execution metadata for copied plans, but an equal task vector does
+     * not prove that this menu result came from ECO. Without this distinction ECO could rewrite another planner's
+     * result using plain AE2 extraction semantics.</p>
+     */
+    @Unique
+    private boolean neoecoae$ownsPlan(@Nullable ICraftingPlan plan) {
+        if (plan == null) {
+            return false;
+        }
+        return plan instanceof ECOCraftingPlanDiagnostics diagnostics
+                && diagnostics.neoecoae$getPlanningResult() != null;
     }
 
     @Unique
@@ -417,7 +323,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             IActionSource source,
             ICraftingPlan job,
             Operation<CraftingPlanSummary> original) {
-        return neoecoae$recheckStoredAmounts(grid, source, original.call(grid, source, job));
+        CraftingPlanSummary summary = original.call(grid, source, job);
+        // Only an ECO plan may be re-described with AE2 stored/missing semantics. A foreign plan keeps the summary
+        // its own planner published, so this wrap operation is order-independent against other projection mixins.
+        return neoecoae$ownsPlan(job) ? neoecoae$recheckStoredAmounts(grid, source, summary) : summary;
     }
 
     /**
@@ -500,6 +409,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
      * Close the confirmation-page TOCTOU window as far as possible by refreshing immediately before submission. If
      * ingredients disappeared since the page was opened, retain the menu and send the refreshed red rows instead of
      * submitting a plan that is already known to fail with MISSING_INGREDIENT.
+     *
+     * <p>Only a plan ECO produced may be rechecked here. Another planner can describe its stored/missing split with
+     * different semantics, so re-extracting it from storage can report phantom shortages and reject submission.</p>
      */
     @Inject(
         method = "startJob",
@@ -510,7 +422,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         cancellable = true
     )
     private void neoecoae$refreshMissingIngredientsBeforeStart(CallbackInfo ci) {
-        if (result == null || result.simulation()
+        if (!neoecoae$ownsPlan(result) || result.simulation()
                 || ((Object) this instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync force
                     && force.neoecoae$isForceCraftStartActive())) {
             return;
@@ -576,11 +488,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 neoecoae$describeCpu(target), submitResult.errorCode(), submitResult.errorDetail(), cpuDetails);
         }
         return submitResult;
-    }
-
-    @Inject(method = "removed", at = @At("TAIL"))
-    private void cancelEcoPlanningOnRemoval(Player player, CallbackInfo ci) {
-        neoecoae$cancelEcoPlanning();
     }
 
     @Unique

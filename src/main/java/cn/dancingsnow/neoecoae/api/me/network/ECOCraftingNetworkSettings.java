@@ -29,6 +29,10 @@ public interface ECOCraftingNetworkSettings {
     /** Item ids selected by computation interfaces for component-insensitive planning. */
     Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds();
 
+    /**
+     * Whether a calculation entering through AE2's normal planning path should opt into ECO. Other planners remain
+     * free to handle the marked request before AE2 creates a calculation; ECO never cancels a future they return.
+     */
     default boolean neoecoae$shouldUseFastPlanner() {
         return neoecoae$isFastPlannerEnabled() && neoecoae$hasComputationHost();
     }
