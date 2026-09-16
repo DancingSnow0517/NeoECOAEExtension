@@ -67,6 +67,8 @@ final class ECOCraftingProviderDispatcher {
                 return Result.accepted(processingResult.acceptedCrafts(), true);
             }
             if (request.job().suspended) return Result.none();
+            // Native batch providers already own their one-copy fallback and target recovery.
+            if (processing.supports(provider, request.pattern())) continue;
 
             var fastResult = fastPath.tryDispatch(
                     request, provider, singlePower, energyService, diagnostics, markProviderAttempt);
@@ -82,10 +84,15 @@ final class ECOCraftingProviderDispatcher {
                 return parallelResult;
             }
 
-            var scaledProcessingResult = processing.tryScaledDispatch(
-                    request, provider, singlePower, energyService, markProviderAttempt, normalPush);
-            if (scaledProcessingResult != null) {
-                return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
+            if (ECOProcessingPatternDispatcher.supportsScaledDispatch(request, provider)) {
+                var scaledProcessingResult = processing.tryScaledDispatch(
+                        request, provider, singlePower, energyService, markProviderAttempt, normalPush);
+                if (scaledProcessingResult != null) {
+                    return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
+                }
+                if (request.job().suspended) return Result.none();
+                // This ramp includes 1x and same-visit recovery; do not replay it via ordinary fallback.
+                continue;
             }
             if (request.job().suspended) return Result.none();
 

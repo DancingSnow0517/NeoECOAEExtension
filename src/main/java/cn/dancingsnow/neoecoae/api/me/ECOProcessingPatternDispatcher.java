@@ -7,6 +7,8 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.pattern.AEProcessingPattern;
+import appeng.helpers.patternprovider.PatternProviderLogic;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge;
@@ -18,11 +20,10 @@ import java.util.Map;
 import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
-/** Optional Thunderbolt batch bridge. All probing and accounting remain owned by NeoECO. */
+/** Native providers own their ramp; ordinary processing is probed and accounted by the ECO CPU. */
 final class ECOProcessingPatternDispatcher {
     private static final long TICK_BUDGET = 1_000_000L;
     private static final long FAIR_SHARE = 50_000L;
-    private static final long[] LADDER = {1L, 64L, 1_024L, 8_192L, 50_000L};
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
@@ -56,36 +57,40 @@ final class ECOProcessingPatternDispatcher {
         limit = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), perCraftInputs, limit);
         limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit, n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
         if (limit <= 0) return null;
-        ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>()).computeIfAbsent(request.pattern(), x -> new ProbeState());
-        long totalAccepted = 0;
-        while (limit > 0) {
-            long offer = Math.min(limit, state.next); var per = ECOFastPathStacks.copyCounters(request.inputs());
-            List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
-            if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) break;
-            var reservation = energy.reserve(service, onePower * offer); if (reservation == null) { ECOBatchCraftingHelper.insertAll(request.inventory(), consumed); break; }
-            mark.accept(provider); long leftover;
-            try {
-                leftover = c.push(provider, request.pattern(), request.inputs(), offer);
-            } catch (AmbiguousDispatchException failure) {
-                request.job().failPermanently("AMBIGUOUS_PROCESSING_PROVIDER_OWNERSHIP");
-                reservation.commit();
-                return null;
-            }
-            if (leftover < 0 || leftover > offer) leftover = offer;
-            long accepted = offer - leftover;
-            if (leftover > 0) ECOBatchCraftingHelper.insertAll(request.inventory(), ECOBatchCraftingHelper.multiply(per, leftover));
-            if (accepted <= 0) { reservation.refund(); state.fail(offer); break; }
-            try {
-                overload.registerAccepted(accepted);
-                reservation.refundUnaccepted(accepted, offer);
-            } catch (RuntimeException failure) {
-                request.job().failPermanently("POST_ACCEPT_PROCESSING_REGISTRATION_FAILURE");
-                throw failure;
-            }
-            state.success(offer, accepted); totalAccepted += accepted; used += accepted; limit -= accepted;
-            if (accepted < offer) break;
+        // Give the provider the entire allowance, once. It owns target probing and recovery.
+        List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(perCraftInputs, limit);
+        if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) return null;
+        var reservation = energy.reserve(service, onePower * limit);
+        if (reservation == null) {
+            ECOBatchCraftingHelper.insertAll(request.inventory(), consumed);
+            return null;
         }
-        if (totalAccepted <= 0) return null;
+        mark.accept(provider);
+        long leftover;
+        try {
+            leftover = c.push(provider, request.pattern(), request.inputs(), limit);
+        } catch (AmbiguousDispatchException failure) {
+            request.job().failPermanently("AMBIGUOUS_PROCESSING_PROVIDER_OWNERSHIP");
+            reservation.commit();
+            return null;
+        }
+        if (leftover < 0 || leftover > limit) {
+            request.job().failPermanently("INVALID_PROCESSING_PROVIDER_OWNERSHIP");
+            reservation.commit();
+            return null;
+        }
+        long totalAccepted = limit - leftover;
+        if (leftover > 0) ECOBatchCraftingHelper.insertAll(request.inventory(),
+                ECOBatchCraftingHelper.multiply(perCraftInputs, leftover));
+        if (totalAccepted <= 0) { reservation.refund(); return null; }
+        try {
+            overload.registerAccepted(totalAccepted);
+            reservation.refundUnaccepted(totalAccepted, limit);
+        } catch (RuntimeException failure) {
+            request.job().failPermanently("POST_ACCEPT_PROCESSING_REGISTRATION_FAILURE");
+            throw failure;
+        }
+        used += totalAccepted;
         var result = ECOCraftingDispatchResult.batch(totalAccepted, ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted), ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
         try {
             accounting.apply(request, result, () -> {}, provider);
@@ -96,88 +101,107 @@ final class ECOProcessingPatternDispatcher {
         return result;
     }
 
-    /** Conservative all-or-nothing scaling for ordinary packaged providers without the native batch API. */
+    /** Mirrors ProviderTarget's bounded ramp, including accepted-but-buffered chunks. */
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (Contract.forProvider(provider) != null || !safeForAtomicScaling(request, provider)) return null;
+        if (!supportsScaledDispatch(request, provider)) return null;
         long budget = TICK_BUDGET - used;
         if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>())
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
-        long offer = Math.min(Math.min(request.allowedCrafts(), budget), Math.max(1, state.next));
         var per = ECOFastPathStacks.copyCounters(request.inputs());
-        offer = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), per, offer);
-        offer = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, offer,
+        long limit = Math.min(request.allowedCrafts(), budget);
+        limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(per,
+                ECOFastPathStacks.copyCounter(request.outputs()), ECOFastPathStacks.copyCounter(request.remainders())));
+        limit = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), per, limit);
+        limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit,
                 n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-        if (offer <= 1) return null; // The ordinary path owns the 1x fallback and its fairness budget.
-        List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
-        var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), consumed);
-        if (inputTransaction == null) return null;
-        var reservation = energy.reserve(service, onePower * offer);
-        if (reservation == null) { inputTransaction.rollback(); return null; }
-        boolean accepted = false;
-        boolean ownershipUncertain = false;
-        try {
-            mark.accept(provider);
-            var scaled = new ScaledProcessingPattern(request.pattern(), offer);
-            KeyCounter[] counters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), offer);
-            var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled, counters,
-                    request.outputs(), request.remainders(), offer, request.inventory(), request.level());
+        var ramp = state.beginRun();
+        while (ramp.owned < limit && !provider.isBusy()) {
+            long offer = ramp.offer(limit - ramp.owned);
+            List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
+            var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), consumed);
+            if (inputTransaction == null) break;
+            var reservation = energy.reserve(service, onePower * offer);
+            if (reservation == null) { inputTransaction.rollback(); break; }
+            boolean accepted = false;
+            boolean ownershipUncertain = false;
             try {
-                accepted = normalPush.push(scaledRequest, provider);
-            } catch (RuntimeException failure) {
-                ownershipUncertain = true;
+                mark.accept(provider);
+                IPatternDetails scaled = offer == 1 ? request.pattern() : new ScaledProcessingPattern(request.pattern(), offer);
+                KeyCounter[] counters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), offer);
+                var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled, counters,
+                        request.outputs(), request.remainders(), offer, request.inventory(), request.level());
+                try {
+                    accepted = normalPush.push(scaledRequest, provider);
+                } catch (RuntimeException failure) {
+                    ownershipUncertain = true;
+                    inputTransaction.transferOwnership();
+                    request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
+                    reservation.commit();
+                    return null;
+                }
+                if (!accepted) {
+                    if (ramp.record(offer, 0, false)) continue;
+                    break;
+                }
                 inputTransaction.transferOwnership();
-                request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
                 reservation.commit();
-                return null;
-            }
-            if (!accepted) { state.fail(offer); return null; }
-            inputTransaction.transferOwnership();
-            reservation.commit(); state.success(offer, offer); used += offer;
-            var result = ECOCraftingDispatchResult.batch(offer,
-                    ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), offer), List.of());
-            accounting.apply(request, result, () -> {}, provider); return result;
-        } catch (RuntimeException failure) {
-            if (accepted) {
-                request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
+                used += offer;
+                // Record each owned chunk before attempting another; a later exception cannot lose it.
+                accounting.apply(request, scaledResult(request, offer), () -> {}, provider);
+                if (!ramp.record(offer, offer, fullyInserted(provider))) break;
+            } catch (RuntimeException failure) {
+                if (accepted) request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
                 throw failure;
+            } finally {
+                if (!accepted && !ownershipUncertain) {
+                    inputTransaction.rollback();
+                    reservation.refund();
+                }
             }
-            state.fail(offer); return null;
-        } finally {
-            if (!accepted && !ownershipUncertain) {
-                inputTransaction.rollback();
-                reservation.refund();
-            }
+        }
+        return ramp.owned > 0 ? scaledResult(request, ramp.owned) : null;
+    }
+
+    private static ECOCraftingDispatchResult scaledResult(ECOCraftingDispatchRequest request, long copies) {
+        return ECOCraftingDispatchResult.batch(copies,
+                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), copies), List.of());
+    }
+
+    private static boolean fullyInserted(ICraftingProvider provider) {
+        Object logic = providerLogic(provider);
+        return logic instanceof PatternProviderLogicAccessor accessor && accessor.neoecoae$getSendList().isEmpty();
+    }
+
+    private static Object providerLogic(ICraftingProvider provider) {
+        if (provider instanceof PatternProviderLogic) return provider;
+        try {
+            return provider.getClass().getMethod("getLogic").invoke(provider);
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            return null;
         }
     }
 
     /**
-     * Generic processing providers may still receive an adaptive batch when the whole push can be
-     * proven atomic. This policy belongs to dispatch, so it must not depend on a provider class name.
+     * Scale only inspectable non-blocking processing providers with the existing single-input contract.
+     * Acceptance transfers the entire chunk; the send buffer separately determines capacity proof.
      */
-    private static boolean safeForAtomicScaling(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+    static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        if (Contract.forProvider(provider) != null) return false;
+        // A successful push can still own overflow. Require a live observation of AE2's send buffer.
+        Object providerLogic = providerLogic(provider);
+        if (!(providerLogic instanceof PatternProviderLogic logic)
+                || !(providerLogic instanceof PatternProviderLogicAccessor)) return false;
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
         if (!(base instanceof AEProcessingPattern) || base != request.pattern() || request.remainders().size() != 0
                 || request.pattern().getInputs().length != 1
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         try {
-            Method directBlocking = provider.getClass().getMethod("isBlocking");
-            Object logic = provider;
-            Method blocking = directBlocking;
-            if (blocking == null) return false;
-            if (Boolean.TRUE.equals(blocking.invoke(logic))) return false;
-        } catch (NoSuchMethodException noDirectContract) {
-            try {
-                Object logic = provider.getClass().getMethod("getLogic").invoke(provider);
-                if (Boolean.TRUE.equals(logic.getClass().getMethod("isBlocking").invoke(logic))) return false;
-            } catch (ReflectiveOperationException | RuntimeException unavailable) {
-                // Providers without an inspectable non-blocking contract cannot prove atomic scaling.
-                return false;
-            }
-        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            if (logic.isBlocking()) return false;
+        } catch (RuntimeException unavailable) {
             return false;
         }
         // Known directional/wireless provider modes split one push across targets and are not atomic here.
@@ -232,5 +256,39 @@ final class ECOProcessingPatternDispatcher {
     private static final class AmbiguousDispatchException extends RuntimeException {
         private AmbiguousDispatchException(Throwable cause) { super(cause); }
     }
-    static final class ProbeState { long next = 1, proven; void success(long o, long a) { if (a < o) { proven = Math.max(1, a); next = Math.max(1, Math.min(o / 2, proven)); } else { proven = Math.max(proven, o); next = o >= LADDER[LADDER.length - 1] ? (o >= Long.MAX_VALUE / 2 ? Long.MAX_VALUE : o * 2) : LADDER[nextIndex(o)]; } } void fail(long o) { next = Math.max(1, (proven > 0 ? Math.min(proven, o) : o) / 2); } private int nextIndex(long o) { for (int i = 0; i < LADDER.length - 1; i++) if (o <= LADDER[i]) return i + 1; return LADDER.length - 1; } }
+    /** History survives visits; growth/recovery flags belong only to the current visit. */
+    static final class ProbeState {
+        long remembered = 1;
+
+        Run beginRun() { return new Run(); }
+
+        final class Run {
+            long next = remembered;
+            long owned;
+            boolean fullChunkAccepted;
+            boolean backingOff;
+
+            long offer(long remaining) { return Math.min(next, remaining); }
+
+            /** Returns whether this visit should try another chunk. */
+            boolean record(long offered, long accepted, boolean fullyInserted) {
+                if (accepted <= 0) {
+                    if (fullChunkAccepted) return false;
+                    remembered = next = Math.max(1, offered / 2);
+                    backingOff = true;
+                    return offered > 1;
+                }
+                owned += accepted;
+                if (accepted != offered || !fullyInserted) {
+                    if (!fullChunkAccepted) remembered = Math.max(1, offered / 2);
+                    return false;
+                }
+                fullChunkAccepted = true;
+                if (offered == next) remembered = offered;
+                if (backingOff || offered == Integer.MAX_VALUE) return false;
+                next = Math.min(owned, Integer.MAX_VALUE);
+                return true;
+            }
+        }
+    }
 }
