@@ -265,7 +265,7 @@ tasks.register('testThunderboltLegacy', Test) {
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    srcDirs 'src/generated/resources'
     exclude 'kubejs.plugins.txt'
 }
 
@@ -318,7 +318,7 @@ tasks.register('copyGuidebook', Copy) {
     group = 'build'
 
     from 'guidebook/'
-    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
+    into 'src/main/resources/assets/neoecoae/ae2guide'
 }
 
 tasks.named('processResources') {
