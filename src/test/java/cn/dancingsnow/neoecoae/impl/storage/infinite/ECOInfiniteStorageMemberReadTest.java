@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.UUID;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.component.CustomData;
 import org.junit.jupiter.api.Test;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 class ECOInfiniteStorageMemberReadTest {
     @Test
@@ -54,5 +57,29 @@ class ECOInfiniteStorageMemberReadTest {
         assertTrue(ECOInfiniteStorageMember.domainId(data).isEmpty());
         assertFalse(ECOInfiniteStorageMember.isSealedData(CustomData.EMPTY));
         assertFalse(ECOInfiniteStorageMember.isMemberData(CustomData.EMPTY));
+    }
+
+    @Test
+    void returningToNormalStorageEndsTheMembershipIdentityLifetime() {
+        ItemStack stack = new ItemStack(Items.STONE);
+        UUID domain = UUID.randomUUID();
+        ECOInfiniteStorageMember.markMember(stack, domain);
+        UUID identity = ECOInfiniteStorageMember.getIdentity(stack).orElseThrow();
+        assertTrue(ECOInfiniteStorageMember.isMemberOf(stack, domain));
+
+        ECOInfiniteStorageMember.clearMember(stack);
+
+        assertFalse(ECOInfiniteStorageMember.isSealed(stack));
+        assertTrue(ECOInfiniteStorageMember.getIdentity(stack).isEmpty());
+        ECOInfiniteStorageMember.markMember(stack, domain);
+        assertNotEquals(identity, ECOInfiniteStorageMember.getIdentity(stack).orElseThrow());
+    }
+
+    @Test
+    void exposesMigrationDomainForSafeReinsertion() {
+        ItemStack stack = new ItemStack(Items.STONE);
+        UUID domain = UUID.randomUUID();
+        ECOInfiniteStorageMember.beginMigration(stack, domain);
+        assertEquals(domain, ECOInfiniteStorageMember.getMigrationDomainId(stack).orElseThrow());
     }
 }

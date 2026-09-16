@@ -448,7 +448,7 @@
   "gui.neoecoae.storage.members_missing": "缺少%s個成員碟",
   "gui.neoecoae.storage.members_return": "請插回",
   "jade.neoecoae.storage.infinite_enabled": "已開啟無限模式",
-  "tooltip.neoecoae.storage.infinite_member_locked": "無限儲存模式下不能取出被管理嘅儲存矩陣",
+  "tooltip.neoecoae.storage.infinite_member_locked": "無限模式遷移或恢復期間不能取出成員儲存矩陣；模式完成後可以取出，但退出前必須插回。",
   "gui.neoecoae.storage_interface.title": "儲存子系統通訊接口",
   "gui.neoecoae.storage_interface.mode.storage": "儲存",
   "gui.neoecoae.storage_interface.mode.input": "輸入",

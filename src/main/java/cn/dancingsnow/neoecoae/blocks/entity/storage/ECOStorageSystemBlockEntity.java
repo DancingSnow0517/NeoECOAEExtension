@@ -68,7 +68,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host {
+        implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
@@ -107,6 +107,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Nullable
     private UUID infiniteDomainId;
     private final java.util.Set<UUID> infiniteMemberIds = new java.util.HashSet<>();
+    /**
+     * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
+     */
+    private final java.util.Set<UUID> infiniteMigrationSourceIds = new java.util.HashSet<>();
 
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
     // Keep the component inventory persisted and exposed to the regular UI container, but do not include
@@ -119,9 +123,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private final ECOStorageInterfaceTransfer interfaceTransfer = new ECOStorageInterfaceTransfer(this);
     private final ECOStorageInfiniteRestore infiniteRestore = new ECOStorageInfiniteRestore(this);
     private final ECOInfiniteStorageModeController infiniteModeController =
-        new ECOInfiniteStorageModeController(this);
+            new ECOInfiniteStorageModeController(this);
     private final IItemHandlerModifiable infiniteComponentItemHandler =
-        infiniteRestore.componentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
+            infiniteRestore.componentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
 
     @DescSynced
     private int selectedEcoMegaBulkCell;
@@ -151,10 +155,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private boolean mirrored;
 
     public ECOStorageSystemBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState,
+            IECOTier tier
     ) {
         super(type, pos, blockState, NEStorageClusterCalculator::new);
         this.tier = tier;
@@ -162,25 +166,25 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public static ECOStorageSystemBlockEntity createL4(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState
     ) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L4);
     }
 
     public static ECOStorageSystemBlockEntity createL6(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState
     ) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L6);
     }
 
     public static ECOStorageSystemBlockEntity createL9(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState
     ) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L9);
     }
@@ -202,14 +206,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
                 var interfaceMode = getStorageInterface();
                 var mode = interfaceMode == null ? cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE
-                    : interfaceMode.getStorageInterfaceMode();
+                        : interfaceMode.getStorageInterfaceMode();
                 BlockState newState = state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored)
-                    .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode);
+                        .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode);
                 if (newState != state) {
                     level.setBlock(
-                        worldPosition,
-                        newState,
-                        Block.UPDATE_CLIENTS
+                            worldPosition,
+                            newState,
+                            Block.UPDATE_CLIENTS
                     );
                 }
             }
@@ -244,7 +248,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return stageRunner.failures();
     }
 
-    public String storageDiagnosticText() { return storageDiagnostics().getString(); }
+    public String storageDiagnosticText() {
+        return storageDiagnostics().getString();
+    }
 
     private void recordPerformanceSample(long elapsedNanos) {
         if (elapsedNanos < 0L) {
@@ -281,25 +287,25 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
-            () -> getItemFromBlockEntity().getDescription(),
-            statistics::getStoredEnergy,
-            statistics::getMaxEnergy,
-            statistics::getEnergyConsumePerTick,
-            statistics::getTotalUsedBytesText,
-            statistics::getCellEntries,
-            statistics.createStorageTypeLines(),
-            this::isFormedInfiniteMode,
-            this::isMigratingToInfinite,
-            this::canExtractInfiniteComponents,
-            this::getInfiniteDomainText,
-            this::getMissingInfiniteMembers,
-            infiniteComponentItemHandler
+                () -> getItemFromBlockEntity().getDescription(),
+                statistics::getStoredEnergy,
+                statistics::getMaxEnergy,
+                statistics::getEnergyConsumePerTick,
+                statistics::getTotalUsedBytesText,
+                statistics::getCellEntries,
+                statistics.createStorageTypeLines(),
+                this::isFormedInfiniteMode,
+                this::isMigratingToInfinite,
+                this::canExtractInfiniteComponents,
+                this::getInfiniteDomainText,
+                this::getMissingInfiniteMembers,
+                infiniteComponentItemHandler
         ));
         root.addChild(StorageMegaPanelUI.create(
-            this,
-            megaController.upgradeItemHandler(),
-            megaController.filterItemHandler(),
-            actionUI.bulkMarkingButton()
+                this,
+                megaController.upgradeItemHandler(),
+                megaController.filterItemHandler(),
+                actionUI.bulkMarkingButton()
         ));
         actionUI.addTo(root);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -345,11 +351,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @RPCMethod
     public void setEcoMegaFilter(
-        RPCSender sender,
-        int driveIndex,
-        int page,
-        int visualSlot,
-        ItemStack stack
+            RPCSender sender,
+            int driveIndex,
+            int page,
+            int visualSlot,
+            ItemStack stack
     ) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) {
             return;
@@ -361,10 +367,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         ECOStorageMegaController.EcoMegaFilterResult result = megaController.setEcoMegaFilterDirect(driveIndex, page, visualSlot, stack);
         if (result == ECOStorageMegaController.EcoMegaFilterResult.NOT_COMPRESSIBLE) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "gui.neoecoae.storage.mega_filter.not_compressible"), true);
+                    "gui.neoecoae.storage.mega_filter.not_compressible"), true);
         } else if (result == ECOStorageMegaController.EcoMegaFilterResult.DUPLICATE_CHAIN) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "gui.neoecoae.storage.mega_filter.duplicate_chain"), true);
+                    "gui.neoecoae.storage.mega_filter.duplicate_chain"), true);
         }
     }
 
@@ -402,29 +408,29 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         storageMounts.mount(
-            createInfiniteStorageView(engine),
-            storagePriority
+                createInfiniteStorageView(engine),
+                storagePriority
         );
     }
 
     private StorageHostActionUI.Elements createActionUI(BlockUIMenuType.BlockUIHolder holder) {
         return StorageHostActionUI.create(new StorageHostActionUI.Config(
-            holder.player,
-            () -> selectedBuildLength,
-            () -> mirrorBuild,
-            mirror -> buildController.setMirrorBuild(holder.player, mirror),
-            () -> buildController.decreaseBuildLength(holder.player),
-            () -> buildController.increaseBuildLength(holder.player),
-            () -> buildController.autoBuild(holder.player),
-            () -> formed,
-            () -> buildInProgress,
-            buildController::createLocalPreviewPlan,
-            () -> storagePriority,
-            priority -> setStoragePriority(holder.player, priority),
-            delta -> changeStoragePriority(holder.player, delta),
-            StorageBulkMarkingIntegration::isAvailable,
-            () -> NEConfig.megaBulkAutoMarkThreshold,
-            () -> megaController.autoMarkBulkCells(holder.player)
+                holder.player,
+                () -> selectedBuildLength,
+                () -> mirrorBuild,
+                mirror -> buildController.setMirrorBuild(holder.player, mirror),
+                () -> buildController.decreaseBuildLength(holder.player),
+                () -> buildController.increaseBuildLength(holder.player),
+                () -> buildController.autoBuild(holder.player),
+                () -> formed,
+                () -> buildInProgress,
+                buildController::createLocalPreviewPlan,
+                () -> storagePriority,
+                priority -> setStoragePriority(holder.player, priority),
+                delta -> changeStoragePriority(holder.player, delta),
+                StorageBulkMarkingIntegration::isAvailable,
+                () -> NEConfig.megaBulkAutoMarkThreshold,
+                () -> megaController.autoMarkBulkCells(holder.player)
         ));
     }
 
@@ -454,7 +460,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         IStorageProvider.requestUpdate(getMainNode());
     }
 
-    /** Read-only local-storage snapshot for optional integrations. */
+    /**
+     * Read-only local-storage snapshot for optional integrations.
+     */
     public KeyCounter collectLocalStorageStacksForIntegration() {
         KeyCounter result = new KeyCounter();
         MEStorage storage = interfaceTransfer.getStorageInterfaceHostStorage();
@@ -464,12 +472,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return result;
     }
 
-    /** Stable snapshot of the drives belonging to this storage host. */
+    /**
+     * Stable snapshot of the drives belonging to this storage host.
+     */
     public List<ECODriveBlockEntity> getStorageDrivesForIntegration() {
         return cluster == null ? List.of() : List.copyOf(cluster.getDrives());
     }
 
-    /** Invalidates host UI data and refreshes AE2 mounts after an integration changes cell configuration. */
+    /**
+     * Invalidates host UI data and refreshes AE2 mounts after an integration changes cell configuration.
+     */
     public void notifyStorageConfigurationChanged() {
         if (level == null || level.isClientSide) {
             return;
@@ -524,19 +536,30 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public boolean canInsertStorageCell(ItemStack stack) {
         if (!isInfiniteMode()) return !ECOInfiniteStorageMember.isSealed(stack);
+        if (ECOInfiniteStorageMember.isMigrating(stack)) {
+            UUID migrationId = ECOInfiniteStorageMember.getMigrationId(stack);
+            return hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                    && infiniteDomainId != null
+                    && ECOInfiniteStorageMember.getMigrationDomainId(stack).map(infiniteDomainId::equals).orElse(false)
+                    && migrationId != null
+                    && infiniteMigrationSourceIds.contains(migrationId)
+                    && (cluster == null || cluster.getDrives().stream().noneMatch(drive ->
+                    migrationId.equals(ECOInfiniteStorageMember.getMigrationId(drive.getCellStack()))));
+        }
         if (ECOInfiniteStorageMember.isMember(stack)) {
             if (infiniteDomainId == null || !ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) return false;
             var identity = ECOInfiniteStorageMember.getIdentity(stack);
             return cluster == null || identity.isEmpty() || cluster.getDrives().stream().noneMatch(drive ->
-                identity.equals(ECOInfiniteStorageMember.getIdentity(drive.getCellStack())));
+                    identity.equals(ECOInfiniteStorageMember.getIdentity(drive.getCellStack())));
 
         }
-        if (ECOInfiniteStorageMember.isMigrating(stack)) return false;
         IECOStorageCell cell = cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.getCellInventory(stack, null);
         return cell != null && !cell.isInfiniteStorageEligible();
     }
 
-    /** Remember identities, not slots: moving a member must not change the required roster. */
+    /**
+     * Remember identities, not slots: moving a member must not change the required roster.
+     */
     public void rememberInfiniteMembers() {
         if (level == null || level.isClientSide || cluster == null || infiniteDomainId == null) return;
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
@@ -567,12 +590,21 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         net.minecraft.nbt.ListTag ids = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMemberIds) ids.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
         tag.put("infiniteMemberIds", ids);
+        net.minecraft.nbt.ListTag migrations = new net.minecraft.nbt.ListTag();
+        for (UUID id : infiniteMigrationSourceIds) {
+            migrations.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
+        }
+        tag.put("infiniteMigrationSourceIds", migrations);
     }
 
     private void loadInfiniteMembers(CompoundTag tag) {
         infiniteMemberIds.clear();
         for (var value : tag.getList("infiniteMemberIds", net.minecraft.nbt.Tag.TAG_STRING)) {
             infiniteMemberIds.add(UUID.fromString(value.getAsString()));
+        }
+        infiniteMigrationSourceIds.clear();
+        for (var value : tag.getList("infiniteMigrationSourceIds", net.minecraft.nbt.Tag.TAG_STRING)) {
+            infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
         }
     }
 
@@ -617,9 +649,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
             var mode = storageInterface == null ? cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE
-                : storageInterface.getStorageInterfaceMode();
+                    : storageInterface.getStorageInterfaceMode();
             level.setBlockAndUpdate(worldPosition, level.getBlockState(worldPosition)
-                .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
+                    .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
         }
         if (storageInterface != null) {
             interfaceTransfer.updateFiniteTransferDomain(storageInterface);
@@ -652,11 +684,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     UUID migrationTransactionId(
-        UUID domainId,
-        ECODriveBlockEntity drive,
-        AEKey key,
-        long amount,
-        String direction
+            UUID domainId,
+            ECODriveBlockEntity drive,
+            AEKey key,
+            long amount,
+            String direction
     ) {
         return infiniteModeController.migrationTransactionId(domainId, drive, key, amount, direction);
     }
@@ -734,9 +766,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         infiniteComponentInventory.readFromNBT(
-            managed.getCompound(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY),
-            "inventory",
-            registries
+                managed.getCompound(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY),
+                "inventory",
+                registries
         );
     }
 
@@ -809,6 +841,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return infiniteMemberIds;
     }
 
+    java.util.Set<UUID> infiniteMigrationSourceIds() {
+        return infiniteMigrationSourceIds;
+    }
+
     ECOStorageInfiniteRestore infiniteRestore() {
         return infiniteRestore;
     }
@@ -872,37 +908,59 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public Level getBuildLevel() { return level; }
+    public Level getBuildLevel() {
+        return level;
+    }
 
     @Override
-    public BlockPos getBuildPosition() { return worldPosition; }
+    public BlockPos getBuildPosition() {
+        return worldPosition;
+    }
 
     @Override
-    public BlockState getBuildState() { return getBlockState(); }
+    public BlockState getBuildState() {
+        return getBlockState();
+    }
 
     @Override
-    public int getSelectedBuildLength() { return selectedBuildLength; }
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
 
     @Override
-    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+    public void setSelectedBuildLength(int length) {
+        selectedBuildLength = length;
+    }
 
     @Override
-    public boolean isMirrorBuild() { return mirrorBuild; }
+    public boolean isMirrorBuild() {
+        return mirrorBuild;
+    }
 
     @Override
-    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
+    public void setMirrorBuild(boolean mirrorBuild) {
+        this.mirrorBuild = mirrorBuild;
+    }
 
     @Override
-    public boolean isBuildInProgress() { return buildInProgress; }
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
 
     @Override
-    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
+    public void setBuildInProgress(boolean buildInProgress) {
+        this.buildInProgress = buildInProgress;
+    }
 
     @Override
-    public boolean isFormed() { return formed; }
+    public boolean isFormed() {
+        return formed;
+    }
 
     @Override
-    public void rebuildAfterBuild() { rebuildMultiblock(); }
+    public void rebuildAfterBuild() {
+        rebuildMultiblock();
+    }
 
     @Override
     public void buildStateChanged() {

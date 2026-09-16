@@ -5,8 +5,10 @@ import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
+
 import java.util.Optional;
 import java.util.UUID;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.ItemStack;
@@ -20,7 +22,8 @@ public final class ECOInfiniteStorageMember {
     private static final String MIGRATION_DOMAIN_TAG = "neoecoae_migration_domain";
     private static final String IDENTITY_TAG = "neoecoae_member_identity";
 
-    private ECOInfiniteStorageMember() {}
+    private ECOInfiniteStorageMember() {
+    }
 
     public static boolean isSealed(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
@@ -32,7 +35,9 @@ public final class ECOInfiniteStorageMember {
         return tag.hasUUID(MIGRATION_TAG) || tag.getBoolean(MEMBER_TAG);
     }
 
-    /** Read-only access: mutations must still copy the tag and replace the component. */
+    /**
+     * Read-only access: mutations must still copy the tag and replace the component.
+     */
     @SuppressWarnings("deprecation")
     private static CompoundTag readTag(CustomData data) {
         return data.getUnsafe();
@@ -60,6 +65,12 @@ public final class ECOInfiniteStorageMember {
     public static @Nullable UUID getMigrationId(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return null;
         return migrationId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+    }
+
+    public static Optional<UUID> getMigrationDomainId(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return Optional.empty();
+        CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        return tag.hasUUID(MIGRATION_DOMAIN_TAG) ? Optional.of(tag.getUUID(MIGRATION_DOMAIN_TAG)) : Optional.empty();
     }
 
     static @Nullable UUID migrationId(CustomData data) {
@@ -131,6 +142,9 @@ public final class ECOInfiniteStorageMember {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         tag.remove(MEMBER_TAG);
         tag.remove(DOMAIN_TAG);
+        // Identities identify one membership lifetime. Keeping them on an ordinary cell makes
+        // creative/NBT copies indistinguishable during the next restore.
+        tag.remove(IDENTITY_TAG);
         if (tag.isEmpty()) {
             stack.remove(DataComponents.CUSTOM_DATA);
         } else {

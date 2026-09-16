@@ -448,7 +448,7 @@
   "gui.neoecoae.storage.members_missing": "缺成員盤%s枚",
   "gui.neoecoae.storage.members_return": "請歸其盤",
   "jade.neoecoae.storage.infinite_enabled": "無限藏已啟",
-  "tooltip.neoecoae.storage.infinite_member_locked": "無限藏啟時，受轄藏矩不可取",
+  "tooltip.neoecoae.storage.infinite_member_locked": "遷徙復藏之際不可取成員藏矩；既成則可取，退出前須復置。",
   "gui.neoecoae.storage_interface.title": "藏器通訊樞",
   "gui.neoecoae.storage_interface.mode.storage": "藏",
   "gui.neoecoae.storage_interface.mode.input": "入",

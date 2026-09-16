@@ -26,13 +26,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Coordinates infinite-storage mode transitions and the mounted domain lifetime. */
+/**
+ * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
+ */
 final class ECOInfiniteStorageModeController {
     private static final int MINIMUM_MIGRATION_SOURCES = 12;
 
     private final ECOStorageSystemBlockEntity host;
     private final ECOInfiniteStorageTransfer transfer = new ECOInfiniteStorageTransfer();
-    private final Set<UUID> durableSourceSeals = new HashSet<>();
+    private final Set<UUID> preparedSourceSeals = new HashSet<>();
 
     private boolean targetInfiniteMode;
     private boolean updating;
@@ -53,7 +55,7 @@ final class ECOInfiniteStorageModeController {
 
     void update() {
         if (host.getLevel() == null || host.getLevel().isClientSide || host.isStorageServerStopping()
-            || updating || modeCheckTick == host.getLevel().getGameTime()) {
+                || updating || modeCheckTick == host.getLevel().getGameTime()) {
             return;
         }
         modeCheckTick = host.getLevel().getGameTime();
@@ -92,9 +94,9 @@ final class ECOInfiniteStorageModeController {
         }
         ECOInfiniteStorageEngine restoringEngine = getEngine();
         if (host.storageHostMode() == ECOStorageHostMode.RESTORING_TO_NORMAL
-            || host.infiniteRestore().isRestoring()
-            || restoringEngine != null && restoringEngine.hasPendingRestore()
-            || host.isInfiniteExitRequested() && host.storageHostMode().isInfiniteState()) {
+                || host.infiniteRestore().isRestoring()
+                || restoringEngine != null && restoringEngine.hasPendingRestore()
+                || host.isInfiniteExitRequested() && host.storageHostMode().isInfiniteState()) {
             host.setStorageHostMode(ECOStorageHostMode.RESTORING_TO_NORMAL);
             host.infiniteRestore().restoreInfiniteDomainToNormalStorageIfPossible();
             return;
@@ -132,14 +134,31 @@ final class ECOInfiniteStorageModeController {
 
     private boolean canStartMigration() {
         return !host.isInfiniteExitRequested()
-            && host.getTier() == ECOTier.L9
-            && host.isFormed()
-            && host.getCluster() != null
-            && !host.storageInterfaceTransfer().blocksInfiniteMigration()
-            && !host.isStorageInterfaceTransferMode()
-            && targetInfiniteMode
-            && countMigrationSources() >= MINIMUM_MIGRATION_SOURCES
-            && !hasForeignMembers();
+                && host.getTier() == ECOTier.L9
+                && host.isFormed()
+                && host.getCluster() != null
+                && !host.storageInterfaceTransfer().blocksInfiniteMigration()
+                && !host.isStorageInterfaceTransferMode()
+                && targetInfiniteMode
+                && countMigrationSources() >= MINIMUM_MIGRATION_SOURCES
+                && !hasForeignMembers()
+                && !hasDuplicateCandidateIdentities();
+    }
+
+    private boolean hasDuplicateCandidateIdentities() {
+        if (host.getCluster() == null) return false;
+        Set<UUID> identities = new HashSet<>();
+        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell cell = drive.getCellInventory();
+            if (stack == null || stack.isEmpty()
+                    || (!ECOInfiniteStorageMember.isMember(stack) && !ECOInfiniteStorageTransfer.isEligible(cell))) {
+                continue;
+            }
+            var identity = ECOInfiniteStorageMember.getIdentity(stack);
+            if (identity.isPresent() && !identities.add(identity.get())) return true;
+        }
+        return false;
     }
 
     int migrationProgressPercent() {
@@ -152,8 +171,8 @@ final class ECOInfiniteStorageModeController {
         int migrated = countInfiniteMembers();
         int totalTargets = migrated + countPendingMigrationTargets();
         return totalTargets == 0
-            ? 100
-            : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
+                ? 100
+                : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
     }
 
     private int countMigrationSources() {
@@ -167,7 +186,7 @@ final class ECOInfiniteStorageModeController {
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             ItemStack stack = drive.getCellStack();
             if (ECOInfiniteStorageMember.isMember(stack)
-                && (host.infiniteDomainId() == null
+                    && (host.infiniteDomainId() == null
                     || !ECOInfiniteStorageMember.isMemberOf(stack, host.infiniteDomainId()))) {
                 return true;
             }
@@ -184,8 +203,8 @@ final class ECOInfiniteStorageModeController {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell cell = drive.getCellInventory();
             if (stack != null && !stack.isEmpty()
-                && ECOInfiniteStorageTransfer.isEligible(cell)
-                && !ECOInfiniteStorageMember.isMember(stack)) {
+                    && ECOInfiniteStorageTransfer.isEligible(cell)
+                    && !ECOInfiniteStorageMember.isMember(stack)) {
                 count++;
             }
         }
@@ -240,7 +259,7 @@ final class ECOInfiniteStorageModeController {
                     continue;
                 }
                 hasPending = true;
-                if (!durableSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))) {
+                if (!preparedSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))) {
                     continue;
                 }
                 migrateDrive(drive, cell, engine, domainId);
@@ -252,49 +271,54 @@ final class ECOInfiniteStorageModeController {
                 host.storageFaults().report(stage, exception.toString(), tick, exception);
             }
         }
-        if (!hasPending) {
+        if (!hasPending && host.infiniteMigrationSourceIds().isEmpty()) {
             host.setStorageHostMode(ECOStorageHostMode.FORMED_INFINITE);
         }
     }
 
     private void migrateDrive(
-        ECODriveBlockEntity drive,
-        IECOStorageCell cell,
-        ECOInfiniteStorageEngine engine,
-        UUID domainId
+            ECODriveBlockEntity drive,
+            IECOStorageCell cell,
+            ECOInfiniteStorageEngine engine,
+            UUID domainId
     ) {
         if (!(cell instanceof IECOStorageMigrationCell migrationCell)) {
             throw new IllegalStateException("Cell handler does not support resumable migration");
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
         boolean finished = transfer.step(drive.getCellStack(), migrationCell, domainId, engine,
-            host.getLevel().registryAccess(),
-            () -> {
-                if (!durableSourceSeals.contains(migration)) {
-                    throw new IllegalStateException("Source seal is not durable");
-                }
-            },
-            () -> drive.convertCellToInfiniteMember(domainId),
-            (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"),
-            NEConfig.storageTransferKeysPerTick,
-            host.currentStorageBudget());
+                host.getLevel().registryAccess(),
+                () -> {
+                    if (!preparedSourceSeals.contains(migration)) {
+                        throw new IllegalStateException("Source seal has not been prepared");
+                    }
+                },
+                () -> drive.convertCellToInfiniteMember(domainId),
+                (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"),
+                NEConfig.storageTransferKeysPerTick,
+                host.currentStorageBudget());
         if (!finished) {
             return;
         }
         host.rememberInfiniteMembers();
-        durableSourceSeals.remove(migration);
+        preparedSourceSeals.remove(migration);
+        host.infiniteMigrationSourceIds().remove(migration);
         IStorageProvider.requestUpdate(drive.getMainNode());
         host.invalidateStorageStatistics();
         host.setChanged();
         host.markForUpdate();
+        if (host.getLevel() instanceof ServerLevel serverLevel) {
+            ECOStorageDurability.saveChunks(serverLevel, List.of(drive.getBlockPos(), host.getBlockPos()));
+        }
     }
 
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
         Set<UUID> prepared = new HashSet<>();
+        List<net.minecraft.core.BlockPos> changedChunks = new ArrayList<>();
         long started = System.nanoTime();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             if (prepared.size() >= NEConfig.storageTransferKeysPerTick
-                || !prepared.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget()) {
+                    || !prepared.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget()) {
                 break;
             }
             String stage = "migration drive " + drive.getBlockPos();
@@ -304,31 +328,35 @@ final class ECOInfiniteStorageModeController {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell cell = drive.getCellInventory();
             if (stack == null || stack.isEmpty() || ECOInfiniteStorageMember.isMember(stack)
-                || !ECOInfiniteStorageTransfer.isEligible(cell)) {
+                    || !ECOInfiniteStorageTransfer.isEligible(cell)) {
                 continue;
             }
             try {
                 UUID migration = ECOInfiniteStorageMember.beginMigration(stack, domainId);
-                if (durableSourceSeals.contains(migration)) {
+                if (host.infiniteMigrationSourceIds().add(migration)) {
+                    host.setChanged();
+                }
+                if (preparedSourceSeals.contains(migration)) {
                     continue;
                 }
                 ((IECOStorageMigrationCell) cell).persistMigrationContents(serverLevel);
                 drive.setChanged();
                 IStorageProvider.requestUpdate(drive.getMainNode());
                 prepared.add(migration);
+                changedChunks.add(drive.getBlockPos());
             } catch (RuntimeException exception) {
                 host.storageStageRetryTicks().put(stage, host.getLevel().getGameTime() + 200L);
                 host.storageFaults().report(stage, exception.toString(), host.getLevel().getGameTime(), exception);
             }
         }
         if (!prepared.isEmpty()) {
-            // Save a batch of seals together, rather than saving the dimension separately for every source disk.
-            serverLevel.getChunkSource().save(true);
-            durableSourceSeals.addAll(prepared);
+            changedChunks.add(host.getBlockPos());
+            ECOStorageDurability.saveChunks(serverLevel, changedChunks);
+            preparedSourceSeals.addAll(prepared);
         }
     }
 
-    UUID migrationTransactionId( UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
+    UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
         ECOInfiniteStorageEngine engine = getEngine();
         UUID restore = engine == null ? null : engine.restoreTransaction(key);
         if ("from-domain".equals(direction) && restore != null) {
@@ -337,7 +365,7 @@ final class ECOInfiniteStorageModeController {
             return UUID.nameUUIDFromBytes((restore + ":" + identity).getBytes(StandardCharsets.UTF_8));
         }
         String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
-            + key.toTagGeneric(host.getLevel().registryAccess()) + ":" + amount;
+                + key.toTagGeneric(host.getLevel().registryAccess()) + ":" + amount;
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -359,13 +387,14 @@ final class ECOInfiniteStorageModeController {
             }
         }
         host.setStorageHostMode(host.isFormed()
-            ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED);
+                ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED);
         if (host.getLevel() instanceof ServerLevel && domainId != null) {
             // Retain transfer receipts: an old source chunk must not import the same inventory again.
             release();
         }
         host.setInfiniteDomainId(null);
         host.infiniteMemberIds().clear();
+        host.infiniteMigrationSourceIds().clear();
         host.refreshDriveStorageProviders();
         host.setChanged();
         host.markForUpdate();
@@ -379,7 +408,7 @@ final class ECOInfiniteStorageModeController {
         }
         MinecraftServer server = serverLevel.getServer();
         if (mountedEngine == null || mountedServer != server
-            || !host.infiniteDomainId().equals(mountedDomainId)) {
+                || !host.infiniteDomainId().equals(mountedDomainId)) {
             release();
             mountedServer = server;
             mountedDomainId = host.infiniteDomainId();
@@ -390,7 +419,7 @@ final class ECOInfiniteStorageModeController {
 
     void release() {
         transfer.reset();
-        durableSourceSeals.clear();
+        preparedSourceSeals.clear();
         if (mountedServer != null && mountedDomainId != null) {
             ECOInfiniteStorageDomains.release(mountedServer, mountedDomainId);
         }
@@ -413,20 +442,20 @@ final class ECOInfiniteStorageModeController {
     MEStorage createStorageView(ECOInfiniteStorageEngine engine) {
         long generation = backendGeneration;
         return new ECOInfiniteStorage(engine, host.getBlockState().getBlock().getName(),
-            () -> generation == backendGeneration && engine == mountedEngine
-                && host.canInsertIntoInfiniteDomain());
+                () -> generation == backendGeneration && engine == mountedEngine
+                        && host.canInsertIntoInfiniteDomain());
     }
 
     boolean canInsertIntoDomain() {
         return host.isFormed()
-            && !host.isRemoved()
-            && !host.isStorageServerStopping()
-            && host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
-            && host.infiniteDomainId() != null
-            && !host.isInfiniteExitRequested()
-            && !host.infiniteRestore().isRestoring()
-            && mountedEngine != null
-            && mountedEngine.isHealthy()
-            && !mountedEngine.hasPendingRestore();
+                && !host.isRemoved()
+                && !host.isStorageServerStopping()
+                && host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
+                && host.infiniteDomainId() != null
+                && !host.isInfiniteExitRequested()
+                && !host.infiniteRestore().isRestoring()
+                && mountedEngine != null
+                && mountedEngine.isHealthy()
+                && !mountedEngine.hasPendingRestore();
     }
 }
