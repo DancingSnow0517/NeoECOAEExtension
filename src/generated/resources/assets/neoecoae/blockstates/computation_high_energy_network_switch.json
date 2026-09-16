@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "neoecoae:block/computation_high_energy_network_switch"
+      "model": "neoecoae:block/computation_network_switch"
     }
   }
 }
