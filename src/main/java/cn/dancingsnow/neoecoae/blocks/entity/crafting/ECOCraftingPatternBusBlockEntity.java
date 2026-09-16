@@ -26,13 +26,12 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
-import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
@@ -167,7 +166,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         var rejection = validateExternalRequest(request);
         if (rejection != RejectionReason.NONE) return rejectedCapability(rejection);
         var pattern = findExternalPattern(request);
-        if (pattern == null) return rejectedCapability(RejectionReason.UNSUPPORTED_PROCESSING);
+        if (pattern == null
+            || !ECOThunderboltBatchBridge.fastPathEligible(this, pattern)) {
+            return rejectedCapability(RejectionReason.UNSUPPORTED_PROCESSING);
+        }
         long accepted = Math.min(request.requestedAmount(), Math.max(0, getAvailableThreadSlots()));
         if (accepted <= 0L) return rejectedCapability(RejectionReason.BUSY);
         var tier = externalHostTier();
@@ -193,17 +195,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 for (var stack : slot) counter.add(stack.what(), stack.amount());
                 return counter;
             }).toArray(KeyCounter[]::new);
-            var batch = ECOFastPathFacade.prepareAllocated(this, pattern, inputs,
-                capability.acceptedAmount(), getLevel(), null);
-            boolean accepted = batch != null && batch.submit(amount -> new ECOFastPathFacade.Reservation() {
-                @Override public void commit() {}
-                @Override public void refund() {}
-            });
-            long amount = accepted ? batch.craftCount() : 0L;
+            long leftover = ECOThunderboltBatchBridge
+                .drainFastPath(this, pattern, inputs, capability.acceptedAmount(), getLevel(), null);
+            if (leftover < 0L || leftover > capability.acceptedAmount()) leftover = capability.acceptedAmount();
+            long amount = capability.acceptedAmount() - leftover;
             long unaccepted = request.requestedAmount() - amount;
             var status = amount == 0L ? Status.REJECTED : unaccepted == 0L ? Status.ACCEPTED : Status.PARTIAL;
-            var results = amount == 0L ? List.<appeng.api.stacks.GenericStack>of() : batch.outputs();
-            return rememberExternal(request.nonce(), new FastpathSubmission(status, amount, results,
+            return rememberExternal(request.nonce(), new FastpathSubmission(status, amount, List.of(),
                 unaccepted, amount == 0L, amount == 0L ? RejectionReason.NO_CAPACITY : RejectionReason.NONE));
         } catch (RuntimeException failure) {
             return rememberExternal(request.nonce(), new FastpathSubmission(Status.REJECTED, 0L, List.of(),
