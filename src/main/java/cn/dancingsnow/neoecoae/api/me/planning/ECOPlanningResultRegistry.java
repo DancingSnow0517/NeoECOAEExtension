@@ -200,7 +200,15 @@ public final class ECOPlanningResultRegistry {
             Entry entry = RESULTS.get(signature);
             if (entry == null) return null;
 
-            ECOExecutionPlan rebound = rebind(entry.executionPlan(), entry.tasks(), plan.patternTimes());
+            ECOExecutionPlan sourcePlan = entry.executionPlan();
+            if (sourcePlan == null && !entry.cycleExpected()) {
+                try {
+                    sourcePlan = entry.result().executionPlan();
+                } catch (RuntimeException ignored) {
+                    sourcePlan = null;
+                }
+            }
+            ECOExecutionPlan rebound = rebind(sourcePlan, entry.tasks(), plan.patternTimes());
             return recovered(entry, rebound, "strict-plan-identity");
         }
     }
@@ -351,7 +359,9 @@ public final class ECOPlanningResultRegistry {
         else if (planSimulation) reason = "PLAN_SIMULATION";
         else if (resultPlanSimulation) reason = "RESULT_PLAN_SIMULATION";
         boolean cycleExpected = cycleExpected(result);
-        if (reason == null) {
+        // A pure DAG result can defer schedule construction until submission. Cycle metadata is still validated
+        // here because a cycle-expected result must never be published without a trustworthy phase contract.
+        if (reason == null && cycleExpected) {
             try {
                 executionPlan = result.executionPlan();
                 ECOExecutionSchedule schedule = executionPlan.schedule();

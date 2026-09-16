@@ -13,7 +13,7 @@ import java.math.BigInteger;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-/** Immutable planning answer. Its execution plan is interpreted exactly once during construction. */
+/** Immutable planning answer. Its execution plan is interpreted at most once, on first access when needed. */
 public final class ECOPlanningResult {
     private final PlanningStatus status;
     private final @Nullable CraftingPlan plan;
@@ -25,9 +25,11 @@ public final class ECOPlanningResult {
     private BigInteger theoreticalBytes = BigInteger.ZERO;
     private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
-    private final ECOExecutionRequirement executionRequirement;
-    private final @Nullable ECOExecutionPlan executionPlan;
-    private final @Nullable String executionPlanError;
+    private volatile ECOExecutionRequirement executionRequirement;
+    private volatile @Nullable ECOExecutionPlan executionPlan;
+    private volatile @Nullable String executionPlanError;
+    private final Object executionPlanLock = new Object();
+    private volatile boolean executionPlanResolved;
     private final @Nullable ExecutionProvenance provenance;
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
@@ -48,10 +50,23 @@ public final class ECOPlanningResult {
         }
         ECOExecutionRequirement requirement = plan == null ? ECOExecutionRequirement.NONE
             : ECOExecutionRequirement.classify(this.components, plan.patternTimes());
-        ECOExecutionPlan built = null;
-        String error = null;
-        if (status == PlanningStatus.SUCCESS && plan != null && requirement != ECOExecutionRequirement.BLOCKED
-                && !this.components.isEmpty()) {
+        this.executionRequirement = requirement;
+        this.executionPlan = null;
+        this.executionPlanError = requirement == ECOExecutionRequirement.BLOCKED
+            ? "CYCLE_NOT_SOLVED" : null;
+        // Pure DAG results are intentionally resolved lazily. They are common and do not need an execution plan
+        // while the planner is still constructing/publishing its numeric result. Cycle metadata remains fail-closed.
+        this.executionPlanResolved = status != PlanningStatus.SUCCESS
+            || requirement == ECOExecutionRequirement.BLOCKED || this.components.isEmpty();
+    }
+
+    private void resolveExecutionPlan() {
+        if (executionPlanResolved) return;
+        synchronized (executionPlanLock) {
+            if (executionPlanResolved) return;
+            ECOExecutionRequirement requirement = executionRequirement;
+            ECOExecutionPlan built = null;
+            String error = null;
             try {
                 PlanIdentity.Signature signature = PlanIdentity.of(plan);
                 if (signature == null) throw new IllegalStateException("Plan identity unavailable");
@@ -65,20 +80,18 @@ public final class ECOPlanningResult {
                     // An empty phase list is never a valid cycle metadata answer. Surface it explicitly:
                     // for a cycle-expected plan this must end as an explicit FAILED state, not as a
                     // silently stripped schedule that later looks like phaseCount=0 while cycleExpected=true.
-                    if (requirement != ECOExecutionRequirement.NONE) {
-                        error = "EXECUTION_PLAN_EMPTY";
-                    }
+                    if (requirement != ECOExecutionRequirement.NONE) error = "EXECUTION_PLAN_EMPTY";
                     built = null;
                 }
             } catch (RuntimeException failure) {
                 error = "EXECUTION_PLAN_BUILD_FAILED:" + failure.getClass().getSimpleName()
                     + (failure.getMessage() == null ? "" : ":" + failure.getMessage());
             }
+            this.executionPlan = built;
+            this.executionPlanError = error;
+            if (error != null) this.executionRequirement = ECOExecutionRequirement.BLOCKED;
+            this.executionPlanResolved = true;
         }
-        if (requirement == ECOExecutionRequirement.BLOCKED) error = "CYCLE_NOT_SOLVED";
-        this.executionRequirement = error == null ? requirement : ECOExecutionRequirement.BLOCKED;
-        this.executionPlan = built;
-        this.executionPlanError = error;
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
@@ -123,7 +136,10 @@ public final class ECOPlanningResult {
     }
     public UUID planningId() { return planningId; }
     public ECOExecutionRequirement executionRequirement() { return executionRequirement; }
-    public @Nullable String executionPlanError() { return executionPlanError; }
+    public @Nullable String executionPlanError() {
+        resolveExecutionPlan();
+        return executionPlanError;
+    }
     public @Nullable ExecutionProvenance provenance() { return provenance; }
 
     public boolean shouldUseNativeFallback() {
@@ -132,6 +148,7 @@ public final class ECOPlanningResult {
     }
 
     public ECOExecutionPlan executionPlan() {
+        resolveExecutionPlan();
         if (executionPlan == null) throw new IllegalStateException(executionPlanError == null
             ? "This result has no phased execution plan" : executionPlanError);
         return executionPlan;
@@ -147,6 +164,7 @@ public final class ECOPlanningResult {
 
     public ECOExecutionContract executionContract() {
         if (plan == null) throw new IllegalStateException("Cannot create an execution contract without a plan");
+        resolveExecutionPlan();
         PlanIdentity.Signature signature = PlanIdentity.of(plan);
         if (signature == null) throw new IllegalStateException("Plan identity unavailable");
         if (executionRequirement == ECOExecutionRequirement.BLOCKED) {

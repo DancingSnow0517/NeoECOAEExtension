@@ -43,14 +43,16 @@ public final class ECOExecutionPlanBuilder {
         Map<Integer, ComponentPlanningResult> componentById = new HashMap<>();
         components.forEach(component -> componentById.put(component.componentId(), component));
 
-        List<PlannedTask> selected = new ArrayList<>();
+        Map<PlanIdentity.PatternIdentity, PlannedTask> selectedByIdentity = new LinkedHashMap<>();
         for (var entry : patternTimes.entrySet()) {
             if (entry.getValue() == null || entry.getValue() <= 0) continue;
             var identity = requireIdentity(entry.getKey());
-            PlannedTask existing = selected.stream().filter(task -> task.identity().equals(identity)).findFirst().orElse(null);
-            if (existing == null) selected.add(new PlannedTask(identity, entry.getKey(), entry.getValue()));
+            PlannedTask existing = selectedByIdentity.get(identity);
+            if (existing == null) selectedByIdentity.put(identity,
+                new PlannedTask(identity, entry.getKey(), entry.getValue()));
             else existing.add(entry.getValue());
         }
+        List<PlannedTask> selected = new ArrayList<>(selectedByIdentity.values());
         selected.sort(Comparator.comparing(task -> stableIdentity(task.identity())));
 
         Map<PlanIdentity.PatternIdentity, Integer> phaseByIdentity = new LinkedHashMap<>();
@@ -107,7 +109,7 @@ public final class ECOExecutionPlanBuilder {
                     }
                     steps.add(new ECOExecutionPlan.ExecutionStep(taskId, run.count()));
                 }
-                validateCycleCounts(component, steps, tasks);
+                validateCycleCounts(component, steps, tasks, taskIdByIdentity);
             }
             if (schedulePhase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE && component != null
                     && component.cycleResult() != null) {
@@ -146,7 +148,8 @@ public final class ECOExecutionPlanBuilder {
     }
 
     private static void validateCycleCounts(ComponentPlanningResult component,
-            List<ECOExecutionPlan.ExecutionStep> steps, List<ECOExecutionPlan.TaskSpec> tasks) {
+            List<ECOExecutionPlan.ExecutionStep> steps, List<ECOExecutionPlan.TaskSpec> tasks,
+            Map<PlanIdentity.PatternIdentity, Integer> taskIdByIdentity) {
         Map<PlanIdentity.PatternIdentity, Long> signature = PlanIdentity.taskSignature(
             component.cycleResult().patternTimes());
         if (signature == null) throw new IllegalStateException("Cycle firing vector has no stable identity");
@@ -158,7 +161,8 @@ public final class ECOExecutionPlanBuilder {
             throw new IllegalStateException("Compact cycle trace does not equal the solved firing vector");
         }
         for (var entry : actual.entrySet()) {
-            var task = tasks.stream().filter(candidate -> candidate.identity().equals(entry.getKey())).findFirst().orElseThrow();
+            var task = java.util.Optional.ofNullable(taskIdByIdentity.get(entry.getKey()))
+                .map(tasks::get).orElseThrow();
             if (entry.getValue() > task.totalCount()) {
                 throw new IllegalStateException("Cycle trace consumes more than the aggregate AE2 task count");
             }

@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
@@ -58,28 +60,26 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             Map<IPatternDetails, Long> plannedTasks, ExecutionProvenance provenance) {
         Map<Integer, ComponentPlanningResult> byId = components.stream().collect(
             java.util.stream.Collectors.toMap(ComponentPlanningResult::componentId, c -> c));
-        List<IPatternDetails> executableTasks = plannedTasks == null
-            ? components.stream().flatMap(component -> component.executionPatterns().stream()).toList()
-            : plannedTasks.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
-                .map(Map.Entry::getKey)
-                .toList();
+        PatternIndex executableTaskIndex = plannedTasks == null
+            ? PatternIndex.from(components.stream().flatMap(component -> component.executionPatterns().stream()).toList())
+            : PatternIndex.fromPlannedTasks(plannedTasks);
+        List<IPatternDetails> executableTasks = executableTaskIndex.patterns();
 
         // A pattern used by a solved cycle owns its entire AE2 aggregate counter, including any additional DAG
         // demand for the same physical pattern. Once the concrete witness has run, the cycle phase deliberately
         // permits that aggregate remainder.
-        List<IPatternDetails> cycleOwnedPatterns = new ArrayList<>();
+        PatternIndex cycleOwnedPatterns = new PatternIndex();
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
             if (!ECOExecutionRequirement.componentIsExecutableCycle(component)) continue;
             for (IPatternDetails source : component.executionPatterns()) {
-                IPatternDetails executable = executablePattern(source, executableTasks, plannedTasks != null);
+                IPatternDetails executable = executablePattern(source, executableTaskIndex, plannedTasks != null);
                 addPhysicalPattern(cycleOwnedPatterns, executable);
             }
         }
 
         var phases = new ArrayList<ComponentExecutionPhase>();
-        List<IPatternDetails> assignedPatterns = new ArrayList<>();
+        PatternIndex assignedPatterns = new PatternIndex();
         for (int id : executionOrder) {
             var c = byId.get(id);
             if (c == null) continue;
@@ -89,7 +89,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 : c.type() == ComponentPlanningResult.Type.CYCLIC ? Type.CYCLE : Type.DAG;
             Set<IPatternDetails> patterns = new LinkedHashSet<>();
             for (IPatternDetails source : c.executionPatterns()) {
-                IPatternDetails executable = executablePattern(source, executableTasks, plannedTasks != null);
+                IPatternDetails executable = executablePattern(source, executableTaskIndex, plannedTasks != null);
                 if (executable == null || containsPhysicalPattern(assignedPatterns, executable)) continue;
                 if (type == Type.DAG && containsPhysicalPattern(cycleOwnedPatterns, executable)) continue;
                 patterns.add(executable);
@@ -99,10 +99,11 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
 
             List<IPatternDetails> witness = new ArrayList<>();
             if (type == Type.CYCLE && c.cycleResult() != null) {
+                PatternIndex phasePatterns = PatternIndex.from(patterns);
                 for (var firing : c.cycleResult().executionWitness()) {
                     IPatternDetails executable = executablePattern(
-                        firing.pattern().details(), executableTasks, plannedTasks != null);
-                    if (executable == null || !containsPhysicalPattern(patterns, executable)) {
+                        firing.pattern().details(), executableTaskIndex, plannedTasks != null);
+                    if (executable == null || !containsPhysicalPattern(phasePatterns, executable)) {
                         throw new IllegalStateException("Cycle witness contains a pattern absent from the executable plan");
                     }
                     witness.add(executable);
@@ -128,7 +129,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 assignedPatterns.add(pattern);
             }
         }
-        OrderedSchedule ordered = orderByExecutableDependencies(phases, provenance, executableTasks);
+        OrderedSchedule ordered = orderByExecutableDependencies(phases, provenance, executableTaskIndex);
         return new ECOExecutionSchedule(ordered.phases(), ordered.dependencies());
     }
 
@@ -138,15 +139,15 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
      * behind their consumers in the stale component order.
      */
     private static OrderedSchedule orderByExecutableDependencies(List<ComponentExecutionPhase> phases,
-            ExecutionProvenance provenance, List<IPatternDetails> plannedTasks) {
+            ExecutionProvenance provenance, PatternIndex plannedTasks) {
         Map<AEKey, Set<Integer>> producersByKey = new LinkedHashMap<>();
         Map<AEKey, Set<Integer>> primaryProducersByKey = new LinkedHashMap<>();
-        Map<IPatternDetails, Integer> phaseOfPattern = new java.util.IdentityHashMap<>();
+        PatternIndex phaseOfPattern = new PatternIndex();
         Map<Integer, Integer> phaseOfComponent = new LinkedHashMap<>();
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
             phaseOfComponent.put(phases.get(phaseIndex).componentId(), phaseIndex);
             for (IPatternDetails pattern : phases.get(phaseIndex).patternSet()) {
-                phaseOfPattern.put(pattern, phaseIndex);
+                phaseOfPattern.add(pattern, phaseIndex);
                 for (var output : producedOutputs(pattern)) {
                     if (output == null || output.what() == null || output.amount() <= 0L) continue;
                     producersByKey.computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>())
@@ -186,7 +187,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                             producer = matchingPhase(output.pattern(), phaseOfPattern);
                             kind = output.primary() ? "primary of " + output.pattern()
                                 : "byproduct of " + output.pattern();
-                            if (producer == null && containsPhysicalPattern(plannedTasks, output.pattern())) {
+                            if (producer == null && plannedTasks.hasPlannedTask(output.pattern())) {
                                 throw new IllegalStateException("Attributed supplier has no phase: key=" + key
                                     + " pattern=" + output.pattern());
                             }
@@ -318,29 +319,13 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         addDependency(outgoing, indegree, producer, consumer);
     }
 
-    private static Integer matchingPhase(IPatternDetails pattern, Map<IPatternDetails, Integer> phaseOfPattern) {
-        Integer direct = phaseOfPattern.get(pattern);
-        if (direct != null) return direct;
-        Integer match = null;
-        for (var entry : phaseOfPattern.entrySet()) {
-            if (!PlanIdentity.samePattern(entry.getKey(), pattern)) continue;
-            if (match != null && !match.equals(entry.getValue())) {
-                throw new IllegalStateException("Attributed pattern is owned by multiple phases: " + pattern);
-            }
-            match = entry.getValue();
-        }
-        return match;
+    private static Integer matchingPhase(IPatternDetails pattern, PatternIndex phaseOfPattern) {
+        return phaseOfPattern.matchingPhase(pattern);
     }
 
-    private static IPatternDetails executablePattern(IPatternDetails source, List<IPatternDetails> executableTasks,
+    private static IPatternDetails executablePattern(IPatternDetails source, PatternIndex executableTasks,
             boolean requirePlannedTask) {
-        if (source == null) return null;
-        for (IPatternDetails task : executableTasks) if (task == source) return task;
-        List<IPatternDetails> matches = executableTasks.stream()
-            .filter(task -> ECOPhaseScheduler.samePattern(source, task))
-            .toList();
-        if (matches.size() == 1) return matches.getFirst();
-        return requirePlannedTask ? null : source;
+        return executableTasks.executablePattern(source, requirePlannedTask);
     }
 
     private static PatternSemantics semantic(IPatternDetails pattern) {
@@ -372,14 +357,152 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
     }
 
-    private static void addPhysicalPattern(List<IPatternDetails> patterns, IPatternDetails candidate) {
-        if (candidate != null && !containsPhysicalPattern(patterns, candidate)) patterns.add(candidate);
+    private static void addPhysicalPattern(PatternIndex patterns, IPatternDetails candidate) {
+        if (candidate != null) patterns.addIfAbsent(candidate);
     }
 
-    private static boolean containsPhysicalPattern(Iterable<IPatternDetails> patterns, IPatternDetails candidate) {
-        for (IPatternDetails pattern : patterns) {
-            if (ECOPhaseScheduler.samePattern(pattern, candidate)) return true;
+    private static boolean containsPhysicalPattern(PatternIndex patterns, IPatternDetails candidate) {
+        return patterns.containsPhysicalPattern(candidate);
+    }
+
+    /**
+     * Local physical-pattern index used by schedule construction and ordering. Instance lookup is deliberately
+     * separate from identity lookup: AE2 can reconstruct a wrapper instance, while null or unsupported identities
+     * must retain the original instance-only matching semantics.
+     */
+    private static final class PatternIndex {
+        private final boolean plannedTaskIndex;
+        private final List<IPatternDetails> entries = new ArrayList<>();
+        private final IdentityHashMap<IPatternDetails, IPatternDetails> byInstance = new IdentityHashMap<>();
+        private final Map<PlanIdentity.PatternIdentity, IdentityBucket> byIdentity = new LinkedHashMap<>();
+        private final IdentityHashMap<IPatternDetails, PlanIdentity.PatternIdentity> identityByInstance =
+            new IdentityHashMap<>();
+        private final IdentityHashMap<IPatternDetails, Integer> phaseByInstance = new IdentityHashMap<>();
+        private final Map<PlanIdentity.PatternIdentity, Integer> phaseByIdentity = new LinkedHashMap<>();
+        private final Set<PlanIdentity.PatternIdentity> ambiguousPhaseOwnership = new HashSet<>();
+        private final IdentityHashMap<IPatternDetails, Long> plannedCountsByInstance = new IdentityHashMap<>();
+        private final Map<PlanIdentity.PatternIdentity, Long> plannedCountsByIdentity = new LinkedHashMap<>();
+
+        private PatternIndex() {
+            this(false);
         }
-        return false;
+
+        private PatternIndex(boolean plannedTaskIndex) {
+            this.plannedTaskIndex = plannedTaskIndex;
+        }
+
+        private static PatternIndex from(Iterable<IPatternDetails> patterns) {
+            PatternIndex index = new PatternIndex();
+            for (IPatternDetails pattern : patterns) index.add(pattern);
+            return index;
+        }
+
+        private static PatternIndex fromPlannedTasks(Map<IPatternDetails, Long> plannedTasks) {
+            PatternIndex index = new PatternIndex(true);
+            for (var entry : plannedTasks.entrySet()) {
+                Long count = entry.getValue();
+                if (count != null && count > 0L) index.addPlanned(entry.getKey(), count);
+            }
+            return index;
+        }
+
+        private List<IPatternDetails> patterns() {
+            return Collections.unmodifiableList(entries);
+        }
+
+        private void add(IPatternDetails pattern) {
+            entries.add(pattern);
+            if (!byInstance.containsKey(pattern)) byInstance.put(pattern, pattern);
+            PlanIdentity.PatternIdentity identity = identityOf(pattern);
+            if (identity != null) byIdentity.computeIfAbsent(identity, ignored -> new IdentityBucket()).add(pattern);
+        }
+
+        private void add(IPatternDetails pattern, int phase) {
+            add(pattern);
+            phaseByInstance.put(pattern, phase);
+            PlanIdentity.PatternIdentity identity = identityOf(pattern);
+            if (identity != null) {
+                Integer owner = phaseByIdentity.putIfAbsent(identity, phase);
+                if (owner != null && owner != phase) ambiguousPhaseOwnership.add(identity);
+            }
+        }
+
+        private void addIfAbsent(IPatternDetails pattern) {
+            if (!containsPhysicalPattern(pattern)) add(pattern);
+        }
+
+        private void addPlanned(IPatternDetails pattern, long count) {
+            add(pattern);
+            PlanIdentity.PatternIdentity identity = identityOf(pattern);
+            if (identity == null) {
+                plannedCountsByInstance.put(pattern, addCounts(plannedCountsByInstance.get(pattern), count));
+            } else {
+                Long previous = plannedCountsByIdentity.get(identity);
+                plannedCountsByIdentity.put(identity, addCounts(previous, count));
+            }
+        }
+
+        private boolean containsPhysicalPattern(IPatternDetails candidate) {
+            if (byInstance.containsKey(candidate)) return true;
+            return lookupByIdentity(identityOf(candidate)) != null;
+        }
+
+        private IPatternDetails executablePattern(IPatternDetails source, boolean requirePlannedTask) {
+            if (source == null) return null;
+            if (byInstance.containsKey(source)) return byInstance.get(source);
+            IdentityBucket matches = lookupByIdentity(identityOf(source));
+            if (matches != null && matches.count == 1) return matches.first;
+            return requirePlannedTask ? null : source;
+        }
+
+        private Integer matchingPhase(IPatternDetails pattern) {
+            if (phaseByInstance.containsKey(pattern)) return phaseByInstance.get(pattern);
+            PlanIdentity.PatternIdentity identity = identityOf(pattern);
+            if (identity == null) return null;
+            if (ambiguousPhaseOwnership.contains(identity)) {
+                throw new IllegalStateException("Attributed pattern is owned by multiple phases: " + pattern);
+            }
+            return phaseByIdentity.get(identity);
+        }
+
+        /** Planned-task coverage with the same physical identity rules as schedule construction. */
+        private long plannedCount(IPatternDetails pattern) {
+            PlanIdentity.PatternIdentity identity = identityOf(pattern);
+            if (identity == null) {
+                Long count = plannedCountsByInstance.get(pattern);
+                return count == null ? 0L : count;
+            }
+            Long count = plannedCountsByIdentity.get(identity);
+            return count == null ? 0L : count;
+        }
+
+        private boolean hasPlannedTask(IPatternDetails pattern) {
+            return plannedTaskIndex ? plannedCount(pattern) > 0L : containsPhysicalPattern(pattern);
+        }
+
+        private IdentityBucket lookupByIdentity(PlanIdentity.PatternIdentity identity) {
+            return identity == null ? null : byIdentity.get(identity);
+        }
+
+        private PlanIdentity.PatternIdentity identityOf(IPatternDetails pattern) {
+            if (identityByInstance.containsKey(pattern)) return identityByInstance.get(pattern);
+            PlanIdentity.PatternIdentity identity = pattern == null ? null : PlanIdentity.patternIdentityFor(pattern);
+            identityByInstance.put(pattern, identity);
+            return identity;
+        }
+
+        private static long addCounts(Long previous, long count) {
+            return previous == null ? count
+                : Long.MAX_VALUE - previous < count ? Long.MAX_VALUE : previous + count;
+        }
+
+        private static final class IdentityBucket {
+            private IPatternDetails first;
+            private int count;
+
+            private void add(IPatternDetails pattern) {
+                if (count++ == 0) first = pattern;
+            }
+        }
     }
 }
