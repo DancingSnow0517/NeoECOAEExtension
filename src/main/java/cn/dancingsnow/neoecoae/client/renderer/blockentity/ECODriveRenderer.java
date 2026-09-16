@@ -35,6 +35,8 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+        renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
+
         ItemStack cellStack = blockEntity.getCellStack();
         if (ECOInfiniteStorageMember.isMember(cellStack)) {
             renderLed(blockEntity, poseStack, bufferSource, FastColor.ARGB32.color(255, INFINITE_MEMBER_LED_COLOR));

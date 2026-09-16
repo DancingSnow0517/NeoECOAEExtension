@@ -114,6 +114,14 @@ public class ECOComputationDriveRenderer
     }
 
     @Override
-    public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
+    public void render(
+        ECOComputationDriveBlockEntity blockEntity,
+        float partialTick,
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        int packedLight,
+        int packedOverlay
+    ) {
+        renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
     }
 }

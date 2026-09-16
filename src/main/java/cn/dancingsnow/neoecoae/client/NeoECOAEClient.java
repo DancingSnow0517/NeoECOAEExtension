@@ -1,14 +1,10 @@
 package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
-import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import appeng.init.client.InitScreens;
@@ -18,7 +14,6 @@ import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -27,7 +22,6 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 
@@ -44,14 +38,6 @@ public class NeoECOAEClient {
         NEItemColors.clearCache();
         ECOCellModels.runDeferredRegistration();
         ECOComputationModels.runDeferredRegistration();
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.COMPUTATION_DRIVE.get(),
-            new ECOComputationDriveRenderer()
-        );
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.ECO_DRIVE.get(),
-            new ECODriveRenderer()
-        );
     }
 
     @SubscribeEvent
@@ -67,13 +53,6 @@ public class NeoECOAEClient {
             LargeIntegratedWorkingStationPatternProviderScreen::new,
             "/screens/large_integrated_working_station_interface.json"
         );
-    }
-
-    @SubscribeEvent
-    public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
-        // RenderSection reuses a mutable origin; snapshot it before the async rebuild runs.
-        BlockPos sectionOrigin = event.getSectionOrigin().immutable();
-        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, sectionOrigin));
     }
 
     @SubscribeEvent
