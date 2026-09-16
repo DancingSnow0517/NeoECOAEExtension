@@ -292,7 +292,17 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     /** 将尚待接收的产物存入 CPU 自有的实际库存。 */
     public long insert(AEKey what, long amount, Actionable type) {
-        return outputDelivery.insert(what, amount, type);
+        var current = job;
+        if (current == null || what == null || amount <= 0L) {
+            return outputDelivery.insert(what, amount, type);
+        }
+
+        // AE2 Utility 通过此方法中的真实调用点重定向带 NBT 物品的等待库存匹配；
+        // 结果继续交给输出交付组件，避免破坏当前的任务校验、记账和完成流程。
+        long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
+        // AE2 Utility 还会重定向此方法中的真实 matches 调用，用于判断最终产物交付阶段。
+        boolean matchesFinalOutput = current.finalOutput != null && what.matches(current.finalOutput);
+        return outputDelivery.insert(what, amount, type, accepted, matchesFinalOutput);
     }
 
     /**

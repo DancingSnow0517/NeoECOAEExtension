@@ -100,6 +100,15 @@ final class ECOCraftingOutputDelivery {
     }
 
     long insert(AEKey what, long amount, Actionable type) {
+        return insert(what, amount, type, null);
+    }
+
+    long insert(AEKey what, long amount, Actionable type, @Nullable Long preflightAccepted) {
+        return insert(what, amount, type, preflightAccepted, null);
+    }
+
+    long insert(AEKey what, long amount, Actionable type, @Nullable Long preflightAccepted,
+            @Nullable Boolean preflightMatchesFinalOutput) {
         var current = host.getJob();
         if (what == null || amount <= 0L || current == null) {
             return 0L;
@@ -107,10 +116,15 @@ final class ECOCraftingOutputDelivery {
         if (ECOCraftingJobLifecycle.isTerminated(host.cpu.getLevel(), current.link.getCraftingID())) {
             return 0L;
         }
-        if (deliveringFinalOutput && current.finalOutput != null && what.matches(current.finalOutput)) {
+        boolean matchesFinalOutput = preflightMatchesFinalOutput != null
+                ? preflightMatchesFinalOutput
+                : current.finalOutput != null && what.matches(current.finalOutput);
+        if (deliveringFinalOutput && matchesFinalOutput) {
             return 0L;
         }
-        long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
+        long accepted = preflightAccepted != null
+                ? preflightAccepted
+                : current.waitingFor.extract(what, amount, Actionable.SIMULATE);
         if (accepted <= 0L) {
             return 0L;
         }
