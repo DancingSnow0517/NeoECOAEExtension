@@ -71,28 +71,32 @@ public class NEBlocks {
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_NETWORK_SWITCH = networkSwitch(
         "crafting_network_switch",
         ECOCraftingNetworkSwitch::new,
-        "crafting_network_switch",
+        "crafting",
+        "light",
         "ECO Crafting Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "crafting_high_energy_network_switch",
         ECOCraftingNetworkSwitch::new,
-        "crafting_network_switch",
+        "crafting",
+        "power_light",
         "ECO Crafting Subsystem High-Energy Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_NETWORK_SWITCH = networkSwitch(
         "computation_network_switch",
         ECOComputationNetworkSwitch::new,
-        "computation_network_switch",
+        "computation",
+        "light",
         "ECO Computation Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "computation_high_energy_network_switch",
         ECOComputationNetworkSwitch::new,
-        "computation_network_switch",
+        "computation",
+        "power_light",
         "ECO Computation Subsystem High-Energy Network Switch Module"
     );
 
@@ -100,18 +104,67 @@ public class NEBlocks {
         String name,
         NonNullFunction<BlockBehaviour.Properties, T> factory,
         String modelName,
+        String lightTextureName,
         String englishName
     ) {
         return REGISTRATE.block(name, factory)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate((ctx, prov) -> prov.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> ConfiguredModel.builder()
-                    .modelFile(prov.models().getExistingFile(prov.modLoc("block/" + modelName)))
-                    .build(), NENetworkSwitchBlock.FORMED))
+            .recipe((ctx, prov) -> {
+                if (name.equals("crafting_network_switch")) {
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(AEItems.SINGULARITY, 2)
+                        .require(AEItems.ENGINEERING_PROCESSOR, 16)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
+                        .require(NEBlocks.CRAFTING_CASING, 8)
+                        .require(AEBlocks.MOLECULAR_ASSEMBLER, 4)
+                        .require(AEBlocks.CRAFTING_STORAGE_256K, 2)
+                        .energy(2_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                } else if (name.equals("computation_network_switch")) {
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(AEItems.SINGULARITY, 2)
+                        .require(AEItems.CALCULATION_PROCESSOR, 16)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
+                        .require(NEBlocks.COMPUTATION_CASING, 8)
+                        .require(AEBlocks.CELL_WORKBENCH, 4)
+                        .require(AEItems.CELL_COMPONENT_256K, 4)
+                        .energy(2_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                } else {
+                    boolean crafting = name.equals("crafting_high_energy_network_switch");
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(crafting ? NEBlocks.CRAFTING_NETWORK_SWITCH : NEBlocks.COMPUTATION_NETWORK_SWITCH, 2)
+                        .require(AEItems.SINGULARITY, 8)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 32)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                        .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_BLOCK, 16)
+                        .require(NEItems.ECO_CELL_COMPONENT_256M, 2)
+                        .require(NEItems.CRYSTAL_MATRIX, 4)
+                        .require(AEItems.CELL_COMPONENT_256K, 64)
+                        .energy(8_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                }
+            })
+            .blockstate((ctx, prov) -> {
+                ModelFile model = lightTextureName.equals("light")
+                    ? prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()))
+                    : prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/network_switch_base"))
+                        .texture("base", prov.modLoc("block/network_switch/" + modelName))
+                        .texture("light", prov.modLoc("block/network_switch/" + lightTextureName));
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStatesExcept(state -> ConfiguredModel.builder()
+                        .modelFile(model)
+                        .build(), NENetworkSwitchBlock.FORMED);
+            })
             .loot((prov, block) -> prov.dropSelf(block))
             .item()
-            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/" + modelName)))
+            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/" + ctx.getName())))
             .build()
             .lang(englishName)
             .register();
