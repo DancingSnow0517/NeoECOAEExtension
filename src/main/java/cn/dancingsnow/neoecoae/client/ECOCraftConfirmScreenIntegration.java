@@ -15,11 +15,17 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /** Client-only ECO entry point shared by AE2-native and third-party confirmation screens. */
 public final class ECOCraftConfirmScreenIntegration {
     private static final int TOOLBAR_BUTTON_X_OFFSET = -18;
     private static final int TOOLBAR_BUTTON_Y_OFFSET = 2;
+    /** Menus for which the automatic ECO request has already been sent. */
+    private static final Set<CraftConfirmMenu> AUTO_REQUESTED_MENUS =
+        Collections.newSetFromMap(new WeakHashMap<>());
 
     private ECOCraftConfirmScreenIntegration() {
     }
@@ -42,16 +48,40 @@ public final class ECOCraftConfirmScreenIntegration {
                 || mode.neoecoae$isEcoReportReady()) {
             return;
         }
+        synchronized (AUTO_REQUESTED_MENUS) {
+            if (!AUTO_REQUESTED_MENUS.add(menu)) {
+                return;
+            }
+        }
         PacketDistributor.sendToServer(new ECOPlanRequestPayload(menu.containerId));
+    }
+
+    /**
+     * Starts ECO as soon as a confirmation page is shown. The request is client-side only and is de-duplicated per
+     * menu because render events run every frame. The server-side handler cancels AE2's native planning before
+     * starting the ECO job, so the two planners cannot race to publish a result.
+     */
+    private static void requestEcoPlanAutomatically(CraftConfirmMenu menu) {
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)
+                || !mode.neoecoae$isEcoPlannerAvailable()
+                || mode.neoecoae$isEcoReportReady()) {
+            return;
+        }
+        requestEcoPlan(menu);
     }
 
     /** Adds the ECO action to custom confirmation pages such as DataEnergistics' Trinity screen. */
     public static void onScreenInitPost(ScreenEvent.Init.Post event) {
         Screen screen = event.getScreen();
-        if (screen instanceof CraftConfirmScreen || screen instanceof ECOCraftConfirmScreen
-                || !(screen instanceof AbstractContainerScreen<?> container)
+        if (!(screen instanceof AbstractContainerScreen<?> container)
                 || !(container.getMenu() instanceof CraftConfirmMenu menu)
                 || !((Object) menu instanceof ECOCraftConfirmMenuMode)) {
+            return;
+        }
+
+        requestEcoPlanAutomatically(menu);
+
+        if (screen instanceof CraftConfirmScreen || screen instanceof ECOCraftConfirmScreen) {
             return;
         }
 
@@ -65,12 +95,14 @@ public final class ECOCraftConfirmScreenIntegration {
     /** Supplies the tooltip for custom screens that do not implement AE2's toolbar tooltip pass. */
     public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
         Screen screen = event.getScreen();
-        if (screen instanceof CraftConfirmScreen || screen instanceof ECOCraftConfirmScreen) {
-            return;
-        }
         if (!(screen instanceof AbstractContainerScreen<?> container)
                 || !(container.getMenu() instanceof CraftConfirmMenu menu)
                 || !((Object) menu instanceof ECOCraftConfirmMenuMode)) {
+            return;
+        }
+
+        requestEcoPlanAutomatically(menu);
+        if (screen instanceof CraftConfirmScreen || screen instanceof ECOCraftConfirmScreen) {
             return;
         }
         for (GuiEventListener listener : screen.children()) {
