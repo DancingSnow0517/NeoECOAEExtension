@@ -11,7 +11,7 @@ class ECOThunderboltMixinSelectionTest {
     private static final String PACKAGE = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
     private static final String PLUGIN = PACKAGE + "ECOThunderboltMixinPlugin";
 
-    @Test void oldApiOnlySelectsLegacyBridge() throws Exception { check(false, true, false, true); }
+    @Test void oldApiIsExplicitlyUnsupported() throws Exception { check(false, true, false, false); }
     @Test void modernApiOnlySelectsModernProvider() throws Exception { check(true, false, true, false); }
     @Test void absentModSelectsNeither() throws Exception { check(false, false, false, false); }
     @Test void modernApiTakesPrecedenceOverLegacyResources() throws Exception { check(true, true, true, false); }

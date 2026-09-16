@@ -13,7 +13,7 @@ public final class ECOThunderboltMixinPlugin implements IMixinConfigPlugin {
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         boolean modern = present("com/moakiee/thunderbolt/api/crafting/batch/IBatchCraftingProvider.class");
         if (mixinClassName.endsWith(".ECOThunderboltProviderMixin")) return modern;
-        return !modern && present("com/moakiee/thunderbolt/ae2/batch/NeoEcoPatternBusBatchBridge.class");
+        return false;
     }
     private boolean present(String resource) {
         return getClass().getClassLoader().getResource(resource) != null;

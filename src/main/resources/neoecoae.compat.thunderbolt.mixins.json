@@ -4,6 +4,6 @@
   "package": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt",
   "compatibilityLevel": "JAVA_21",
   "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
-  "mixins": ["ECOThunderboltProviderMixin", "ECOLegacyThunderboltBridgeMixin"],
+  "mixins": ["ECOThunderboltProviderMixin"],
   "injectors": {"defaultRequire": 1}
 }

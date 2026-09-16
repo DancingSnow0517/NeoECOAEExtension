@@ -10,22 +10,18 @@ import org.junit.jupiter.api.Test;
 
 /** Uses interfaces from the actual selected dependency jars, not local API stubs. */
 class ThunderboltRuntimeContractTest {
-    private static final boolean LEGACY = Boolean.getBoolean("eco.test.thunderbolt.legacy");
-
     @Test void actualRuntimeSelectsExactlyOneBridge() throws Exception {
         String modern = "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider";
-        if (LEGACY) assertThrows(ClassNotFoundException.class, () -> Class.forName(modern));
-        else assertTrue(Class.forName(modern).isInterface());
+        assertTrue(Class.forName(modern).isInterface());
         var plugin = new ECOThunderboltMixinPlugin();
         String prefix = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
-        assertEquals(!LEGACY, plugin.shouldApplyMixin("unused", prefix + "ECOThunderboltProviderMixin"));
-        assertEquals(LEGACY, plugin.shouldApplyMixin("unused", prefix + "ECOLegacyThunderboltBridgeMixin"));
+        assertTrue(plugin.shouldApplyMixin("unused", prefix + "ECOThunderboltProviderMixin"));
+        assertFalse(plugin.shouldApplyMixin("unused", prefix + "ECOLegacyThunderboltBridgeMixin"));
     }
 
     @Test void actualOverloadInterfaceMapsFuzzyInputAndRegistersAdapter() throws Exception {
-        Class<?> contract = Class.forName(LEGACY
-            ? "com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails"
-            : "com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails");
+        Class<?> contract = Class.forName(
+            "com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails");
         var pattern = (IPatternDetails) Proxy.newProxyInstance(getClass().getClassLoader(),
             new Class<?>[]{IPatternDetails.class, contract}, (proxy, method, args) -> {
                 if (method.getName().equals("isFuzzyInput")) return (int) args[0] == 1;

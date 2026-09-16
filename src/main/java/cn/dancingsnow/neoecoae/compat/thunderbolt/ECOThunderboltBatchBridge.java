@@ -2,8 +2,9 @@ package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
+import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
@@ -21,33 +22,17 @@ public final class ECOThunderboltBatchBridge {
 
     public static long push(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
             KeyCounter[] oneCopy, long maxCraft, Level level, @Nullable UUID jobId) {
-        var batch = ECOFastPathFacade.prepareAllocated(bus, pattern, oneCopy, maxCraft, level, jobId);
-        if (batch == null) return maxCraft;
-        // The calling CPU owns reservation, energy accounting and reinsertion of unaccepted copies.
-        boolean accepted = batch.submit(amount -> new ECOFastPathFacade.Reservation() {
-            public void commit() {}
-            public void refund() {}
-        });
-        return accepted ? maxCraft - batch.craftCount() : maxCraft;
+        if (maxCraft <= 0L) return 0L;
+        var inputs = java.util.Arrays.stream(oneCopy).map(ECOFastPathStacks::copyCounter).toList();
+        var request = new EcoFastpathHost.FastpathRequest(pattern.getDefinition(), inputs, maxCraft,
+            EcoFastpathHost.CAPABILITY_ID, EcoFastpathHost.API_VERSION, UUID.randomUUID());
+        var capability = bus.inspect(request);
+        if (capability.acceptedAmount() <= 0L) return maxCraft;
+        var submission = bus.submit(request);
+        long accepted = submission.acceptedAmount();
+        if (accepted < 0L || accepted > maxCraft
+            || submission.unacceptedAmount() != maxCraft - accepted) return maxCraft;
+        return maxCraft - accepted;
     }
 
-    public static long pushLegacy(ECOCraftingPatternBusBlockEntity bus, Object context) {
-        // Decode before dispatch: never turn an exception after submission into a retry of the same inputs.
-        final IPatternDetails pattern;
-        final KeyCounter[] inputs;
-        final long copies;
-        final Level level;
-        final UUID jobId;
-        try {
-            Class<?> type = context.getClass();
-            pattern = (IPatternDetails) type.getMethod("details").invoke(context);
-            inputs = (KeyCounter[]) type.getMethod("oneCopyTemplate").invoke(context);
-            copies = (long) type.getMethod("maxCraft").invoke(context);
-            level = (Level) type.getMethod("level").invoke(context);
-            jobId = (UUID) type.getMethod("craftingJobId").invoke(context);
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("Unsupported legacy Thunderbolt batch context", failure);
-        }
-        return push(bus, pattern, inputs, copies, level, jobId);
-    }
 }
