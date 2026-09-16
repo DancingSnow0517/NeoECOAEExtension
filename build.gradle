@@ -127,6 +127,9 @@ dependencies {
     // Optional transfer fast path. Never place this on the default runtime classpath.
     compileOnly("maven.modrinth:sophisticated-core:1.21.1-1.4.90.2299")
 
+    // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }
+
     // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
     compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
     runtimeOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
@@ -239,17 +242,6 @@ sourceSets.main.java {
 }
 
 // ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.
-// ABI declarations only: OmniSequence's optional v1 SPI is not published as a separate API artifact.
-sourceSets {
-    omniApi {
-        java.srcDir 'src/omniApi/java'
-        compileClasspath = sourceSets.main.compileClasspath
-    }
-}
-sourceSets.main.compileClasspath += sourceSets.omniApi.output
-sourceSets.test.compileClasspath += sourceSets.omniApi.output
-sourceSets.test.runtimeClasspath += sourceSets.omniApi.output
-
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
