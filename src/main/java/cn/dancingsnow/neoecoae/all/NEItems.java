@@ -31,6 +31,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Item;
@@ -54,165 +55,24 @@ public class NEItems {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
-    public static final ItemEntry<AxeItem> ALUMINUM_AXE = REGISTRATE
-        .item("aluminum_axe", p -> new AxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM, 6.0F, -3.2F)))
-        .tag(ItemTags.AXES)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AA")
-                .pattern("AB")
-                .pattern(" B")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
+    private static final ToolSet ALUMINUM_TOOLS = registerToolSet(
+        new ToolSetSpec("aluminum", NEToolTier.ALUMINUM, NETags.Items.ALUMINUM_INGOT)
+    );
+    private static final ToolSet TUNGSTEN_TOOLS = registerToolSet(
+        new ToolSetSpec("tungsten", NEToolTier.TUNGSTEN, NETags.Items.TUNGSTEN_INGOT)
+    );
 
-    public static final ItemEntry<HoeItem> ALUMINUM_HOE = REGISTRATE
-        .item("aluminum_hoe", p -> new HoeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.ALUMINUM, 0.0F, -3.0F)))
-        .tag(ItemTags.HOES)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AA")
-                .pattern(" B")
-                .pattern(" B")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
+    public static final ItemEntry<AxeItem> ALUMINUM_AXE = ALUMINUM_TOOLS.axe();
+    public static final ItemEntry<HoeItem> ALUMINUM_HOE = ALUMINUM_TOOLS.hoe();
+    public static final ItemEntry<ShovelItem> ALUMINUM_SHOVEL = ALUMINUM_TOOLS.shovel();
+    public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = ALUMINUM_TOOLS.pickaxe();
+    public static final ItemEntry<SwordItem> ALUMINUM_SWORD = ALUMINUM_TOOLS.sword();
 
-    public static final ItemEntry<ShovelItem> ALUMINUM_SHOVEL = REGISTRATE
-        .item("aluminum_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.5F, -3.0F)))
-        .tag(ItemTags.SHOVELS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("A")
-                .pattern("B")
-                .pattern("B")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = REGISTRATE
-        .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AAA")
-                .pattern(" B ")
-                .pattern(" B ")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<SwordItem> ALUMINUM_SWORD = REGISTRATE
-        .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
-        .tag(ItemTags.SWORDS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("A")
-                .pattern("A")
-                .pattern("B")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<AxeItem> TUNGSTEN_AXE = REGISTRATE
-        .item("tungsten_axe", p -> new AxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.TUNGSTEN, 6.0F, -3.2F)))
-        .tag(ItemTags.AXES)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AA")
-                .pattern("AB")
-                .pattern(" B")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<HoeItem> TUNGSTEN_HOE = REGISTRATE
-        .item("tungsten_hoe", p -> new HoeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.TUNGSTEN, 0.0F, -3.0F)))
-        .tag(ItemTags.HOES)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AA")
-                .pattern(" B")
-                .pattern(" B")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<ShovelItem> TUNGSTEN_SHOVEL = REGISTRATE
-        .item("tungsten_shovel", p -> new ShovelItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.5F, -3.0F)))
-        .tag(ItemTags.SHOVELS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("A")
-                .pattern("B")
-                .pattern("B")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = REGISTRATE
-        .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
-        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("AAA")
-                .pattern(" B ")
-                .pattern(" B ")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
-                .save(prov);
-        })
-        .register();
-
-    public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = REGISTRATE
-        .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
-        .tag(ItemTags.SWORDS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                .pattern("A")
-                .pattern("A")
-                .pattern("B")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .register();
+    public static final ItemEntry<AxeItem> TUNGSTEN_AXE = TUNGSTEN_TOOLS.axe();
+    public static final ItemEntry<HoeItem> TUNGSTEN_HOE = TUNGSTEN_TOOLS.hoe();
+    public static final ItemEntry<ShovelItem> TUNGSTEN_SHOVEL = TUNGSTEN_TOOLS.shovel();
+    public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = TUNGSTEN_TOOLS.pickaxe();
+    public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = TUNGSTEN_TOOLS.sword();
 
     public static final ItemEntry<SmithingTemplateItem> ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
         .item("aluminum_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
@@ -1065,6 +925,84 @@ public class NEItems {
             })
             .register();
     }
+
+    private static ToolSet registerToolSet(ToolSetSpec spec) {
+        return new ToolSet(
+            registerAxe(spec),
+            registerHoe(spec),
+            registerShovel(spec),
+            registerPickaxe(spec),
+            registerSword(spec)
+        );
+    }
+
+    private static ItemEntry<AxeItem> registerAxe(ToolSetSpec spec) {
+        return REGISTRATE
+            .item(spec.id() + "_axe", p -> new AxeItem(spec.tier(), p))
+            .properties(p -> p.attributes(AxeItem.createAttributes(spec.tier(), 6.0F, -3.2F)))
+            .tag(ItemTags.AXES)
+            .recipe((ctx, prov) -> saveToolRecipe(prov, ctx.get(), spec, "AA", "AB", " B"))
+            .register();
+    }
+
+    private static ItemEntry<HoeItem> registerHoe(ToolSetSpec spec) {
+        return REGISTRATE
+            .item(spec.id() + "_hoe", p -> new HoeItem(spec.tier(), p))
+            .properties(p -> p.attributes(HoeItem.createAttributes(spec.tier(), 0.0F, -3.0F)))
+            .tag(ItemTags.HOES)
+            .recipe((ctx, prov) -> saveToolRecipe(prov, ctx.get(), spec, "AA", " B", " B"))
+            .register();
+    }
+
+    private static ItemEntry<ShovelItem> registerShovel(ToolSetSpec spec) {
+        return REGISTRATE
+            .item(spec.id() + "_shovel", p -> new ShovelItem(spec.tier(), p))
+            .properties(p -> p.attributes(ShovelItem.createAttributes(spec.tier(), 1.5F, -3.0F)))
+            .tag(ItemTags.SHOVELS)
+            .recipe((ctx, prov) -> saveToolRecipe(prov, ctx.get(), spec, "A", "B", "B"))
+            .register();
+    }
+
+    private static ItemEntry<PickaxeItem> registerPickaxe(ToolSetSpec spec) {
+        return REGISTRATE
+            .item(spec.id() + "_pickaxe", p -> new PickaxeItem(spec.tier(), p))
+            .properties(p -> p.attributes(PickaxeItem.createAttributes(spec.tier(), 1.0F, -2.8F)))
+            .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+            .recipe((ctx, prov) -> saveToolRecipe(prov, ctx.get(), spec, "AAA", " B ", " B "))
+            .register();
+    }
+
+    private static ItemEntry<SwordItem> registerSword(ToolSetSpec spec) {
+        return REGISTRATE
+            .item(spec.id() + "_sword", p -> new SwordItem(spec.tier(), p))
+            .properties(p -> p.attributes(SwordItem.createAttributes(spec.tier(), 3.0F, -2.4F)))
+            .tag(ItemTags.SWORDS)
+            .recipe((ctx, prov) -> saveToolRecipe(prov, ctx.get(), spec, "A", "A", "B"))
+            .register();
+    }
+
+    private static void saveToolRecipe(RegistrateRecipeProvider provider, Item result, ToolSetSpec spec,
+            String... patterns) {
+        ShapedRecipeBuilder builder = ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, result);
+        for (String pattern : patterns) {
+            builder.pattern(pattern);
+        }
+        builder
+            .define('A', spec.materialTag())
+            .define('B', Items.STICK)
+            .unlockedBy("has_" + spec.id() + "_ingot", RegistrateRecipeProvider.has(spec.materialTag()))
+            .save(provider);
+    }
+
+    private record ToolSetSpec(String id, NEToolTier tier, TagKey<Item> materialTag) {}
+
+    private record ToolSet(
+        ItemEntry<AxeItem> axe,
+        ItemEntry<HoeItem> hoe,
+        ItemEntry<ShovelItem> shovel,
+        ItemEntry<PickaxeItem> pickaxe,
+        ItemEntry<SwordItem> sword
+    ) {}
 
     public static void register() {
 

@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.integration.ae2lt;
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.moakiee.ae2lt.me.key.LightningKeyType;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
@@ -14,7 +13,7 @@ public final class NELightningItems {
     public static final ItemEntry<MaterialItem> ECO_LIGHTNING_CELL_HOUSING = REGISTRATE
         .item("eco_lightning_cell_housing", MaterialItem::new)
         .lang("ECO Lightning Storage Matrix Housing")
-        .model(ItemModelUtil.compatHousingModel("lightning_cell_housing"))
+        .model((ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_LIGHTNING_CELL_16M = registerCell(
@@ -44,7 +43,7 @@ public final class NELightningItems {
                 NELightningCellTypes.LIGHTNING, usableCapacity + 16, 8, idleDrain
             ))
             .lang("ECO - LE" + level + " Storage Matrix (Lightning)")
-            .model(ItemModelUtil.compatCellModel("lightning_cell_housing", size))
+            .model((ctx, prov) -> {})
             .register();
     }
 

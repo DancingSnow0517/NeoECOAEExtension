@@ -71,30 +71,35 @@ public class NEBlocks {
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_NETWORK_SWITCH = networkSwitch(
         "crafting_network_switch",
         ECOCraftingNetworkSwitch::new,
+        "crafting_network_switch",
         "ECO Crafting Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "crafting_high_energy_network_switch",
         ECOCraftingNetworkSwitch::new,
+        "crafting_network_switch",
         "ECO Crafting Subsystem High-Energy Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_NETWORK_SWITCH = networkSwitch(
         "computation_network_switch",
         ECOComputationNetworkSwitch::new,
+        "computation_network_switch",
         "ECO Computation Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "computation_high_energy_network_switch",
         ECOComputationNetworkSwitch::new,
+        "computation_network_switch",
         "ECO Computation Subsystem High-Energy Network Switch Module"
     );
 
     private static <T extends NENetworkSwitchBlock<?>> BlockEntry<T> networkSwitch(
         String name,
         NonNullFunction<BlockBehaviour.Properties, T> factory,
+        String modelName,
         String englishName
     ) {
         return REGISTRATE.block(name, factory)
@@ -102,252 +107,172 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> prov.getVariantBuilder(ctx.get())
                 .forAllStatesExcept(state -> ConfiguredModel.builder()
-                    .modelFile(prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())))
+                    .modelFile(prov.models().getExistingFile(prov.modLoc("block/" + modelName)))
                     .build(), NENetworkSwitchBlock.FORMED))
             .loot((prov, block) -> prov.dropSelf(block))
-            .simpleItem()
+            .item()
+            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/" + modelName)))
+            .build()
             .lang(englishName)
             .register();
     }
 
-    public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
-        .block("aluminum_ore", Block::new)
-        .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ORE, Tags.Blocks.ORES)
-        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
-        .item()
-        .tag(NETags.Items.ALUMINUM_ORE, Tags.Items.ORES)
-        .build()
-        .register();
+    public static final BlockEntry<Block> ALUMINUM_ORE = NEBlockRegistration.ore(
+        "aluminum_ore",
+        () -> Blocks.IRON_ORE,
+        BlockTags.NEEDS_IRON_TOOL,
+        NETags.Blocks.ALUMINUM_ORE,
+        NETags.Items.ALUMINUM_ORE,
+        () -> NEItems.RAW_ALUMINUM_ORE.get()
+    );
 
-    public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = REGISTRATE
-        .block("raw_aluminum_block", Block::new)
-        .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.ALUMINUM_RAW)
-                .unlockedBy("has_raw_aluminum_ore", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_RAW))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = NEBlockRegistration.storageBlock(
+        "raw_aluminum_block",
+        () -> Blocks.RAW_IRON_BLOCK,
+        NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK,
+        NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK,
+        BlockTags.NEEDS_IRON_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.ALUMINUM_RAW);
+            recipe.unlockedBy("has_raw_aluminum_ore", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_RAW));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<Block> ALUMINUM_BLOCK = REGISTRATE
-        .block("aluminum_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.ALUMINUM_INGOT)
-                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.ALUMINUM_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> ALUMINUM_BLOCK = NEBlockRegistration.storageBlock(
+        "aluminum_block",
+        () -> Blocks.IRON_BLOCK,
+        NETags.Blocks.ALUMINUM_STORAGE_BLOCK,
+        NETags.Items.ALUMINUM_STORAGE_BLOCK,
+        BlockTags.NEEDS_IRON_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.ALUMINUM_INGOT);
+            recipe.unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
-        .block("tungsten_ore", Block::new)
-        .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_DIAMOND_TOOL, NETags.Blocks.TUNGSTEN_ORE, Tags.Blocks.ORES)
-        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
-        .item()
-        .tag(NETags.Items.TUNGSTEN_ORE, Tags.Items.ORES)
-        .build()
-        .register();
+    public static final BlockEntry<Block> TUNGSTEN_ORE = NEBlockRegistration.ore(
+        "tungsten_ore",
+        () -> Blocks.IRON_ORE,
+        BlockTags.NEEDS_DIAMOND_TOOL,
+        NETags.Blocks.TUNGSTEN_ORE,
+        NETags.Items.TUNGSTEN_ORE,
+        () -> NEItems.RAW_TUNGSTEN_ORE.get()
+    );
 
-    public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
-        .block("raw_tungsten_block", Block::new)
-        .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-        // Intentional progression: raw tungsten requires a higher mining tier than the refined storage block.
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_DIAMOND_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.TUNGSTEN_RAW)
-                .unlockedBy("has_raw_tungsten_ore", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_RAW))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = NEBlockRegistration.storageBlock(
+        "raw_tungsten_block",
+        () -> Blocks.RAW_IRON_BLOCK,
+        NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK,
+        NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK,
+        BlockTags.NEEDS_DIAMOND_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.TUNGSTEN_RAW);
+            recipe.unlockedBy("has_raw_tungsten_ore", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_RAW));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<Block> TUNGSTEN_BLOCK = REGISTRATE
-        .block("tungsten_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.TUNGSTEN_INGOT)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.TUNGSTEN_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> TUNGSTEN_BLOCK = NEBlockRegistration.storageBlock(
+        "tungsten_block",
+        () -> Blocks.IRON_BLOCK,
+        NETags.Blocks.TUNGSTEN_STORAGE_BLOCK,
+        NETags.Items.TUNGSTEN_STORAGE_BLOCK,
+        BlockTags.NEEDS_IRON_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.TUNGSTEN_INGOT);
+            recipe.unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<Block> ALUMINUM_ALLOY_BLOCK = REGISTRATE
-        .block("aluminum_alloy_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
-                .unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> ALUMINUM_ALLOY_BLOCK = NEBlockRegistration.storageBlock(
+        "aluminum_alloy_block",
+        () -> Blocks.IRON_BLOCK,
+        NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK,
+        NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK,
+        BlockTags.NEEDS_IRON_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.ALUMINUM_ALLOY_INGOT);
+            recipe.unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<CasingBlock> ALUMINUM_ALLOY_CASING = REGISTRATE
-        .block("aluminum_alloy_casing", CasingBlock::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/casing_base"))
-                .texture("base", prov.modLoc("block/" + ctx.getName()))
-                .texture("particle", prov.modLoc("block/" + ctx.getName()));
-            prov.simpleBlock(ctx.get(), model);
-        })
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("ABA")
-                .pattern("BCB")
-                .pattern("ABA")
-                .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
-                .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
-                .define('C', NEItems.CRYSTAL_INGOT)
-                .unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
-                .unlockedBy("has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
-                .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
-                .save(prov);
-        })
-        .simpleItem()
-        .register();
+    public static final BlockEntry<CasingBlock> ALUMINUM_ALLOY_CASING = NEBlockRegistration.alloyCasing(
+        "aluminum_alloy_casing",
+        NETags.Items.ALUMINUM_ALLOY_INGOT,
+        "has_aluminum_alloy_ingot"
+    );
 
-    public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = REGISTRATE
-        .block("black_tungsten_alloy_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
-                .unlockedBy("has_black_tungsten_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = NEBlockRegistration.storageBlock(
+        "black_tungsten_alloy_block",
+        () -> Blocks.IRON_BLOCK,
+        NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK,
+        NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK,
+        BlockTags.NEEDS_IRON_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT);
+            recipe.unlockedBy("has_black_tungsten_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<CasingBlock> BLACK_TUNGSTEN_ALLOY_CASING = REGISTRATE
-        .block("black_tungsten_alloy_casing", CasingBlock::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/casing_base"))
-                .texture("base", prov.modLoc("block/" + ctx.getName()))
-                .texture("particle", prov.modLoc("block/" + ctx.getName()));
-            prov.simpleBlock(ctx.get(), model);
-        })
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
-                .pattern("ABA")
-                .pattern("BCB")
-                .pattern("ABA")
-                .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
-                .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
-                .define('C', NEItems.CRYSTAL_INGOT)
-                .unlockedBy("has_black_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
-                .unlockedBy("has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
-                .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
-                .save(prov);
-        })
-        .simpleItem()
-        .register();
+    public static final BlockEntry<CasingBlock> BLACK_TUNGSTEN_ALLOY_CASING = NEBlockRegistration.alloyCasing(
+        "black_tungsten_alloy_casing",
+        NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT,
+        "has_black_tungsten_ingot"
+    );
 
-    public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = REGISTRATE
-        .block("energized_crystal_block", Block::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.ENERGIZED_CRYSTAL_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("AA")
-                .pattern("AA")
-                .define('A', NETags.Items.ENERGIZED_CRYSTAL)
-                .unlockedBy("has_energized_crystal", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL))
-                .save(prov);
-        })
-        .item()
-        .tag(NETags.Items.ENERGIZED_CRYSTAL_BLOCK, Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = NEBlockRegistration.storageBlock(
+        "energized_crystal_block",
+        () -> Blocks.QUARTZ_BLOCK,
+        NETags.Blocks.ENERGIZED_CRYSTAL_STORAGE_BLOCK,
+        NETags.Items.ENERGIZED_CRYSTAL_BLOCK,
+        BlockTags.NEEDS_STONE_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NETags.Items.ENERGIZED_CRYSTAL);
+            recipe.unlockedBy("has_energized_crystal", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL));
+        },
+        "AA", "AA"
+    );
 
-    public static final BlockEntry<Block> ENERGIZED_SUPERCONDUCTIVE_BLOCK = REGISTRATE
-        .block("energized_superconductive_block", Block::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.STORAGE_BLOCKS)
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("AAA")
-                .pattern("AAA")
-                .pattern("AAA")
-                .define('A', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
-                .unlockedBy("has_energized_superconductive_ingot", RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
-                .save(prov);
-        })
-        .item()
-        .tag(Tags.Items.STORAGE_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<Block> ENERGIZED_SUPERCONDUCTIVE_BLOCK = NEBlockRegistration.storageBlock(
+        "energized_superconductive_block",
+        () -> Blocks.QUARTZ_BLOCK,
+        null,
+        null,
+        BlockTags.NEEDS_STONE_TOOL,
+        true,
+        recipe -> {
+            recipe.define('A', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT);
+            recipe.unlockedBy("has_energized_superconductive_ingot",
+                RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT));
+        },
+        "AAA", "AAA", "AAA"
+    );
 
-    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWLESS_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
-        .block("flawless_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
-        .loot((prov, block) -> {
-            prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
-        })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
-        .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
-        .build()
-        .register();
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWLESS_BUDDING_ENERGIZED_CRYSTAL =
+        NEBlockRegistration.buddingStage(
+            "flawless_budding_energized_crystal",
+            (prov, block) -> prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL)),
+            null
+        );
 
-    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
-        .block("flawed_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
-        .loot((prov, block) -> {
-            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL));
-        })
-        .recipe((ctx, prov) -> {
-            TransformRecipeBuilder.transform(
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWED_BUDDING_ENERGIZED_CRYSTAL =
+        NEBlockRegistration.buddingStage(
+            "flawed_budding_energized_crystal",
+            (prov, block) -> prov.add(block, prov.createSingleItemTableWithSilkTouch(
+                block, NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL)),
+            (ctx, prov) -> TransformRecipeBuilder.transform(
                 prov,
                 NeoECOAE.id("transform/flawed_budding_energized_crystal"),
                 ctx.get(),
@@ -355,23 +280,15 @@ public class NEBlocks {
                 TransformCircumstance.fluid(FluidTags.WATER),
                 Ingredient.of(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL),
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
-            );
-        })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
-        .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
-        .build()
-        .register();
+            )
+        );
 
-    public static final BlockEntry<BuddingEnergizedCrystalBlock> CHIPPED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
-        .block("chipped_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
-        .loot((prov, block) -> {
-            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL));
-        })
-        .recipe((ctx, prov) -> {
-            TransformRecipeBuilder.transform(
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> CHIPPED_BUDDING_ENERGIZED_CRYSTAL =
+        NEBlockRegistration.buddingStage(
+            "chipped_budding_energized_crystal",
+            (prov, block) -> prov.add(block, prov.createSingleItemTableWithSilkTouch(
+                block, NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL)),
+            (ctx, prov) -> TransformRecipeBuilder.transform(
                 prov,
                 NeoECOAE.id("transform/chipped_budding_energized_crystal"),
                 ctx.get(),
@@ -379,23 +296,15 @@ public class NEBlocks {
                 TransformCircumstance.fluid(FluidTags.WATER),
                 Ingredient.of(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL),
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
-            );
-        })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
-        .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
-        .build()
-        .register();
+            )
+        );
 
-    public static final BlockEntry<BuddingEnergizedCrystalBlock> DAMAGED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
-        .block("damaged_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
-        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
-        .loot((prov, block) -> {
-            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.ENERGIZED_CRYSTAL_BLOCK));
-        })
-        .recipe((ctx, prov) -> {
-            TransformRecipeBuilder.transform(
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> DAMAGED_BUDDING_ENERGIZED_CRYSTAL =
+        NEBlockRegistration.buddingStage(
+            "damaged_budding_energized_crystal",
+            (prov, block) -> prov.add(block, prov.createSingleItemTableWithSilkTouch(
+                block, NEBlocks.ENERGIZED_CRYSTAL_BLOCK)),
+            (ctx, prov) -> TransformRecipeBuilder.transform(
                 prov,
                 NeoECOAE.id("transform/damaged_budding_energized_crystal"),
                 ctx.get(),
@@ -403,77 +312,24 @@ public class NEBlocks {
                 TransformCircumstance.fluid(FluidTags.WATER),
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_BLOCK),
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
-            );
-        })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
-        .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
-        .build()
-        .register();
+            )
+        );
 
-    public static final BlockEntry<CertusQuartzClusterBlock> SMALL_ENERGIZED_CRYSTAL_BUD = REGISTRATE
-        .block("small_energized_crystal_bud", p -> new CertusQuartzClusterBlock(3, 4, p))
-        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
-        .properties(p -> p.sound(SoundType.SMALL_AMETHYST_BUD).lightLevel(s -> 1))
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
-            prov.directionalBlock(ctx.get(), model);
-        })
-        .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
-        .item()
-        .tag(Tags.Items.CLUSTERS)
-        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
-        .build()
-        .register();
+    public static final BlockEntry<CertusQuartzClusterBlock> SMALL_ENERGIZED_CRYSTAL_BUD = NEBlockRegistration.crystalBud(
+        "small_energized_crystal_bud", 3, 4, SoundType.SMALL_AMETHYST_BUD, 1, false
+    );
 
-    public static final BlockEntry<CertusQuartzClusterBlock> MEDIUM_ENERGIZED_CRYSTAL_BUD = REGISTRATE
-        .block("medium_energized_crystal_bud", p -> new CertusQuartzClusterBlock(4, 3, p))
-        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
-        .properties(p -> p.sound(SoundType.MEDIUM_AMETHYST_BUD).lightLevel(s -> 2))
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
-            prov.directionalBlock(ctx.get(), model);
-        })
-        .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
-        .item()
-        .tag(Tags.Items.CLUSTERS)
-        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
-        .build()
-        .register();
+    public static final BlockEntry<CertusQuartzClusterBlock> MEDIUM_ENERGIZED_CRYSTAL_BUD = NEBlockRegistration.crystalBud(
+        "medium_energized_crystal_bud", 4, 3, SoundType.MEDIUM_AMETHYST_BUD, 2, false
+    );
 
-    public static final BlockEntry<CertusQuartzClusterBlock> LARGE_ENERGIZED_CRYSTAL_BUD = REGISTRATE
-        .block("large_energized_crystal_bud", p -> new CertusQuartzClusterBlock(5, 3, p))
-        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
-        .properties(p -> p.sound(SoundType.LARGE_AMETHYST_BUD).lightLevel(s -> 3))
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
-            prov.directionalBlock(ctx.get(), model);
-        })
-        .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
-        .item()
-        .tag(Tags.Items.CLUSTERS)
-        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
-        .build()
-        .register();
+    public static final BlockEntry<CertusQuartzClusterBlock> LARGE_ENERGIZED_CRYSTAL_BUD = NEBlockRegistration.crystalBud(
+        "large_energized_crystal_bud", 5, 3, SoundType.LARGE_AMETHYST_BUD, 3, false
+    );
 
-    public static final BlockEntry<CertusQuartzClusterBlock> ENERGIZED_CRYSTAL_CLUSTER = REGISTRATE
-        .block("energized_crystal_cluster", p -> new CertusQuartzClusterBlock(7, 3, p))
-        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
-        .properties(p -> p.sound(SoundType.AMETHYST_CLUSTER).lightLevel(s -> 4))
-        .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
-            prov.directionalBlock(ctx.get(), model);
-        })
-        .loot(LootTableUtil::energizedCluster)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
-        .item()
-        .tag(Tags.Items.CLUSTERS)
-        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
-        .build()
-        .register();
+    public static final BlockEntry<CertusQuartzClusterBlock> ENERGIZED_CRYSTAL_CLUSTER = NEBlockRegistration.crystalBud(
+        "energized_crystal_cluster", 7, 3, SoundType.AMETHYST_CLUSTER, 4, true
+    );
 
     public static final BlockEntry<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = REGISTRATE
         .block("energized_fluix_crystal_block", Block::new)
@@ -543,7 +399,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_casing"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING, 4)
             .require(AEBlocks.SKY_STONE_BLOCK, 2)
@@ -555,7 +411,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(256_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Casing")
         .register();
 
@@ -564,7 +422,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_input_hatch"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.IMPORT_BUS, 2)
@@ -575,7 +433,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(128_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Fluid Input Hatch")
         .register();
 
@@ -584,7 +444,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_output_hatch"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.EXPORT_BUS, 2)
@@ -595,7 +455,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(128_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Fluid Output Hatch")
         .register();
 
@@ -604,7 +466,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_interface"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEBlocks.INTERFACE)
@@ -615,7 +477,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(256_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Communication Interface")
         .register();
 
@@ -634,14 +498,9 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .blockstate((ctx, prov) -> {
-            ModelFile storage = prov.models().getExistingFile(prov.modLoc("block/storage_interface"));
-            ModelFile input = prov.models().getExistingFile(prov.modLoc("block/storage_interface_input"));
-            ModelFile output = prov.models().getExistingFile(prov.modLoc("block/storage_interface_output"));
+            // The three modes share the only storage-interface model currently shipped by the resource pack.
+            ModelFile model = prov.models().getExistingFile(prov.modLoc("block/storage_interface"));
             prov.getVariantBuilder(ctx.get()).forAllStates(state -> {
-                cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode mode =
-                    state.getValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE);
-                ModelFile model = mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT
-                    ? input : mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT ? output : storage;
                 return ConfiguredModel.builder().modelFile(model).build();
             });
         })
@@ -659,104 +518,35 @@ public class NEBlocks {
         })
         .register();
 
-    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L4 = REGISTRATE
-        .block("energy_cell_l4", ECOEnergyCellBlock::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, provider) -> {
-            provider.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> {
-                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                    return ConfiguredModel.builder()
-                        .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l4_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                        .build();
-                }, ECOEnergyCellBlock.FORMED);
-        })
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                .pattern("AAA")
-                .pattern("ABA")
-                .pattern("AAA")
-                .define('A', AEBlocks.DENSE_ENERGY_CELL)
-                .define('B', NEBlocks.STORAGE_CASING)
-                .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
-                .save(prov);
-        })
-        .item()
-        .properties(p -> p.rarity(Rarity.UNCOMMON))
-        .model((ctx, provider) -> {
-            provider.withExistingParent(ctx.getName(), provider.modLoc("block/storage_energy_cell/cell_l4_4"));
-        })
-        .build()
-        .lang("ECO - LT4 High Density Energy Cell")
-        .register();
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L4 = NEBlockRegistration.energyCell(
+        "l4",
+        Rarity.UNCOMMON,
+        recipe -> {
+            recipe.define('A', AEBlocks.DENSE_ENERGY_CELL);
+            recipe.define('B', NEBlocks.STORAGE_CASING);
+            recipe.unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING));
+        }
+    );
 
-    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L6 = REGISTRATE
-        .block("energy_cell_l6", ECOEnergyCellBlock::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, provider) -> {
-            provider.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> {
-                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                    return ConfiguredModel.builder()
-                        .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l6_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                        .build();
-                }, ECOEnergyCellBlock.FORMED);
-        })
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                    .pattern("AAA")
-                    .pattern("ABA")
-                    .pattern("AAA")
-                    .define('A', NEBlocks.ENERGY_CELL_L4)
-                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-                    .unlockedBy("has_energy_cell_l4", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L4))
-                    .save(prov);
-        })
-        .item()
-        .properties(p -> p.rarity(Rarity.RARE))
-        .model((ctx, provider) -> {
-            provider.withExistingParent(ctx.getName(), provider.modLoc("block/storage_energy_cell/cell_l6_4"));
-        })
-        .build()
-        .lang("ECO - LT6 High Density Energy Cell")
-        .register();
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L6 = NEBlockRegistration.energyCell(
+        "l6",
+        Rarity.RARE,
+        recipe -> {
+            recipe.define('A', NEBlocks.ENERGY_CELL_L4);
+            recipe.define('B', NEItems.SUPERCONDUCTING_PROCESSOR);
+            recipe.unlockedBy("has_energy_cell_l4", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L4));
+        }
+    );
 
-    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L9 = REGISTRATE
-        .block("energy_cell_l9", ECOEnergyCellBlock::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, provider) -> {
-            provider.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> {
-                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                    return ConfiguredModel.builder()
-                        .modelFile(provider.models().getExistingFile(provider.modLoc("block/storage_energy_cell/cell_l9_%d".formatted(level))))
-                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                        .build();
-                }, ECOEnergyCellBlock.FORMED);
-        })
-        .recipe((ctx, prov) -> {
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
-                    .pattern("AAA")
-                    .pattern("ABA")
-                    .pattern("AAA")
-                    .define('A', NEBlocks.ENERGY_CELL_L6)
-                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-                    .unlockedBy("has_energy_cell_l6", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L6))
-                    .save(prov);
-        })
-        .item()
-        .properties(p -> p.rarity(Rarity.EPIC))
-        .model((ctx, provider) -> {
-            provider.withExistingParent(ctx.getName(), provider.modLoc("block/storage_energy_cell/cell_l9_4"));
-        })
-        .build()
-        .lang("ECO - LT9 High Density Energy Cell")
-        .register();
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L9 = NEBlockRegistration.energyCell(
+        "l9",
+        Rarity.EPIC,
+        recipe -> {
+            recipe.define('A', NEBlocks.ENERGY_CELL_L6);
+            recipe.define('B', NEItems.SUPERCONDUCTING_PROCESSOR);
+            recipe.unlockedBy("has_energy_cell_l6", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L6));
+        }
+    );
 
     public static final BlockEntry<ECODriveBlock> ECO_DRIVE = REGISTRATE
         .block("eco_drive", ECODriveBlock::new)
@@ -1126,6 +916,7 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
+        .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/advanced_crafting_worker")))
         .build()
         .lang("ECO - FX Monitor Core")
         .blockstate((ctx, prov) -> {
