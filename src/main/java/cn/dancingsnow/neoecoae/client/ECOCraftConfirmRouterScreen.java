@@ -24,12 +24,15 @@ public final class ECOCraftConfirmRouterScreen extends CraftConfirmScreen {
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        if (!routed
-                && (Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && mode.neoecoae$shouldShowFastPlannerReport()) {
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) {
+            return;
+        }
+
+        if (!routed && mode.neoecoae$isEcoReportReady()) {
             routed = true;
             switchToScreen(new ECOCraftConfirmScreen(menu, playerInventory, screenTitle,
                 StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json")));
         }
     }
+
 }

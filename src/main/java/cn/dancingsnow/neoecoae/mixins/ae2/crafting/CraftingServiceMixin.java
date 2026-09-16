@@ -26,11 +26,14 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
 import com.llamalad7.mixinextras.expression.Expression;
@@ -552,6 +555,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     ) {
         if (job.simulation()) {
             cir.setReturnValue(CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
+        ECOPlanningResult ecoResult = ECOPlanningResultRegistry.find(job);
+        if (ecoResult == null || ecoResult.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
+                || ecoResult.plan() == null || !PlanIdentity.matches(job, ecoResult.plan())) {
+            // A crafting-service hook must never infer ECO ownership from network settings or final output.
+            // AE2/Data and every other planner retain the original submission path when no exact ECO result exists.
             return;
         }
         if (target instanceof ECOCraftingCPU ecoCpu) {

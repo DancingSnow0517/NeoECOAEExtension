@@ -20,9 +20,11 @@ import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -31,13 +33,18 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -55,8 +62,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
+    private static final String NEOECOAE_DATA_REQUESTED_AMOUNT_FIELD = "dataEnergistics$requestedAmount";
+    @Unique
     @GuiSync(99)
     private boolean neoecoae$showFastPlannerReport;
+
+    @Unique
+    @GuiSync(106)
+    private boolean neoecoae$ecoPlannerAvailable;
+
+    @Unique
+    @GuiSync(107)
+    private boolean neoecoae$ecoReportReady;
 
     @Unique
     @GuiSync(104)
@@ -88,10 +105,25 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
 
     @Unique
+    private @Nullable Future<ICraftingPlan> neoecoae$ecoJob;
+
+    @Unique
+    private CalculationStrategy neoecoae$calculationStrategy = CalculationStrategy.CRAFT_LESS;
+
+    @Unique
     private boolean neoecoae$craftConfirmDiagnosticLogged;
 
     @Shadow
     private ICraftingPlan result;
+
+    @Shadow
+    private AEKey whatToCraft;
+
+    @Shadow
+    private int amount;
+
+    @Shadow
+    private @Nullable Future<ICraftingPlan> job;
 
     @Shadow
     private CraftingPlanSummary plan;
@@ -120,19 +152,164 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         var node = actionHost.getActionableNode();
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(node == null ? null : node.getGrid());
-        neoecoae$showFastPlannerReport = settings != null && settings.neoecoae$shouldUseFastPlanner();
+        neoecoae$ecoPlannerAvailable = settings != null && settings.neoecoae$shouldUseFastPlanner();
+        neoecoae$showFastPlannerReport = false;
+        neoecoae$ecoReportReady = false;
         neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
     @Inject(method = "planJob", at = @At("HEAD"))
     private void resetPlannerDiagnostics(AEKey what, int amount, CalculationStrategy strategy,
             CallbackInfoReturnable<Boolean> cir) {
+        neoecoae$cancelEcoPlanning();
+        neoecoae$calculationStrategy = strategy;
+        neoecoae$showFastPlannerReport = false;
+        neoecoae$ecoReportReady = false;
         neoecoae$calculationNanos = 0;
         neoecoae$theoreticalBytes = "0";
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
+        neoecoae$craftConfirmDiagnosticLogged = false;
+    }
+
+    @Inject(method = "broadcastChanges", at = @At("HEAD"))
+    private void pollEcoPlanningJob(CallbackInfo ci) {
+        if (((CraftConfirmMenu) (Object) this).getPlayer().level().isClientSide()) {
+            return;
+        }
+        Future<ICraftingPlan> future = neoecoae$ecoJob;
+        if (future == null || !future.isDone()) {
+            return;
+        }
+
+        neoecoae$ecoJob = null;
+        try {
+            ICraftingPlan ecoPlan = future.get();
+            if (ecoPlan == null) {
+                return;
+            }
+            IGrid grid = getGrid();
+            if (grid == null) {
+                return;
+            }
+            result = ecoPlan;
+            neoecoae$applyPlannerDiagnostics(ecoPlan);
+            plan = CraftingPlanSummary.fromJob(grid, getActionSrc(), ecoPlan);
+            plan = neoecoae$recheckStoredAmounts(grid, getActionSrc(), plan);
+            neoecoae$showFastPlannerReport = true;
+            neoecoae$ecoReportReady = true;
+            if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player) {
+                player.connection.send(new CraftConfirmPlanPacket(plan));
+            }
+        } catch (CancellationException ignored) {
+            // Replanning or menu removal cancelled the request; no ECO result is publishable.
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            NEOECOAE_LOGGER.debug("ECO confirmation planning was interrupted", interrupted);
+        } catch (ExecutionException | RuntimeException failure) {
+            NEOECOAE_LOGGER.warn("ECO confirmation planning failed", failure);
+        }
+    }
+
+    @Override
+    public void neoecoae$startEcoPlanning() {
+        if (((CraftConfirmMenu) (Object) this).getPlayer().level().isClientSide() || whatToCraft == null) {
+            return;
+        }
+        long requestedAmount = neoecoae$getRequestedAmount();
+        if (requestedAmount <= 0L) {
+            return;
+        }
+
+        IGrid grid = getGrid();
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(grid);
+        if (grid == null || settings == null || !settings.neoecoae$shouldUseFastPlanner()) {
+            neoecoae$ecoPlannerAvailable = false;
+            return;
+        }
+        if (neoecoae$ecoJob != null && !neoecoae$ecoJob.isDone()) {
+            return;
+        }
+
+        neoecoae$cancelNativePlanning();
+        neoecoae$clearEcoReport();
+        neoecoae$ecoPlannerAvailable = true;
+        try {
+            neoecoae$ecoJob = ECOPlanningService.begin(((CraftConfirmMenu) (Object) this).getPlayer().level(), grid,
+                getActionSrc(), whatToCraft,
+                requestedAmount, neoecoae$calculationStrategy, ECOPlannerOptions.from(settings));
+        } catch (RuntimeException failure) {
+            NEOECOAE_LOGGER.warn("Unable to start ECO confirmation planning", failure);
+        }
+    }
+
+    /**
+     * DataEnergistics keeps the original request as a long while AE2's menu field is only an int. Resolve that
+     * optional field without taking a compile-time dependency on Data, then fall back to the plan and AE2 value.
+     */
+    @Unique
+    private long neoecoae$getRequestedAmount() {
+        Long dataAmount = neoecoae$readOptionalDataRequestedAmount();
+        if (dataAmount != null && dataAmount > 0L) {
+            return dataAmount;
+        }
+
+        if (result != null && result.finalOutput() != null && result.finalOutput().amount() > 0L) {
+            return result.finalOutput().amount();
+        }
+        return amount;
+    }
+
+    @Unique
+    private @Nullable Long neoecoae$readOptionalDataRequestedAmount() {
+        Class<?> type = ((Object) this).getClass();
+        while (type != null) {
+            try {
+                Field field = type.getDeclaredField(NEOECOAE_DATA_REQUESTED_AMOUNT_FIELD);
+                if (!field.trySetAccessible()) {
+                    return null;
+                }
+                Object value = field.get((Object) this);
+                return value instanceof Long longValue ? longValue : null;
+            } catch (NoSuchFieldException missingField) {
+                type = type.getSuperclass();
+            } catch (ReflectiveOperationException | RuntimeException reflectionFailure) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    @Unique
+    private void neoecoae$cancelNativePlanning() {
+        if (job != null) {
+            job.cancel(true);
+            job = null;
+        }
+        result = null;
+        plan = null;
+    }
+
+    @Unique
+    private void neoecoae$cancelEcoPlanning() {
+        if (neoecoae$ecoJob != null) {
+            neoecoae$ecoJob.cancel(true);
+            neoecoae$ecoJob = null;
+        }
+    }
+
+    @Unique
+    private void neoecoae$clearEcoReport() {
+        neoecoae$showFastPlannerReport = false;
+        neoecoae$ecoReportReady = false;
+        neoecoae$confirmedPlanningResult = null;
+        neoecoae$calculationNanos = 0L;
+        neoecoae$theoreticalBytes = "0";
+        neoecoae$planningStatusCode = 0;
+        neoecoae$cycleItems = ECOCycleItemList.EMPTY;
+        neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$craftConfirmDiagnosticLogged = false;
     }
 
@@ -148,16 +325,21 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         )
     )
     private void capturePlannerDiagnostics(CallbackInfo ci) {
+        neoecoae$applyPlannerDiagnostics(result);
+    }
+
+    @Unique
+    private void neoecoae$applyPlannerDiagnostics(@Nullable ICraftingPlan diagnosticPlan) {
         neoecoae$calculationNanos = 0;
         neoecoae$theoreticalBytes = "0";
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
-        ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
+        ECOPlanningResult planningResult = diagnosticPlan instanceof ECOCraftingPlanDiagnostics diagnostics
             ? diagnostics.neoecoae$getPlanningResult()
             : null;
         if (planningResult == null) {
-            planningResult = ECOPlanningResultRegistry.find(result);
+            planningResult = ECOPlanningResultRegistry.find(diagnosticPlan);
         }
         if (planningResult != null) {
             neoecoae$confirmedPlanningResult = planningResult;
@@ -396,6 +578,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         return submitResult;
     }
 
+    @Inject(method = "removed", at = @At("TAIL"))
+    private void cancelEcoPlanningOnRemoval(Player player, CallbackInfo ci) {
+        neoecoae$cancelEcoPlanning();
+    }
+
     @Unique
     private static long neoecoae$amountFor(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).mapToLong(
@@ -421,8 +608,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Override
+    public boolean neoecoae$isEcoPlannerAvailable() {
+        return neoecoae$ecoPlannerAvailable;
+    }
+
+    @Override
+    public boolean neoecoae$isEcoReportReady() {
+        return neoecoae$ecoReportReady;
+    }
+
+    @Override
     public boolean neoecoae$shouldShowFastPlannerReport() {
-        return neoecoae$showFastPlannerReport;
+        return neoecoae$ecoReportReady && neoecoae$showFastPlannerReport;
     }
 
     @Override

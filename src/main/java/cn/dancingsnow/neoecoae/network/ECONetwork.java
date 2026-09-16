@@ -9,6 +9,8 @@ public final class ECONetwork {
         var registrar = event.registrar("1");
         registrar.playToServer(ECOForceCraftStartFlagC2SPacket.TYPE,
             ECOForceCraftStartFlagC2SPacket.STREAM_CODEC, ECOForceCraftStartFlagC2SPacket::handle);
+        registrar.playToServer(ECOPlanRequestPayload.TYPE,
+            ECOPlanRequestPayload.STREAM_CODEC, ECOPlanRequestPayload::handle);
         registrar.playToClient(ECOExactAmountsS2CPacket.TYPE,
             ECOExactAmountsS2CPacket.STREAM_CODEC, ECOExactAmountsS2CPacket::handle);
     }

@@ -93,7 +93,7 @@ public final class ECOCraftingPlannerService {
                     // Keep the AE2 menu lifecycle alive with a simulation-only shell. The exact
                     // planner result is attached to this shell and rendered by the ECO screen.
                     case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> bridge.unsupported(goal, amount);
-                    default -> null;
+                    default -> bridge.unsupported(goal, amount);
                 };
                 var result = new ECOPlanningResult(solved.status(), plan, solved.trace(), solved.cycles(),
                     solved.components(), solved.executionComponentOrder(),
@@ -114,14 +114,20 @@ public final class ECOCraftingPlannerService {
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANCELLED,
                     "Crafting candidate calculation was cancelled"));
-                return new ECOPlanningResult(PlanningStatus.CANCELLED, null, trace, List.of(), List.of(),
+                var result = new ECOPlanningResult(PlanningStatus.CANCELLED, bridge.unsupported(goal, amount), trace,
+                    List.of(), List.of(),
                     List.of(), elapsedSince(startedNanos));
+                attach(result);
+                return result;
             } catch (RuntimeException e) {
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     e.getClass().getSimpleName() + ": " + e.getMessage()));
-                return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, List.of(), List.of(),
+                var result = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, bridge.unsupported(goal, amount), trace,
+                    List.of(), List.of(),
                     List.of(), elapsedSince(startedNanos));
+                attach(result);
+                return result;
             }
         }
 
@@ -149,8 +155,12 @@ public final class ECOCraftingPlannerService {
             ECOPlanTrace trace = result.trace();
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                 "EXECUTION_PLAN_FAILED:" + reason));
-            return new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, trace, result.cycles(),
+            var rejected = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, bridge.unsupported(
+                result.plan().finalOutput().what(), amount), trace, result.cycles(),
                 result.components(), result.executionComponentOrder(), elapsedSince(startedNanos));
+            rejected.setFuzzyPlanningItemIds(result.fuzzyPlanningItemIds());
+            attach(rejected);
+            return rejected;
         }
 
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {

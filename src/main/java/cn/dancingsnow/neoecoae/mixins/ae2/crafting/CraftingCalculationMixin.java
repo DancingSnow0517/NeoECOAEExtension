@@ -10,7 +10,8 @@ import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOCraftingCalculationSettings;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
-import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequest;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
@@ -94,21 +95,22 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         CalculationStrategy strategy,
         CallbackInfo ci
     ) {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(grid);
-        this.neoecoae$ignorePatternSubstitutions = settings != null
-            && settings.neoecoae$isIgnoringPatternSubstitutions();
-
-        if (settings == null || !settings.neoecoae$shouldUseFastPlanner()) {
-            this.neoecoae$plannerSession = null;
+        // Grid settings are only defaults for an explicit ECO request. Ordinary AE2, Data, and addon requests
+        // must remain on the calculation implementation selected by the crafting-service entry point.
+        this.neoecoae$plannerSession = null;
+        this.neoecoae$ignorePatternSubstitutions = false;
+        if (!(simRequester instanceof ECOPlannerRequest ecoRequest)) {
             return;
         }
 
+        ECOPlannerOptions options = ecoRequest.neoecoae$getPlannerOptions();
         KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
         this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
             grid.getCraftingService(), output.what(), inventory,
-            settings.neoecoae$isCyclePlanningEnabled(),
-            this.neoecoae$ignorePatternSubstitutions,
-            settings.neoecoae$getFuzzyPlanningItemIds());
+            options.cyclePlanningEnabled(),
+            options.ignorePatternSubstitutions(),
+            options.fuzzyPlanningItemIds());
+        this.neoecoae$ignorePatternSubstitutions = options.ignorePatternSubstitutions();
     }
 
     @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true)

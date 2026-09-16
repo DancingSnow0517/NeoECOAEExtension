@@ -28,11 +28,13 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -56,11 +58,31 @@ public class NeoECOAEClient {
             new ECODriveRenderer()
         );
         event.enqueueWork(() -> {
-            MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmRouterScreen> constructor =
-                (menu, inventory, title) -> new ECOCraftConfirmRouterScreen(
-                    menu, inventory, title, StyleManager.loadStyleDoc("/screens/craft_confirm.json"));
-            MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
+            // DataEnergistics routes the exact native CraftConfirmScreen to its Trinity page. Keep AE2's
+            // constructor intact when it is installed; the ECO client integration adds its opt-in button to
+            // both that native page and Data's custom page without changing Data's routing decision.
+            if (!ModList.get().isLoaded("data_energistics")) {
+                MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmRouterScreen> constructor =
+                    (menu, inventory, title) -> new ECOCraftConfirmRouterScreen(
+                        menu, inventory, title, StyleManager.loadStyleDoc("/screens/craft_confirm.json"));
+                MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
+            }
         });
+    }
+
+    @SubscribeEvent
+    public static void onScreenInitPost(ScreenEvent.Init.Post event) {
+        ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
+    }
+
+    @SubscribeEvent
+    public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
+        ECOCraftConfirmScreenIntegration.onScreenRenderPre(event);
+    }
+
+    @SubscribeEvent
+    public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+        ECOCraftConfirmScreenIntegration.onScreenRenderPost(event);
     }
 
     @SubscribeEvent
