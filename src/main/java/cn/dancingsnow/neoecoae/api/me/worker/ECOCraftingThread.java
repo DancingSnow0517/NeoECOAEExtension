@@ -345,13 +345,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (!consumeCraftingCoolant(controller, work.batchSize())) {
             return false;
         }
-        startBatchWork(
-            work.outputTotal(),
-            work.inputTotal(),
-            work.remainingTotal(),
-            work.craftingJobId(),
-            work.batchSize()
-        );
+        startBatchWork(work);
         fastPathReason = "FAST_PATH_HIT";
         return true;
     }
@@ -388,92 +382,41 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         @Nullable UUID craftingJobId,
         int finiteBatchCraftCount
     ) {
-        worker.markDisplayDirty();
-        outputItems.clear();
-        copyStacks(outputs, outputItems);
-        this.craftingJobId = craftingJobId;
-        this.completedJobOutputsReleased = false;
-        this.finiteBatchCraftCount = Math.max(1, finiteBatchCraftCount);
-        this.craftCount = this.finiteBatchCraftCount;
-        this.virtualBatch = false;
-        this.progressRemainder = 0.0D;
-        this.outputsReady = false;
-        inputItems.clear();
-        copyStacks(inputs, inputItems);
-        remainingItems.clear();
-        copyStacks(remaining, remainingItems);
-        batchOutputItems.clear();
-        batchInputItems.clear();
-        batchRemainingItems.clear();
-        craftingEventOutput = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0).copy();
-        try {
-            worker.onBatchStarted();
-            recoveryState = RecoveryState.ACTIVE;
-            reboot = true;
-            isBusy = true;
-            worker.onThreadAvailabilityChanged();
-        } catch (RuntimeException | Error e) {
-            // Error is included so partially installed work is cleared before the failure escapes.
-            clearWork();
-            throw e;
-        }
+        installWork(ECOCraftingThreadWork.items(
+            outputs, inputs, remaining, craftingJobId, finiteBatchCraftCount));
     }
 
-    private void startBatchWork(
-        List<GenericStack> outputs,
-        List<GenericStack> inputs,
-        List<GenericStack> remaining,
-        @Nullable UUID craftingJobId,
-        int finiteBatchCraftCount
-    ) {
-        worker.markDisplayDirty();
-        outputItems.clear();
-        inputItems.clear();
-        remainingItems.clear();
-        batchOutputItems.clear();
-        batchOutputItems.addAll(outputs);
-        batchInputItems.clear();
-        batchInputItems.addAll(inputs);
-        batchRemainingItems.clear();
-        batchRemainingItems.addAll(remaining);
-        craftingEventOutput = ItemStack.EMPTY;
-        this.craftingJobId = craftingJobId;
-        this.completedJobOutputsReleased = false;
-        this.finiteBatchCraftCount = Math.max(1, finiteBatchCraftCount);
-        this.craftCount = this.finiteBatchCraftCount;
-        this.virtualBatch = false;
-        this.progressRemainder = 0.0D;
-        this.outputsReady = false;
-        try {
-            worker.onBatchStarted();
-            recoveryState = RecoveryState.ACTIVE;
-            reboot = true;
-            isBusy = true;
-            worker.onThreadAvailabilityChanged();
-        } catch (RuntimeException | Error e) {
-            // Error is included so partially installed batch work is cleared before the failure escapes.
-            clearWork();
-            throw e;
-        }
+    private void startBatchWork(ECOBatchCraftingWork work) {
+        installWork(ECOCraftingThreadWork.batch(work));
     }
 
     private void startVirtualWork(ECOVirtualCraftingWork work) {
+        installWork(ECOCraftingThreadWork.virtual(work));
+    }
+
+    private void installWork(ECOCraftingThreadWork work) {
         worker.markDisplayDirty();
         outputItems.clear();
+        copyStacks(work.itemOutputs(), outputItems);
         inputItems.clear();
+        copyStacks(work.itemInputs(), inputItems);
         remainingItems.clear();
+        copyStacks(work.itemRemaining(), remainingItems);
         batchOutputItems.clear();
-        batchOutputItems.addAll(work.outputTotal());
+        batchOutputItems.addAll(work.genericOutputs());
         batchInputItems.clear();
-        batchInputItems.addAll(work.inputTotal());
+        batchInputItems.addAll(work.genericInputs());
         batchRemainingItems.clear();
-        batchRemainingItems.addAll(work.remainingTotal());
-        craftingEventOutput = ItemStack.EMPTY;
+        batchRemainingItems.addAll(work.genericRemaining());
+        craftingEventOutput = work.craftingEventOutput().copy();
         craftingJobId = work.craftingJobId();
-        finiteBatchCraftCount = 1;
-        craftCount = work.craftCount();
-        virtualBatch = true;
-        progress = 0;
+        completedJobOutputsReleased = false;
+        finiteBatchCraftCount = Math.max(1, work.finiteBatchCraftCount());
+        craftCount = Math.max(1L, work.craftCount());
+        virtualBatch = work.virtualBatch();
+        if (work.resetProgress()) {
+            progress = 0;
+        }
         progressRemainder = 0.0D;
         outputsReady = false;
         try {

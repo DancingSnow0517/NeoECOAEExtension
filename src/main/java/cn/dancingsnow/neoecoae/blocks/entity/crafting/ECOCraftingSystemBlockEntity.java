@@ -12,7 +12,6 @@ import appeng.api.config.PowerMultiplier;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
-import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingTaskSummary;
@@ -35,7 +34,6 @@ import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import cn.dancingsnow.neoecoae.util.NEMath;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -63,7 +61,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -84,7 +81,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
     /** Highest overclock level the progress model can represent: 10 + 9 * 10 == MAX_PROGRESS. */
     static final int MAX_OVERCLOCK_TIMES = 9;
-    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -141,8 +137,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @Getter
     @DescSynced
     private long performanceAverageNanos = 0L;
-    private long performanceWindowStartTick = Long.MIN_VALUE;
-    private long performanceWindowNanos = 0L;
+    private final ECOCraftingPerformanceMeter performanceMeter =
+        new ECOCraftingPerformanceMeter(this::updatePerformanceAverage);
     @Persisted
     @DescSynced
     private int selectedBuildLength = NEConfig.craftingSystemMaxLength - 4;
@@ -155,6 +151,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
+    private final ECOCraftingCoolingController coolingController = new ECOCraftingCoolingController(this);
     // Transient derived state rebuilt by the calculator; the BlockState property is render-only persistence.
     @Setter
     private boolean mirrored;
@@ -228,45 +225,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private TickRateModulation doTickingRequest(IGridNode node, int ticksSinceLastCall) {
-        if (!activeCooling) {
-            return TickRateModulation.IDLE;
-        }
-        CoolingRecipe recipe = getCoolingRecipe();
-        if (recipe == null) {
-            return TickRateModulation.IDLE;
-        }
-        if (!canRefillWith(recipe.maxOverclock())) {
-            return TickRateModulation.IDLE;
-        }
-
-        int targetCoolant = getTargetCoolantBuffer();
-        if (targetCoolant <= coolant) {
-            return TickRateModulation.IDLE;
-        }
-
-        int refillAmount = refillCoolant(recipe, targetCoolant - coolant);
-        if (refillAmount <= 0) {
-            return TickRateModulation.IDLE;
-        }
-        return coolant < targetCoolant ? TickRateModulation.URGENT : TickRateModulation.IDLE;
+        return coolingController.tick();
     }
 
     void recordPerformanceSample(long elapsedNanos) {
-        if (elapsedNanos < 0L) {
-            return;
-        }
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (performanceWindowStartTick == Long.MIN_VALUE) {
-            performanceWindowStartTick = currentTick;
-        }
-        performanceWindowNanos += elapsedNanos;
-        long elapsedTicks = currentTick - performanceWindowStartTick;
-        if (elapsedTicks < PERFORMANCE_SAMPLE_WINDOW_TICKS) {
-            return;
-        }
-        long nextAverageNanos = performanceWindowNanos / Math.max(1L, elapsedTicks);
-        performanceWindowStartTick = currentTick;
-        performanceWindowNanos = 0L;
+        performanceMeter.record(elapsedNanos);
+    }
+
+    private void updatePerformanceAverage(long nextAverageNanos) {
         if (performanceAverageNanos == nextAverageNanos) {
             return;
         }
@@ -413,25 +379,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public boolean tryConsumeLocalCoolant(int amount, int requiredOverclock) {
-        if (amount <= 0) {
-            return true;
-        }
-        ensureCoolantAvailable(amount, requiredOverclock);
-        if (coolant < amount) {
-            return false;
-        }
-        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
-            return false;
-        }
-        coolant -= amount;
-        if (coolant == 0) {
-            coolantMaxOverclock = -1;
-            currentCoolantFluid = FluidStack.EMPTY;
-        }
-        invalidateCapabilitySnapshot();
-        setChanged();
-        markForUpdate();
-        return true;
+        return coolingController.tryConsumeLocalCoolant(amount, requiredOverclock);
     }
 
     public boolean usesTickBasedCoolant() {
@@ -447,18 +395,12 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getLocalAvailableCoolant(int requested, int requiredOverclock) {
-        if (requested <= 0 || !ensureCoolantAvailable(requested, requiredOverclock)) {
-            return 0;
-        }
-        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
-            return 0;
-        }
-        return Math.min(requested, coolant);
+        return coolingController.getLocalAvailableCoolant(requested, requiredOverclock);
     }
 
     /** Flat virtual coolant cost per active physical lane; craft count never participates. */
     public boolean tryConsumeVirtualLaneCoolant() {
-        return !isActiveCooling() || tryConsumeCoolant(VIRTUAL_COOLANT_PER_LANE_TICK, MAX_OVERCLOCK_TIMES);
+        return coolingController.tryConsumeVirtualLaneCoolant();
     }
 
     /** Checks the flat lane coolant before paying the once-per-network-tick virtual power charge. */
@@ -484,21 +426,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public int getLocalCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
-        if (!activeCooling || requestedCrafts <= 0) {
-            return Math.max(0, requestedCrafts);
-        }
-        if (usesTickBasedCoolant()) {
-            return ensureCoolantAvailable(1, requiredOverclock) ? requestedCrafts : 0;
-        }
-        if (coolantPerCraft <= 0) {
-            return Math.max(0, requestedCrafts);
-        }
-        int desiredCoolant = (int) Math.min(MAX_COOLANT, (long) coolantPerCraft * requestedCrafts);
-        ensureCoolantAvailable(desiredCoolant, requiredOverclock);
-        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
-            return 0;
-        }
-        return Math.min(requestedCrafts, coolant / coolantPerCraft);
+        return coolingController.getLocalCraftingCoolantCraftLimit(
+            coolantPerCraft, requiredOverclock, requestedCrafts);
     }
 
     public int getEffectiveOverclockTimes() {
@@ -507,11 +436,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public int getDisplayedCoolingMaxOverclock() {
         return cluster != null && cluster.getNetworkCluster() != null
-            ? cluster.getNetworkCluster().getCoolantMaxOverclock() : getCurrentCoolingMaxOverclock();
+            ? cluster.getNetworkCluster().getCoolantMaxOverclock() : coolingController.getCurrentCoolingMaxOverclock();
     }
 
     public int getLocalCoolingMaxOverclock() {
-        return getCurrentCoolingMaxOverclock();
+        return coolingController.getCurrentCoolingMaxOverclock();
     }
 
     /**
@@ -583,123 +512,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             }
         }
         return false;
-    }
-
-    @Nullable
-    private CoolingRecipe getCoolingRecipe() {
-        if (cluster == null || cluster.getInputHatch() == null || cluster.getOutputHatch() == null || getLevel() == null) {
-            return null;
-        }
-        FluidTank inputHatch = cluster.getInputHatch().tank;
-        if (inputHatch.getFluidAmount() <= 0) {
-            return null;
-        }
-        FluidTank outputHatch = cluster.getOutputHatch().tank;
-        return getLevel().getRecipeManager().getRecipeFor(
-            NERecipeTypes.COOLING.get(),
-            new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
-            getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
-    }
-
-    private boolean canRefillWith(int maxOverclock) {
-        return coolant <= 0 || coolantMaxOverclock < 0 || coolantMaxOverclock == maxOverclock;
-    }
-
-    private boolean ensureCoolantAvailable(int requiredCoolant, int requiredOverclock) {
-        if (!activeCooling || requiredCoolant <= 0) {
-            return true;
-        }
-        if (coolant >= requiredCoolant && (requiredOverclock <= 0 || coolantMaxOverclock >= requiredOverclock)) {
-            return true;
-        }
-        CoolingRecipe recipe = getCoolingRecipe();
-        if (recipe == null || !canRefillWith(recipe.maxOverclock())) {
-            return false;
-        }
-        if (requiredOverclock > 0 && recipe.maxOverclock() < requiredOverclock) {
-            return false;
-        }
-        int targetCoolant = Math.min(MAX_COOLANT, Math.max(requiredCoolant, coolant));
-        refillCoolant(recipe, targetCoolant - coolant);
-        return coolant >= requiredCoolant && (requiredOverclock <= 0 || coolantMaxOverclock >= requiredOverclock);
-    }
-
-    private int getCurrentCoolingMaxOverclock() {
-        if (coolant > 0 && coolantMaxOverclock >= 0) {
-            return coolantMaxOverclock;
-        }
-        CoolingRecipe recipe = getCoolingRecipe();
-        return recipe == null ? -1 : recipe.maxOverclock();
-    }
-
-    private int getTargetCoolantBuffer() {
-        if (getCapabilitySnapshot().physicalFxCount() <= 0) {
-            return 0;
-        }
-        return MAX_COOLANT;
-    }
-
-    private int refillCoolant(CoolingRecipe recipe, int deficit) {
-        if (cluster == null || cluster.getInputHatch() == null || cluster.getOutputHatch() == null) {
-            return 0;
-        }
-        FluidTank inputHatch = cluster.getInputHatch().tank;
-        FluidTank outputHatch = cluster.getOutputHatch().tank;
-        int inputAmount = recipe.inputAmount();
-        if (deficit <= 0 || inputAmount <= 0 || recipe.coolant() <= 0) {
-            return 0;
-        }
-
-        long requiredInput = ((long) deficit * inputAmount + recipe.coolant() - 1L) / recipe.coolant();
-        long drainAmount = Math.min(requiredInput, inputHatch.getFluidAmount());
-        drainAmount = Math.min(drainAmount, getMaxDrainByOutput(recipe, outputHatch));
-        if (drainAmount <= 0) {
-            return 0;
-        }
-
-        FluidStack coolantFluid = inputHatch.getFluid().copyWithAmount(1);
-        int drained = inputHatch.drain((int) drainAmount, IFluidHandler.FluidAction.EXECUTE).getAmount();
-        if (drained <= 0) {
-            return 0;
-        }
-
-        FluidStack output = recipe.output();
-        if (!output.isEmpty()) {
-            int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
-            if (outputAmount > 0) {
-                outputHatch.fill(output.copyWithAmount(outputAmount), IFluidHandler.FluidAction.EXECUTE);
-            }
-        }
-
-        int coolantGain = (int) ((long) drained * recipe.coolant() / inputAmount);
-        if (coolantGain <= 0) {
-            return 0;
-        }
-        coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
-        coolantMaxOverclock = recipe.maxOverclock();
-        currentCoolantFluid = coolantFluid;
-        invalidateCapabilitySnapshot();
-        setChanged();
-        markForUpdate();
-        return coolantGain;
-    }
-
-    private long getMaxDrainByOutput(CoolingRecipe recipe, FluidTank outputHatch) {
-        FluidStack output = recipe.output();
-        if (output.isEmpty()) {
-            return Long.MAX_VALUE;
-        }
-        FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !FluidStack.isSameFluidSameComponents(stored, output)) {
-            return 0;
-        }
-        int outputAmount = recipe.outputAmount();
-        if (outputAmount <= 0) {
-            return Long.MAX_VALUE;
-        }
-        long outputSpace = outputHatch.getCapacity() - outputHatch.getFluidAmount();
-        return outputSpace * recipe.inputAmount() / outputAmount;
     }
 
     public boolean hasNormalNetworkSwitch() {
@@ -852,7 +664,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             getTier().getOverclockedCrafterPowerMultiply(),
             false,
             new CraftingCapabilitySnapshot.CoolantState(
-                activeCooling, coolant, MAX_COOLANT, getCurrentCoolingMaxOverclock())
+                activeCooling, coolant, MAX_COOLANT, coolingController.getCurrentCoolingMaxOverclock())
         ));
         capabilitySnapshotCache = snapshot;
         return snapshot;
@@ -972,6 +784,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     public void applyNetworkActiveCooling(boolean value) {
         if (activeCooling == value) return;
         activeCooling = value;
+        invalidateCapabilitySnapshot();
+        setChanged();
+        markForUpdate();
+    }
+
+    void updateLocalCoolantState(int amount, int maxOverclock, FluidStack fluid) {
+        coolant = amount;
+        coolantMaxOverclock = maxOverclock;
+        currentCoolantFluid = fluid;
         invalidateCapabilitySnapshot();
         setChanged();
         markForUpdate();

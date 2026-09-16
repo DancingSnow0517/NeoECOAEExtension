@@ -89,8 +89,6 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     private final ECOCraftingJobAttachments jobAttachments = new ECOCraftingJobAttachments();
-    /** Dynamic final keys that still need to be delivered to the requester/network. */
-    private final Map<AEKey, Long> pendingFinalOutputs = new LinkedHashMap<>();
     /**
      * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
      */
@@ -103,13 +101,16 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     @Getter
     private boolean markedForDeletion = false;
 
-    private boolean deliveringFinalOutput;
     private final ECOCraftingDispatchStrategy dispatchStrategy = new ECOCraftingDispatchStrategy();
     private final ECOCraftingEnergyTransaction energyTransaction;
     private final ECOCraftingDispatchAccounting dispatchAccounting;
     private final ECOCraftingFastPathDispatcher fastPathDispatcher;
     private final ECOCraftingProviderDispatcher providerDispatcher;
     private final ECOCraftingTaskScheduler taskScheduler;
+    private final ECOCraftingOutputDelivery outputDelivery;
+    private final ECOCraftingCpuView view;
+    private final ECOCraftingCpuPersistence persistence;
+    private final ECOCraftingJobLifecycleController lifecycle;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -122,63 +123,15 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
                 this, fastPathDispatcher, energyTransaction, dispatchAccounting);
         this.taskScheduler = new ECOCraftingTaskScheduler(providerDispatcher);
+        this.outputDelivery = new ECOCraftingOutputDelivery(this);
+        this.view = new ECOCraftingCpuView(this);
+        this.persistence = new ECOCraftingCpuPersistence(this);
+        this.lifecycle = new ECOCraftingJobLifecycleController(this);
     }
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
-        if (this.job != null)
-            return CraftingSubmitResult.CPU_BUSY;
-        if (!cpu.isActive())
-            return CraftingSubmitResult.CPU_OFFLINE;
-        if (cpu.getAvailableStorage() < plan.bytes())
-            return CraftingSubmitResult.CPU_TOO_SMALL;
-
-        if (!inventory.list.isEmpty())
-            AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
-
-        var attachedPlanningResult = (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
-                ? diagnostics.neoecoae$getPlanningResult() : null;
-        var contract = ECOPlanningResultRegistry.resolveContract(plan, attachedPlanningResult);
-        var executionPlan = contract == null ? ECOPlanningResultRegistry.resolveExecutionPlan(plan)
-                : contract.executionPlan();
-
-        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
-        if (missingIngredient != null) {
-            return CraftingSubmitResult.missingIngredient(missingIngredient);
-        }
-
-        var playerId = src.player()
-                .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
-                .orElse(null);
-        var craftId = UUID.randomUUID();
-        var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, executionPlan, this::postChange, linkCpu, playerId);
-        pendingFinalOutputs.clear();
-        initializeJobAttachments();
-        taskScheduler.resetDispatchState();
-        taskScheduler.bindDiagnostics(craftId, TickHandler.instance().getCurrentTick());
-        // 立即发布计划产物，使 AE2 能在首次机器事件发生前显示并取消新任务。
-        var initialStatusItems = new KeyCounter();
-        getAllItems(initialStatusItems);
-        for (var entry : initialStatusItems) postChange(entry.getKey());
-
-        markCpuDirty();
-
-        notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
-
-        if (requester != null) {
-            var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
-
-            var craftingService = (CraftingService) grid.getCraftingService();
-            craftingService.addLink(linkCpu);
-            craftingService.addLink(linkReq);
-            ECOCraftingLifecycle.fireJobStarted(createJobContext(job));
-
-            return CraftingSubmitResult.successful(linkReq);
-        } else {
-            ECOCraftingLifecycle.fireJobStarted(createJobContext(job));
-            return CraftingSubmitResult.successful(null);
-        }
+        return lifecycle.submit(grid, plan, src, requester);
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
@@ -251,50 +204,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     /** 从所有配方输入共用的实际库存中重试交付产物。 */
     private void deliverStoredFinalOutput() {
-        var current = job;
-        if (current == null) return;
-        deliverPendingFinalOutputs(current);
-        if (job != current || current.finalOutput == null) return;
-        AEKey key = current.finalOutput.what();
-        long storedFinalOutput = inventory.list.get(key);
-        if (storedFinalOutput > 0L) {
-            PlannerAmount reserve = PlannerAmount.ZERO;
-            for (var task : current.tasks.entrySet()) {
-                reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
-                    task.getKey(), task.getValue().value, key));
-            }
-            if (current.executionRuntime != null) {
-                reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
-            }
-                // 先保留下一轮增殖所需的回流物料，再交付多余产物。保留启动种子
-            PlannerAmount deliverable = PlannerAmount.of(storedFinalOutput)
-                .subtract(reserve).max(PlannerAmount.ZERO);
-            long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
-            if (amount > 0L) {
-                long inserted = deliverFinalOutputToDestination(current, key, amount);
-                inventory.extract(key, inserted, Actionable.MODULATE);
-                current.remainingAmount = Math.max(0L, current.remainingAmount - inserted);
-                markCpuDirty();
-                if (inserted > 0L) {
-                    taskScheduler.progress(TickHandler.instance().getCurrentTick());
-                } else {
-                    taskScheduler.finalDeliveryBlocked(key, amount);
-                }
-            }
-        }
-        boolean tasksDone = !taskScheduler.hasPendingTasks(current);
-        boolean physicallyComplete = current.remainingAmount <= 0L
-                && current.waitingFor.list.isEmpty()
-                && tasksDone
-                && pendingFinalOutputs.isEmpty();
-        if (physicallyComplete) {
-            if (current.executionRuntime != null && !current.executionRuntime.isComplete()) {
-                LOGGER.warn("ECO crafting job {} reached terminal crafting state "
-                                + "but execution runtime is incomplete; forcing finalization",
-                        current.link.getCraftingID());
-            }
-            finishJob(true);
-        }
+        outputDelivery.deliverStoredFinalOutput();
     }
 
     static int calculateOperationLimit(int coProcessors, int configuredLimit) {
@@ -382,21 +292,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     /** 将尚待接收的产物存入 CPU 自有的实际库存。 */
     public long insert(AEKey what, long amount, Actionable type) {
-        var current = job;
-        if (what == null || amount <= 0L || current == null) return 0L;
-        if (ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), current.link.getCraftingID())) return 0L;
-        if (deliveringFinalOutput && what.matches(current.finalOutput)) return 0L;
-        long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
-        if (accepted <= 0L) return 0L;
-        if (type == Actionable.MODULATE) {
-            inventory.insert(what, accepted, Actionable.MODULATE);
-            taskScheduler.recordPhysicalInsert(what);
-            current.waitingFor.extract(what, accepted, Actionable.MODULATE);
-            recordCompletedCraftingWork(accepted, what.getType());
-            markCpuDirty();
-            taskScheduler.progress(TickHandler.instance().getCurrentTick());
-        }
-        return accepted;
+        return outputDelivery.insert(what, amount, type);
     }
 
     /**
@@ -406,22 +302,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      * 在 CPU 边界保留此检查，可防止产物被分配给恰好也在等待相同资源键的其他 CPU。</p>
      */
     public long insertForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
-        if (what == null || amount <= 0L || craftingJobId == null || job == null
-                || !craftingJobId.equals(job.link.getCraftingID())
-                || ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), craftingJobId)) {
-            return 0L;
-        }
-        long accepted = insert(what, amount, type);
-        if (accepted < 0L || accepted > amount) {
-            throw new IllegalStateException("Invalid CPU insertion amount: " + accepted + " for " + amount);
-        }
-        // 定向交付给该任务的多余产物归此 CPU 所有，但不得扣减无关的等待条目。
-        if (type == Actionable.MODULATE && accepted < amount) {
-            inventory.insert(what, amount - accepted, Actionable.MODULATE);
-            taskScheduler.recordPhysicalInsert(what);
-            markCpuDirty();
-        }
-        return amount;
+        return outputDelivery.insertForJob(craftingJobId, what, amount, type);
     }
 
     /**
@@ -431,88 +312,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      */
     @Override
     public ECOCraftingOutputClaimResult claimCraftingOutput(ECOCraftingOutputClaimRequest request) {
-        long requested = request == null ? 0L : Math.max(0L, request.amount());
-        if (request == null || request.craftingJobId() == null || request.expectedKey() == null
-                || request.actualKey() == null || request.amount() <= 0L || request.mode() == null) {
-            return claimResult(ECOCraftingOutputClaimResult.Status.INVALID_REQUEST, requested, 0L, 0L);
-        }
-
-        var current = job;
-        if (current == null) {
-            return claimResult(ECOCraftingOutputClaimResult.Status.NO_JOB, requested, 0L, 0L);
-        }
-        if (!request.craftingJobId().equals(current.link.getCraftingID())
-                || ECOCraftingJobLifecycle.isTerminated(cpu.getLevel(), request.craftingJobId())) {
-            return claimResult(ECOCraftingOutputClaimResult.Status.TERMINAL, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
-        }
-
-        long claim = current.waitingFor.extract(
-                request.expectedKey(), request.amount(), Actionable.SIMULATE);
-        if (claim <= 0L) {
-            return claimResult(ECOCraftingOutputClaimResult.Status.NO_MATCH, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
-        }
-
-        boolean finalOutputClaim = current.finalOutput != null
-                && request.expectedKey().equals(current.finalOutput.what());
-        if (request.mode() == Actionable.SIMULATE) {
-            OutputRoute route = routeClaimedOutput(
-                    current, request.actualKey(), claim, request.mode(), finalOutputClaim);
-            long remaining = finalOutputClaim
-                    ? Math.max(0L, current.remainingAmount - route.deliveredAmount())
-                    : Math.max(0L, current.remainingAmount);
-            return new ECOCraftingOutputClaimResult(
-                    ECOCraftingOutputClaimResult.Status.ACCEPTED,
-                    requested,
-                    claim,
-                    route.deliveredToRequester(),
-                    route.deliveredToNetwork(),
-                    route.storedInCpu(),
-                    remaining,
-                    false);
-        }
-
-        long claimed = current.waitingFor.extract(request.expectedKey(), claim, Actionable.MODULATE);
-        if (claimed <= 0L) {
-            return claimResult(ECOCraftingOutputClaimResult.Status.NO_MATCH, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
-        }
-        // The waiting inventory is server-thread local. A mismatch can only be caused by a re-entrant callback;
-        // route no more than the amount actually removed and retain the uncommitted tail in the CPU.
-        claim = Math.min(claim, claimed);
-        OutputRoute route = routeClaimedOutput(
-                current, request.actualKey(), claim, Actionable.MODULATE, finalOutputClaim);
-
-        if (route.storedInCpu() > 0L) {
-            inventory.insert(request.actualKey(), route.storedInCpu(), Actionable.MODULATE);
-            taskScheduler.recordPhysicalInsert(request.actualKey());
-            if (finalOutputClaim && current.finalOutput != null
-                    && !request.actualKey().equals(current.finalOutput.what())) {
-                pendingFinalOutputs.merge(request.actualKey(), route.storedInCpu(), NEMath::saturatingAdd);
-            }
-        }
-        recordCompletedCraftingWork(claim, request.actualKey().getType());
-        if (finalOutputClaim) {
-            current.remainingAmount = Math.max(0L, current.remainingAmount - route.deliveredAmount());
-        }
-        if (route.deliveredToRequester() > 0L || route.deliveredToNetwork() > 0L) {
-            postChange(request.actualKey());
-        }
-        markCpuDirty();
-        taskScheduler.progress(TickHandler.instance().getCurrentTick());
-
-        boolean finished = finishIfComplete(current);
-        long remaining = finished ? 0L : Math.max(0L, current.remainingAmount);
-        return new ECOCraftingOutputClaimResult(
-                ECOCraftingOutputClaimResult.Status.ACCEPTED,
-                requested,
-                claim,
-                route.deliveredToRequester(),
-                route.deliveredToNetwork(),
-                route.storedInCpu(),
-                remaining,
-                finished);
+        return outputDelivery.claimCraftingOutput(request);
     }
 
     /**
@@ -576,112 +376,6 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         return true;
     }
 
-    private ECOCraftingOutputClaimResult claimResult(ECOCraftingOutputClaimResult.Status status,
-            long requested, long claimed, long remaining) {
-        return new ECOCraftingOutputClaimResult(status, requested, claimed, 0L, 0L, 0L, remaining, false);
-    }
-
-    private OutputRoute routeClaimedOutput(ExecutingCraftingJob current, AEKey actualKey, long amount,
-            Actionable mode, boolean finalOutputClaim) {
-        if (!finalOutputClaim) {
-            return new OutputRoute(0L, 0L, amount);
-        }
-
-        if (!current.link.isStandalone()) {
-            try {
-                long inserted = current.link.insert(actualKey, amount, mode);
-                inserted = clampRoutedAmount(inserted, amount);
-                return new OutputRoute(inserted, 0L, amount - inserted);
-            } catch (RuntimeException failure) {
-                LOGGER.warn("ECO crafting requester rejected a claimed output; retaining it in the CPU", failure);
-                return new OutputRoute(0L, 0L, amount);
-            }
-        }
-
-        IGrid grid = cpu.getGrid();
-        if (grid == null) {
-            return new OutputRoute(0L, 0L, amount);
-        }
-        try {
-            long inserted = grid.getStorageService().getInventory().insert(
-                    actualKey, amount, mode, cpu.getActionSource());
-            inserted = clampRoutedAmount(inserted, amount);
-            return new OutputRoute(0L, inserted, amount - inserted);
-        } catch (RuntimeException failure) {
-            LOGGER.warn("ECO crafting network rejected a claimed output; retaining it in the CPU", failure);
-            return new OutputRoute(0L, 0L, amount);
-        }
-    }
-
-    /** Retries dynamic final keys that could not be delivered during their original claim. */
-    private void deliverPendingFinalOutputs(ExecutingCraftingJob current) {
-        if (pendingFinalOutputs.isEmpty()) return;
-        for (var entry : List.copyOf(pendingFinalOutputs.entrySet())) {
-            AEKey key = entry.getKey();
-            long stored = Math.min(entry.getValue(), inventory.list.get(key));
-            if (stored <= 0L) {
-                pendingFinalOutputs.remove(key);
-                continue;
-            }
-            long amount = Math.min(stored, Math.max(0L, current.remainingAmount));
-            if (amount <= 0L) continue;
-            long inserted = deliverFinalOutputToDestination(current, key, amount);
-            inventory.extract(key, inserted, Actionable.MODULATE);
-            if (inserted > 0L) {
-                long remaining = Math.max(0L, stored - inserted);
-                if (remaining == 0L) pendingFinalOutputs.remove(key);
-                else pendingFinalOutputs.put(key, remaining);
-                current.remainingAmount = Math.max(0L, current.remainingAmount - inserted);
-                markCpuDirty();
-                taskScheduler.progress(TickHandler.instance().getCurrentTick());
-            } else {
-                taskScheduler.finalDeliveryBlocked(key, amount);
-            }
-        }
-    }
-
-    private long deliverFinalOutputToDestination(ExecutingCraftingJob current, AEKey key, long amount) {
-        try {
-            deliveringFinalOutput = true;
-            long inserted;
-            if (current.link.isStandalone()) {
-                var grid = cpu.getGrid();
-                inserted = grid == null ? 0L : grid.getStorageService().getInventory()
-                        .insert(key, amount, Actionable.MODULATE, cpu.getActionSource());
-            } else {
-                inserted = current.link.insert(key, amount, Actionable.MODULATE);
-            }
-            return clampRoutedAmount(inserted, amount);
-        } catch (RuntimeException failure) {
-            LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
-            return 0L;
-        } finally {
-            deliveringFinalOutput = false;
-        }
-    }
-
-    private static long clampRoutedAmount(long inserted, long offered) {
-        return inserted <= 0L ? 0L : Math.min(inserted, offered);
-    }
-
-    private boolean finishIfComplete(ExecutingCraftingJob expected) {
-        if (job != expected) return true;
-        if (expected.remainingAmount > 0L || !expected.waitingFor.list.isEmpty()
-                || taskScheduler.hasPendingTasks(expected)
-                || !pendingFinalOutputs.isEmpty()
-                || (expected.executionRuntime != null && !expected.executionRuntime.isComplete())) {
-            return false;
-        }
-        finishJob(true);
-        return true;
-    }
-
-    private record OutputRoute(long deliveredToRequester, long deliveredToNetwork, long storedInCpu) {
-        long deliveredAmount() {
-            return NEMath.saturatingAdd(deliveredToRequester, deliveredToNetwork);
-        }
-    }
-
     public boolean hasCraftingJob(UUID craftingJobId) {
         return craftingJobId != null && job != null && craftingJobId.equals(job.link.getCraftingID());
     }
@@ -691,52 +385,15 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      *
      * @param success 任务完成则为 true，取消则为 false。
      */
-    private void finishJob(boolean success) {
-        var finishingJob = job;
-        if (finishingJob == null) return;
-        var context = createJobContext(finishingJob);
-        long remainingAmount = Math.max(0L, finishingJob.remainingAmount);
-        long completedAmount = Math.max(0L, context.requestedAmount() - remainingAmount);
-        var result = new ECOCraftingJobResult(
-                success ? ECOCraftingJobResult.Status.SUCCESS : ECOCraftingJobResult.Status.CANCELLED,
-                context.requestedAmount(), completedAmount, remainingAmount);
-
-        ECOCraftingJobLifecycle.finish(cpu.getLevel(), finishingJob.link.getCraftingID(), success);
-        if (success) {
-            finishingJob.link.markDone();
-            ECOCraftingWorkerRecovery.releaseCompletedOutputs(cpu.getGrid(), finishingJob.link.getCraftingID());
-        } else {
-            finishingJob.link.cancel();
-        }
-
-        finishingJob.waitingFor.clear();
-        for (var entry : finishingJob.tasks.entrySet()) {
-            for (var output : entry.getKey().getOutputs()) {
-                postChange(output.what());
-            }
-        }
-
-        notifyJobOwner(
-                finishingJob, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
-
-        clearJobAttachments(result);
-        this.job = null;
-        taskScheduler.reset();
-        this.storeItems();
-        pendingFinalOutputs.clear();
-        ECOCraftingLifecycle.fireJobFinished(context, result);
+    void finishJob(boolean success) {
+        lifecycle.finish(success);
     }
 
     /**
      * 取消当前合成任务。
      */
     public void cancel() {
-        if (job == null)
-            return;
-
-        UUID craftingJobId = job.link.getCraftingID();
-        finishJob(false);
-        ECOCraftingWorkerRecovery.recoverTerminatedInputs(cpu.getLevel(), craftingJobId);
+        lifecycle.cancel();
     }
 
     /**
@@ -765,7 +422,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         markCpuDirty();
     }
 
-    private void postChange(@Nullable AEKey what) {
+    void postChange(@Nullable AEKey what) {
         taskScheduler.invalidateInputTemplates(what);
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         notifyListeners(what);
@@ -775,21 +432,61 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         for (var listener : listeners) listener.accept(what);
     }
 
-    private void markCpuDirty() {
+    void markCpuDirty() {
         cpu.markDirty();
     }
 
+    ECOCraftingTaskScheduler taskSchedulerForOutput() {
+        return taskScheduler;
+    }
+
+    ECOCraftingTaskScheduler taskSchedulerForPersistence() {
+        return taskScheduler;
+    }
+
+    ECOCraftingTaskScheduler taskSchedulerForLifecycle() {
+        return taskScheduler;
+    }
+
+    ECOCraftingDispatchStrategy dispatchStrategyForPersistence() {
+        return dispatchStrategy;
+    }
+
+    ECOCraftingJobAttachments jobAttachmentsForPersistence() {
+        return jobAttachments;
+    }
+
+    ECOCraftingJobAttachments jobAttachmentsForLifecycle() {
+        return jobAttachments;
+    }
+
+    ECOCraftingEnergyTransaction energyTransactionForPersistence() {
+        return energyTransaction;
+    }
+
+    ECOCraftingOutputDelivery outputDeliveryForPersistence() {
+        return outputDelivery;
+    }
+
+    void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
+        this.job = restoredJob;
+    }
+
+    void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
+        this.job = nextJob;
+    }
+
     public boolean hasJob() {
-        return this.job != null;
+        return view.hasJob();
     }
 
     @Nullable
     public GenericStack getFinalJobOutput() {
-        return this.job != null ? this.job.finalOutput : null;
+        return view.getFinalJobOutput();
     }
 
     public long getRemainingJobOutputAmount() {
-        return this.job != null ? this.job.remainingAmount : 0L;
+        return view.getRemainingJobOutputAmount();
     }
 
     /**
@@ -797,16 +494,12 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      */
     @Deprecated(forRemoval = false)
     public ElapsedTimeTracker getElapsedTimeTracker() {
-        if (this.job != null) {
-            return this.job.timeTracker;
-        } else {
-            return new ElapsedTimeTracker();
-        }
+        return view.getElapsedTimeTracker();
     }
 
     /** Returns a detached, immutable progress snapshot for external displays and integrations. */
     public ECOCraftingProgressView getProgressView() {
-        return this.job == null ? ECOCraftingProgressSnapshot.empty() : this.job.timeTracker.snapshot();
+        return view.getProgressView();
     }
 
     @Override
@@ -819,92 +512,19 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        taskScheduler.reset();
-        dispatchStrategy.reset();
-        jobAttachments.reset();
-        pendingFinalOutputs.clear();
-        energyTransaction.readFromNBT(data);
-        this.inventory.readFromNBT(data.getList("inventory", 10), registries);
-        if (data.contains("job")) {
-            var jobData = data.getCompound("job");
-            this.job = new ExecutingCraftingJob(jobData, registries, this::postChange, this);
-            loadPendingFinalOutputs(jobData, registries);
-            loadJobAttachments(jobData, registries);
-            IGrid grid = cpu.getGrid();
-            if (grid != null) {
-                // 仅在整个任务成功解码后发布恢复的链接。恢复失败的任务会继续隔离在多线程核心中，
-                // 不得在合成服务中留下孤立链接。
-                ((CraftingService) grid.getCraftingService()).addLink(this.job.link);
-            }
-            // 将旧版独立最终产物缓冲区中保存的实际物品迁移一次。
-            long buffered = jobData.getLong("bufferedFinalOutput");
-            if (buffered > 0L && job.finalOutput != null) {
-                inventory.insert(job.finalOutput.what(), buffered, Actionable.MODULATE);
-            }
-            if (this.job.finalOutput == null) {
-                finishJob(false);
-            }
-        } else {
-            this.job = null;
-        }
+        persistence.read(data, registries);
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        data.put("inventory", this.inventory.writeToNBT(registries));
-        energyTransaction.writeToNBT(data);
-        if (this.job != null) {
-            CompoundTag jobData = this.job.writeToNBT(registries);
-            writePendingFinalOutputs(jobData, registries);
-            writeJobAttachments(jobData, registries);
-            data.put("job", jobData);
-        } else {
-            data.remove("job");
-        }
+        persistence.write(data, registries);
     }
 
-    private void loadPendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {
-        ListTag entries = jobData.getList("pendingFinalOutputs", Tag.TAG_COMPOUND);
-        for (int index = 0; index < entries.size(); index++) {
-            try {
-                GenericStack stack = GenericStack.readTag(registries, entries.getCompound(index));
-                if (stack != null && stack.amount() > 0L) {
-                    pendingFinalOutputs.merge(stack.what(), stack.amount(), NEMath::saturatingAdd);
-                }
-            } catch (RuntimeException failure) {
-                LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
-            }
-        }
-    }
-
-    private void writePendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {
-        if (pendingFinalOutputs.isEmpty()) {
-            jobData.remove("pendingFinalOutputs");
-            return;
-        }
-        ListTag entries = new ListTag();
-        for (var entry : pendingFinalOutputs.entrySet()) {
-            if (entry.getValue() > 0L) {
-                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getValue())));
-            }
-        }
-        if (entries.isEmpty()) jobData.remove("pendingFinalOutputs");
-        else jobData.put("pendingFinalOutputs", entries);
-    }
-
-    private void initializeJobAttachments() {
-        if (job != null) jobAttachments.initialize(createJobContext(job));
-    }
-
-    private void loadJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
+    void loadJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
         if (job != null) jobAttachments.load(jobData, registries, createJobContext(job));
     }
 
-    private void writeJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
+    void writeJobAttachments(CompoundTag jobData, HolderLookup.Provider registries) {
         if (job != null) jobAttachments.save(jobData, registries, createJobContext(job));
-    }
-
-    private void clearJobAttachments(ECOCraftingJobResult result) {
-        jobAttachments.clear(result);
     }
 
     public ICraftingLink getLastLink() {
@@ -927,69 +547,36 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     }
 
     public long getStored(AEKey template) {
-        return this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+        return view.getStored(template);
     }
 
     public long getWaitingFor(AEKey template) {
-        if (this.job != null) {
-            return this.job.waitingFor.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
-        }
-        return 0;
+        return view.getWaitingFor(template);
     }
 
     public void getAllWaitingFor(Set<AEKey> waitingFor) {
-        if (this.job != null) {
-            for (var entry : this.job.waitingFor.list) {
-                waitingFor.add(entry.getKey());
-            }
-        }
+        view.getAllWaitingFor(waitingFor);
     }
 
     public long getPendingOutputs(AEKey template) {
-        long count = 0;
-        if (this.job != null) {
-            for (var t : job.tasks.entrySet()) {
-                for (var output : t.getKey().getOutputs()) {
-                    if (template.matches(output)) {
-                        count = NEMath.saturatingAdd(count,
-                                NEMath.saturatingMultiply(output.amount(), t.getValue().value));
-                    }
-                }
-            }
-        }
-        return count;
+        return view.getPendingOutputs(template);
     }
 
     /**
      * 供菜单使用，收集所有类型的存储物品。
      */
     public void getAllItems(KeyCounter out) {
-        addAllSaturating(out, this.inventory.list);
-        if (this.job != null) {
-            addAllSaturating(out, job.waitingFor.list);
-            for (var t : job.tasks.entrySet()) {
-                for (var output : t.getKey().getOutputs()) {
-                    long amount = NEMath.saturatingMultiply(output.amount(), t.getValue().value);
-                    out.set(output.what(), NEMath.saturatingAdd(out.get(output.what()), amount));
-                }
-            }
-        }
+        view.getAllItems(out);
     }
 
     /** 仅收集此 CPU 实际持有的物品，不包括计划产物和尚未返回的产物。 */
     public void getOwnedItems(KeyCounter out) {
-        out.addAll(this.inventory.list);
-    }
-
-    private static void addAllSaturating(KeyCounter target, KeyCounter source) {
-        for (var entry : source) {
-            target.set(entry.getKey(), NEMath.saturatingAdd(target.get(entry.getKey()), entry.getLongValue()));
-        }
+        view.getOwnedItems(out);
     }
 
     /** {@link #getOwnedItems(KeyCounter)} 对应的无内存分配检查；必须覆盖相同的库存记录。 */
     public boolean hasOwnedItems() {
-        return !this.inventory.list.isEmpty();
+        return view.hasOwnedItems();
     }
 
     public boolean isJobSuspended() {
@@ -1012,7 +599,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         }
     }
 
-    private void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
+    void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
 
         var playerId = job.playerId;
@@ -1035,7 +622,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         }
     }
 
-    private ECOCraftingJobContext createJobContext(ExecutingCraftingJob target) {
+    ECOCraftingJobContext createJobContext(ExecutingCraftingJob target) {
         GenericStack output = target.finalOutput;
         long requested = output == null ? 0L : Math.max(0L, output.amount());
         return new ECOCraftingJobContext(
