@@ -3,7 +3,6 @@
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt",
   "compatibilityLevel": "JAVA_21",
-  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin",
-  "mixins": ["ECOThunderboltProviderMixin"],
+  "mixins": [],
   "injectors": {"defaultRequire": 1}
 }

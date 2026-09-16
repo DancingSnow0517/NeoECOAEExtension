@@ -10,12 +10,12 @@ import org.junit.jupiter.api.Test;
 
 /** Uses interfaces from the actual selected dependency jars, not local API stubs. */
 class ThunderboltRuntimeContractTest {
-    @Test void actualRuntimeSelectsExactlyOneBridge() throws Exception {
+    @Test void providerApiIsNotInjectedIntoNeoEcoHosts() throws Exception {
         String modern = "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider";
         assertTrue(Class.forName(modern).isInterface());
         var plugin = new ECOThunderboltMixinPlugin();
         String prefix = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
-        assertTrue(plugin.shouldApplyMixin("unused", prefix + "ECOThunderboltProviderMixin"));
+        assertFalse(plugin.shouldApplyMixin("unused", prefix + "ECOThunderboltProviderMixin"));
         assertFalse(plugin.shouldApplyMixin("unused", prefix + "ECOLegacyThunderboltBridgeMixin"));
     }
 

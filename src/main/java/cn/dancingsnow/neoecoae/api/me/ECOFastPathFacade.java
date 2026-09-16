@@ -20,7 +20,9 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Synchronous CPU integration boundary. Prepare and submit on the owning server thread in the same tick.
+ * NeoECO-owned synchronous CPU integration boundary. Prepare and submit on the owning server thread
+ * in the same tick. External CPUs integrate with this facade directly; providers are not required to
+ * implement an API owned by the calling CPU or its infrastructure library.
  * Input slots describe one copy and are previews: all physical inputs must still be in the CPU inventory.
  * The facade owns extraction and rollback. The CPU must never extract or refund those inputs itself.
  * Provider verification and stateful material calculations remain in the provider's preparation contract.
