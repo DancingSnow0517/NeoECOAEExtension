@@ -42,6 +42,7 @@ class InfiniteMemberInteractionTest {
         doReturn(true).when(host).isInfiniteMode();
         field(host, "infiniteDomainId", domain);
         field(host, "infiniteMemberIds", new HashSet<UUID>());
+        field(host, "infiniteMigrationSourceIds", new HashSet<UUID>());
         return host;
     }
 
