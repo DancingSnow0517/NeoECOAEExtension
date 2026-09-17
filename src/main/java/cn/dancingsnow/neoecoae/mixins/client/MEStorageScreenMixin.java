@@ -1,37 +1,20 @@
 package cn.dancingsnow.neoecoae.mixins.client;
 
-import appeng.api.client.AEKeyRendering;
 import appeng.client.gui.me.common.MEStorageScreen;
-import appeng.client.gui.me.common.Repo;
-import appeng.client.gui.me.common.RepoSlot;
-import appeng.client.gui.me.common.StackSizeRenderer;
 import appeng.menu.me.common.GridInventoryEntry;
 import cn.dancingsnow.neoecoae.api.me.ECOExactStorageMenu;
 import cn.dancingsnow.neoecoae.util.ExactAmountFormatter;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.Slot;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Owns the exact entry rendering before downstream long-to-infinity formatters run. */
+/** Replaces only amount text; AE2 retains ownership of slot and tooltip rendering. */
 @Mixin(value = MEStorageScreen.class, remap = false, priority = 2000)
 public abstract class MEStorageScreenMixin {
-    @Shadow
-    @Final
-    protected Repo repo;
-
-    @Shadow
-    protected abstract boolean isViewOnlyCraftable();
-
     @Unique private BigInteger neoecoae$exact(GridInventoryEntry entry) {
         var screen = (MEStorageScreen<?>) (Object) this;
         return entry != null && screen.getMenu() instanceof ECOExactStorageMenu menu
@@ -39,43 +22,43 @@ public abstract class MEStorageScreenMixin {
                 : null;
     }
 
-    // AE2 15.4.x ships this method under its runtime SRG name.
-    @Inject(method = "m_280092_", at = @At("HEAD"), cancellable = true)
-    private void neoecoae$renderExact(GuiGraphics graphics, Slot slot, CallbackInfo ci) {
-        if (!(slot instanceof RepoSlot repoSlot) || !repo.hasPower() || isViewOnlyCraftable()) return;
-        var entry = repoSlot.getEntry();
+    // This vanilla override uses Mojmap in development and SRG in production.
+    @ModifyExpressionValue(
+            method = {
+                "renderSlot(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/inventory/Slot;)V",
+                "m_280092_(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/inventory/Slot;)V"
+            },
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"),
+            remap = false,
+            require = 1,
+            allow = 1)
+    private String neoecoae$renderExact(String original, @Local GridInventoryEntry entry) {
         BigInteger amount = neoecoae$exact(entry);
-        if (amount == null) return;
-        Minecraft minecraft = Minecraft.getInstance();
-        AEKeyRendering.drawInGui(minecraft, graphics, slot.x, slot.y, entry.getWhat());
-        StackSizeRenderer.renderSizeLabel(
-                graphics,
-                minecraft.font,
-                slot.x,
-                slot.y,
-                ExactAmountFormatter.compact(amount, entry.getWhat().getAmountPerUnit()));
-        ci.cancel();
+        return amount == null
+                ? original
+                : ExactAmountFormatter.compact(amount, entry.getWhat().getAmountPerUnit());
     }
 
-    @Inject(method = "renderGridInventoryEntryTooltip", at = @At("HEAD"), cancellable = true)
-    private void neoecoae$exactTooltip(GuiGraphics graphics, GridInventoryEntry entry, int x, int y, CallbackInfo ci) {
+    @ModifyExpressionValue(
+            method = "renderGridInventoryEntryTooltip",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/core/localization/Tooltips;getAmountTooltip(Lappeng/core/localization/ButtonToolTips;Lappeng/api/stacks/AEKey;J)Lnet/minecraft/network/chat/Component;",
+                            ordinal = 0),
+            require = 1,
+            allow = 1)
+    private Component neoecoae$exactTooltip(Component original, @Local(argsOnly = true) GridInventoryEntry entry) {
         BigInteger amount = neoecoae$exact(entry);
-        if (amount == null || !repo.hasPower()) return;
-        var lines = new ArrayList<>(AEKeyRendering.getTooltip(entry.getWhat()));
-        lines.add(Component.translatable(
-                "gui.neoecoae.exact_stored_amount",
-                ExactAmountFormatter.full(amount, entry.getWhat().getAmountPerUnit())));
-        if (entry.getWhat().getAmountPerUnit() != 1) {
-            lines.add(Component.literal(amount.toString() + " (raw)"));
-        }
-        if (entry.getRequestableAmount() > 0) {
-            lines.add(appeng.core.localization.Tooltips.getAmountTooltip(
-                    appeng.core.localization.ButtonToolTips.RequestableAmount,
-                    entry.getWhat(),
-                    entry.getRequestableAmount()));
-        }
-        if (entry.isCraftable()) lines.add(appeng.core.localization.ButtonToolTips.Craftable.text());
-        graphics.renderComponentTooltip(Minecraft.getInstance().font, lines, x, y);
-        ci.cancel();
+        return amount == null
+                ? original
+                : appeng.core.localization.ButtonToolTips.StoredAmount.text(ExactAmountFormatter.full(
+                                amount, entry.getWhat().getAmountPerUnit()))
+                        .withStyle(appeng.core.localization.Tooltips.MUTED_COLOR);
     }
 }

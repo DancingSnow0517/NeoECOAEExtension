@@ -7,7 +7,6 @@
   "mixins": [
     "MEStorageMenuMixin",
     "NetworkStorageMixin",
-    "ae2.NetworkStorageAccessor",
     "CraftConfirmMenuMixin",
     "CraftingCalculationMixin",
     "CraftingPlanMixin",

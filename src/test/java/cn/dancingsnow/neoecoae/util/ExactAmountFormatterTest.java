@@ -9,21 +9,32 @@ class ExactAmountFormatterTest {
     @Test
     void exactDigitsAreNotLostAboveLongOrDoublePrecision() {
         BigInteger amount = new BigInteger("9223372036854775808123456789");
-        assertEquals("9223372036854775808123456789", ExactAmountFormatter.full(amount, 1));
-        assertEquals("9.2e27", ExactAmountFormatter.compact(amount, 1));
-        assertFalse(ExactAmountFormatter.compact(amount, 1).contains("∞"));
+        assertEquals("9,223,372,036,854,775,808,123,456,789", ExactAmountFormatter.full(amount, 1));
+        assertEquals("9.22B", ExactAmountFormatter.compact(amount, 1));
     }
 
     @Test
-    void fluidUnitsRetainTheFractionAndScaleTheExponent() {
+    void fluidUnitsRetainTheFractionAndUseGroupedTooltipDigits() {
         BigInteger amount = new BigInteger("9223372036854775808123");
-        assertEquals("9223372036854775808.123", ExactAmountFormatter.full(amount, 1000));
-        assertEquals("9.2e18", ExactAmountFormatter.compact(amount, 1000));
+        assertEquals("9,223,372,036,854,775,808.123", ExactAmountFormatter.full(amount, 1000));
+        assertEquals("9.22E", ExactAmountFormatter.compact(amount, 1000));
     }
 
     @Test
-    void arbitraryMagnitudeNeverFallsBackToInfinity() {
-        assertEquals("1e400", ExactAmountFormatter.compact(BigInteger.TEN.pow(400), 1));
-        assertEquals("9.9e20", ExactAmountFormatter.compact(new BigInteger("999999999999999999999"), 1));
+    void compactAmountsUseStorageSuffixesAtEveryBoundary() {
+        assertEquals("999", ExactAmountFormatter.compact(BigInteger.valueOf(999), 1));
+        assertEquals("1.00K", ExactAmountFormatter.compact(BigInteger.valueOf(1000), 1));
+        assertEquals("12.3K", ExactAmountFormatter.compact(BigInteger.valueOf(12345), 1));
+        assertEquals("37.9E", ExactAmountFormatter.compact(new BigInteger("37900000000000000000"), 1));
+        assertEquals("92.1Y", ExactAmountFormatter.compact(new BigInteger("92100000000000000000000000"), 1));
+        assertEquals("10.0E", ExactAmountFormatter.compact(BigInteger.TEN.pow(19), 1));
+        assertEquals("1.00D", ExactAmountFormatter.compact(BigInteger.TEN.pow(33), 1));
+    }
+
+    @Test
+    void amountsBeyondTheLargestSuffixNeverUseScientificNotation() {
+        String compact = ExactAmountFormatter.compact(BigInteger.TEN.pow(40), 1);
+        assertEquals("10000000D", compact);
+        assertFalse(compact.contains("e"));
     }
 }

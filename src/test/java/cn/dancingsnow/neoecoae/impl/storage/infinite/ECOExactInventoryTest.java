@@ -6,12 +6,12 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import cn.dancingsnow.neoecoae.mixins.ae2.NetworkStorageAccessor;
+import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountCollector;
 import java.lang.reflect.Proxy;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.Map;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
 
@@ -36,24 +36,26 @@ class ECOExactInventoryTest {
         };
         assertEquals(
                 exact.add(BigInteger.valueOf(25)),
-                ECOExactInventory.hugeAmounts(new Network(List.of(first, alias, ordinary)))
-                        .get(key));
+                exactAmounts(new Network(List.of(first, alias, ordinary))).get(key));
     }
 
     @Test
     void exactOverlayDisappearsAtLongBoundaryAndAfterUnmount() {
         AEKey key = new TestKey();
         var finite = new ECOInfiniteStorage(engine(key, BigInteger.valueOf(Long.MAX_VALUE)), Component.empty());
-        assertTrue(ECOExactInventory.hugeAmounts(finite).isEmpty());
-        assertTrue(ECOExactInventory.hugeAmounts(new Network(List.of())).isEmpty());
+        assertTrue(exactAmounts(finite).isEmpty());
+        assertTrue(exactAmounts(new Network(List.of())).isEmpty());
     }
 
     @Test
     void ordinaryNetworksAreNotRescannedOrOverridden() {
+        int[] scans = {0};
+        AEKey key = new TestKey();
         MEStorage ordinary = new MEStorage() {
             @Override
             public void getAvailableStacks(KeyCounter out) {
-                fail("No ECO mount: do not scan contents");
+                scans[0]++;
+                out.set(key, Long.MAX_VALUE);
             }
 
             @Override
@@ -61,7 +63,82 @@ class ECOExactInventoryTest {
                 return Component.empty();
             }
         };
-        assertTrue(ECOExactInventory.hugeAmounts(new Network(List.of(ordinary))).isEmpty());
+        assertTrue(exactAmounts(new Network(List.of(ordinary))).isEmpty());
+        assertEquals(1, scans[0]);
+    }
+
+    @Test
+    void nestedNetworksDoNotDoubleCountAndOrdinaryOnlyKeysNeverGetAnOverlay() {
+        AEKey ecoKey = new TestKey();
+        AEKey ordinaryKey = new TestKey();
+        BigInteger amount = BigInteger.TEN.pow(30);
+        var eco = new ECOInfiniteStorage(engine(ecoKey, amount), Component.empty());
+        MEStorage ordinary = storage(ordinaryKey, Long.MAX_VALUE);
+        var nested = new Network(List.of(new Network(List.of(eco, ordinary)), storage(ecoKey, 64), ordinary));
+        var listing = ExactAmountCollector.collect(nested, nested::getAvailableStacks);
+        assertEquals(Map.of(ecoKey, amount.add(BigInteger.valueOf(64))), listing.amounts());
+        assertEquals(Long.MAX_VALUE, listing.stacks().get(ecoKey));
+        assertEquals(Long.MAX_VALUE, listing.stacks().get(ordinaryKey));
+    }
+
+    @Test
+    void inaccessibleEcoDoesNotQualifyAnOrdinaryKeyForExactDisplay() {
+        AEKey key = new TestKey();
+        var eco = new ECOInfiniteStorage(engine(key, BigInteger.TEN.pow(30)), Component.empty(), () -> false);
+        assertTrue(exactAmounts(new Network(List.of(eco, storage(key, Long.MAX_VALUE))))
+                .isEmpty());
+    }
+
+    @Test
+    void inaccessibleAliasDoesNotHideTheAccessibleMount() {
+        AEKey key = new TestKey();
+        BigInteger amount = BigInteger.TEN.pow(30);
+        var engine = engine(key, amount);
+        var hidden = new ECOInfiniteStorage(engine, Component.empty(), () -> false);
+        var visible = new ECOInfiniteStorage(engine, Component.empty());
+        assertEquals(Map.of(key, amount), exactAmounts(new Network(List.of(hidden, visible))));
+    }
+
+    @Test
+    void smallEcoContributionStillQualifiesAnOverflowingNetworkTotal() {
+        AEKey key = new TestKey();
+        var eco = new ECOInfiniteStorage(engine(key, BigInteger.TEN), Component.empty());
+        assertEquals(
+                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN),
+                exactAmounts(new Network(List.of(storage(key, Long.MAX_VALUE), eco)))
+                        .get(key));
+    }
+
+    @Test
+    void failedListingDoesNotLeakCollectorState() {
+        AEKey key = new TestKey();
+        var eco = new ECOInfiniteStorage(engine(key, BigInteger.TEN.pow(30)), Component.empty());
+        assertThrows(
+                IllegalStateException.class,
+                () -> ExactAmountCollector.collect(eco, () -> {
+                    throw new IllegalStateException("listing failed");
+                }));
+        assertTrue(exactAmounts(storage(key, Long.MAX_VALUE)).isEmpty());
+        assertEquals(BigInteger.TEN.pow(30), exactAmounts(eco).get(key));
+    }
+
+    private static Map<AEKey, BigInteger> exactAmounts(MEStorage storage) {
+        return ExactAmountCollector.collect(storage, storage::getAvailableStacks)
+                .amounts();
+    }
+
+    private static MEStorage storage(AEKey key, long amount) {
+        return new MEStorage() {
+            @Override
+            public void getAvailableStacks(KeyCounter out) {
+                out.set(key, amount);
+            }
+
+            @Override
+            public Component getDescription() {
+                return Component.empty();
+            }
+        };
     }
 
     private static ECOInfiniteStorageEngine engine(AEKey key, BigInteger amount) {
@@ -78,12 +155,14 @@ class ECOExactInventoryTest {
                 });
     }
 
-    private record Network(List<MEStorage> children) implements MEStorage, NetworkStorageAccessor {
+    private record Network(List<MEStorage> children) implements MEStorage {
         @Override
-        public NavigableMap<Integer, List<MEStorage>> neoecoae$getMountedInventories() {
-            var result = new TreeMap<Integer, List<MEStorage>>();
-            result.put(0, children);
-            return result;
+        public void getAvailableStacks(KeyCounter out) {
+            for (MEStorage child : children) {
+                KeyCounter contribution = new KeyCounter();
+                ExactAmountCollector.contribution(child, contribution, () -> child.getAvailableStacks(contribution));
+                SaturatingStackAccumulator.addAll(out, contribution);
+            }
         }
 
         @Override
