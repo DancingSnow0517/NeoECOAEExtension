@@ -47,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
         extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements NEBlockEntityUIHolder {
     private static final String NBT_STORAGE_INTERFACE_MODE = "storageInterfaceMode";
+    private static final String NBT_ALLOW_INFINITE_STORAGE_IMPORT = "allowInfiniteStorageImport";
     private static final int PREVIEW_COLUMNS = 9;
     private static final int PREVIEW_ROWS = 5;
     private static final int PREVIEW_SLOTS = PREVIEW_COLUMNS * PREVIEW_ROWS;
@@ -54,6 +55,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     private static final int TRANSFER_INSERTIONS_PER_TICK = 8;
 
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
+    private boolean allowInfiniteStorageImport;
     private long exportedLastTick;
     private long exportedTotal;
     private boolean patternTransferPerformed;
@@ -112,6 +114,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     public boolean isStorageTransferMode() {
         return storageInterfaceMode == ECOStorageInterfaceMode.INPUT
                 || storageInterfaceMode == ECOStorageInterfaceMode.OUTPUT;
+    }
+
+    public boolean allowsInfiniteStorageImport() {
+        return allowInfiniteStorageImport;
+    }
+
+    public void toggleInfiniteStorageImport() {
+        allowInfiniteStorageImport = !allowInfiniteStorageImport;
+        setChanged();
+        markForUpdate();
     }
 
     public boolean supportsStorageInterfaceUi() {
@@ -303,7 +315,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
                 exportedLastTick,
                 exportedTotal,
                 targetOnline,
-                hasController);
+                hasController,
+                allowInfiniteStorageImport);
     }
 
     public NECraftingInterfaceUiState createCraftingInterfaceUiState() {
@@ -826,6 +839,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putString(NBT_STORAGE_INTERFACE_MODE, storageInterfaceMode.name());
+        tag.putBoolean(NBT_ALLOW_INFINITE_STORAGE_IMPORT, allowInfiniteStorageImport);
         tag.putLong("exportedTotal", exportedTotal);
     }
 
@@ -833,12 +847,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
         storageInterfaceMode = ECOStorageInterfaceMode.byName(tag.getString(NBT_STORAGE_INTERFACE_MODE));
+        allowInfiniteStorageImport = tag.getBoolean(NBT_ALLOW_INFINITE_STORAGE_IMPORT);
         exportedTotal = Math.max(0L, tag.getLong("exportedTotal"));
     }
 
     @Override
     protected void writeUiSyncTag(CompoundTag tag) {
         tag.putString(NBT_STORAGE_INTERFACE_MODE, storageInterfaceMode.name());
+        tag.putBoolean(NBT_ALLOW_INFINITE_STORAGE_IMPORT, allowInfiniteStorageImport);
         tag.putLong("exportedLastTick", exportedLastTick);
         tag.putLong("exportedTotal", exportedTotal);
     }
@@ -846,6 +862,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     @Override
     protected void readUiSyncTag(CompoundTag tag) {
         storageInterfaceMode = ECOStorageInterfaceMode.byName(tag.getString(NBT_STORAGE_INTERFACE_MODE));
+        allowInfiniteStorageImport = tag.getBoolean(NBT_ALLOW_INFINITE_STORAGE_IMPORT);
         exportedLastTick = Math.max(0L, tag.getLong("exportedLastTick"));
         exportedTotal = Math.max(0L, tag.getLong("exportedTotal"));
     }

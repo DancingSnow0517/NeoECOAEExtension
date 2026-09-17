@@ -19,6 +19,9 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     public static final int UI_HEIGHT = 116;
 
     private static final int ACTION_SET_MODE = FIRST_CUSTOM_UPDATE_ID + 1;
+    private static final int INFINITE_IMPORT_BUTTON_X = -17;
+    private static final int INFINITE_IMPORT_BUTTON_Y = 24;
+    private static final int INFINITE_IMPORT_BUTTON_SIZE = 16;
     private static final int PANEL_X = 8;
     private static final int PANEL_Y = 24;
     private static final int PANEL_W = UI_WIDTH - 16;
@@ -35,6 +38,7 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     private static final int STATUS_VALUE_X = TEXT_X + 72;
 
     private final ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface;
+    private NEAe2IconButtonWidget infiniteImportButton;
 
     public NEStorageInterfaceWidget(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface, Player player) {
         super(
@@ -68,6 +72,20 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
                 OUTPUT_BUTTON_X,
                 Component.translatable("gui.neoecoae.storage_interface.mode.output"),
                 ECOStorageInterfaceMode.OUTPUT);
+        infiniteImportButton = new NEAe2IconButtonWidget(
+                INFINITE_IMPORT_BUTTON_X,
+                INFINITE_IMPORT_BUTTON_Y,
+                INFINITE_IMPORT_BUTTON_SIZE,
+                INFINITE_IMPORT_BUTTON_SIZE,
+                NEAe2IconButtonWidget.Ae2Icon.LOCKED,
+                click -> {
+                    // ButtonWidget already sends its own click packet. An extra action toggles twice.
+                    if (!click.isRemote) {
+                        storageInterface.toggleInfiniteStorageImport();
+                        syncStateNow();
+                    }
+                });
+        addWidget(infiniteImportButton);
     }
 
     private void addModeButton(int x, Component label, ECOStorageInterfaceMode mode) {
@@ -100,6 +118,10 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        infiniteImportButton.setIcon(
+                currentState().allowInfiniteStorageImport()
+                        ? NEAe2IconButtonWidget.Ae2Icon.UNLOCKED
+                        : NEAe2IconButtonWidget.Ae2Icon.LOCKED);
         NELDLibClientStyle.drawDarkInsetRect(graphics, absX(PANEL_X), absY(PANEL_Y), PANEL_W, PANEL_H);
     }
 
@@ -161,6 +183,25 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (isMouseIn(
+                INFINITE_IMPORT_BUTTON_X,
+                INFINITE_IMPORT_BUTTON_Y,
+                INFINITE_IMPORT_BUTTON_SIZE,
+                INFINITE_IMPORT_BUTTON_SIZE,
+                mouseX,
+                mouseY)) {
+            String stateKey = currentState().allowInfiniteStorageImport()
+                    ? "gui.neoecoae.storage_interface.infinite_import.enabled"
+                    : "gui.neoecoae.storage_interface.infinite_import.disabled";
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(
+                            Component.translatable(stateKey),
+                            Component.translatable("gui.neoecoae.storage_interface.infinite_import.tooltip")),
+                    mouseX,
+                    mouseY);
+            return;
+        }
         if (isMouseIn(INPUT_BUTTON_X, MODE_BUTTON_Y, MODE_BUTTON_W, MODE_BUTTON_H, mouseX, mouseY)) {
             graphics.renderComponentTooltip(
                     font(),

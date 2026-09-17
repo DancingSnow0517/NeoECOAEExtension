@@ -257,8 +257,10 @@ public final class NELDLibClientStyle {
             case FLUID_SUBSTITUTION_DISABLED -> Icon.FLUID_SUBSTITUTION_DISABLED;
             case FLUID_SUBSTITUTION_ENABLED -> Icon.FLUID_SUBSTITUTION_ENABLED;
             case LEVEL_ENERGY -> Icon.LEVEL_ENERGY;
+            case LOCKED -> Icon.LOCKED;
             case POWER_UNIT_AE -> Icon.POWER_UNIT_AE;
             case TYPE_FILTER_ALL -> Icon.TYPE_FILTER_ALL;
+            case UNLOCKED -> Icon.UNLOCKED;
             case WRENCH -> Icon.WRENCH;
         };
     }

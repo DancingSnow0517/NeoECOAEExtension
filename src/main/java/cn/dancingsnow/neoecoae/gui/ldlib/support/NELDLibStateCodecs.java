@@ -67,6 +67,7 @@ public final class NELDLibStateCodecs {
         buf.writeLong(Math.max(0L, state.exportedTotal()));
         buf.writeBoolean(state.targetOnline());
         buf.writeBoolean(state.hasController());
+        buf.writeBoolean(state.allowInfiniteStorageImport());
     }
 
     public static NEStorageInterfaceUiState readStorageInterface(FriendlyByteBuf buf) {
@@ -76,6 +77,7 @@ public final class NELDLibStateCodecs {
                 buf.readEnum(ECOStorageInterfaceMode.class),
                 buf.readLong(),
                 buf.readLong(),
+                buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readBoolean());
     }

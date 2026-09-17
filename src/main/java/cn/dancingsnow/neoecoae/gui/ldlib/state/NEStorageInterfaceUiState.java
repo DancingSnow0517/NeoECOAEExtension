@@ -10,8 +10,9 @@ public record NEStorageInterfaceUiState(
         long exportedLastTick,
         long exportedTotal,
         boolean targetOnline,
-        boolean hasController) {
+        boolean hasController,
+        boolean allowInfiniteStorageImport) {
     public static NEStorageInterfaceUiState empty(BlockPos pos) {
-        return new NEStorageInterfaceUiState(pos, false, ECOStorageInterfaceMode.STORAGE, 0L, 0L, false, false);
+        return new NEStorageInterfaceUiState(pos, false, ECOStorageInterfaceMode.STORAGE, 0L, 0L, false, false, false);
     }
 }

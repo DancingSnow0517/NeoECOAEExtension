@@ -117,8 +117,10 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         FLUID_SUBSTITUTION_DISABLED,
         FLUID_SUBSTITUTION_ENABLED,
         LEVEL_ENERGY,
+        LOCKED,
         POWER_UNIT_AE,
         TYPE_FILTER_ALL,
+        UNLOCKED,
         WRENCH
     }
 

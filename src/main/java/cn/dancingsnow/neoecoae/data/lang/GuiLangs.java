@@ -277,6 +277,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.storage_mode", "Mode: Mounted as ECO storage");
         provider.add("gui.neoecoae.storage_interface.import", "Import: %s / tick");
         provider.add("gui.neoecoae.storage_interface.export", "Export: %s / tick");
+        provider.add("gui.neoecoae.storage_interface.infinite_import.enabled", "Infinite/creative import: enabled");
+        provider.add("gui.neoecoae.storage_interface.infinite_import.disabled", "Infinite/creative import: disabled");
+        provider.add(
+                "gui.neoecoae.storage_interface.infinite_import.tooltip",
+                "Allows GTL quantities above the long limit, but also continuously imports from creative storage.");
         provider.add(
                 "gui.neoecoae.storage_interface.input_tooltip",
                 "Input mode pauses L-series storage mounting and imports contents from the external ME network.");

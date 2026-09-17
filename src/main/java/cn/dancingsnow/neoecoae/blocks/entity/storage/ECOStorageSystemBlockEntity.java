@@ -43,6 +43,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceTransferPolicy;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -1149,9 +1150,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private long getCellStoredAmount(IECOStorageCell cell, AEKey key) {
-        KeyCounter contents = new KeyCounter();
-        cell.getAvailableStacks(contents);
-        return contents.get(key);
+        return cell.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, IActionSource.ofMachine(this));
     }
 
     private KeyCounter collectRestoreTargetContents(List<RestoreTarget> targets) {
@@ -2001,7 +2000,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 break;
             }
             long amount = entry.getLongValue();
-            if (amount <= 0L || isInfiniteNetworkAmount(amount)) {
+            if (!StorageInterfaceTransferPolicy.shouldImportNetworkAmount(
+                    amount, storageInterface.allowsInfiniteStorageImport())) {
                 continue;
             }
             keysVisited++;
@@ -2171,10 +2171,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             sourceStorage.insert(key, extracted - Math.max(0L, inserted), Actionable.MODULATE, source);
         }
         return Math.max(0L, inserted);
-    }
-
-    private static boolean isInfiniteNetworkAmount(long amount) {
-        return amount == Long.MAX_VALUE || amount == Integer.MAX_VALUE;
     }
 
     private void requestProviderUpdates() {
