@@ -557,16 +557,35 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             cir.setReturnValue(CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
+        // An explicit ECO target is a player choice of execution host, independent of which
+        // planner produced the standard ICraftingPlan. In particular, Thunderbolt plans must be
+        // allowed to run on an ECO F host. ECO ownership metadata remains mandatory below only
+        // for automatic CPU selection, where ECO must not steal another planner's plan.
+        if (target instanceof ECOCraftingCPU ecoCpu) {
+            cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
+            return;
+        }
+        if (target != null) {
+            // An ECO cluster advertises one placeholder CPU while it has a free thread. AE2 may select
+            // that placeholder as the target, but it is still an ECO-owned submission and must not fall
+            // through to the native AE2 CPU path.
+            for (var cluster : this.neoecoae$computationClusters) {
+                if (cluster.isNetworkRepresentative() && cluster.getFakeCPU() == target && cluster.isActive()) {
+                    cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
+                    return;
+                }
+            }
+            return;
+        }
+
         ECOPlanningResult ecoResult = ECOPlanningResultRegistry.find(job);
         if (ecoResult == null || ecoResult.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
                 || ecoResult.plan() == null || !PlanIdentity.matches(job, ecoResult.plan())) {
-            // A crafting-service hook must never infer ECO ownership from network settings or final output.
-            // AE2/Data and every other planner retain the original submission path when no exact ECO result exists.
+            // A crafting-service hook must never infer automatic ECO ownership from network settings
+            // or final output. AE2/Data and every other planner retain their original automatic path.
             return;
         }
-        if (target instanceof ECOCraftingCPU ecoCpu) {
-            cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
-        } else if (target == null) {
+        if (target == null) {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
             if (cluster != null) {
                 updateList = true;

@@ -39,6 +39,7 @@ public final class ECOPlanningResultRegistry {
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
     private static final Map<Signature, Entry> RESULTS = new LinkedHashMap<>(64, 0.75f, true);
+    private static final Map<ICraftingPlan, ExactEntry> EXACT_RESULTS = new IdentityHashMap<>();
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {
@@ -60,6 +61,15 @@ public final class ECOPlanningResultRegistry {
 
     /** Store only metadata whose source result and registered plan have the same complete identity. */
     public static void register(ICraftingPlan plan, ECOPlanningResult result) {
+        long now = System.nanoTime();
+        if (plan != null && result != null && result.plan() == plan) {
+            synchronized (RESULTS) {
+                removeExpired(now);
+                EXACT_RESULTS.put(plan, new ExactEntry(result, now));
+                trimEntries();
+            }
+        }
+
         RegistrationInspection inspection = inspectRegistration(plan, result);
         boolean validSchedule = inspection.reason() == null;
         boolean failClosedMetadata = inspection.canStoreFailClosedMetadata();
@@ -75,7 +85,6 @@ public final class ECOPlanningResultRegistry {
             ? RecoveryState.VALID_SCHEDULE
             : RecoveryState.MISSING_OR_INVALID_SCHEDULE;
         UUID planningId = result.planningId();
-        long now = System.nanoTime();
         synchronized (RESULTS) {
             removeExpired(now);
             // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
@@ -113,6 +122,16 @@ public final class ECOPlanningResultRegistry {
         synchronized (RESULTS) {
             removeExpired(System.nanoTime());
             Entry entry = RESULTS.get(signature);
+            return entry == null ? null : entry.result();
+        }
+    }
+
+    /** Exact-object provenance, retained even when a diagnostic plan is not eligible for execution metadata. */
+    public static @Nullable ECOPlanningResult findExact(@Nullable ICraftingPlan plan) {
+        if (plan == null) return null;
+        synchronized (RESULTS) {
+            removeExpired(System.nanoTime());
+            ExactEntry entry = EXACT_RESULTS.get(plan);
             return entry == null ? null : entry.result();
         }
     }
@@ -243,6 +262,7 @@ public final class ECOPlanningResultRegistry {
     public static void clear() {
         synchronized (RESULTS) {
             RESULTS.clear();
+            EXACT_RESULTS.clear();
         }
         ACTIVE_SUBMISSION_ALIAS.remove();
     }
@@ -268,11 +288,15 @@ public final class ECOPlanningResultRegistry {
 
     private static void removeExpired(long now) {
         RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
+        EXACT_RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
     }
 
     private static void trimEntries() {
         while (RESULTS.size() > MAX_ENTRIES) {
             RESULTS.remove(RESULTS.entrySet().iterator().next().getKey());
+        }
+        while (EXACT_RESULTS.size() > MAX_ENTRIES) {
+            EXACT_RESULTS.remove(EXACT_RESULTS.keySet().iterator().next());
         }
     }
 
@@ -410,6 +434,9 @@ public final class ECOPlanningResultRegistry {
     private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
             @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, RecoveryState recoveryState,
             @Nullable String rejectionReason, UUID planningId, long createdNanos) {
+    }
+
+    private record ExactEntry(ECOPlanningResult result, long createdNanos) {
     }
 
     private record RegistrationInspection(@Nullable PlanningStatus status, boolean planSimulation,

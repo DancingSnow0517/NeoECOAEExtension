@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.planning;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -49,7 +50,53 @@ class ECOPlanningResultRegistryTest {
         assertSame(second, ECOPlanningResultRegistry.find(plan));
     }
 
+    @Test
+    void exactLookupDoesNotTransferOwnershipToAnEquivalentPlanObject() {
+        AEKey output = mock(AEKey.class);
+        IPatternDetails pattern = mock(IPatternDetails.class);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(pattern.getOutputs()).thenReturn(List.of());
+        CraftingPlan original = plan(output, pattern);
+        CraftingPlan copy = plan(output, pattern);
+        ECOPlanningResult result = result(original);
+
+        ECOPlanningResultRegistry.register(original, result);
+
+        assertSame(result, ECOPlanningResultRegistry.findExact(original));
+        assertNull(ECOPlanningResultRegistry.findExact(copy));
+        assertSame(result, ECOPlanningResultRegistry.find(copy));
+    }
+
+    @Test
+    void exactLookupRetainsNonExecutableDiagnosticResult() {
+        AEKey output = mock(AEKey.class);
+        IPatternDetails pattern = mock(IPatternDetails.class);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
+        when(pattern.getOutputs()).thenReturn(List.of());
+        CraftingPlan plan = plan(output, pattern);
+        ECOPlanningResult result = result(plan, PlanningStatus.MISSING_ITEMS);
+
+        ECOPlanningResultRegistry.register(plan, result);
+
+        assertSame(result, ECOPlanningResultRegistry.findExact(plan));
+        assertNull(ECOPlanningResultRegistry.find(plan));
+    }
+
+    private static CraftingPlan plan(AEKey output, IPatternDetails pattern) {
+        CraftingPlan plan = mock(CraftingPlan.class);
+        when(plan.finalOutput()).thenReturn(new GenericStack(output, 1L));
+        when(plan.patternTimes()).thenReturn(Map.of(pattern, 2L));
+        when(plan.usedItems()).thenReturn(new KeyCounter());
+        when(plan.emittedItems()).thenReturn(new KeyCounter());
+        when(plan.missingItems()).thenReturn(new KeyCounter());
+        return plan;
+    }
+
     private static ECOPlanningResult result(CraftingPlan plan) {
+        return result(plan, PlanningStatus.SUCCESS);
+    }
+
+    private static ECOPlanningResult result(CraftingPlan plan, PlanningStatus status) {
         ECOExecutionSchedule schedule = mock(ECOExecutionSchedule.class);
         ECOExecutionSchedule.ComponentExecutionPhase phase =
                 mock(ECOExecutionSchedule.ComponentExecutionPhase.class);
@@ -58,7 +105,7 @@ class ECOPlanningResultRegistryTest {
         when(executionPlan.schedule()).thenReturn(schedule);
         ECOPlanningResult result = mock(ECOPlanningResult.class);
         when(result.plan()).thenReturn(plan);
-        when(result.status()).thenReturn(PlanningStatus.SUCCESS);
+        when(result.status()).thenReturn(status);
         when(result.executionRequirement()).thenReturn(ECOExecutionRequirement.NONE);
         when(result.executionPlan()).thenReturn(executionPlan);
         when(result.planningId()).thenReturn(UUID.randomUUID());
