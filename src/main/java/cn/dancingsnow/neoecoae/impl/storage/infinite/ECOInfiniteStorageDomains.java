@@ -75,6 +75,7 @@ public final class ECOInfiniteStorageDomains {
         Path root = worldRoot(level);
         try {
             return Files.exists(savedDataFile(root, domainId), LinkOption.NOFOLLOW_LINKS)
+                    || Files.exists(InfiniteStorageDelta.path(savedDataFile(root, domainId)), LinkOption.NOFOLLOW_LINKS)
                     || Files.exists(archiveRoot(root).resolve(domainDirectory(domainId)), LinkOption.NOFOLLOW_LINKS)
                     || !findLegacyDomainPaths(root, domainId).isEmpty();
         } catch (RuntimeException e) {
@@ -104,6 +105,9 @@ public final class ECOInfiniteStorageDomains {
         try (var paths = Files.list(root)) {
             paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .map(path -> path.getFileName().toString())
+                    .map(name -> name.endsWith(".dat.delta.dat")
+                            ? name.substring(0, name.length() - ".delta.dat".length())
+                            : name)
                     .filter(name -> name.startsWith("domain_") && name.endsWith(".dat"))
                     .forEach(name -> parseDomainId(name.substring("domain_".length(), name.length() - ".dat".length()))
                             .ifPresent(result::add));
@@ -309,6 +313,10 @@ public final class ECOInfiniteStorageDomains {
             try {
                 boolean hasV2Path = Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS);
                 boolean hasV2 = Files.isRegularFile(dataFile, LinkOption.NOFOLLOW_LINKS);
+                if (!hasV2 && Files.exists(InfiniteStorageDelta.path(dataFile), LinkOption.NOFOLLOW_LINKS)) {
+                    quarantine("Infinite-storage base snapshot is missing while its delta exists", null);
+                    return;
+                }
                 List<Path> legacySources = findLegacyDomainPaths(worldRoot, domainId);
                 boolean hasArchivePath = Files.exists(archiveDomain, LinkOption.NOFOLLOW_LINKS);
                 boolean hasArchive = Files.isDirectory(archiveDomain, LinkOption.NOFOLLOW_LINKS);
@@ -425,7 +433,8 @@ public final class ECOInfiniteStorageDomains {
         }
 
         private synchronized void startExplicitArchiveMigration() {
-            if (Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS)
+                    || Files.exists(InfiniteStorageDelta.path(dataFile), LinkOption.NOFOLLOW_LINKS)) {
                 quarantine("Refusing archive migration while a V2 SavedData file exists", null);
                 return;
             }
@@ -467,7 +476,8 @@ public final class ECOInfiniteStorageDomains {
                 if (snapshot == null || migrationSource == null) {
                     throw new IllegalStateException("V1 migration completed without a snapshot");
                 }
-                if (Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS)) {
+                if (Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS)
+                        || Files.exists(InfiniteStorageDelta.path(dataFile), LinkOption.NOFOLLOW_LINKS)) {
                     throw new IOException("V2 SavedData appeared while V1 migration was running");
                 }
                 LegacyV1Reader.verifySource(migrationSource, snapshot.sourceFingerprint());

@@ -13,6 +13,17 @@ class ECOInfiniteStorageDomainsTest {
     private Path tempDir;
 
     @Test
+    void discoversOrphanedDeltaWithoutTreatingItAsANewDomain() throws Exception {
+        UUID id = UUID.randomUUID();
+        Path root = tempDir.resolve("data").resolve("neoecoae_infinite");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("domain_" + id + ".dat.delta.dat"));
+        assertEquals(java.util.List.of(id), ECOInfiniteStorageDomains.discoverDomainIds(tempDir));
+        Files.createFile(root.resolve("domain_" + id + ".dat"));
+        assertEquals(java.util.List.of(id), ECOInfiniteStorageDomains.discoverDomainIds(tempDir));
+    }
+
+    @Test
     void discoversLegacyDimensionDirectoryWithoutMutatingIt() throws Exception {
         UUID domainId = UUID.randomUUID();
         Path legacy = tempDir.resolve("data")

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -84,5 +85,89 @@ class SavedDataInfiniteStoragePersistenceTest {
         assertEquals(broken, persisted.getList("entries", 10).getCompound(0));
         assertEquals(broken, persisted.getList("transfer_receipts", 10).getCompound(0));
         assertEquals(ECOInfiniteDomainState.READY, engine.getState());
+    }
+
+    @Test
+    void engineCoalescesIoAndPersistsZeroRefillAndWideAmounts() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        assertEquals(10, engine.insert(key, 10, Actionable.MODULATE));
+        engine.flushAndAwait();
+        byte[] base = Files.readAllBytes(path);
+        for (int i = 0; i < 100; i++) {
+            assertEquals(10, engine.extract(key, 10, Actionable.MODULATE));
+            // Reuses the validated encoding even after the previous extraction removed the key.
+            assertEquals(10, engine.insert(key, 10, Actionable.MODULATE));
+        }
+        assertEquals(Long.MAX_VALUE, engine.insert(key, Long.MAX_VALUE, Actionable.MODULATE));
+        engine.flushAndAwait();
+        assertEquals(ECOInfiniteDomainState.READY, engine.getState());
+        assertFalse(engine.needsPersistence());
+        assertArrayEquals(base, Files.readAllBytes(path));
+        var entries = InfiniteStorageSnapshot.read(path).getList("entries", 10);
+        assertEquals(1, entries.size());
+        assertEquals(
+                java.math.BigInteger.valueOf(Long.MAX_VALUE).add(java.math.BigInteger.TEN),
+                new java.math.BigInteger(entries.getCompound(0).getByteArray("amount_wide")));
+        engine.extract(key, Long.MAX_VALUE, Actionable.MODULATE);
+        engine.extract(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertTrue(InfiniteStorageSnapshot.read(path).getList("entries", 10).isEmpty());
+        assertArrayEquals(base, Files.readAllBytes(path));
+        engine.insert(key, 7, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertEquals(
+                7,
+                InfiniteStorageSnapshot.read(path)
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount_long"));
+    }
+
+    @Test
+    void transferReceiptAndQuantityShareTheSameDeltaCommit() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        UUID transaction = UUID.randomUUID();
+        assertEquals(5, engine.insertOnce(transaction, key, 5));
+        assertEquals(5, engine.insertOnce(transaction, key, 5));
+        CompoundTag persisted = InfiniteStorageSnapshot.read(path);
+        assertEquals(15, persisted.getList("entries", 10).getCompound(0).getLong("amount_long"));
+        assertEquals(
+                transaction,
+                persisted.getList("transfer_receipts", 10).getCompound(0).getUUID("id"));
+        assertFalse(engine.needsPersistence());
+        assertEquals(15, engine.extract(key, 20, Actionable.SIMULATE));
+        assertEquals(20, engine.insert(key, 20, Actionable.SIMULATE));
+        assertFalse(engine.needsPersistence());
+    }
+
+    @Test
+    void denseChangesCompactAndRemoveObsoleteOverlay() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var first = new InfiniteStorageTestKey(0);
+        first.cacheEncoding(engine);
+        engine.insert(first, 1, Actionable.MODULATE);
+        engine.flushAndAwait();
+        engine.insert(first, 1, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertTrue(Files.exists(InfiniteStorageDelta.path(path)));
+        for (int i = 1; i <= 1024; i++) {
+            var key = new InfiniteStorageTestKey(i);
+            key.cacheEncoding(engine);
+            engine.insert(key, 1, Actionable.MODULATE);
+        }
+        engine.flushAndAwait();
+        assertEquals(ECOInfiniteDomainState.READY, engine.getState());
+        assertFalse(Files.exists(InfiniteStorageDelta.path(path)));
+        assertEquals(
+                1025, InfiniteStorageSnapshot.read(path).getList("entries", 10).size());
     }
 }

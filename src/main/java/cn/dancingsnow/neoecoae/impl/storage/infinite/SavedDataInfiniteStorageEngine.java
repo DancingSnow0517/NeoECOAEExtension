@@ -100,6 +100,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Nullable private CompletableFuture<Void> pendingSnapshot;
 
+    // Keep only keys changed since the last full snapshot. Repeated I/O coalesces here.
+    private final Map<AEKey, CompoundTag> changedKeys = new HashMap<>();
+    private long baseRevision = -1L;
+
     private SavedDataInfiniteStorageEngine(UUID domainId, DimensionDataStorage dataStorage, Path dataFile) {
         this.domainId = domainId;
         this.dataStorage = dataStorage;
@@ -186,6 +190,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         legacyTransferReceipts.addAll(importedReceipts);
         legacyFingerprint = sourceFingerprint;
         revision = Math.max(0L, importedRevision);
+        baseRevision = -1L;
         rebuildIndexes();
         setDirty();
     }
@@ -513,20 +518,39 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             if (!dataFile.equals(file.toPath().toAbsolutePath().normalize())) {
                 throw new IllegalArgumentException("Unexpected infinite-storage snapshot path: " + file);
             }
-            CompoundTag snapshot = save(new CompoundTag());
+            boolean incremental = baseRevision >= 0L
+                    && revision > baseRevision
+                    && revision < Long.MAX_VALUE
+                    && changedKeys.size() <= Math.max(1024, amounts.size() / 4);
+            CompoundTag snapshot = incremental ? deltaSnapshot() : save(new CompoundTag());
             int dataVersion =
                     SharedConstants.getCurrentVersion().getDataVersion().getVersion();
             // The worker owns an immutable copy and never accesses AE keys, the live inventory, or the world.
             pendingSnapshot = CompletableFuture.runAsync(
                     () -> {
                         try {
-                            InfiniteStorageSnapshot.write(dataFile, snapshot, dataVersion);
+                            if (incremental) {
+                                InfiniteStorageSnapshot.write(
+                                        InfiniteStorageDelta.path(dataFile), snapshot, dataVersion);
+                            } else {
+                                InfiniteStorageSnapshot.write(dataFile, snapshot, dataVersion);
+                                Files.deleteIfExists(InfiniteStorageDelta.path(dataFile));
+                            }
                         } catch (Exception e) {
                             throw new CompletionException(e);
                         }
                     },
                     Util.ioPool());
             setDirty(false);
+            finishSnapshot(true);
+            if (state == ECOInfiniteDomainState.READY) {
+                if (incremental) {
+                    lastSerializedSnapshot = null;
+                } else {
+                    baseRevision = revision;
+                    changedKeys.clear();
+                }
+            }
         } catch (Exception e) {
             persistenceFailed(e);
         }
@@ -546,6 +570,52 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized CompoundTag save(CompoundTag tag) {
+        writeMetadata(tag);
+
+        ListTag entries = new ListTag();
+        amounts.forEach((key, amount) -> {
+            CompoundTag encoded = encodedKeys.get(key);
+            if (encoded == null) {
+                throw new IllegalStateException("Missing cached AEKey encoding for " + key);
+            }
+            entries.add(amountEntry(encoded, amount));
+        });
+        for (OrphanedStack orphaned : orphanedEntries.values()) {
+            entries.add(amountEntry(orphaned.encodedKey(), orphaned.amount()));
+        }
+        retainedEntries.forEach(entry -> entries.add(entry.copy()));
+        tag.put(TAG_ENTRIES, entries);
+        lastSerializedSnapshot = tag.copy();
+        return tag;
+    }
+
+    private CompoundTag deltaSnapshot() {
+        CompoundTag tag = new CompoundTag();
+        writeMetadata(tag);
+        tag.putLong(InfiniteStorageDelta.BASE_REVISION, baseRevision);
+        ListTag entries = new ListTag();
+        changedKeys.forEach((key, encoded) -> {
+            HugeAmount amount = amounts.get(key);
+            CompoundTag entry = amountEntry(encoded, amount);
+            if (amount.isZero()) entry.putBoolean(InfiniteStorageDelta.DELETED, true);
+            entries.add(entry);
+        });
+        tag.put(TAG_ENTRIES, entries);
+        return tag;
+    }
+
+    private static CompoundTag amountEntry(CompoundTag encoded, HugeAmount amount) {
+        CompoundTag entry = new CompoundTag();
+        entry.put(TAG_KEY, encoded.copy());
+        if (amount.isBig()) {
+            entry.putByteArray(TAG_AMOUNT_WIDE, amount.toBigInteger().toByteArray());
+        } else {
+            entry.putLong(TAG_AMOUNT_LONG, amount.toLongSaturated());
+        }
+        return entry;
+    }
+
+    private void writeMetadata(CompoundTag tag) {
         tag.putInt(TAG_FORMAT, FORMAT_VERSION);
         tag.putUUID(TAG_DOMAIN, domainId);
         tag.putLong(TAG_REVISION, revision);
@@ -555,35 +625,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         if (acknowledgedOrphanedFingerprint != null) {
             tag.putString(TAG_ACKNOWLEDGED_ORPHANED_FINGERPRINT, acknowledgedOrphanedFingerprint);
         }
-
-        ListTag entries = new ListTag();
-        amounts.forEach((key, amount) -> {
-            CompoundTag encoded = encodedKeys.get(key);
-            if (encoded == null) {
-                throw new IllegalStateException("Missing cached AEKey encoding for " + key);
-            }
-            CompoundTag entry = new CompoundTag();
-            entry.put(TAG_KEY, encoded.copy());
-            if (amount.isBig()) {
-                entry.putByteArray(TAG_AMOUNT_WIDE, amount.toBigInteger().toByteArray());
-            } else {
-                entry.putLong(TAG_AMOUNT_LONG, amount.toLongSaturated());
-            }
-            entries.add(entry);
-        });
-        for (OrphanedStack orphaned : orphanedEntries.values()) {
-            CompoundTag entry = new CompoundTag();
-            entry.put(TAG_KEY, orphaned.encodedKey().copy());
-            if (orphaned.amount().isBig()) {
-                entry.putByteArray(
-                        TAG_AMOUNT_WIDE, orphaned.amount().toBigInteger().toByteArray());
-            } else {
-                entry.putLong(TAG_AMOUNT_LONG, orphaned.amount().toLongSaturated());
-            }
-            entries.add(entry);
-        }
-        retainedEntries.forEach(entry -> entries.add(entry.copy()));
-        tag.put(TAG_ENTRIES, entries);
 
         ListTag receipts = new ListTag();
         for (UUID transactionId : legacyTransferReceipts) {
@@ -599,8 +640,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         });
         retainedReceipts.forEach(receipt -> receipts.add(receipt.copy()));
         tag.put(TAG_RECEIPTS, receipts);
-        lastSerializedSnapshot = tag.copy();
-        return tag;
     }
 
     @Override
@@ -646,6 +685,12 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     private boolean ensureEncodedKey(AEKey key) {
         if (encodedKeys.containsKey(key)) {
+            return true;
+        }
+        CompoundTag recentlyRemoved = changedKeys.get(key);
+        if (recentlyRemoved != null) {
+            // Empty/refill automation must not encode and validate the same key every operation.
+            encodedKeys.put(key, recentlyRemoved);
             return true;
         }
         if (!isResolved(key)) {
@@ -763,6 +808,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             long changed,
             @Nullable WideAmount changedWide,
             boolean increased) {
+        changedKeys.putIfAbsent(key, encodedKeys.get(key));
         if (next.isZero()) {
             visibleStacks.remove(key);
         } else {

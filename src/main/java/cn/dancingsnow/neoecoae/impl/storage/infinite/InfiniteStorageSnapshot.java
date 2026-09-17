@@ -27,6 +27,12 @@ final class InfiniteStorageSnapshot {
     private InfiniteStorageSnapshot() {}
 
     static CompoundTag read(Path path) throws IOException {
+        CompoundTag base = readSingle(path);
+        Path delta = InfiniteStorageDelta.path(path);
+        return Files.exists(delta) ? InfiniteStorageDelta.apply(base, readSingle(delta)) : base;
+    }
+
+    private static CompoundTag readSingle(Path path) throws IOException {
         CompoundTag root;
         try (InputStream input = Files.newInputStream(path)) {
             root = NbtIo.readCompressed(input);
@@ -99,7 +105,13 @@ final class InfiniteStorageSnapshot {
     }
 
     private static CompoundTag root(CompoundTag data, int dataVersion) throws IOException {
-        CompoundTag encoded = data.copy();
+        CompoundTag encoded = new CompoundTag();
+        // Inventory lists are encoded below; do not first deep-copy lists that will be discarded.
+        for (String key : data.getAllKeys()) {
+            if (!key.equals("entries") && !key.equals("transfer_receipts")) {
+                encoded.put(key, data.get(key).copy());
+            }
+        }
         for (String listName : List.of("entries", "transfer_receipts")) {
             if (!data.contains(listName, Tag.TAG_LIST)) continue;
             ListTag records = data.getList(listName, Tag.TAG_COMPOUND);
