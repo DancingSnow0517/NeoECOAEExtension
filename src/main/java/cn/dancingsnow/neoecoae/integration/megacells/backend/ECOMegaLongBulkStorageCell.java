@@ -418,8 +418,16 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      * fallback so that the old contents can still be recovered.
      */
     private AEItemKey storageFormFor(AEItemKey storedKey) {
-        // The persisted key defines the unit in which the amount was recorded. Configuration is
-        // only an insertion filter; changing it must never reinterpret existing contents.
+        // Amounts are recorded in the chain's smallest units, not in units of the persisted key.
+        // Keep that key stable for persistence, but publish stock in the current marker's form so
+        // crafting snapshots see the same material the player selected and can extract.
+        if (hasCompressionCard()) {
+            for (AEItemKey filter : configuredFilters()) {
+                if (sameCompressionChain(filter, storedKey)) {
+                    return filter;
+                }
+            }
+        }
         return storedKey;
     }
 
