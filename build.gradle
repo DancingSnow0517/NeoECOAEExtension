@@ -113,6 +113,8 @@ dependencies {
     testImplementation('org.junit.jupiter:junit-jupiter')
     testImplementation('org.mockito:mockito-core:5.15.2')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    // Inspect the released optional target's bytecode without installing it in the dev runtime.
+    testRuntimeOnly("curse.maven:flux-networks-248020:6089446") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
