@@ -79,7 +79,12 @@ class ECOProcessingDispatchIntegrationTest {
     void nativeProviderReceivesFullAllowanceOnceAndRefundsLeftover() throws Exception {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
-        Class<?> contract = Class.forName("com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
+        Class<?> contract;
+        try {
+            contract = Class.forName("com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
+        } catch (ClassNotFoundException legacy) {
+            contract = Class.forName("com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider");
+        }
         var nativeProvider = (ICraftingProvider) mock(contract, invocation -> {
             return switch (invocation.getMethod().getName()) {
                 case "getBatchCapacity" -> 100L;

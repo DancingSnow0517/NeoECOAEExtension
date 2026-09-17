@@ -6,8 +6,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
-import com.moakiee.thunderbolt.api.crafting.batch.BatchDispatchMode;
-import com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ThunderboltApi;
+import java.lang.reflect.Method;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
@@ -242,10 +242,16 @@ final class ECOProcessingPatternDispatcher {
     }
 
     private static final class Contract {
+        private static final Method CAPACITY = ThunderboltApi.method(ThunderboltApi.BATCH_PROVIDER,
+                "getBatchCapacity", IPatternDetails.class);
+        private static final Method MODE = ThunderboltApi.method(ThunderboltApi.BATCH_PROVIDER,
+                "getBatchDispatchMode", IPatternDetails.class);
+        private static final Method PUSH = ThunderboltApi.method(ThunderboltApi.BATCH_PROVIDER,
+                "pushBatch", IPatternDetails.class, KeyCounter[].class, long.class);
         private final ECOAe2LtBatchCapability.Session lightning;
-        private final IBatchCraftingProvider legacy;
+        private final Object legacy;
 
-        private Contract(ECOAe2LtBatchCapability.Session lightning, IBatchCraftingProvider legacy) {
+        private Contract(ECOAe2LtBatchCapability.Session lightning, Object legacy) {
             this.lightning = lightning;
             this.legacy = legacy;
         }
@@ -253,17 +259,18 @@ final class ECOProcessingPatternDispatcher {
         static Contract forProvider(Object value) {
             var lightning = ECOAe2LtBatchCapability.open(value);
             if (lightning != null) return new Contract(lightning, null);
-            return value instanceof IBatchCraftingProvider provider ? new Contract(null, provider) : null;
+            return ThunderboltApi.isInstance(ThunderboltApi.BATCH_PROVIDER, value) ? new Contract(null, value) : null;
         }
 
         long inspect(IPatternDetails details, KeyCounter[] inputs, long requested) {
-            if (lightning == null) return Math.max(0L, legacy.getBatchCapacity(details));
+            if (lightning == null) return Math.max(0L, (long) ThunderboltApi.invoke(CAPACITY, legacy, details));
             return lightning.inspect(details, inputs, requested);
         }
 
         boolean unbounded(Object ignored, IPatternDetails details) {
             if (lightning != null) return lightning.unbounded();
-            return legacy.getBatchDispatchMode(details) == BatchDispatchMode.UNBOUNDED;
+            return ThunderboltApi.invoke(MODE, legacy, details) instanceof Enum<?> mode
+                    && mode.name().equals("UNBOUNDED");
         }
 
         long push(IPatternDetails details, KeyCounter[] inputs, long copies) {
@@ -271,7 +278,7 @@ final class ECOProcessingPatternDispatcher {
                 return lightning.submit(details, inputs, copies);
             }
             try {
-                return legacy.pushBatch(details, inputs, copies);
+                return (long) ThunderboltApi.invoke(PUSH, legacy, details, inputs, copies);
             } catch (RuntimeException failure) {
                 throw new AmbiguousDispatchException(failure);
             }

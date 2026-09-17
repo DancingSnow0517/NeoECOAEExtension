@@ -1,23 +1,26 @@
 package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
-import com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails;
-import com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.lang.reflect.Method;
 
 /** Normalizes AE2 Lightning Technology overload patterns for ECO's static planner. */
 public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapter {
+    private static final Method HAS_FUZZY_INPUTS = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "hasFuzzyInputs");
+    private static final Method IS_FUZZY_INPUT = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "isFuzzyInput", int.class);
+    private static final Method IS_FUZZY_OUTPUT = ThunderboltApi.method(ThunderboltApi.OVERLOAD, "isFuzzyOutput", int.class);
+    private static final Method WRAPPED_PATTERN = ThunderboltApi.method(ThunderboltApi.WRAPPER, "wrappedPatternDetails");
     private final AE2PatternSemanticAdapter ae2Adapter = new AE2PatternSemanticAdapter();
 
     @Override
     public boolean supports(IPatternDetails pattern) {
         if (pattern == null) return false;
-        return pattern instanceof OverloadedPatternDetails;
+        return ThunderboltApi.isInstance(ThunderboltApi.OVERLOAD, pattern);
     }
 
     @Override
@@ -25,7 +28,7 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
         Object definition = null;
         try {
             definition = pattern.getDefinition();
-            if (!(pattern instanceof OverloadedPatternDetails overload)) {
+            if (!supports(pattern)) {
                 return PatternSemantics.unsupported(pattern, definition, "THUNDER_UNSUPPORTED_SEMANTICS");
             }
 
@@ -36,10 +39,10 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
                     ae2.unsupportedReason() == null ? "THUNDER_INVALID_SOURCE_PATTERN" : ae2.unsupportedReason());
             }
 
-            boolean hasIdOnlyInput = overload.hasFuzzyInputs();
+            boolean hasIdOnlyInput = (boolean) ThunderboltApi.invoke(HAS_FUZZY_INPUTS, pattern);
             boolean hasIdOnlyOutput = false;
             for (int slot = 0; slot < pattern.getOutputs().size(); slot++) {
-                if (overload.isFuzzyOutput(slot)) {
+                if ((boolean) ThunderboltApi.invoke(IS_FUZZY_OUTPUT, pattern, slot)) {
                     hasIdOnlyOutput = true;
                     break;
                 }
@@ -63,8 +66,8 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
 
     @Override
     public boolean ignoresComponents(IPatternDetails pattern, int inputSlot) {
-        return pattern instanceof OverloadedPatternDetails overload
-            && inputSlot >= 0 && overload.isFuzzyInput(inputSlot);
+        return supports(pattern) && inputSlot >= 0
+            && (boolean) ThunderboltApi.invoke(IS_FUZZY_INPUT, pattern, inputSlot);
     }
 
     @Override
@@ -75,9 +78,9 @@ public final class ThunderPatternSemanticAdapter implements PatternSemanticAdapt
     private static IPatternDetails unwrap(IPatternDetails pattern) {
         Set<IPatternDetails> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         IPatternDetails current = pattern;
-        while (current instanceof IWrappedPatternDetails wrapper) {
+        while (ThunderboltApi.isInstance(ThunderboltApi.WRAPPER, current)) {
             if (!visited.add(current)) throw new IllegalArgumentException("Cyclic Thunder pattern wrapper");
-            IPatternDetails next = wrapper.wrappedPatternDetails();
+            IPatternDetails next = (IPatternDetails) ThunderboltApi.invoke(WRAPPED_PATTERN, current);
             if (next == null) throw new IllegalArgumentException("Null Thunder wrapped pattern");
             current = next;
         }
