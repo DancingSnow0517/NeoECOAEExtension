@@ -71,17 +71,20 @@ public final class AcyclicCraftingSolver {
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
             List<AEKey> currentRoute = selectedRoute(
-                network, choices, deferredPatterns, cancellation);
-            if (currentRoute == null) {
+                network, choices, deferredPatterns, Set.of(), cancellation);
+            state = currentRoute == null
+                ? solveStockBackedRoute(network, inventory, choices, amount, deferredPatterns,
+                    ignorePatternSubstitutions, cancellation)
+                : runOnce(network, new AcyclicRoutePlan(currentRoute),
+                    new SolveWorkspace(inventory, choices), amount,
+                    deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation);
+            if (state == null) {
                 state = new SolveState(inventory);
                 state.unsupported.add(network.goal());
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
                     "The currently selected alternate producer route contains an undeclared cycle"));
                 return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
             }
-            state = runOnce(network, new AcyclicRoutePlan(currentRoute),
-                new SolveWorkspace(inventory, choices), amount,
-                deferredPatterns, ignorePatternSubstitutions, cancellation);
             if (!state.unsupported.isEmpty()) {
                 addTrace(network, state, amount, trace);
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK,
@@ -118,6 +121,30 @@ public final class AcyclicCraftingSolver {
     }
 
     /**
+     * A reversible recipe need not execute its reverse when stock already covers that input.
+     * Try stocked keys as leaves, then reopen any leaf whose aggregated demand exceeds supply.
+     * Each retry uses fresh inventory and removes at least one leaf; a remaining cycle still falls back.
+     */
+    private static SolveState solveStockBackedRoute(CompiledNetwork network, PlannerInventorySnapshot inventory,
+            Map<AEKey, Integer> choices, long amount, Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        PlannerCounter stock = new PlannerCounter();
+        inventory.initialize(stock);
+        Set<AEKey> stockLeaves = new LinkedHashSet<>(stock.asMap().keySet());
+        stockLeaves.remove(network.goal()); // Stored final output is never a planning input.
+        while (!stockLeaves.isEmpty()) {
+            cancellation.checkpoint();
+            List<AEKey> route = selectedRoute(network, choices, deferredPatterns, stockLeaves, cancellation);
+            if (route == null) return null;
+            SolveState state = runOnce(network, new AcyclicRoutePlan(route),
+                new SolveWorkspace(inventory, choices), amount, deferredPatterns, stockLeaves,
+                ignorePatternSubstitutions, cancellation);
+            if (!stockLeaves.removeAll(state.unsupported)) return state;
+        }
+        return null;
+    }
+
+    /**
      * Candidate fallback can change a pattern's inputs after the caller built its structural route. Recompute
      * the goal-first topological order for the current choices so a newly introduced dependency is never
      * visited before the consumer that creates its demand. Keys owned by cycle components remain outside this
@@ -127,7 +154,7 @@ public final class AcyclicCraftingSolver {
      */
     private static List<AEKey> selectedRoute(CompiledNetwork network,
             Map<AEKey, Integer> choices, Set<IPatternDetails> deferredPatterns,
-            ECOCancellation cancellation) throws InterruptedException {
+            Set<AEKey> stockLeaves, ECOCancellation cancellation) throws InterruptedException {
         Set<AEKey> allowed = network.keys();
         if (!allowed.contains(network.goal())) return List.of();
 
@@ -142,6 +169,7 @@ public final class AcyclicCraftingSolver {
         while (!discover.isEmpty()) {
             cancellation.checkpoint();
             AEKey key = discover.removeFirst();
+            if (stockLeaves.contains(key)) continue;
             CompiledPattern selected = selectedPattern(network, key, choices);
             if (selected == null || deferredPatterns.contains(selected.details())) continue;
             Set<AEKey> dependencies = outgoing.computeIfAbsent(key, ignored -> new LinkedHashSet<>());
@@ -183,7 +211,8 @@ public final class AcyclicCraftingSolver {
     }
 
     private static SolveState runOnce(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
-            long amount, Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+            long amount, Set<IPatternDetails> deferredPatterns, Set<AEKey> stockLeaves,
+            boolean ignorePatternSubstitutions,
             ECOCancellation cancellation)
             throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
@@ -224,6 +253,11 @@ public final class AcyclicCraftingSolver {
                 continue;
             }
             List<CompiledPattern> fast = network.fastProducersOf(key);
+            if (stockLeaves.contains(key)) {
+                // Reopen this dependency in a fresh pass instead of producing along an omitted edge.
+                state.unsupported.add(key);
+                continue;
+            }
             if (fast.isEmpty()) {
                 if (network.producersOf(key).isEmpty()) addCounter(state.missing, key, requested);
                 else state.unsupported.add(key);
