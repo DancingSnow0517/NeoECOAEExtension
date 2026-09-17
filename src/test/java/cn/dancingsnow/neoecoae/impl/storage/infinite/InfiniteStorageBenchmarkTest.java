@@ -1,0 +1,82 @@
+package cn.dancingsnow.neoecoae.impl.storage.infinite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.io.TempDir;
+
+/** Opt-in synthetic measurements; these are not AE network or server TPS measurements. */
+@EnabledIfEnvironmentVariable(named = "NEOECO_STORAGE_BENCHMARK", matches = "1")
+class InfiniteStorageBenchmarkTest {
+    @TempDir
+    Path directory;
+
+    @Test
+    void measureCoreIoAndSnapshots() throws Exception {
+        List<String> report = new ArrayList<>();
+        report.add("Synthetic benchmark: primitive quantity core and independent-record snapshot; not server TPS.");
+        report.add("Runtime: " + System.getProperty("java.version"));
+        for (int count : new int[] {1_000, 10_000, 100_000}) {
+            HybridAmountStore<Integer> store = new HybridAmountStore<>();
+            Integer[] keys = new Integer[count];
+            for (int i = 0; i < count; i++) {
+                keys[i] = i;
+                store.add(keys[i], 1_000);
+            }
+            for (int i = 0; i < 100_000; i++) {
+                Integer key = keys[i % count];
+                store.add(key, 64);
+                store.subtractAtMost(key, 64);
+            }
+            long start = System.nanoTime();
+            for (int i = 0; i < 1_000_000; i++) {
+                Integer key = keys[i % count];
+                store.add(key, 64);
+                store.subtractAtMost(key, 64);
+            }
+            double seconds = (System.nanoTime() - start) / 1e9;
+            assertEquals(1_000, store.getSaturated(keys[count - 1]));
+            report.add(String.format(
+                    Locale.ROOT, "%d keys: quantity core %.0f operations/sec", count, 2_000_000 / seconds));
+        }
+        for (int count : new int[] {1_000, 10_000, 50_000}) {
+            CompoundTag data = new CompoundTag();
+            ListTag entries = new ListTag();
+            for (int i = 0; i < count; i++) {
+                CompoundTag key = new CompoundTag();
+                key.putString("id", "benchmark:item_" + i);
+                CompoundTag entry = new CompoundTag();
+                entry.put("key", key);
+                entry.putLong("amount_long", 1_000_000);
+                entries.add(entry);
+            }
+            data.put("entries", entries);
+            Path path = directory.resolve("snapshot_" + count + ".dat");
+            long start = System.nanoTime();
+            InfiniteStorageSnapshot.write(path, data, 3465);
+            double writeMs = (System.nanoTime() - start) / 1e6;
+            start = System.nanoTime();
+            CompoundTag recovered = InfiniteStorageSnapshot.read(path);
+            double readMs = (System.nanoTime() - start) / 1e6;
+            assertEquals(data, recovered);
+            report.add(String.format(
+                    Locale.ROOT,
+                    "%d records: snapshot verified write %.1f ms, read %.1f ms, %d bytes",
+                    count,
+                    writeMs,
+                    readMs,
+                    Files.size(path)));
+        }
+        Path output = Path.of("build/reports/infinite-storage-benchmark.txt");
+        Files.createDirectories(output.getParent());
+        Files.write(output, report);
+    }
+}

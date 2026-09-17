@@ -80,6 +80,7 @@ public final class ECOStorageCommands {
         if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
             source.sendSuccess(() -> Component.literal("无限存储已恢复，持久化校验通过。").withStyle(ChatFormatting.GREEN), false);
             reportOrphanedEntries(source, domainId, engine, 1);
+            reportIsolatedEntries(source, engine, 1);
             return 1;
         }
         reportRecoveryFailure(source, domainId, engine);
@@ -92,12 +93,26 @@ public final class ECOStorageCommands {
             reportRecoveryFailure(source, domainId, engine);
             return 0;
         }
-        if (engine.getOrphanedStacks().isEmpty()) {
+        reportIsolatedEntries(source, engine, page);
+        if (engine.getOrphanedStacks().isEmpty() && engine.getEntryFailures().isEmpty()) {
             source.sendSuccess(
                     () -> Component.literal("无限存储诊断完成：没有因缺失模组而不可用的条目。").withStyle(ChatFormatting.GREEN), false);
             return 1;
         }
         return reportOrphanedEntries(source, domainId, engine, page) ? 1 : 0;
+    }
+
+    private static void reportIsolatedEntries(CommandSourceStack source, ECOInfiniteStorageEngine engine, int page) {
+        List<String> failures = List.copyOf(engine.getEntryFailures());
+        if (failures.isEmpty()) return;
+        source.sendSuccess(
+                () -> Component.literal("Isolated " + failures.size()
+                        + " damaged records. Healthy resources remain accessible; whole-domain transfers are blocked."),
+                false);
+        failures.stream()
+                .skip((long) (page - 1) * DIAGNOSTIC_PAGE_SIZE)
+                .limit(DIAGNOSTIC_PAGE_SIZE)
+                .forEach(failure -> source.sendSuccess(() -> Component.literal(failure), false));
     }
 
     private static void reportRecoveryFailure(
@@ -140,7 +155,7 @@ public final class ECOStorageCommands {
                         .append(Component.literal("检测到 ").withStyle(ChatFormatting.YELLOW))
                         .append(Component.literal(Integer.toString(entries.size()))
                                 .withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal(" 个缺失模组条目；数据已保留，无法挂载。").withStyle(ChatFormatting.YELLOW)),
+                        .append(Component.literal(" 个不可解析条目；原数据已保留，其余正常资源仍可存取。").withStyle(ChatFormatting.YELLOW)),
                 false);
         source.sendSuccess(
                 () -> Component.empty()

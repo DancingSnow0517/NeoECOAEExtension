@@ -79,6 +79,16 @@ public interface ECOInfiniteStorageEngine {
         return getOrphanedTypes() > 0;
     }
 
+    /** Local entry errors do not imply that the healthy inventory is unavailable. */
+    default Collection<String> getEntryFailures() {
+        return java.util.List.of();
+    }
+
+    /** Whole-domain transfers require every source record to be accounted for. */
+    default boolean canTransfer() {
+        return isHealthy() && !hasOrphanedEntries() && getEntryFailures().isEmpty();
+    }
+
     /** Returns whether missing-mod entries still need to be shown to an administrator. */
     default boolean hasUnacknowledgedOrphanedEntries() {
         return hasOrphanedEntries();

@@ -8,15 +8,13 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import java.io.InputStream;
-import java.math.BigInteger;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,9 +25,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import net.minecraft.SharedConstants;
+import net.minecraft.Util;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -65,6 +66,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     private final HybridAmountStore<AEKey> amounts = new HybridAmountStore<>();
     private final Object2ObjectOpenHashMap<AEKey, CompoundTag> encodedKeys = new Object2ObjectOpenHashMap<>();
     private final Map<String, OrphanedStack> orphanedEntries = new HashMap<>();
+    private final List<CompoundTag> retainedEntries = new ArrayList<>();
+    private final List<CompoundTag> retainedReceipts = new ArrayList<>();
+    private final Set<String> blockedFingerprints = new HashSet<>();
+    private final List<String> entryFailures = new ArrayList<>();
+    private final Set<AEKey> blockedKeys = new HashSet<>();
     private final Object2ObjectOpenHashMap<AEKeyType, MutableTypeStats> typeStats = new Object2ObjectOpenHashMap<>();
     private final ObjectOpenHashSet<AEKey> hugeKeys = new ObjectOpenHashSet<>();
     private final Set<UUID> legacyTransferReceipts = new HashSet<>();
@@ -92,6 +98,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Nullable private CompoundTag lastSerializedSnapshot;
 
+    @Nullable private CompletableFuture<Void> pendingSnapshot;
+
     private SavedDataInfiniteStorageEngine(UUID domainId, DimensionDataStorage dataStorage, Path dataFile) {
         this.domainId = domainId;
         this.dataStorage = dataStorage;
@@ -112,6 +120,18 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         parsed.amounts().forEach(engine.amounts::set);
         engine.encodedKeys.putAll(parsed.encodedKeys());
         engine.orphanedEntries.putAll(parsed.orphanedEntries());
+        engine.retainedEntries.addAll(parsed.retainedEntries());
+        engine.retainedReceipts.addAll(parsed.retainedReceipts());
+        for (CompoundTag retained : engine.retainedEntries) {
+            if (retained.contains("key", Tag.TAG_COMPOUND)) {
+                engine.blockedFingerprints.add(ECOStorageKeyHash.stableFingerprint(retained.getCompound("key")));
+            }
+            if (retained.contains("isolated_key_fingerprint", Tag.TAG_STRING)) {
+                engine.blockedFingerprints.add(retained.getString("isolated_key_fingerprint"));
+            }
+        }
+        engine.entryFailures.addAll(parsed.entryFailures());
+        engine.blockedKeys.addAll(parsed.blockedKeys());
         engine.legacyTransferReceipts.addAll(parsed.legacyTransferReceipts());
         engine.transferReceipts.putAll(parsed.transferReceipts());
         engine.revision = parsed.revision();
@@ -119,6 +139,12 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         engine.acknowledgedOrphanedFingerprint = parsed.acknowledgedOrphanedFingerprint();
         engine.lastSerializedSnapshot = tag.copy();
         engine.rebuildIndexes();
+        if (!engine.entryFailures.isEmpty()) {
+            LOGGER.warn(
+                    "Infinite-storage domain {} retained {} isolated records; healthy resources remain available",
+                    expectedDomainId,
+                    engine.entryFailures.size());
+        }
         return engine;
     }
 
@@ -193,7 +219,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized long insertOnce(UUID transactionId, AEKey key, long amount) {
-        if (transactionId == null || !canOperate(key, amount)) {
+        if (transactionId == null || !canTransfer() || !canOperate(key, amount)) {
             return 0L;
         }
         if (legacyTransferReceipts.contains(transactionId)) {
@@ -223,7 +249,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized boolean applyTransferOnce(UUID transactionId, Collection<HugeStack> contents) {
-        if (state != ECOInfiniteDomainState.READY || transactionId == null || contents == null) {
+        if (!canTransfer() || transactionId == null || contents == null) {
             return false;
         }
         if (legacyTransferReceipts.contains(transactionId)) {
@@ -318,7 +344,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized boolean isEmpty() {
-        return state == ECOInfiniteDomainState.READY && amounts.isEmpty() && orphanedEntries.isEmpty();
+        return state == ECOInfiniteDomainState.READY
+                && amounts.isEmpty()
+                && orphanedEntries.isEmpty()
+                && retainedEntries.isEmpty()
+                && retainedReceipts.isEmpty();
     }
 
     @Override
@@ -379,6 +409,19 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     }
 
     @Override
+    public synchronized Collection<String> getEntryFailures() {
+        return List.copyOf(entryFailures);
+    }
+
+    @Override
+    public synchronized boolean canTransfer() {
+        return state == ECOInfiniteDomainState.READY
+                && retainedEntries.isEmpty()
+                && retainedReceipts.isEmpty()
+                && orphanedEntries.isEmpty();
+    }
+
+    @Override
     public synchronized int getOrphanedTypes() {
         return state == ECOInfiniteDomainState.READY ? orphanedEntries.size() : 0;
     }
@@ -412,10 +455,13 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized void flushAndAwait() {
+        finishSnapshot(true);
         if (state != ECOInfiniteDomainState.READY) {
             return;
         }
-        ECOSavedDataPersistence.flush(this);
+        // A domain commit must not save unrelated cells or domains as a side effect.
+        save(dataFile.toFile());
+        finishSnapshot(true);
     }
 
     @Override
@@ -435,18 +481,67 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         }
         state = ECOInfiniteDomainState.READY;
         failureReason = null;
-        flushAndAwait();
+        try {
+            verifyDiskSnapshot();
+        } catch (Exception e) {
+            persistenceFailed(e);
+        }
         return state == ECOInfiniteDomainState.READY;
     }
 
     @Override
     public synchronized ECOInfiniteDomainState getState() {
+        finishSnapshot(false);
         return state;
     }
 
     @Override
     public synchronized Optional<String> getFailureReason() {
         return Optional.ofNullable(failureReason);
+    }
+
+    @Override
+    public synchronized void save(File file) {
+        // 1.20.1 SavedData has a synchronous save contract. In particular /save-all flush must not
+        // return before this domain is committed. The I/O worker may only consume frozen NBT.
+        finishSnapshot(true);
+        // DimensionDataStorage invokes this during autosave even for quarantined domains.
+        if (state != ECOInfiniteDomainState.READY || !isDirty() || pendingSnapshot != null) {
+            return;
+        }
+        try {
+            if (!dataFile.equals(file.toPath().toAbsolutePath().normalize())) {
+                throw new IllegalArgumentException("Unexpected infinite-storage snapshot path: " + file);
+            }
+            CompoundTag snapshot = save(new CompoundTag());
+            int dataVersion =
+                    SharedConstants.getCurrentVersion().getDataVersion().getVersion();
+            // The worker owns an immutable copy and never accesses AE keys, the live inventory, or the world.
+            pendingSnapshot = CompletableFuture.runAsync(
+                    () -> {
+                        try {
+                            InfiniteStorageSnapshot.write(dataFile, snapshot, dataVersion);
+                        } catch (Exception e) {
+                            throw new CompletionException(e);
+                        }
+                    },
+                    Util.ioPool());
+            setDirty(false);
+        } catch (Exception e) {
+            persistenceFailed(e);
+        }
+        finishSnapshot(true);
+    }
+
+    private void finishSnapshot(boolean await) {
+        if (pendingSnapshot == null || !await && !pendingSnapshot.isDone()) return;
+        CompletableFuture<Void> pending = pendingSnapshot;
+        pendingSnapshot = null;
+        try {
+            pending.join();
+        } catch (CompletionException e) {
+            persistenceFailed(e);
+        }
     }
 
     @Override
@@ -487,6 +582,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             }
             entries.add(entry);
         }
+        retainedEntries.forEach(entry -> entries.add(entry.copy()));
         tag.put(TAG_ENTRIES, entries);
 
         ListTag receipts = new ListTag();
@@ -501,6 +597,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             receipt.putString(TAG_RECEIPT_DIGEST, digest);
             receipts.add(receipt);
         });
+        retainedReceipts.forEach(receipt -> receipts.add(receipt.copy()));
         tag.put(TAG_RECEIPTS, receipts);
         lastSerializedSnapshot = tag.copy();
         return tag;
@@ -513,7 +610,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized boolean needsPersistence() {
-        return state == ECOInfiniteDomainState.READY && isDirty();
+        return state == ECOInfiniteDomainState.READY && (isDirty() || pendingSnapshot != null);
     }
 
     @Override
@@ -523,6 +620,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized void verifyPersistence() throws Exception {
+        flushAndAwait();
         verifyDiskSnapshot();
     }
 
@@ -532,7 +630,18 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     }
 
     private boolean canOperate(@Nullable AEKey key, long amount) {
-        return state == ECOInfiniteDomainState.READY && isResolved(key) && amount > 0L;
+        finishSnapshot(false);
+        if (state != ECOInfiniteDomainState.READY || !isResolved(key) || blockedKeys.contains(key) || amount <= 0L) {
+            return false;
+        }
+        if (blockedFingerprints.isEmpty()) return true;
+        // Already decoded healthy keys must stay on the constant-time path even in a partially damaged domain.
+        if (encodedKeys.containsKey(key)) return true;
+        try {
+            return !blockedFingerprints.contains(ECOStorageKeyHash.stableFingerprint(key.toTagGeneric()));
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private boolean ensureEncodedKey(AEKey key) {
@@ -547,9 +656,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             if (encoded == null || encoded.isEmpty()) {
                 return false;
             }
+            InfiniteStorageSnapshot.validateKey(encoded);
             encodedKeys.put(key, encoded.copy());
             return true;
-        } catch (RuntimeException e) {
+        } catch (java.io.IOException | RuntimeException e) {
             LOGGER.error("Unable to serialize AEKey {}; rejecting the storage operation", key, e);
             return false;
         }
@@ -742,17 +852,15 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         if (!Files.isRegularFile(dataFile)) {
             throw new IllegalStateException("SavedData file is missing after save: " + dataFile);
         }
-        CompoundTag root;
-        try (InputStream input = Files.newInputStream(dataFile)) {
-            root = NbtIo.readCompressed(input);
-        }
-        CompoundTag persistedTag = root.getCompound("data");
+        CompoundTag persistedTag = InfiniteStorageSnapshot.read(dataFile);
         ParsedData persisted = parse(persistedTag, domainId);
         if (lastSerializedSnapshot != null) {
             ParsedData expected = parse(lastSerializedSnapshot, domainId);
             boolean revisionMatches = persisted.revision() == expected.revision() && expected.revision() == revision;
             boolean amountsMatch = canonicalAmounts(persisted).equals(canonicalAmounts(expected));
             boolean encodedKeysMatch = canonicalKeys(persisted).equals(canonicalKeys(expected));
+            boolean retainedMatch = persisted.retainedEntries().equals(expected.retainedEntries())
+                    && persisted.retainedReceipts().equals(expected.retainedReceipts());
             boolean legacyReceiptsMatch = persisted.legacyTransferReceipts().equals(expected.legacyTransferReceipts());
             boolean transferReceiptsMatch = persisted.transferReceipts().equals(expected.transferReceipts());
             boolean legacyFingerprintMatches =
@@ -762,6 +870,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             if (!(revisionMatches
                     && amountsMatch
                     && encodedKeysMatch
+                    && retainedMatch
                     && legacyReceiptsMatch
                     && transferReceiptsMatch
                     && legacyFingerprintMatches
@@ -805,6 +914,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         if (persisted.revision() != revision
                 || !persisted.amounts().equals(expectedAmounts)
                 || !persisted.orphanedEntries().equals(expectedOrphanedEntries)
+                || !persisted.retainedEntries().equals(retainedEntries)
+                || !persisted.retainedReceipts().equals(retainedReceipts)
                 || !persisted.legacyTransferReceipts().equals(legacyTransferReceipts)
                 || !persisted.transferReceipts().equals(transferReceipts)
                 || !Objects.equals(persisted.legacyFingerprint(), legacyFingerprint)
@@ -816,14 +927,19 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     private void quarantine(String message, Throwable cause) {
         state = ECOInfiniteDomainState.QUARANTINED;
         failureReason = message + ": " + cause.getMessage();
-        setDirty();
+        setDirty(false);
         LOGGER.error("{} {}", message, domainId, cause);
     }
 
     private void quarantineReceiptConflict(UUID transactionId) {
-        quarantine(
-                "Infinite-storage transfer receipt contents changed",
-                new IllegalStateException("transaction " + transactionId));
+        // A disputed transfer blocks further whole-domain transfers, not unrelated player inventory access.
+        CompoundTag retained = new CompoundTag();
+        retained.putUUID(TAG_RECEIPT_ID, transactionId);
+        retained.putString("conflict", "Transfer contents differ from the original receipt");
+        retainedReceipts.add(retained);
+        entryFailures.add("Conflicting transfer receipt: " + transactionId);
+        markMutated();
+        LOGGER.error("Isolated conflicting infinite-storage transfer {} in domain {}", transactionId, domainId);
     }
 
     private void requireReady() {
@@ -851,87 +967,51 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         Map<AEKey, HugeAmount> parsedAmounts = new HashMap<>();
         Map<AEKey, CompoundTag> parsedKeys = new HashMap<>();
         Map<String, OrphanedStack> parsedOrphanedEntries = new HashMap<>();
-        Set<String> parsedFingerprints = new HashSet<>();
-        for (int i = 0; i < entries.size(); i++) {
-            CompoundTag entry = entries.getCompound(i);
-            if (!entry.contains(TAG_KEY, Tag.TAG_COMPOUND)) {
-                throw new IllegalArgumentException("Infinite-storage entry is missing its AEKey");
-            }
-            CompoundTag encodedKey = entry.getCompound(TAG_KEY);
-            String keyFingerprint = ECOStorageKeyHash.stableFingerprint(encodedKey);
-            if (!parsedFingerprints.add(keyFingerprint)) {
-                throw new IllegalArgumentException("Duplicate AEKey in infinite-storage SavedData");
-            }
-            boolean hasLong = entry.contains(TAG_AMOUNT_LONG, Tag.TAG_LONG);
-            boolean hasWide = entry.contains(TAG_AMOUNT_WIDE, Tag.TAG_BYTE_ARRAY);
-            if (hasLong == hasWide) {
-                throw new IllegalArgumentException("Infinite-storage entry must contain exactly one amount encoding");
-            }
-
-            HugeAmount amount;
-            if (hasLong) {
-                long value = entry.getLong(TAG_AMOUNT_LONG);
-                if (value <= 0L) {
-                    throw new IllegalArgumentException("Infinite-storage long amount must be positive");
-                }
-                amount = HugeAmount.of(value);
+        var inventory = InfiniteStorageEntries.read(entries, encoded -> {
+            AEKey key = AEKey.fromTagGeneric(encoded);
+            return isResolved(key) ? key : null;
+        });
+        for (var entry : inventory.available()) {
+            if (entry.key() == null) {
+                parsedOrphanedEntries.put(
+                        ECOStorageKeyHash.stableFingerprint(entry.encodedKey()),
+                        new OrphanedStack(entry.encodedKey(), entry.amount()));
             } else {
-                byte[] encodedAmount = entry.getByteArray(TAG_AMOUNT_WIDE);
-                if (encodedAmount.length == 0) {
-                    throw new IllegalArgumentException("Infinite-storage wide amount is empty");
-                }
-                BigInteger value = new BigInteger(encodedAmount);
-                if (value.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0
-                        || !Arrays.equals(encodedAmount, value.toByteArray())) {
-                    throw new IllegalArgumentException("Infinite-storage wide amount is not canonical");
-                }
-                amount = HugeAmount.of(value);
-            }
-            AEKey key;
-            try {
-                key = AEKey.fromTagGeneric(encodedKey);
-            } catch (RuntimeException e) {
-                LOGGER.warn(
-                        "Retaining unresolved AEKey {} in infinite-storage domain {} until its owning mod is restored",
-                        keyFingerprint,
-                        expectedDomainId,
-                        e);
-                key = null;
-            }
-            if (!isResolved(key)) {
-                parsedOrphanedEntries.put(keyFingerprint, new OrphanedStack(encodedKey.copy(), amount));
-            } else {
-                if (parsedAmounts.putIfAbsent(key, amount) != null) {
-                    throw new IllegalArgumentException("Duplicate AEKey in infinite-storage SavedData");
-                }
-                parsedKeys.put(key, encodedKey.copy());
+                parsedAmounts.put(entry.key(), entry.amount());
+                parsedKeys.put(entry.key(), entry.encodedKey());
             }
         }
-
+        List<CompoundTag> retainedReceipts = new ArrayList<>();
+        List<String> failures = new ArrayList<>(inventory.failures());
         Set<UUID> receiptIds = new HashSet<>();
         Set<UUID> legacyReceipts = new HashSet<>();
         Map<UUID, String> verifiedReceipts = new HashMap<>();
         for (int i = 0; i < receiptTags.size(); i++) {
             CompoundTag receipt = receiptTags.getCompound(i);
-            if (!receipt.hasUUID(TAG_RECEIPT_ID)) {
-                throw new IllegalArgumentException("Invalid or duplicate infinite-storage transfer receipt");
+            try {
+                if (!receipt.hasUUID(TAG_RECEIPT_ID)) {
+                    throw new IllegalArgumentException("Invalid or duplicate infinite-storage transfer receipt");
+                }
+                UUID transactionId = receipt.getUUID(TAG_RECEIPT_ID);
+                if (!receiptIds.add(transactionId)) {
+                    throw new IllegalArgumentException("Invalid or duplicate infinite-storage transfer receipt");
+                }
+                if (!receipt.contains(TAG_RECEIPT_DIGEST)) {
+                    legacyReceipts.add(transactionId);
+                    continue;
+                }
+                if (!receipt.contains(TAG_RECEIPT_DIGEST, Tag.TAG_STRING)) {
+                    throw new IllegalArgumentException("Invalid infinite-storage transfer receipt digest");
+                }
+                String digest = receipt.getString(TAG_RECEIPT_DIGEST);
+                if (!isSha256(digest)) {
+                    throw new IllegalArgumentException("Invalid infinite-storage transfer receipt digest");
+                }
+                verifiedReceipts.put(transactionId, digest);
+            } catch (RuntimeException e) {
+                retainedReceipts.add(receipt.copy());
+                failures.add("receipt[" + i + "]: " + e.getMessage());
             }
-            UUID transactionId = receipt.getUUID(TAG_RECEIPT_ID);
-            if (!receiptIds.add(transactionId)) {
-                throw new IllegalArgumentException("Invalid or duplicate infinite-storage transfer receipt");
-            }
-            if (!receipt.contains(TAG_RECEIPT_DIGEST)) {
-                legacyReceipts.add(transactionId);
-                continue;
-            }
-            if (!receipt.contains(TAG_RECEIPT_DIGEST, Tag.TAG_STRING)) {
-                throw new IllegalArgumentException("Invalid infinite-storage transfer receipt digest");
-            }
-            String digest = receipt.getString(TAG_RECEIPT_DIGEST);
-            if (!isSha256(digest)) {
-                throw new IllegalArgumentException("Invalid infinite-storage transfer receipt digest");
-            }
-            verifiedReceipts.put(transactionId, digest);
         }
 
         String fingerprint = null;
@@ -954,6 +1034,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
                 Map.copyOf(parsedAmounts),
                 Map.copyOf(parsedKeys),
                 Map.copyOf(parsedOrphanedEntries),
+                inventory.retained(),
+                List.copyOf(failures),
+                List.copyOf(retainedReceipts),
+                inventory.blockedKeys(),
                 Set.copyOf(legacyReceipts),
                 Map.copyOf(verifiedReceipts),
                 tag.getLong(TAG_REVISION),
@@ -1022,6 +1106,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             Map<AEKey, HugeAmount> amounts,
             Map<AEKey, CompoundTag> encodedKeys,
             Map<String, OrphanedStack> orphanedEntries,
+            List<CompoundTag> retainedEntries,
+            List<String> entryFailures,
+            List<CompoundTag> retainedReceipts,
+            Set<AEKey> blockedKeys,
             Set<UUID> legacyTransferReceipts,
             Map<UUID, String> transferReceipts,
             long revision,

@@ -6,20 +6,27 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
 
 public final class ECOInfiniteStorage implements MEStorage {
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
+    private final BooleanSupplier accessible;
 
     public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description) {
+        this(engine, description, () -> true);
+    }
+
+    public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description, BooleanSupplier accessible) {
         this.engine = engine;
         this.description = description;
+        this.accessible = accessible;
     }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+        if (!accessible.getAsBoolean() || !ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
             return 0L;
         }
         return engine.insert(what, amount, mode);
@@ -27,16 +34,16 @@ public final class ECOInfiniteStorage implements MEStorage {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        return engine.extract(what, amount, mode);
+        return accessible.getAsBoolean() ? engine.extract(what, amount, mode) : 0L;
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        engine.getAvailableStacks(out);
+        if (accessible.getAsBoolean()) engine.getAvailableStacks(out);
     }
 
     public HugeAmount getExactAmount(AEKey key) {
-        return engine.getAmount(key);
+        return accessible.getAsBoolean() ? engine.getAmount(key) : HugeAmount.ZERO;
     }
 
     Object exactInventoryIdentity() {
@@ -45,7 +52,7 @@ public final class ECOInfiniteStorage implements MEStorage {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        return engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
+        return accessible.getAsBoolean() && engine.getAmount(what).compareTo(HugeAmount.ZERO) > 0;
     }
 
     @Override

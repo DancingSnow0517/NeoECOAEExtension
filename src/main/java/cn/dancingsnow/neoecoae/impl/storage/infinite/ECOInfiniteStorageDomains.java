@@ -379,14 +379,11 @@ public final class ECOInfiniteStorageDomains {
 
         private void openV2Domain() throws IOException {
             Files.createDirectories(dataFile.getParent());
-            // Do not use computeIfAbsent here: 1.20.1 creates an empty SavedData when the
-            // strict loader rejects corrupt input, which would overwrite the evidence.
-            SavedDataInfiniteStorageEngine engine = dataStorage.get(
-                    tag -> SavedDataInfiniteStorageEngine.load(tag, domainId, dataStorage, dataFile), savedDataName);
-            if (engine == null) {
-                quarantine("Existing infinite-storage SavedData failed strict loading", null);
-                return;
-            }
+            // Read the authoritative file directly: the vanilla loader hides the cause and caches failed loads.
+            // Only install an engine after strict decoding succeeds. Never substitute an empty inventory.
+            SavedDataInfiniteStorageEngine engine = SavedDataInfiniteStorageEngine.load(
+                    InfiniteStorageSnapshot.read(dataFile), domainId, dataStorage, dataFile);
+            dataStorage.set(savedDataName, engine);
             delegate = engine;
             offlineState = ECOInfiniteDomainState.READY;
         }
@@ -452,7 +449,7 @@ public final class ECOInfiniteStorageDomains {
                 }
                 return;
             }
-            if (offlineState == ECOInfiniteDomainState.CLOSED) {
+            if (offlineState == ECOInfiniteDomainState.CLOSED || offlineState == ECOInfiniteDomainState.QUARANTINED) {
                 offlineState = ECOInfiniteDomainState.LOADING;
                 failureReason = null;
                 initialize(false);
@@ -521,7 +518,11 @@ public final class ECOInfiniteStorageDomains {
 
         private synchronized void quarantine(String message, @Nullable Throwable cause) {
             offlineState = ECOInfiniteDomainState.QUARANTINED;
-            failureReason = cause == null || cause.getMessage() == null ? message : message + ": " + cause.getMessage();
+            Throwable detail = cause;
+            while (detail != null && detail.getCause() != null && detail.getCause() != detail) {
+                detail = detail.getCause();
+            }
+            failureReason = detail == null ? message : message + ": " + detail;
             LOGGER.error("{}: {}", message, domainId, cause);
         }
 
@@ -644,6 +645,18 @@ public final class ECOInfiniteStorageDomains {
         public boolean acknowledgeOrphanedEntries() {
             SavedDataInfiniteStorageEngine engine = current();
             return engine != null && engine.acknowledgeOrphanedEntries();
+        }
+
+        @Override
+        public Collection<String> getEntryFailures() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine == null ? List.of() : engine.getEntryFailures();
+        }
+
+        @Override
+        public boolean canTransfer() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine != null && engine.canTransfer();
         }
 
         @Override

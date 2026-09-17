@@ -187,6 +187,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     };
 
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
+    private long infiniteStorageGeneration;
+    private boolean restoringInfiniteDomain;
 
     @Nullable private UUID infiniteDomainId;
 
@@ -373,6 +375,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
+        long generation = ++infiniteStorageGeneration;
+        UUID domain = infiniteDomainId;
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null
                 || engine.getState() != ECOInfiniteDomainState.READY
@@ -383,7 +387,16 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         storageMounts.mount(
-                new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), priority);
+                new ECOInfiniteStorage(
+                        engine,
+                        getBlockState().getBlock().getName(),
+                        () -> generation == infiniteStorageGeneration
+                                && java.util.Objects.equals(domain, infiniteDomainId)
+                                && !isRemoved()
+                                && !restoringInfiniteDomain
+                                && canUseHostDomainStorage()
+                                && !isStorageInterfaceTransferMode()),
+                priority);
         setHostStorageMounted(true);
     }
 
@@ -517,7 +530,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.exists((ServerLevel) level, domainId)
                     ? ECOInfiniteStorageDomains.openExisting((ServerLevel) level, domainId)
                     : ECOInfiniteStorageDomains.create((ServerLevel) level, domainId);
-            if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
+            if (engine.getState() == ECOInfiniteDomainState.READY && engine.canTransfer()) {
                 infiniteRestoreWarningLogged = false;
                 hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
             } else {
@@ -587,6 +600,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void syncInfiniteModeChanges(ECOStorageHostMode previous) {
         if (previous != hostMode) {
+            infiniteStorageGeneration++;
             markStorageStatsDirty();
             requestProviderUpdates();
             IStorageProvider.requestUpdate(getMainNode());
@@ -658,7 +672,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         UUID domainId = ensureInfiniteDomainId();
         ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.openExisting(serverLevel, domainId);
-        if (engine.getState() != ECOInfiniteDomainState.READY || !engine.isHealthy()) {
+        if (engine.getState() != ECOInfiniteDomainState.READY || !engine.canTransfer()) {
             return;
         }
         boolean migratedAny = false;
@@ -813,6 +827,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (engine.hasOrphanedEntries()) {
             return RestorePlan.blocked("infinite storage contains entries from missing mods");
         }
+        if (!engine.canTransfer()) {
+            return RestorePlan.blocked(
+                    "infinite storage contains isolated entries; healthy resources remain accessible");
+        }
         if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of(), engine.getRevision());
         }
@@ -931,6 +949,18 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void restoreInfiniteDomainToNormalStorage(RestorePlan plan) {
+        if (restoringInfiniteDomain) return;
+        restoringInfiniteDomain = true;
+        infiniteStorageGeneration++;
+        try {
+            executeInfiniteRestore(plan);
+        } finally {
+            restoringInfiniteDomain = false;
+            IStorageProvider.requestUpdate(getMainNode());
+        }
+    }
+
+    private void executeInfiniteRestore(RestorePlan plan) {
         if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
             return;
         }
@@ -1600,6 +1630,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         if (engine == null) {
             return "UNAVAILABLE";
+        }
+        if (engine.getState() == ECOInfiniteDomainState.READY
+                && (!engine.getEntryFailures().isEmpty() || engine.hasOrphanedEntries())) {
+            return "PARTIAL";
         }
         return engine.getState().name();
     }
