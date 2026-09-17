@@ -5,9 +5,7 @@ import appeng.api.stacks.AEKey;
 import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -64,6 +62,12 @@ public final class ECOInfiniteStorageData extends SavedData {
     private long durableRevision;
     private long journalSequence;
     private KeyCodec codec;
+    // One bounded hot-key cache per domain, typically the repeatedly transferred FE key.
+    private AEKey journalKey;
+    private HolderLookup.Provider journalRegistries;
+    private InfiniteStorageJournalRecord journalRecord;
+    private Path openJournalPath;
+    private FileChannel journalChannel;
 
     public static ECOInfiniteStorageData createNew() {
         return new ECOInfiniteStorageData();
@@ -198,6 +202,9 @@ public final class ECOInfiniteStorageData extends SavedData {
     @Override
     public void save(File file, HolderLookup.Provider registries) {
         try {
+            // Windows cannot delete/replace an open journal. Also release the descriptor
+            // at every snapshot boundary, including clean saves and failed snapshots.
+            closeJournal();
             if (unreadable || incompleteLegacy) return;
             if (isDirty()) {
                 var target = file.toPath().toAbsolutePath();
@@ -306,36 +313,51 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     boolean appendJournalChange(File snapshot, HolderLookup.Provider registries, AEKey key, long amount, boolean added) {
         if (!canWrite() || key == null || amount <= 0L) return false;
-        long sequence = journalSequence + 1L;
-        CompoundTag record = new CompoundTag();
-        record.putLong("sequence", sequence);
-        record.put("key", codec == null ? key.toTagGeneric(registries) : codec.encode(key));
-        record.putLong("amount", amount);
-        record.putBoolean("added", added);
         try {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            try (DataOutputStream out = new DataOutputStream(bytes)) {
-                NbtIo.write(record, out);
+            long sequence = Math.incrementExact(journalSequence);
+            InfiniteStorageJournalRecord record = journalRecord;
+            if (record == null || !key.equals(journalKey) || registries != journalRegistries) {
+                record = new InfiniteStorageJournalRecord(
+                        codec == null ? key.toTagGeneric(registries) : codec.encode(key));
+                // Do not retain arbitrarily large modded keys between calls.
+                journalRecord = record.size() <= 64 * 1024 ? record : null;
+                journalKey = journalRecord == null ? null : key;
+                journalRegistries = journalRecord == null ? null : registries;
             }
-            byte[] payload = bytes.toByteArray();
-            ByteBuffer framed = ByteBuffer.allocate(Integer.BYTES + payload.length);
-            framed.putInt(payload.length).put(payload).flip();
+            ByteBuffer framed = record.prepare(sequence, amount, added);
             Path path = journalPath(snapshot.toPath().toAbsolutePath());
-            Files.createDirectories(path.getParent());
-            try (FileChannel channel = FileChannel.open(path, StandardOpenOption.CREATE,
-                    StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
-                while (framed.hasRemaining()) channel.write(framed);
-                channel.force(true);
+            if (journalChannel == null || !path.equals(openJournalPath)) {
+                closeJournal();
+                Files.createDirectories(path.getParent());
+                journalChannel = FileChannel.open(path, StandardOpenOption.CREATE,
+                        StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+                openJournalPath = path;
             }
+            while (framed.hasRemaining()) journalChannel.write(framed);
+            // Acknowledged transfers must remain durable before inventory changes.
+            // Never coalesce/defer this force without a different transaction contract.
+            journalChannel.force(true);
             journalSequence = sequence;
             return true;
         } catch (IOException | RuntimeException exception) {
+            try {
+                closeJournal();
+            } catch (IOException closeFailure) {
+                exception.addSuppressed(closeFailure);
+            }
             writeFailed = true;
             failure = "Cannot append infinite-domain journal: " + exception;
             LoggerFactory.getLogger(ECOInfiniteStorageData.class)
                     .error("Cannot append infinite-domain journal {}", snapshot, exception);
             return false;
         }
+    }
+
+    void closeJournal() throws IOException {
+        FileChannel channel = journalChannel;
+        journalChannel = null;
+        openJournalPath = null;
+        if (channel != null) channel.close();
     }
 
     static void replayJournal(ECOInfiniteStorageData data, Path snapshot, HolderLookup.Provider registries)

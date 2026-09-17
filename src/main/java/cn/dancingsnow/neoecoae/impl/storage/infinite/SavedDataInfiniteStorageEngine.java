@@ -177,8 +177,16 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     public void close() {
-        if (data.isDirty() && !commit().successful()) {
-            throw new IllegalStateException("Infinite domain snapshot is still unsaved: " + data.lastFailureReason());
+        try {
+            if (data.isDirty() && !commit().successful()) {
+                throw new IllegalStateException("Infinite domain snapshot is still unsaved: " + data.lastFailureReason());
+            }
+        } finally {
+            try {
+                data.closeJournal();
+            } catch (java.io.IOException exception) {
+                throw new IllegalStateException("Cannot close infinite domain journal", exception);
+            }
         }
     }
 
