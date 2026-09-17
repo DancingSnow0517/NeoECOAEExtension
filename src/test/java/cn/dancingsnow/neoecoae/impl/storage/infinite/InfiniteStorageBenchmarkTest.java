@@ -2,11 +2,15 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import appeng.api.config.Actionable;
+import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import org.junit.jupiter.api.Test;
@@ -75,6 +79,48 @@ class InfiniteStorageBenchmarkTest {
                     readMs,
                     Files.size(path)));
         }
+        SharedConstants.tryDetectVersion();
+        for (int count : new int[] {10_000, 100_000}) {
+            Path path = directory.resolve("engine_" + count + ".dat");
+            var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+            InfiniteStorageTestKey[] keys = new InfiniteStorageTestKey[count];
+            for (int i = 0; i < count; i++) {
+                keys[i] = new InfiniteStorageTestKey(i);
+                keys[i].cacheEncoding(engine);
+                engine.insert(keys[i], 1000, Actionable.MODULATE);
+            }
+            long start = System.nanoTime();
+            engine.flushAndAwait();
+            double fullMs = (System.nanoTime() - start) / 1e6;
+            for (int i = 0; i < 100_000; i++) {
+                engine.insert(keys[i % 64], 64, Actionable.MODULATE);
+                engine.extract(keys[i % 64], 64, Actionable.MODULATE);
+            }
+            start = System.nanoTime();
+            for (int i = 0; i < 1_000_000; i++) {
+                engine.insert(keys[i % 64], 64, Actionable.MODULATE);
+                engine.extract(keys[i % 64], 64, Actionable.MODULATE);
+            }
+            double seconds = (System.nanoTime() - start) / 1e9;
+            start = System.nanoTime();
+            engine.flushAndAwait();
+            double deltaMs = (System.nanoTime() - start) / 1e6;
+            assertEquals(ECOInfiniteDomainState.READY, engine.getState());
+            assertEquals(
+                    count,
+                    InfiniteStorageSnapshot.read(path).getList("entries", 10).size());
+            assertEquals(HugeAmount.of(count * 1000L), engine.getStoredAmount());
+            report.add(String.format(
+                    Locale.ROOT,
+                    "%d keys: engine %.0f operations/sec; full save %.1f ms; 64-key cumulative delta save %.1f ms, %d bytes",
+                    count,
+                    2_000_000 / seconds,
+                    fullMs,
+                    deltaMs,
+                    Files.size(InfiniteStorageDelta.path(path))));
+            engine.closeAndFlush();
+        }
+        ECOSavedDataPersistence.clear();
         Path output = Path.of("build/reports/infinite-storage-benchmark.txt");
         Files.createDirectories(output.getParent());
         Files.write(output, report);

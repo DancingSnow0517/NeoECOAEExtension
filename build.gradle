@@ -14,11 +14,23 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
+if (project.hasProperty('storageAcceptance')) {
+    layout.buildDirectory = layout.projectDirectory.dir('build/storage-acceptance-build')
+}
+
 base {
     archivesName = mod_id
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// Development-only acceptance tests. These classes are never included in the release jar.
+sourceSets {
+    performance {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
 
 jarJar.enable()
 
@@ -141,6 +153,19 @@ minecraft {
     copyIdeResources = true
 
     runs {
+        gameTestServer {
+            workingDirectory project.file('run/storage-performance')
+            property 'forge.enabledGameTestNamespaces', 'neoecoae'
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', layout.buildDirectory.file('createSrgToMcp/output.srg').get().asFile.absolutePath
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source sourceSets.performance
+                }
+            }
+        }
         client {
             workingDirectory project.file('run/client')
             property 'forge.logging.markers', 'REGISTRIES'
@@ -240,7 +265,11 @@ dependencies {
     runtimeOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
     runtimeOnly fg.deobf("curse.maven:glodium-957920:${glodium_file_id}")
     compileOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
-    runtimeOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    // This optional version loads AEKeyRenderHandler on DEDICATED_SERVER during mod construction.
+    // Keep ordinary launches unchanged; omit it only for the isolated storage acceptance run.
+    if (!project.hasProperty('storageAcceptance')) {
+        runtimeOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    }
     compileOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
     runtimeOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
     runtimeOnly fg.deobf("vazkii.patchouli:Patchouli:${patchouli_version}")
@@ -282,6 +311,34 @@ sourceSets.main.resources {
 }
 
 sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
+
+tasks.register('prepareStorageAcceptance', Copy) {
+    from 'src/performance/gameteststructures'
+    into 'run/storage-performance/gameteststructures'
+}
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn 'prepareStorageAcceptance'
+    doFirst {
+        // Prevent a previous successful report from hiding a startup or test failure.
+        delete file('run/storage-performance/forge-storage-acceptance.txt')
+    }
+}
+
+tasks.register('verifyStoragePerformance') {
+    group = 'verification'
+    description = 'Runs isolated Forge storage acceptance and fails if correctness or latency targets are not met.'
+    dependsOn 'runGameTestServer'
+    doLast {
+        def report = file('run/storage-performance/forge-storage-acceptance.txt')
+        if (!report.isFile()) {
+            throw new GradleException('Storage acceptance produced no report; inspect the GameTest server log.')
+        }
+        def text = report.getText('UTF-8')
+        if (!text.contains('Correctness: PASS.') || !text.contains('Timing verdict: PASS')) {
+            throw new GradleException("Storage performance acceptance FAILED. Report: ${report}")
+        }
+    }
+}
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
