@@ -7,8 +7,14 @@ import org.junit.jupiter.api.Test;
 
 class ExactAmountFormatterTest {
     @Test void formatsBeyondLongWithoutNarrowing() {
-        assertEquals("12.34E", ExactAmountFormatter.slot(
+        assertEquals("12.3E", ExactAmountFormatter.slot(
             ExactAmount.finite(new BigInteger("12345678901234567890"))));
+    }
+
+    @Test void limitsCompactDisplayToThreeSignificantDigits() {
+        assertEquals("1.23k", ExactAmountFormatter.slot(ExactAmount.finite(BigInteger.valueOf(1234))));
+        assertEquals("12.3k", ExactAmountFormatter.slot(ExactAmount.finite(BigInteger.valueOf(12345))));
+        assertEquals("123k", ExactAmountFormatter.slot(ExactAmount.finite(BigInteger.valueOf(123456))));
     }
 
     @Test void formatsUnboundedSeparatelyFromFiniteBigInteger() {

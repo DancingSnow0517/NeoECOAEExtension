@@ -15,7 +15,8 @@ public final class ExactAmountFormatter {
         if (group <= 0) return digits;
         if (group >= UNITS.length) return digits.charAt(0) + "e" + (digits.length() - 1);
         int leading = digits.length() - group * 3;
-        String fraction = digits.substring(leading, Math.min(leading + 2, digits.length()));
+        int fractionLength = Math.max(0, 3 - leading);
+        String fraction = digits.substring(leading, Math.min(leading + fractionLength, digits.length()));
         fraction = fraction.replaceFirst("0+$", "");
         return digits.substring(0, leading) + (fraction.isEmpty() ? "" : "." + fraction) + UNITS[group];
     }
