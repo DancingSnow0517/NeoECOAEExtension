@@ -80,6 +80,16 @@ public final class CraftingGraphSnapshotFactory {
             }
         }
 
+        // Final material validation may discover shortages after the trace was created.
+        if (result.plan() != null) {
+            for (var entry : result.plan().missingItems()) {
+                var material = materials.computeIfAbsent(entry.getKey(), MutableMaterial::new);
+                material.exactMissing = material.exactMissing.max(PlannerAmount.of(entry.getLongValue()));
+                material.missing =
+                        material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
+            }
+        }
+
         collectTaskMaterialFlow(result, materials);
 
         Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();

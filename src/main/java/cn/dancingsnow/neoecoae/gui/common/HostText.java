@@ -78,6 +78,14 @@ public final class HostText {
         return NUMBER_FORMAT.get().format(safe);
     }
 
+    /** Uses the planner's exact byte count when present instead of AE2's saturated long projection. */
+    public static BigInteger craftingPlanBytes(BigInteger theoreticalBytes, long reportedBytes) {
+        if (theoreticalBytes != null && theoreticalBytes.signum() > 0) {
+            return theoreticalBytes;
+        }
+        return BigInteger.valueOf(Math.max(0L, reportedBytes));
+    }
+
     public static String compactStorageBytes(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
         BigInteger unit = BigInteger.ONE;

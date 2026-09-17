@@ -6,16 +6,18 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.util.ExactAmountFormatter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * AE2-style 3x7 material table backed by the planner's exact amounts.
@@ -81,14 +83,36 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         }
         lines.add(Component.translatable(
                 "gui.neoecoae.crafting_report.requested_exact",
-                NumberFormat.getNumberInstance().format(new BigInteger(entry.exactRequested()))));
+                ExactAmountFormatter.full(entry.requestedBigInteger(), 1)));
         return lines;
     }
 
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
+        if (entry.missingBigInteger().signum() > 0) return MISSING_OVERLAY;
         if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
-        return entry.missingBigInteger().signum() > 0 ? MISSING_OVERLAY : 0;
+        return 0;
+    }
+
+    /** Failed ECO attempts are explanation-only when AE2 supplies the fallback material list. */
+    static boolean shouldUseExactMaterials(
+            @Nullable PlanningStatus status, List<CraftingGraphSnapshot.MaterialNode> nodes, boolean hasCycleItems) {
+        if (nodes.isEmpty()) return false;
+        if (status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE) return true;
+        if (status == PlanningStatus.PARTIAL_UNSUPPORTED
+                || status == PlanningStatus.UNSUPPORTED
+                || status == PlanningStatus.INTERNAL_ERROR) {
+            return false;
+        }
+        return (hasCycleItems && status != PlanningStatus.MISSING_ITEMS)
+                || nodes.stream().anyMatch(ECOExactMaterialTableRenderer::hasUnrepresentableAmount);
+    }
+
+    private static boolean hasUnrepresentableAmount(CraftingGraphSnapshot.MaterialNode node) {
+        return node.requestedBigInteger().bitLength() >= Long.SIZE
+                || node.fromInventoryBigInteger().bitLength() >= Long.SIZE
+                || node.toCraftBigInteger().bitLength() >= Long.SIZE
+                || node.missingBigInteger().bitLength() >= Long.SIZE;
     }
 
     static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes) {
@@ -110,7 +134,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
                 || node.missingBigInteger().signum() > 0;
     }
 
-    private static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {
+    static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {
         if (amount.signum() < 0) {
             amount = amount.negate();
         }
@@ -118,13 +142,13 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             return key.formatAmount(amount.longValue(), format);
         }
         int amountPerUnit = Math.max(1, key.getAmountPerUnit());
-        BigDecimal displayAmount =
-                new BigDecimal(amount).divide(BigDecimal.valueOf(amountPerUnit), 6, RoundingMode.DOWN);
         if (format == AmountFormat.FULL) {
-            String formatted = NumberFormat.getNumberInstance().format(displayAmount.stripTrailingZeros());
+            String formatted = ExactAmountFormatter.full(amount, amountPerUnit);
             String unit = key.getUnitSymbol();
             return unit == null ? formatted : formatted + " " + unit;
         }
+        BigDecimal displayAmount =
+                new BigDecimal(amount).divide(BigDecimal.valueOf(amountPerUnit), 6, RoundingMode.DOWN);
         return compact(displayAmount, format == AmountFormat.SLOT_LARGE_FONT ? 3 : 4);
     }
 

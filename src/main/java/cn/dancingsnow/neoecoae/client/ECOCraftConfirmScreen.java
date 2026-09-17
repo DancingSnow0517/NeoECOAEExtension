@@ -20,9 +20,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -55,6 +55,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Scrollbar scrollbar;
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
+    private @Nullable CraftingGraphSnapshot materialSnapshot;
+    private @Nullable PlanningStatus materialStatus;
+    private boolean materialHasCycleItems;
+    private boolean useExactMaterialTable;
+    private List<CraftingGraphSnapshot.MaterialNode> exactMaterials = List.of();
     private final long openedNanos = System.nanoTime();
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title, ScreenStyle style) {
@@ -77,7 +82,6 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         super.updateBeforeRender();
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
-        boolean unrepresentable = hasUnrepresentableDiagnostic();
         boolean blockedUnrepresentable = isBlockedUnrepresentablePlan();
         boolean missingCraftAvailable =
                 (Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$isMissingCraftAvailable();
@@ -93,18 +97,17 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     .withStyle(style -> style.withColor(AE2_TEXT_DARK));
         }
         if (plan != null) {
-            String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
+            BigInteger exactUsedBytes = BigInteger.valueOf(Math.max(0L, plan.getUsedBytes()));
             if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
-                if (mode.neoecoae$getTheoreticalBytes().signum() > 0) {
-                    usedBytes = HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes());
-                }
+                exactUsedBytes = HostText.craftingPlanBytes(mode.neoecoae$getTheoreticalBytes(), plan.getUsedBytes());
+                String usedBytes = HostText.ae2Amount(exactUsedBytes);
                 long calculationNanos = mode.neoecoae$getCalculationNanos();
                 if (calculationNanos < 1_000_000L) {
                     var byteSummary = Component.translatable(
                                     "gui.neoecoae.crafting_report.bytes_only",
-                                    NumberFormat.getInstance().format(plan.getUsedBytes()))
+                                    HostText.expandedStorageBytes(exactUsedBytes))
                             .withStyle(style -> style.withColor(AE2_TEXT_DARK));
-                    if (plan.getUsedBytes() >= GIGA_BYTE) {
+                    if (exactUsedBytes.compareTo(BigInteger.valueOf(GIGA_BYTE)) >= 0) {
                         byteSummary.append(Component.literal(" (" + usedBytes + " B)"));
                     }
                     planSummary = byteSummary;
@@ -114,6 +117,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                             .withStyle(style -> style.withColor(AE2_TEXT_DARK));
                 }
             } else {
+                String usedBytes = ReadableNumberConverter.format(plan.getUsedBytes(), 4);
                 planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", usedBytes)
                         .withStyle(style -> style.withColor(AE2_TEXT_DARK));
             }
@@ -141,9 +145,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent("plan_summary", planSummary);
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
-        boolean ecoPartial = hasEcoCycleDiagnostics();
-        int size = (unrepresentable || ecoPartial)
-                ? exactMaterials().size()
+        int size = shouldUseExactMaterialTable()
+                ? exactMaterials.size()
                 : plan != null ? plan.getEntries().size() : 0;
         scrollbar.setRange(0, table.getScrollableRows(size), 1);
         int cycleItemCount = (Object) menu instanceof ECOCraftConfirmMenuMode mode
@@ -206,8 +209,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     SOLVE_PROGRESS_Y + 3,
                     0xFF3D9B62);
         }
-        if (hasUnrepresentableDiagnostic() || isEcoPartialPlan()) {
-            exactTable.render(graphics, mouseX, mouseY, exactMaterials(), scrollbar.getCurrentScroll());
+        if (shouldUseExactMaterialTable()) {
+            exactTable.render(graphics, mouseX, mouseY, exactMaterials, scrollbar.getCurrentScroll());
         } else if (plan != null)
             table.render(graphics, mouseX, mouseY, plan.getEntries(), scrollbar.getCurrentScroll());
 
@@ -245,9 +248,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
         var hovered = cycleItems.getHoveredStack();
         if (hovered == null)
-            hovered = (hasUnrepresentableDiagnostic() || isEcoPartialPlan())
-                    ? exactTable.getHoveredStack()
-                    : table.getHoveredStack();
+            hovered = shouldUseExactMaterialTable() ? exactTable.getHoveredStack() : table.getHoveredStack();
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
 
@@ -309,12 +310,6 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
     }
 
-    private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
-        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
-        return ECOExactMaterialTableRenderer.sortMaterials(
-                mode.neoecoae$getCraftingGraphSnapshot().nodes());
-    }
-
     private boolean hasUnrepresentableDiagnostic() {
         return (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
@@ -325,13 +320,22 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return hasUnrepresentableDiagnostic() && (plan == null || plan.isSimulation());
     }
 
-    private boolean isEcoPartialPlan() {
-        return hasEcoCycleDiagnostics();
-    }
-
-    private boolean hasEcoCycleDiagnostics() {
-        return (Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && !mode.neoecoae$getCycleItems().isEmpty();
+    private boolean shouldUseExactMaterialTable() {
+        if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return false;
+        CraftingGraphSnapshot snapshot = mode.neoecoae$getCraftingGraphSnapshot();
+        PlanningStatus status = mode.neoecoae$getPlanningStatus();
+        boolean hasCycleItems = !mode.neoecoae$getCycleItems().isEmpty();
+        // The snapshot is immutable. Parse and sort its exact amounts only when synchronized data changes.
+        if (snapshot != materialSnapshot || status != materialStatus || hasCycleItems != materialHasCycleItems) {
+            materialSnapshot = snapshot;
+            materialStatus = status;
+            materialHasCycleItems = hasCycleItems;
+            useExactMaterialTable =
+                    ECOExactMaterialTableRenderer.shouldUseExactMaterials(status, snapshot.nodes(), hasCycleItems);
+            exactMaterials =
+                    useExactMaterialTable ? ECOExactMaterialTableRenderer.sortMaterials(snapshot.nodes()) : List.of();
+        }
+        return useExactMaterialTable;
     }
 
     private boolean isCycleParticipant(AEKey key) {
