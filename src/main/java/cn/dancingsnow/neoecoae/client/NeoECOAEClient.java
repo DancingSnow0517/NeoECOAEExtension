@@ -55,6 +55,11 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
+    public static void onScreenInitPost(ScreenEvent.Init.Post event) {
+        ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
+    }
+
+    @SubscribeEvent
     public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
         ECOCraftConfirmScreenIntegration.onScreenRenderPost(event);
     }

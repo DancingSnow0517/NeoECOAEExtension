@@ -137,32 +137,90 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Override public void neoecoae$startBigOrder(boolean forced) {
         var menu = (CraftConfirmMenu) (Object) this;
-        if (menu.isClientSide() || result == null || neoecoae$originalOptions == null) return;
+        if (menu.isClientSide()) return;
+        if (result == null || neoecoae$originalOptions == null) {
+            neoecoae$rejectBigOrder(result == null ? "NO_PLAN" : "NO_PLANNER_OPTIONS",
+                appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
         var exact = neoecoae$resolveOwnedPlanningResult(result);
-        if (exact != neoecoae$confirmedPlanningResult
-                || !cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) return;
+        if (exact == null || exact != neoecoae$confirmedPlanningResult) {
+            neoecoae$rejectBigOrder(exact == null ? "NO_EXACT_RESULT" : "CONFIRMED_RESULT_CHANGED",
+                appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
+        if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) {
+            NEOECOAE_LOGGER.warn(
+                "[big-order-submit] Admission denied: container={}, status={}, forced={}, hasPlan={}, components={}, missingNodes={}",
+                menu.containerId, exact.status(), forced, exact.plan() != null,
+                exact.components().stream().filter(component -> component.status()
+                        != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
+                    && component.status()
+                        != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED)
+                    .map(component -> component.componentId() + ":" + component.status()).toList(),
+                exact.trace().nodes().stream().filter(node -> node.exactMissing().signum() > 0).count());
+            neoecoae$rejectBigOrder("ADMISSION_DENIED", appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
         var cpu = neoecoae$resolveBigOrderCpu();
         var grid = getGrid();
-        if (cpu == null || grid == null) return;
+        if (cpu == null || grid == null) {
+            neoecoae$rejectBigOrder(grid == null ? "NO_GRID" : "NO_ELIGIBLE_ECO_CPU",
+                grid == null ? appeng.crafting.execution.CraftingSubmitResult.CPU_OFFLINE
+                    : appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
+            return;
+        }
         if (!forced) {
+            var inventory = cn.dancingsnow.neoecoae.impl.crafting.planner.ECOPlannerInventory.capture(grid);
             for (var node : exact.trace().nodes()) {
                 if (node.key() == null || node.exactFromInventory().signum() <= 0) continue;
                 var required = node.exactFromInventory();
-                if (required.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0
-                        || grid.getStorageService().getInventory().extract(node.key(), required.longValueExact(),
-                            Actionable.SIMULATE, getActionSrc()) < required.longValueExact()) return;
+                // A parent order may reserve more than long from a creative source. Each child still
+                // validates and extracts its bounded inputs through the normal submission path.
+                if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.hasStoredAmount(
+                        required, inventory.isUnbounded(node.key()), amount ->
+                            grid.getStorageService().getInventory().extract(node.key(), amount,
+                                Actionable.SIMULATE, getActionSrc()))) {
+                    NEOECOAE_LOGGER.warn("[big-order-submit] Inventory check failed: container={}, key={}, required={}, unbounded={}",
+                        menu.containerId, node.key(), required, inventory.isUnbounded(node.key()));
+                    neoecoae$rejectBigOrder("MISSING_INGREDIENT",
+                        appeng.crafting.execution.CraftingSubmitResult.missingIngredient(
+                            new appeng.api.stacks.GenericStack(node.key(),
+                                required.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact())));
+                    return;
+                }
             }
         }
-        var admission = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest(
-                result.finalOutput().what(), BigInteger.valueOf(result.finalOutput().amount()), forced,
-                neoecoae$originalOptions);
-        var submitted = admission.submit(carrier -> cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
+        final cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan completePlan;
+        try {
+            completePlan = new cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan(exact, forced);
+        } catch (RuntimeException invalid) {
+            NEOECOAE_LOGGER.warn("[big-order-submit] Complete execution plan rejected", invalid);
+            neoecoae$rejectBigOrder("EXACT_EXECUTION_PLAN_INVALID",
+                appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+            return;
+        }
+        NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, cpu={}",
+            menu.containerId, result.finalOutput(), forced, neoecoae$describeCpu(cpu));
+        var submitted = cpu.getCluster().submitJob(grid, completePlan, getActionSrc(), null);
         menu.setAutoStart(false);
         if (submitted.successful()) {
+            NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());
             result = null;
             neoecoae$confirmedPlanningResult = null;
             menu.getHost().returnToMainMenu(menu.getPlayer(), menu);
-        } else menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(submitted);
+        } else neoecoae$rejectBigOrder("CPU_SUBMISSION_FAILED", submitted);
+    }
+
+    @Unique
+    private void neoecoae$rejectBigOrder(String reason, ICraftingSubmitResult failure) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        menu.setAutoStart(false);
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(failure);
+        NEOECOAE_LOGGER.warn(
+            "[big-order-submit] Rejected: reason={}, container={}, output={}, status={}, selectedCpu={}, error={}, detail={}",
+            reason, menu.containerId, result == null ? null : result.finalOutput(), neoecoae$getPlanningStatus(),
+            neoecoae$describeCpu(selectedCpu), failure.errorCode(), failure.errorDetail());
     }
 
     @Unique
@@ -520,6 +578,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         PlanningStatus status = neoecoae$getPlanningStatus();
         boolean unrepresentable = status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+        if (unrepresentable && neoecoae$bigOrderCpu) return;
         if (!noCPU && !result.simulation() && !unrepresentable) {
             return;
         }

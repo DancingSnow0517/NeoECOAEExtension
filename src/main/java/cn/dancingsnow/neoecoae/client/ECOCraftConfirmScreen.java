@@ -58,6 +58,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
     private final long openedNanos = System.nanoTime();
+    private boolean lastSubmissionForced;
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
@@ -93,8 +94,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
-        boolean bigOrder = unrepresentable || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
-            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS && mode.neoecoae$bigOrderCpuAvailable();
+        boolean bigOrder = usesBigOrderSubmission(forceStart);
         boolean allowed = !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
             || mode.neoecoae$getPlanningStatus() == null
             || mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS
@@ -105,9 +105,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU.active = startable || forceStart;
         start.setMessage(forceStart
             ? Component.translatable("gui.neoecoae.force_start") : GuiText.Start.text());
-        start.setTooltip(forceStart
-            ? net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.neoecoae.force_start"))
-            : null);
+        start.setTooltip(bigOrder && !((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
+            ? net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("tooltip.neoecoae.big_order.requires_cpu"))
+            : forceStart
+                ? net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.neoecoae.force_start"))
+                : null);
 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
@@ -156,7 +159,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
             planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
                 .withColor(AE2_TEXT_DARK)
-                .append(Component.literal("（数量超出范围）").withColor(0xFFAA3333));
+                .append(Component.literal("（已被扩展为超大数类型）").withColor(0xFFAA3333));
             cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
                 ? "gui.neoecoae.big_order.segmented" : "gui.neoecoae.big_order.requires_cpu")
                 .withColor(AE2_TEXT_DARK);
@@ -287,11 +290,28 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         if (!start.active) return;
         CraftingPlanSummary plan = menu.getPlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
-        if (isUnrepresentablePlan() || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS
-                && mode.neoecoae$bigOrderCpuAvailable()) {
+        submit(forceStart);
+    }
+
+    /** Retry the same request, including its force flag and ECO execution path. */
+    void retrySubmission() {
+        submit(lastSubmissionForced);
+    }
+
+    private boolean usesBigOrderSubmission(boolean forceStart) {
+        return isUnrepresentablePlan() || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS;
+    }
+
+    private void submit(boolean forceStart) {
+        lastSubmissionForced = forceStart;
+        org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+            "[big-order-submit] Client start: container={}, forced={}, bigOrder={}, status={}",
+            menu.containerId, forceStart, usesBigOrderSubmission(forceStart),
+            (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);
+        if (usesBigOrderSubmission(forceStart)) {
             PacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
-                menu.containerId, Screen.hasShiftDown()));
+                menu.containerId, forceStart));
             return;
         }
         PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(forceStart));

@@ -36,6 +36,7 @@
     "client.ae2.CpuSelectionListMixin",
     "client.ae2.CraftConfirmScreenMixin",
     "client.ae2.CraftingCpuScreenMixin",
+    "client.ae2.CraftingStatusTableMixin",
     "client.ae2.PatternEncodingTermScreenMixin",
     "client.minecraft.ModelBakeryMixin"
   ],

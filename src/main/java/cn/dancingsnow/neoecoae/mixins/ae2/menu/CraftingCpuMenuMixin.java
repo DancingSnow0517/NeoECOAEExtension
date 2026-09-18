@@ -35,6 +35,15 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     @Unique private int neoecoae$bigSerial = -1;
     @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$lastBigProgress;
     @Unique private int neoecoae$lastBigSerial = -2;
+    @Unique @appeng.menu.guisync.GuiSync(120)
+    public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactPending =
+        new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
+    @Unique @appeng.menu.guisync.GuiSync(121) public int neoecoae$exactSerial = -1;
+
+    @Override public java.math.BigInteger neoecoae$getExactPending(AEKey key) {
+        return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
+            && menu.getSelectedCpuSerial() == neoecoae$exactSerial ? neoecoae$exactPending.amounts().get(key) : null;
+    }
 
     @Override public void neoecoae$setBigOrderProgress(int serial,
             cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress progress) {
@@ -132,6 +141,9 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
                 && getPlayer() instanceof net.minecraft.server.level.ServerPlayer player) {
             var progress = neoecoae$cpu == null ? null : neoecoae$cpu.getProgressView().bigOrder().orElse(null);
             int serial = menu.getSelectedCpuSerial();
+            neoecoae$exactSerial = serial;
+            neoecoae$exactPending = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
+                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactPendingPreview());
             if (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress)) {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new cn.dancingsnow.neoecoae.network.ECOBigOrderProgressS2CPacket(containerId, serial, progress));

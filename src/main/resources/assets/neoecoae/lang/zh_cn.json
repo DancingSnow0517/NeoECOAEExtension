@@ -18,6 +18,7 @@
   "gui.neoecoae.big_order.remaining": "剩余 %s",
   "gui.neoecoae.big_order.child": "当前段 %s · 剩余 %s",
   "gui.neoecoae.big_order.requires_cpu": "BigInt 订单需要 ECO CPU",
+  "tooltip.neoecoae.big_order.requires_cpu": "数量已扩展为超大数类型；请准备空闲且在线的 ECO 合成 CPU",
   "gui.neoecoae.big_order.segmented": "ECO CPU 分段执行；每段完成后重新规划",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
