@@ -17,6 +17,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -146,7 +147,18 @@ public final class ComputationInterfaceUI {
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
                     setValue(ItemStack.EMPTY, true);
+                    event.hasHandler = true;
                     event.stopImmediatePropagation();
+                    return;
+                }
+                if (event.button == 0) {
+                    var player = Minecraft.getInstance().player;
+                    ItemStack carried = player == null ? ItemStack.EMPTY : player.containerMenu.getCarried();
+                    if (!carried.isEmpty()) {
+                        setValue(carried, true);
+                        event.hasHandler = true;
+                        event.stopImmediatePropagation();
+                    }
                 }
             }, true);
         }
