@@ -417,9 +417,8 @@ public final class BoundedCycleSolver implements CycleSolver {
     @Nullable
     private static ExactRing exactRing(Model model) {
         int transitionCount = model.transitionCount();
-        // Two-transition loops already have a tuned compact greedy path. This proof targets the multi-stage rings
-        // that previously fell through to the 100k-state search.
-        if (transitionCount < 3) return null;
+        // The same balance proof covers self-growth and two-transition rings, including counts wider than long.
+        if (transitionCount < 1) return null;
 
         List<Integer> memberKeys = new ArrayList<>();
         for (int key = 0; key < model.keyCount(); key++) if (model.member[key]) memberKeys.add(key);
@@ -448,7 +447,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 }
             }
             if (consumedMember[transition] < 0 || producedMember[transition] < 0
-                    || consumedMember[transition] == producedMember[transition]) return null;
+                    || transitionCount > 1 && consumedMember[transition] == producedMember[transition]) return null;
         }
         for (int key : memberKeys) if (consumer[key] < 0 || producer[key] < 0) return null;
 
@@ -522,15 +521,14 @@ public final class BoundedCycleSolver implements CycleSolver {
         for (int attempt = 0; attempt < MAX_EXACT_RING_PIVOT_STEPS; attempt++) {
             cancellation.checkpoint();
             PlannerAmount[] counts = ringCountsForPivot(model, ring, pivot);
-            PlannerAmount closure = requiredRingProducerCount(model, ring, 1, counts[1]).max(ring.baseCounts[0]);
+            int next = 1 % ring.size();
+            PlannerAmount closure = requiredRingProducerCount(model, ring, next, counts[next]).max(ring.baseCounts[0]);
             if (pivot.compareTo(closure) >= 0) {
                 counts[0] = pivot;
-                for (PlannerAmount count : counts) if (!count.fitsLong()) return null;
                 return counts;
             }
             PlannerAmount doubled = pivot.signum() == 0 ? PlannerAmount.ONE : pivot.multiply(2L);
             pivot = doubled.max(closure);
-            if (!pivot.fitsLong()) return null;
         }
         return null;
     }
@@ -563,28 +561,26 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static List<BatchFiring> exactRingWitness(Model model, ExactRing ring, PlannerAmount[] exactCounts,
             ECOCancellation cancellation) throws InterruptedException {
         int size = ring.size();
-        long[] remaining = new long[size];
-        for (int position = 0; position < size; position++) remaining[position] = exactCounts[position].longValueExact();
+        PlannerAmount[] remaining = exactCounts.clone();
 
         PlannerAmount[] marking = Arrays.copyOf(model.stock, model.keyCount());
         List<BatchFiring> witness = new ArrayList<>();
         int cursor = bestRingStart(model, ring, remaining);
         for (int macro = 0; macro < MAX_EXACT_RING_MACRO_STEPS; macro++) {
             cancellation.checkpoint();
-            if (allZero(remaining)) return List.copyOf(witness);
+            if (isZero(remaining)) return List.copyOf(witness);
 
             boolean progressed = false;
             for (int offset = 0; offset < size; offset++) {
                 int position = (cursor + offset) % size;
-                if (remaining[position] <= 0L) continue;
+                if (remaining[position].signum() <= 0) continue;
                 int transition = ring.transitions[position];
                 PlannerAmount safe = maximumSafeBatch(model, marking, transition)
-                    .min(PlannerAmount.of(remaining[position]));
-                if (safe.signum() <= 0 || !safe.fitsLong()) continue;
-                long batch = safe.longValueExact();
-                marking = fireBatch(model, marking, transition, batch);
-                remaining[position] -= batch;
-                appendBatch(witness, transition, batch);
+                    .min(remaining[position]);
+                if (safe.signum() <= 0) continue;
+                marking = fireBatch(model, marking, transition, safe);
+                remaining[position] = remaining[position].subtract(safe);
+                appendBatch(witness, transition, safe);
                 progressed = true;
             }
             if (progressed) continue;
@@ -610,11 +606,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         return null;
     }
 
-    private static int bestRingStart(Model model, ExactRing ring, long[] remaining) {
+    private static int bestRingStart(Model model, ExactRing ring, PlannerAmount[] remaining) {
         int best = 0;
         PlannerAmount bestCapacity = PlannerAmount.ZERO;
         for (int position = 0; position < ring.size(); position++) {
-            if (remaining[position] <= 0L) continue;
+            if (remaining[position].signum() <= 0) continue;
             PlannerAmount capacity = maximumSafeBatch(model, model.stock, ring.transitions[position]);
             if (capacity.compareTo(bestCapacity) > 0) {
                 best = position;
@@ -624,11 +620,11 @@ public final class BoundedCycleSolver implements CycleSolver {
         return best;
     }
 
-    private static int bestSeedPosition(Model model, ExactRing ring, PlannerAmount[] marking, long[] remaining) {
+    private static int bestSeedPosition(Model model, ExactRing ring, PlannerAmount[] marking, PlannerAmount[] remaining) {
         int best = -1;
         PlannerAmount bestDeficit = null;
         for (int position = 0; position < ring.size(); position++) {
-            if (remaining[position] <= 0L) continue;
+            if (remaining[position].signum() <= 0) continue;
             int transition = ring.transitions[position];
             PlannerAmount deficit = PlannerAmount.ZERO;
             for (int key = 0; key < model.keyCount(); key++) {
@@ -645,18 +641,13 @@ public final class BoundedCycleSolver implements CycleSolver {
         return best;
     }
 
-    private static void appendBatch(List<BatchFiring> witness, int transition, long count) {
+    private static void appendBatch(List<BatchFiring> witness, int transition, PlannerAmount count) {
         if (!witness.isEmpty() && witness.getLast().transition() == transition) {
             BatchFiring previous = witness.removeLast();
-            witness.add(new BatchFiring(transition, Math.addExact(previous.count(), count)));
+            witness.add(new BatchFiring(transition, previous.exactCount().add(count)));
         } else {
             witness.add(new BatchFiring(transition, count));
         }
-    }
-
-    private static boolean allZero(long[] values) {
-        for (long value : values) if (value != 0L) return false;
-        return true;
     }
 
     private static int positionOf(int[] values, int target) {
@@ -1070,8 +1061,11 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     private static PlannerAmount[] fireBatch(Model model, PlannerAmount[] marking, int transition, long batch) {
+        return fireBatch(model, marking, transition, PlannerAmount.of(batch));
+    }
+
+    private static PlannerAmount[] fireBatch(Model model, PlannerAmount[] marking, int transition, PlannerAmount count) {
         PlannerAmount[] next = marking.clone();
-        PlannerAmount count = PlannerAmount.of(batch);
         long[] cons = model.cons[transition];
         long[] prod = model.prod[transition];
         for (int i : model.metadata[transition].changedKeys) {
@@ -1157,7 +1151,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<IPatternDetails, PlannerAmount> exactPatternTimes = new LinkedHashMap<>();
         for (BatchFiring firing : witness) {
             IPatternDetails details = model.transitions.get(firing.transition()).details();
-            exactPatternTimes.merge(details, PlannerAmount.of(firing.count()), PlannerAmount::add);
+            exactPatternTimes.merge(details, firing.exactCount(), PlannerAmount::add);
         }
         Map<IPatternDetails, Long> patternTimes = new LinkedHashMap<>();
         List<PatternRun> executionPlan = new ArrayList<>(witness.size());
@@ -1226,7 +1220,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
         for (BatchFiring firing : witness) {
             int transition = firing.transition();
-            PlannerAmount count = PlannerAmount.of(firing.count());
+            PlannerAmount count = firing.exactCount();
             long[] cons = model.cons[transition];
             long[] prod = model.prod[transition];
             for (int i = 0; i < n; i++) {
@@ -1274,7 +1268,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static List<CycleFiring> expandWitness(Model model, List<BatchFiring> witness) {
         long total = 0L;
         for (BatchFiring firing : witness) {
-            if (Long.MAX_VALUE - total < firing.count() || total + firing.count() > MAX_EXPANDED_WITNESS) {
+            if (firing.exactCount().compareTo(PlannerAmount.of(MAX_EXPANDED_WITNESS - total)) > 0) {
                 return List.of();
             }
             total += firing.count();
@@ -1293,7 +1287,7 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static int expandedWitnessLength(List<BatchFiring> witness) {
         long total = 0L;
         for (BatchFiring firing : witness) {
-            if (Long.MAX_VALUE - total < firing.count() || total + firing.count() > MAX_EXPANDED_WITNESS) {
+            if (firing.exactCount().compareTo(PlannerAmount.of(MAX_EXPANDED_WITNESS - total)) > 0) {
                 return 0;
             }
             total += firing.count();
@@ -1419,10 +1413,19 @@ public final class BoundedCycleSolver implements CycleSolver {
     // Internal data
     // ---------------------------------------------------------------------------------------------------
 
-    private record BatchFiring(int transition, long count) {
+    private record BatchFiring(int transition, PlannerAmount exactCount) {
         private BatchFiring {
             if (transition < 0) throw new IllegalArgumentException("Batch transition must not be negative");
-            if (count <= 0L) throw new IllegalArgumentException("Batch firing count must be positive");
+            if (exactCount.signum() <= 0) throw new IllegalArgumentException("Batch firing count must be positive");
+        }
+
+        private BatchFiring(int transition, long count) {
+            this(transition, PlannerAmount.of(count));
+        }
+
+        /** Only bounded-search candidates and the legacy execution adapter require a long projection. */
+        private long count() {
+            return exactCount.longValueExact();
         }
     }
 
