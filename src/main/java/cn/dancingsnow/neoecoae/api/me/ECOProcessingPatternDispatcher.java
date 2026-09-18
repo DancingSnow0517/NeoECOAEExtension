@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability;
+import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusScaling;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +121,7 @@ final class ECOProcessingPatternDispatcher {
         limit = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), per, limit);
         limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit,
                 n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+        limit = ECOExtendedAEPlusScaling.cap(request.pattern(), limit);
         var ramp = state.beginRun();
         while (ramp.owned < limit && !provider.isBusy()) {
             long offer = ramp.offer(limit - ramp.owned);
@@ -132,7 +134,10 @@ final class ECOProcessingPatternDispatcher {
             boolean ownershipUncertain = false;
             try {
                 mark.accept(provider);
-                IPatternDetails scaled = offer == 1 ? request.pattern() : new ScaledProcessingPattern(request.pattern(), offer);
+                IPatternDetails scaled = offer == 1 ? request.pattern() :
+                        java.util.Objects.requireNonNullElse(
+                            ECOExtendedAEPlusScaling.scale(request.pattern(), offer),
+                            new ScaledProcessingPattern(request.pattern(), offer));
                 KeyCounter[] counters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), offer);
                 var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled, counters,
                         request.outputs(), request.remainders(), offer, request.inventory(), request.level());
