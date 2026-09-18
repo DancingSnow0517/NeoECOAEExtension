@@ -121,7 +121,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
         }
         if (InteractionUtil.isInAlternateUseMode(player)) {
             disassembleDrive(stack, level, player);
-            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);
+            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
         }
         return super.use(level, player, hand);
     }
@@ -146,6 +146,11 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
             return false;
         }
 
+        // Omni's SavedData inventory is unavailable on the client, not necessarily empty.
+        if (level.isClientSide()) {
+            return true;
+        }
+
         List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
@@ -157,7 +162,7 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
         }
 
         var cellInventory = ECOUniversalCellHandler.INSTANCE.getCellInventory(stack, null);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }
