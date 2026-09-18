@@ -172,6 +172,10 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.getActionSource();
     }
 
+    public void setBigOrderChildPlan(ICraftingPlan next) {
+        this.plan = next;
+    }
+
     private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
         tag.put("output", outputTag);

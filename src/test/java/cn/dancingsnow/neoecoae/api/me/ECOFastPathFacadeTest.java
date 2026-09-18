@@ -18,6 +18,24 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 class ECOFastPathFacadeTest {
+    @Test void unlimitedProviderStillReceivesOnlyLocallySafeLongBatches() {
+        var provider = mock(Provider.class);
+        when(provider.eco$prepareFastPath(any())).thenReturn(
+            new ECOFastPathDispatchProvider.Preparation(Long.MAX_VALUE, null, false, batch -> true));
+        inventory.list.set(key, Long.MAX_VALUE);
+        var input = new KeyCounter();
+        input.add(key, 1);
+        var output = new KeyCounter();
+        output.add(key, 2);
+        var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), new KeyCounter[]{input},
+            output, new KeyCounter(), inventory, Long.MAX_VALUE, 0, null, null, null);
+        assertNotNull(batch);
+        assertEquals(Long.MAX_VALUE / 2, batch.craftCount());
+        assertEquals(Long.MAX_VALUE - 1, batch.outputs().getFirst().amount());
+        assertTrue(batch.submit(amount -> reservation));
+        assertEquals(Long.MAX_VALUE - Long.MAX_VALUE / 2, inventory.list.get(key));
+        verify(reservation).commit();
+    }
     interface Provider extends ICraftingProvider, ECOFastPathDispatchProvider {}
 
     private final AEKey key = mock(AEKey.class, RETURNS_DEEP_STUBS);

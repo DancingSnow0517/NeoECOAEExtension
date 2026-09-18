@@ -30,7 +30,25 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("removal")
 @Mixin(CraftingCPUMenu.class)
-public class CraftingCpuMenuMixin extends AEBaseMenu {
+public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost {
+    @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$bigProgress;
+    @Unique private int neoecoae$bigSerial = -1;
+    @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$lastBigProgress;
+    @Unique private int neoecoae$lastBigSerial = -2;
+
+    @Override public void neoecoae$setBigOrderProgress(int serial,
+            cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress progress) {
+        neoecoae$bigSerial = serial;
+        neoecoae$bigProgress = progress;
+    }
+    @Override public cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$getBigOrderProgress() {
+        return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
+                && menu.getSelectedCpuSerial() == neoecoae$bigSerial ? neoecoae$bigProgress : null;
+    }
+    @Override public void neoecoae$clearBigOrderProgress() {
+        neoecoae$bigProgress = null;
+        neoecoae$bigSerial = -1;
+    }
     public CraftingCpuMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);
     }
@@ -98,6 +116,7 @@ public class CraftingCpuMenuMixin extends AEBaseMenu {
         at = {@At("TAIL")}
     )
     public void onRemoved(Player player, CallbackInfo ci) {
+        neoecoae$clearBigOrderProgress();
         if (this.neoecoae$cpu != null) {
             this.neoecoae$cpu.getLogic().removeListener(this.cpuChangeListener);
         }
@@ -109,6 +128,17 @@ public class CraftingCpuMenuMixin extends AEBaseMenu {
         at = {@At("HEAD")}
     )
     public void onBroadcastChanges(CallbackInfo ci) {
+        if (isServerSide() && (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
+                && getPlayer() instanceof net.minecraft.server.level.ServerPlayer player) {
+            var progress = neoecoae$cpu == null ? null : neoecoae$cpu.getProgressView().bigOrder().orElse(null);
+            int serial = menu.getSelectedCpuSerial();
+            if (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress)) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new cn.dancingsnow.neoecoae.network.ECOBigOrderProgressS2CPacket(containerId, serial, progress));
+                neoecoae$lastBigSerial = serial;
+                neoecoae$lastBigProgress = progress;
+            }
+        }
         if (this.isServerSide() && this.neoecoae$cpu != null) {
             this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
             this.cantStoreItems = this.neoecoae$cpu.getLogic().isCantStoreItems();

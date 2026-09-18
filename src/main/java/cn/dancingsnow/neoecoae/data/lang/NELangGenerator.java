@@ -4,6 +4,26 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.big_order.reason.output_storage", "Waiting for output storage");
+        provider.add("gui.neoecoae.big_order.reason.child_incomplete", "Incomplete segment; further planning stopped");
+        provider.add("gui.neoecoae.big_order.planning", "Planning");
+        provider.add("gui.neoecoae.big_order.running_child", "Running segment");
+        provider.add("gui.neoecoae.big_order.waiting_materials", "Waiting for materials");
+        provider.add("gui.neoecoae.big_order.waiting_capacity", "Waiting for capacity");
+        provider.add("gui.neoecoae.big_order.completed", "Completed");
+        provider.add("gui.neoecoae.big_order.cancelled", "Cancelled");
+        provider.add("gui.neoecoae.big_order.failed", "Failed");
+        provider.add("gui.neoecoae.big_order.reason.capacity", "CPU capacity unavailable");
+        provider.add("gui.neoecoae.big_order.reason.materials", "Missing materials");
+        provider.add("gui.neoecoae.big_order.reason.source_unavailable", "Waiting for network or requesting player");
+        provider.add("gui.neoecoae.big_order.reason.planner_busy", "Planner busy");
+        provider.add("gui.neoecoae.big_order.reason.planning_failed", "Planning failed");
+        provider.add("gui.neoecoae.big_order.total", "Total %s");
+        provider.add("gui.neoecoae.big_order.done", "Completed %s");
+        provider.add("gui.neoecoae.big_order.remaining", "Remaining %s");
+        provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");
+        provider.add("gui.neoecoae.big_order.requires_cpu", "BigInt orders require an ECO CPU");
+        provider.add("gui.neoecoae.big_order.segmented", "ECO CPU: replan after each segment");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");

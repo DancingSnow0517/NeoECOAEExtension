@@ -342,7 +342,7 @@ final class ECOCraftingOutputDelivery {
 
     private boolean finishIfComplete(ExecutingCraftingJob expected) {
         if (host.getJob() != expected) {
-            return true;
+            return !host.hasJob();
         }
         if (expected.remainingAmount > 0L || !expected.waitingFor.list.isEmpty()
                 || host.taskSchedulerForOutput().hasPendingTasks(expected)
@@ -351,7 +351,7 @@ final class ECOCraftingOutputDelivery {
             return false;
         }
         host.finishJob(true);
-        return true;
+        return !host.hasJob();
     }
 
     void loadPendingFinalOutputs(CompoundTag jobData, HolderLookup.Provider registries) {

@@ -72,6 +72,10 @@ final class ECOCraftingJobLifecycleController {
         var job = new ExecutingCraftingJob(
                 plan, executionPlan, host::postChange, linkCpu, playerId);
         host.setJobFromLifecycle(job);
+        var admission = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest.forSubmission(plan);
+        if (admission != null) {
+            host.bigOrder.start(admission, src);
+        }
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         initializeJobAttachments();
 
@@ -107,6 +111,7 @@ final class ECOCraftingJobLifecycleController {
         if (finishingJob == null) {
             return;
         }
+        if (success && host.bigOrder.finishChild()) return;
         var context = host.createJobContext(finishingJob);
         long remainingAmount = Math.max(0L, finishingJob.remainingAmount);
         long completedAmount = Math.max(0L, context.requestedAmount() - remainingAmount);
@@ -139,6 +144,7 @@ final class ECOCraftingJobLifecycleController {
         host.storeItems();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         ECOCraftingLifecycle.fireJobFinished(context, result);
+        host.bigOrder.clear();
     }
 
     void cancel() {
@@ -147,8 +153,15 @@ final class ECOCraftingJobLifecycleController {
             return;
         }
         UUID craftingJobId = current.link.getCraftingID();
-        finish(false);
-        ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
+        if (host.bigOrder.progress() != null) {
+            host.bigOrder.cancel();
+            ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), craftingJobId, false);
+            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
+            finish(false);
+        } else {
+            finish(false);
+            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
+        }
     }
 
     void initializeJobAttachments() {

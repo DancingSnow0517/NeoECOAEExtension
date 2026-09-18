@@ -111,6 +111,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
     private final ECOCraftingCpuView view;
     private final ECOCraftingCpuPersistence persistence;
     private final ECOCraftingJobLifecycleController lifecycle;
+    final ECOBigOrderController bigOrder = new ECOBigOrderController(this);
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -142,6 +143,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         if (!cpu.isActive()) {
             return;
         }
+        if (bigOrder.tick()) return;
         cantStoreItems = false;
         if (this.job == null) {
             energyTransaction.returnIdleCredit(eg);
@@ -509,7 +511,18 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     /** Returns a detached, immutable progress snapshot for external displays and integrations. */
     public ECOCraftingProgressView getProgressView() {
-        return view.getProgressView();
+        var base = view.getProgressView();
+        var parent = bigOrder.progress();
+        if (parent == null) return base;
+        return new ECOCraftingProgressView() {
+            public float progress() { return base.progress(); }
+            public long elapsedTimeNanos() { return base.elapsedTimeNanos(); }
+            public long startedWork(AEKeyType type) { return base.startedWork(type); }
+            public long completedWork(AEKeyType type) { return base.completedWork(type); }
+            public java.util.Optional<cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress> bigOrder() {
+                return java.util.Optional.of(parent);
+            }
+        };
     }
 
     @Override

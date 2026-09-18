@@ -360,6 +360,18 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         this.availableStorage = Math.max(0, totalStorage - getActiveJobBytes());
     }
 
+    /** Server-thread atomic reservation replacement for a parent's next complete long segment. */
+    public boolean replaceBigOrderPlan(ECOCraftingCPU cpu, ICraftingPlan next) {
+        ICraftingPlan previous = cpu.getPlan();
+        if (previous == null || activeCpus.get(previous) != cpu || next.bytes() < 0
+                || next.bytes() > cpu.getAvailableStorage()) return false;
+        activeCpus.remove(previous);
+        cpu.setBigOrderChildPlan(next);
+        activeCpus.put(next, cpu);
+        recalculateRemainingStorage();
+        return activeCpus.get(next) == cpu;
+    }
+
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {

@@ -19,7 +19,7 @@ public final class ECOBatchCraftingHelper {
      * has. How many crafts a batch may carry is decided by the live capability of the F-series host that
      * accepts it, so no fixed batch-size constant exists.
      */
-    public static final long MAX_BATCH_STACK_AMOUNT = 1L << 42;
+    public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
 
     private ECOBatchCraftingHelper() {
     }
@@ -63,6 +63,9 @@ public final class ECOBatchCraftingHelper {
         max = Math.min(max, maxBatchSizeForStacks(inputsPerCraft));
         max = Math.min(max, maxBatchSizeForStacks(outputsPerCraft));
         max = Math.min(max, maxBatchSizeForStacks(remainingPerCraft));
+        var waitingPerCraft = new ArrayList<>(outputsPerCraft);
+        waitingPerCraft.addAll(remainingPerCraft);
+        max = Math.min(max, maxBatchSizeForStacks(waitingPerCraft));
         return max;
     }
 
@@ -83,12 +86,19 @@ public final class ECOBatchCraftingHelper {
     }
 
     private static long maxBatchSizeForStacks(List<GenericStack> perCraft) {
-        long max = Long.MAX_VALUE;
-        for (GenericStack stack : perCraft) {
-            if (stack == null) {
-                continue;
+        if (perCraft.size() > MAX_BATCH_STACK_ENTRIES) return 0L;
+        java.util.Map<appeng.api.stacks.AEKey, Long> totals = new java.util.HashMap<>();
+        try {
+            for (GenericStack stack : perCraft) {
+                if (stack == null || stack.amount() <= 0L) return 0L;
+                totals.merge(stack.what(), stack.amount(), Math::addExact);
             }
-            max = Math.min(max, maxBatchSizeForAmount(stack.amount()));
+        } catch (ArithmeticException overflow) {
+            return 0L;
+        }
+        long max = Long.MAX_VALUE;
+        for (long amount : totals.values()) {
+            max = Math.min(max, maxBatchSizeForAmount(amount));
             if (max <= 0) {
                 return 0;
             }
@@ -106,9 +116,11 @@ public final class ECOBatchCraftingHelper {
             return List.of();
         }
         KeyCounter counter = new KeyCounter();
+        if (stacks.size() > MAX_BATCH_STACK_ENTRIES) throw new IllegalArgumentException("Too many batch entries");
         for (GenericStack stack : stacks) {
+            if (stack == null || stack.amount() <= 0L) throw new IllegalArgumentException("Invalid batch amount");
             long amount = multiplyExact(stack.amount(), multiplier);
-            counter.add(stack.what(), amount);
+            counter.set(stack.what(), Math.addExact(counter.get(stack.what()), amount));
         }
         return ECOFastPathStacks.copyCounter(counter);
     }
@@ -266,7 +278,7 @@ public final class ECOBatchCraftingHelper {
         DoubleUnaryOperator simulatedExtraction
     ) {
         Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
-        long boundedRequested = Math.max(0L, requested);
+        long boundedRequested = Math.min(Math.max(0L, requested), maxEnergySafeCrafts(patternPower));
         if (boundedRequested <= 0 || !Double.isFinite(patternPower) || patternPower < 0.0D) {
             return 0;
         }
@@ -344,6 +356,15 @@ public final class ECOBatchCraftingHelper {
             return false;
         }
         double extracted = simulatedExtraction.applyAsDouble(totalPower);
-        return !Double.isNaN(extracted) && extracted >= totalPower - 0.01D;
+        return Double.isFinite(extracted) && extracted >= totalPower - 0.01D;
+    }
+
+    /** Keeps one nonzero energy transaction within the exact-integer range of its double ledger. */
+    public static long maxEnergySafeCrafts(double perCraftEnergy) {
+        if (!Double.isFinite(perCraftEnergy) || perCraftEnergy < 0.0D) return 0L;
+        if (perCraftEnergy == 0.0D) return Long.MAX_VALUE;
+        long count = (long) Math.min(Long.MAX_VALUE, Math.floor(0x1.0p52 / perCraftEnergy));
+        while (count > 0 && perCraftEnergy * count > 0x1.0p52) count--;
+        return count;
     }
 }

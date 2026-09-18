@@ -25,12 +25,14 @@ final class ECOCraftingCpuPersistence {
 
         if (!data.contains("job")) {
             host.setJobFromPersistence(null);
+            host.bigOrder.clear();
             return;
         }
 
         var jobData = data.getCompound("job");
         var restoredJob = new ExecutingCraftingJob(jobData, registries, host::postChange, host);
         host.setJobFromPersistence(restoredJob);
+        host.bigOrder.read(data, registries);
         host.outputDeliveryForPersistence().loadPendingFinalOutputs(jobData, registries);
         host.loadJobAttachments(jobData, registries);
 
@@ -51,6 +53,7 @@ final class ECOCraftingCpuPersistence {
     }
 
     void write(CompoundTag data, HolderLookup.Provider registries) {
+        host.bigOrder.write(data, registries);
         data.put("inventory", host.getInventory().writeToNBT(registries));
         host.energyTransactionForPersistence().writeToNBT(data);
         var job = host.getJob();

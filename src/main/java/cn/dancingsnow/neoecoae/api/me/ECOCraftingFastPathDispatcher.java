@@ -50,7 +50,7 @@ final class ECOCraftingFastPathDispatcher {
                 request.outputs(),
                 request.remainders(),
                 request.inventory(),
-                request.allowedCrafts(),
+                safeWaitingBatch(request, singlePower),
                 singlePower,
                 energyService,
                 request.level(),
@@ -106,5 +106,23 @@ final class ECOCraftingFastPathDispatcher {
         }
         diagnostics.progress(TickHandler.instance().getCurrentTick());
         return result;
+    }
+
+    static long safeWaitingBatch(ECOCraftingDispatchRequest request, double singlePower) {
+        long limit = Math.min(request.allowedCrafts(), ECOCraftingEnergyTransaction.maxSafeCrafts(singlePower));
+        var perCraft = new java.util.HashMap<appeng.api.stacks.AEKey, Long>();
+        try {
+            for (var entry : request.outputs()) perCraft.merge(entry.getKey(), entry.getLongValue(), Math::addExact);
+            for (var entry : request.remainders()) perCraft.merge(entry.getKey(), entry.getLongValue(), Math::addExact);
+            for (var entry : perCraft.entrySet()) {
+                if (entry.getValue() <= 0L) return 0L;
+                long waiting = request.job().waitingFor.list.get(entry.getKey());
+                if (waiting < 0L) return 0L;
+                limit = Math.min(limit, (Long.MAX_VALUE - waiting) / entry.getValue());
+            }
+            return limit;
+        } catch (ArithmeticException overflow) {
+            return 0L;
+        }
     }
 }

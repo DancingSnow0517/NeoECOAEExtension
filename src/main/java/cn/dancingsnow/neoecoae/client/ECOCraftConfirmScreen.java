@@ -93,8 +93,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
-        boolean startable = plan != null && (!plan.isSimulation() || forceStart) && !unrepresentable;
-        start.active = !menu.hasNoCPU() && startable;
+        boolean bigOrder = unrepresentable || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS && mode.neoecoae$bigOrderCpuAvailable();
+        boolean allowed = !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
+            || mode.neoecoae$getPlanningStatus() == null
+            || mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS
+            || mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS || unrepresentable;
+        boolean startable = plan != null && (!plan.isSimulation() || allowed && (forceStart || bigOrder));
+        start.active = startable && (bigOrder
+            ? ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable() : !menu.hasNoCPU());
         selectCPU.active = startable || forceStart;
         start.setMessage(forceStart
             ? Component.translatable("gui.neoecoae.force_start") : GuiText.Start.text());
@@ -150,7 +157,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
                 .withColor(AE2_TEXT_DARK)
                 .append(Component.literal("（数量超出范围）").withColor(0xFFAA3333));
-            cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
+            cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
+                ? "gui.neoecoae.big_order.segmented" : "gui.neoecoae.big_order.requires_cpu")
                 .withColor(AE2_TEXT_DARK);
         }
 
@@ -276,9 +284,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
     private void start() {
-        if (isUnrepresentablePlan()) return;
+        if (!start.active) return;
         CraftingPlanSummary plan = menu.getPlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
+        if (isUnrepresentablePlan() || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS
+                && mode.neoecoae$bigOrderCpuAvailable()) {
+            PacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
+                menu.containerId, Screen.hasShiftDown()));
+            return;
+        }
         PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(forceStart));
         menu.startJob();
     }

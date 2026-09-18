@@ -101,6 +101,69 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     /** Server-side result paired with the plan whose confirmation page the player actually saw. */
     @Unique
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
+    @Unique private ECOPlannerOptions neoecoae$originalOptions;
+    @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
+
+    @Override public boolean neoecoae$bigOrderCpuAvailable() { return neoecoae$bigOrderCpu; }
+
+    @Inject(method = "broadcastChanges", at = @At("HEAD"))
+    private void neoecoae$syncBigOrderCpu(CallbackInfo ci) {
+        if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
+        neoecoae$bigOrderCpu = neoecoae$resolveBigOrderCpu() != null;
+    }
+
+    @Unique
+    private cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
+        var grid = getGrid();
+        if (grid == null) return null;
+        if (selectedCpu != null) return selectedCpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU eco
+                && !eco.isBusy() && eco.isActive() && grid.getCraftingService().getCpus().contains(eco) ? eco : null;
+        return grid.getCraftingService().getCpus().stream()
+                .filter(cpu -> cpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU)
+                .map(cpu -> (cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU) cpu)
+                .filter(cpu -> !cpu.isBusy() && cpu.isActive()
+                    && cpu.getSelectionMode() != appeng.api.config.CpuSelectionMode.MACHINE_ONLY)
+                .findFirst().orElse(null);
+    }
+
+    @Inject(method = "cpuMatches", at = @At("HEAD"), cancellable = true)
+    private void neoecoae$includeSegmentCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
+        if (neoecoae$confirmedPlanningResult != null
+                && cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(
+                    neoecoae$confirmedPlanningResult.status(), true)
+                && cpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU)
+            cir.setReturnValue(!cpu.isBusy());
+    }
+
+    @Override public void neoecoae$startBigOrder(boolean forced) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (menu.isClientSide() || result == null || neoecoae$originalOptions == null) return;
+        var exact = neoecoae$resolveOwnedPlanningResult(result);
+        if (exact != neoecoae$confirmedPlanningResult
+                || !cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) return;
+        var cpu = neoecoae$resolveBigOrderCpu();
+        var grid = getGrid();
+        if (cpu == null || grid == null) return;
+        if (!forced) {
+            for (var node : exact.trace().nodes()) {
+                if (node.key() == null || node.exactFromInventory().signum() <= 0) continue;
+                var required = node.exactFromInventory();
+                if (required.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0
+                        || grid.getStorageService().getInventory().extract(node.key(), required.longValueExact(),
+                            Actionable.SIMULATE, getActionSrc()) < required.longValueExact()) return;
+            }
+        }
+        var admission = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest(
+                result.finalOutput().what(), BigInteger.valueOf(result.finalOutput().amount()), forced,
+                neoecoae$originalOptions);
+        var submitted = admission.submit(carrier -> cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
+        menu.setAutoStart(false);
+        if (submitted.successful()) {
+            result = null;
+            neoecoae$confirmedPlanningResult = null;
+            menu.getHost().returnToMainMenu(menu.getPlayer(), menu);
+        } else menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(submitted);
+    }
 
     @Unique
     private boolean neoecoae$craftConfirmDiagnosticLogged;
@@ -151,6 +214,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
+        neoecoae$originalOptions = null;
         neoecoae$craftConfirmDiagnosticLogged = false;
     }
 
@@ -194,8 +258,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$logEcoScreenRouting(settings, fastPlannerEnabled, hasComputationHost, useEco, what, amount);
         }
         if (useEco) {
+            neoecoae$originalOptions = ECOPlannerOptions.from(settings);
             return ECOPlanningService.begin(level, getGrid(), requester.getActionSource(), what, amount, strategy,
-                ECOPlannerOptions.from(settings));
+                neoecoae$originalOptions);
         }
         return original.call(service, level, requester, what, amount, strategy);
     }

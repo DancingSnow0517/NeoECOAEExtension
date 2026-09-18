@@ -47,7 +47,7 @@ final class ECOCraftingEnergyTransaction {
     @Nullable
     Reservation reserve(IEnergyService energyService, double power) {
         if (power == 0.0D) return new Reservation(energyService, 0.0D, 0.0D);
-        if (!Double.isFinite(power) || power < 0.0D) return null;
+        if (!Double.isFinite(power) || power < 0.0D || power > 0x1.0p52) return null;
 
         double credit = Math.min(power, prepaidEnergyCredit);
         prepaidEnergyCredit -= credit;
@@ -76,6 +76,10 @@ final class ECOCraftingEnergyTransaction {
             logAccountingFailure("energy reservation failed", failure);
             return null;
         }
+    }
+
+    static long maxSafeCrafts(double perCraftEnergy) {
+        return cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.maxEnergySafeCrafts(perCraftEnergy);
     }
 
     void returnIdleCredit(IEnergyService energyService) {
