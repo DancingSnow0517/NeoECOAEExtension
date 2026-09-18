@@ -532,19 +532,14 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     /**
-     * Recheck the stored part of a complete plan against the current network inventory. AE2 already performs this
-     * check for simulated/incomplete plans. Keep the plan's simulation flag unchanged: this refresh only describes
+     * Recheck both complete and simulated ECO plans against the current network inventory. Keep the
+     * plan's simulation flag unchanged: this refresh only describes
      * current availability and must not permanently disable Start when ingredients arrive later.
      */
     @Unique
     private static CraftingPlanSummary neoecoae$recheckStoredAmounts(
             IGrid grid, IActionSource source, CraftingPlanSummary summary) {
-        if (summary.isSimulation()) {
-            return summary;
-        }
-
         var storage = grid.getStorageService().getInventory();
-        var crafting = grid.getCraftingService();
         var entries = new ArrayList<CraftingPlanSummaryEntry>(summary.getEntries().size());
 
         for (var entry : summary.getEntries()) {
@@ -553,7 +548,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             long storedAmount = required;
             long missingAmount = 0L;
 
-            if (required > 0L && !crafting.canEmitFor(key)) {
+            if (required > 0L) {
                 storedAmount = storage.extract(key, required, Actionable.SIMULATE, source);
                 missingAmount = Math.max(0L, required - storedAmount);
             }

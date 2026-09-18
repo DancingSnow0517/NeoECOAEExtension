@@ -28,7 +28,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
 
     public ECOMachineInterface(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(STORAGE_MODE,
+        registerDefaultState(defaultBlockState().setValue(STORAGE_MODE,
             cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE));
     }
 

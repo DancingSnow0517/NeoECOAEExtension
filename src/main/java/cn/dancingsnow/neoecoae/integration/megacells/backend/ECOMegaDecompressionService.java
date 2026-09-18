@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,13 +45,10 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     private final List<ECODriveBlockEntity> ecoDrives = new ArrayList<>();
     private final List<IPatternDetails> patterns = new ArrayList<>();
     private final Map<AEKey, Long> pendingOutputs = new LinkedHashMap<>();
-    private boolean patternsDirty = true;
-    private int lastInstalledModules = -1;
     private final IGrid grid;
     private int installedModules;
     private int patternPriority;
     private static final String PENDING_TAG = "neoecoae_pending_outputs";
-    private int patternPollTicks;
 
     public ECOMegaDecompressionService(IGrid grid, ICraftingService craftingService) {
         this.grid = grid;
@@ -70,15 +68,12 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         }
         if (node.getOwner() instanceof IChestOrDrive cellHost) {
             cellHosts.add(cellHost);
-            patternsDirty = true;
         }
         if (node.getOwner() instanceof ECODriveBlockEntity drive) {
             ecoDrives.add(drive);
-            patternsDirty = true;
         }
         if (node.getOwner() instanceof DecompressionModulePart) {
             installedModules++;
-            patternsDirty = true;
         }
     }
 
@@ -86,15 +81,12 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     public void removeNode(IGridNode node) {
         if (node.getOwner() instanceof IChestOrDrive cellHost) {
             cellHosts.remove(cellHost);
-            patternsDirty = true;
         }
         if (node.getOwner() instanceof ECODriveBlockEntity drive) {
             ecoDrives.remove(drive);
-            patternsDirty = true;
         }
         if (node.getOwner() instanceof DecompressionModulePart) {
             installedModules = Math.max(0, installedModules - 1);
-            patternsDirty = true;
         }
     }
 
@@ -116,39 +108,30 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public void onServerEndTick() {
-        // Cell inventories do not expose a common configuration-change event. Poll once per
-        // second as a compatibility fallback, rather than rebuilding the provider every tick.
-        if (++patternPollTicks >= 20) {
-            patternPollTicks = 0;
-            patternsDirty = true;
-        }
-        if (lastInstalledModules != installedModules) {
-            patternsDirty = true;
-            lastInstalledModules = installedModules;
-        }
-        if (!patternsDirty) {
-            return;
-        }
-        syncPatternPriority();
-        patterns.clear();
         if (installedModules <= 0) {
-            grid.getCraftingService().refreshGlobalCraftingProvider(this);
-            patternsDirty = false;
+            // Withdraw previously published patterns once when the last module is removed.
+            if (!patterns.isEmpty()) {
+                patterns.clear();
+                grid.getCraftingService().refreshGlobalCraftingProvider(this);
+            }
             return;
         }
 
+        // Match the module's per-tick update cadence, including in-place cell configuration changes.
+        syncPatternPriority();
+        Set<IPatternDetails> refreshedPatterns = new LinkedHashSet<>();
         Set<StorageCell> seenCells = Collections.newSetFromMap(new IdentityHashMap<>());
         for (IChestOrDrive host : cellHosts) {
             for (int i = 0; i < host.getCellCount(); i++) {
-                addPatterns(host.getOriginalCellInventory(i), seenCells);
+                addPatterns(host.getOriginalCellInventory(i), seenCells, refreshedPatterns);
             }
         }
         for (ECODriveBlockEntity drive : ecoDrives) {
-            addPatterns(drive.getCellInventory(), seenCells);
+            addPatterns(drive.getCellInventory(), seenCells, refreshedPatterns);
         }
-
+        patterns.clear();
+        patterns.addAll(refreshedPatterns);
         grid.getCraftingService().refreshGlobalCraftingProvider(this);
-        patternsDirty = false;
     }
 
     @Override
@@ -267,15 +250,12 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         return installedModules <= 0;
     }
 
-    private void addPatterns(@Nullable StorageCell cell, Set<StorageCell> seenCells) {
+    private void addPatterns(@Nullable StorageCell cell, Set<StorageCell> seenCells,
+                             Set<IPatternDetails> target) {
         if (!(cell instanceof ECOMegaLongBulkStorageCell bulk) || !seenCells.add(cell)) {
             return;
         }
-        for (IPatternDetails pattern : bulk.getDecompressionPatterns()) {
-            if (!patterns.contains(pattern)) {
-                patterns.add(pattern);
-            }
-        }
+        target.addAll(bulk.getDecompressionPatterns());
     }
 
     private void markGridDataDirty() {

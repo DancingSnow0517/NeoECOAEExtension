@@ -17,7 +17,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AECraftingPattern;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
@@ -26,17 +25,12 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.output.ECOAdvancedAeCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
-import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
 import com.google.common.collect.ImmutableSet;
-import com.llamalad7.mixinextras.expression.Definition;
-import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
@@ -534,12 +528,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         return 0L;
     }
 
-    @Definition(id = "findSuitableCraftingCPU", method = "appeng/me/service/CraftingService.findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;")
-    @Expression("? = ?.findSuitableCraftingCPU(?, ?, ?, ?)")
     @Inject(
         method = "submitJob",
-        at =
-        @At(value = "MIXINEXTRAS:EXPRESSION", shift = At.Shift.AFTER),
+        at = @At(value = "INVOKE_ASSIGN", target = "Lappeng/me/service/CraftingService;findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;"),
         cancellable = true,
         order = 500
     )
@@ -550,17 +541,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         boolean prioritizePower,
         IActionSource src,
         CallbackInfoReturnable<ICraftingSubmitResult> cir,
-        @Local(name = "cpuCluster") CraftingCPUCluster cpuCluster,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
         if (job.simulation()) {
             cir.setReturnValue(CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
-        // An explicit ECO target is a player choice of execution host, independent of which
-        // planner produced the standard ICraftingPlan. In particular, Thunderbolt plans must be
-        // allowed to run on an ECO F host. ECO ownership metadata remains mandatory below only
-        // for automatic CPU selection, where ECO must not steal another planner's plan.
+        // CPU selection is independent of which planner produced the standard ICraftingPlan.
+        // Execution metadata is validated separately by the CPU when it accepts the job.
         if (target instanceof ECOCraftingCPU ecoCpu) {
             cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
             return;
@@ -578,22 +566,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             return;
         }
 
-        ECOPlanningResult ecoResult = ECOPlanningResultRegistry.find(job);
-        if (ecoResult == null || ecoResult.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
-                || ecoResult.plan() == null || !PlanIdentity.matches(job, ecoResult.plan())) {
-            // A crafting-service hook must never infer automatic ECO ownership from network settings
-            // or final output. AE2/Data and every other planner retain their original automatic path.
-            return;
+        // Run before AE2's null-candidate return, even when the network contains only ECO CPUs.
+        var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
+        if (cluster != null) {
+            updateList = true;
+            cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
         }
-        if (target == null) {
-            var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
-            if (cluster != null) {
-                updateList = true;
-                cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
-            }
-            // Deliberately fall through when ECO has no candidate. Another CPU provider may inject at this
-            // selection point, and AE2 already owns the final no-CPU/unsuitable-CPU result if none does.
-        }
+        // Fall through to other providers and AE2's normal result when ECO has no candidate.
     }
 
     @Unique
@@ -604,6 +583,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     ) {
         var validCpusClusters = new ArrayList<NEComputationCluster>(this.neoecoae$computationClusters.size());
         int offline = 0;
+        int busy = 0;
         int tooSmall = 0;
         int excluded = 0;
 
@@ -615,6 +595,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
             if (!cluster.isActive()) {
                 offline++;
+                continue;
+            }
+            if (cluster.getActiveCPUCount() >= cluster.getMaxThreads()) {
+                busy++;
                 continue;
             }
             if (cluster.getAvailableStorage() < job.bytes()) {
@@ -629,8 +613,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         }
 
         if (validCpusClusters.isEmpty()) {
-            if (offline > 0 || tooSmall > 0 || excluded > 0) {
-                unsuitableCpusResult.setValue(new UnsuitableCpus(offline, 0, tooSmall, excluded));
+            if (offline > 0 || busy > 0 || tooSmall > 0 || excluded > 0) {
+                var previous = unsuitableCpusResult.getValue();
+                unsuitableCpusResult.setValue(previous == null
+                    ? new UnsuitableCpus(offline, busy, tooSmall, excluded)
+                    : new UnsuitableCpus(previous.offline() + offline, previous.busy() + busy,
+                        previous.tooSmall() + tooSmall, previous.excluded() + excluded));
             }
             return null;
         }

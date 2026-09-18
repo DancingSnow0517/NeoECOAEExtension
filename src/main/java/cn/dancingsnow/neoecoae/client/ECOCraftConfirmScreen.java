@@ -348,11 +348,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     /**
-     * A failed ECO attempt can be attached to AE2's native fallback plan as explanation-only diagnostics. In that
-     * case the native planner is the source of truth for missing materials, so keep rendering its normal red
-     * missing-item rows instead of covering them with the rejected ECO attempt's exact material snapshot.
+     * A material-shortage result has authoritative graph quantities even without cycles. Unsupported attempts
+     * attached to a native fallback remain explanation-only and keep the native confirmation table.
      */
     private boolean shouldUseExactMaterialTable() {
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && ECOExactMaterialTableRenderer.hasMissingMaterialSnapshot(
+                    mode.neoecoae$getPlanningStatus(), mode.neoecoae$getCraftingGraphSnapshot())) return true;
         if (isUnrepresentablePlan()) return true;
         if (!hasEcoCycleDiagnostics()) return false;
         PlanningStatus status = ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$getPlanningStatus();

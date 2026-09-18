@@ -25,6 +25,7 @@ public final class SpecialPatternResolver {
     private final ECOCancellation cancellation;
     private final boolean ignorePatternSubstitutions;
     private final Set<AEKey> resolving = new LinkedHashSet<>();
+    private final Map<AEKey, PlannerAmount> reusableStock = new java.util.LinkedHashMap<>();
 
     SpecialPatternResolver(CompiledNetwork network, SolveState state, Map<AEKey, Integer> choices,
             ECOCancellation cancellation, boolean ignorePatternSubstitutions) {
@@ -41,9 +42,10 @@ public final class SpecialPatternResolver {
     }
 
     void resolve(CompiledPattern pattern, PlannerAmount times) throws InterruptedException {
+        Map<AEKey, PlannerAmount> simultaneous = new java.util.LinkedHashMap<>();
         for (var requirement : pattern.specialAnalysis().requirements()) {
             cancellation.checkpoint();
-            if (consumeStoredExactReusableAlternative(requirement)) {
+            if (consumeStoredExactReusableAlternative(requirement, simultaneous)) {
                 continue;
             }
             if (requirement.type() == SpecialPatternAnalysis.Type.DURABILITY) {
@@ -53,8 +55,13 @@ public final class SpecialPatternResolver {
                 if (fallback != null) {
                     resolveDurability(pattern, fallback, times);
                 } else {
-                    resolveSpecialKey(pattern, requirement.input().key(), requirement.input().amountPerPattern(),
-                        requirement.input().ignoresComponents());
+                    AEKey key = requirement.input().key();
+                    PlannerAmount needed = simultaneous.merge(key, requirement.input().amountPerPattern(), PlannerAmount::add);
+                    PlannerAmount reserved = reusableStock.getOrDefault(key, PlannerAmount.ZERO);
+                    if (needed.compareTo(reserved) > 0) {
+                        resolveSpecialKey(pattern, key, needed.subtract(reserved), requirement.input().ignoresComponents());
+                        reusableStock.put(key, needed);
+                    }
                 }
             } else {
                 PlannerAmount count = requirement.type() == SpecialPatternAnalysis.Type.CONTAINER
@@ -105,7 +112,8 @@ public final class SpecialPatternResolver {
     }
 
     /** Prefer any accepted ingredient that the recipe returns byte-for-byte unchanged. */
-    private boolean consumeStoredExactReusableAlternative(SpecialPatternAnalysis.Requirement requirement) {
+    private boolean consumeStoredExactReusableAlternative(SpecialPatternAnalysis.Requirement requirement,
+            Map<AEKey, PlannerAmount> simultaneous) {
         CompiledInput input = requirement.input();
         IPatternDetails.IInput source = input.source();
         if (source == null) return false;
@@ -118,9 +126,14 @@ public final class SpecialPatternResolver {
                 AEKey returned = source.getRemainingKey(possible.what());
                 if (returned == null || !returned.equals(possible.what())) continue;
                 PlannerAmount needed = PlannerAmount.of(possible.amount()).multiply(source.getMultiplier());
-                if (needed.signum() <= 0
-                        || availableStored(possible.what(), input.ignoresComponents(), needed).compareTo(needed) < 0) continue;
-                consumeStored(possible.what(), needed, input.ignoresComponents());
+                if (needed.signum() <= 0) continue;
+                needed = needed.add(simultaneous.getOrDefault(possible.what(), PlannerAmount.ZERO));
+                PlannerAmount reserved = reusableStock.getOrDefault(possible.what(), PlannerAmount.ZERO);
+                PlannerAmount additional = needed.subtract(reserved).max(PlannerAmount.ZERO);
+                if (availableStored(possible.what(), input.ignoresComponents(), additional).compareTo(additional) < 0) continue;
+                consumeStored(possible.what(), additional, input.ignoresComponents());
+                reusableStock.put(possible.what(), reserved.max(needed));
+                simultaneous.put(possible.what(), needed);
                 return true;
             }
         } catch (RuntimeException ignored) {

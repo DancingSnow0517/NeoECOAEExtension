@@ -26,6 +26,23 @@ class ECOFastPathExpandedSupportTest {
     }
 
     @Test
+    void unchangedCatalystSupportsHugeFastPathBatchWithOneItem() {
+        ItemStack catalyst = new ItemStack(Items.DIAMOND);
+        ItemStack ingredient = new ItemStack(Items.COAL);
+        var analysis = ECOReusableStateAnalyzer.analyze(List.of(catalyst, ingredient),
+            List.of(catalyst.copy(), ItemStack.EMPTY));
+        assertFalse(analysis.rejected());
+        var model = analysis.model();
+        assertNotNull(model);
+        long crafts = 137346430105L;
+        var inputs = model.batchInputs(List.of(GenericStack.fromItemStack(catalyst),
+            GenericStack.fromItemStack(ingredient)), crafts);
+        assertEquals(1, amount(inputs, catalyst));
+        assertEquals(crafts, amount(inputs, ingredient));
+        assertEquals(1, amount(model.batchRemainders(List.of(GenericStack.fromItemStack(catalyst)), crafts), catalyst));
+    }
+
+    @Test
     void fixedDamagedOutputIsCacheable() {
         ItemStack tool = new ItemStack(Items.IRON_PICKAXE);
         tool.setDamageValue(17);

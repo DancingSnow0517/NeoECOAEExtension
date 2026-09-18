@@ -24,6 +24,14 @@ import net.minecraft.network.chat.Component;
  * same layout and interaction for an explanatory plan whose amounts are represented by BigInteger.
  */
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
+    /** Missing ECO plans use the same quantities as the graph, including acyclic plans. */
+    static boolean hasMissingMaterialSnapshot(
+            cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus status,
+            CraftingGraphSnapshot snapshot) {
+        return status == cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.MISSING_ITEMS
+            && !snapshot.nodes().isEmpty();
+    }
+
     private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
     private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
     private static final int MISSING_OVERLAY = 0x1AFF0000;
