@@ -3,38 +3,136 @@ package cn.dancingsnow.neoecoae.compat.ae2lt;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
-/** Reflection-only optional AE2LT 2.0.9 batch bridge. */
+/** Reflection-only optional AE2LT batch bridge. */
 public final class ECOAe2LtBatchCapability {
     private static final String LIGHTNING = "com.moakiee.ae2lt.api.lightning.batch.LightningBatchProvider";
     private static final String TIANSHU = "com.moakiee.ae2lt.api.tianshu.synthesis.TianshuSynthesizer";
+
     private ECOAe2LtBatchCapability() {}
-    @Nullable public static Session open(Object provider) {
+
+    @Nullable
+    public static Session open(Object provider) {
         if (provider == null || ModList.get() == null || !ModList.get().isLoaded("ae2lt")) return null;
-        if (hasType(provider, LIGHTNING)) return new ReflectiveSession(provider);
-        if (hasType(provider, TIANSHU)) return new ReflectiveSession(provider);
-        return null;
+        Class<?> api = findApi(provider.getClass());
+        if (api == null) return null;
+        try {
+            return new ReflectiveSession(provider, api);
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            // An unsupported API must not claim the provider and suppress ordinary dispatch.
+            return null;
+        }
     }
-    private static boolean hasType(Object value, String type) {
-        for (Class<?> c = value.getClass(); c != null; c = c.getSuperclass())
-            for (Class<?> i : c.getInterfaces()) if (i.getName().equals(type)) return true;
-        return false;
+
+    @Nullable
+    private static Class<?> findApi(Class<?> type) {
+        if (type.getName().equals(LIGHTNING) || type.getName().equals(TIANSHU)) return type;
+        for (Class<?> parent : type.getInterfaces()) {
+            Class<?> api = findApi(parent);
+            if (api != null) return api;
+        }
+        return type.getSuperclass() == null ? null : findApi(type.getSuperclass());
     }
-    public interface Session { long inspect(IPatternDetails d, KeyCounter[] i, long n); boolean unbounded(); long submit(IPatternDetails d, KeyCounter[] i, long n); }
+
+    public interface Session {
+        long inspect(IPatternDetails details, KeyCounter[] inputs, long requested);
+        boolean unbounded();
+        long submit(IPatternDetails details, KeyCounter[] inputs, long requested);
+    }
+
     private static final class ReflectiveSession implements Session {
-        private final Object target; private final UUID nonce = UUID.randomUUID(); private long maxSafeBatch;
-        ReflectiveSession(Object target) { this.target = target; }
-        public long inspect(IPatternDetails d, KeyCounter[] i, long n) { try { Object r=call("inspect",d.getDefinition(),snapshot(i),n,nonce); maxSafeBatch=number(r,"maxSafeBatch",Long.MAX_VALUE); return Math.max(0,Math.min(n,number(r,"acceptedAmount",0))); } catch (ReflectiveOperationException|RuntimeException e) { maxSafeBatch=0; return 0; } }
-        public boolean unbounded() { return maxSafeBatch == Long.MAX_VALUE; }
-        public long submit(IPatternDetails d, KeyCounter[] i, long n) { try { Object r=call("submit",d.getDefinition(),snapshot(i),n,nonce); long a=number(r,"acceptedAmount",-1), u=number(r,"unacceptedAmount",Long.MIN_VALUE); return a>=0&&a<=n&&u==n-a?n-a:n; } catch (ReflectiveOperationException|RuntimeException e) { return n; } }
-        private Object call(String name,Object... args) throws ReflectiveOperationException { for(Method m:target.getClass().getMethods()) if(m.getName().equals(name)&&m.getParameterCount()==args.length) return m.invoke(target,args); throw new NoSuchMethodException(name); }
-        private static List<List<appeng.api.stacks.GenericStack>> snapshot(KeyCounter[] i) { return Arrays.stream(i).map(ECOFastPathStacks::copyCounter).toList(); }
-        private static long number(Object value,String name,long fallback) throws ReflectiveOperationException { if(value==null)return fallback; try{return ((Number)value.getClass().getMethod(name).invoke(value)).longValue();}catch(NoSuchMethodException e){return fallback;} }
+        private final Object target;
+        private final UUID nonce = UUID.randomUUID();
+        private final Method inspect;
+        private final Method submit;
+        private final Constructor<?> requestConstructor;
+        private final RecordComponent[] requestComponents;
+        private final Object apiVersion;
+        private final Object capabilityId;
+        private long maxSafeBatch;
+
+        ReflectiveSession(Object target, Class<?> api) throws ReflectiveOperationException {
+            this.target = target;
+            Class<?> requestType = Class.forName(api.getName()
+                    + (api.getName().equals(LIGHTNING) ? "$BatchRequest" : "$SynthesisRequest"),
+                    false, api.getClassLoader());
+            requestComponents = requestType.getRecordComponents();
+            requestConstructor = requestType.getConstructor(Arrays.stream(requestComponents)
+                    .map(RecordComponent::getType).toArray(Class<?>[]::new));
+            inspect = api.getMethod("inspect", requestType);
+            submit = api.getMethod("submit", requestType);
+            apiVersion = api.getField("API_VERSION").get(null);
+            capabilityId = api.getField("CAPABILITY_ID").get(null);
+            for (var component : requestComponents) {
+                switch (component.getName()) {
+                    case "apiVersion", "targetCapabilityId", "processingId", "inputsPerCraft",
+                            "requestedAmount", "nonce" -> { }
+                    default -> throw new NoSuchMethodException("Unknown request field: " + component.getName());
+                }
+            }
+        }
+
+        @Override
+        public long inspect(IPatternDetails details, KeyCounter[] inputs, long requested) {
+            try {
+                Object result = inspect.invoke(target, request(details, inputs, requested));
+                maxSafeBatch = number(result, "maxSafeBatch");
+                return Math.max(0L, Math.min(requested,
+                        Math.min(maxSafeBatch, number(result, "acceptedAmount"))));
+            } catch (ReflectiveOperationException | RuntimeException unavailable) {
+                maxSafeBatch = 0L;
+                return 0L;
+            }
+        }
+
+        @Override
+        public boolean unbounded() {
+            return maxSafeBatch == Long.MAX_VALUE;
+        }
+
+        @Override
+        public long submit(IPatternDetails details, KeyCounter[] inputs, long requested) {
+            try {
+                Object result = submit.invoke(target, request(details, inputs, requested));
+                long accepted = number(result, "acceptedAmount");
+                long unaccepted = number(result, "unacceptedAmount");
+                if (accepted < 0L || accepted > requested || unaccepted != requested - accepted) {
+                    throw new IllegalStateException("Invalid AE2LT batch ownership result");
+                }
+                return unaccepted;
+            } catch (ReflectiveOperationException failure) {
+                // Submission may already have transferred inputs; never refund or replay an unknown result.
+                throw new IllegalStateException("Cannot determine AE2LT batch ownership", failure);
+            }
+        }
+
+        private Object request(IPatternDetails details, KeyCounter[] inputs, long requested)
+                throws ReflectiveOperationException {
+            var snapshot = Arrays.stream(inputs).map(ECOFastPathStacks::copyCounter).toList();
+            Object[] arguments = new Object[requestComponents.length];
+            for (int index = 0; index < arguments.length; index++) {
+                arguments[index] = switch (requestComponents[index].getName()) {
+                    case "apiVersion" -> apiVersion;
+                    case "targetCapabilityId" -> capabilityId;
+                    case "processingId" -> details.getDefinition();
+                    case "inputsPerCraft" -> snapshot;
+                    case "requestedAmount" -> requested;
+                    case "nonce" -> nonce;
+                    default -> throw new IllegalStateException("Unsupported AE2LT request field");
+                };
+            }
+            return requestConstructor.newInstance(arguments);
+        }
+
+        private static long number(Object value, String name) throws ReflectiveOperationException {
+            return ((Number) value.getClass().getMethod(name).invoke(value)).longValue();
+        }
     }
 }

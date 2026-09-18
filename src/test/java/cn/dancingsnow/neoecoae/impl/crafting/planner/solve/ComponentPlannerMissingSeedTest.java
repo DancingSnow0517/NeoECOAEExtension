@@ -24,6 +24,121 @@ import org.junit.jupiter.api.Test;
 
 class ComponentPlannerMissingSeedTest {
     @Test
+    void committedCycleDoesNotBlockAnUnrepresentableParentOrder() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey seed = mock(AEKey.class);
+        for (AEKey key : List.of(product, seed)) when(key.getAmountPerByte()).thenReturn(8);
+        var consumer = staticPattern(0, product, 1L, seed, 4L);
+        var growth = staticPattern(1, seed, 2L, seed, 1L);
+        var network = new CompiledNetwork(product,
+            Map.of(product, List.of(consumer), seed, List.of(growth)), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter();
+        stock.add(seed, 1L);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 2L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingAmounts().isEmpty());
+        assertTrue(outcome.state().plannerPatternTimes().get(growth.details()).signum() > 0);
+        var cycle = outcome.components().stream()
+            .filter(component -> component.type() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .findFirst().orElseThrow();
+        assertNotEquals(CycleExecutionDisposition.BLOCKED, cycle.cycleDisposition());
+        var result = new cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult(
+            cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+            new AE2CraftingPlanBridge().unsupported(product, 2L), outcome.trace(),
+            outcome.cycles(), outcome.components(), outcome.executionComponentOrder(), 0L);
+        assertTrue(cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(result, false),
+            "A committed cycle must not retain a diagnostic-only status: " + cycle.status());
+    }
+
+    @Test
+    void compressedStockSuppliesLargeDownstreamDemandWithoutLooseSeed() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey crystal = mock(AEKey.class);
+        AEKey block = mock(AEKey.class);
+        for (AEKey key : List.of(product, crystal, block)) when(key.getAmountPerByte()).thenReturn(8);
+        var finalRecipe = staticPattern(0, product, 1L, crystal, 400_000L);
+        var unpack = staticPattern(1, crystal, 4L, block, 1L);
+        var pack = staticPattern(2, block, 1L, crystal, 4L);
+        var network = new CompiledNetwork(product, Map.of(product, List.of(finalRecipe),
+            crystal, List.of(unpack), block, List.of(pack)), Set.of(), 3, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var inventory = new KeyCounter();
+        inventory.add(block, 100_000L);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, inventory, 1L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(100_000L, outcome.state().usedItems().get(block));
+        assertEquals(100_000L, outcome.state().patternTimes().get(unpack.details()));
+        assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
+    }
+
+    @Test
+    void compressedIngredientRemainsIndependentOfFourGrowthSeeds() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey crystal = mock(AEKey.class);
+        AEKey block = mock(AEKey.class);
+        var seeds = java.util.stream.IntStream.range(0, 4).mapToObj(i -> mock(AEKey.class)).toList();
+        var producers = new java.util.LinkedHashMap<AEKey, List<CompiledPattern>>();
+        var finalInputs = new java.util.ArrayList<GenericStack>();
+        finalInputs.add(new GenericStack(crystal, 400_000L));
+        var inventory = new KeyCounter();
+        inventory.add(block, 100_004L);
+        for (int i = 0; i < seeds.size(); i++) {
+            AEKey seed = seeds.get(i);
+            inventory.add(seed, 1L);
+            finalInputs.add(new GenericStack(seed, 4L));
+            producers.put(seed, List.of(staticPattern(3 + i, seed, 2L,
+                new GenericStack(seed, 1L), new GenericStack(crystal, 1L))));
+        }
+        var unpack = staticPattern(1, crystal, 4L, block, 1L);
+        var pack = staticPattern(2, block, 1L, crystal, 4L);
+        producers.put(product, List.of(staticPattern(0, product, 1L, finalInputs.toArray(GenericStack[]::new))));
+        producers.put(crystal, List.of(unpack));
+        producers.put(block, List.of(pack));
+        producers.keySet().forEach(key -> when(key.getAmountPerByte()).thenReturn(8));
+        var network = new CompiledNetwork(product, producers, Set.of(), 7, 15);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, inventory, 1L, true, ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.state().missingItems().isEmpty());
+        assertEquals(100_004L, outcome.state().usedItems().get(block));
+        assertEquals(0L, outcome.state().usedItems().get(crystal));
+        assertEquals(100_004L, outcome.state().patternTimes().get(unpack.details()));
+        assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
+    }
+
+    private static CompiledPattern staticPattern(int id, AEKey outputKey, long outputAmount,
+            AEKey inputKey, long inputAmount) {
+        return staticPattern(id, outputKey, outputAmount, new GenericStack(inputKey, inputAmount));
+    }
+
+    private static CompiledPattern staticPattern(int id, AEKey outputKey, long outputAmount,
+            GenericStack... inputs) {
+        IPatternDetails details = mock(IPatternDetails.class);
+        var outputs = List.of(new GenericStack(outputKey, outputAmount));
+        when(details.getOutputs()).thenReturn(outputs);
+        var semantics = new PatternSemantics(details, null, List.of(), outputs, List.of(), List.of(),
+            PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
+        return new CompiledPattern(id, details, outputKey, PlannerAmount.of(outputAmount),
+            java.util.Arrays.stream(inputs).map(input ->
+                new CompiledInput(null, input.what(), input.amount(), true, null)).toList(), outputs,
+            true, null, false, semantics);
+    }
+
+    @Test
     void unproducibleInternalSeedReachesAe2MissingSummary() throws Exception {
         AEKey seed = mock(AEKey.class);
         when(seed.getAmountPerByte()).thenReturn(8);

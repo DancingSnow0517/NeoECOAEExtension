@@ -162,6 +162,38 @@ class ThunderboltRuntimeContractTest {
         assertSame(failure, thrown.getCause().getCause());
     }
 
+    @Test void nativeBatchOwnsAdaptiveDispatchAndDisabledOneCopyFallback() throws Exception {
+        var details = mock(IPatternDetails.class);
+        var inputs = new KeyCounter[]{new KeyCounter()};
+        var optionalSession = mock(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.Session.class);
+        try (var optional = mockStatic(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.class)) {
+            for (long capacity : new long[]{Long.MAX_VALUE, 1L}) {
+                var provider = Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{batchContract()},
+                        (proxy, method, args) -> switch (method.getName()) {
+                            case "getBatchCapacity" -> capacity;
+                            case "pushBatch" -> {
+                                assertSame(details, args[0]);
+                                assertSame(inputs, args[1]);
+                                long offered = (long) args[2];
+                                yield offered - Math.min(capacity, 3L);
+                            }
+                            default -> throw new UnsupportedOperationException(method.getName());
+                        });
+                optional.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability.open(provider))
+                        .thenReturn(optionalSession);
+                var contract = dispatcherMethod("forProvider", Object.class).invoke(null, provider);
+                long available = (long) dispatcherMethod("inspect", IPatternDetails.class, KeyCounter[].class, long.class)
+                        .invoke(contract, details, inputs, 10L);
+                assertEquals(capacity, available);
+                long offered = Math.min(available, 10L);
+                assertEquals(offered - Math.min(capacity, 3L),
+                        dispatcherMethod("push", IPatternDetails.class, KeyCounter[].class, long.class)
+                                .invoke(contract, details, inputs, offered));
+            }
+            verifyNoInteractions(optionalSession);
+        }
+    }
+
     private static Method dispatcherMethod(String name, Class<?>... parameters) throws Exception {
         var type = Class.forName("cn.dancingsnow.neoecoae.api.me.ECOProcessingPatternDispatcher$Contract");
         var method = type.getDeclaredMethod(name, parameters);
