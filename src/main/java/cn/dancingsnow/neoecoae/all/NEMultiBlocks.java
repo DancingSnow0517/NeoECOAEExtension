@@ -92,13 +92,13 @@ public class NEMultiBlocks {
             .setBlock(pos(0, 1, 1), casing)
             .setBlock(pos(1, 1, 1), casing)
             .setBlock(pos(2, 1, 1), casing)
-            // Lower layer: three casings in front and input, communication, output behind them.
+            // Lower layer: three casings in front and output, communication, input behind them.
             .setBlock(pos(0, 0, 0), casing)
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
-            .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
+            .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
             .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState())
-            .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
+            .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
             .onFormed((blockPos, level) -> {
                 BlockState state = level.getBlockState(blockPos);
                 BlockState next = state;
