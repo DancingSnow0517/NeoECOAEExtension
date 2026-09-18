@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,11 +17,13 @@ import org.slf4j.LoggerFactory;
 public final class ECOUselessBatchProviderBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final ReflectionApi API = ReflectionApi.load();
+    private static final BigIntegerReflectionApi BIG_INTEGER_API = BigIntegerReflectionApi.load();
     private static final boolean SCALED_API_AVAILABLE = hasScaledApi();
 
     private ECOUselessBatchProviderBridge() {}
 
     public static boolean supports(ICraftingProvider provider) {
+        if (BIG_INTEGER_API != null && BIG_INTEGER_API.target(provider) != null) return true;
         if (SCALED_API_AVAILABLE) return ECOUselessScaledBatchDispatch.supports(provider)
             && ECOUselessDynamicOutputBridge.isAvailable();
         if (API == null || !ECOUselessDynamicOutputBridge.isAvailable()) return false;
@@ -35,6 +38,10 @@ public final class ECOUselessBatchProviderBridge {
     @Nullable
     public static ECOFastPathDispatchProvider adapt(ICraftingProvider provider) {
         if (!supports(provider)) return null;
+        if (BIG_INTEGER_API != null) {
+            Object target = BIG_INTEGER_API.target(provider);
+            if (target != null) return new BigIntegerAdapter(BIG_INTEGER_API, target);
+        }
         if (SCALED_API_AVAILABLE) return new ECOUselessScaledBatchDispatch(provider);
         try {
             Object dispatcher = API.forProvider.invoke(null, provider);
@@ -100,6 +107,61 @@ public final class ECOUselessBatchProviderBridge {
             if (capacity <= 0L) return null;
             return new Preparation(capacity, null, false, batch -> (boolean) invoke(api.dispatch, dispatcher,
                 context.pattern(), context.inputCounters(), batch.craftCount()));
+        }
+    }
+
+    /** Bridges the 3.3+ native BigInteger API while retaining ECO's synchronous batch contract. */
+    record BigIntegerAdapter(BigIntegerReflectionApi api, Object target) implements ECOFastPathDispatchProvider {
+        @Override
+        public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
+            KeyCounter[] prototype = context.inputCounters();
+            BigInteger requested = BigInteger.valueOf(Long.MAX_VALUE);
+            Object capacity = api.invoke(api.capacity, target, context.pattern(), prototype, requested);
+            BigInteger accepted = (BigInteger) api.invoke(api.accepted, capacity);
+            // ECO's current FastPath extracts the complete batch before dispatch, while the
+            // BigInteger API's prototype is explicitly single-copy and consumed by commit().
+            // Keep the bridge lossless until the CPU ledger gains a BigInteger transaction.
+            long count = accepted.signum() > 0 ? 1L : 0L;
+            if (count <= 0) return null;
+            return new Preparation(count, null, false, batch -> {
+                // The BigInteger API requires the exact prototype array passed to admit().
+                Object ticket = api.invoke(api.admit, target, context.pattern(), prototype,
+                    BigInteger.ONE, null);
+                if (ticket == null) return false;
+                return (boolean) api.invoke(api.commit, ticket, prototype);
+            });
+        }
+    }
+
+    record BigIntegerReflectionApi(Method target, Method capacity, Method accepted, Method admit,
+                                   Method commit, Method bigIntegerTarget) {
+        static BigIntegerReflectionApi load() {
+            try {
+                ClassLoader loader = ECOUselessBatchProviderBridge.class.getClassLoader();
+                Class<?> provider = Class.forName("com.sorrowmist.useless.api.crafting.bigint.AlloyFurnaceBigIntegerProvider", false, loader);
+                Class<?> target = Class.forName("com.sorrowmist.useless.api.crafting.bigint.AlloyFurnaceBigIntegerTarget", false, loader);
+                Class<?> capacity = Class.forName("com.sorrowmist.useless.api.crafting.bigint.AlloyFurnaceBigIntegerCapacity", false, loader);
+                Class<?> batch = Class.forName("com.sorrowmist.useless.api.crafting.bigint.AlloyFurnaceBigIntegerBatch", false, loader);
+                Method targetMethod = provider.getMethod("bigIntegerTarget");
+                return new BigIntegerReflectionApi(targetMethod,
+                    target.getMethod("capacity", IPatternDetails.class, KeyCounter[].class, BigInteger.class),
+                    capacity.getMethod("accepted"),
+                    target.getMethod("admit", IPatternDetails.class, KeyCounter[].class, BigInteger.class,
+                        Class.forName("com.sorrowmist.useless.api.crafting.bigint.cpu.AlloyFurnaceBigIntegerCpuBinding", false, loader)),
+                    batch.getMethod("commit", KeyCounter[].class), targetMethod);
+            } catch (ReflectiveOperationException | LinkageError unavailable) {
+                return null;
+            }
+        }
+
+        @Nullable Object target(ICraftingProvider provider) {
+            if (!bigIntegerTarget.getDeclaringClass().isInstance(provider)) return null;
+            return invoke(bigIntegerTarget, provider);
+        }
+
+        Object invoke(Method method, Object... args) {
+            try { return method.invoke(args[0], java.util.Arrays.copyOfRange(args, 1, args.length)); }
+            catch (ReflectiveOperationException failure) { throw new IllegalStateException("Useless BigInteger API call failed", failure); }
         }
     }
 
