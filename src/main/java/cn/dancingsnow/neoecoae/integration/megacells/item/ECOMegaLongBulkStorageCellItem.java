@@ -8,6 +8,7 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
@@ -26,7 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem {
+public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
     public ECOMegaLongBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type) {
         super(properties, tier, AEKeyType.items(), type, Long.MAX_VALUE,
             MegaCellCapacities.normalBytesPerType(tier), 1024.0);

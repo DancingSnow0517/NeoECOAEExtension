@@ -327,6 +327,14 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return megaController.getSelectedEcoMegaBulkCell();
     }
 
+    public int getEcoMegaPageCount() {
+        return megaController.getEcoMegaPageCount();
+    }
+
+    public boolean isEcoMegaFilterSlotAvailable(int visualSlot) {
+        return megaController.isEcoMegaFilterSlotAvailable(visualSlot);
+    }
+
     public int getSelectedEcoMegaPage() {
         return megaController.getSelectedEcoMegaPage();
     }
