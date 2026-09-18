@@ -8,4 +8,5 @@ public interface ECOBigOrderStatusHost {
     void neoecoae$setBigOrderProgress(int cpuSerial, @Nullable ECOBigOrderProgress progress);
     @Nullable ECOBigOrderProgress neoecoae$getBigOrderProgress();
     void neoecoae$clearBigOrderProgress();
+    default java.math.BigInteger neoecoae$getExactPending(appeng.api.stacks.AEKey key) { return null; }
 }

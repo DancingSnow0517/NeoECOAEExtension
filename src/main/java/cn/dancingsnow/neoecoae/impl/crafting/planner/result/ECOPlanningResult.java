@@ -23,6 +23,10 @@ public final class ECOPlanningResult {
     private final List<Integer> executionComponentOrder;
     private final long calculationNanos;
     private BigInteger theoreticalBytes = BigInteger.ZERO;
+    private java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes;
+    private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems = java.util.Map.of();
+    private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactEmittedItems = java.util.Map.of();
+    private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactMissingItems = java.util.Map.of();
     private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private volatile ECOExecutionRequirement executionRequirement;
@@ -38,6 +42,9 @@ public final class ECOPlanningResult {
             @Nullable ExecutionProvenance provenance) {
         this.status = status;
         this.plan = plan;
+        var firings = new java.util.LinkedHashMap<IPatternDetails, PlannerAmount>();
+        if (plan != null) plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
+        this.exactPatternTimes = java.util.Map.copyOf(firings);
         this.trace = trace;
         this.cycles = List.copyOf(cycles);
         this.components = List.copyOf(components);
@@ -127,6 +134,21 @@ public final class ECOPlanningResult {
     public List<Integer> executionComponentOrder() { return executionComponentOrder; }
     public long calculationNanos() { return calculationNanos; }
     public BigInteger theoreticalBytes() { return theoreticalBytes; }
+    /** Final committed firing vector for reports, including counts that cannot fit an AE2 plan. */
+    public java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes() { return exactPatternTimes; }
+    public void setExactPatternTimes(java.util.Map<IPatternDetails, PlannerAmount> counts) {
+        exactPatternTimes = java.util.Map.copyOf(counts);
+    }
+    public void setExactMaterials(java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> used,
+            java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> emitted,
+            java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> missing) {
+        exactUsedItems = java.util.Map.copyOf(used);
+        exactEmittedItems = java.util.Map.copyOf(emitted);
+        exactMissingItems = java.util.Map.copyOf(missing);
+    }
+    public java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems() { return exactUsedItems; }
+    public java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactEmittedItems() { return exactEmittedItems; }
+    public java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactMissingItems() { return exactMissingItems; }
     public void setTheoreticalBytes(PlannerAmount bytes) {
         theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
     }

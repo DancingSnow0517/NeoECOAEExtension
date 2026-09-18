@@ -12,7 +12,7 @@ public final class ECOBigOrderPlanner {
     private ECOBigOrderPlanner() {}
 
     public static Future<Answer> begin(IGrid grid, AEKey goal, long maximum, long bytes, ECOPlannerOptions options) {
-        var inventory = grid.getStorageService().getInventory().getAvailableStacks();
+        var inventory = ECOPlannerInventory.capture(grid);
         var session = new ECOCraftingPlannerService().createSession(grid.getCraftingService(), goal, inventory,
                 options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
         return ECOPlanningExecutor.submit(() -> search(maximum, bytes,

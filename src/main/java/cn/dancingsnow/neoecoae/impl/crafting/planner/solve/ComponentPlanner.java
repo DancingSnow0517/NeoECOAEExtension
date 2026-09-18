@@ -199,6 +199,16 @@ public final class ComponentPlanner {
                 exactRequiredOutputs.merge(key, demand, PlannerAmount::add);
                 if (demand.fitsLong()) requiredOutputs.merge(key, demand.longValueExact(), Math::addExact);
             });
+            // The DAG pass already reserves creative inputs. Structural self-growth recipes must not
+            // turn that fulfilled demand back into work (or add Long.MAX_VALUE as a growth seed).
+            // Explicit requests to craft the final output still require newly produced output.
+            exactRequiredOutputs.entrySet().removeIf(entry -> {
+                AEKey key = entry.getKey();
+                if (key.equals(network.goal()) || !acyclic.state().stored.isUnbounded(key)
+                        || acyclic.state().used.get(key).compareTo(entry.getValue()) < 0) return false;
+                requiredOutputs.remove(key);
+                return true;
+            });
             CyclePlanningStatus cycleStatus = CyclePlanningStatus.UNKNOWN_BUDGET;
             String diagnostic = null;
             CycleSolveResult cycleResult = null;
@@ -408,7 +418,7 @@ public final class ComponentPlanner {
                 cycleStatus.name()));
             componentResults.add(new ComponentPlanningResult(cycle.componentId(),
                 ComponentPlanningResult.Type.CYCLIC,
-                componentStatus(exactRequiredOutputs, cycleStatus),
+                componentStatus(exactRequiredOutputs, cycleStatus, disposition),
                 requiredOutputs, cycle.patterns().stream().map(p -> p.details()).collect(java.util.stream.Collectors.toSet()),
                 selectedCycleExecutionPatterns(cycleResult),
                 cycleStatus, externalDemandStatus, externalMissingItems, diagnostic, cycleResult,
@@ -489,7 +499,10 @@ public final class ComponentPlanner {
                 result.putIfAbsent(key, remaining(inventory, state, key));
             }
         }
-        componentReservations.forEach((key, reserved) -> result.merge(key, reserved, Math::addExact));
+        componentReservations.forEach((key, reserved) -> {
+            if (state.stored.isUnbounded(key)) result.put(key, Long.MAX_VALUE);
+            else result.merge(key, reserved, Math::addExact);
+        });
         return Map.copyOf(result);
     }
 
@@ -571,6 +584,7 @@ public final class ComponentPlanner {
 
     /** Stock the DAG pass has not already spent. The cycle solver must never double-spend an item. */
     private static long remaining(KeyCounter inventory, SolveState state, AEKey key) {
+        if (state.stored.isUnbounded(key)) return Long.MAX_VALUE;
         PlannerAmount available = PlannerAmount.of(inventory.get(key));
         PlannerAmount used = state.used.get(key);
         return available.compareTo(used) > 0 ? available.subtract(used).longValueExact() : 0L;
@@ -699,11 +713,15 @@ public final class ComponentPlanner {
     }
 
     private static ComponentPlanningResult.Status componentStatus(Map<AEKey, PlannerAmount> requiredOutputs,
-            CyclePlanningStatus status) {
+            CyclePlanningStatus status, CycleExecutionDisposition disposition) {
         if (status == CyclePlanningStatus.UNREPRESENTABLE) return ComponentPlanningResult.Status.UNREPRESENTABLE;
         if (requiredOutputs.isEmpty()) return ComponentPlanningResult.Status.NOT_REQUIRED;
         return switch (status) {
-            case SOLVED -> ComponentPlanningResult.Status.SOLVED_NOT_EMITTED;
+            // A successful transaction already merged the cycle and its external DAG into SolveState.
+            case SOLVED -> switch (disposition) {
+                case STOCK_SATISFIED, ORDERED_EXECUTION, DYNAMIC_EXECUTION -> ComponentPlanningResult.Status.PLANNED;
+                default -> ComponentPlanningResult.Status.SOLVED_NOT_EMITTED;
+            };
             case UNSUPPORTED -> ComponentPlanningResult.Status.UNSUPPORTED;
             default -> ComponentPlanningResult.Status.UNRESOLVED;
         };

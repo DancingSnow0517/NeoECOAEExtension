@@ -16,10 +16,27 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) impleme
         buf -> new ECOBigOrderStartC2SPacket(buf.readVarInt(), buf.readBoolean()));
     public static void handle(ECOBigOrderStartC2SPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
-            if (context.player().containerMenu instanceof CraftConfirmMenu menu
-                    && menu.containerId == packet.containerId && menu.stillValid(context.player())
-                    && menu instanceof ECOCraftConfirmMenuMode mode)
-                mode.neoecoae$startBigOrder(packet.forced);
+            var current = context.player().containerMenu;
+            var logger = org.slf4j.LoggerFactory.getLogger("neoecoae");
+            logger.info("[big-order-submit] Server received: player={}, container={}, currentContainer={}, forced={}",
+                context.player().getGameProfile().getName(), packet.containerId, current.containerId, packet.forced);
+            if (!(current instanceof CraftConfirmMenu menu) || menu.containerId != packet.containerId) {
+                logger.warn("[big-order-submit] Rejected packet: reason=MENU_MISMATCH, menuType={}",
+                    current.getClass().getName());
+                return;
+            }
+            if (!menu.stillValid(context.player())) {
+                logger.warn("[big-order-submit] Rejected packet: reason=MENU_INVALID, container={}", packet.containerId);
+                context.player().closeContainer();
+                return;
+            }
+            if (!(menu instanceof ECOCraftConfirmMenuMode mode)) {
+                logger.warn("[big-order-submit] Rejected packet: reason=ECO_MENU_UNAVAILABLE, container={}", packet.containerId);
+                menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+                    appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+                return;
+            }
+            mode.neoecoae$startBigOrder(packet.forced);
         });
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }

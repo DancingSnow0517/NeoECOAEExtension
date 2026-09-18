@@ -31,6 +31,8 @@ final class ECOCraftingCpuPersistence {
 
         var jobData = data.getCompound("job");
         var restoredJob = new ExecutingCraftingJob(jobData, registries, host::postChange, host);
+        if (restoredJob.exactOrder && restoredJob.link.isStandalone())
+            restoredJob.link.setNexus(new appeng.crafting.CraftingLinkNexus(restoredJob.link.getCraftingID()));
         host.setJobFromPersistence(restoredJob);
         host.bigOrder.read(data, registries);
         host.outputDeliveryForPersistence().loadPendingFinalOutputs(jobData, registries);

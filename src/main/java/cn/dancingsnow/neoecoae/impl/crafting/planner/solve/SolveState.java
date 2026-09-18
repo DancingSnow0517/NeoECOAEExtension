@@ -174,7 +174,8 @@ public final class SolveState {
                 }
             }
             for (var entry : candidate.used) {
-                if (entry.getValue().compareTo(PlannerAmount.of(inventory.get(entry.getKey()))) > 0) return false;
+                if (!candidate.stored.isUnbounded(entry.getKey())
+                        && entry.getValue().compareTo(PlannerAmount.of(inventory.get(entry.getKey()))) > 0) return false;
             }
             replaceWith(candidate);
             return true;

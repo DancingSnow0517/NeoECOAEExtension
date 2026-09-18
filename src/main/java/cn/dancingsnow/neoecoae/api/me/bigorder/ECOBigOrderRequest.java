@@ -10,13 +10,17 @@ import java.util.Map;
 
 /** Parent metadata is deliberately separate from AE2's long-only ICraftingPlan. */
 public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean forced,
-        ECOPlannerOptions options) {
+        ECOPlannerOptions options, Map<AEKey, BigInteger> pendingPreview) {
+    public ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean forced, ECOPlannerOptions options) {
+        this(goal, requested, forced, options, Map.of());
+    }
     private static final ThreadLocal<Submission> SUBMISSION = new ThreadLocal<>();
     private record Submission(ICraftingPlan carrier, ECOBigOrderRequest request) {}
 
     public ECOBigOrderRequest {
         java.util.Objects.requireNonNull(goal);
         java.util.Objects.requireNonNull(options);
+        pendingPreview = Map.copyOf(pendingPreview);
         ECOBigCraftingOrder.checked(requested);
         if (requested.signum() <= 0) throw new IllegalArgumentException("Empty order");
     }

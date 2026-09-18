@@ -194,16 +194,25 @@ public final class ECOExecutionPlanBuilder {
                     throw componentFailure(component, "Stock reservation is absent from final usedItems: key="
                         + reservation.getKey() + " stockReserved=" + planned + " finalUsedItems=" + finalUsed);
                 }
-                projectedReservations.merge(reservation.getKey(), planned, Math::addExact);
+                projectedReservations.merge(reservation.getKey(), planned,
+                    ECOExecutionPlanBuilder::saturatedAdd);
             }
         }
         projectedReservations.forEach((key, projected) -> {
             long finalUsed = signature.usedItems().getOrDefault(key, 0L);
-            if (projected > finalUsed) {
+            // Long.MAX_VALUE is the saturated projection of an exact amount that may
+            // exceed long; the exact ledger is validated by ECOExactCraftingPlan.
+            if (finalUsed != Long.MAX_VALUE && projected > finalUsed) {
                 throw new IllegalStateException("Cycle stock reservation projections exceed final usedItems: key="
                     + key + " projected=" + projected + " finalUsedItems=" + finalUsed);
             }
         });
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (left >= 0L && right >= 0L && Long.MAX_VALUE - left < right) return Long.MAX_VALUE;
+        if (left <= 0L && right <= 0L && Long.MIN_VALUE - left > right) return Long.MIN_VALUE;
+        return left + right;
     }
 
     private static void validateStockSatisfied(PlanIdentity.Signature signature,

@@ -9,6 +9,20 @@ import java.util.Map;
 /** Exact planner-side counter. Conversion to AE2's long counter is explicit. */
 final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> {
     private final Map<AEKey, PlannerAmount> values = new LinkedHashMap<>();
+    private final java.util.Set<AEKey> unbounded = new java.util.LinkedHashSet<>();
+
+    void setUnbounded(AEKey key) {
+        values.put(key, PlannerAmount.of(Long.MAX_VALUE));
+        unbounded.add(key);
+    }
+
+    boolean isUnbounded(AEKey key) { return unbounded.contains(key); }
+
+    java.util.Set<AEKey> unboundedKeys() { return java.util.Set.copyOf(unbounded); }
+
+    PlannerAmount available(AEKey key, PlannerAmount requested) {
+        return isUnbounded(key) ? requested : requested.min(get(key));
+    }
 
     PlannerAmount get(AEKey key) {
         return values.getOrDefault(key, PlannerAmount.ZERO);
@@ -16,6 +30,7 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
 
     void set(AEKey key, PlannerAmount amount) {
         if (amount.signum() < 0) throw new IllegalArgumentException("negative planner counter amount");
+        unbounded.remove(key);
         if (amount.isZero()) values.remove(key);
         else values.put(key, amount);
     }
@@ -29,6 +44,8 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
     }
 
     void remove(AEKey key, PlannerAmount amount) {
+        if (amount.signum() < 0) throw new IllegalArgumentException("negative removal");
+        if (isUnbounded(key)) return;
         PlannerAmount current = get(key);
         if (current.compareTo(amount) < 0) throw new IllegalArgumentException("counter underflow");
         set(key, current.subtract(amount));
@@ -45,12 +62,15 @@ final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> 
     PlannerCounter copy() {
         PlannerCounter copy = new PlannerCounter();
         copy.values.putAll(values);
+        copy.unbounded.addAll(unbounded);
         return copy;
     }
 
     void replaceFrom(PlannerCounter source) {
         values.clear();
         values.putAll(source.values);
+        unbounded.clear();
+        unbounded.addAll(source.unbounded);
     }
 
     KeyCounter toKeyCounterExact(String stage) {

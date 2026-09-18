@@ -27,6 +27,8 @@ final class ECOBigOrderController {
     private long safeSegment;
     private long safeRevision = Long.MIN_VALUE;
     private long planningRevision = Long.MIN_VALUE;
+    // Display-only parent forecast. Never inserted into the child's execution or inventory ledger.
+    private java.util.Map<AEKey, java.math.BigInteger> pendingPreview = java.util.Map.of();
 
     ECOBigOrderController(ECOCraftingCPULogic host) { this.host = host; }
 
@@ -35,7 +37,26 @@ final class ECOBigOrderController {
         this.goal = admission.goal();
         this.options = admission.options();
         this.source = source;
+        this.pendingPreview = admission.pendingPreview();
         bindStandaloneLink();
+    }
+
+    long pendingPreview(AEKey key) {
+        if (order == null || host.getJob() == null || order.terminal()
+                || order.state() == ECOBigOrderState.RUNNING_CHILD) return 0;
+        var amount = pendingPreview.getOrDefault(key, java.math.BigInteger.ZERO);
+        if (key.equals(goal)) amount = amount.max(order.remaining());
+        return amount.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+    }
+
+    void collectPendingPreview(appeng.api.stacks.KeyCounter out) {
+        if (goal == null) return;
+        for (var key : pendingPreview.keySet()) {
+            long amount = pendingPreview(key);
+            if (amount > 0) out.set(key, Math.max(out.get(key), amount));
+        }
+        long amount = pendingPreview(goal);
+        if (amount > 0) out.set(goal, Math.max(out.get(goal), amount));
     }
 
     private void bindStandaloneLink() {
@@ -68,12 +89,18 @@ final class ECOBigOrderController {
             try {
                 var answer = planning.get();
                 planning = null;
+                org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                    "[big-order] Segment plan ready: order={}, status={}, capacity={}, fatal={}",
+                    order.id(), answer.result().status(), answer.capacity(), answer.fatal());
                 var liveGrid = host.cpu.getGrid();
                 if (planningRevision != Long.MIN_VALUE && liveGrid != null
                         && liveGrid.getCraftingService() instanceof
                             cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision revision
-                        && revision.neoecoae$getProviderRevision() != planningRevision) {
+                        && revision.neoecoae$getProviderRevision() != planningRevision
+                        && !patternsStillAvailable(liveGrid.getCraftingService(), answer.result())) {
                     order.planning();
+                    org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                        "[big-order] Replanning after provider revision changed: order={}", order.id());
                     host.markCpuDirty();
                     return true;
                 }
@@ -102,10 +129,17 @@ final class ECOBigOrderController {
                             var child = new ExecutingCraftingJob(plan, contract.executionPlan(),
                                     host::postChange, current.link, current.playerId);
                             order.startChild(plan.finalOutput().amount());
+                            org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                                "[big-order] Child started: order={}, amount={}, patterns={}",
+                                order.id(), plan.finalOutput().amount(), plan.patternTimes().size());
                             safeSegment = plan.finalOutput().amount();
                             safeRevision = planningRevision;
                             host.setJobFromLifecycle(child);
                             host.taskSchedulerForLifecycle().reset();
+                            for (var key : pendingPreview.keySet()) host.postChange(key);
+                            pendingPreview = java.util.Map.of();
+                            host.postChange(goal);
+                            for (var entry : host.getInventory().list) host.postChange(entry.getKey());
                             for (var entry : plan.patternTimes().keySet())
                                 for (var output : entry.getOutputs()) host.postChange(output.what());
                         }
@@ -115,8 +149,13 @@ final class ECOBigOrderController {
                 planning = null;
                 if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
                 order.fail("PLANNING_FAILED");
+                org.slf4j.LoggerFactory.getLogger("neoecoae").warn("[big-order] Segment planning failed", failure);
             }
             host.markCpuDirty();
+            if (order.terminal()) {
+                for (var key : pendingPreview.keySet()) host.postChange(key);
+                host.postChange(goal);
+            }
             return true;
         }
         if (!order.tickRetry()) { host.markCpuDirty(); return true; }
@@ -140,6 +179,9 @@ final class ECOBigOrderController {
             if (planningRevision != Long.MIN_VALUE && planningRevision == safeRevision && safeSegment > 0)
                 candidate = Math.min(candidate, safeSegment);
             planning = ECOBigOrderPlanner.begin(grid, goal, candidate, host.cpu.getAvailableStorage(), options);
+            org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                "[big-order] Planning segment: order={}, goal={}, candidate={}, bytes={}",
+                order.id(), goal, candidate, host.cpu.getAvailableStorage());
         } catch (java.util.concurrent.RejectedExecutionException busy) {
             order.waitFor(ECOBigOrderState.WAITING_CAPACITY, "PLANNER_BUSY");
         }
@@ -156,6 +198,25 @@ final class ECOBigOrderController {
             return IActionSource.ofPlayer(player, source == null ? null : source.machine().orElse(null));
         }
         return source != null ? source : host.cpu.getActionSource();
+    }
+
+    static boolean patternsStillAvailable(appeng.api.networking.crafting.ICraftingService service,
+            cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult result) {
+        if (result.status() != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.SUCCESS
+                || result.plan() == null) return false;
+        for (var pattern : result.plan().patternTimes().keySet()) {
+            if (pattern.getOutputs().isEmpty()
+                    || !service.getCraftingFor(pattern.getOutputs().getFirst().what()).contains(pattern)) return false;
+        }
+        return true;
+    }
+
+    java.util.Map<AEKey, java.math.BigInteger> exactPendingPreview() {
+        if (order == null || host.getJob() == null || order.terminal()
+                || order.state() == ECOBigOrderState.RUNNING_CHILD) return java.util.Map.of();
+        var result = new java.util.HashMap<>(pendingPreview);
+        result.merge(goal, order.remaining(), java.math.BigInteger::max);
+        return java.util.Map.copyOf(result);
     }
 
     /** Called after actual final output delivery, before any child-level terminal side effects. */
@@ -180,6 +241,7 @@ final class ECOBigOrderController {
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.taskSchedulerForLifecycle().reset();
         releaseReservation();
+        host.postChange(goal);
         host.markCpuDirty();
         return true;
     }
@@ -210,6 +272,9 @@ final class ECOBigOrderController {
     }
     void clear() {
         cancel();
+        var oldKeys = new HashSet<>(pendingPreview.keySet());
+        if (goal != null) oldKeys.add(goal);
+        pendingPreview = java.util.Map.of();
         order = null;
         source = null;
         goal = null;
@@ -217,6 +282,7 @@ final class ECOBigOrderController {
         safeSegment = 0;
         safeRevision = Long.MIN_VALUE;
         planningRevision = Long.MIN_VALUE;
+        oldKeys.forEach(host::postChange);
     }
 
     void write(CompoundTag data, HolderLookup.Provider registries) {
@@ -238,6 +304,14 @@ final class ECOBigOrderController {
         var fuzzy = new ListTag();
         options.fuzzyPlanningItemIds().forEach(id -> fuzzy.add(StringTag.valueOf(id.toString())));
         tag.put("fuzzy", fuzzy);
+        var forecast = new ListTag();
+        pendingPreview.forEach((key, amount) -> {
+            var entry = new CompoundTag();
+            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
+            entry.putString("amount", amount.toString());
+            forecast.add(entry);
+        });
+        tag.put("pendingPreview", forecast);
         data.put("bigOrder", tag);
     }
 
@@ -267,6 +341,15 @@ final class ECOBigOrderController {
         for (int i = 0; i < entries.size(); i++) fuzzy.add(ResourceLocation.parse(entries.getString(i)));
         options = new ECOPlannerOptions(tag.getBoolean("cycles"), tag.getBoolean("ignoreSubstitutions"), fuzzy);
         order = restored;
+        var forecast = tag.getList("pendingPreview", 10);
+        if (forecast.size() > 100000) throw new IllegalArgumentException("Too many forecast items");
+        var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+        for (int i = 0; i < forecast.size(); i++) {
+            var entry = forecast.getCompound(i);
+            var stack = GenericStack.readTag(registries, entry.getCompound("key"));
+            if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
+        }
+        pendingPreview = java.util.Map.copyOf(amounts);
         bindStandaloneLink();
     }
 }

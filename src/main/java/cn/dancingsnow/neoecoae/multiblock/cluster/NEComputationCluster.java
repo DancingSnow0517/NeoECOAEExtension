@@ -60,6 +60,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private NEComputationNetworkCluster networkCluster;
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
+    /** BigInt child plans are segmented by the controller and must not consume the finite CPU byte reservation. */
+    private final Map<ICraftingPlan, Boolean> bigOrderPlans = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -363,11 +365,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     /** Server-thread atomic reservation replacement for a parent's next complete long segment. */
     public boolean replaceBigOrderPlan(ECOCraftingCPU cpu, ICraftingPlan next) {
         ICraftingPlan previous = cpu.getPlan();
-        if (previous == null || activeCpus.get(previous) != cpu || next.bytes() < 0
-                || next.bytes() > cpu.getAvailableStorage()) return false;
+        if (previous == null || activeCpus.get(previous) != cpu || next.bytes() < 0) return false;
         activeCpus.remove(previous);
+        bigOrderPlans.remove(previous);
         cpu.setBigOrderChildPlan(next);
         activeCpus.put(next, cpu);
+        bigOrderPlans.put(next, Boolean.TRUE);
         recalculateRemainingStorage();
         return activeCpus.get(next) == cpu;
     }
@@ -375,6 +378,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {
+            if (bigOrderPlans.containsKey(plan)) continue;
             usedStorage = NEMath.saturatingAdd(
                 usedStorage,
                 Math.max(0L, plan.bytes())
@@ -430,6 +434,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void deactivate(@Nullable ICraftingPlan plan) {
         ECOCraftingCPU cpu = this.activeCpus.remove(plan);
+        this.bigOrderPlans.remove(plan);
         this.recalculateRemainingStorage();
         this.updateGridForChangedCpu();
         if (cpu != null && cpu.getOwner() != null) {
@@ -460,6 +465,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 cpu.getOwner().deactivate(cpu);
             }
             this.activeCpus.remove(plan);
+            this.bigOrderPlans.remove(plan);
         }
         if (recalculate) {
             this.recalculateRemainingStorage();

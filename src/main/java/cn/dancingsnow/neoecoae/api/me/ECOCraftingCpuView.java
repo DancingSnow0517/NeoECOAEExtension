@@ -39,7 +39,10 @@ final class ECOCraftingCpuView {
     }
 
     long getPendingOutputs(AEKey template) {
-        long count = 0L;
+        if (host.getJob() != null && host.getJob().exactOrder)
+            return cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(
+                host.getExactPendingPreview().getOrDefault(template, java.math.BigInteger.ZERO));
+        long count = host.bigOrder.pendingPreview(template);
         var job = host.getJob();
         if (job != null) {
             for (var task : job.tasks.entrySet()) {
@@ -56,10 +59,13 @@ final class ECOCraftingCpuView {
 
     /** Collects planned, waiting and locally stored items for the CPU menu. */
     void getAllItems(KeyCounter out) {
+        host.bigOrder.collectPendingPreview(out);
         addAllSaturating(out, host.getInventory().list);
         var job = host.getJob();
         if (job != null) {
             addAllSaturating(out, job.waitingFor.list);
+            job.deferredEmitted.forEach((key, amount) -> out.set(key, Math.max(out.get(key),
+                cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(amount))));
             for (var task : job.tasks.entrySet()) {
                 for (var output : task.getKey().getOutputs()) {
                     long amount = NEMath.saturatingMultiply(output.amount(), task.getValue().value);

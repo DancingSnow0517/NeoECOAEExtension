@@ -28,6 +28,10 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
  */
 final class ECOCraftingTaskScheduler {
     private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
+    // A large exact order can contain thousands of task candidates. Walking every
+    // candidate in one CPU callback turns a temporary provider stall into a multi-
+    // second server tick. The cursor resumes at the next candidate on the next call.
+    private static final int MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE = 64;
 
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingInputTemplateCache inputTemplateCache = new ECOCraftingInputTemplateCache();
@@ -87,6 +91,7 @@ final class ECOCraftingTaskScheduler {
     }
 
     boolean hasPendingTasks(ExecutingCraftingJob current) {
+        if (!current.deferredStock.isEmpty() || !current.deferredEmitted.isEmpty()) return true;
         for (var task : current.tasks.values()) {
             if (task.value > 0L) return true;
         }
@@ -152,9 +157,12 @@ final class ECOCraftingTaskScheduler {
             int start = resumeIndex(candidates);
             blockedOrderedPhases.clear();
             boolean acceptedInPass = false;
-            for (int offset = 0; offset < candidates.size(); offset++) {
+            int inspected = 0;
+            for (int offset = 0; offset < candidates.size()
+                    && inspected < MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE; offset++) {
                 int candidateIndex = (start + offset) % candidates.size();
                 var candidate = candidates.get(candidateIndex);
+                inspected++;
                 if (blockedOrderedPhases.get(candidate.phaseIndex())) continue;
 
                 var progress = current.tasks.get(candidate.pattern());
@@ -163,6 +171,17 @@ final class ECOCraftingTaskScheduler {
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
+                if (current.exactOrder) {
+                    var outputAmounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+                    for (var output : candidate.pattern().getOutputs())
+                        outputAmounts.merge(output.what(), java.math.BigInteger.valueOf(output.amount()), java.math.BigInteger::add);
+                    for (var output : outputAmounts.entrySet()) {
+                        long room = Long.MAX_VALUE - Math.max(0L, current.waitingFor.list.get(output.getKey()));
+                        room -= Math.min(room, Math.max(0L, inventory.list.get(output.getKey())));
+                        if (output.getValue().signum() > 0) allowedCount = Math.min(allowedCount,
+                            java.math.BigInteger.valueOf(room).divide(output.getValue()).longValueExact());
+                    }
+                }
                 if (allowedCount <= 0L) {
                     if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
                     continue;
@@ -274,6 +293,11 @@ final class ECOCraftingTaskScheduler {
                     break;
                 }
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
+            }
+            if (!acceptedInPass && inspected > 0 && inspected < candidates.size()) {
+                // Preserve progress through a stalled candidate set. This is deliberately
+                // separate from provider round-robin state: no provider was accepted.
+                resumeDispatchPattern = candidates.get((start + inspected) % candidates.size()).pattern();
             }
             if (!acceptedInPass) break;
             // Preserve the existing one-accepted-dispatch pass boundary. The CPU tick invokes this method again.

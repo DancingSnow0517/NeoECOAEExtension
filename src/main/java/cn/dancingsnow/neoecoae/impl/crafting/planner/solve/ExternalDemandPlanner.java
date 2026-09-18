@@ -69,7 +69,7 @@ final class ExternalDemandPlanner {
                 return failure(CycleExternalDemandStatus.MISSING, Map.of(reservation.getKey(), Math.max(0L, amount)),
                     "Cycle-owned stock is unavailable before external-demand planning");
             }
-            if (amount > 0L) available.remove(reservation.getKey(), amount);
+            if (amount > 0L && !base.stored.isUnbounded(reservation.getKey())) available.remove(reservation.getKey(), amount);
         }
 
         KeyCounter direct = new KeyCounter();
@@ -84,7 +84,7 @@ final class ExternalDemandPlanner {
             // loop. Delegate the complete demand before consuming inventory here; otherwise the downstream
             // component reserves the seed as an ordinary boundary input and the supplier later observes no
             // remaining stock with which to start the cycle.
-            if (delegatedCycleInputs.contains(demand.getKey())) {
+            if (delegatedCycleInputs.contains(demand.getKey()) && !base.stored.isUnbounded(demand.getKey())) {
                 if (demand.getValue() > 0L) {
                     delegated.merge(demand.getKey(), demand.getValue(), Math::addExact);
                 }
@@ -92,14 +92,14 @@ final class ExternalDemandPlanner {
             }
             long fromStock = Math.min(demand.getValue(), available.get(demand.getKey()));
             if (fromStock > 0) {
-                available.remove(demand.getKey(), fromStock);
+                if (!base.stored.isUnbounded(demand.getKey())) available.remove(demand.getKey(), fromStock);
                 direct.add(demand.getKey(), fromStock);
             }
             long deficit = demand.getValue() - fromStock;
             if (deficit <= 0) continue;
 
             Outcome one = solveDeficit(network, cycle, demand.getKey(), deficit, available,
-                ignorePatternSubstitutions, cancellation);
+                base.stored.unboundedKeys(), ignorePatternSubstitutions, cancellation);
             if (!one.solved()) {
                 one.missingLeaves().forEach((key, value) -> missing.merge(key, value, Math::addExact));
                 if (failed == null || failed.status() == CycleExternalDemandStatus.MISSING) failed = one;
@@ -119,7 +119,7 @@ final class ExternalDemandPlanner {
                         Map.of(used.getKey(), used.getValue().longValueExact() - available.get(used.getKey())),
                         "External demands compete for the same remaining inventory");
                 }
-                available.remove(used.getKey(), used.getValue().longValueExact());
+                if (!base.stored.isUnbounded(used.getKey())) available.remove(used.getKey(), used.getValue().longValueExact());
             }
         }
         if (failed != null) return failure(failed.status(), missing, failed.diagnostic());
@@ -130,7 +130,7 @@ final class ExternalDemandPlanner {
     }
 
     private Outcome solveDeficit(CompiledNetwork network, CycleComponent cycle, AEKey goal, long amount,
-            KeyCounter inventory, boolean ignorePatternSubstitutions,
+            KeyCounter inventory, Set<AEKey> unboundedKeys, boolean ignorePatternSubstitutions,
             ECOCancellation cancellation) throws InterruptedException {
         Set<IPatternDetails> forbiddenPatterns = cycle.patterns().stream()
             .map(pattern -> pattern.details()).collect(java.util.stream.Collectors.toSet());
@@ -160,7 +160,8 @@ final class ExternalDemandPlanner {
                 .map(AcyclicComponent::key).toList()
             : selection.condensation().topologicalOrder().stream()
                 .flatMap(component -> component.members().stream()).toList();
-        var solved = acyclicSolver.solve(filtered, new AcyclicRoutePlan(route), inventory, amount,
+        var solved = acyclicSolver.solve(filtered, new AcyclicRoutePlan(route),
+            PlannerInventorySnapshot.of(inventory, unboundedKeys), amount,
             selection.choices(), deferredCyclePatterns, ignorePatternSubstitutions, cancellation);
         if (solved.status() == PlanningStatus.SUCCESS) {
             return new Outcome(CycleExternalDemandStatus.SOLVED, new KeyCounter(), List.of(solved.state()), Map.of(),
@@ -198,6 +199,10 @@ final class ExternalDemandPlanner {
     private static KeyCounter remainingInventory(KeyCounter inventory, SolveState base) {
         KeyCounter result = new KeyCounter();
         for (var entry : inventory) {
+            if (base.stored.isUnbounded(entry.getKey())) {
+                result.set(entry.getKey(), Long.MAX_VALUE);
+                continue;
+            }
             long remaining = base.used.get(entry.getKey()).compareTo(PlannerAmount.of(entry.getLongValue())) >= 0
                 ? 0L : PlannerAmount.of(entry.getLongValue()).subtract(base.used.get(entry.getKey())).longValueExact();
             if (remaining > 0) result.add(entry.getKey(), remaining);

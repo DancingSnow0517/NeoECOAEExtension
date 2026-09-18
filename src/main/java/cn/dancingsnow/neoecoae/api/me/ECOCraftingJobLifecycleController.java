@@ -55,6 +55,8 @@ final class ECOCraftingJobLifecycleController {
         var contract = ECOPlanningResultRegistry.resolveContract(plan, attachedPlanningResult);
         var executionPlan = contract == null ? ECOPlanningResultRegistry.resolveExecutionPlan(plan)
                 : contract.executionPlan();
+        if (plan instanceof cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan exact)
+            executionPlan = exact.execution();
 
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(
                 plan, grid, host.getInventory(), src);
@@ -72,6 +74,8 @@ final class ECOCraftingJobLifecycleController {
         var job = new ExecutingCraftingJob(
                 plan, executionPlan, host::postChange, linkCpu, playerId);
         host.setJobFromLifecycle(job);
+        if (job.exactOrder && linkCpu.isStandalone())
+            linkCpu.setNexus(new appeng.crafting.CraftingLinkNexus(linkCpu.getCraftingID()));
         var admission = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest.forSubmission(plan);
         if (admission != null) {
             host.bigOrder.start(admission, src);

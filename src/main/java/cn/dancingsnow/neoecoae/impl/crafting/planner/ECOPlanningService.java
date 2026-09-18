@@ -5,7 +5,6 @@ import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
@@ -25,7 +24,7 @@ public final class ECOPlanningService {
 
     public static Future<ICraftingPlan> begin(Level level, IGrid grid, IActionSource source, AEKey goal,
             long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
-        KeyCounter inventory = grid.getStorageService().getInventory().getAvailableStacks();
+        var inventory = ECOPlannerInventory.capture(grid);
         ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
             options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
         return ECOPlanningExecutor.submit(() -> plan(session, goal, amount, strategy));

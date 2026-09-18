@@ -52,7 +52,7 @@ final class ECOCraftingDispatchAccounting {
             job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
         }
 
-        request.job().tasks.get(request.pattern()).value -= result.acceptedCrafts();
+        request.job().tasks.get(request.pattern()).accept(result.acceptedCrafts());
         if (job.executionRuntime != null) {
             job.executionRuntime.onAccepted(request.candidate(), result.acceptedCrafts(), request.inputs());
         }

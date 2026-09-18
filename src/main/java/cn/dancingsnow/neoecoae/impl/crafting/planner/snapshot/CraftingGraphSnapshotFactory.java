@@ -99,8 +99,15 @@ public final class CraftingGraphSnapshotFactory {
         List<PatternNode> patterns = new ArrayList<>();
         List<Edge> edges = new ArrayList<>();
         Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
+        var cyclePatterns = java.util.Collections.newSetFromMap(new IdentityHashMap<IPatternDetails, Boolean>());
+        for (var cycle : trace.cycles()) {
+            for (var edge : cycle.internalEdges()) cyclePatterns.add(edge.pattern().details());
+        }
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null || node.key() == null) continue;
+            // A cycle candidate can be traced once per internal edge and again when a route is deferred.
+            // Build it once below from the compiled cycle and its final solve result, not provisional rejections.
+            if (cyclePatterns.contains(node.pattern())) continue;
             Integer outputId = nodeIds.get(node.key());
             if (outputId == null) continue;
             int patternNodeId = patternNodeId(patterns.size());
@@ -304,13 +311,12 @@ public final class CraftingGraphSnapshotFactory {
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 
-    /** Gross material flow is derived from the final executable firing vector, not from cycle net deltas. */
+    /** Use the committed exact firing vector; an unrepresentable plan has an empty AE2 compatibility shell. */
     private static void collectTaskMaterialFlow(ECOPlanningResult result,
             Map<AEKey, MutableMaterial> materials) {
-        if (result.plan() == null) return;
         var adapters = PatternSemanticAdapters.defaults();
-        for (var firing : result.plan().patternTimes().entrySet()) {
-            if (firing.getValue() <= 0L) continue;
+        for (var firing : result.exactPatternTimes().entrySet()) {
+            if (firing.getValue().signum() <= 0) continue;
             var adapter = PatternSemanticAdapters.find(adapters, firing.getKey());
             if (adapter == null) continue;
             PatternSemantics semantics;
@@ -320,7 +326,7 @@ public final class CraftingGraphSnapshotFactory {
                 continue;
             }
             if (!semantics.supported()) continue;
-            PlannerAmount times = PlannerAmount.of(firing.getValue());
+            PlannerAmount times = firing.getValue();
             for (var input : semantics.consumedInputs()) {
                 var material = materials.computeIfAbsent(input.key(), MutableMaterial::new);
                 material.exactConsumed = material.exactConsumed.add(input.amountPerPattern().multiply(times));

@@ -77,6 +77,9 @@ public class ExecutingCraftingJob {
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
+    boolean exactOrder;
+    final Map<AEKey, java.math.BigInteger> deferredStock = new LinkedHashMap<>();
+    final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
     @Nullable
     Integer playerId;
     boolean suspended;
@@ -114,6 +117,12 @@ public class ExecutingCraftingJob {
             }
         }
         this.executionPlan = executionPlan;
+        if (plan instanceof cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan exact) {
+            exactOrder = true;
+            exact.exactTasks().forEach((pattern, count) -> tasks.get(pattern).setExact(count, count));
+            deferredStock.putAll(exact.deferredStock());
+            deferredEmitted.putAll(exact.deferredEmitted());
+        }
         if (executionPlan == null) {
             this.executionRuntime = null;
         } else {
@@ -143,6 +152,7 @@ public class ExecutingCraftingJob {
         }
 
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
+        boolean taskDefinitionLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(registries, item);
@@ -150,13 +160,20 @@ public class ExecutingCraftingJob {
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
+                if (item.contains("exactRemaining")) tp.setExact(
+                    new java.math.BigInteger(item.getString("exactTotal")),
+                    new java.math.BigInteger(item.getString("exactRemaining")));
                 this.tasks.put(details, tp);
-            }
+            } else taskDefinitionLost = true;
         }
 
         ECOExecutionPlan restoredPlan = null;
+        exactOrder = data.getBoolean("exactOrder");
+        readDeferred(data, "deferredStock", deferredStock, registries);
+        readDeferred(data, "deferredEmitted", deferredEmitted, registries);
         ECOExecutionRuntime restoredRuntime = null;
-        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED);
+        boolean executionMetadataLost = data.getBoolean(NBT_EXECUTION_PERSISTENCE_FAILED)
+            || exactOrder && taskDefinitionLost;
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan = ECOExecutionPlanNbtCodec.decode(
@@ -240,11 +257,18 @@ public class ExecutingCraftingJob {
         for (var e : this.tasks.entrySet()) {
             var item = e.getKey().getDefinition().toTag(registries);
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
+            if (e.getValue().exactTotal != null) {
+                item.putString("exactTotal", e.getValue().exactTotal.toString());
+                item.putString("exactRemaining", e.getValue().exactRemaining.toString());
+            }
             list.add(item);
         }
         data.put(NBT_TASKS, list);
 
         data.putLong(NBT_REMAINING_AMOUNT, remainingAmount);
+        data.putBoolean("exactOrder", exactOrder);
+        writeDeferred(data, "deferredStock", deferredStock, registries);
+        writeDeferred(data, "deferredEmitted", deferredEmitted, registries);
         if (this.playerId != null) {
             data.putInt(NBT_PLAYER_ID, this.playerId);
         }
@@ -288,5 +312,52 @@ public class ExecutingCraftingJob {
 
     static class TaskProgress {
         long value = 0;
+        private java.math.BigInteger exactTotal;
+        private java.math.BigInteger exactRemaining;
+
+        void setExact(java.math.BigInteger total, java.math.BigInteger remaining) {
+            if (remaining.signum() < 0 || total.compareTo(remaining) < 0)
+                throw new IllegalArgumentException("Invalid exact task progress");
+            exactTotal = total;
+            exactRemaining = remaining;
+            value = cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(remaining);
+        }
+        java.math.BigInteger remainingExact() {
+            return exactRemaining == null ? java.math.BigInteger.valueOf(value) : exactRemaining;
+        }
+        boolean isExact() { return exactTotal != null; }
+        long completedBounded(long total) {
+            return exactTotal == null ? Math.max(0L, total - value)
+                : cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(exactTotal.subtract(exactRemaining));
+        }
+        void accept(long count) {
+            if (count < 0 || count > value) throw new IllegalArgumentException("Dispatch exceeds remaining task");
+            if (exactRemaining == null) value -= count;
+            else setExact(exactTotal, exactRemaining.subtract(java.math.BigInteger.valueOf(count)));
+        }
+    }
+
+    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
+            HolderLookup.Provider registries) {
+        var list = new ListTag();
+        amounts.forEach((key, amount) -> {
+            var entry = new CompoundTag();
+            entry.put("key", GenericStack.writeTag(registries, new GenericStack(key, 1)));
+            entry.putString("amount", amount.toString());
+            list.add(entry);
+        });
+        data.put(name, list);
+    }
+
+    private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
+            HolderLookup.Provider registries) {
+        var list = data.getList(name, Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            var entry = list.getCompound(i);
+            var key = GenericStack.readTag(registries, entry.getCompound("key"));
+            var amount = new java.math.BigInteger(entry.getString("amount"));
+            if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
+            amounts.put(key.what(), amount);
+        }
     }
 }

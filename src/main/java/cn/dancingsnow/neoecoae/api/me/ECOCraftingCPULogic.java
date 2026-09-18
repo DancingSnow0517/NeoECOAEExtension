@@ -162,6 +162,8 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             return;
         }
 
+        if (!job.suspended) refillExactMaterials();
+
         long currentTick = TickHandler.instance().getCurrentTick();
         taskScheduler.bindDiagnostics(job.link.getCraftingID(), currentTick);
         taskScheduler.beginResolveTick(currentTick);
@@ -371,7 +373,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
                 return false;
             }
         } else {
-            taskEntry.getValue().value -= completedCrafts;
+            taskEntry.getValue().accept(completedCrafts);
         }
 
         taskScheduler.progress(TickHandler.instance().getCurrentTick());
@@ -583,6 +585,60 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     public long getPendingOutputs(AEKey template) {
         return view.getPendingOutputs(template);
+    }
+
+    public java.util.Map<AEKey, java.math.BigInteger> getExactPendingPreview() {
+        if (job != null && job.exactOrder) {
+            var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+            job.tasks.forEach((pattern, progress) -> pattern.getOutputs().forEach(output ->
+                amounts.merge(output.what(), progress.remainingExact().multiply(
+                    java.math.BigInteger.valueOf(output.amount())), java.math.BigInteger::add)));
+            job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, java.math.BigInteger::add));
+            return java.util.Map.copyOf(amounts);
+        }
+        return bigOrder.exactPendingPreview();
+    }
+
+    /** Refill physical buffers within one job, without creating or replanning child orders. */
+    private void refillExactMaterials() {
+        if (!job.exactOrder) return;
+        var grid = cpu.getGrid();
+        if (grid == null) return;
+        var source = cpu.getActionSource();
+        if (job.playerId != null) {
+            var level = cpu.getLevel();
+            var player = level == null ? null : appeng.api.features.IPlayerRegistry.getConnected(
+                level.getServer(), job.playerId);
+            if (player == null) return;
+            source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
+        }
+        for (var entry : job.deferredStock.entrySet()) {
+            long room = Long.MAX_VALUE - Math.max(0L, inventory.list.get(entry.getKey()));
+            room -= Math.min(room, Math.max(0L, job.waitingFor.list.get(entry.getKey())));
+            long wanted = Math.min(room, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(entry.getValue()));
+            if (wanted <= 0) continue;
+            long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,
+                appeng.api.config.Actionable.MODULATE, source);
+            if (extracted > 0) {
+                inventory.insert(entry.getKey(), extracted, appeng.api.config.Actionable.MODULATE);
+                entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(extracted)));
+                taskScheduler.recordPhysicalInsert(entry.getKey());
+                postChange(entry.getKey());
+                markCpuDirty();
+            }
+        }
+        job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
+        for (var entry : job.deferredEmitted.entrySet()) {
+            long room = Long.MAX_VALUE - Math.max(0L, job.waitingFor.list.get(entry.getKey()));
+            room -= Math.min(room, Math.max(0L, inventory.list.get(entry.getKey())));
+            long amount = Math.min(room, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(entry.getValue()));
+            if (amount <= 0) continue;
+            job.waitingFor.insert(entry.getKey(), amount, appeng.api.config.Actionable.MODULATE);
+            entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(amount)));
+            postChange(entry.getKey());
+            markCpuDirty();
+        }
+        job.deferredEmitted.values().removeIf(amount -> amount.signum() == 0);
     }
 
     /**

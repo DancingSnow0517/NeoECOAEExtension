@@ -86,7 +86,7 @@ public final class SpecialPatternResolver {
             int capacity = durabilityUsesBeforeBreak(
                 candidate.getDamageValue(), choice.damagePerUse(), candidate.getMaxDamage());
             if (capacity <= 0) continue;
-            PlannerAmount tools = requiredTools(uses, capacity).min(entry.getValue());
+            PlannerAmount tools = state.stored.available(entry.getKey(), requiredTools(uses, capacity));
             if (tools.signum() <= 0) continue;
             state.stored.remove(entry.getKey(), tools);
             state.used.add(entry.getKey(), tools);
@@ -119,7 +119,7 @@ public final class SpecialPatternResolver {
                 if (returned == null || !returned.equals(possible.what())) continue;
                 PlannerAmount needed = PlannerAmount.of(possible.amount()).multiply(source.getMultiplier());
                 if (needed.signum() <= 0
-                        || availableStored(possible.what(), input.ignoresComponents()).compareTo(needed) < 0) continue;
+                        || availableStored(possible.what(), input.ignoresComponents(), needed).compareTo(needed) < 0) continue;
                 consumeStored(possible.what(), needed, input.ignoresComponents());
                 return true;
             }
@@ -224,11 +224,12 @@ public final class SpecialPatternResolver {
         return candidates.get(Math.min(choice, candidates.size() - 1));
     }
 
-    private PlannerAmount availableStored(AEKey key, boolean ignoreComponents) {
-        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) return state.stored.get(key);
+    private PlannerAmount availableStored(AEKey key, boolean ignoreComponents, PlannerAmount requested) {
+        if (!ignoreComponents || !(key instanceof AEItemKey wanted)) return state.stored.available(key, requested);
         PlannerAmount available = PlannerAmount.ZERO;
         for (var entry : state.stored.asMap().entrySet()) {
             if (entry.getKey() instanceof AEItemKey candidate && candidate.getItem() == wanted.getItem()) {
+                if (state.stored.isUnbounded(entry.getKey())) return requested;
                 available = available.add(entry.getValue());
             }
         }
@@ -238,7 +239,7 @@ public final class SpecialPatternResolver {
     private PlannerAmount consumeStored(AEKey key, PlannerAmount requested, boolean ignoreComponents) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
-            PlannerAmount exact = requested.min(state.stored.get(key));
+            PlannerAmount exact = state.stored.available(key, requested);
             if (exact.signum() > 0) consumeExact(key, exact);
             return exact;
         }
@@ -247,7 +248,7 @@ public final class SpecialPatternResolver {
         for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
             if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            PlannerAmount take = remaining.min(entry.getValue());
+            PlannerAmount take = state.stored.available(entry.getKey(), remaining);
             if (take.signum() <= 0) continue;
             consumeExact(entry.getKey(), take);
             consumed = consumed.add(take);

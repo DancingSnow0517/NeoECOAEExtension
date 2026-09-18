@@ -257,9 +257,14 @@ final class ECOProcessingPatternDispatcher {
         }
 
         static Contract forProvider(Object value) {
+            // The native contract preserves execution-pattern wrappers and owns the one-copy
+            // fallback when adaptive batching is disabled or unsupported for this pattern.
+            if (ThunderboltApi.isInstance(ThunderboltApi.BATCH_PROVIDER, value)) {
+                return new Contract(null, value);
+            }
             var lightning = ECOAe2LtBatchCapability.open(value);
             if (lightning != null) return new Contract(lightning, null);
-            return ThunderboltApi.isInstance(ThunderboltApi.BATCH_PROVIDER, value) ? new Contract(null, value) : null;
+            return null;
         }
 
         long inspect(IPatternDetails details, KeyCounter[] inputs, long requested) {
@@ -274,10 +279,10 @@ final class ECOProcessingPatternDispatcher {
         }
 
         long push(IPatternDetails details, KeyCounter[] inputs, long copies) {
-            if (lightning != null) {
-                return lightning.submit(details, inputs, copies);
-            }
             try {
+                if (lightning != null) {
+                    return lightning.submit(details, inputs, copies);
+                }
                 return (long) ThunderboltApi.invoke(PUSH, legacy, details, inputs, copies);
             } catch (RuntimeException failure) {
                 throw new AmbiguousDispatchException(failure);

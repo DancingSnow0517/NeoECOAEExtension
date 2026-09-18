@@ -293,7 +293,7 @@ public final class ECOExecutionRuntime {
         if (progress == null || progress.value < count) {
             throw new IllegalArgumentException("Accepted virtual dispatch exceeds task progress");
         }
-        progress.value -= count;
+        progress.accept(count);
         onAccepted(candidate, count, new KeyCounter[0]);
     }
 
@@ -571,6 +571,15 @@ public final class ECOExecutionRuntime {
     }
 
     private boolean dependenciesComplete(int phaseIndex) {
+        if (progressByTaskId != null && progressByTaskId.length > 0 && progressByTaskId[0].isExact()) {
+            // DAG producers stream into ready consumers in the same order. Physical input extraction gates
+            // dispatch; solved cycles retain their completion barrier so their feedback seed cannot escape.
+            for (int dependency : plan.phases().get(phaseIndex).dependencies()) {
+                if (plan.phases().get(dependency).type() != ECOExecutionSchedule.Type.DAG
+                        && !completedPhases.get(dependency)) return false;
+            }
+            return true;
+        }
         return remainingDependencies[phaseIndex] == 0;
     }
 
@@ -938,7 +947,7 @@ public final class ECOExecutionRuntime {
                 long[] completedByTask = new long[plan.tasks().size()];
                 for (int taskId : phase.taskIds()) {
                     completedByTask[taskId] = Math.max(0L,
-                        plan.task(taskId).totalCount() - taskRemaining(taskId, null));
+                        completedTaskCount(taskId));
                 }
                 boolean prefixComplete = true;
                 for (int index = 0; index < phase.steps().size(); index++) {
@@ -959,7 +968,7 @@ public final class ECOExecutionRuntime {
                 for (var initial : phase.dynamicFirings().entrySet()) {
                     int taskId = initial.getKey();
                     long completed = Math.max(0L,
-                        plan.task(taskId).totalCount() - taskRemaining(taskId, null));
+                        completedTaskCount(taskId));
                     long rebuilt = Math.max(0L, initial.getValue() - completed);
                     if (dynamic.getOrDefault(taskId, -1L) != rebuilt) {
                         dynamic.put(taskId, rebuilt);
@@ -971,6 +980,10 @@ public final class ECOExecutionRuntime {
         if (changed && NEConfig.ecoDispatchWatchdogDebug) {
             LOGGER.warn("[ECO Execution] reconciled cycle witness counters to accepted AE2 task progress");
         }
+    }
+
+    private long completedTaskCount(int taskId) {
+        return progressByTaskId[taskId].completedBounded(plan.task(taskId).totalCount());
     }
 
     private void restoreLegacyStartupSeeds(Map<AEKey, Long> legacySeeds) {

@@ -80,9 +80,12 @@ public final class CraftingNetworkCompiler {
                 emittable.add(key);
             }
             List<CompiledPattern> compiled = new ArrayList<>();
+            Set<PatternDefinition> definitions = new HashSet<>();
             boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
             for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
                 cancellation.checkpoint();
+                PatternDefinition definition = patternDefinition(details);
+                if (definition != null && !definitions.add(definition)) continue;
                 CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
                     ignoredItemIds, componentInsensitiveOutput);
                 compiled.add(pattern);
@@ -134,6 +137,21 @@ public final class CraftingNetworkCompiler {
             .forEach(candidate -> result.addAll(service.getCraftingFor(candidate)));
         return List.copyOf(result);
     }
+
+    /** Encoded definitions include quantities, components and matching settings; IO alone is not an identity. */
+    private static PatternDefinition patternDefinition(IPatternDetails details) {
+        try {
+            AEItemKey definition = details.getDefinition();
+            // Keep the first physical instance in AE2's priority order. Distinct wrappers may have different
+            // execution contracts even when they expose the same encoded item.
+            return definition == null ? null : new PatternDefinition(details.getClass(), definition);
+        } catch (RuntimeException ignored) {
+            // A missing/malformed definition is not evidence that two patterns are equivalent.
+            return null;
+        }
+    }
+
+    private record PatternDefinition(Class<?> implementation, AEItemKey definition) {}
 
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean cyclePlanningEnabled, Set<ResourceLocation> fuzzyPlanningItemIds,

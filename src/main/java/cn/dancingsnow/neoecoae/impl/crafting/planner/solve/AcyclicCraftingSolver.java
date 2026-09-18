@@ -312,7 +312,7 @@ public final class AcyclicCraftingSolver {
             boolean ignoreComponents) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
-            PlannerAmount exact = requested.min(state.stored.get(key));
+            PlannerAmount exact = state.stored.available(key, requested);
             if (exact.signum() > 0) {
                 state.stored.remove(key, exact);
                 addCounter(state.used, key, exact);
@@ -325,7 +325,7 @@ public final class AcyclicCraftingSolver {
         for (var entry : new ArrayList<>(state.stored.asMap().entrySet())) {
             if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
                     || candidate.getItem() != wanted.getItem()) continue;
-            PlannerAmount take = remaining.min(entry.getValue());
+            PlannerAmount take = state.stored.available(entry.getKey(), remaining);
             if (take.signum() <= 0) continue;
             state.stored.remove(entry.getKey(), take);
             addCounter(state.used, entry.getKey(), take);

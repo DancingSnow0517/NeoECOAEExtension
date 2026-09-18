@@ -58,9 +58,16 @@ public final class ECOCraftingPlannerService {
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
                 boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                 Set<ResourceLocation> fuzzyPlanningItemIds) {
+            this(craftingService, goal, PlannerInventorySnapshot.of(inventory), cyclePlanningEnabled,
+                ignorePatternSubstitutions, fuzzyPlanningItemIds);
+        }
+
+        private Session(ICraftingService craftingService, AEKey goal, PlannerInventorySnapshot inventory,
+                boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
+                Set<ResourceLocation> fuzzyPlanningItemIds) {
             this.craftingService = craftingService;
             this.goal = goal;
-            this.inventorySnapshot = PlannerInventorySnapshot.of(inventory);
+            this.inventorySnapshot = inventory;
             this.inventory = inventorySnapshot.toKeyCounter();
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
@@ -99,6 +106,9 @@ public final class ECOCraftingPlannerService {
                     solved.components(), solved.executionComponentOrder(),
                     elapsedSince(startedNanos), solved.state().executionProvenance());
                 result.setTheoreticalBytes(solved.state().plannerBytes());
+                result.setExactPatternTimes(solved.state().plannerPatternTimes());
+                result.setExactMaterials(solved.state().usedAmounts(), solved.state().emittedAmounts(),
+                    solved.state().missingAmounts());
                 result.setFuzzyPlanningItemIds(fuzzyPlanningItemIds);
                 if (result.status() == PlanningStatus.SUCCESS
                         && ECOPlanningResultRegistry.cycleExpected(result)
@@ -202,6 +212,13 @@ public final class ECOCraftingPlannerService {
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory) {
         return new Session(service, goal, inventory, false, false, Set.of());
+    }
+
+    public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
+            boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
+            Set<ResourceLocation> fuzzyPlanningItemIds) {
+        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
+            fuzzyPlanningItemIds);
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
