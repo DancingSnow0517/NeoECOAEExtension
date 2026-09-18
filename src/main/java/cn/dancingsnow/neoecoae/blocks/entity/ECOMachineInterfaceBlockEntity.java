@@ -224,7 +224,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return Set.copyOf(result);
     }
 
-    /** Stores the sample selected by a client-side JEI ghost drop without moving a real item. */
+    /** Stores a client-selected filter sample without moving a real item. */
     @RPCMethod
     public void setFuzzyPlanningFilter(RPCSender sender, int slot, ItemStack stack) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)

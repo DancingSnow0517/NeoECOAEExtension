@@ -129,7 +129,7 @@ public final class ComputationInterfaceUI {
         return playerInventory;
     }
 
-    /** A JEI-targetable filter slot: its displayed stack is configuration only, never an item transfer. */
+    /** A filter slot: its displayed stack is configuration only, never an item transfer. */
     private static final class FuzzyPlanningItemSlot extends ItemSlot {
         private final ECOMachineInterfaceBlockEntity<NEComputationCluster> computationInterface;
         private final int inventorySlot;
