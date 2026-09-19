@@ -7,7 +7,7 @@ import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.client.ECOCraftConfirmScreen;
-import cn.dancingsnow.neoecoae.util.NEByteFormatter;
+import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.Minecraft;

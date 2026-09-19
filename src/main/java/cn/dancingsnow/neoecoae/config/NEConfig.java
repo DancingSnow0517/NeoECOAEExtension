@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import com.google.common.math.LongMath;
 import net.minecraft.util.Mth;
 import net.minecraftforge.common.ForgeConfigSpec;

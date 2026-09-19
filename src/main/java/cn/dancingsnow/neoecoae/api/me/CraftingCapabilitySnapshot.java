@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
-import cn.dancingsnow.neoecoae.util.NEMath;
 import java.util.List;
 
 /**
@@ -33,7 +33,7 @@ public record CraftingCapabilitySnapshot(
 
     public CraftingCapabilitySnapshot {
         physicalFxCount = Math.max(0, physicalFxCount);
-        activeFxCount = cn.dancingsnow.neoecoae.util.NEMath.clamp(activeFxCount, 0, physicalFxCount);
+        activeFxCount = cn.dancingsnow.neoecoae.crafting.amount.NEMath.clamp(activeFxCount, 0, physicalFxCount);
         normalSwitchHosts = Math.max(0, normalSwitchHosts);
         highEnergySwitchHosts = Math.max(0, highEnergySwitchHosts);
         networkMultiplier = Math.max(0, networkMultiplier);
@@ -41,8 +41,10 @@ public record CraftingCapabilitySnapshot(
         totalBatchCapacity = java.util.Objects.requireNonNull(totalBatchCapacity, "totalBatchCapacity");
         ftParallelCapacity = Math.max(0L, ftParallelCapacity);
         runningBatchCount = Math.max(0, runningBatchCount);
-        theoreticalOverclock = cn.dancingsnow.neoecoae.util.NEMath.clamp(theoreticalOverclock, 0, MAX_OVERCLOCK);
-        effectiveOverclock = cn.dancingsnow.neoecoae.util.NEMath.clamp(effectiveOverclock, 0, theoreticalOverclock);
+        theoreticalOverclock =
+                cn.dancingsnow.neoecoae.crafting.amount.NEMath.clamp(theoreticalOverclock, 0, MAX_OVERCLOCK);
+        effectiveOverclock =
+                cn.dancingsnow.neoecoae.crafting.amount.NEMath.clamp(effectiveOverclock, 0, theoreticalOverclock);
         energyUsage = Math.max(0L, energyUsage);
         coolantState = java.util.Objects.requireNonNull(coolantState, "coolantState");
     }
@@ -111,7 +113,7 @@ public record CraftingCapabilitySnapshot(
         if (ft <= 0L || overflow <= 0L) {
             return 0;
         }
-        return (int) cn.dancingsnow.neoecoae.util.NEMath.clamp(
+        return (int) cn.dancingsnow.neoecoae.crafting.amount.NEMath.clamp(
                 Math.round(((double) overflow / (double) ft) / 0.05D), 0L, MAX_OVERCLOCK);
     }
 

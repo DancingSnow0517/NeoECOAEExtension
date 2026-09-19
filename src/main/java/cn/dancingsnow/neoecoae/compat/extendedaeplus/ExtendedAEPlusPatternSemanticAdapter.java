@@ -3,9 +3,9 @@ package cn.dancingsnow.neoecoae.compat.extendedaeplus;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.Locale;
 import net.minecraft.core.registries.BuiltInRegistries;
 

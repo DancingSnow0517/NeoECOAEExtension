@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.network.ECOCpuOverlayPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNetwork;
 import com.google.common.collect.ImmutableSet;

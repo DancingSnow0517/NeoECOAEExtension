@@ -5,8 +5,8 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountSource;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
 

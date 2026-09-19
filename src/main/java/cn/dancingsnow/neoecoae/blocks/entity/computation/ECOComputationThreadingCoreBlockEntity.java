@@ -8,7 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -121,7 +121,8 @@ public class ECOComputationThreadingCoreBlockEntity
                 continue; // Keep deferredInit[i] for retry
             }
             if (cpu.getPlan() != null && cpu.getLogic().hasJob()) {
-                cn.dancingsnow.neoecoae.api.me.ECOCraftingJobLifecycle.resumePersistedJob(this.level, tag);
+                cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.resumePersistedJob(
+                        this.level, tag);
                 cpus[i] = cpu;
                 cluster.pickup(cpu.getPlan(), cpu);
                 deferredInit[i] = null; // Only clear on success

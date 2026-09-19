@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
 import java.util.List;
 import org.jetbrains.annotations.Nullable;

@@ -11,18 +11,18 @@ import appeng.api.storage.ISubMenuHost;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftConfirmMenuMode;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.ECOCycleItemList;
-import cn.dancingsnow.neoecoae.api.me.ECOMissingCraftingPlan;
-import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.compat.gtl.GTLTransfiniteCraftingCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOMissingCraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -260,7 +260,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique private static java.math.BigInteger neoecoae$exactAmountFor(
-            List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
+            List<cn.dancingsnow.neoecoae.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
         return values.stream()
                 .filter(value -> value.key().equals(key))
                 .map(value -> value.amount().value())

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
 import org.jetbrains.annotations.Nullable;
 
 /** Optional extension for providers that can calculate reusable/durability batch materials. */

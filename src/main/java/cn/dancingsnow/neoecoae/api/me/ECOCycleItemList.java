@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;

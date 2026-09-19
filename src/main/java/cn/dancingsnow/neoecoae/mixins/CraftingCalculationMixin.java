@@ -11,10 +11,12 @@ import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCalculationSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingPlanDiagnostics;
-import cn.dancingsnow.neoecoae.api.me.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOCraftingPlannerService;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.identity.PlanIdentity;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -40,8 +42,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Unique private volatile ECOPlanningResult neoecoae$lastPlanningResult;
     /** Result of this exact runCraftAttempt invocation; candidate planners may invoke attempts concurrently. */
     @Unique private volatile ThreadLocal<ECOPlanningResult> neoecoae$attemptPlanningResult;
-    /** Re-entrant native fallback marker; calculation probes may run on different worker threads. */
-    @Unique private volatile ThreadLocal<Boolean> neoecoae$nativeFallbackBypass;
 
     /**
      * Mixin-added fields are not guaranteed to run their Java field initializers in every
@@ -56,20 +56,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
                 if (local == null) {
                     local = new ThreadLocal<>();
                     this.neoecoae$attemptPlanningResult = local;
-                }
-            }
-        }
-        return local;
-    }
-
-    @Unique private ThreadLocal<Boolean> neoecoae$getNativeFallbackBypass() {
-        ThreadLocal<Boolean> local = this.neoecoae$nativeFallbackBypass;
-        if (local == null) {
-            synchronized (this) {
-                local = this.neoecoae$nativeFallbackBypass;
-                if (local == null) {
-                    local = ThreadLocal.withInitial(() -> false);
-                    this.neoecoae$nativeFallbackBypass = local;
                 }
             }
         }
@@ -114,11 +100,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (neoecoae$plannerSession == null) {
             return;
         }
-        ThreadLocal<Boolean> fallbackBypassLocal = neoecoae$getNativeFallbackBypass();
-        if (fallbackBypassLocal.get()) {
-            fallbackBypassLocal.remove();
-            return;
-        }
         ECOPlanningResult result = neoecoae$plannerSession.plan(amount, simulate, this::neoecoae$checkpointExternal);
         attemptResultLocal.set(result);
         neoecoae$lastPlanningResult = result;
@@ -126,16 +107,11 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
             case SUCCESS -> cir.setReturnValue(result.plan());
             case MISSING_ITEMS -> cir.setReturnValue(simulate ? result.plan() : null);
             case CYCLE_UNSUPPORTED, AMOUNT_OVERFLOW -> cir.setReturnValue(result.plan());
-            case PLANNED_BUT_AMOUNT_UNREPRESENTABLE -> {
-                // Keep ECO's exact diagnostic, but let AE2 (and compatibility planners such as
-                // GTLCore's transfinite planner) produce the executable long-valued projection.
-                fallbackBypassLocal.set(true);
-            }
             case PARTIAL, CYCLE_UNRESOLVED -> cir.setReturnValue(result.plan());
             case CANCELLED -> throw new InterruptedException("ECO DAG crafting calculation cancelled");
-            case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
-                // Keep the structured diagnostic, but preserve AE2 semantics through its native planner.
-                fallbackBypassLocal.set(true);
+            case PLANNED_BUT_AMOUNT_UNREPRESENTABLE, PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR -> {
+                // The native body handles this invocation, including GTLCore's compatibility planner.
+                // Every later probe must still run ECO, especially AE2's simulate=true missing-items retry.
             }
         }
     }
@@ -187,19 +163,24 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
     }
 
-    @Inject(method = "run", at = @At("RETURN"))
-    private void attachEcoDiagnosticToFinalPublicPlan(CallbackInfoReturnable<ICraftingPlan> cir) {
-        ICraftingPlan plan = cir.getReturnValue();
-        if (plan == null || plan.simulation()) return;
+    @WrapMethod(method = "run")
+    private ICraftingPlan attachEcoDiagnosticToFinalPublicPlan(Operation<ICraftingPlan> original) {
+        // Recover the report after all native/compatibility RETURN handlers, including simulated plans.
+        ICraftingPlan plan = original.call();
+        if (plan == null) return null;
 
-        ECOPlanningResult selected = ECOPlanningResultRegistry.find(plan);
+        ECOPlanningResult selected = plan.simulation() ? null : ECOPlanningResultRegistry.find(plan);
         ECOPlanningResult diagnostic = selected;
+        ECOPlanningResult lastResult = neoecoae$lastPlanningResult;
         if (diagnostic == null
-                && neoecoae$lastPlanningResult != null
-                && neoecoae$lastPlanningResult.shouldUseNativeFallback()) {
+                && lastResult != null
+                && (PlanIdentity.matches(plan, lastResult.plan())
+                        || lastResult.shouldUseNativeFallback()
+                                && (lastResult.plan() == null
+                                        || lastResult.plan().finalOutput().equals(plan.finalOutput())))) {
             // AE2 may copy the native fallback after runCraftAttempt. Preserve the failed ECO explanation for
             // the report without treating it as metadata for this different executable task vector.
-            diagnostic = neoecoae$lastPlanningResult;
+            diagnostic = lastResult;
         }
 
         Object publicPlan = plan;
@@ -212,6 +193,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         if (selected != null && PlanIdentity.matches(plan, selected.plan())) {
             ECOPlanningResultRegistry.register(plan, selected);
         }
+        return plan;
     }
 
     @Override

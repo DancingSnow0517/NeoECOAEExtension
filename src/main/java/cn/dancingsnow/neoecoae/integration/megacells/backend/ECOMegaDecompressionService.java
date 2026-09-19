@@ -16,7 +16,7 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchCapacityProvider;
 import cn.dancingsnow.neoecoae.api.me.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import gripe._90.megacells.item.part.DecompressionModulePart;
 import gripe._90.megacells.misc.DecompressionPattern;
 import gripe._90.megacells.misc.DecompressionService;

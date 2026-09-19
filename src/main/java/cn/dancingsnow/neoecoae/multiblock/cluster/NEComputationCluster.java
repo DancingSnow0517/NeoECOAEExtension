@@ -11,7 +11,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
@@ -19,6 +18,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelC
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.NEComputationUpgradeRules;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.google.common.math.LongMath;
 import com.mojang.logging.LogUtils;

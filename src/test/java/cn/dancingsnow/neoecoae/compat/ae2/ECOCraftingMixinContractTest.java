@@ -13,6 +13,25 @@ import org.objectweb.asm.tree.TypeInsnNode;
 /** Verifies injection targets without initializing Minecraft or loading transformed classes. */
 class ECOCraftingMixinContractTest {
     @Test
+    void finalCraftingReportWrapsTheCompleteCalculationIncludingCompatibilityReturns() throws Exception {
+        var target = read("appeng/crafting/CraftingCalculation");
+        assertTrue(target.methods.stream()
+                .anyMatch(method -> method.name.equals("run")
+                        && method.desc.equals("()Lappeng/api/networking/crafting/ICraftingPlan;")));
+        var mixin = read("cn/dancingsnow/neoecoae/mixins/CraftingCalculationMixin");
+        var handler = mixin.methods.stream()
+                .filter(method -> method.name.equals("attachEcoDiagnosticToFinalPublicPlan"))
+                .findFirst()
+                .orElseThrow();
+        var wrapper = handler.visibleAnnotations.stream()
+                .filter(annotation ->
+                        annotation.desc.equals("Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(List.of("run"), wrapper.values.get(wrapper.values.indexOf("method") + 1));
+    }
+
+    @Test
     void automaticUploadTargetsOnlyTheFinalEncodeReturn() throws Exception {
         var menu = read("appeng/menu/me/items/PatternEncodingTermMenu");
         var encode = menu.methods.stream()
@@ -141,7 +160,7 @@ class ECOCraftingMixinContractTest {
         boolean bindsAlias = false;
         for (var instruction : submitHandler.instructions) {
             if (instruction instanceof MethodInsnNode call
-                    && call.owner.equals("cn/dancingsnow/neoecoae/api/me/ECOPlanningResultRegistry")
+                    && call.owner.equals("cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningResultRegistry")
                     && call.name.equals("withSubmissionAlias")) {
                 bindsAlias = true;
             }
@@ -162,7 +181,7 @@ class ECOCraftingMixinContractTest {
         for (var instruction : handler.instructions) {
             if (instruction instanceof TypeInsnNode type
                     && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
-                    && type.desc.equals("cn/dancingsnow/neoecoae/api/me/ECOMissingCraftingPlan")) {
+                    && type.desc.equals("cn/dancingsnow/neoecoae/crafting/adapter/ae2/ECOMissingCraftingPlan")) {
                 wrapsMissingPlan = true;
             }
         }

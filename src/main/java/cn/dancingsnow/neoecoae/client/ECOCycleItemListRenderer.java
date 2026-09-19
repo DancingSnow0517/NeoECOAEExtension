@@ -133,8 +133,7 @@ final class ECOCycleItemListRenderer {
 
     private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
         return entry.solveStatus()
-                        == cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus
-                                .INSUFFICIENT_EXTERNAL_INPUT
+                        == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
                 && entry.exactSingleNetOutput().signum() == 0
                 && entry.exactTotalNetOutput().signum() == 0;
     }

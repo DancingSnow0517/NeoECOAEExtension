@@ -16,17 +16,17 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingHostBatchInfo;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -975,7 +975,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (progressPerTick <= 0) {
             return 0;
         }
-        return Mth.ceil((float) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / progressPerTick);
+        return Mth.ceil((float) cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread.MAX_PROGRESS
+                / progressPerTick);
     }
 
     public int getCraftingPowerMultiplier() {
@@ -1019,7 +1020,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     /** The reference duration for one recipe at the normal 10 progress/tick rate. */
     public static double getBaseCraftTicks() {
-        return cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / 10.0D;
+        return cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread.MAX_PROGRESS / 10.0D;
     }
 
     public static double calculateTimeMultiplier(int theoreticalCraftTicks) {
@@ -1068,7 +1069,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return batchCapacity <= 0
                 ? 0.0D
                 : (batchCapacity * (double) progressPerTick)
-                        / (double) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS;
+                        / (double) cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread.MAX_PROGRESS;
     }
 
     /** Number of physical hosts in the active logical exchange, or one for local mode. */
@@ -1576,7 +1577,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             this.output = output;
         }
 
-        private void add(cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.Snapshot thread) {
+        private void add(cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread.Snapshot thread) {
             if (craftingJobId == null && thread.craftingJobId() != null) {
                 craftingJobId = thread.craftingJobId();
             }

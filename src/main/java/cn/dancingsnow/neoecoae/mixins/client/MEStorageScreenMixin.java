@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.client;
 import appeng.client.gui.me.common.MEStorageScreen;
 import appeng.menu.me.common.GridInventoryEntry;
 import cn.dancingsnow.neoecoae.api.me.ECOExactStorageMenu;
-import cn.dancingsnow.neoecoae.util.ExactAmountFormatter;
+import cn.dancingsnow.neoecoae.crafting.display.format.ExactAmountFormatter;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import java.math.BigInteger;

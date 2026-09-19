@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
