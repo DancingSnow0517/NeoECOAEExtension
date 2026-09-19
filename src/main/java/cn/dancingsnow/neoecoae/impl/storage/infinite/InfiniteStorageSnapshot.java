@@ -21,7 +21,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
 
 /** Standard Minecraft SavedData NBT with independently decoded inventory records. */
-final class InfiniteStorageSnapshot {
+public final class InfiniteStorageSnapshot {
     private static final String ENCODING = "neoecoae_record_encoding";
 
     private InfiniteStorageSnapshot() {}
@@ -137,7 +137,7 @@ final class InfiniteStorageSnapshot {
         return root;
     }
 
-    static void write(Path target, CompoundTag data, int dataVersion) throws IOException {
+    public static void write(Path target, CompoundTag data, int dataVersion) throws IOException {
         Path directory = target.toAbsolutePath().getParent();
         Files.createDirectories(directory);
         Path temporary = Files.createTempFile(directory, target.getFileName() + ".", ".tmp");

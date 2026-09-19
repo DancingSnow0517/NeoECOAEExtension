@@ -9,20 +9,53 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.AtomicSavedDataFile;
+import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
+import com.wintercogs.ae2omnicells.common.me.AEUniversalCellData;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import java.util.UUID;
+import net.minecraft.SharedConstants;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 /** Delegates universal cell storage to AE2 OmniCells while exposing ECO drive metadata. */
 public final class ECOUniversalStorageCell implements IECOStorageCell {
     private final StorageCell delegate;
     private final ECOUniversalStorageCellItem item;
+    private final ItemStack stack;
 
     public ECOUniversalStorageCell(StorageCell delegate, ItemStack stack, ECOUniversalStorageCellItem item) {
         this.delegate = delegate;
         this.item = item;
+        this.stack = stack;
+    }
+
+    public StorageTransferJournal.Snapshot transferSnapshot() {
+        UUID id = UUID.fromString(stack.getOrCreateTag().getString(AEUniversalCellData.UUID_TAG));
+        AEUniversalCellData data = AEUniversalCellData.getCellDataByUUID(id);
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (data == null || server == null) throw new IllegalStateException("Missing universal cell data");
+        CompoundTag snapshot = data.save(new CompoundTag());
+        if (!snapshot.getCompound("inventory").getList("error_entries", 10).isEmpty()) {
+            throw new IllegalStateException("Universal cell has unresolved entries");
+        }
+        return new StorageTransferJournal.Snapshot(
+                server.getWorldPath(LevelResource.ROOT)
+                        .resolve("data/ae_universal_cell_data")
+                        .resolve(id + ".dat"),
+                snapshot,
+                false);
+    }
+
+    public void transferFailed() {
+        UUID id = UUID.fromString(stack.getOrCreateTag().getString(AEUniversalCellData.UUID_TAG));
+        AEUniversalCellData data = AEUniversalCellData.getCellDataByUUID(id);
+        if (data != null) data.setDirty(false);
     }
 
     @Override
@@ -121,7 +154,17 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
             }
         }
         delegate.persist();
-        return true;
+        try {
+            var snapshot = transferSnapshot();
+            AtomicSavedDataFile.write(
+                    snapshot.file(),
+                    snapshot.data(),
+                    SharedConstants.getCurrentVersion().getDataVersion().getVersion());
+            return true;
+        } catch (Exception failure) {
+            transferFailed();
+            return false;
+        }
     }
 
     public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {

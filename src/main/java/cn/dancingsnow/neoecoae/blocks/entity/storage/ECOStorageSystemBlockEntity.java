@@ -44,6 +44,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceTransferPolicy;
+import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -712,6 +713,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         // A stable matrix identity survives block replacement and retry after an interrupted migration.
         ECOInfiniteStorageMember.ensureMatrixId(sourceStack);
         drive.setChanged();
+        // The transaction identity must survive a restart before the destination accepts its receipt.
+        if (level instanceof ServerLevel serverLevel)
+            serverLevel.getChunkSource().save(true);
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.ensureRuntimeLoaded();
         }
@@ -770,7 +774,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static boolean clearMigratedCell(IECOStorageCell cell) {
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.clearAllStoredStacks();
-            return true;
+            return storageCell.flushForTransfer();
         }
         return cell instanceof ECOUniversalStorageCell universalCell
                 && universalCell.clearAllStoredStacksForMigration();
@@ -982,6 +986,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
 
+        // Persist stable destination UUIDs before publishing any cross-file transfer.
+        for (RestoreTarget target : plan.targets()) target.drive().getCellInventory();
+        serverLevel.getChunkSource().save(true);
+
         KeyCounter pending = new KeyCounter();
         engine.getAvailableStacks(pending);
         Map<AEKey, BigInteger> expectedFinalAmounts = expectedFinalRestoreAmounts(plan.targets(), pending);
@@ -1047,7 +1055,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             engine.flushBudgeted(0L);
             return;
         }
-        serverLevel.getChunkSource().save(true);
         if (!verifyRestoredContents(plan.targets(), expectedFinalAmounts)) {
             LOGGER.error(
                     "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
@@ -1062,25 +1069,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
 
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            long amount = engine.getAmount(entry.getKey()).toLongSaturated();
-            if (amount <= 0L) {
-                continue;
+        try {
+            List<StorageTransferJournal.Snapshot> snapshots = new ArrayList<>();
+            for (RestoreTarget target : plan.targets()) {
+                IECOStorageCell cell = target.drive().getCellInventory();
+                snapshots.add(
+                        cell instanceof ECOStorageCell nativeCell
+                                ? nativeCell.transferSnapshot()
+                                : ((ECOUniversalStorageCell) cell).transferSnapshot());
             }
-            long extracted = engine.extract(entry.getKey(), amount, Actionable.MODULATE);
-            if (extracted != amount) {
-                LOGGER.warn(
-                        "Unable to finalize ECO infinite storage restore for domain {}; keeping it mounted",
-                        infiniteDomainId);
-                engine.flushBudgeted(0L);
-                return;
+            if (!engine.restoreTo(snapshots)) throw new IllegalStateException("Storage transfer commit failed");
+        } catch (Exception failure) {
+            for (RestoreTarget target : plan.targets()) {
+                IECOStorageCell cell = target.drive().getCellInventory();
+                if (cell instanceof ECOStorageCell nativeCell) nativeCell.transferFailed(failure);
+                if (cell instanceof ECOUniversalStorageCell universalCell) universalCell.transferFailed();
             }
-        }
-        engine.flushBudgeted(0L);
-        if (!engine.isEmpty()) {
-            LOGGER.warn("Unable to fully restore ECO infinite storage domain {}; keeping it mounted", infiniteDomainId);
+            LOGGER.error("Unable to commit restored storage; preserve transfer journal for restart recovery", failure);
             return;
         }
+        serverLevel.getChunkSource().save(true);
         infiniteRestoreWarningLogged = false;
         exitInfiniteModeIfSafe();
     }

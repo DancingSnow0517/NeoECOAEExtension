@@ -678,6 +678,13 @@ public final class ECOInfiniteStorageDomains {
         }
 
         @Override
+        public boolean restoreTo(
+                java.util.List<cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal.Snapshot> targets) {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine != null && engine.restoreTo(targets);
+        }
+
+        @Override
         public synchronized void closeAndFlush() {
             advanceMigration(true);
             if (delegate != null) {

@@ -156,6 +156,11 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         return revision;
     }
 
+    synchronized StorageTransferJournal.Snapshot transferSnapshot() {
+        if (!canTransfer()) throw new IllegalStateException("Cell contains unavailable records");
+        return new StorageTransferJournal.Snapshot(dataFile, save(new CompoundTag()), false);
+    }
+
     synchronized boolean isFreshEmpty() {
         return canTransfer() && amounts.isEmpty() && revision == 0L && legacyFingerprint == null;
     }

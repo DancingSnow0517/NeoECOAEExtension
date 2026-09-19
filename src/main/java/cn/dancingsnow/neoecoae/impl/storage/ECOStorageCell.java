@@ -378,6 +378,22 @@ public class ECOStorageCell implements IECOStorageCell {
                 : backend.canTransfer();
     }
 
+    public StorageTransferJournal.Snapshot transferSnapshot() {
+        if (!(backend instanceof SavedDataECOStorageBackend saved))
+            throw new IllegalStateException("Missing native cell backend");
+        return saved.transferSnapshot();
+    }
+
+    public void transferFailed(Exception failure) {
+        if (backend instanceof SavedDataECOStorageBackend saved) saved.persistenceFailed(failure);
+    }
+
+    public boolean flushForTransfer() {
+        if (backend == null || !backend.canTransfer()) return false;
+        backend.flushBudgeted(0L);
+        return backend.canTransfer();
+    }
+
     private long innerInsert(AEKey what, long amount, Actionable mode) {
         if (backend == null) {
             return 0;

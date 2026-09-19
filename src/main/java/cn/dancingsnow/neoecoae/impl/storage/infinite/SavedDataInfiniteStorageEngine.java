@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
+import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.io.File;
@@ -470,6 +471,36 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         // A domain commit must not save unrelated cells or domains as a side effect.
         save(dataFile.toFile());
         finishSnapshot(true);
+    }
+
+    @Override
+    public synchronized boolean restoreTo(List<StorageTransferJournal.Snapshot> targets) {
+        if (!canTransfer() || targets.isEmpty()) return false;
+        CompoundTag empty = save(new CompoundTag());
+        empty.put(TAG_ENTRIES, new ListTag());
+        long nextRevision = revision == Long.MAX_VALUE ? revision : revision + 1L;
+        empty.putLong(TAG_REVISION, nextRevision);
+        try {
+            Path world = dataFile.getParent().getParent().getParent();
+            StorageTransferJournal.commit(
+                    world,
+                    domainId,
+                    targets,
+                    new StorageTransferJournal.Snapshot(dataFile, empty, true),
+                    SharedConstants.getCurrentVersion().getDataVersion().getVersion());
+            amounts.clear();
+            encodedKeys.clear();
+            changedKeys.clear();
+            revision = nextRevision;
+            baseRevision = revision;
+            lastSerializedSnapshot = empty;
+            rebuildIndexes();
+            setDirty(false);
+            return true;
+        } catch (Exception e) {
+            persistenceFailed(e);
+            return false;
+        }
     }
 
     @Override

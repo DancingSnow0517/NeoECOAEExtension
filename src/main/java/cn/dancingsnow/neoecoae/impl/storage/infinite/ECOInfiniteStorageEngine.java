@@ -107,6 +107,11 @@ public interface ECOInfiniteStorageEngine {
 
     default void flushAndAwait() {}
 
+    default boolean restoreTo(
+            java.util.List<cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal.Snapshot> targets) {
+        return false;
+    }
+
     void closeAndFlush();
 
     default ECOInfiniteDomainState getState() {
