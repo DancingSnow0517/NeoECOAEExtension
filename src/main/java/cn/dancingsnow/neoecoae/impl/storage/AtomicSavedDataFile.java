@@ -40,6 +40,7 @@ public final class AtomicSavedDataFile {
                 channel.force(true);
             }
             if (!data.equals(read(temporary))) throw new IOException("SavedData read-back mismatch: " + file);
+            StorageFileHistory.preserve(target);
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } finally {
             Files.deleteIfExists(temporary);

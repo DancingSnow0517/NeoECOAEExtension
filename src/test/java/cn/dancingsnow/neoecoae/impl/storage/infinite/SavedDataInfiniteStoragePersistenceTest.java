@@ -49,6 +49,61 @@ class SavedDataInfiniteStoragePersistenceTest {
     }
 
     @Test
+    void missingCommittedDeltaCannotSilentlyRollBackInventory() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        engine.insert(key, 5, Actionable.MODULATE);
+        engine.flushAndAwait();
+        Files.delete(InfiniteStorageDelta.path(path));
+        assertThrows(IOException.class, () -> InfiniteStorageSnapshot.read(path));
+    }
+
+    @Test
+    void failedSaveCanRetryLiveInventoryWithoutReloadingOldQuantities() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        engine.insert(key, 5, Actionable.MODULATE);
+        engine.persistenceFailed(new IOException("temporary disk failure"));
+        assertTrue(engine.retryPersistence());
+        assertEquals(
+                15,
+                InfiniteStorageSnapshot.read(path)
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount_long"));
+    }
+
+    @Test
+    void explicitPreviousSnapshotSurvivesCorruptCurrentDelta() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        engine.insert(key, 5, Actionable.MODULATE);
+        engine.flushAndAwait();
+        engine.insert(key, 7, Actionable.MODULATE);
+        engine.flushAndAwait();
+        Files.write(InfiniteStorageDelta.path(path), new byte[] {1, 2, 3});
+        assertThrows(IOException.class, () -> InfiniteStorageSnapshot.read(path));
+        assertEquals(
+                15,
+                InfiniteStorageSnapshot.previousSnapshot(path)
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount_long"));
+    }
+
+    @Test
     void quarantinedEngineCannotOverwriteExistingEvidenceDuringAutosave() throws Exception {
         Path path = directory.resolve("domain.dat");
         var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);

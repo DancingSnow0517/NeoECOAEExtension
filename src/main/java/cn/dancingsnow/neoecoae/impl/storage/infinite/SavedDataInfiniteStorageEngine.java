@@ -528,6 +528,19 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         return state == ECOInfiniteDomainState.READY;
     }
 
+    synchronized boolean retryPersistence() {
+        if (state != ECOInfiniteDomainState.QUARANTINED) return reopenAndVerify();
+        Path journal =
+                dataFile.getParent().getParent().resolve("neoecoae_transfers").resolve(domainId + ".dat");
+        if (Files.exists(journal)) return false; // Startup replay owns an interrupted cross-file commit.
+        state = ECOInfiniteDomainState.READY;
+        failureReason = null;
+        baseRevision = -1L;
+        setDirty();
+        flushAndAwait();
+        return state == ECOInfiniteDomainState.READY;
+    }
+
     @Override
     public synchronized ECOInfiniteDomainState getState() {
         finishSnapshot(false);
@@ -570,6 +583,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
                                 InfiniteStorageSnapshot.write(dataFile, snapshot, dataVersion);
                                 Files.deleteIfExists(InfiniteStorageDelta.path(dataFile));
                             }
+                            InfiniteStorageSnapshot.markCommitted(dataFile, snapshot, dataVersion);
                         } catch (Exception e) {
                             throw new CompletionException(e);
                         }

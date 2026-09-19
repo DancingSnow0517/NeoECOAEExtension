@@ -28,6 +28,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
     private final StorageCell delegate;
     private final ECOUniversalStorageCellItem item;
     private final ItemStack stack;
+    private boolean transferFailed;
 
     public ECOUniversalStorageCell(StorageCell delegate, ItemStack stack, ECOUniversalStorageCellItem item) {
         this.delegate = delegate;
@@ -53,6 +54,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
     }
 
     public void transferFailed() {
+        transferFailed = true;
         UUID id = UUID.fromString(stack.getOrCreateTag().getString(AEUniversalCellData.UUID_TAG));
         AEUniversalCellData data = AEUniversalCellData.getCellDataByUUID(id);
         if (data != null) data.setDirty(false);
@@ -202,6 +204,7 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (transferFailed) return 0L;
         if (!item.isExternallyUnlimited()) {
             return delegate.insert(what, amount, mode, source);
         }
@@ -295,11 +298,13 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (transferFailed) return 0L;
         return delegate.extract(what, amount, mode, source);
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (transferFailed) return;
         delegate.getAvailableStacks(out);
     }
 

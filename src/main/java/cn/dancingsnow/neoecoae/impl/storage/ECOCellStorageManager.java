@@ -12,6 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.DimensionDataStorage;
@@ -171,6 +172,28 @@ public final class ECOCellStorageManager {
             OWNER_IDS.remove(owner);
         }
         closeBackend(id);
+    }
+
+    public static synchronized void restorePrevious(MinecraftServer server, UUID id) throws IOException {
+        Path file = savedDataFile(worldRoot(server), id);
+        var snapshot = AtomicSavedDataFile.read(StorageFileHistory.previous(file));
+        var storage = server.overworld().getDataStorage();
+        // Strict identity validation, then preserve the damaged/current evidence before rollback.
+        var validated = SavedDataECOStorageBackend.load(snapshot, id, storage, file);
+        ECOSavedDataPersistence.unregister(validated);
+        StorageFileHistory.archive(file);
+        AtomicSavedDataFile.write(
+                file,
+                snapshot,
+                SharedConstants.getCurrentVersion().getDataVersion().getVersion());
+        var current = CELLS.get(id);
+        if (current != null) current.restoreSnapshot(snapshot);
+        else {
+            current = validated;
+            CELLS.put(id, current);
+        }
+        storage.set(savedDataName(id), current);
+        ECOSavedDataPersistence.register(current);
     }
 
     public static synchronized void release(@Nullable ItemStack stack, @Nullable ISaveProvider owner) {

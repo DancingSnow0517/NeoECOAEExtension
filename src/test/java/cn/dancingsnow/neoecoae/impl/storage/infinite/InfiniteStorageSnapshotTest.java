@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,8 +27,11 @@ class InfiniteStorageSnapshotTest {
         next.putString("unicode", "无限存储\u0000😀");
         InfiniteStorageSnapshot.write(target, next, 3465);
         assertEquals(next, InfiniteStorageSnapshot.read(target));
+        assertEquals(first, InfiniteStorageSnapshot.read(StorageFileHistory.previous(target)));
         try (var files = Files.list(directory)) {
-            assertEquals(java.util.List.of(target), files.toList());
+            assertEquals(
+                    java.util.Set.of(target, StorageFileHistory.previous(target)),
+                    files.collect(java.util.stream.Collectors.toSet()));
         }
     }
 

@@ -14,6 +14,19 @@ class AtomicSavedDataFileTest {
     Path directory;
 
     @Test
+    void previousGenerationRemainsReadableAfterReplacement() throws Exception {
+        Path path = directory.resolve("cell.dat");
+        CompoundTag tag = new CompoundTag();
+        tag.putLong("amount", 10);
+        AtomicSavedDataFile.write(path, tag, 3465);
+        tag.putLong("amount", 20);
+        AtomicSavedDataFile.write(path, tag, 3465);
+        assertEquals(
+                10, AtomicSavedDataFile.read(StorageFileHistory.previous(path)).getLong("amount"));
+        assertEquals(20, AtomicSavedDataFile.read(path).getLong("amount"));
+    }
+
+    @Test
     void serializationFailureKeepsLastCommittedInventory() throws Exception {
         Path path = directory.resolve("cell.dat");
         CompoundTag data = new CompoundTag();

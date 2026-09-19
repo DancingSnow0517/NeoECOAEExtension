@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.event;
 
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -32,6 +33,24 @@ public final class ECOStorageCommands {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("neoecoae")
                 .then(Commands.literal("storage")
+                        .then(Commands.literal("restore-previous")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("uuid", UuidArgument.uuid())
+                                        .then(Commands.literal("confirm-rollback")
+                                                .executes(context -> restorePrevious(
+                                                        context.getSource(),
+                                                        UuidArgument.getUuid(context, "uuid"),
+                                                        false)))))
+                        .then(Commands.literal("restore-cell-previous")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("uuid", UuidArgument.uuid())
+                                        .then(Commands.literal("confirm-rollback")
+                                                .executes(context -> restorePrevious(
+                                                        context.getSource(),
+                                                        UuidArgument.getUuid(context, "uuid"),
+                                                        true)))))));
+        dispatcher.register(Commands.literal("neoecoae")
+                .then(Commands.literal("storage")
                         .then(Commands.literal("migrate")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("uuid", UuidArgument.uuid())
@@ -61,6 +80,21 @@ public final class ECOStorageCommands {
                                         .suggests(ECOStorageCommands::suggestDomainIds)
                                         .executes(context -> ignoreMissing(
                                                 context.getSource(), UuidArgument.getUuid(context, "uuid")))))));
+    }
+
+    private static int restorePrevious(CommandSourceStack source, UUID id, boolean cell) {
+        try {
+            if (cell) ECOCellStorageManager.restorePrevious(source.getServer(), id);
+            else ECOInfiniteStorageDomains.restorePrevious(source.getLevel(), id);
+            source.sendSuccess(
+                    () -> Component.literal("Previous storage snapshot restored for " + id
+                            + ". Quantities may have rolled back; original files were archived."),
+                    true);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Storage rollback failed: " + e.getMessage()));
+            return 0;
+        }
     }
 
     private static int migrate(CommandSourceStack source, UUID domainId) {

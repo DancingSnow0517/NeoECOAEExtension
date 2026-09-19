@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.impl.storage.AtomicSavedDataFile;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
+import cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,7 +31,60 @@ public final class InfiniteStorageSnapshot {
     static CompoundTag read(Path path) throws IOException {
         CompoundTag base = readSingle(path);
         Path delta = InfiniteStorageDelta.path(path);
-        return Files.exists(delta) ? InfiniteStorageDelta.apply(base, readSingle(delta)) : base;
+        CompoundTag result = Files.exists(delta) ? InfiniteStorageDelta.apply(base, readSingle(delta)) : base;
+        Path marker = commitMarker(path);
+        if (Files.exists(marker)) {
+            CompoundTag committed = AtomicSavedDataFile.read(marker);
+            if (!committed.hasUUID("domain")
+                    || !result.hasUUID("domain")
+                    || !committed.getUUID("domain").equals(result.getUUID("domain"))
+                    || !committed.contains("revision", Tag.TAG_LONG)
+                    || committed.getLong("revision") > result.getLong("revision")) {
+                throw new IOException("Missing or stale infinite-storage commit; restore a matching snapshot set");
+            }
+        }
+        return result;
+    }
+
+    static Path commitMarker(Path base) {
+        return base.resolveSibling(base.getFileName() + ".commit");
+    }
+
+    public static void markCommitted(Path base, CompoundTag snapshot, int version) throws IOException {
+        CompoundTag marker = new CompoundTag();
+        marker.putUUID("domain", snapshot.getUUID("domain"));
+        marker.putLong("revision", snapshot.getLong("revision"));
+        AtomicSavedDataFile.write(commitMarker(base), marker, version);
+    }
+
+    /** Explicit rollback candidates only; normal loading must never silently choose an older quantity. */
+    static CompoundTag previousSnapshot(Path path) throws IOException {
+        CompoundTag best = null;
+        for (Path basePath : List.of(path, StorageFileHistory.previous(path))) {
+            if (!Files.isRegularFile(basePath)) continue;
+            CompoundTag base;
+            try {
+                base = readSingle(basePath);
+            } catch (IOException | RuntimeException e) {
+                continue;
+            }
+            best = newer(best, base);
+            for (Path deltaPath : List.of(
+                    InfiniteStorageDelta.path(path), StorageFileHistory.previous(InfiniteStorageDelta.path(path)))) {
+                if (!Files.isRegularFile(deltaPath)) continue;
+                try {
+                    CompoundTag delta = readSingle(deltaPath);
+                    best = newer(best, InfiniteStorageDelta.apply(base, delta));
+                } catch (IOException | RuntimeException ignored) {
+                }
+            }
+        }
+        if (best == null) throw new IOException("No readable compatible previous snapshot is available");
+        return best;
+    }
+
+    private static CompoundTag newer(CompoundTag previous, CompoundTag candidate) {
+        return previous == null || candidate.getLong("revision") > previous.getLong("revision") ? candidate : previous;
     }
 
     private static CompoundTag readSingle(Path path) throws IOException {
@@ -152,6 +207,7 @@ public final class InfiniteStorageSnapshot {
                 throw new IOException("Infinite-storage snapshot failed read-back verification");
             }
             // Never fall back to truncating the authoritative file on unsupported filesystems.
+            StorageFileHistory.preserve(target);
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } finally {
             Files.deleteIfExists(temporary);

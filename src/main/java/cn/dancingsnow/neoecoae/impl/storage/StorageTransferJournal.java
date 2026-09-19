@@ -100,11 +100,13 @@ public final class StorageTransferJournal {
             if (write.infinite()) {
                 InfiniteStorageSnapshot.write(write.file(), write.data(), journal.getInt("data_version"));
                 Files.deleteIfExists(write.file().resolveSibling(write.file().getFileName() + ".delta.dat"));
+                InfiniteStorageSnapshot.markCommitted(write.file(), write.data(), journal.getInt("data_version"));
             } else {
                 AtomicSavedDataFile.write(write.file(), write.data(), journal.getInt("data_version"));
             }
             afterWrite.run();
         }
         Files.delete(journalFile);
+        Files.deleteIfExists(StorageFileHistory.previous(journalFile));
     }
 }

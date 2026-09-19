@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.impl.storage.infinite;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
+import cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -21,6 +23,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import net.minecraft.SharedConstants;
 import net.minecraft.Util;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.storage.DimensionDataStorage;
@@ -165,6 +168,37 @@ public final class ECOInfiniteStorageDomains {
         }
         entry.recover();
         return entry;
+    }
+
+    /** Administrator-selected rollback, with evidence retained and UUID validation before touching files. */
+    public static synchronized void restorePrevious(ServerLevel level, UUID domainId) throws IOException {
+        Path root = worldRoot(level);
+        Path file = savedDataFile(root, domainId);
+        if (Files.exists(root.resolve("data/neoecoae_transfers").resolve(domainId + ".dat"))) {
+            throw new IOException("Pending transfer must be recovered by restarting first");
+        }
+        var snapshot = InfiniteStorageSnapshot.previousSnapshot(file);
+        var storage = level.getServer().overworld().getDataStorage();
+        var replacement = SavedDataInfiniteStorageEngine.load(snapshot, domainId, storage, file);
+        ECOSavedDataPersistence.unregister(replacement);
+        StorageFileHistory.archive(file);
+        StorageFileHistory.archive(InfiniteStorageDelta.path(file));
+        int version = SharedConstants.getCurrentVersion().getDataVersion().getVersion();
+        InfiniteStorageSnapshot.write(file, snapshot, version);
+        Files.deleteIfExists(InfiniteStorageDelta.path(file));
+        InfiniteStorageSnapshot.markCommitted(file, snapshot, version);
+        DomainEntry entry = ENTRIES.get(keyFor(root, domainId));
+        if (entry != null) {
+            if (entry.delegate != null) ECOSavedDataPersistence.unregister(entry.delegate);
+            entry.delegate = replacement;
+            entry.offlineState = ECOInfiniteDomainState.READY;
+            entry.failureReason = null;
+            entry.loadJustCompleted = true;
+        } else {
+            ECOSavedDataPersistence.unregister(replacement);
+        }
+        storage.set(savedDataName(domainId), replacement);
+        ECOSavedDataPersistence.register(replacement);
     }
 
     public static synchronized void close(ServerLevel level, UUID domainId) {
@@ -452,9 +486,10 @@ public final class ECOInfiniteStorageDomains {
 
         private synchronized void recover() {
             if (delegate != null) {
-                if (delegate.getState() == ECOInfiniteDomainState.CLOSED && delegate.reopenAndVerify()) {
+                if (delegate.retryPersistence()) {
                     offlineState = ECOInfiniteDomainState.READY;
                     failureReason = null;
+                    loadJustCompleted = true;
                 }
                 return;
             }

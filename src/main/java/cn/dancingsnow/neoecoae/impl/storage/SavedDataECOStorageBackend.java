@@ -161,6 +161,25 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         return new StorageTransferJournal.Snapshot(dataFile, save(new CompoundTag()), false);
     }
 
+    synchronized void restoreSnapshot(CompoundTag snapshot) {
+        ParsedData parsed = parse(snapshot, storageId);
+        amounts.clear();
+        amounts.putAll(parsed.amounts());
+        encodedKeys.clear();
+        encodedKeys.putAll(parsed.encodedKeys());
+        retainedEntries.clear();
+        retainedEntries.addAll(parsed.retainedEntries());
+        blockedKeys.clear();
+        blockedKeys.addAll(parsed.blockedKeys());
+        revision = parsed.revision();
+        legacyFingerprint = parsed.legacyFingerprint();
+        lastSerializedSnapshot = snapshot.copy();
+        degraded = false;
+        failureReason = null;
+        setDirty(false);
+        rebuildIndexes();
+    }
+
     synchronized boolean isFreshEmpty() {
         return canTransfer() && amounts.isEmpty() && revision == 0L && legacyFingerprint == null;
     }
