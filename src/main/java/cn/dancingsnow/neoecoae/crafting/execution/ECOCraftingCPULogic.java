@@ -636,7 +636,18 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
         }
         for (var entry : job.deferredStock.entrySet()) {
-            // One network call per key/tick bounds work while exact inventory accumulates multiple windows.
+            var generated = cn.dancingsnow.neoecoae.impl.storage.ECOCreativeSupply.extract(
+                grid, entry.getKey(), entry.getValue(), source);
+            if (generated.signum() > 0) {
+                ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory)
+                    .restore(java.util.Map.of(entry.getKey(), generated));
+                entry.setValue(entry.getValue().subtract(generated));
+                taskScheduler.recordPhysicalInsert(entry.getKey());
+                postChange(entry.getKey());
+                markCpuDirty();
+                continue;
+            }
+            // Finite storage retains one network call per key/tick.
             long wanted = cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(entry.getValue());
             if (wanted <= 0) continue;
             long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,

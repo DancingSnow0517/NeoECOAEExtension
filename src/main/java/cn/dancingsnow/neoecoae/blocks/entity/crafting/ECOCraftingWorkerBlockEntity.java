@@ -228,6 +228,17 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         return dispatchToThread(workerThreadCapacity, thread -> thread.pushBatch(verified, controller));
     }
 
+    public boolean pushExactVirtualBatch(
+            cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe recipe,
+            java.math.BigInteger count, java.util.UUID job) {
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent
+                || cluster == null || cluster.getController() == null || isWorking()) return false;
+        var controller = cluster.getController();
+        if (!controller.isFullVirtualCraftingMode() || !recipe.isIssuedBy(getFastPathCache())) return false;
+        return dispatchToThread(controller.getThreadObjectCapacityForWorker(this),
+            thread -> thread.pushExactVirtualBatch(recipe, count, job, controller));
+    }
+
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
         ECOCraftingFastPathCache cache = getFastPathCache();
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {

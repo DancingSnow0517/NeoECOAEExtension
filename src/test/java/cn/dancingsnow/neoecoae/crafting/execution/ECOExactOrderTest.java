@@ -175,6 +175,41 @@ class ECOExactOrderTest {
         }
     }
 
+    @Test void creativeRefillCreditsTheEntireDeferredAmountOnce() {
+        var input = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var output = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var result = result(output, Map.of(pattern(output), PlannerAmount.of(HUGE)));
+        var amount = BigInteger.TEN.pow(28).add(BigInteger.valueOf(17));
+        result.setExactMaterials(Map.of(), Map.of(), Map.of(input, PlannerAmount.of(amount)));
+        var cpu = mock(ECOCraftingCPU.class);
+        var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        when(cpu.isActive()).thenReturn(true);
+        when(cpu.getGrid()).thenReturn(grid);
+        when(cpu.getActionSource()).thenReturn(IActionSource.empty());
+        var drive = mock(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class);
+        var creative = mock(cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell.class);
+        when(grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class))
+            .thenReturn(Set.of(drive));
+        when(drive.isOnline()).thenReturn(true);
+        when(drive.isMounted()).thenReturn(true);
+        when(drive.getCellInventory()).thenReturn(creative);
+        when(creative.configuredKeys()).thenReturn(Set.of(input));
+        when(creative.extract(eq(input), eq(1L), eq(appeng.api.config.Actionable.SIMULATE), any())).thenReturn(1L);
+        var network = grid.getStorageService().getInventory();
+        when(network.extract(eq(input), eq(1L), eq(appeng.api.config.Actionable.SIMULATE), any())).thenReturn(1L);
+        var logic = new ECOCraftingCPULogic(cpu);
+        try (var types = mockStatic(AEKeyTypes.class);
+             var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS)) {
+            helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
+            assertTrue(logic.trySubmitJob(grid, new ECOExactCraftingPlan(result, true), IActionSource.empty(), null).successful());
+            logic.tickCraftingLogic(null, null);
+            assertTrue(logic.getJob().deferredStock.isEmpty());
+            assertEquals(amount, logic.getExactStoredPreview().get(input));
+            logic.tickCraftingLogic(null, null);
+            assertEquals(amount, logic.getExactStoredPreview().get(input));
+            verify(network, never()).extract(any(), anyLong(), eq(appeng.api.config.Actionable.MODULATE), any());
+        }
+    }
     @Test void readyDagBranchesPipelineWhileCycleBarrierRemains() {
         var a = pattern(mock(AEKey.class));
         var b = pattern(mock(AEKey.class));

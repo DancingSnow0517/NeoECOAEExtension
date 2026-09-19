@@ -133,6 +133,8 @@ public final class ECOUselessBatchProviderBridge {
         @Override
         public @Nullable ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, BigInteger requested) {
             if (requested.signum() <= 0 || invoke(api.unwrap, null, context.pattern()) != context.pattern()) return null;
+            var direct = ECOUselessExactCraftingDispatch.prepare(target, context, requested);
+            if (direct != null) return direct;
             KeyCounter[] prototype = context.inputCounters();
             Object capacity = invoke(api.capacity, target, context.pattern(), prototype, requested);
             BigInteger accepted = ((BigInteger) invoke(api.accepted, capacity)).min(requested);

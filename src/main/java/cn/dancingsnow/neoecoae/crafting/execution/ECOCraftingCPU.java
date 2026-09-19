@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
-public class ECOCraftingCPU implements ICraftingCPU {
+public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU {
 
     @Getter
     private final NEComputationCluster cluster;

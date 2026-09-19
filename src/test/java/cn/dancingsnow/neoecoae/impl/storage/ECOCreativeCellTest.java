@@ -116,6 +116,38 @@ class ECOCreativeCellTest {
     }
 
     @Test
+    void exactSupplyRequiresLiveMountedCreativeKeyAndNetworkAccess() {
+        var key = AEItemKey.of(Items.STONE);
+        var other = AEItemKey.of(Items.DIRT);
+        var cell = ECOCreativeCell.Handler.INSTANCE.getCellInventory(
+            creativeStack(List.of(new GenericStack(key, 1))), null);
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        var drive = mock(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class);
+        when(grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class))
+            .thenReturn(java.util.Set.of(drive));
+        when(drive.isMounted()).thenReturn(true);
+        when(drive.isOnline()).thenReturn(true);
+        when(drive.getCellInventory()).thenReturn(cell);
+        var source = IActionSource.empty();
+        var huge = java.math.BigInteger.TEN.pow(28).add(java.math.BigInteger.valueOf(17));
+        var network = grid.getStorageService().getInventory();
+        when(network.extract(key, 1, Actionable.SIMULATE, source)).thenReturn(1L);
+        assertEquals(huge, ECOCreativeSupply.extract(grid, key, huge, source));
+        assertEquals(java.math.BigInteger.ZERO, ECOCreativeSupply.extract(grid, other, huge, source));
+        when(network.extract(key, 1, Actionable.SIMULATE, source)).thenReturn(0L);
+        assertEquals(java.math.BigInteger.ZERO, ECOCreativeSupply.extract(grid, key, huge, source));
+        when(network.extract(key, 1, Actionable.SIMULATE, source)).thenReturn(1L);
+        when(drive.isOnline()).thenReturn(false);
+        assertEquals(java.math.BigInteger.ZERO, ECOCreativeSupply.extract(grid, key, huge, source));
+        when(drive.isOnline()).thenReturn(true);
+        when(drive.isMounted()).thenReturn(false);
+        assertEquals(java.math.BigInteger.ZERO, ECOCreativeSupply.extract(grid, key, huge, source));
+        when(drive.isMounted()).thenReturn(true);
+        when(drive.getCellInventory()).thenReturn(null);
+        assertEquals(java.math.BigInteger.ZERO, ECOCreativeSupply.extract(grid, key, huge, source));
+        verify(network, never()).extract(any(), anyLong(), eq(Actionable.MODULATE), any());
+    }
+    @Test
     void emptyCellsRemainEmptyAndOrdinaryItemsAreRejected() {
         var empty = ECOCreativeCell.Handler.INSTANCE.getCellInventory(creativeStack(List.of()), null);
         assertNotNull(empty);

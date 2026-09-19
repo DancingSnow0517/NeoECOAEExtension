@@ -101,6 +101,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int finiteBatchCraftCount = 1;
     private long craftCount = 1L;
     private boolean virtualBatch = false;
+    private @Nullable ECOExactVirtualLedger exactVirtual;
     private boolean outputsReady = false;
     private RecoveryState recoveryState = RecoveryState.CLEARED;
     private long lastEjectionFailureLogTick = Long.MIN_VALUE;
@@ -304,6 +305,25 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             verified.craftingJobId()
         );
         return acceptBatch(work, controller);
+    }
+
+    public boolean pushExactVirtualBatch(
+            cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe recipe,
+            java.math.BigInteger count, UUID job, ECOCraftingSystemBlockEntity controller) {
+        if (count.signum() <= 0 || job == null || recipe.reusableStateModel() != null
+                || recipe.durabilityModel() != null) return false;
+        var ledger = new ECOExactVirtualLedger(count, recipe.inputsPerCraft(),
+            recipe.outputsPerCraft(), recipe.remainingPerCraft());
+        var unit = recipe.withVirtualBatch(1L, job);
+        if (unit == null || !pushVirtualBatch(unit, controller)) return false;
+        exactVirtual = ledger;
+        craftCount = count.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        setChanged();
+        return true;
+    }
+
+    public java.math.BigInteger getExactCraftCount() {
+        return exactVirtual == null ? java.math.BigInteger.valueOf(getCraftCount()) : exactVirtual.crafts();
     }
 
     public boolean pushVirtualBatch(
@@ -556,6 +576,26 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ItemStack eventOutput = NEConfig.postCraftingEvent
             ? (craftingEventOutput.isEmpty() ? firstOutputItem().copy() : craftingEventOutput.copy())
             : ItemStack.EMPTY;
+        if (exactVirtual != null) {
+            boolean finished = exactVirtual.drain(true, (key, amount) -> {
+                if (!completedJobOutputsReleased && craftingJobId != null) {
+                    if (!(craftingService instanceof ECOCraftingOutputRouter router)) return 0L;
+                    long inserted = router.neoecoae$insertIntoCpuForJob(craftingJobId, key, amount, Actionable.MODULATE);
+                    if (inserted == 0 && !completedJobOutputsReleased)
+                        recoveryState = RecoveryState.WAITING_FOR_OWNER;
+                    if (inserted > 0) {
+                        recoveryState = RecoveryState.ACTIVE;
+                        owningCpuMissingSinceGameTime = Long.MIN_VALUE;
+                    }
+                    return inserted;
+                }
+                return storage.insert(key, amount, Actionable.MODULATE, actionSource);
+            }, this::setChanged);
+            if (!finished) return false;
+            worker.onBatchStopped();
+            clearWork();
+            return true;
+        }
         KeyCounter outputs = collectOutputItems();
 
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
@@ -799,6 +839,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean recoverItemsToNetwork(MEStorage storage, boolean recoverOutputs) {
+        if (exactVirtual != null) {
+            try {
+                if (!exactVirtual.drain(recoverOutputs,
+                        (key, amount) -> storage.insert(key, amount, Actionable.MODULATE, actionSource),
+                        this::setChanged)) return false;
+                worker.onBatchStopped();
+                clearWork();
+                setChanged();
+                return true;
+            } catch (RuntimeException failure) {
+                markRecoveryPending(recoverOutputs);
+                logRecoveryFailure(failure);
+                return false;
+            }
+        }
         List<ItemStack> recoverable = recoverOutputs ? outputAndRemainingItems() : inputItems;
         List<GenericStack> recoverableGeneric = recoverOutputs ? batchOutputAndRemainingItems() : batchInputItems;
         if (recoverable.isEmpty() && recoverableGeneric.isEmpty()) {
@@ -913,6 +968,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private void clearWork() {
         boolean availabilityChanged = isBusy;
+        exactVirtual = null;
         finishBlockedOutputDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
@@ -1036,7 +1092,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return ItemStack.EMPTY;
     }
 
+    public java.math.BigInteger getExactOutputAmount() {
+        return exactVirtual == null ? java.math.BigInteger.valueOf(getOutputAmount())
+            : exactVirtual.snapshot(true).values().stream().reduce(java.math.BigInteger.ZERO, java.math.BigInteger::add);
+    }
+
     private long getOutputAmount() {
+        if (exactVirtual != null) return getExactOutputAmount()
+            .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
         long amount = 0;
         for (ItemStack stack : outputItems) {
             if (!stack.isEmpty()) {
@@ -1076,6 +1139,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putInt("finiteBatchCraftCount", finiteBatchCraftCount);
         tag.putLong("craftCount", craftCount);
         tag.putBoolean("virtualBatch", virtualBatch);
+        if (exactVirtual != null) tag.put("exactVirtual", exactVirtual.write(provider));
         tag.putBoolean("outputsReady", outputsReady);
         tag.putBoolean("completedJobOutputsReleased", completedJobOutputsReleased);
         tag.putString("recoveryState", recoveryState.name());
@@ -1153,6 +1217,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         worker.markDisplayDirty();
+        exactVirtual = nbt.contains("exactVirtual", Tag.TAG_COMPOUND)
+            ? ECOExactVirtualLedger.read(nbt.getCompound("exactVirtual"), provider) : null;
         int persistedVersion = nbt.getInt("neoecoae_version");
         this.isBusy = nbt.getBoolean("isBusy");
         this.reboot = nbt.getBoolean("reboot");

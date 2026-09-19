@@ -113,6 +113,24 @@ final class ECOCraftingPatternBusDispatcher {
             });
     }
 
+    @Nullable ECOFastPathDispatchProvider.ExactPreparation prepareExactFastPath(
+            ECOBatchDispatchContext context, java.math.BigInteger requested) {
+        var controller = host.getCraftingController();
+        if (requested.signum() <= 0 || controller == null || !controller.isFullVirtualCraftingMode()
+                || context.level() != host.getLevel() || context.craftingJobId() == null) return null;
+        var execution = context.execution();
+        if (!execution.canUseFastPath()) return null;
+        var offer = findVirtualFastPathOffer(execution);
+        if (offer == null || !batchRecipe(offer.recipe(), execution)
+                || offer.recipe().reusableStateModel() != null
+                || offer.recipe().durabilityModel() != null) return null;
+        return new ECOFastPathDispatchProvider.ExactPreparation(requested, () -> {
+            var cluster = host.getCraftingCluster();
+            return cluster != null && cluster.isDispatchCandidate(offer.worker())
+                && offer.worker().pushExactVirtualBatch(offer.recipe(), requested, context.craftingJobId());
+        });
+    }
+
     boolean acceptVerifiedBatch(ECOVerifiedFastPathExecution verified,
                                  @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer) {
         var cluster = host.getCraftingCluster();

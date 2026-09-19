@@ -157,6 +157,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     @Override
+    public @Nullable ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, java.math.BigInteger requested) {
+        return dispatcher.prepareExactFastPath(context, requested);
+    }
+
+    @Override
     public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         return dispatcher.prepareFastPath(context);
     }
