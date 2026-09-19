@@ -1118,5 +1118,7 @@
   "neoecoae.pattern_upload.incompatible": "不支持此样板：ECO 合成系统仅接受分子装配室兼容的合成样板，不接受处理样板。",
   "neoecoae.pattern_upload.no_target": "当前 ME 网络中没有兼容且在线的 ECO 样板总线。",
   "neoecoae.pattern_upload.unavailable": "无法上传：请检查 ME 网络连接和访问权限。",
-  "neoecoae.pattern_upload.empty": "请先编码样板再上传。"
+  "neoecoae.pattern_upload.empty": "请先编码样板再上传。",
+  "neoecoae.configuration.megaBulkAutoMarkThreshold": "大宗存储自动标记阈值",
+  "neoecoae.configuration.megaBulkAutoMarkThreshold.tooltip": "ECO 大宗存储自动标记可压缩物品的存量阈值。\n只有存量严格大于此阈值的物品才会被标记。"
 }

@@ -32,6 +32,38 @@ public class ConfigLangs {
                 "neoecoae.configuration.postCraftingEvent.tooltip",
                 "Whether to fire the vanilla crafting event (ItemCraftedEvent) when the crafting subsystem completes a recipe.\n"
                         + "Enabling this may introduce additional event/listener overhead; it can be noticeable when mods like Balm are installed.");
+        // Legacy configuration labels retained for resource compatibility.
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathEnabled", "Enable Aggressive Fast Path");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
+                "Allow ECO pattern buses to push larger batches while retaining the regular Fast Path safety checks.\n"
+                        + "Enabled by default. Disable this if a modpack has recipe compatibility issues.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Limit");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",
+                "Maximum new aggressive Fast Path crafts a CPU may schedule per tick. This also adjusts the simulated crafting power limit, allowing batches within this limit to advance at the host's full progress rate when sufficient AE energy is available. The host's dynamic FX capacity still limits the total number of concurrent crafts.");
+        provider.add("neoecoae.configuration.ecoBatchFastPathTickLimit", "Batch Fast Path Tick Limit");
+        provider.add(
+                "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",
+                "Maximum number of crafts a CPU may push through Fast Path batches per tick.");
+        provider.add("neoecoae.configuration.ecoCraftingOutputDeliveryDebug", "ECO Output Delivery Diagnostics");
+        provider.add(
+                "neoecoae.configuration.ecoCraftingOutputDeliveryDebug.tooltip",
+                "Log a summary warning when workers on the same crafting job cannot deliver outputs for 200 consecutive ticks, then repeat every 1200 ticks.\n"
+                        + "Log a recovery message when the wait ends.\n"
+                        + "This only controls logging; it does not change output ownership, retries or recovery behavior.");
+        provider.add("neoecoae.configuration.ecoDispatchWatchdogDebug", "ECO Dispatch Watchdog Debugging");
+        provider.add(
+                "neoecoae.configuration.ecoDispatchWatchdogDebug.tooltip",
+                "Log detailed dispatch diagnostics after 200 ticks without actual crafting progress, then repeat every 1200 ticks.\n"
+                        + "Logs include the phase, job, materials, power and pattern provider status.\n"
+                        + "This does not resynchronize the scheduler, replay inputs or modify crafting state.");
+        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
+        provider.add(
+                "neoecoae.configuration.enableInfiniteStorage.tooltip",
+                "Enable infinite storage for ECO storage controllers.\n"
+                        + "Requires 64 infinite components and 16 L9 storage matrices; disabling this prevents new migrations without deleting existing storage domain files.");
+
         provider.add("neoecoae.configuration.debug", "Debug");
         provider.add("neoecoae.configuration.debug.tooltip", "ECO crafting planner diagnostic options.");
         provider.add("neoecoae.configuration.debugECOPlanner", "Debug ECO Planner");
@@ -67,6 +99,12 @@ public class ConfigLangs {
                 "neoecoae.configuration.craftingPatternBusPages.tooltip",
                 "Number of 63-slot pages per smart pattern bus, range 1-8.\n"
                         + "Changes require re-entering the world or restarting the server to fully apply.");
+        provider.add("neoecoae.configuration.megaBulkAutoMarkThreshold", "Bulk Storage Auto-Mark Threshold");
+        provider.add(
+                "neoecoae.configuration.megaBulkAutoMarkThreshold.tooltip",
+                "Minimum stored amount for automatically marking compressible items in ECO bulk storage.\n"
+                        + "Only items with an amount strictly greater than this threshold are marked.");
+
         provider.add("neoecoae.configuration.increaseStorageCellCapacity", "Increase ECO Capacity");
         provider.add(
                 "neoecoae.configuration.increaseStorageCellCapacity.tooltip",

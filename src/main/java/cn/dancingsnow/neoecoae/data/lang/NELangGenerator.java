@@ -61,6 +61,16 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.computation.thread_usage", "Threads used: %s/%s");
         provider.add("jade.neoecoae.computation.storage_usage", "Storage used: %s / %s bytes");
 
+        provider.add("jade.neoecoae.worker_capacity_formula", "Capacity Formula: %s");
+        provider.add("jade.neoecoae.worker_network_x2", "Connected to %d x2 network exchange hosts");
+        provider.add("jade.neoecoae.worker_network_x8", "Connected to %d x8 network exchange hosts");
+        provider.add("jade.neoecoae.worker_task", "  %s x%s - %s");
+        provider.add("jade.neoecoae.worker_task.progress", "%d%%");
+        provider.add("jade.neoecoae.worker_task.unknown", "Unknown output");
+        provider.add("jade.neoecoae.worker_task.waiting_output", "Waiting for output");
+        provider.add("jade.neoecoae.worker_tasks", "Active crafting tasks (%d):");
+        provider.add("jade.neoecoae.worker_tasks.more", "  ...and %d more tasks");
+
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern");
         provider.add(
                 "neoecoae.pattern_upload.toggle_hint",
@@ -92,6 +102,15 @@ public class NELangGenerator {
         provider.add("cell_type.neoecoae.quantum_omni", "Quantum Omni");
         provider.add("cell_type.neoecoae.source", "Source");
 
+        provider.add("cell_type.neoecoae.lightning", "Lightning");
+        provider.add("cell_type.neoecoae.mega_chemical", "Mega Chemical");
+        provider.add("cell_type.neoecoae.mega_energy", "Mega Energy");
+        provider.add("cell_type.neoecoae.mega_fluid", "Mega Fluid");
+        provider.add("cell_type.neoecoae.mega_item", "Mega Item");
+        provider.add("cell_type.neoecoae.other", "Other");
+        provider.add("neoecoae.unknow_cell_type", "Unknown Storage Cell Type");
+        provider.add("neoecoae.unknown_cell_type", "Unknown Storage Cell Type");
+
         provider.add("category.neoecoae.cooling", "Cooling");
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %s");
         provider.add("category.neoecoae.cooling.max_overclock", "Max Overclock: %s");
@@ -101,6 +120,13 @@ public class NELangGenerator {
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
         provider.add("emi.category.neoecoae.cooling", "Cooling");
+
+        // Additional item and block names
+        provider.add("block.neoecoae.fx_monitor_core", "ECO - FX Monitor Core");
+        provider.add("item.neoecoae.eco_lightning_cell_16m", "ECO - LE4 Lightning Storage Matrix");
+        provider.add("item.neoecoae.eco_lightning_cell_256m", "ECO - LE9 Lightning Storage Matrix");
+        provider.add("item.neoecoae.eco_lightning_cell_64m", "ECO - LE6 Lightning Storage Matrix");
+        provider.add("item.neoecoae.eco_lightning_cell_housing", "ECO Lightning Storage Matrix Housing");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] for more info");
         provider.add("tooltip.neoecoae.max_lenth", "§7§oMax structure length: %s");
@@ -192,6 +218,67 @@ public class NELangGenerator {
         provider.add(
                 "tooltip.neoecoae.network_switch.crafting_high_energy_cooling",
                 "Highest-tier shared pool: 16 coolant per active task thread per tick; active exchange continuously draws full rated power");
+
+        provider.add("tag.item.ae2.inscriber_presses", "Inscriber Presses");
+        provider.add("tag.item.ae2.metal_ingots", "Metal Ingots");
+        provider.add("tag.item.c.budding_blocks", "Budding Blocks");
+        provider.add("tag.item.c.clusters", "Clusters");
+        provider.add("tag.item.c.dusts.aluminum", "Aluminum Dusts");
+        provider.add("tag.item.c.dusts.aluminum_alloy", "Aluminum Alloy Dusts");
+        provider.add("tag.item.c.dusts.black_tungsten_alloy", "Black Tungsten Alloy Dusts");
+        provider.add("tag.item.c.dusts.energized_crystal", "Energized Crystal Dusts");
+        provider.add("tag.item.c.dusts.energized_fluix_crystal", "Energized Fluix Crystal Dusts");
+        provider.add("tag.item.c.dusts.tungsten", "Tungsten Dusts");
+        provider.add("tag.item.c.gems.energized_crystal", "Energized Crystals");
+        provider.add("tag.item.c.gems.energized_fluix_crystal", "Energized Fluix Crystals");
+        provider.add("tag.item.c.ingots.aluminum", "Aluminum Ingots");
+        provider.add("tag.item.c.ingots.aluminum_alloy", "Aluminum Alloy Ingots");
+        provider.add("tag.item.c.ingots.black_tungsten_alloy", "Black Tungsten Alloy Ingots");
+        provider.add("tag.item.c.ingots.tungsten", "Tungsten Ingots");
+        provider.add("tag.item.c.ores.aluminum", "Aluminum Ores");
+        provider.add("tag.item.c.ores.tungsten", "Tungsten Ores");
+        provider.add("tag.item.c.raw_materials.aluminum", "Raw Aluminum");
+        provider.add("tag.item.c.raw_materials.tungsten", "Raw Tungsten");
+        provider.add("tag.item.c.storage_blocks.aluminum", "Blocks of Aluminum");
+        provider.add("tag.item.c.storage_blocks.aluminum_alloy", "Blocks of Aluminum Alloy");
+        provider.add("tag.item.c.storage_blocks.black_tungsten_alloy", "Blocks of Black Tungsten Alloy");
+        provider.add("tag.item.c.storage_blocks.energized_crystal", "Blocks of Energized Crystal");
+        provider.add("tag.item.c.storage_blocks.energized_fluix_crystal", "Blocks of Energized Fluix Crystal");
+        provider.add("tag.item.c.storage_blocks.raw_aluminum", "Blocks of Raw Aluminum");
+        provider.add("tag.item.c.storage_blocks.raw_tungsten", "Blocks of Raw Tungsten");
+        provider.add("tag.item.c.storage_blocks.tungsten", "Blocks of Tungsten");
+        provider.add("tag.item.c.tools.mining_tool", "Mining Tools");
+        provider.add("tag.item.neoecoae.crystal_ingot_base", "Crystal Ingot Bases");
+        provider.add("tag.item.neoecoae.superconductive_ingot_base", "Superconductive Ingot Bases");
+        provider.add(
+                "tooltip.neoecoae.fx_monitor_core.0",
+                "§7§oThe ECO - FX Monitor Core provides an ME-style crafting monitor");
+        provider.add(
+                "tooltip.neoecoae.fx_monitor_core.1",
+                "§7§oDisplays crafting jobs being processed by the FX crafting subsystem");
+        provider.add(
+                "tooltip.neoecoae.infinite_component.components",
+                "Component slot: 64 infinite storage components (insert them on the storage host screen)");
+        provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage Requirements");
+        provider.add(
+                "tooltip.neoecoae.infinite_component.matrices",
+                "Drives: any 12 L9 storage matrices in the same storage host");
+        provider.add(
+                "tooltip.neoecoae.network_switch.computation_ultimate",
+                "With 8 high-energy C9 hosts, each with at least 10 threading cores and all drives filled with flash crystal arrays, combined CPU parallelism reaches 2.1E and storage reaches 9.2E");
+        provider.add("tooltip.neoecoae.pattern.verified_durability", "§6Verified: Durability Pattern");
+        provider.add("tooltip.neoecoae.pattern.verified_normal", "§6Verified: Normal Pattern");
+        provider.add("tooltip.neoecoae.pattern.verified_self_growing", "§6Verified: Self-Growing Pattern");
+        provider.add(
+                "tooltip.neoecoae.pattern.verified_smithing_stonecutting",
+                "§6Verified: Smithing / Stonecutting Recipe");
+        provider.add("tooltip.neoecoae.pattern.verified_special_nbt", "§6Verified: Special NBT Recipe");
+        provider.add(
+                "tooltip.neoecoae.storage.infinite_component_locked",
+                "Cannot remove infinite components: current contents cannot safely return to normal storage matrices");
+        provider.add(
+                "tooltip.neoecoae.storage.infinite_member_locked",
+                "Cannot remove managed storage matrices while infinite storage is enabled");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
 
