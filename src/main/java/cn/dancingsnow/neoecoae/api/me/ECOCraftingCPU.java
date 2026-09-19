@@ -4,11 +4,12 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingCPU;
 
 /**
- * Binary compatibility base for Useless Mod 2.3.8.
+ * Binary compatibility base for Useless Mod 2.3.8 and AE2 Lightning Tech 2.1.
  *
  * <p>The implementation moved to {@code crafting.execution.ECOCraftingCPU}; the
  * old package name remains in the type hierarchy because Useless performs a
- * direct instanceof/checkcast against this class.</p>
+ * direct instanceof/checkcast against this class. AE2 Lightning Tech also targets
+ * this class with a Mixin invoker for {@link #markDirty()}.</p>
  */
 @Deprecated(forRemoval = false)
 public abstract class ECOCraftingCPU implements ICraftingCPU {
@@ -17,4 +18,11 @@ public abstract class ECOCraftingCPU implements ICraftingCPU {
 
     /** Compatibility method used by Useless's NeoECOAE bridge. */
     public abstract IGrid getGrid();
+
+    /**
+     * Marks the owning crafting thread for saving; CPUs without an owner do nothing.
+     * Declared here so legacy Mixin invokers can resolve the method on their exact
+     * target class and dispatch to the current implementation.
+     */
+    public abstract void markDirty();
 }

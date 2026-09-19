@@ -138,6 +138,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
         return cluster.getSelectionMode();
     }
 
+    @Override
     public void markDirty() {
         if (this.owner != null) {
             this.owner.saveChanges();
