@@ -92,7 +92,7 @@ public final class NEMegaItems {
     }
 
     private static String cellName(String family, long capacity) {
-        return "ECO - LE9 Storage Matrix (" + family + ", " + (capacity >> 30) + " GiB)";
+        return "ECO - LE9 Storage Matrix (" + family + ")";
     }
 
     @FunctionalInterface

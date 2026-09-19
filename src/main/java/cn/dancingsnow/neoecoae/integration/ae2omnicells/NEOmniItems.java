@@ -133,7 +133,7 @@ public final class NEOmniItems {
     private static String cellName(String name, ECOTier tier, long totalBytes) {
         String family = name.contains("quantum") ? "Quantum Omni" : name.contains("complex") ? "Complex Omni" : "Omni";
         return "ECO - LE" + (tier == ECOTier.L4 ? "4" : tier == ECOTier.L6 ? "6" : "9")
-            + " Storage Matrix (" + family + ", " + (totalBytes >> 20) + " MiB)";
+            + " Storage Matrix (" + family + ")";
     }
 
     private NEOmniItems() {
