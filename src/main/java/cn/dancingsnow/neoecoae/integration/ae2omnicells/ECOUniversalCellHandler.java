@@ -5,6 +5,7 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.AEUniversalCellData;
 import com.wintercogs.ae2omnicells.common.me.AEUniversalCellHandler;
@@ -15,6 +16,8 @@ import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +43,13 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             return null;
         }
         String uuidTagBefore = stack.hasTag() ? stack.getTag().getString(AEUniversalCellData.UUID_TAG) : "";
+        var server = ServerLifecycleHooks.getCurrentServer();
+        UUID existingId = getStorageId(stack);
+        if (server != null
+                && existingId != null
+                && StorageTransferJournal.isBlocked(server.getWorldPath(LevelResource.ROOT)
+                        .resolve("data/ae_universal_cell_data")
+                        .resolve(existingId + ".dat"))) return null;
         StorageCell delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
         if (delegate == null) {
             return null;
@@ -60,7 +70,14 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             return null;
         }
 
-        if (host != null && claimUniqueStorage(stack, host)) {
+        boolean detached;
+        try {
+            detached = host != null && claimUniqueStorage(stack, host);
+        } catch (RuntimeException failure) {
+            LOGGER.error("Cannot safely mount duplicated universal cell", failure);
+            return null;
+        }
+        if (detached) {
             // The first delegate was created for the duplicate UUID. Reopen it after the replacement domain exists.
             delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
             if (delegate == null) {
@@ -99,8 +116,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
      * <p>The ownership maps are JVM-runtime state only. If a host disappears without releasing (abnormal teardown,
      * crashed integrated-server session, exception mid-swap), its stale claim must never make the only physical cell
      * look duplicated: dead hosts are evicted and their claim stolen. A genuinely live duplicate is detached to an
-     * empty domain; if even that fails, the caller keeps the original delegate instead of throwing, so one bad cell
-     * cannot break the whole storage read chain until the next restart.
+     * empty domain; if that fails, the caller refuses only this mount to keep the live authority unique.
      */
     private synchronized boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
         UUID currentId = getStorageId(stack);
@@ -124,17 +140,17 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
         CompoundTag tag = stack.getOrCreateTag();
         String originalId = tag.getString(AEUniversalCellData.UUID_TAG);
         tag.remove(AEUniversalCellData.UUID_TAG);
-        AEUniversalCellData replacement = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
+        AEUniversalCellData replacement;
+        try {
+            replacement = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
+        } catch (RuntimeException failure) {
+            tag.putString(AEUniversalCellData.UUID_TAG, originalId);
+            throw failure;
+        }
         UUID replacementId = getStorageId(stack);
         if (replacement == null || replacementId == null || replacementId.equals(currentId)) {
             tag.putString(AEUniversalCellData.UUID_TAG, originalId);
-            // Deliberately no throw: this runs inside drive reads (stats, mounts). Keep the delegate bound to
-            // the original domain so the cell stays readable; ownership just stays with the other live host.
-            LOGGER.error(
-                    "Unable to detach duplicated Omni storage UUID {}; mounting against the live domain without"
-                            + " claiming it",
-                    currentId);
-            return false;
+            throw new IllegalStateException("Unable to detach duplicated Omni storage UUID " + currentId);
         }
 
         replacement.getOriginalStorage().clear();

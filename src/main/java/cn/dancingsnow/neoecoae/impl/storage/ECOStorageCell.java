@@ -16,6 +16,7 @@ import appeng.util.ConfigInventory;
 import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -239,7 +240,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount <= 0 || !keyType.contains(what)) {
+        if (amount <= 0 || !keyType.contains(what) || backend == null || !backend.canTransfer()) {
             return 0;
         }
 
@@ -384,6 +385,19 @@ public class ECOStorageCell implements IECOStorageCell {
         return saved.transferSnapshot();
     }
 
+    public StorageTransferJournal.Snapshot transferSnapshot(KeyCounter contents) {
+        if (!(backend instanceof SavedDataECOStorageBackend saved))
+            throw new IllegalStateException("Missing cell backend");
+        return saved.transferSnapshot(contents);
+    }
+
+    public void acceptTransferSnapshot(StorageTransferJournal.Snapshot snapshot) {
+        if (!(backend instanceof SavedDataECOStorageBackend saved))
+            throw new IllegalStateException("Missing cell backend");
+        saved.restoreSnapshot(snapshot.data());
+        saveChanges();
+    }
+
     public void transferFailed(Exception failure) {
         if (backend instanceof SavedDataECOStorageBackend saved) saved.persistenceFailed(failure);
     }
@@ -395,7 +409,7 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (backend == null) {
+        if (backend == null || !backend.canTransfer()) {
             return 0;
         }
         if (!canStoreKeyInsideStorageCell(what)) {
@@ -427,16 +441,21 @@ public class ECOStorageCell implements IECOStorageCell {
             return 0;
         }
 
-        if (mode == Actionable.MODULATE) {
-            backend.insert(what, amount, Actionable.MODULATE);
-            this.saveChanges();
-        }
-
-        return amount;
+        long inserted = backend.insert(what, amount, mode);
+        if (mode == Actionable.MODULATE && inserted > 0L) this.saveChanges();
+        return inserted;
     }
 
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
         if (what instanceof AEItemKey itemKey) {
+            if (itemKey.getItem() instanceof IBasicECOCellItem) {
+                ItemStack nestedStack = itemKey.toStack();
+                if (ECOInfiniteStorageMember.isMember(nestedStack)) return false;
+                var nested = ECOStorageCells.getCellInventory(nestedStack, null);
+                return nested != null && nested.canFitInsideCell();
+            }
+            // AE2's handler probe is read-only; ordinary items need no mutable stack/NBT copy.
+            if (!StorageCells.isCellHandled(itemKey.getReadOnlyStack())) return true;
             var cellInv = StorageCells.getCellInventory(itemKey.toStack(), null);
             return cellInv == null || cellInv.canFitInsideCell();
         }
@@ -445,29 +464,10 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (backend == null) {
-            return 0;
-        }
-        var currentAmount = backend.getAmount(what);
-        if (currentAmount > 0) {
-            if (amount >= currentAmount) {
-                if (mode == Actionable.MODULATE) {
-                    backend.extract(what, currentAmount, Actionable.MODULATE);
-                    this.saveChanges();
-                }
-
-                return currentAmount;
-            } else {
-                if (mode == Actionable.MODULATE) {
-                    backend.extract(what, amount, Actionable.MODULATE);
-                    this.saveChanges();
-                }
-
-                return amount;
-            }
-        }
-
-        return 0;
+        if (backend == null) return 0L;
+        long extracted = backend.extract(what, amount, mode);
+        if (mode == Actionable.MODULATE && extracted > 0L) this.saveChanges();
+        return extracted;
     }
 
     @Override
@@ -518,6 +518,8 @@ public class ECOStorageCell implements IECOStorageCell {
             return backend.isEmpty();
         }
         return !ECOCellHandle.isMissing(cellStack)
+                && !ECOCellHandle.isLocked(cellStack)
+                && !ECOInfiniteStorageMember.isMember(cellStack)
                 && ECOCellHandle.getStoredTypesSummary(cellStack) <= 0
                 && ECOCellHandle.getStoredAmountSummary(cellStack) <= 0;
     }

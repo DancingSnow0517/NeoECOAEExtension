@@ -33,6 +33,29 @@ public final class ECOStorageCommands {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("neoecoae")
                 .then(Commands.literal("storage")
+                        .then(Commands.literal("recover-cell")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("uuid", UuidArgument.uuid())
+                                        .executes(context -> {
+                                            try {
+                                                UUID id = UuidArgument.getUuid(context, "uuid");
+                                                if (!ECOCellStorageManager.recover(
+                                                        context.getSource().getServer(), id)) return 0;
+                                                context.getSource()
+                                                        .sendSuccess(
+                                                                () -> Component.literal(
+                                                                        "Storage cell recovered: " + id),
+                                                                false);
+                                                return 1;
+                                            } catch (Exception e) {
+                                                context.getSource()
+                                                        .sendFailure(Component.literal(
+                                                                "Cell recovery failed: " + e.getMessage()));
+                                                return 0;
+                                            }
+                                        })))));
+        dispatcher.register(Commands.literal("neoecoae")
+                .then(Commands.literal("storage")
                         .then(Commands.literal("restore-previous")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("uuid", UuidArgument.uuid())
@@ -111,6 +134,11 @@ public final class ECOStorageCommands {
 
     private static int recover(CommandSourceStack source, UUID domainId) {
         var engine = ECOInfiniteStorageDomains.recover(source.getLevel(), domainId);
+        if (engine.getState() == ECOInfiniteDomainState.LOADING) {
+            source.sendSuccess(
+                    () -> Component.literal("Storage is loading; use diagnose after loading completes."), false);
+            return 1;
+        }
         if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
             source.sendSuccess(() -> Component.literal("无限存储已恢复，持久化校验通过。").withStyle(ChatFormatting.GREEN), false);
             reportOrphanedEntries(source, domainId, engine, 1);

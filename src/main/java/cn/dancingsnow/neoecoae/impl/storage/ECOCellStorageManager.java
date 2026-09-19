@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.storage;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -47,7 +48,7 @@ public final class ECOCellStorageManager {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         boolean hasLegacyContents = ECOCellHandle.hasLegacyContents(stack);
         boolean hadId = ECOCellHandle.getId(stack).isPresent();
-        if (server == null) {
+        if (server == null || !server.isSameThread()) {
             if (hasLegacyContents) {
                 ECOCellHandle.updateSummaryFromLegacy(stack, 0L);
             }
@@ -59,7 +60,13 @@ public final class ECOCellStorageManager {
 
         UUID id = ECOCellHandle.getOrCreateId(stack);
         if (owner != null) {
-            id = forkIfClaimedByAnotherOwner(server, stack, id, owner);
+            try {
+                id = forkIfClaimedByAnotherOwner(server, stack, id, owner);
+            } catch (RuntimeException e) {
+                LOGGER.error("Cannot safely detach duplicated storage cell {}; refusing this mount", id, e);
+                ECOCellHandle.markLocked(stack);
+                return null;
+            }
         }
 
         if (hadId
@@ -129,7 +136,12 @@ public final class ECOCellStorageManager {
                 continue;
             }
             if (ECOCellHandle.getId(mountedStack).filter(id::equals).isPresent()) {
-                forkStorageId(server, stack, id, "duplicate mounted in the same ECO storage host");
+                try {
+                    forkStorageId(server, stack, id, "duplicate mounted in the same ECO storage host");
+                } catch (RuntimeException e) {
+                    LOGGER.error("Cannot safely detach duplicated storage cell {}", id, e);
+                    ECOCellHandle.markLocked(stack);
+                }
                 return;
             }
         }
@@ -175,6 +187,15 @@ public final class ECOCellStorageManager {
     }
 
     public static synchronized void restorePrevious(MinecraftServer server, UUID id) throws IOException {
+        Path transfers = worldRoot(server).resolve("data/neoecoae_transfers");
+        if (Files.isDirectory(transfers)) {
+            try (var files = Files.list(transfers)) {
+                if (files.anyMatch(path -> path.toString().endsWith(".dat"))) {
+                    throw new IOException(
+                            "Pending transfers must be recovered by restarting before rolling back cells");
+                }
+            }
+        }
         Path file = savedDataFile(worldRoot(server), id);
         var snapshot = AtomicSavedDataFile.read(StorageFileHistory.previous(file));
         var storage = server.overworld().getDataStorage();
@@ -194,6 +215,34 @@ public final class ECOCellStorageManager {
         }
         storage.set(savedDataName(id), current);
         ECOSavedDataPersistence.register(current);
+        notifyRecovered(id);
+    }
+
+    public static synchronized boolean recover(MinecraftServer server, UUID id) throws IOException {
+        Path file = savedDataFile(worldRoot(server), id);
+        if (StorageTransferJournal.isBlocked(file)) throw new IOException("Restart to recover pending transfer first");
+        var current = CELLS.get(id);
+        if (current != null && !current.needsLoadRecovery()) {
+            // Never replace unsaved live quantities with an older file after a failed retry.
+            boolean recovered = current.retryPersistence();
+            if (recovered) notifyRecovered(id);
+            return recovered;
+        }
+        var snapshot = AtomicSavedDataFile.read(file);
+        var storage = server.overworld().getDataStorage();
+        if (current == null) current = SavedDataECOStorageBackend.load(snapshot, id, storage, file);
+        else current.restoreSnapshot(snapshot);
+        CELLS.put(id, current);
+        storage.set(savedDataName(id), current);
+        ECOSavedDataPersistence.register(current);
+        notifyRecovered(id);
+        return true;
+    }
+
+    private static void notifyRecovered(UUID id) {
+        ISaveProvider owner = OWNERS.get(id);
+        if (owner instanceof IBatchedECOCellSaveProvider batched) batched.onStorageRecovered();
+        else if (owner != null) owner.saveChanges();
     }
 
     public static synchronized void release(@Nullable ItemStack stack, @Nullable ISaveProvider owner) {
@@ -244,6 +293,15 @@ public final class ECOCellStorageManager {
         Path legacySource = legacyCellDirectory(worldRoot, id);
         Path archive = archiveRoot(worldRoot).resolve(id.toString());
         DimensionDataStorage dataStorage = server.overworld().getDataStorage();
+        if (StorageTransferJournal.isBlocked(dataFile)) {
+            return quarantined(
+                    id,
+                    dataStorage,
+                    dataFile,
+                    summaryTypes,
+                    summaryAmount,
+                    "Pending transfer could not be replayed; repair disk access and restart");
+        }
         try {
             boolean hasV2Path = Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS);
             boolean hasV2 = Files.isRegularFile(dataFile, LinkOption.NOFOLLOW_LINKS);

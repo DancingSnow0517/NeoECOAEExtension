@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -29,7 +30,7 @@ public final class StorageFileHistory {
                     channel.force(true);
                 }
             }
-            Files.move(temporary, previous(file), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            replace(temporary, previous(file));
         } finally {
             Files.deleteIfExists(temporary);
         }
@@ -39,6 +40,19 @@ public final class StorageFileHistory {
     public static void archive(Path file) throws IOException {
         if (Files.isRegularFile(file)) {
             Files.copy(file, file.resolveSibling(file.getFileName() + ".recovery-" + UUID.randomUUID()));
+        }
+    }
+
+    public static void replace(Path temporary, Path target) throws IOException {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                return;
+            } catch (AccessDeniedException e) {
+                // Windows scanners can briefly hold a just-verified file; never truncate it as a fallback.
+                if (attempt >= 3 || Thread.currentThread().isInterrupted()) throw e;
+                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000L << attempt);
+            }
         }
     }
 }

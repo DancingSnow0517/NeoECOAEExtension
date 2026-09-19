@@ -134,6 +134,28 @@ class SavedDataECOStorageBackendTest {
     }
 
     @Test
+    void recoveryRetriesLiveQuantitiesButNeverCreatesEmptyDataAfterFailedLoad() throws Exception {
+        SharedConstants.tryDetectVersion();
+        var cell = create();
+        var key = key(cell, 1);
+        cell.insert(key, 10, Actionable.MODULATE);
+        cell.flushAndAwait();
+        cell.insert(key, 5, Actionable.MODULATE);
+        cell.persistenceFailed(new IOException("temporarily offline"));
+        assertTrue(cell.retryPersistence());
+        assertEquals(
+                15,
+                AtomicSavedDataFile.read(directory.resolve("cell.dat"))
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount"));
+        Path missing = directory.resolve("missing.dat");
+        var failedLoad = SavedDataECOStorageBackend.quarantined(UUID.randomUUID(), null, missing, 5, 100, "missing");
+        assertFalse(failedLoad.retryPersistence());
+        assertFalse(Files.exists(missing));
+    }
+
+    @Test
     void isolatedRecordsSurviveWorldSaveAndPreventDisassemblyOrMigration() throws Exception {
         SharedConstants.tryDetectVersion();
         UUID id = UUID.randomUUID();

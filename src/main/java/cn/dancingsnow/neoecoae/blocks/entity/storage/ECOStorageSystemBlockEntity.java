@@ -67,7 +67,6 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -518,6 +517,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncInfiniteModeChanges(previous);
             return;
         }
+        if (hostMode.isInfiniteState() && countInfiniteMembers() == 0) {
+            ECOInfiniteStorageEngine engine = getInfiniteEngine();
+            if (engine != null && engine.isHealthy() && engine.isEmpty()) {
+                // A recovered restore journal can finish before the controller's final mode NBT was saved.
+                exitInfiniteModeIfSafe();
+                syncInfiniteModeChanges(previous);
+                return;
+            }
+        }
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
@@ -718,6 +726,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             serverLevel.getChunkSource().save(true);
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.ensureRuntimeLoaded();
+        }
+        if (cell instanceof ECOUniversalStorageCell universalCell) {
+            try {
+                universalCell.transferSnapshot(); // Refuse to clear hidden/error records owned by OmniCells.
+            } catch (RuntimeException e) {
+                LOGGER.error("Cannot migrate universal cell with unresolved contents at {}", drive.getBlockPos(), e);
+                return false;
+            }
         }
         KeyCounter available = new KeyCounter();
         cell.getAvailableStacks(available);
@@ -986,99 +1002,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
 
-        // Persist stable destination UUIDs before publishing any cross-file transfer.
-        for (RestoreTarget target : plan.targets()) target.drive().getCellInventory();
-        serverLevel.getChunkSource().save(true);
-
-        KeyCounter pending = new KeyCounter();
-        engine.getAvailableStacks(pending);
-        Map<AEKey, BigInteger> expectedFinalAmounts = expectedFinalRestoreAmounts(plan.targets(), pending);
-        IActionSource source = IActionSource.ofMachine(this);
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            AEKey key = entry.getKey();
-            long remaining = engine.getAmount(key).toLongSaturated();
-            long original = remaining;
-            for (RestoreTarget target : plan.targets()) {
-                IECOStorageCell cell = target.drive().getCellInventory();
-                if (cell == null) {
-                    continue;
-                }
-                UUID transactionId =
-                        migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
-                ECODriveBlockEntity.RestoreReceipt receipt = target.drive().getRestoreReceiptDetails(transactionId);
-                if (receipt == null && target.drive().hasRestoreReceipt(transactionId)) {
-                    LOGGER.error(
-                            "Unverifiable restore receipt in matrix {}",
-                            target.drive().getBlockPos());
-                    return;
-                }
-                long inserted;
-                if (receipt != null) {
-                    if (receipt.amount() > remaining || !restoreReceiptMatches(cell, key, receipt)) {
-                        LOGGER.error(
-                                "Restore receipt no longer matches matrix {}",
-                                target.drive().getBlockPos());
-                        return;
-                    }
-                    inserted = receipt.amount();
-                } else {
-                    inserted = insertForRestore(cell, key, remaining, Actionable.MODULATE, source);
-                    if (inserted > 0L) {
-                        long postAmount = getCellStoredAmount(cell, key);
-                        if (postAmount < inserted) {
-                            LOGGER.error(
-                                    "Unable to verify restore write in matrix {}",
-                                    target.drive().getBlockPos());
-                            return;
-                        }
-                        target.drive().putRestoreReceipt(transactionId, inserted, postAmount);
-                    }
-                }
-                remaining -= inserted;
-                if (remaining <= 0L) {
-                    break;
-                }
-            }
-            if (remaining > 0L) {
-                logInfiniteRestoreWarning(
-                        "ECO infinite storage restore changed during execution; keeping domain {} mounted",
-                        infiniteDomainId);
-                engine.flushBudgeted(0L);
-                return;
-            }
-        }
-
-        if (engine.getRevision() != plan.engineRevision()) {
-            logInfiniteRestoreWarning(
-                    "ECO infinite storage domain {} changed before restore verification; keeping it mounted",
-                    infiniteDomainId);
-            engine.flushBudgeted(0L);
-            return;
-        }
-        if (!verifyRestoredContents(plan.targets(), expectedFinalAmounts)) {
-            LOGGER.error(
-                    "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
-                    infiniteDomainId);
-            engine.flushBudgeted(0L);
-            return;
-        }
-        if (!verifyRestoreReceipts(plan.targets(), pending)) {
-            LOGGER.error(
-                    "Unable to verify restored ECO storage receipts for domain {}; keeping the source domain",
-                    infiniteDomainId);
-            return;
-        }
-
+        List<StorageTransferJournal.Snapshot> snapshots = new ArrayList<>();
         try {
-            List<StorageTransferJournal.Snapshot> snapshots = new ArrayList<>();
+            // Planning operates on copies. No destination quantity is changed until the redo record is durable.
             for (RestoreTarget target : plan.targets()) {
                 IECOStorageCell cell = target.drive().getCellInventory();
                 snapshots.add(
                         cell instanceof ECOStorageCell nativeCell
-                                ? nativeCell.transferSnapshot()
-                                : ((ECOUniversalStorageCell) cell).transferSnapshot());
+                                ? nativeCell.transferSnapshot(target.simulatedContents())
+                                : ((ECOUniversalStorageCell) cell).transferSnapshot(target.simulatedContents()));
             }
+            // New cell UUIDs must be reachable from durable block entities before committing their inventories.
+            serverLevel.getChunkSource().save(true);
             if (!engine.restoreTo(snapshots)) throw new IllegalStateException("Storage transfer commit failed");
+            for (int i = 0; i < plan.targets().size(); i++) {
+                RestoreTarget target = plan.targets().get(i);
+                IECOStorageCell cell = target.drive().getCellInventory();
+                if (cell instanceof ECOStorageCell nativeCell) nativeCell.acceptTransferSnapshot(snapshots.get(i));
+                else ((ECOUniversalStorageCell) cell).acceptTransferSnapshot(snapshots.get(i));
+                target.drive().invalidateCellInventoryForHostChange();
+            }
         } catch (Exception failure) {
             for (RestoreTarget target : plan.targets()) {
                 IECOStorageCell cell = target.drive().getCellInventory();
@@ -1093,83 +1036,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         exitInfiniteModeIfSafe();
     }
 
-    private Map<AEKey, BigInteger> expectedFinalRestoreAmounts(List<RestoreTarget> targets, KeyCounter pending) {
-        KeyCounter baseline = collectRestoreTargetContents(targets);
-        Map<AEKey, BigInteger> expected = new HashMap<>();
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            AEKey key = entry.getKey();
-            long domainAmount = entry.getLongValue();
-            long alreadyRestored = 0L;
-            for (RestoreTarget target : targets) {
-                UUID transactionId =
-                        migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
-                alreadyRestored = saturatedAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
-            }
-            long outstanding = Math.max(0L, domainAmount - Math.min(domainAmount, alreadyRestored));
-            expected.put(key, BigInteger.valueOf(baseline.get(key)).add(BigInteger.valueOf(outstanding)));
-        }
-        return expected;
-    }
-
-    private boolean verifyRestoredContents(List<RestoreTarget> targets, Map<AEKey, BigInteger> expected) {
-        KeyCounter restored = collectRestoreTargetContents(targets);
-        for (Map.Entry<AEKey, BigInteger> entry : expected.entrySet()) {
-            if (!BigInteger.valueOf(restored.get(entry.getKey())).equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean verifyRestoreReceipts(List<RestoreTarget> targets, KeyCounter pending) {
-        for (Object2LongMap.Entry<AEKey> entry : pending) {
-            AEKey key = entry.getKey();
-            long expected = entry.getLongValue();
-            long receipted = 0L;
-            for (RestoreTarget target : targets) {
-                UUID transactionId =
-                        migrationTransactionId(infiniteDomainId, target.drive(), key, expected, "from-domain");
-                ECODriveBlockEntity.RestoreReceipt receipt = target.drive().getRestoreReceiptDetails(transactionId);
-                if (receipt == null) {
-                    if (target.drive().hasRestoreReceipt(transactionId)) {
-                        return false;
-                    }
-                    continue;
-                }
-                IECOStorageCell cell = target.drive().getCellInventory();
-                if (cell == null || !restoreReceiptMatches(cell, key, receipt)) {
-                    return false;
-                }
-                try {
-                    receipted = Math.addExact(receipted, receipt.amount());
-                } catch (ArithmeticException e) {
-                    return false;
-                }
-            }
-            if (receipted != expected) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private boolean restoreReceiptMatches(IECOStorageCell cell, AEKey key, ECODriveBlockEntity.RestoreReceipt receipt) {
         return receipt.amount() > 0L && getCellStoredAmount(cell, key) == receipt.postAmount();
     }
 
     private long getCellStoredAmount(IECOStorageCell cell, AEKey key) {
         return cell.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, IActionSource.ofMachine(this));
-    }
-
-    private KeyCounter collectRestoreTargetContents(List<RestoreTarget> targets) {
-        KeyCounter restored = new KeyCounter();
-        for (RestoreTarget target : targets) {
-            IECOStorageCell cell = target.drive().getCellInventory();
-            if (cell != null) {
-                cell.getAvailableStacks(restored);
-            }
-        }
-        return restored;
     }
 
     private long simulateInsertForMigration(
@@ -1189,12 +1061,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return cell instanceof ECOUniversalStorageCell universalCell
                 ? universalCell.getUsedBytesForMigration(simulatedContents)
                 : Long.MAX_VALUE;
-    }
-
-    private long insertForRestore(IECOStorageCell cell, AEKey key, long amount, Actionable mode, IActionSource source) {
-        return cell instanceof ECOStorageCell storageCell
-                ? storageCell.insertForMigration(key, amount, mode)
-                : cell.insert(key, amount, mode, source);
     }
 
     private record RestoreTarget(
@@ -1481,6 +1347,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
                 // Some members are converted before the domain becomes empty. Refresh every drive only after
                 // hostMode is normal again so AE2 sees a fresh normal-cell inventory during the provider rebuild.
+                drive.clearCompletedRestoreReceipts();
                 drive.invalidateCellInventoryForHostChange();
                 IStorageProvider.requestUpdate(drive.getMainNode());
                 drive.scheduleRenderUpdate();

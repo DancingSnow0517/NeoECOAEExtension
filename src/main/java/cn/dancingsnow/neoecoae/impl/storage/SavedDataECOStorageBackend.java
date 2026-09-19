@@ -6,6 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.InfiniteStorageEntries;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.InfiniteStorageSnapshot;
 import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -62,6 +63,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     private int storedTypes;
     private long revision;
     private boolean degraded;
+    private boolean failedLoad;
 
     @Nullable private String failureReason;
 
@@ -106,6 +108,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         backend.storedTypes = Math.max(0, summaryTypes);
         backend.storedAmount = Math.max(0L, summaryAmount);
         backend.degraded = true;
+        backend.failedLoad = true;
         backend.failureReason = reason;
         return backend;
     }
@@ -161,6 +164,21 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         return new StorageTransferJournal.Snapshot(dataFile, save(new CompoundTag()), false);
     }
 
+    synchronized StorageTransferJournal.Snapshot transferSnapshot(KeyCounter contents) {
+        CompoundTag snapshot = transferSnapshot().data();
+        ListTag entries = new ListTag();
+        for (var entry : contents) {
+            if (entry.getLongValue() <= 0) continue;
+            CompoundTag encoded = new CompoundTag();
+            encoded.put(TAG_KEY, entry.getKey().toTagGeneric());
+            encoded.putLong(TAG_AMOUNT, entry.getLongValue());
+            entries.add(encoded);
+        }
+        snapshot.put(TAG_ENTRIES, entries);
+        snapshot.putLong(TAG_REVISION, revision == Long.MAX_VALUE ? revision : revision + 1L);
+        return new StorageTransferJournal.Snapshot(dataFile, snapshot, false);
+    }
+
     synchronized void restoreSnapshot(CompoundTag snapshot) {
         ParsedData parsed = parse(snapshot, storageId);
         amounts.clear();
@@ -175,9 +193,24 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         legacyFingerprint = parsed.legacyFingerprint();
         lastSerializedSnapshot = snapshot.copy();
         degraded = false;
+        failedLoad = false;
         failureReason = null;
         setDirty(false);
         rebuildIndexes();
+    }
+
+    synchronized boolean needsLoadRecovery() {
+        return failedLoad;
+    }
+
+    synchronized boolean retryPersistence() {
+        if (!degraded) return true;
+        if (failedLoad) return false;
+        degraded = false;
+        failureReason = null;
+        setDirty();
+        flushAndAwait();
+        return !degraded;
     }
 
     synchronized boolean isFreshEmpty() {
@@ -408,9 +441,10 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             if (encoded == null || encoded.isEmpty()) {
                 return false;
             }
+            InfiniteStorageSnapshot.validateKey(encoded);
             encodedKeys.put(key, encoded.copy());
             return true;
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             LOGGER.error("Unable to serialize ECO storage key {}; rejecting operation", key, e);
             return false;
         }

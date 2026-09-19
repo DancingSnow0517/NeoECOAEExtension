@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
@@ -26,6 +25,10 @@ public final class AtomicSavedDataFile {
     }
 
     public static void write(Path file, CompoundTag data, int dataVersion) throws IOException {
+        write(file, data, dataVersion, true);
+    }
+
+    public static void write(Path file, CompoundTag data, int dataVersion, boolean retainPrevious) throws IOException {
         Path target = file.toAbsolutePath().normalize();
         Files.createDirectories(target.getParent());
         Path temporary = Files.createTempFile(target.getParent(), target.getFileName() + ".", ".tmp");
@@ -40,8 +43,8 @@ public final class AtomicSavedDataFile {
                 channel.force(true);
             }
             if (!data.equals(read(temporary))) throw new IOException("SavedData read-back mismatch: " + file);
-            StorageFileHistory.preserve(target);
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            if (retainPrevious) StorageFileHistory.preserve(target);
+            StorageFileHistory.replace(temporary, target);
         } finally {
             Files.deleteIfExists(temporary);
         }

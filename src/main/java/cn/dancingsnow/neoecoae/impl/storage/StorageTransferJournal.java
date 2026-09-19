@@ -15,6 +15,12 @@ import net.minecraft.nbt.Tag;
 /** A redo record for rare cross-file transfers, not a journal on the normal inventory hot path. */
 public final class StorageTransferJournal {
     private static final String DIRECTORY = "neoecoae_transfers";
+    private static final java.util.Set<Path> BLOCKED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(StorageTransferJournal.class);
+
+    public static boolean isBlocked(Path file) {
+        return BLOCKED.contains(file.toAbsolutePath().normalize());
+    }
 
     public record Snapshot(Path file, CompoundTag data, boolean infinite) {}
 
@@ -39,11 +45,17 @@ public final class StorageTransferJournal {
         Path path = root.resolve(DIRECTORY).resolve(transaction + ".dat");
         validate(root, journal);
         AtomicSavedDataFile.write(path, journal, version);
-        replay(root, path, journal, afterWrite);
+        try {
+            replay(root, path, journal, afterWrite);
+        } catch (IOException | RuntimeException e) {
+            validate(root, journal).forEach(write -> BLOCKED.add(write.file()));
+            throw e;
+        }
     }
 
     /** Runs before Minecraft opens levels or any inventory caches; replay needs no mod registry access. */
     public static void recoverAll(Path world) throws IOException {
+        BLOCKED.clear();
         Path root = world.toAbsolutePath().normalize().resolve("data");
         Path directory = root.resolve(DIRECTORY);
         if (!Files.isDirectory(directory)) return;
@@ -51,7 +63,17 @@ public final class StorageTransferJournal {
             for (Path path : paths.filter(p -> p.getFileName().toString().endsWith(".dat"))
                     .sorted()
                     .toList()) {
-                replay(root, path, AtomicSavedDataFile.read(path), () -> {});
+                CompoundTag journal = AtomicSavedDataFile.read(path);
+                List<Snapshot> affected = validate(root, journal);
+                try {
+                    replay(root, path, journal, () -> {});
+                } catch (IOException e) {
+                    affected.forEach(write -> BLOCKED.add(write.file()));
+                    LOGGER.error(
+                            "Pending storage transfer could not finish; only its inventories are unavailable: {}",
+                            path,
+                            e);
+                }
             }
         }
     }
@@ -99,6 +121,8 @@ public final class StorageTransferJournal {
         for (Snapshot write : writes) {
             if (write.infinite()) {
                 InfiniteStorageSnapshot.write(write.file(), write.data(), journal.getInt("data_version"));
+                StorageFileHistory.preserve(
+                        write.file().resolveSibling(write.file().getFileName() + ".delta.dat"));
                 Files.deleteIfExists(write.file().resolveSibling(write.file().getFileName() + ".delta.dat"));
                 InfiniteStorageSnapshot.markCommitted(write.file(), write.data(), journal.getInt("data_version"));
             } else {

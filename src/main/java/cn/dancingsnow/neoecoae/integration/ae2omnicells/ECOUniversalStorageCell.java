@@ -60,6 +60,31 @@ public final class ECOUniversalStorageCell implements IECOStorageCell {
         if (data != null) data.setDirty(false);
     }
 
+    public StorageTransferJournal.Snapshot transferSnapshot(KeyCounter contents) {
+        var original = transferSnapshot();
+        var entries = new net.minecraft.nbt.ListTag();
+        for (var entry : contents) {
+            if (entry.getLongValue() <= 0) continue;
+            CompoundTag encoded = new CompoundTag();
+            encoded.put("key", entry.getKey().toTagGeneric());
+            encoded.putLong("amount", entry.getLongValue());
+            entries.add(encoded);
+        }
+        original.data().getCompound("inventory").put("entries", entries);
+        return original;
+    }
+
+    public void acceptTransferSnapshot(StorageTransferJournal.Snapshot snapshot) {
+        UUID id = UUID.fromString(stack.getOrCreateTag().getString(AEUniversalCellData.UUID_TAG));
+        var data = AEUniversalCellData.getCellDataByUUID(id);
+        if (data == null) throw new IllegalStateException("Missing universal cell data");
+        var restored = AEUniversalCellData.load(snapshot.data());
+        data.getOriginalStorage().clear();
+        data.getOriginalStorage().putAll(restored.getOriginalStorage());
+        data.setDirty(false);
+        delegate.persist();
+    }
+
     @Override
     public IECOTier getTier() {
         return item.getTier();

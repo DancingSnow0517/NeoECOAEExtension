@@ -52,6 +52,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         public boolean isHostRemoved() {
             return ECODriveBlockEntity.this.isRemoved();
         }
+
+        @Override
+        public void onStorageRecovered() {
+            invalidateCellInventoryForHostChange();
+            requestStorageProviderUpdate();
+        }
     };
 
     @Nullable private ItemStack cellStack = null;
@@ -315,6 +321,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         restoreReceipts.put(transactionId, new RestoreReceipt(amount, postAmount));
         unverifiableRestoreReceipts.remove(transactionId);
+        setChanged();
+    }
+
+    public void clearCompletedRestoreReceipts() {
+        if (restoreReceipts.isEmpty() && unverifiableRestoreReceipts.isEmpty()) return;
+        restoreReceipts.clear();
+        unverifiableRestoreReceipts.clear();
         setChanged();
     }
 

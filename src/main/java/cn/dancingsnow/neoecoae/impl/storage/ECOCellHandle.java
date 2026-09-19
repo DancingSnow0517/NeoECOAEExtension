@@ -142,14 +142,16 @@ public final class ECOCellHandle {
         CompoundTag tag = stack.getOrCreateTag();
         tag.putInt(TAG_VERSION, VERSION);
         tag.putString(TAG_STATE, "missing_data");
-        tag.remove(LEGACY_CONTENTS_TAG);
     }
 
     public static void markLocked(ItemStack stack) {
         CompoundTag tag = stack.getOrCreateTag();
         tag.putInt(TAG_VERSION, VERSION);
         tag.putString(TAG_STATE, "locked");
-        tag.remove(LEGACY_CONTENTS_TAG);
+    }
+
+    public static boolean isLocked(ItemStack stack) {
+        return stack.hasTag() && "locked".equals(stack.getTag().getString(TAG_STATE));
     }
 
     public static void clearProblemState(ItemStack stack) {
