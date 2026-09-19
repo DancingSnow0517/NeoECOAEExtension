@@ -1,4 +1,6 @@
-package cn.dancingsnow.neoecoae.api.me;
+package cn.dancingsnow.neoecoae.crafting.execution;
+
+import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -151,9 +153,9 @@ class ECOFastPathFacadeTest {
         when(provider.eco$prepareFastPath(any())).thenReturn(
             new ECOFastPathDispatchProvider.Preparation(8, null, false,
                 batch -> batch.inputTotal().getFirst().amount() == 14));
-        var execution = mock(cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution.class);
+        var execution = mock(cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution.class);
         when(execution.canUseFastPath()).thenReturn(true);
-        when(execution.fastPathType()).thenReturn(cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier.Type.NORMAL);
+        when(execution.fastPathType()).thenReturn(cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL);
         when(execution.arithmeticBatchLimit()).thenReturn(100L);
         when(execution.inputItems()).thenReturn(java.util.List.of(new appeng.api.stacks.GenericStack(key, 2)));
         when(execution.expectedOutputs()).thenReturn(java.util.List.of(new appeng.api.stacks.GenericStack(key, 3)));
@@ -162,8 +164,8 @@ class ECOFastPathFacadeTest {
         input.add(key, 2);
         var slots = new KeyCounter[]{input};
         inventory.list.add(key, 6); // The external CPU already allocated 14 of its original 20 inputs.
-        try (var introspection = mockStatic(cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution.class)) {
-            introspection.when(() -> cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution
+        try (var introspection = mockStatic(cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution.class)) {
+            introspection.when(() -> cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution
                 .fromProviderPush(pattern, slots, null)).thenReturn(execution);
             var batch = ECOFastPathFacade.prepareAllocated(provider, pattern, slots, 7, null, null);
             assertNotNull(batch);

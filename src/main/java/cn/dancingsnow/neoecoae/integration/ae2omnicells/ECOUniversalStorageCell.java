@@ -9,6 +9,7 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
@@ -21,11 +22,15 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
     private final StorageCell delegate;
     private final ItemStack stack;
     private final ECOUniversalStorageCellItem item;
+    private final boolean sealed;
 
     public ECOUniversalStorageCell(StorageCell delegate, ItemStack stack, ECOUniversalStorageCellItem item) {
         this.delegate = delegate;
         this.stack = stack;
         this.item = item;
+        // Sealed state changes replace CUSTOM_DATA and trigger a storage-provider refresh.
+        // Cache it for the lifetime of this mounted cell so hot ME operations do not parse NBT.
+        this.sealed = ECOInfiniteStorageMember.isSealed(stack);
     }
 
     @Override
@@ -75,8 +80,7 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return !cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)
-            && delegate.canFitInsideCell();
+        return !sealed && delegate.canFitInsideCell();
     }
 
     @Override
@@ -91,7 +95,7 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return 0L;
+        if (sealed) return 0L;
         return delegate.insert(what, amount, mode, source);
     }
 
@@ -207,13 +211,13 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return 0L;
+        if (sealed) return 0L;
         return delegate.extract(what, amount, mode, source);
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(stack)) return;
+        if (sealed) return;
         delegate.getAvailableStacks(out);
     }
 
