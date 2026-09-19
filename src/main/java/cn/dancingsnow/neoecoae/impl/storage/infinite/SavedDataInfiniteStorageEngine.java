@@ -101,6 +101,8 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Nullable private CompletableFuture<Void> pendingSnapshot;
 
+    private long nextCheckpointNanos;
+
     // Cumulative differences from the last full snapshot, including across delta commits.
     // Returning to the base amount removes the difference, not a previously committed receipt.
     private final Map<AEKey, PendingChange> changedKeys = new HashMap<>();
@@ -475,6 +477,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Override
     public synchronized boolean restoreTo(List<StorageTransferJournal.Snapshot> targets) {
+        finishSnapshot(true);
         if (!canTransfer() || targets.isEmpty()) return false;
         CompoundTag empty = save(new CompoundTag());
         empty.put(TAG_ENTRIES, new ListTag());
@@ -541,6 +544,12 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         return state == ECOInfiniteDomainState.READY;
     }
 
+    synchronized void stopForReplacement() {
+        finishSnapshot(true);
+        state = ECOInfiniteDomainState.CLOSED;
+        setDirty(false);
+    }
+
     @Override
     public synchronized ECOInfiniteDomainState getState() {
         finishSnapshot(false);
@@ -557,19 +566,43 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         // 1.20.1 SavedData has a synchronous save contract. In particular /save-all flush must not
         // return before this domain is committed. The I/O worker may only consume frozen NBT.
         finishSnapshot(true);
+        if (!dataFile.equals(file.toPath().toAbsolutePath().normalize())) {
+            persistenceFailed(new IllegalArgumentException("Unexpected infinite-storage snapshot path: " + file));
+            return;
+        }
+        startSnapshot(true);
+    }
+
+    @Override
+    public synchronized void flushBudgeted(long maxNanos) {
+        if (maxNanos <= 0L) {
+            flushAndAwait();
+            return;
+        }
+        finishSnapshot(false);
+        long now = System.nanoTime();
+        if (now < nextCheckpointNanos || pendingSnapshot != null) return;
+        nextCheckpointNanos = now + 5_000_000_000L;
+        startSnapshot(false);
+    }
+
+    private void startSnapshot(boolean await) {
         // DimensionDataStorage invokes this during autosave even for quarantined domains.
         if (state != ECOInfiniteDomainState.READY || !isDirty() || pendingSnapshot != null) {
             return;
         }
         try {
-            if (!dataFile.equals(file.toPath().toAbsolutePath().normalize())) {
-                throw new IllegalArgumentException("Unexpected infinite-storage snapshot path: " + file);
-            }
             boolean incremental = baseRevision >= 0L
                     && revision > baseRevision
                     && revision < Long.MAX_VALUE
                     && changedKeys.size() <= Math.max(1024, amounts.size() / 4);
             CompoundTag snapshot = incremental ? deltaSnapshot() : save(new CompoundTag());
+            // Mutations during the write are tracked relative to this frozen base, never discarded on completion.
+            if (incremental) lastSerializedSnapshot = null;
+            else {
+                baseRevision = revision;
+                changedKeys.clear();
+            }
             int dataVersion =
                     SharedConstants.getCurrentVersion().getDataVersion().getVersion();
             // The worker owns an immutable copy and never accesses AE keys, the live inventory, or the world.
@@ -590,19 +623,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData
                     },
                     Util.ioPool());
             setDirty(false);
-            finishSnapshot(true);
-            if (state == ECOInfiniteDomainState.READY) {
-                if (incremental) {
-                    lastSerializedSnapshot = null;
-                } else {
-                    baseRevision = revision;
-                    changedKeys.clear();
-                }
-            }
+            finishSnapshot(await);
         } catch (Exception e) {
             persistenceFailed(e);
         }
-        finishSnapshot(true);
+        finishSnapshot(await);
     }
 
     private void finishSnapshot(boolean await) {

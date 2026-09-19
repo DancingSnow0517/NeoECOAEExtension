@@ -49,6 +49,27 @@ class SavedDataInfiniteStoragePersistenceTest {
     }
 
     @Test
+    void mutationsDuringBackgroundFullSnapshotRemainDirtyAndSurviveForcedSave() throws Exception {
+        Path path = directory.resolve("background.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 100, Actionable.MODULATE);
+        engine.flushBudgeted(500_000L);
+        engine.extract(key, 40, Actionable.MODULATE);
+        engine.insert(key, 7, Actionable.MODULATE);
+        assertTrue(engine.isDirty());
+        engine.save(path.toFile());
+        assertFalse(engine.needsPersistence());
+        assertEquals(
+                67,
+                InfiniteStorageSnapshot.read(path)
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount_long"));
+    }
+
+    @Test
     void missingCommittedDeltaCannotSilentlyRollBackInventory() throws Exception {
         Path path = directory.resolve("domain.dat");
         var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);

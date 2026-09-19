@@ -177,6 +177,8 @@ public final class ECOInfiniteStorageDomains {
         if (Files.exists(root.resolve("data/neoecoae_transfers").resolve(domainId + ".dat"))) {
             throw new IOException("Pending transfer must be recovered by restarting first");
         }
+        DomainEntry entry = ENTRIES.get(keyFor(root, domainId));
+        if (entry != null && entry.delegate != null) entry.delegate.stopForReplacement();
         var snapshot = InfiniteStorageSnapshot.previousSnapshot(file);
         var storage = level.getServer().overworld().getDataStorage();
         var replacement = SavedDataInfiniteStorageEngine.load(snapshot, domainId, storage, file);
@@ -187,7 +189,6 @@ public final class ECOInfiniteStorageDomains {
         InfiniteStorageSnapshot.write(file, snapshot, version);
         Files.deleteIfExists(InfiniteStorageDelta.path(file));
         InfiniteStorageSnapshot.markCommitted(file, snapshot, version);
-        DomainEntry entry = ENTRIES.get(keyFor(root, domainId));
         if (entry != null) {
             if (entry.delegate != null) ECOSavedDataPersistence.unregister(entry.delegate);
             entry.delegate = replacement;
@@ -710,6 +711,12 @@ public final class ECOInfiniteStorageDomains {
             if (engine != null) {
                 engine.flushAndAwait();
             }
+        }
+
+        @Override
+        public void flushBudgeted(long maxNanos) {
+            SavedDataInfiniteStorageEngine engine = current();
+            if (engine != null) engine.flushBudgeted(maxNanos);
         }
 
         @Override
