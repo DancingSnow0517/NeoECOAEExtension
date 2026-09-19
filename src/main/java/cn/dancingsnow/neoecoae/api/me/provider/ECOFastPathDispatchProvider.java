@@ -4,7 +4,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKey;
 import java.math.BigInteger;
 import java.util.Map;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;

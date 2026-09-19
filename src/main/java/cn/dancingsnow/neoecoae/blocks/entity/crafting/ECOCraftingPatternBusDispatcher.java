@@ -5,12 +5,12 @@ import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -262,7 +262,7 @@ final class ECOCraftingPatternBusDispatcher {
         }
         long available = 0L;
         for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
-            available = cn.dancingsnow.neoecoae.util.NEMath.saturatingAdd(
+            available = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
                 available, worker.getAvailableBatchCapacity());
         }
         return (int) Math.min(Integer.MAX_VALUE, available);

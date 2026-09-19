@@ -5,8 +5,8 @@ import appeng.menu.guisync.PacketWritable;
 import java.util.ArrayList;
 import java.util.List;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Cycle members synchronized with the crafting confirmation screen. */

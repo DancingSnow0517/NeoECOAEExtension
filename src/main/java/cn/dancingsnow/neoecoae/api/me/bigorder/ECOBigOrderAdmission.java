@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import java.math.BigInteger;
 import java.util.function.LongUnaryOperator;
 
@@ -24,9 +24,9 @@ public final class ECOBigOrderAdmission {
     public static boolean allows(ECOPlanningResult result, boolean forced) {
         if (result == null || result.plan() == null || !allows(result.status(), forced)) return false;
         if (result.components().stream().anyMatch(component ->
-                component.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED
-                || component.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.UNSUPPORTED
-                || component.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.SOLVED_NOT_EMITTED))
+                component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED
+                || component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNSUPPORTED
+                || component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.SOLVED_NOT_EMITTED))
             return false;
         return forced || result.trace().nodes().stream().noneMatch(node -> node.exactMissing().signum() > 0);
     }

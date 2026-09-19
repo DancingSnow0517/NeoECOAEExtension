@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.compat.fluxnetworks;
 
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import org.spongepowered.asm.mixin.Mixin;

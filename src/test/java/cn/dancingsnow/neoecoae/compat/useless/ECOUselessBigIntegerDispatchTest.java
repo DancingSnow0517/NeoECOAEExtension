@@ -91,13 +91,13 @@ class ECOUselessBigIntegerDispatchTest {
         var context = new cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext(pattern,
             java.util.List.of(java.util.List.of(new appeng.api.stacks.GenericStack(input, 9))),
             java.util.List.of(new appeng.api.stacks.GenericStack(output, 4)), java.util.List.of(), null, null);
-        var rejected = cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExactBatchCraftingExecutor.prepare(
+        var rejected = cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExactBatchCraftingExecutor.prepare(
             adapter, context, exact, copies, java.util.Map.of());
         target.reject = true;
         assertFalse(rejected.submit(energy));
         assertEquals(copies.multiply(BigInteger.valueOf(9)), exact.amount(input));
         target.reject = false;
-        var accepted = cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExactBatchCraftingExecutor.prepare(
+        var accepted = cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExactBatchCraftingExecutor.prepare(
             adapter, context, exact, copies, java.util.Map.of());
         assertEquals(copies, accepted.craftCount());
         assertEquals(copies.multiply(BigInteger.valueOf(4)), accepted.outputs().get(output));

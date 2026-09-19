@@ -6,7 +6,7 @@ import appeng.client.gui.me.common.MEStorageScreen;
 import appeng.client.gui.me.common.Repo;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.menu.me.common.GridInventoryEntry;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountComparator;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountComparator;
 import java.util.Comparator;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;

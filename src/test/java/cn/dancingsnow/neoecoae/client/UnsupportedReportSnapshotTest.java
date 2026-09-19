@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.client;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.bridge.AE2CraftingPlanBridge;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.trace.ECOPlanTrace;
+import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.math.BigInteger;
 import java.util.List;
 import org.junit.jupiter.api.Test;

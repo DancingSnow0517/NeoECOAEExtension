@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.AE2PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;

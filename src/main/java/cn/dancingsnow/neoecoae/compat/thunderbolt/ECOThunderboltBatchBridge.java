@@ -5,7 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;

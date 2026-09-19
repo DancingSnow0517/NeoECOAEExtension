@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmount;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountClientCache;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;

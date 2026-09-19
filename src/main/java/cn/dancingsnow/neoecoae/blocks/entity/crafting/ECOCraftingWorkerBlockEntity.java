@@ -8,11 +8,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingThread;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
@@ -180,7 +180,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void terminateRunningJobs() {
         if (!(level instanceof ServerLevel)) return;
         for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
-            cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
+            cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
         }
         reconcileJobTermination();
     }

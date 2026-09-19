@@ -6,7 +6,7 @@ import appeng.crafting.execution.ExecutingCraftingJob;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.api.me.ECOExternalCpuFastPath;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;

@@ -11,7 +11,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.items.storage.CreativeCellItem;
 import appeng.me.cells.CreativeCellHandler;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;

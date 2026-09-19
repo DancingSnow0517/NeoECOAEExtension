@@ -10,9 +10,9 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingExecutor;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
 import java.util.UUID;
 import java.util.Objects;
@@ -90,7 +90,7 @@ public final class ECOFastPathFacade {
         if (!(provider instanceof ECOFastPathDispatchProvider) || allocatedCopies <= 0) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier.Type.NORMAL) {
+                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL) {
             return null;
         }
         long bounded = Math.min(allocatedCopies, execution.arithmeticBatchLimit());

@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;

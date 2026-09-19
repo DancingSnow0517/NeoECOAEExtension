@@ -6,8 +6,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemanticAdapters;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.io.IOException;
@@ -36,7 +36,7 @@ class ThunderboltRuntimeContractTest {
         String api = ThunderboltApi.class.getName();
         String adapter = ThunderPatternSemanticAdapter.class.getName();
         String registry = PatternSemanticAdapters.class.getName();
-        String dispatcher = "cn.dancingsnow.neoecoae.api.me.ECOProcessingPatternDispatcher$Contract";
+        String dispatcher = "cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingPatternDispatcher$Contract";
         var isolated = Set.of(api, adapter, registry, dispatcher);
         var parent = getClass().getClassLoader();
         var loader = new ClassLoader(parent) {
@@ -195,7 +195,7 @@ class ThunderboltRuntimeContractTest {
     }
 
     private static Method dispatcherMethod(String name, Class<?>... parameters) throws Exception {
-        var type = Class.forName("cn.dancingsnow.neoecoae.api.me.ECOProcessingPatternDispatcher$Contract");
+        var type = Class.forName("cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingPatternDispatcher$Contract");
         var method = type.getDeclaredMethod(name, parameters);
         method.setAccessible(true);
         return method;

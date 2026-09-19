@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
-import cn.dancingsnow.neoecoae.impl.crafting.ECOForcedCraftingPlan;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -40,7 +40,7 @@ public abstract class CraftConfirmMenuForceStartMixin implements ECOForceCraftSt
         if ((Object) menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$shouldShowFastPlannerReport()
                 && mode.neoecoae$getPlanningStatus()
-                    != cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.MISSING_ITEMS) return;
+                    != cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS) return;
         neoecoae$forceCraftStartActive = true;
         neoecoae$originalSimulationResult = result;
         result = new ECOForcedCraftingPlan(result);

@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
+import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOSophisticatedMutationBatch;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageTickBudget;

@@ -52,8 +52,8 @@ public abstract class CraftingCpuScreenMixin {
 
     @org.spongepowered.asm.mixin.Unique
     private static String neoecoae$amount(java.math.BigInteger amount) {
-        return cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountFormatter.full(
-            cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmount.finite(amount));
+        return cn.dancingsnow.neoecoae.crafting.display.format.ExactAmountFormatter.full(
+            cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount));
     }
     @WrapOperation(
         method = "render",

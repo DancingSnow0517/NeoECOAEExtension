@@ -7,16 +7,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class ECOBigOrderAdmissionTest {
     @Test void unresolvedAndUnemittedCyclesRemainRejectedEvenWhenForced() {
         for (var status : java.util.List.of(
-                cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED,
-                cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.UNSUPPORTED,
-                cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.SOLVED_NOT_EMITTED)) {
-            var result = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult.class);
+                cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED,
+                cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNSUPPORTED,
+                cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.SOLVED_NOT_EMITTED)) {
+            var result = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult.class);
             org.mockito.Mockito.when(result.status()).thenReturn(
-                cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE);
+                cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE);
             org.mockito.Mockito.when(result.plan()).thenReturn(org.mockito.Mockito.mock(appeng.crafting.CraftingPlan.class));
             org.mockito.Mockito.when(result.components()).thenReturn(java.util.List.of(
-                new cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult(1,
-                    cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC,
+                new cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult(1,
+                    cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC,
                     status, java.util.Map.of(), null, null)));
             assertFalse(ECOBigOrderAdmission.allows(result, false), status.name());
             assertFalse(ECOBigOrderAdmission.allows(result, true), status.name());

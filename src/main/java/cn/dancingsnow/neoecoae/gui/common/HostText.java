@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.util.ExtendedDecimalUnits;
-import cn.dancingsnow.neoecoae.util.DisplayNumbers;
+import cn.dancingsnow.neoecoae.crafting.display.format.ExtendedDecimalUnits;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.network.chat.Component;
 
 import java.math.BigDecimal;

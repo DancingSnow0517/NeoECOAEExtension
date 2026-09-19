@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;

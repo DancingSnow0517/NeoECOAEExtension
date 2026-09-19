@@ -23,14 +23,14 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -118,14 +118,14 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique
-    private cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
+    private cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
         var grid = getGrid();
         if (grid == null) return null;
-        if (selectedCpu != null) return selectedCpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU eco
+        if (selectedCpu != null) return selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco
                 && !eco.isBusy() && eco.isActive() && grid.getCraftingService().getCpus().contains(eco) ? eco : null;
         return grid.getCraftingService().getCpus().stream()
-                .filter(cpu -> cpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU)
-                .map(cpu -> (cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU) cpu)
+                .filter(cpu -> cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU)
+                .map(cpu -> (cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU) cpu)
                 .filter(cpu -> !cpu.isBusy() && cpu.isActive()
                     && cpu.getSelectionMode() != appeng.api.config.CpuSelectionMode.MACHINE_ONLY)
                 .findFirst().orElse(null);
@@ -136,7 +136,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (neoecoae$confirmedPlanningResult != null
                 && cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(
                     neoecoae$confirmedPlanningResult.status(), true)
-                && cpu instanceof cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU)
+                && cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU)
             cir.setReturnValue(!cpu.isBusy());
     }
 
@@ -159,9 +159,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 "[big-order-submit] Admission denied: container={}, status={}, forced={}, hasPlan={}, components={}, missingNodes={}",
                 menu.containerId, exact.status(), forced, exact.plan() != null,
                 exact.components().stream().filter(component -> component.status()
-                        != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
+                        != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
                     && component.status()
-                        != cn.dancingsnow.neoecoae.impl.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED)
+                        != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED)
                     .map(component -> component.componentId() + ":" + component.status()).toList(),
                 exact.trace().nodes().stream().filter(node -> node.exactMissing().signum() > 0).count());
             neoecoae$rejectBigOrder("ADMISSION_DENIED", appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
@@ -176,7 +176,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             return;
         }
         if (!forced) {
-            var inventory = cn.dancingsnow.neoecoae.impl.crafting.planner.ECOPlannerInventory.capture(grid);
+            var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
             for (var node : exact.trace().nodes()) {
                 if (node.key() == null || node.exactFromInventory().signum() <= 0) continue;
                 var required = node.exactFromInventory();
@@ -196,9 +196,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 }
             }
         }
-        final cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan completePlan;
+        final cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan completePlan;
         try {
-            completePlan = new cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan(exact, forced);
+            completePlan = new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, forced);
         } catch (RuntimeException invalid) {
             NEOECOAE_LOGGER.warn("[big-order-submit] Complete execution plan rejected", invalid);
             neoecoae$rejectBigOrder("EXACT_EXECUTION_PLAN_INVALID",
@@ -718,7 +718,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique
     private static java.math.BigInteger neoecoae$exactAmountFor(
-            List<cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
+            List<cn.dancingsnow.neoecoae.crafting.planner.snapshot.ExactKeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).map(value -> value.amount().value())
             .findFirst().orElse(java.math.BigInteger.ZERO);
     }
