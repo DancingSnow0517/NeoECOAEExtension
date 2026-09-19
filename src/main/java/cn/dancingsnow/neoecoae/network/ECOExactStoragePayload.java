@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.network;
 
+import appeng.api.config.Settings;
+import appeng.api.config.SortOrder;
 import appeng.api.stacks.AEKey;
+import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.ECOExactStorageMenu;
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -51,6 +54,12 @@ public record ECOExactStoragePayload(int containerId, Map<AEKey, BigInteger> amo
                     && player.containerMenu.containerId == payload.containerId()
                     && player.containerMenu instanceof ECOExactStorageMenu menu) {
                 menu.neoecoae$setExactAmounts(payload.amounts());
+                // Exact amounts can change while AE2's saturated long amounts remain unchanged.
+                if (player.containerMenu instanceof MEStorageMenu storageMenu
+                        && storageMenu.getClientRepo() instanceof appeng.client.gui.me.common.Repo repo
+                        && storageMenu.getConfigManager().getSetting(Settings.SORT_BY) == SortOrder.AMOUNT) {
+                    repo.updateView();
+                }
             }
         }
     }
