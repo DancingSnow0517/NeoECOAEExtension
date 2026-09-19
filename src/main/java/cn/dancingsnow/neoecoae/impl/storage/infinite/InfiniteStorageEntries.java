@@ -14,14 +14,29 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 
 /** Partitions inventory records without letting one invalid record hide unrelated resources. */
-final class InfiniteStorageEntries {
-    record Entry<K>(K key, CompoundTag encodedKey, HugeAmount amount) {}
+public final class InfiniteStorageEntries {
+    public record Entry<K>(K key, CompoundTag encodedKey, HugeAmount amount) {}
 
-    record Result<K>(List<Entry<K>> available, List<CompoundTag> retained, List<String> failures, Set<K> blockedKeys) {}
+    public record Result<K>(
+            List<Entry<K>> available, List<CompoundTag> retained, List<String> failures, Set<K> blockedKeys) {}
 
     private InfiniteStorageEntries() {}
 
     static <K> Result<K> read(ListTag entries, Function<CompoundTag, K> decode) {
+        return read(entries, decode, InfiniteStorageEntries::amount);
+    }
+
+    public static <K> Result<K> readOrdinary(ListTag entries, Function<CompoundTag, K> decode) {
+        return read(entries, decode, entry -> {
+            if (!entry.contains("amount", Tag.TAG_LONG) || entry.getLong("amount") <= 0L) {
+                throw new IllegalArgumentException("Invalid ordinary cell amount");
+            }
+            return HugeAmount.of(entry.getLong("amount"));
+        });
+    }
+
+    private static <K> Result<K> read(
+            ListTag entries, Function<CompoundTag, K> decode, Function<CompoundTag, HugeAmount> readAmount) {
         Map<CompoundTag, Integer> encodedCounts = new HashMap<>();
         Map<K, Integer> keyCounts = new HashMap<>();
         List<K> keys = new ArrayList<>();
@@ -58,7 +73,7 @@ final class InfiniteStorageEntries {
                 if (encodedCounts.get(encoded) != 1 || key != null && keyCounts.get(key) != 1) {
                     throw new IllegalArgumentException("Conflicting duplicate AEKey; all copies retained");
                 }
-                available.add(new Entry<>(key, encoded.copy(), amount(entry)));
+                available.add(new Entry<>(key, encoded.copy(), readAmount.apply(entry)));
             } catch (RuntimeException e) {
                 retained.add(entry.copy());
                 failures.add("entry[" + i + "]: " + e.getMessage());

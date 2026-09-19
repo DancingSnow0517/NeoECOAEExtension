@@ -356,6 +356,8 @@ public class ECOStorageCell implements IECOStorageCell {
             return;
         }
         ensureRuntimeLoaded();
+        if (!backend.canTransfer())
+            throw new IllegalStateException("Cell has unresolved contents; refusing to clear it");
         KeyCounter available = new KeyCounter();
         backend.getAvailableStacks(available);
         for (var entry : available) {
@@ -367,6 +369,13 @@ public class ECOStorageCell implements IECOStorageCell {
         this.saveChanges();
         backend.flushBudgeted(0L);
         updateSummary();
+    }
+
+    @Override
+    public boolean isInfiniteStorageEligible() {
+        return backend == null
+                ? !ECOCellHandle.isMissing(cellStack) && !ECOCellHandle.hasNonEmptySummary(cellStack)
+                : backend.canTransfer();
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {

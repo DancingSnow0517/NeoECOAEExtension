@@ -133,6 +133,28 @@ class SavedDataECOStorageBackendTest {
         return SavedDataECOStorageBackend.createNew(UUID.randomUUID(), null, directory.resolve("cell.dat"));
     }
 
+    @Test
+    void isolatedRecordsSurviveWorldSaveAndPreventDisassemblyOrMigration() throws Exception {
+        SharedConstants.tryDetectVersion();
+        UUID id = UUID.randomUUID();
+        Path file = directory.resolve("retained.dat");
+        var original = SavedDataECOStorageBackend.createNew(id, null, file);
+        CompoundTag data = original.save(new CompoundTag());
+        CompoundTag broken = new CompoundTag();
+        broken.putString("evidence", "retain exactly");
+        data.getList("entries", 10).add(broken);
+        var loaded = SavedDataECOStorageBackend.load(data, id, null, file);
+        assertFalse(loaded.isDegraded());
+        assertFalse(loaded.canTransfer());
+        assertFalse(loaded.isEmpty());
+        assertThrows(IllegalStateException.class, loaded::copyContents);
+        loaded.setDirty();
+        loaded.flushAndAwait();
+        assertEquals(
+                broken, AtomicSavedDataFile.read(file).getList("entries", 10).getCompound(0));
+        assertFalse(loaded.isDegraded());
+    }
+
     private static TestKey key(SavedDataECOStorageBackend backend, int id) throws Exception {
         var key = new TestKey(id);
         cacheEncoding(backend, key);

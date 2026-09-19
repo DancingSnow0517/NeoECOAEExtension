@@ -32,6 +32,10 @@ public interface ECOStorageBackend {
 
     void closeAndFlush();
 
+    default boolean canTransfer() {
+        return !isDegraded();
+    }
+
     /**
      * A backend whose data could not be read back. It refuses every operation and is never written out, so a transient
      * failure cannot end with good contents being overwritten by an apparently empty inventory.

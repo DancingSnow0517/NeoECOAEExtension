@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.InfiniteStorageEntries;
 import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -12,10 +13,13 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
@@ -51,6 +55,8 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     private final Object2LongLinkedOpenHashMap<AEKey> amounts = new Object2LongLinkedOpenHashMap<>();
     private final Map<AEKey, CompoundTag> encodedKeys = new LinkedHashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
+    private final List<CompoundTag> retainedEntries = new ArrayList<>();
+    private final Set<AEKey> blockedKeys = new HashSet<>();
 
     private long storedAmount;
     private int storedTypes;
@@ -80,6 +86,8 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         SavedDataECOStorageBackend backend = new SavedDataECOStorageBackend(expectedStorageId, dataStorage, dataFile);
         backend.amounts.putAll(parsed.amounts());
         backend.encodedKeys.putAll(parsed.encodedKeys());
+        backend.retainedEntries.addAll(parsed.retainedEntries());
+        backend.blockedKeys.addAll(parsed.blockedKeys());
         backend.revision = parsed.revision();
         backend.legacyFingerprint = parsed.legacyFingerprint();
         backend.lastSerializedSnapshot = tag.copy();
@@ -138,7 +146,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     }
 
     synchronized Map<AEKey, Long> copyContents() {
-        if (degraded) {
+        if (!canTransfer()) {
             throw new IllegalStateException("Cannot copy a quarantined ECO storage cell: " + failureReason);
         }
         return Map.copyOf(amounts);
@@ -149,7 +157,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     }
 
     synchronized boolean isFreshEmpty() {
-        return !degraded && amounts.isEmpty() && revision == 0L && legacyFingerprint == null;
+        return canTransfer() && amounts.isEmpty() && revision == 0L && legacyFingerprint == null;
     }
 
     @Nullable synchronized String legacyFingerprint() {
@@ -169,9 +177,11 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     @Override
     public synchronized long insert(AEKey key, long amount, Actionable mode) {
-        if (!canOperate(key, amount)) {
+        if (!canOperate(key, amount) || !retainedEntries.isEmpty()) {
             return 0L;
         }
+        amount = Math.min(amount, Long.MAX_VALUE - amounts.getLong(key));
+        if (amount <= 0L) return 0L;
         if (mode == Actionable.MODULATE) {
             if (!ensureEncodedKey(key)) {
                 return 0L;
@@ -218,7 +228,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     @Override
     public synchronized long getAmount(AEKey key) {
-        return degraded || key == null ? 0L : amounts.getLong(key);
+        return degraded || key == null || blockedKeys.contains(key) ? 0L : amounts.getLong(key);
     }
 
     @Override
@@ -230,7 +240,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     @Override
     public synchronized boolean isEmpty() {
-        return !degraded && amounts.isEmpty();
+        return !degraded && amounts.isEmpty() && retainedEntries.isEmpty();
     }
 
     @Override
@@ -307,6 +317,11 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     }
 
     @Override
+    public synchronized boolean canTransfer() {
+        return !degraded && retainedEntries.isEmpty();
+    }
+
+    @Override
     public synchronized CompoundTag save(CompoundTag tag) {
         tag.putInt(TAG_FORMAT, FORMAT_VERSION);
         tag.putUUID(TAG_CELL, storageId);
@@ -325,6 +340,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             encoded.putLong(TAG_AMOUNT, entry.getLongValue());
             entries.add(encoded);
         }
+        retainedEntries.forEach(entry -> entries.add(entry.copy()));
         tag.put(TAG_ENTRIES, entries);
         lastSerializedSnapshot = tag.copy();
         return tag;
@@ -356,7 +372,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     }
 
     private boolean canOperate(@Nullable AEKey key, long amount) {
-        return !degraded && isResolved(key) && amount > 0L;
+        return !degraded && isResolved(key) && !blockedKeys.contains(key) && amount > 0L;
     }
 
     private boolean ensureEncodedKey(AEKey key) {
@@ -413,6 +429,11 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             storedTypes++;
             storedAmount = LongMath.saturatedAdd(storedAmount, amount);
         }
+        // Retained data keeps the cell non-empty and reserves its slots. Insertion stays disabled until resolved.
+        storedTypes += retainedEntries.size();
+        for (CompoundTag entry : retainedEntries) {
+            storedAmount = LongMath.saturatedAdd(storedAmount, Math.max(0L, entry.getLong(TAG_AMOUNT)));
+        }
     }
 
     private void markMutated() {
@@ -434,6 +455,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         if (persisted.revision() != revision
                 || !persisted.amounts().equals(amounts)
                 || !persisted.encodedKeys().equals(encodedKeys)
+                || !persisted.retainedEntries().equals(retainedEntries)
                 || !Objects.equals(persisted.legacyFingerprint(), legacyFingerprint)) {
             throw new IllegalStateException("SavedData read-back did not match the ECO storage cell snapshot");
         }
@@ -462,18 +484,21 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         }
         Map<AEKey, Long> parsedAmounts = new LinkedHashMap<>();
         Map<AEKey, CompoundTag> parsedKeys = new LinkedHashMap<>();
-        for (int i = 0; i < entries.size(); i++) {
-            CompoundTag entry = entries.getCompound(i);
-            if (!entry.contains(TAG_KEY, Tag.TAG_COMPOUND) || !entry.contains(TAG_AMOUNT, Tag.TAG_LONG)) {
-                throw new IllegalArgumentException("Incomplete ECO storage SavedData entry");
+        var inventory = InfiniteStorageEntries.readOrdinary(entries, encoded -> {
+            AEKey key = AEKey.fromTagGeneric(encoded);
+            return isResolved(key) ? key : null;
+        });
+        List<CompoundTag> retained = new ArrayList<>(inventory.retained());
+        for (var entry : inventory.available()) {
+            if (entry.key() == null) {
+                CompoundTag unresolved = new CompoundTag();
+                unresolved.put(TAG_KEY, entry.encodedKey());
+                unresolved.putLong(TAG_AMOUNT, entry.amount().toLongSaturated());
+                retained.add(unresolved);
+            } else {
+                parsedAmounts.put(entry.key(), entry.amount().toLongSaturated());
+                parsedKeys.put(entry.key(), entry.encodedKey());
             }
-            CompoundTag encodedKey = entry.getCompound(TAG_KEY);
-            AEKey key = AEKey.fromTagGeneric(encodedKey);
-            long amount = entry.getLong(TAG_AMOUNT);
-            if (!isResolved(key) || amount <= 0L || parsedAmounts.putIfAbsent(key, amount) != null) {
-                throw new IllegalArgumentException("Invalid or duplicate ECO storage SavedData entry");
-            }
-            parsedKeys.put(key, encodedKey.copy());
         }
         String fingerprint = null;
         if (tag.contains(TAG_LEGACY_FINGERPRINT)) {
@@ -484,7 +509,12 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             fingerprint = tag.getString(TAG_LEGACY_FINGERPRINT);
         }
         return new ParsedData(
-                Map.copyOf(parsedAmounts), Map.copyOf(parsedKeys), tag.getLong(TAG_REVISION), fingerprint);
+                Map.copyOf(parsedAmounts),
+                Map.copyOf(parsedKeys),
+                tag.getLong(TAG_REVISION),
+                fingerprint,
+                List.copyOf(retained),
+                inventory.blockedKeys());
     }
 
     private static boolean isResolved(@Nullable AEKey key) {
@@ -495,5 +525,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             Map<AEKey, Long> amounts,
             Map<AEKey, CompoundTag> encodedKeys,
             long revision,
-            @Nullable String legacyFingerprint) {}
+            @Nullable String legacyFingerprint,
+            List<CompoundTag> retainedEntries,
+            Set<AEKey> blockedKeys) {}
 }
