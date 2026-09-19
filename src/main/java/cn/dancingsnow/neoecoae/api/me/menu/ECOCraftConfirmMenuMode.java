@@ -31,4 +31,6 @@ public interface ECOCraftConfirmMenuMode {
     List<ECOCycleItemList.Entry> neoecoae$getCycleItems();
 
     CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();
+    default void neoecoae$setDiagnostics(long version, CraftingGraphSnapshot graph, ECOCycleItemList cycles) {}
+    default boolean neoecoae$diagnosticsReady() { return true; }
 }

@@ -100,6 +100,8 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
         modBus.addListener(ECONetwork::registerPayloadHandlers);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::tick);
+        NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NECommands::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);

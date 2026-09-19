@@ -1,6 +1,11 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
 import appeng.api.config.CpuSelectionMode;
+import cn.dancingsnow.neoecoae.network.MenuDataTransport;
+import cn.dancingsnow.neoecoae.network.MapDelta;
+import cn.dancingsnow.neoecoae.network.ExactMapSync;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import java.util.Map;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -35,14 +40,34 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     @Unique private int neoecoae$bigSerial = -1;
     @Unique private cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress neoecoae$lastBigProgress;
     @Unique private int neoecoae$lastBigSerial = -2;
-    @Unique @appeng.menu.guisync.GuiSync(120)
+    @Unique
     public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactPending =
         new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
-    @Unique @appeng.menu.guisync.GuiSync(121) public int neoecoae$exactSerial = -1;
-    @Unique @appeng.menu.guisync.GuiSync(122) public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactStored =
+    @Unique  public int neoecoae$exactSerial = -1;
+    @Unique  public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactStored =
         new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
-    @Unique @appeng.menu.guisync.GuiSync(123) public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactActive =
+    @Unique  public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactActive =
         new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
+
+    @Unique private long neoecoae$nextExactTick;
+    @Unique private long neoecoae$nextProgressTick;
+    @Unique private int neoecoae$sentExactSerial = Integer.MIN_VALUE;
+    @Unique private Map<AEKey, ExactAmount> neoecoae$sentStored = Map.of();
+    @Unique private Map<AEKey, ExactAmount> neoecoae$sentActive = Map.of();
+    @Unique private Map<AEKey, ExactAmount> neoecoae$sentPending = Map.of();
+
+    @Override public void neoecoae$applyExactAmounts(int serial, boolean full,
+            MapDelta<AEKey, ExactAmount> stored, MapDelta<AEKey, ExactAmount> active,
+            MapDelta<AEKey, ExactAmount> pending) {
+        if (!full && serial != neoecoae$exactSerial) return;
+        neoecoae$exactStored = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(ExactMapSync.integers(
+            stored.apply(full ? Map.of() : ExactMapSync.finite(neoecoae$exactStored.amounts()))));
+        neoecoae$exactActive = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(ExactMapSync.integers(
+            active.apply(full ? Map.of() : ExactMapSync.finite(neoecoae$exactActive.amounts()))));
+        neoecoae$exactPending = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(ExactMapSync.integers(
+            pending.apply(full ? Map.of() : ExactMapSync.finite(neoecoae$exactPending.amounts()))));
+        neoecoae$exactSerial = serial;
+    }
 
     @Override public java.math.BigInteger neoecoae$getExactStored(AEKey key) {
         return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
@@ -155,14 +180,40 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
                 && getPlayer() instanceof net.minecraft.server.level.ServerPlayer player) {
             var progress = neoecoae$cpu == null ? null : neoecoae$cpu.getProgressView().bigOrder().orElse(null);
             int serial = menu.getSelectedCpuSerial();
-            neoecoae$exactSerial = serial;
-            neoecoae$exactStored = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
-                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactStoredPreview());
-            neoecoae$exactActive = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
-                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactActivePreview());
-            neoecoae$exactPending = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
-                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactPendingPreview());
-            if (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress)) {
+            long tick = player.level().getGameTime();
+            boolean switched = serial != neoecoae$sentExactSerial;
+            if (switched) MenuDataTransport.cancel(player, MenuDataTransport.Channel.CPU);
+            if ((switched || tick >= neoecoae$nextExactTick)
+                    && !MenuDataTransport.busy(player, MenuDataTransport.Channel.CPU)) {
+                neoecoae$nextExactTick = tick + MenuDataTransport.UPDATE_INTERVAL;
+                var snapshot = neoecoae$cpu == null ? cn.dancingsnow.neoecoae.network.ExactCpuSnapshot.EMPTY
+                    : cn.dancingsnow.neoecoae.network.ExactCpuSnapshot.sample(neoecoae$cpu.getLogic(), tick);
+                var stored = snapshot.stored();
+                var active = snapshot.active();
+                var pending = snapshot.pending();
+                var storedDelta = MapDelta.between(switched ? Map.of() : neoecoae$sentStored, stored);
+                var activeDelta = MapDelta.between(switched ? Map.of() : neoecoae$sentActive, active);
+                var pendingDelta = MapDelta.between(switched ? Map.of() : neoecoae$sentPending, pending);
+                if (switched || !storedDelta.isEmpty() || !activeDelta.isEmpty() || !pendingDelta.isEmpty()) {
+                    MenuDataTransport.send(player, MenuDataTransport.Channel.CPU, buf -> {
+                        buf.writeVarInt(serial);
+                        buf.writeBoolean(switched);
+                        ExactMapSync.write(buf, storedDelta);
+                        ExactMapSync.write(buf, activeDelta);
+                        ExactMapSync.write(buf, pendingDelta);
+                    });
+                    neoecoae$sentExactSerial = serial;
+                    neoecoae$sentStored = stored;
+                    neoecoae$sentActive = active;
+                    neoecoae$sentPending = pending;
+                }
+            }
+            boolean stateChanged = progress == null || neoecoae$lastBigProgress == null
+                || progress.state() != neoecoae$lastBigProgress.state()
+                || !progress.orderId().equals(neoecoae$lastBigProgress.orderId());
+            if ((serial != neoecoae$lastBigSerial || stateChanged || tick >= neoecoae$nextProgressTick)
+                    && (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress))) {
+                neoecoae$nextProgressTick = tick + MenuDataTransport.UPDATE_INTERVAL;
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new cn.dancingsnow.neoecoae.network.ECOBigOrderProgressS2CPacket(containerId, serial, progress));
                 neoecoae$lastBigSerial = serial;

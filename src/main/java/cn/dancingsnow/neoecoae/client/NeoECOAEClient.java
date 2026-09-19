@@ -55,6 +55,12 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
+    public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        cn.dancingsnow.neoecoae.network.MenuDataTransport.retainClientMenu(player == null ? null : player.containerMenu);
+    }
+
+    @SubscribeEvent
     public static void onScreenInitPost(ScreenEvent.Init.Post event) {
         ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
     }

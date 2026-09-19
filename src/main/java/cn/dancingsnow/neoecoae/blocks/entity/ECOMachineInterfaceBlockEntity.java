@@ -76,7 +76,6 @@ import java.util.UUID;
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost {
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
-    private static final long PATTERN_TRANSFER_SYNC_INTERVAL_TICKS = 5L;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
     public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 36;
@@ -94,52 +93,32 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     );
     private final IItemHandlerModifiable fuzzyPlanningItemHandler =
         (IItemHandlerModifiable) fuzzyPlanningInventory.toItemHandler();
-    @DescSynced
+    // Menu-only counters: LDLib UI bindings provide their S2C values.
     private long transferredLastTick;
-    @DescSynced
     private int patternTransferInserted;
-    @DescSynced
     private int patternTransferAlreadyPresent;
-    @DescSynced
     private int patternTransferNoSpace;
-    @DescSynced
     private int patternTransferNoTarget;
-    @DescSynced
     private int patternTransferIncompatible;
-    @DescSynced
     private boolean patternTransferUnavailable;
-    @DescSynced
     private boolean patternTransferPerformed;
-    @DescSynced
     private boolean patternTransferInProgress;
-    @DescSynced
     private boolean patternTransferIndexing;
-    @DescSynced
     private int patternTransferScannedSlots;
-    @DescSynced
     private int patternTransferTotalSlots;
     @Nullable
     private PatternTransferTask patternTransferTask;
-    @DescSynced
     private boolean patternOrganizeInProgress;
-    @DescSynced
     private int patternOrganizeScannedSlots;
-    @DescSynced
     private int patternOrganizeTotalSlots;
-    @DescSynced
     private boolean patternOrganizePerformed;
-    @DescSynced
     private int patternOrganizeInvalidRecovered;
-    @DescSynced
     private int patternOrganizeDuplicatesRecovered;
-    @DescSynced
     private int patternOrganizeRecoveryBlocked;
     @Nullable
     private PatternOrganizeTask patternOrganizeTask;
-    private long lastPatternTransferSyncTick = Long.MIN_VALUE;
     private long[] patternBusPositions = new long[0];
     private int[] patternBusSlotCounts = new int[0];
-    @DescSynced
     private int patternContentRevision;
     private transient List<PatternSlotRef> patternSlotRefs = List.of();
     private transient boolean patternInterfaceMappingInitialized;
@@ -272,7 +251,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternTransferPerformed = true;
         if (task == null) {
             patternTransferUnavailable = true;
-            syncPatternTransferState(serverLevel.getGameTime(), true);
             return;
         }
         if (!task.coordinator().tryAcquire(this)) {
@@ -283,7 +261,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternTransferInProgress = true;
         patternTransferIndexing = true;
         patternTransferTotalSlots = task.totalSlots();
-        syncPatternTransferState(serverLevel.getGameTime(), true);
     }
 
     public Component getPatternTransferPrimaryStatus() {
@@ -646,7 +623,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (changedSlot >= 0 && changedSlot < slotCount) patternPreviewSync.dirty(offset + changedSlot, 1);
         else patternPreviewSync.dirty(offset, slotCount);
         patternContentRevision = nextPatternContentRevision();
-        markForUpdate();
     }
 
     public void onPatternBusInventoryChanged(ECOCraftingPatternBusBlockEntity bus, int[] changedSlots) {
@@ -674,7 +650,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
         patternContentRevision = nextPatternContentRevision();
-        markForUpdate();
     }
 
     private boolean isMappedBus(int busIndex, ECOCraftingPatternBusBlockEntity bus) {
@@ -719,7 +694,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternPreviewSync.reset();
         // Equal positions can still refer to replacement block entities or inventories.
         patternContentRevision = nextPatternContentRevision();
-        markForUpdate();
     }
 
     private int nextPatternContentRevision() {
@@ -854,7 +828,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternOrganizeInProgress = true;
         patternOrganizeScannedSlots = 0;
         patternOrganizeTotalSlots = patternOrganizeTask.totalSlots();
-        syncPatternOperationState(serverLevel.getGameTime(), true);
     }
 
     /** Validates the player-inventory quick-move fallback for clients without a normal menu click. */
@@ -1007,8 +980,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         if (task.isFinished()) {
             finishPatternOrganize(serverLevel);
-        } else {
-            syncPatternOperationState(serverLevel.getGameTime(), false);
         }
     }
 
@@ -1042,7 +1013,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             patternTransferIndexing = true;
             patternTransferScannedSlots = task.indexScannedSlots();
             patternTransferTotalSlots = task.indexTotalSlots();
-            syncPatternTransferState(serverLevel.getGameTime(), false);
             return;
         }
         if (task.justPrepared()) {
@@ -1107,8 +1077,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         if (task.isFinished()) {
             finishPatternTransfer(serverLevel, false);
-        } else {
-            syncPatternTransferState(serverLevel.getGameTime(), false);
         }
     }
 
@@ -1147,7 +1115,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternTransferInProgress = false;
         patternTransferIndexing = false;
         patternTransferUnavailable |= unavailable;
-        syncPatternTransferState(level.getGameTime(), true);
     }
 
     private void finishPatternOrganize(ServerLevel level) {
@@ -1159,7 +1126,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternOrganizeInProgress = false;
         patternOrganizeScannedSlots = patternOrganizeTotalSlots;
         patternOrganizePerformed = true;
-        syncPatternOperationState(level.getGameTime(), true);
     }
 
     private boolean returnBlankPattern(ServerLevel serverLevel, UUID playerId, ItemStack encodedPattern) {
@@ -1196,17 +1162,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         if (patternOrganizeTask != null) {
             patternOrganizeTask.coordinator().release(this);
-        }
-    }
-
-    private void syncPatternTransferState(long gameTime, boolean force) {
-        syncPatternOperationState(gameTime, force);
-    }
-
-    private void syncPatternOperationState(long gameTime, boolean force) {
-        if (force || gameTime - lastPatternTransferSyncTick >= PATTERN_TRANSFER_SYNC_INTERVAL_TICKS) {
-            lastPatternTransferSyncTick = gameTime;
-            markForUpdate();
         }
     }
 

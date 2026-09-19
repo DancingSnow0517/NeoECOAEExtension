@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.crafting_report.loading_details": "載合成詳情…",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
   "tooltip.neoecoae.infinite_component.unlock": "置六十四組件、十二 L9 儲存矩陣，乃啟無限儲存",

@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.crafting_report.loading_details": "正在加载合成详情…",
   "gui.neoecoae.crafting_report.quantity_unknown": "数量未确定",
   "gui.neoecoae.crafting_report.planning_failed": "规划未完成（悬停 CPU 按钮查看原因）",
   "gui.neoecoae.big_order.reason.output_storage": "等待网络接收剩余产物",

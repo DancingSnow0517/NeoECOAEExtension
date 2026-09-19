@@ -331,15 +331,22 @@ public final class CraftingHostPanelUI {
     }
 
     private static Label performanceLabel(LongSupplier performanceAverageNanos) {
-        Label label = boundLabel(() -> Component.literal(HostPanelElements.formatPerformanceCornerValue(performanceAverageNanos.getAsLong())), PANEL_VALUE);
+        Label label = new Label();
+        long initial = performanceAverageNanos.getAsLong();
+        label.setText(Component.literal(HostPanelElements.formatPerformanceCornerValue(initial)));
         label.addClass("eco-host-performance");
-        label.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
+        label.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT).textShadow(false));
         label.layout(layout -> layout.width(PERFORMANCE_WIDTH).height(10));
-        BindableValue<Component> detail = syncedComponent(() -> Component.literal(HostPanelElements.formatPerformanceValue(performanceAverageNanos.getAsLong())));
-        detail.setDisplay(false);
-        label.addChild(detail);
+        // One numeric value drives both texts; formatting and tooltip construction stay on the client.
+        BindableValue<Long> value = new BindableValue<>(initial);
+        value.bind(DataBindingBuilder.longValS2C(() -> Math.max(0L, performanceAverageNanos.getAsLong()) / 1000 * 1000).build());
+        value.registerValueListener(nanos -> label.setText(Component.literal(
+            HostPanelElements.formatPerformanceCornerValue(nanos == null ? 0L : nanos))));
+        value.setDisplay(false);
+        label.addChild(value);
         label.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
-            Component.translatable("gui.neoecoae.crafting.performance"), detail.getValue()));
+            Component.translatable("gui.neoecoae.crafting.performance"), Component.literal(
+                HostPanelElements.formatPerformanceValue(value.getValue() == null ? 0L : value.getValue()))));
         return label;
     }
 

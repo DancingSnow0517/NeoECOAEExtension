@@ -91,11 +91,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private int neoecoae$planningStatusCode;
 
     @Unique
-    @GuiSync(102)
     public ECOCycleItemList neoecoae$cycleItems = ECOCycleItemList.EMPTY;
 
     @Unique
-    @GuiSync(103)
     public CraftingGraphSnapshot neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
 
     /** Server-side result paired with the plan whose confirmation page the player actually saw. */
@@ -104,6 +102,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique private ECOPlannerOptions neoecoae$originalOptions;
     @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
     @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
+
+    @Unique @GuiSync(110) private long neoecoae$diagnosticsVersion;
+    @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
+    @Unique private CraftingGraphSnapshot neoecoae$sentGraph;
+    @Unique private ECOCycleItemList neoecoae$sentCycles;
+
+    @Override public boolean neoecoae$diagnosticsReady() {
+        return !((CraftConfirmMenu) (Object) this).isClientSide()
+            || neoecoae$receivedDiagnosticsVersion == neoecoae$diagnosticsVersion;
+    }
+
+    @Override public void neoecoae$setDiagnostics(long version, CraftingGraphSnapshot graph, ECOCycleItemList cycles) {
+        neoecoae$receivedDiagnosticsVersion = version;
+        neoecoae$craftingGraph = graph;
+        neoecoae$cycleItems = cycles;
+    }
+
+    @Inject(method = "broadcastChanges", at = @At("TAIL"))
+    private void neoecoae$sendDiagnostics(CallbackInfo ci) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (!(menu.getPlayer() instanceof ServerPlayer player) || player.containerMenu != menu) return;
+        if (neoecoae$sentGraph == neoecoae$craftingGraph && neoecoae$sentCycles == neoecoae$cycleItems) return;
+        neoecoae$diagnosticsVersion++;
+        // A changed plan invalidates the previous stream, even when its first chunks have already arrived.
+        cn.dancingsnow.neoecoae.network.MenuDataTransport.cancel(player,
+            cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH);
+        cn.dancingsnow.neoecoae.network.MenuDataTransport.send(player,
+            cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH, buf -> {
+                buf.writeVarLong(neoecoae$diagnosticsVersion);
+                neoecoae$craftingGraph.writeToPacket(buf);
+                neoecoae$cycleItems.writeToPacket(buf);
+            });
+        neoecoae$sentGraph = neoecoae$craftingGraph;
+        neoecoae$sentCycles = neoecoae$cycleItems;
+    }
 
     @Override public String neoecoae$getPlanningDiagnostic() {
         return neoecoae$planningDiagnostic == null ? "" : neoecoae$planningDiagnostic;
@@ -772,11 +805,15 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Override
     public List<ECOCycleItemList.Entry> neoecoae$getCycleItems() {
-        return neoecoae$cycleItems.items();
+        return ((CraftConfirmMenu) (Object) this).isClientSide()
+                && neoecoae$receivedDiagnosticsVersion != neoecoae$diagnosticsVersion
+            ? List.of() : neoecoae$cycleItems.items();
     }
 
     @Override
     public CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot() {
-        return neoecoae$craftingGraph;
+        return ((CraftConfirmMenu) (Object) this).isClientSide()
+                && neoecoae$receivedDiagnosticsVersion != neoecoae$diagnosticsVersion
+            ? CraftingGraphSnapshot.EMPTY : neoecoae$craftingGraph;
     }
 }

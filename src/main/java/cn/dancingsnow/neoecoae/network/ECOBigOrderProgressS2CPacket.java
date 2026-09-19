@@ -25,9 +25,9 @@ public record ECOBigOrderProgressS2CPacket(int containerId, int cpuSerial, @Null
             if (p == null) return;
             buf.writeUUID(p.orderId());
             buf.writeEnum(p.state());
-            buf.writeUtf(p.requested().toString(), ECOBigCraftingOrder.MAX_AMOUNT_DIGITS);
-            buf.writeUtf(p.completed().toString(), ECOBigCraftingOrder.MAX_AMOUNT_DIGITS);
-            buf.writeUtf(p.remaining().toString(), ECOBigCraftingOrder.MAX_AMOUNT_DIGITS);
+            ExactMapSync.writeInteger(buf, p.requested());
+            ExactMapSync.writeInteger(buf, p.completed());
+            ExactMapSync.writeInteger(buf, p.remaining());
             buf.writeVarLong(p.childTarget());
             buf.writeVarLong(p.childRemaining());
             buf.writeUtf(p.waitingReason(), 256);
@@ -37,9 +37,9 @@ public record ECOBigOrderProgressS2CPacket(int containerId, int cpuSerial, @Null
             int serial = buf.readVarInt();
             ECOBigOrderProgress p = null;
             if (buf.readBoolean()) p = new ECOBigOrderProgress(buf.readUUID(), buf.readEnum(ECOBigOrderState.class),
-                ECOBigCraftingOrder.decode(buf.readUtf(ECOBigCraftingOrder.MAX_AMOUNT_DIGITS)),
-                ECOBigCraftingOrder.decode(buf.readUtf(ECOBigCraftingOrder.MAX_AMOUNT_DIGITS)),
-                ECOBigCraftingOrder.decode(buf.readUtf(ECOBigCraftingOrder.MAX_AMOUNT_DIGITS)),
+                ExactMapSync.readInteger(buf),
+                ExactMapSync.readInteger(buf),
+                ExactMapSync.readInteger(buf),
                 buf.readVarLong(), buf.readVarLong(), buf.readUtf(256));
             return new ECOBigOrderProgressS2CPacket(menu, serial, p);
         });

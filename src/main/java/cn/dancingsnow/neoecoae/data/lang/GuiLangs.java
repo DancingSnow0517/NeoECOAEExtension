@@ -282,6 +282,7 @@ public class GuiLangs {
         // computation interface
         provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s");
         provider.add("gui.neoecoae.crafting_report.bytes_only", "Bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.loading_details", "Loading crafting details…");
         provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
         provider.add("gui.neoecoae.crafting_report.single_net_output", "Single change: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");

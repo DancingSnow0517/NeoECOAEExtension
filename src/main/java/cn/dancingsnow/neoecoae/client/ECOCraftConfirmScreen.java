@@ -196,6 +196,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
+            start.active = false;
+            graph.active = false;
+            setTextContent("plan_summary", Component.translatable("gui.neoecoae.crafting_report.loading_details"));
+        }
     }
 
     private static String formatMillis(long nanos) {
@@ -326,8 +331,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 menu.containerId, forceStart));
             return;
         }
-        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(forceStart));
-        menu.startJob();
+        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
     }
 
     private void openGraph() {

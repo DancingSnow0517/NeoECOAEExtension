@@ -135,7 +135,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private NECraftingNetworkCluster capabilityNetworkAssociation;
 
     @Getter
-    @DescSynced
     private long performanceAverageNanos = 0L;
     private final ECOCraftingPerformanceMeter performanceMeter =
         new ECOCraftingPerformanceMeter(this::updatePerformanceAverage);

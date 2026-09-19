@@ -53,13 +53,14 @@ public record CraftingGraphSnapshot(
 
     @Override
     public void writeToPacket(RegistryFriendlyByteBuf data) {
-        var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(), data.registryAccess());
+        var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), data.registryAccess());
         try {
             writeRaw(raw);
-            byte[] uncompressed = new byte[raw.readableBytes()];
-            raw.getBytes(0, uncompressed);
-            data.writeVarInt(uncompressed.length);
-            data.writeByteArray(compress(uncompressed));
+            int length = raw.readableBytes();
+            byte[] compressed = compress(raw);
+            if (compressed.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Graph is too large");
+            data.writeVarInt(length);
+            data.writeByteArray(compressed);
         } finally {
             raw.release();
         }
@@ -94,12 +95,17 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private static byte[] compress(byte[] input) {
+    private static byte[] compress(RegistryFriendlyByteBuf input) {
         try {
-            var output = new ByteArrayOutputStream(Math.max(64, input.length / 4));
+            var output = new ByteArrayOutputStream(Math.max(64, input.readableBytes() / 4));
             var deflater = new Deflater(Deflater.BEST_SPEED);
             try (var stream = new DeflaterOutputStream(output, deflater)) {
-                stream.write(input);
+                byte[] chunk = new byte[8192];
+                while (input.isReadable()) {
+                    int count = Math.min(chunk.length, input.readableBytes());
+                    input.readBytes(chunk, 0, count);
+                    stream.write(chunk, 0, count);
+                }
             } finally {
                 deflater.end();
             }
@@ -360,6 +366,7 @@ public record CraftingGraphSnapshot(
 
     private static List<Integer> readIntList(RegistryFriendlyByteBuf data) {
         int size = data.readVarInt();
+        if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
         List<Integer> result = new ArrayList<>(size);
         for (int i = 0; i < size; i++) result.add(data.readVarInt());
         return result;
