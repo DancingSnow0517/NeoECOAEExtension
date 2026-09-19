@@ -149,6 +149,81 @@ class SavedDataInfiniteStoragePersistenceTest {
     }
 
     @Test
+    void netZeroIoKeepsTheBaseAndWritesOnlyRevisionMetadata() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var keys = new InfiniteStorageTestKey[1100];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = new InfiniteStorageTestKey(i);
+            keys[i].cacheEncoding(engine);
+            engine.insert(keys[i], 1000, Actionable.MODULATE);
+        }
+        engine.flushAndAwait();
+        byte[] base = Files.readAllBytes(path);
+        for (var key : keys) {
+            engine.extract(key, 64, Actionable.MODULATE);
+            engine.insert(key, 64, Actionable.MODULATE);
+        }
+        engine.flushAndAwait();
+        assertEquals(ECOInfiniteDomainState.READY, engine.getState());
+        assertArrayEquals(base, Files.readAllBytes(path));
+        var delta = InfiniteStorageSnapshot.read(InfiniteStorageDelta.path(path));
+        assertTrue(delta.getList("entries", 10).isEmpty());
+        var recovered = InfiniteStorageSnapshot.read(path);
+        assertEquals(engine.getRevision(), recovered.getLong("revision"));
+        assertEquals(keys.length, recovered.getList("entries", 10).size());
+        for (var entry : recovered.getList("entries", 10)) {
+            assertEquals(1000, ((CompoundTag) entry).getLong("amount_long"));
+        }
+    }
+
+    @Test
+    void revertingCommittedWideDeltaRestoresBaseButRetainsTransferReceipt() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, Long.MAX_VALUE, Actionable.MODULATE);
+        engine.flushAndAwait();
+        byte[] base = Files.readAllBytes(path);
+        UUID transaction = UUID.randomUUID();
+        engine.insertOnce(transaction, key, 5);
+        engine.extract(key, 5, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertArrayEquals(base, Files.readAllBytes(path));
+        var delta = InfiniteStorageSnapshot.read(InfiniteStorageDelta.path(path));
+        assertTrue(delta.getList("entries", 10).isEmpty());
+        var recovered = InfiniteStorageSnapshot.read(path);
+        assertEquals(
+                Long.MAX_VALUE, recovered.getList("entries", 10).getCompound(0).getLong("amount_long"));
+        assertEquals(
+                transaction,
+                recovered.getList("transfer_receipts", 10).getCompound(0).getUUID("id"));
+        assertEquals(5, engine.insertOnce(transaction, key, 5));
+        assertEquals(HugeAmount.of(Long.MAX_VALUE), engine.getAmount(key));
+    }
+
+    @Test
+    void deletingANewKeyCancelsItsPreviouslyCommittedOverlayEntry() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        engine.setDirty();
+        engine.flushAndAwait();
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 5, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertEquals(
+                1, InfiniteStorageSnapshot.read(path).getList("entries", 10).size());
+        engine.extract(key, 5, Actionable.MODULATE);
+        engine.flushAndAwait();
+        assertTrue(InfiniteStorageSnapshot.read(path).getList("entries", 10).isEmpty());
+        assertTrue(InfiniteStorageSnapshot.read(InfiniteStorageDelta.path(path))
+                .getList("entries", 10)
+                .isEmpty());
+    }
+
+    @Test
     void denseChangesCompactAndRemoveObsoleteOverlay() throws Exception {
         Path path = directory.resolve("domain.dat");
         var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);

@@ -100,9 +100,12 @@ final class SavedDataInfiniteStorageEngine extends SavedData
 
     @Nullable private CompletableFuture<Void> pendingSnapshot;
 
-    // Keep only keys changed since the last full snapshot. Repeated I/O coalesces here.
-    private final Map<AEKey, CompoundTag> changedKeys = new HashMap<>();
+    // Cumulative differences from the last full snapshot, including across delta commits.
+    // Returning to the base amount removes the difference, not a previously committed receipt.
+    private final Map<AEKey, PendingChange> changedKeys = new HashMap<>();
     private long baseRevision = -1L;
+
+    private record PendingChange(CompoundTag encodedKey, HugeAmount baseAmount) {}
 
     private SavedDataInfiniteStorageEngine(UUID domainId, DimensionDataStorage dataStorage, Path dataFile) {
         this.domainId = domainId;
@@ -594,9 +597,9 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         writeMetadata(tag);
         tag.putLong(InfiniteStorageDelta.BASE_REVISION, baseRevision);
         ListTag entries = new ListTag();
-        changedKeys.forEach((key, encoded) -> {
+        changedKeys.forEach((key, change) -> {
             HugeAmount amount = amounts.get(key);
-            CompoundTag entry = amountEntry(encoded, amount);
+            CompoundTag entry = amountEntry(change.encodedKey(), amount);
             if (amount.isZero()) entry.putBoolean(InfiniteStorageDelta.DELETED, true);
             entries.add(entry);
         });
@@ -687,10 +690,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         if (encodedKeys.containsKey(key)) {
             return true;
         }
-        CompoundTag recentlyRemoved = changedKeys.get(key);
+        PendingChange recentlyRemoved = changedKeys.get(key);
         if (recentlyRemoved != null) {
             // Empty/refill automation must not encode and validate the same key every operation.
-            encodedKeys.put(key, recentlyRemoved);
+            encodedKeys.put(key, recentlyRemoved.encodedKey());
             return true;
         }
         if (!isResolved(key)) {
@@ -808,7 +811,14 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             long changed,
             @Nullable WideAmount changedWide,
             boolean increased) {
-        changedKeys.putIfAbsent(key, encodedKeys.get(key));
+        PendingChange change = changedKeys.get(key);
+        if (change == null) {
+            changedKeys.put(key, new PendingChange(encodedKeys.get(key), previous));
+        } else if (change.baseAmount().equals(next)) {
+            // The next cumulative overlay must omit this key so recovery uses its base value.
+            // Metadata (revision and transfer receipts) is still committed even for an empty overlay.
+            changedKeys.remove(key);
+        }
         if (next.isZero()) {
             visibleStacks.remove(key);
         } else {
