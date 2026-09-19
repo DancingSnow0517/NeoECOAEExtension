@@ -39,6 +39,20 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactPending =
         new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
     @Unique @appeng.menu.guisync.GuiSync(121) public int neoecoae$exactSerial = -1;
+    @Unique @appeng.menu.guisync.GuiSync(122) public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactStored =
+        new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
+    @Unique @appeng.menu.guisync.GuiSync(123) public cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending neoecoae$exactActive =
+        new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(java.util.Map.of());
+
+    @Override public java.math.BigInteger neoecoae$getExactStored(AEKey key) {
+        return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
+            && menu.getSelectedCpuSerial() == neoecoae$exactSerial ? neoecoae$exactStored.amounts().get(key) : null;
+    }
+
+    @Override public java.math.BigInteger neoecoae$getExactActive(AEKey key) {
+        return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
+            && menu.getSelectedCpuSerial() == neoecoae$exactSerial ? neoecoae$exactActive.amounts().get(key) : null;
+    }
 
     @Override public java.math.BigInteger neoecoae$getExactPending(AEKey key) {
         return (Object) this instanceof appeng.menu.me.crafting.CraftingStatusMenu menu
@@ -142,6 +156,10 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
             var progress = neoecoae$cpu == null ? null : neoecoae$cpu.getProgressView().bigOrder().orElse(null);
             int serial = menu.getSelectedCpuSerial();
             neoecoae$exactSerial = serial;
+            neoecoae$exactStored = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
+                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactStoredPreview());
+            neoecoae$exactActive = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
+                neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactActivePreview());
             neoecoae$exactPending = new cn.dancingsnow.neoecoae.api.me.menu.ECOExactPending(
                 neoecoae$cpu == null ? java.util.Map.of() : neoecoae$cpu.getLogic().getExactPendingPreview());
             if (serial != neoecoae$lastBigSerial || !java.util.Objects.equals(progress, neoecoae$lastBigProgress)) {

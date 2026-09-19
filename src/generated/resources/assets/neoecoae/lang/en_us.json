@@ -1,4 +1,8 @@
 {
+  "gui.neoecoae.crafting_report.bytes": " - Bytes: %s",
+  "gui.neoecoae.crafting_report.bytes_only": "Bytes: %s",
+  "gui.neoecoae.crafting_report.quantity_unknown": "Quantity unknown",
+  "gui.neoecoae.crafting_report.planning_failed": "Planning incomplete (hover CPU for details)",
   "gui.neoecoae.big_order.reason.output_storage": "Waiting for output storage",
   "gui.neoecoae.big_order.reason.child_incomplete": "Incomplete segment; further planning stopped",
   "gui.neoecoae.big_order.planning": "Planning",

@@ -71,10 +71,7 @@ public class CpuSelectionListMixin {
         )
     )
     private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original) {
-        if (storage >= 1L << 30) {
-            return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
-        }
-        return original.call(storage);
+        return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
     }
 
     @WrapOperation(

@@ -103,6 +103,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
     @Unique private ECOPlannerOptions neoecoae$originalOptions;
     @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
+    @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
+
+    @Override public String neoecoae$getPlanningDiagnostic() {
+        return neoecoae$planningDiagnostic == null ? "" : neoecoae$planningDiagnostic;
+    }
 
     @Override public boolean neoecoae$bigOrderCpuAvailable() { return neoecoae$bigOrderCpu; }
 
@@ -264,6 +269,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Inject(method = {"planJob", "data_energistics$planJob"}, at = @At("HEAD"))
     private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+        neoecoae$planningDiagnostic = "";
         neoecoae$showFastPlannerReport = false;
         neoecoae$ecoReportReady = false;
         neoecoae$calculationNanos = 0;
@@ -443,6 +449,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique
     private void neoecoae$applyPlannerDiagnostics(@Nullable ICraftingPlan diagnosticPlan) {
+        neoecoae$planningDiagnostic = "";
         neoecoae$calculationNanos = 0;
         neoecoae$theoreticalBytes = "0";
         neoecoae$planningStatusCode = 0;
@@ -454,6 +461,16 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$calculationNanos = planningResult.calculationNanos();
             neoecoae$theoreticalBytes = planningResult.theoreticalBytes().toString();
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
+            if (planningResult.shouldUseNativeFallback()) {
+                neoecoae$planningDiagnostic = planningResult.trace().diagnostics().stream()
+                    .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
+                    .collect(java.util.stream.Collectors.joining("\n"));
+                if (neoecoae$planningDiagnostic.length() > 4096) {
+                    neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
+                }
+                NEOECOAE_LOGGER.warn("[craft-confirm] ECO diagnostic: status={}, output={}, diagnostics={}",
+                    planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
+            }
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();

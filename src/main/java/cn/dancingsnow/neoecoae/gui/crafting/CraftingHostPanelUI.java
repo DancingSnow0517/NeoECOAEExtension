@@ -84,7 +84,7 @@ public final class CraftingHostPanelUI {
     private static final int PANEL_SUCCESS = 0xFF55FF8A;
     private static final int PANEL_WARNING = 0xFFFF6A75;
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
-        new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.US)));
+        new DecimalFormat("#,##0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
     private CraftingHostPanelUI() {
     }

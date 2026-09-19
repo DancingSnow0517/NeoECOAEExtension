@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.util.ExtendedDecimalUnits;
+import cn.dancingsnow.neoecoae.util.DisplayNumbers;
 import net.minecraft.network.chat.Component;
 
 import java.math.BigDecimal;
@@ -38,7 +40,7 @@ public final class HostText {
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
+        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
@@ -92,9 +94,9 @@ public final class HostText {
             unit = unit.multiply(BIG_BYTES_IN_K);
             unitIndex++;
         }
-        return new BigDecimal(safe)
+        return DisplayNumbers.grouped(new BigDecimal(safe)
             .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
-            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
@@ -138,9 +140,9 @@ public final class HostText {
         if (unitIndex == 0) {
             return NUMBER_FORMAT.get().format(safe);
         }
-        return new BigDecimal(safe)
+        return DisplayNumbers.grouped(new BigDecimal(safe)
             .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
-            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+            .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth) {
@@ -164,9 +166,9 @@ public final class HostText {
         for (int decimals = 2; decimals >= 0; decimals--) {
             BigInteger unit = BIG_BYTES_IN_K;
             for (int unitIndex = 1; unitIndex <= naturalUnitIndex; unitIndex++) {
-                String candidate = new BigDecimal(safe)
+                String candidate = DisplayNumbers.grouped(new BigDecimal(safe)
                     .divide(new BigDecimal(unit), decimals, RoundingMode.HALF_UP)
-                    .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+                    .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
                 if (width.applyAsInt(candidate) <= maxWidth) {
                     return candidate;
                 }
@@ -304,7 +306,7 @@ public final class HostText {
     }
 
     public static String ae2Amount(long value) {
-        return ReadableNumberConverter.format(Math.max(0L, value), 4);
+        return DisplayNumbers.grouped(ReadableNumberConverter.format(Math.max(0L, value), 4));
     }
 
     public static String ae2Amount(BigInteger value) {
@@ -324,20 +326,19 @@ public final class HostText {
         String digits = value.toString();
         if (digits.length() <= width) return digits;
 
-        String[] suffixes = {"K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
         BigInteger base = value;
         BigInteger last = value.multiply(BigInteger.valueOf(1000));
         int suffixIndex = -1;
         int formattedLength = digits.length();
-        while (formattedLength > width && suffixIndex + 1 < suffixes.length) {
+        while (formattedLength > width && base.compareTo(BigInteger.valueOf(1000)) >= 0) {
             last = base;
             base = base.divide(BigInteger.valueOf(1000));
             suffixIndex++;
-            formattedLength = base.toString().length() + 1;
+            formattedLength = base.toString().length() + ExtendedDecimalUnits.suffix(suffixIndex + 1).length();
         }
         if (suffixIndex < 0) return digits;
 
-        String suffix = suffixes[suffixIndex];
+        String suffix = ExtendedDecimalUnits.suffix(suffixIndex + 1);
         String withPrecision = new BigDecimal(last)
             .divide(BigDecimal.valueOf(1000), 1, RoundingMode.DOWN)
             .stripTrailingZeros().toPlainString() + suffix;
@@ -365,8 +366,8 @@ public final class HostText {
     private static String compactDecimal(long value, long unit, String suffix) {
         double scaled = (double) Math.max(0L, value) / (double) unit;
         if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%.0f%s", scaled, suffix);
+            return String.format(Locale.US, "%,.0f%s", scaled, suffix);
         }
-        return String.format(Locale.US, "%.1f%s", scaled, suffix);
+        return String.format(Locale.US, "%,.1f%s", scaled, suffix);
     }
 }

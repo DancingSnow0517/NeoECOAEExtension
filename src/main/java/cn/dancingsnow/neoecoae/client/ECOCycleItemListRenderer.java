@@ -120,6 +120,9 @@ final class ECOCycleItemListRenderer {
             return Component.translatable("gui.neoecoae.crafting_graph.details.missing",
                 formatAmount(entry.exactMissing(), format));
         }
+        if (!entry.totalNetOutputKnown() && entry.displayedTotal().signum() == 0) {
+            return Component.translatable("gui.neoecoae.crafting_report.quantity_unknown");
+        }
         String translationKey = entry.isCycleProduct()
             ? "gui.neoecoae.crafting_report.total_produced"
             : "gui.neoecoae.crafting_report.total_consumed";

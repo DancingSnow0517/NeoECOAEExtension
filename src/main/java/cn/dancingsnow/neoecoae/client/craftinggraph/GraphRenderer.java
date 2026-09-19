@@ -599,13 +599,13 @@ public final class GraphRenderer {
     }
 
     private static String signedExact(BigInteger amount) {
-        String magnitude = amount.abs().toString();
+        String magnitude = HostText.expandedStorageBytes(amount.abs());
         return amount.signum() > 0 ? "+" + magnitude : amount.signum() < 0 ? "-" + magnitude : "0";
     }
 
     private static String formatMagnitude(AEKey key, long amount) {
         long magnitude = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
-        return key.formatAmount(magnitude, AmountFormat.SLOT);
+        return cn.dancingsnow.neoecoae.util.DisplayNumbers.grouped(key.formatAmount(magnitude, AmountFormat.SLOT));
     }
 
 }

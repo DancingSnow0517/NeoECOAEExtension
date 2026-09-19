@@ -35,22 +35,14 @@ public final class NEByteFormatter {
         BigDecimal scaled = BigDecimal.valueOf(safeBytes)
                 .divide(BigDecimal.valueOf(UNIT_SIZES[unitIndex]), 3, RoundingMode.HALF_UP)
                 .stripTrailingZeros();
-        return scaled.toPlainString() + UNIT_NAMES[unitIndex];
+        return DisplayNumbers.grouped(scaled.toPlainString()) + " " + UNIT_NAMES[unitIndex];
     }
 
     /**
-     * Keeps CPUSelectionList's original display for ordinary AE2 CPUs. Larger CPUs use the
-     * extended formatter so their capacity is not passed to AE2's limited byte formatter.
+     * Uses a complete byte unit for both ordinary and extended CPU capacities.
      */
     public static String formatCpuStorage(long storage) {
-        long safeStorage = Math.max(0L, storage);
-        if (safeStorage >= GIB) {
-            return format(safeStorage);
-        }
-        if (safeStorage >= MIB) {
-            return (safeStorage / MIB) + "M";
-        }
-        return (safeStorage / KIB) + "k";
+        return format(storage);
     }
 
     /**
@@ -73,6 +65,6 @@ public final class NEByteFormatter {
         BigDecimal scaled = BigDecimal.valueOf(safeCoProcessors)
                 .divide(BigDecimal.valueOf(unitSize), 3, RoundingMode.HALF_UP)
                 .stripTrailingZeros();
-        return scaled.toPlainString() + DECIMAL_UNIT_NAMES[unitIndex];
+        return DisplayNumbers.grouped(scaled.toPlainString()) + DECIMAL_UNIT_NAMES[unitIndex];
     }
 }

@@ -13,6 +13,48 @@ import static org.mockito.Mockito.*;
 
 class ECOExactMaterialTableRendererTest {
     @Test
+    void materialAmountsContinuePastQAndRespectFluidUnits() throws Exception {
+        var formatAmount = ECOExactMaterialTableRenderer.class.getDeclaredMethod(
+            "formatAmount", AEKey.class, java.math.BigInteger.class, AmountFormat.class);
+        formatAmount.setAccessible(true);
+        AEKey key = mock(AEKey.class);
+        when(key.getAmountPerUnit()).thenReturn(1);
+        int[] exponents = {30, 33, 36, 60, 63, 123};
+        String[] expected = {"1Q", "1KQ", "1MQ", "1QQ", "1KQQ", "1KQQQQ"};
+        for (int i = 0; i < exponents.length; i++) {
+            assertEquals(expected[i], formatAmount.invoke(null, key,
+                java.math.BigInteger.TEN.pow(exponents[i]), AmountFormat.SLOT));
+        }
+        when(key.getAmountPerUnit()).thenReturn(1000);
+        assertEquals("1KQ", formatAmount.invoke(null, key,
+            java.math.BigInteger.TEN.pow(36), AmountFormat.SLOT));
+        verify(key, never()).formatAmount(anyLong(), any());
+    }
+
+    @Test
+    void unsupportedShellUsesDiagnosticsButNativeFallbackKeepsItsMaterials() {
+        assertTrue(ECOExactMaterialTableRenderer.isDiagnosticShell(PlanningStatus.PARTIAL_UNSUPPORTED, true, true));
+        assertTrue(ECOExactMaterialTableRenderer.isDiagnosticShell(PlanningStatus.INTERNAL_ERROR, true, true));
+        assertFalse(ECOExactMaterialTableRenderer.isDiagnosticShell(PlanningStatus.PARTIAL_UNSUPPORTED, true, false));
+        assertFalse(ECOExactMaterialTableRenderer.isDiagnosticShell(PlanningStatus.PARTIAL_UNSUPPORTED, false, true));
+        assertFalse(ECOExactMaterialTableRenderer.isDiagnosticShell(PlanningStatus.MISSING_ITEMS, true, true));
+        assertFalse(ECOExactMaterialTableRenderer.isDiagnosticShell(null, true, true));
+    }
+
+    @Test
+    void structuralMaterialWithoutSolvedAmountsShowsUnknown() {
+        AEKey key = mock(AEKey.class);
+        var node = new CraftingGraphSnapshot.MaterialNode(0, key, 1, 0, 0, 0,
+            CraftingGraphSnapshot.MaterialStatus.UNSUPPORTED);
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        var lines = renderer.getEntryDescription(node);
+        assertEquals(1, lines.size());
+        var contents = (net.minecraft.network.chat.contents.TranslatableContents) lines.getFirst().getContents();
+        assertEquals("gui.neoecoae.crafting_report.quantity_unknown", contents.getKey());
+        verify(key, never()).formatAmount(anyLong(), any());
+    }
+
+    @Test
     void acyclicMissingPlanRendersGraphInventoryAndShortage() {
         AEKey diamond = mock(AEKey.class);
         when(diamond.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));

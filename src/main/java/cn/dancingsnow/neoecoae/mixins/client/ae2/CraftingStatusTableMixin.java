@@ -15,28 +15,47 @@ public class CraftingStatusTableMixin {
     @Inject(method = "getEntryDescription(Lappeng/menu/me/crafting/CraftingStatusEntry;)Ljava/util/List;", at = @At("HEAD"), cancellable = true)
     private void exactDescription(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {
         var amount = exact(entry);
-        if (amount == null) return;
+        if (amount == null && exactStored(entry) == null && exactActive(entry) == null) return;
         var lines = new java.util.ArrayList<Component>();
         if (entry.getStoredAmount() > 0) lines.add(appeng.core.localization.GuiText.FromStorage.text(
-            entry.getWhat().formatAmount(entry.getStoredAmount(), appeng.api.stacks.AmountFormat.SLOT)));
+            formatExact(exactStored(entry), entry, entry.getStoredAmount(), false)));
         if (entry.getActiveAmount() > 0) lines.add(appeng.core.localization.GuiText.Crafting.text(
-            entry.getWhat().formatAmount(entry.getActiveAmount(), appeng.api.stacks.AmountFormat.SLOT)));
-        if (amount.signum() > 0) lines.add(appeng.core.localization.GuiText.Scheduled.text(
+            formatExact(exactActive(entry), entry, entry.getActiveAmount(), false)));
+        if (amount != null && amount.signum() > 0) lines.add(appeng.core.localization.GuiText.Scheduled.text(
             cn.dancingsnow.neoecoae.gui.common.HostText.ae2Amount(amount)));
         cir.setReturnValue(lines);
     }
     @Inject(method = "getEntryTooltip(Lappeng/menu/me/crafting/CraftingStatusEntry;)Ljava/util/List;", at = @At("HEAD"), cancellable = true)
     private void exactTooltip(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {
         var amount = exact(entry);
-        if (amount == null) return;
+        if (amount == null && exactStored(entry) == null && exactActive(entry) == null) return;
         var lines = new java.util.ArrayList<>(appeng.api.client.AEKeyRendering.getTooltip(entry.getWhat()));
         if (entry.getStoredAmount() > 0) lines.add(appeng.core.localization.GuiText.FromStorage.text(
-            entry.getWhat().formatAmount(entry.getStoredAmount(), appeng.api.stacks.AmountFormat.FULL)));
+            formatExact(exactStored(entry), entry, entry.getStoredAmount(), true)));
         if (entry.getActiveAmount() > 0) lines.add(appeng.core.localization.GuiText.Crafting.text(
-            entry.getWhat().formatAmount(entry.getActiveAmount(), appeng.api.stacks.AmountFormat.FULL)));
-        if (amount.signum() > 0) lines.add(appeng.core.localization.GuiText.Scheduled.text(
+            formatExact(exactActive(entry), entry, entry.getActiveAmount(), true)));
+        if (amount != null && amount.signum() > 0) lines.add(appeng.core.localization.GuiText.Scheduled.text(
             java.text.NumberFormat.getIntegerInstance(java.util.Locale.ROOT).format(amount)));
         cir.setReturnValue(lines);
+    }
+    @org.spongepowered.asm.mixin.Unique
+    private static String formatExact(java.math.BigInteger amount, CraftingStatusEntry entry, long fallback, boolean full) {
+        if (amount == null) return entry.getWhat().formatAmount(fallback,
+            full ? appeng.api.stacks.AmountFormat.FULL : appeng.api.stacks.AmountFormat.SLOT);
+        return full ? java.text.NumberFormat.getIntegerInstance(java.util.Locale.ROOT).format(amount)
+            : cn.dancingsnow.neoecoae.gui.common.HostText.ae2Amount(amount);
+    }
+    @org.spongepowered.asm.mixin.Unique
+    private static java.math.BigInteger exactStored(CraftingStatusEntry entry) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return player != null && player.containerMenu instanceof ECOBigOrderStatusHost host
+            ? host.neoecoae$getExactStored(entry.getWhat()) : null;
+    }
+    @org.spongepowered.asm.mixin.Unique
+    private static java.math.BigInteger exactActive(CraftingStatusEntry entry) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return player != null && player.containerMenu instanceof ECOBigOrderStatusHost host
+            ? host.neoecoae$getExactActive(entry.getWhat()) : null;
     }
     @org.spongepowered.asm.mixin.Unique
     private static java.math.BigInteger exact(CraftingStatusEntry entry) {

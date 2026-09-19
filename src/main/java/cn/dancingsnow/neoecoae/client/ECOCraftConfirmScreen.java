@@ -24,7 +24,7 @@ import cn.dancingsnow.neoecoae.util.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
+import cn.dancingsnow.neoecoae.util.DisplayNumbers;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -128,19 +128,19 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 long calculationNanos = mode.neoecoae$getCalculationNanos();
                 if (calculationNanos < 1_000_000L) {
                     var byteSummary = Component.translatable(
-                        "gui.neoecoae.crafting_report.bytes_only", NumberFormat.getInstance().format(plan.getUsedBytes()))
+                        "gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(Long.toString(plan.getUsedBytes())))
                         .withColor(AE2_TEXT_DARK);
                     if (plan.getUsedBytes() >= GIGA_BYTE) {
-                        byteSummary.append(Component.literal(" (" + usedBytes + " B)"));
+                        byteSummary.append(Component.literal(" (" + DisplayNumbers.bytes(usedBytes) + ")"));
                     }
                     planSummary = byteSummary;
                 } else {
                     planSummary = Component.literal(formatMillis(calculationNanos) + " ms")
-                        .append(Component.translatable("gui.neoecoae.crafting_report.bytes", usedBytes))
+                        .append(Component.translatable("gui.neoecoae.crafting_report.bytes", DisplayNumbers.bytes(usedBytes)))
                         .withColor(AE2_TEXT_DARK);
                 }
             } else {
-                planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", usedBytes)
+                planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(usedBytes))
                     .withColor(AE2_TEXT_DARK);
             }
             if (plan.isSimulation()) {
@@ -157,12 +157,24 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             String unrepresentableBytes = (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 ? HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes())
                 : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
-            planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
+            planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(unrepresentableBytes))
                 .withColor(AE2_TEXT_DARK)
                 .append(Component.literal("（已被扩展为超大数类型）").withColor(0xFFAA3333));
             cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
                 ? "gui.neoecoae.big_order.segmented" : "gui.neoecoae.big_order.requires_cpu")
                 .withColor(AE2_TEXT_DARK);
+        }
+
+        if (isDiagnosticShell()) {
+            var mode = (ECOCraftConfirmMenuMode) (Object) menu;
+            cpuDetails = Component.translatable("gui.neoecoae.crafting_report.planning_failed")
+                .withColor(0xAA3333);
+            planSummary = Component.literal(formatMillis(mode.neoecoae$getCalculationNanos()) + " ms - ")
+                .append(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
+            selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal(mode.neoecoae$getPlanningStatus() + "\n" + mode.neoecoae$getPlanningDiagnostic())));
+        } else {
+            selectCPU.setTooltip(null);
         }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
@@ -193,7 +205,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         BigDecimal millis = BigDecimal.valueOf(nanos, 6).round(TIME_PRECISION);
         int integerDigits = millis.precision() - millis.scale();
         int displayScale = Math.max(0, TIME_PRECISION.getPrecision() - integerDigits);
-        return millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString();
+        return DisplayNumbers.grouped(millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString());
     }
 
     private Component getNextCpuButtonLabel() {
@@ -339,7 +351,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
+        if (isDiagnosticShell()) return mode.neoecoae$getCraftingGraphSnapshot().nodes();
         return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes());
+    }
+
+    private boolean isDiagnosticShell() {
+        var plan = menu.getPlan();
+        return plan != null && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && ECOExactMaterialTableRenderer.isDiagnosticShell(mode.neoecoae$getPlanningStatus(),
+                plan.isSimulation(), plan.getEntries().isEmpty());
     }
 
     private boolean isUnrepresentablePlan() {
@@ -352,6 +372,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
      * attached to a native fallback remain explanation-only and keep the native confirmation table.
      */
     private boolean shouldUseExactMaterialTable() {
+        if (isDiagnosticShell()) return true;
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && ECOExactMaterialTableRenderer.hasMissingMaterialSnapshot(
                     mode.neoecoae$getPlanningStatus(), mode.neoecoae$getCraftingGraphSnapshot())) return true;

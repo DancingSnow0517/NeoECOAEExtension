@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.crafting_report.quantity_unknown": "数量未确定",
+  "gui.neoecoae.crafting_report.planning_failed": "规划未完成（悬停 CPU 按钮查看原因）",
   "gui.neoecoae.big_order.reason.output_storage": "等待网络接收剩余产物",
   "gui.neoecoae.big_order.reason.child_incomplete": "子任务尚未完整完成，已停止后续规划",
   "gui.neoecoae.big_order.planning": "规划中",
@@ -622,8 +624,8 @@
   "gui.neoecoae.computation_interface.hint": "标记物品用于忽略其组件差异",
   "gui.neoecoae.crafting_report.calculating": "计算中…",
   "gui.neoecoae.crafting_report.solving_large_cycle": "[ECO] 正在求解大型循环",
-  "gui.neoecoae.crafting_report.bytes": " - 字节：%s B",
-  "gui.neoecoae.crafting_report.bytes_only": "字节：%s B",
+  "gui.neoecoae.crafting_report.bytes": " - 字节：%s",
+  "gui.neoecoae.crafting_report.bytes_only": "字节：%s",
   "gui.neoecoae.crafting_report.single_net_output": "单次变化：%s",
   "gui.neoecoae.crafting_report.total_net_output": "总变化：%s",
   "gui.neoecoae.crafting_report.total_net_output_unknown": "总变化：未知",

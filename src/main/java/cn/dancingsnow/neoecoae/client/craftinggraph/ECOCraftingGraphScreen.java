@@ -159,7 +159,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             int color = i < activeSegments ? activeColor : 0xff56616c;
             graphics.fill(x - 2, y - 2, x + 3, y + 3, color);
         }
-        graphics.drawCenteredString(font, Integer.toString(cycle.memberNodeIds().size()), centerX,
+        graphics.drawCenteredString(font, cn.dancingsnow.neoecoae.gui.common.HostText.expandedNumber(cycle.memberNodeIds().size()), centerX,
             centerY - font.lineHeight / 2, 0xffe8edf2);
     }
 
@@ -188,7 +188,7 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     private void drawStats(GuiGraphics graphics) {
         String stats = String.format(Locale.ROOT,
-            "nodes %d/%d  edges %d/%d  zoom %.0f%%  layout %.2f ms  index %.2f ms  render %.2f ms  v%d",
+            "nodes %,d/%,d  edges %,d/%,d  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
             profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
             profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
             layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,

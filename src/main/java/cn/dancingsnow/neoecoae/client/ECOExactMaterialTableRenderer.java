@@ -7,6 +7,8 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.util.ExtendedDecimalUnits;
+import cn.dancingsnow.neoecoae.util.DisplayNumbers;
 import java.math.BigInteger;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,6 +26,17 @@ import net.minecraft.network.chat.Component;
  * same layout and interaction for an explanatory plan whose amounts are represented by BigInteger.
  */
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
+    /** Only empty simulation shells may replace the native fallback's material table. */
+    static boolean isDiagnosticShell(
+            cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus status,
+            boolean simulation, boolean empty) {
+        if (status == null || !simulation || !empty) return false;
+        return switch (status) {
+            case PARTIAL_UNSUPPORTED, UNSUPPORTED, INTERNAL_ERROR, CYCLE_UNSUPPORTED, AMOUNT_OVERFLOW -> true;
+            default -> false;
+        };
+    }
+
     /** Missing ECO plans use the same quantities as the graph, including acyclic plans. */
     static boolean hasMissingMaterialSnapshot(
             cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus status,
@@ -33,7 +46,6 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     }
 
     private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
-    private static final String[] SI_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
     private static final int MISSING_OVERLAY = 0x1AFF0000;
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
@@ -64,6 +76,9 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.SLOT)));
         }
+        if (lines.isEmpty()) {
+            lines.add(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
+        }
         return lines;
     }
 
@@ -90,7 +105,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.FULL)));
         }
         lines.add(Component.translatable("gui.neoecoae.crafting_report.requested_exact",
-            NumberFormat.getNumberInstance().format(new BigInteger(entry.exactRequested()))));
+            NumberFormat.getNumberInstance(java.util.Locale.US).format(new BigInteger(entry.exactRequested()))));
         return lines;
     }
 
@@ -125,13 +140,13 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             amount = amount.negate();
         }
         if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
-            return key.formatAmount(amount.longValue(), format);
+            return DisplayNumbers.grouped(key.formatAmount(amount.longValue(), format));
         }
         int amountPerUnit = Math.max(1, key.getAmountPerUnit());
         BigDecimal displayAmount = new BigDecimal(amount)
             .divide(BigDecimal.valueOf(amountPerUnit), 6, RoundingMode.DOWN);
         if (format == AmountFormat.FULL) {
-            String formatted = NumberFormat.getNumberInstance().format(displayAmount.stripTrailingZeros());
+            String formatted = DisplayNumbers.grouped(displayAmount.stripTrailingZeros().toPlainString());
             String unit = key.getUnitSymbol();
             return unit == null ? formatted : formatted + " " + unit;
         }
@@ -143,15 +158,16 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         if (value.signum() == 0) return "0";
         int suffix = 0;
         BigDecimal scaled = value;
-        while (suffix < SI_SUFFIXES.length - 1 && scaled.compareTo(THOUSAND_DECIMAL) >= 0) {
+        while (scaled.compareTo(THOUSAND_DECIMAL) >= 0) {
             scaled = scaled.divide(THOUSAND_DECIMAL, 6, RoundingMode.DOWN);
             suffix++;
         }
-        int decimals = Math.max(0, maxWidth - integerDigits(scaled) - (suffix == 0 ? 0 : 1) - 1);
+        String unit = ExtendedDecimalUnits.suffix(suffix);
+        int decimals = Math.max(0, maxWidth - integerDigits(scaled) - unit.length() - 1);
         String result = scaled.setScale(Math.min(2, decimals), RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + SI_SUFFIXES[suffix];
+            .stripTrailingZeros().toPlainString() + unit;
         if (result.length() <= maxWidth) return result;
-        return scaled.setScale(0, RoundingMode.DOWN).toPlainString() + SI_SUFFIXES[suffix];
+        return scaled.setScale(0, RoundingMode.DOWN).toPlainString() + unit;
     }
 
     private static int integerDigits(BigDecimal value) {

@@ -280,6 +280,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.pattern_transfer.result_secondary", "No space %d; Incompatible %d");
 
         // computation interface
+        provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.bytes_only", "Bytes: %s");
         provider.add("gui.neoecoae.computation_interface.hint", "Mark items to ignore component differences when planning");
         provider.add("gui.neoecoae.crafting_report.single_net_output", "Single change: %s");
         provider.add("gui.neoecoae.crafting_report.total_net_output", "Total change: %s");
@@ -289,6 +291,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.cycle_planning_disabled", "Cycle planning is disabled");
         provider.add("gui.neoecoae.crafting_report.missing_startup_seed", "Missing startup seed");
         provider.add("gui.neoecoae.crafting_report.requested_exact", "Total requested: %s");
+        provider.add("gui.neoecoae.crafting_report.quantity_unknown", "Quantity unknown");
+        provider.add("gui.neoecoae.crafting_report.planning_failed", "Planning incomplete (hover CPU for details)");
         provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.node.pending_craft", "Pending craft");
