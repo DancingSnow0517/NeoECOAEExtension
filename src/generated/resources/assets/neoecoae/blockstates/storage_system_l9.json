@@ -37,11 +37,11 @@
       "y": 90
     },
     "facing=east,formed=true,mirrored=true,storage_mode=input": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_input",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_input_mirrored",
       "y": 90
     },
     "facing=east,formed=true,mirrored=true,storage_mode=output": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_output",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_output_mirrored",
       "y": 90
     },
     "facing=east,formed=true,mirrored=true,storage_mode=storage": {
@@ -76,10 +76,10 @@
       "model": "neoecoae:block/storage_controller/controller_l9_formed"
     },
     "facing=north,formed=true,mirrored=true,storage_mode=input": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_input"
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_input_mirrored"
     },
     "facing=north,formed=true,mirrored=true,storage_mode=output": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_output"
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_output_mirrored"
     },
     "facing=north,formed=true,mirrored=true,storage_mode=storage": {
       "model": "neoecoae:block/storage_controller/controller_l9_formed_mirrored"
@@ -121,11 +121,11 @@
       "y": 180
     },
     "facing=south,formed=true,mirrored=true,storage_mode=input": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_input",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_input_mirrored",
       "y": 180
     },
     "facing=south,formed=true,mirrored=true,storage_mode=output": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_output",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_output_mirrored",
       "y": 180
     },
     "facing=south,formed=true,mirrored=true,storage_mode=storage": {
@@ -169,11 +169,11 @@
       "y": 270
     },
     "facing=west,formed=true,mirrored=true,storage_mode=input": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_input",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_input_mirrored",
       "y": 270
     },
     "facing=west,formed=true,mirrored=true,storage_mode=output": {
-      "model": "neoecoae:block/storage_controller/controller_l9_formed_output",
+      "model": "neoecoae:block/storage_controller/controller_l9_formed_output_mirrored",
       "y": 270
     },
     "facing=west,formed=true,mirrored=true,storage_mode=storage": {
