@@ -661,6 +661,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     }
 
     @Override
+    public synchronized void commitPersistence() {
+        flushAndAwait();
+    }
+
+    @Override
     public synchronized void verifyPersistence() throws Exception {
         flushAndAwait();
         verifyDiskSnapshot();

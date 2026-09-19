@@ -86,6 +86,7 @@ public final class ECOCellStorageManager {
                     ECOCellHandle.getStoredAmountSummary(stack));
             CELLS.put(id, backend);
         }
+        ECOSavedDataPersistence.register(backend);
         if (backend.isDegraded()) {
             ECOCellHandle.markLocked(stack);
             return backend;

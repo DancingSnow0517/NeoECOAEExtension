@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
@@ -160,6 +162,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     synchronized void quarantine(String message, Throwable cause) {
         degraded = true;
+        setDirty(false);
         failureReason = message + ": " + cause.getMessage();
         LOGGER.error("{} {}", message, storageId, cause);
     }
@@ -268,10 +271,29 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     }
 
     synchronized void flushAndAwait() {
-        if (degraded) {
-            return;
+        save(dataFile.toFile());
+    }
+
+    @Override
+    public synchronized void commitPersistence() {
+        flushAndAwait();
+    }
+
+    @Override
+    public synchronized void save(File file) {
+        if (degraded || !isDirty()) return;
+        try {
+            if (!dataFile.equals(file.toPath().toAbsolutePath().normalize())) {
+                throw new IllegalArgumentException("Unexpected ECO cell save path: " + file);
+            }
+            AtomicSavedDataFile.write(
+                    dataFile,
+                    save(new CompoundTag()),
+                    SharedConstants.getCurrentVersion().getDataVersion().getVersion());
+            setDirty(false);
+        } catch (Exception e) {
+            persistenceFailed(e);
         }
-        ECOSavedDataPersistence.flush(this);
     }
 
     @Override

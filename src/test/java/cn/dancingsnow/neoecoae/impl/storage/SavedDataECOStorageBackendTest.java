@@ -6,10 +6,13 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
@@ -28,6 +31,55 @@ class SavedDataECOStorageBackendTest {
     @AfterEach
     void clearRegistrations() {
         ECOSavedDataPersistence.clear();
+    }
+
+    @Test
+    void explicitSaveDoesNotDependOnRegistrationOrSaveOtherCells() throws Exception {
+        SharedConstants.tryDetectVersion();
+        var first = SavedDataECOStorageBackend.createNew(UUID.randomUUID(), null, directory.resolve("first.dat"));
+        var second = SavedDataECOStorageBackend.createNew(UUID.randomUUID(), null, directory.resolve("second.dat"));
+        first.insert(key(first, 1), 10, Actionable.MODULATE);
+        second.insert(key(second, 2), 20, Actionable.MODULATE);
+        ECOSavedDataPersistence.unregister(first); // A cached cell remounted after release.
+        first.flushAndAwait();
+        assertEquals(
+                10,
+                AtomicSavedDataFile.read(directory.resolve("first.dat"))
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount"));
+        assertFalse(Files.exists(directory.resolve("second.dat")));
+        assertTrue(second.isDirty());
+    }
+
+    @Test
+    void quarantinedCellCannotBeOverwrittenByVanillaAutosave() throws Exception {
+        SharedConstants.tryDetectVersion();
+        var backend = create();
+        backend.insert(key(backend, 1), 10, Actionable.MODULATE);
+        backend.flushAndAwait();
+        byte[] before = Files.readAllBytes(directory.resolve("cell.dat"));
+        backend.quarantine("Injected failure", new IOException("disk unavailable"));
+        backend.setDirty();
+        backend.save(directory.resolve("cell.dat").toFile());
+        assertArrayEquals(before, Files.readAllBytes(directory.resolve("cell.dat")));
+    }
+
+    @Test
+    void failedCellCommitDoesNotLockOtherCells() throws Exception {
+        SharedConstants.tryDetectVersion();
+        Path blocked = directory.resolve("blocked.dat");
+        Files.createDirectory(blocked);
+        Files.writeString(blocked.resolve("evidence"), "keep");
+        var failed = SavedDataECOStorageBackend.createNew(UUID.randomUUID(), null, blocked);
+        var healthy = create();
+        failed.setDirty();
+        healthy.setDirty();
+        ECOSavedDataPersistence.flushAll();
+        assertTrue(failed.isDegraded());
+        assertFalse(healthy.isDegraded());
+        assertFalse(healthy.isDirty());
+        assertTrue(Files.isRegularFile(directory.resolve("cell.dat")));
     }
 
     @Test
