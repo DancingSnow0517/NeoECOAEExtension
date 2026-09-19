@@ -78,10 +78,10 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
             if (amount.fitsLong()) {
                 initial.set(key, amount.longValueExact());
             } else {
-                // AE2 can only carry a long projection. Keep the exact amount in the
-                // deferred ledger and expose a saturated projection for legacy validation.
+                // The initial window is physically extracted at admission. Defer only the remainder,
+                // otherwise refilling would debit that first window a second time.
                 initial.set(key, Long.MAX_VALUE);
-                deferred.put(key, amount.toBigInteger());
+                deferred.put(key, amount.toBigInteger().subtract(BigInteger.valueOf(Long.MAX_VALUE)));
             }
         });
         return initial;

@@ -1,6 +1,10 @@
 package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import java.util.List;
+import java.util.Map;
+import java.math.BigInteger;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,6 +37,16 @@ public final class ECOBatchCraftingExecutor {
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
             ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
             Level level, UUID craftingJobId) {
+        return prepare(provider, pattern, inputs, outputs, containers, inventory, maxCrafts, power,
+            energyService, level, craftingJobId, false);
+    }
+
+    @Nullable
+    public static PreparedBatch prepare(
+            ECOFastPathDispatchProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
+            ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
+            Level level, UUID craftingJobId, boolean exactOrder) {
         if (maxCrafts <= 0) return null;
         try {
             var context = ECOBatchDispatchContext.create(pattern, inputs, outputs, containers, level, craftingJobId);
@@ -46,16 +60,23 @@ public final class ECOBatchCraftingExecutor {
                     && statefulCalculator == null) {
                 return null;
             }
+            boolean exactInputs = exactOrder && inventory instanceof ECOExactInventory exact && exact.isEnabled()
+                && preparation.supportsExactInputs() && statefulCalculator == null;
             long materialLimit = statefulCalculator == null
                 ? ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
-                    perCopy, context.outputs(), context.containerItems())
+                    exactInputs ? List.of() : perCopy, context.outputs(), context.containerItems())
                 : statefulCalculator.arithmeticBatchLimit();
             long requested = Math.min(maxCrafts, Math.min(capacity,
                 materialLimit));
             if (requested <= 0) return null;
             ECOStatefulBatchCalculator.BatchContract statefulBatch = null;
             if (statefulCalculator == null) {
-                requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
+                if (exactInputs) {
+                    for (var input : perCopy) requested = ECOExactInventory.amount(inventory, input.what())
+                        .divide(BigInteger.valueOf(input.amount())).min(BigInteger.valueOf(requested)).longValueExact();
+                } else {
+                    requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
+                }
             } else {
                 statefulBatch = statefulCalculator.prepareBatch(inventory, requested);
                 requested = statefulBatch == null ? 0L : statefulBatch.craftCount();
@@ -67,15 +88,17 @@ public final class ECOBatchCraftingExecutor {
                 statefulBatch = statefulCalculator.prepareBatch(inventory, size);
                 if (statefulBatch == null || statefulBatch.craftCount() != size) return null;
             }
-            var inputTotal = statefulCalculator == null
+            var inputTotal = exactInputs ? List.<GenericStack>of() : statefulCalculator == null
                 ? ECOBatchCraftingHelper.multiply(perCopy, size) : statefulBatch.inputs();
             var remainderTotal = statefulCalculator == null
                 ? ECOBatchCraftingHelper.multiply(context.containerItems(), size)
                 : statefulBatch.remainders();
+            Map<AEKey, BigInteger> exactTotal = exactInputs ? ECOExactInventory.totals(perCopy, size) : Map.of();
             var batch = new ECOFastPathDispatchProvider.Batch(size, inputTotal,
-                ECOBatchCraftingHelper.multiply(context.outputs(), size), remainderTotal);
-            return new PreparedBatch(batch.craftCount(), batch.inputTotal(), batch.outputTotal(),
-                batch.remainingTotal(), power * size, () -> preparation.push(batch));
+                ECOBatchCraftingHelper.multiply(context.outputs(), size), remainderTotal, exactTotal);
+            return new PreparedBatch(batch.craftCount(), inputTotal, batch.outputTotal(),
+                batch.remainingTotal(), ECOBatchCraftingHelper.energyRequest(power, size), () -> preparation.push(batch),
+                exactInputs ? exactTotal : Map.of());
         } catch (RuntimeException unavailable) {
             LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);
             return null;
@@ -84,8 +107,22 @@ public final class ECOBatchCraftingExecutor {
 
     public record PreparedBatch(long craftCount, List<GenericStack> inputTotal,
             List<GenericStack> outputs, List<GenericStack> remainders,
-            double power, BooleanSupplier dispatch) {
+            double power, BooleanSupplier dispatch, Map<AEKey, BigInteger> exactInputs) {
+        public PreparedBatch(long count, List<GenericStack> inputs, List<GenericStack> outputs,
+                List<GenericStack> remainders, double power, BooleanSupplier dispatch) {
+            this(count, inputs, outputs, remainders, power, dispatch, Map.of());
+        }
+
+        public Map<AEKey, BigInteger> exactInputTotal() {
+            return exactInputs.isEmpty() ? ECOExactInventory.totals(inputTotal, 1) : exactInputs;
+        }
+
+        @Override public List<GenericStack> inputTotal() {
+            return exactInputs.isEmpty() ? inputTotal : exactInputs.entrySet().stream()
+                .map(entry -> new GenericStack(entry.getKey(), entry.getValue().longValueExact())).toList();
+        }
         public PreparedBatch {
+            exactInputs = Map.copyOf(exactInputs);
             inputTotal = List.copyOf(inputTotal);
             outputs = List.copyOf(outputs);
             remainders = List.copyOf(remainders);
@@ -101,7 +138,8 @@ public final class ECOBatchCraftingExecutor {
 
         /** Extract the prepared input total once and restore that exact total on rejection. */
         public boolean push(ListCraftingInventory inventory) {
-            if (!ECOBatchCraftingHelper.extractExact(inventory, inputTotal)) {
+            ECOExactInventory exact = exactInputs.isEmpty() ? null : (ECOExactInventory) inventory;
+            if (!(exact == null ? ECOBatchCraftingHelper.extractExact(inventory, inputTotal) : exact.debit(exactInputs))) {
                 return false;
             }
             boolean accepted = false;
@@ -112,7 +150,10 @@ public final class ECOBatchCraftingExecutor {
                 accepted = true;
                 throw failure;
             } finally {
-                if (!accepted) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+                if (!accepted) {
+                    if (exact == null) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+                    else exact.restore(exactInputs);
+                }
             }
         }
     }

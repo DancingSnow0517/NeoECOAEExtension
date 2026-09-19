@@ -35,6 +35,26 @@ final class ECOCraftingDispatchAccounting {
      * The hook runs after runtime progress and before menu notifications, matching the existing
      * dynamic-output registration order.
      */
+    void applyExact(ECOCraftingDispatchRequest request,
+            cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExactBatchCraftingExecutor.PreparedBatch batch,
+            Runnable beforeNotifications, ICraftingProvider provider) {
+        var job = request.job();
+        if (!job.exactOrder) throw new IllegalStateException("Exact dispatch requires a big order");
+        var waiting = (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor;
+        waiting.restore(batch.outputs());
+        waiting.restore(batch.remainders());
+        batch.remainders().forEach((key, amount) -> job.timeTracker.addMaxItems(amount, key.getType()));
+        job.tasks.get(request.pattern()).accept(batch.craftCount());
+        if (job.executionRuntime != null)
+            job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftCount(), request.inputs());
+        beforeNotifications.run();
+        dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
+            batch.craftCount(), provider));
+        batch.outputs().keySet().forEach(postChange);
+        batch.remainders().keySet().forEach(postChange);
+        markDirty.run();
+    }
+
     void apply(ECOCraftingDispatchRequest request, ECOCraftingDispatchResult result,
             Runnable beforeNotifications) {
         apply(request, result, beforeNotifications, null);

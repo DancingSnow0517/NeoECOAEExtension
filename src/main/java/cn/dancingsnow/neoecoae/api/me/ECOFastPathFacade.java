@@ -49,10 +49,20 @@ public final class ECOFastPathFacade {
     public static PreparedBatch prepare(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
             long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId) {
+        return prepare(provider, pattern, inputs, outputs, remainders, inventory, maxCrafts,
+            singlePower, energy, level, jobId, false);
+    }
+
+    /** Explicit opt-in from the owning CPU's exact-order flag, never inferred from an amount or inventory. */
+    @Nullable
+    public static PreparedBatch prepare(ICraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
+            long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId,
+            boolean exactOrder) {
         var target = resolveProvider(provider);
         if (target == null) return null;
         var batch = ECOBatchCraftingExecutor.prepare(target, pattern, inputs, outputs, remainders,
-            inventory, maxCrafts, singlePower, energy, level, jobId);
+            inventory, maxCrafts, singlePower, energy, level, jobId, exactOrder);
         return batch == null ? null : new PreparedBatch(batch, inventory);
     }
 
@@ -108,6 +118,9 @@ public final class ECOFastPathFacade {
         public long craftCount() { return batch.craftCount(); }
         public double power() { return batch.power(); }
         public List<GenericStack> inputTotal() { return batch.inputTotal(); }
+        public java.util.Map<appeng.api.stacks.AEKey, java.math.BigInteger> exactInputTotal() {
+            return batch.exactInputTotal();
+        }
         public List<GenericStack> outputs() { return batch.outputs(); }
         public List<GenericStack> remainders() { return batch.remainders(); }
 

@@ -61,6 +61,12 @@ final class ECOCraftingProviderDispatcher {
         List<appeng.api.stacks.GenericStack> ordinaryInputStacks = null;
 
         for (var provider : providers) {
+            if (request.job().exactOrder) {
+                var exact = fastPath.tryExactDispatch(request, provider, singlePower, energyService, markProviderAttempt);
+                if (exact != null) return Result.accepted(
+                    cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(exact), true);
+                if (request.job().suspended) return Result.none();
+            }
             var processingResult = processing.tryDispatch(
                     request, provider, singlePower, energyService, markProviderAttempt);
             if (processingResult != null) {
@@ -231,12 +237,12 @@ final class ECOCraftingProviderDispatcher {
         List<appeng.api.stacks.GenericStack> totalInputs =
                 ECOBatchCraftingHelper.multiply(perCraftInputs, requested);
         KeyCounter[] scaledCounters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), requested);
-        double batchPower = singlePower * requested;
+        double batchPower = ECOBatchCraftingHelper.energyRequest(singlePower, requested);
         if (!Double.isFinite(batchPower) || batchPower < 0.0D) {
             return null;
         }
 
-        var reservation = energyTransaction.reserve(energyService, batchPower);
+        var reservation = energyTransaction.reserve(energyService, singlePower, requested);
         if (reservation == null) {
             diagnostics.insufficientPower(batchPower, 0.0D);
             return null;

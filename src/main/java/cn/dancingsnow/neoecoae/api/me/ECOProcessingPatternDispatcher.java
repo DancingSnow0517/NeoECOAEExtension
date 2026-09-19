@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtBatchCapability;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusScaling;
+import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ final class ECOProcessingPatternDispatcher {
         // Give the provider the entire allowance, once. It owns target probing and recovery.
         List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(perCraftInputs, limit);
         if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) return null;
-        var reservation = energy.reserve(service, onePower * limit);
+        var reservation = energy.reserve(service, onePower, limit);
         if (reservation == null) {
             ECOBatchCraftingHelper.insertAll(request.inventory(), consumed);
             return null;
@@ -128,7 +129,7 @@ final class ECOProcessingPatternDispatcher {
             List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
             var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), consumed);
             if (inputTransaction == null) break;
-            var reservation = energy.reserve(service, onePower * offer);
+            var reservation = energy.reserve(service, onePower, offer);
             if (reservation == null) { inputTransaction.rollback(); break; }
             boolean accepted = false;
             boolean ownershipUncertain = false;
@@ -193,7 +194,7 @@ final class ECOProcessingPatternDispatcher {
     }
 
     /**
-     * Scale only inspectable non-blocking processing providers with the existing single-input contract.
+     * Scale only inspectable non-blocking or smart-blocking providers with the existing single-input contract.
      * Acceptance transfers the entire chunk; the send buffer separately determines capacity proof.
      */
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
@@ -208,7 +209,9 @@ final class ECOProcessingPatternDispatcher {
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         try {
-            if (logic.isBlocking()) return false;
+            // EAEP checks input presence rather than quantity. Scaling preserves the input keys,
+            // and every offer still passes through the provider's own pushPattern blocking check.
+            if (logic.isBlocking() && !ECOExtendedAEPlusBlocking.isEnabled(logic.getConfigManager())) return false;
         } catch (RuntimeException unavailable) {
             return false;
         }

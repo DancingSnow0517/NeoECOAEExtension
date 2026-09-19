@@ -64,7 +64,8 @@ class CreativeCycleSupplyTest {
                     exact.setTheoreticalBytes(result.state().plannerBytes());
                     var executable = new cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan(exact, false);
                     assertEquals(1, executable.exactTasks().size());
-                    assertEquals(BigInteger.valueOf(amount).multiply(BigInteger.TWO), executable.deferredStock().get(template));
+                    assertEquals(BigInteger.valueOf(amount).multiply(BigInteger.TWO), executable.deferredStock().get(template)
+                        .add(BigInteger.valueOf(executable.usedItems().get(template))));
                     assertNotNull(executable.execution());
                 }
             }

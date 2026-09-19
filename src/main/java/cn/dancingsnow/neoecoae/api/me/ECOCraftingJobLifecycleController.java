@@ -46,6 +46,9 @@ final class ECOCraftingJobLifecycleController {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
 
+        if (!host.getInventory().list.isEmpty() && host.exactInventory().isEnabled()) {
+            return CraftingSubmitResult.CPU_BUSY;
+        }
         if (!host.getInventory().list.isEmpty()) {
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
         }
@@ -58,6 +61,7 @@ final class ECOCraftingJobLifecycleController {
         if (plan instanceof cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan exact)
             executionPlan = exact.execution();
 
+        host.exactInventory().setEnabled(plan instanceof cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan);
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(
                 plan, grid, host.getInventory(), src);
         if (missingIngredient != null) {

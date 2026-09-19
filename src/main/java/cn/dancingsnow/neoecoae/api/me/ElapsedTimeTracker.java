@@ -37,6 +37,9 @@ public class ElapsedTimeTracker {
 
     private long lastTime = System.nanoTime();
     private long elapsedTime = 0;
+    private boolean exact;
+    private final java.util.Map<AEKeyType, java.math.BigInteger> exactStarted = new LinkedHashMap<>();
+    private final java.util.Map<AEKeyType, java.math.BigInteger> exactCompleted = new LinkedHashMap<>();
 
     private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
             AEKeyTypes.getAll().size());
@@ -50,6 +53,12 @@ public class ElapsedTimeTracker {
         this.elapsedTime = data.getLong(NBT_ELAPSED_TIME);
         readLongByTypeMap(data.getCompound(NBT_STARTED_WORK), startedWorkByType);
         readLongByTypeMap(data.getCompound(NBT_COMPLETED_WORK), completedWorkByType);
+        exact = data.getBoolean("exactWork");
+        if (exact) for (var type : AEKeyTypes.getAll()) {
+            String id = type.getId().toString();
+            exactStarted.put(type, new java.math.BigInteger(data.getCompound("exactStarted").getString(id)));
+            exactCompleted.put(type, new java.math.BigInteger(data.getCompound("exactCompleted").getString(id)));
+        }
     }
 
     public CompoundTag writeToNBT() {
@@ -57,6 +66,17 @@ public class ElapsedTimeTracker {
         data.putLong(NBT_ELAPSED_TIME, elapsedTime);
         data.put(NBT_STARTED_WORK, writeLongByTypeMap(startedWorkByType));
         data.put(NBT_COMPLETED_WORK, writeLongByTypeMap(completedWorkByType));
+        if (exact) {
+            data.putBoolean("exactWork", true);
+            var started = new CompoundTag();
+            var completed = new CompoundTag();
+            for (var type : AEKeyTypes.getAll()) {
+                started.putString(type.getId().toString(), getExactStartedWork(type).toString());
+                completed.putString(type.getId().toString(), getExactCompletedWork(type).toString());
+            }
+            data.put("exactStarted", started);
+            data.put("exactCompleted", completed);
+        }
         return data;
     }
 
@@ -82,18 +102,20 @@ public class ElapsedTimeTracker {
 
     void decrementItems(long itemDiff, AEKeyType keyType) {
         updateTime();
+        if (exact) exactCompleted.merge(keyType, java.math.BigInteger.valueOf(itemDiff), java.math.BigInteger::add);
         completedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {
         updateTime();
+        if (exact) exactStarted.merge(keyType, java.math.BigInteger.valueOf(itemDiff), java.math.BigInteger::add);
         startedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
     public long getElapsedTime() {
         boolean allDone = true;
         for (var keyType : AEKeyTypes.getAll()) {
-            if (completedWorkByType.getLong(keyType) < startedWorkByType.getLong(keyType)) {
+            if (getExactCompletedWork(keyType).compareTo(getExactStartedWork(keyType)) < 0) {
                 allDone = false;
                 break;
             }
@@ -108,6 +130,16 @@ public class ElapsedTimeTracker {
 
     // TODO: 1.21.4 Change the network packet and screen to use this rather than the counts below
     public float getProgress() {
+        if (exact) {
+            var started = java.math.BigDecimal.ZERO;
+            var completed = java.math.BigDecimal.ZERO;
+            for (var type : AEKeyTypes.getAll()) {
+                var unit = java.math.BigDecimal.valueOf(type.getAmountPerUnit());
+                started = started.add(new java.math.BigDecimal(getExactStartedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
+                completed = completed.add(new java.math.BigDecimal(getExactCompletedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
+            }
+            return started.signum() <= 0 ? 0 : Math.clamp(completed.divide(started, java.math.MathContext.DECIMAL128).floatValue(), 0, 1);
+        }
         double startedUnits = 0;
         double completedUnits = 0;
         for (var keyType : AEKeyTypes.getAll()) {
@@ -124,6 +156,29 @@ public class ElapsedTimeTracker {
     }
 
     /** Returns the started work for one key type without exposing the mutable backing map. */
+    void startExactWork() {
+        exact = true;
+        exactStarted.clear();
+        exactCompleted.clear();
+        startedWorkByType.clear();
+        completedWorkByType.clear();
+    }
+
+    void addMaxItems(java.math.BigInteger amount, AEKeyType type) {
+        if (!exact) throw new IllegalStateException("Exact work is disabled");
+        updateTime();
+        exactStarted.merge(type, amount, java.math.BigInteger::add);
+        startedWorkByType.put(type, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(getExactStartedWork(type)));
+    }
+
+    public java.math.BigInteger getExactStartedWork(AEKeyType type) {
+        return exact ? exactStarted.getOrDefault(type, java.math.BigInteger.ZERO) : java.math.BigInteger.valueOf(getStartedWork(type));
+    }
+
+    public java.math.BigInteger getExactCompletedWork(AEKeyType type) {
+        return exact ? exactCompleted.getOrDefault(type, java.math.BigInteger.ZERO) : java.math.BigInteger.valueOf(getCompletedWork(type));
+    }
+
     public long getStartedWork(AEKeyType keyType) {
         return keyType == null ? 0L : Math.max(0L, startedWorkByType.getLong(keyType));
     }

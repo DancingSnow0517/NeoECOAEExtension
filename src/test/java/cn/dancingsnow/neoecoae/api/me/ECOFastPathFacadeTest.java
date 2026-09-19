@@ -36,6 +36,32 @@ class ECOFastPathFacadeTest {
         assertEquals(Long.MAX_VALUE - Long.MAX_VALUE / 2, inventory.list.get(key));
         verify(reservation).commit();
     }
+    @Test void poweredLongMaxBatchCommitsOrRollsBackWithoutTruncatingItsCount() {
+        for (boolean accepted : new boolean[]{true, false}) {
+            var provider = mock(Provider.class);
+            when(provider.eco$prepareFastPath(any())).thenReturn(
+                new ECOFastPathDispatchProvider.Preparation(Long.MAX_VALUE, null, false, delivery -> {
+                    assertEquals(Long.MAX_VALUE, delivery.craftCount());
+                    assertEquals(Long.MAX_VALUE, delivery.inputTotal().getFirst().amount());
+                    return accepted;
+                }));
+            when(energy.extractAEPower(anyDouble(), any(), eq(PowerMultiplier.CONFIG)))
+                .thenAnswer(call -> call.getArgument(0));
+            inventory.list.set(key, Long.MAX_VALUE);
+            var input = new KeyCounter();
+            input.add(key, 1);
+            var output = new KeyCounter();
+            output.add(key, 1);
+            var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), new KeyCounter[]{input},
+                output, new KeyCounter(), inventory, Long.MAX_VALUE, 2, energy, null, null);
+            assertNotNull(batch);
+            assertEquals(Long.MAX_VALUE, batch.craftCount());
+            var ledger = new ECOCraftingEnergyTransaction(() -> {}, () -> 1);
+            assertEquals(accepted, batch.submit(ignored -> ledger.reserve(energy, 2, batch.craftCount())));
+            assertEquals(accepted ? 0 : Long.MAX_VALUE, inventory.list.get(key));
+        }
+    }
+
     interface Provider extends ICraftingProvider, ECOFastPathDispatchProvider {}
 
     private final AEKey key = mock(AEKey.class, RETURNS_DEEP_STUBS);

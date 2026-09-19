@@ -86,7 +86,7 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
      * 库存。
      */
     @Getter
-    private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
+    private final ListCraftingInventory inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     private final ECOCraftingJobAttachments jobAttachments = new ECOCraftingJobAttachments();
     /**
@@ -424,12 +424,19 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
         var storage = g.getStorageService().getInventory();
 
-        for (var entry : this.inventory.list) {
+        boolean exact = exactInventory().isEnabled();
+        var storedWindow = this.inventory.list;
+        if (exact) {
+            storedWindow = new KeyCounter();
+            storedWindow.addAll(this.inventory.list);
+        }
+        for (var entry : storedWindow) {
             this.postChange(entry.getKey());
             var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
                     cpu.getActionSource());
 
-            entry.setValue(entry.getLongValue() - inserted);
+            if (exact) this.inventory.extract(entry.getKey(), inserted, Actionable.MODULATE);
+            else entry.setValue(entry.getLongValue() - inserted);
         }
         this.inventory.list.removeZeros();
 
@@ -484,10 +491,16 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
 
     void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
         this.job = restoredJob;
+        exactInventory().setEnabled(restoredJob != null && restoredJob.exactOrder);
     }
 
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
         this.job = nextJob;
+        exactInventory().setEnabled(nextJob != null && nextJob.exactOrder);
+    }
+
+    public cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory exactInventory() {
+        return (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory;
     }
 
     public boolean hasJob() {
@@ -599,6 +612,16 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         return bigOrder.exactPendingPreview();
     }
 
+    public java.util.Map<AEKey, java.math.BigInteger> getExactStoredPreview() {
+        return job != null && job.exactOrder
+            ? ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory).snapshot() : java.util.Map.of();
+    }
+
+    public java.util.Map<AEKey, java.math.BigInteger> getExactActivePreview() {
+        return job != null && job.exactOrder
+            ? ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor).snapshot() : java.util.Map.of();
+    }
+
     /** Refill physical buffers within one job, without creating or replanning child orders. */
     private void refillExactMaterials() {
         if (!job.exactOrder) return;
@@ -613,9 +636,8 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
             source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
         }
         for (var entry : job.deferredStock.entrySet()) {
-            long room = Long.MAX_VALUE - Math.max(0L, inventory.list.get(entry.getKey()));
-            room -= Math.min(room, Math.max(0L, job.waitingFor.list.get(entry.getKey())));
-            long wanted = Math.min(room, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(entry.getValue()));
+            // One network call per key/tick bounds work while exact inventory accumulates multiple windows.
+            long wanted = cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(entry.getValue());
             if (wanted <= 0) continue;
             long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,
                 appeng.api.config.Actionable.MODULATE, source);
@@ -629,12 +651,9 @@ public class ECOCraftingCPULogic implements ECOCraftingProgressSink,
         }
         job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
         for (var entry : job.deferredEmitted.entrySet()) {
-            long room = Long.MAX_VALUE - Math.max(0L, job.waitingFor.list.get(entry.getKey()));
-            room -= Math.min(room, Math.max(0L, inventory.list.get(entry.getKey())));
-            long amount = Math.min(room, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(entry.getValue()));
-            if (amount <= 0) continue;
-            job.waitingFor.insert(entry.getKey(), amount, appeng.api.config.Actionable.MODULATE);
-            entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(amount)));
+            ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor)
+                .restore(java.util.Map.of(entry.getKey(), entry.getValue()));
+            entry.setValue(java.math.BigInteger.ZERO);
             postChange(entry.getKey());
             markCpuDirty();
         }

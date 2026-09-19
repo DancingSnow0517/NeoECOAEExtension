@@ -21,6 +21,7 @@ final class ECOCraftingCpuPersistence {
         host.jobAttachmentsForPersistence().reset();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);
+        host.exactInventory().setEnabled(data.getBoolean("ecoExactInventory"));
         host.getInventory().readFromNBT(data.getList("inventory", 10), registries);
 
         if (!data.contains("job")) {
@@ -56,6 +57,7 @@ final class ECOCraftingCpuPersistence {
 
     void write(CompoundTag data, HolderLookup.Provider registries) {
         host.bigOrder.write(data, registries);
+        data.putBoolean("ecoExactInventory", host.exactInventory().isEnabled());
         data.put("inventory", host.getInventory().writeToNBT(registries));
         host.energyTransactionForPersistence().writeToNBT(data);
         var job = host.getJob();

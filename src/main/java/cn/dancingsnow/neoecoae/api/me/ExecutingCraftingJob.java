@@ -100,7 +100,8 @@ public class ExecutingCraftingJob {
             CraftingDifferenceListener postCraftingDifference, CraftingLink link, @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
-        this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
+        this.exactOrder = plan instanceof cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan;
+        this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
 
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
@@ -122,6 +123,13 @@ public class ExecutingCraftingJob {
             exact.exactTasks().forEach((pattern, count) -> tasks.get(pattern).setExact(count, count));
             deferredStock.putAll(exact.deferredStock());
             deferredEmitted.putAll(exact.deferredEmitted());
+            timeTracker.startExactWork();
+            exact.exactTasks().forEach((pattern, count) -> pattern.getOutputs().forEach(output ->
+                timeTracker.addMaxItems(count.multiply(java.math.BigInteger.valueOf(output.amount()))
+                    .multiply(java.math.BigInteger.valueOf(output.what().getAmountPerUnit())), output.what().getType())));
+            for (var entry : plan.emittedItems()) timeTracker.addMaxItems(
+                java.math.BigInteger.valueOf(entry.getLongValue()), entry.getKey().getType());
+            deferredEmitted.forEach((key, amount) -> timeTracker.addMaxItems(amount, key.getType()));
         }
         if (executionPlan == null) {
             this.executionRuntime = null;
@@ -142,7 +150,8 @@ public class ExecutingCraftingJob {
 
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
-        this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
+        this.exactOrder = data.getBoolean("exactOrder");
+        this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
@@ -335,6 +344,20 @@ public class ExecutingCraftingJob {
             if (exactRemaining == null) value -= count;
             else setExact(exactTotal, exactRemaining.subtract(java.math.BigInteger.valueOf(count)));
         }
+
+        void accept(java.math.BigInteger count) {
+            if (count.signum() < 0 || count.compareTo(remainingExact()) > 0)
+                throw new IllegalArgumentException("Dispatch exceeds remaining task");
+            if (exactRemaining == null) accept(count.longValueExact());
+            else setExact(exactTotal, exactRemaining.subtract(count));
+        }
+    }
+
+    private static ListCraftingInventory createWaitingInventory(boolean exact, CraftingDifferenceListener listener) {
+        if (!exact) return new ListCraftingInventory(listener::onCraftingDifference);
+        var inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(listener::onCraftingDifference);
+        inventory.setEnabled(true);
+        return inventory;
     }
 
     private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,

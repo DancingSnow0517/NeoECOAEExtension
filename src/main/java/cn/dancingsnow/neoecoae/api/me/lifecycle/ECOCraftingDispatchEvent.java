@@ -10,13 +10,25 @@ public record ECOCraftingDispatchEvent(
         ECOCraftingJobContext job,
         IPatternDetails pattern,
         long dispatchedCrafts,
-        ICraftingProvider provider) {
+        ICraftingProvider provider,
+        java.math.BigInteger exactDispatchedCrafts) {
+
+    public ECOCraftingDispatchEvent(ECOCraftingJobContext job, IPatternDetails pattern,
+            long dispatchedCrafts, ICraftingProvider provider) {
+        this(job, pattern, dispatchedCrafts, provider, java.math.BigInteger.valueOf(dispatchedCrafts));
+    }
+
+    public ECOCraftingDispatchEvent(ECOCraftingJobContext job, IPatternDetails pattern,
+            java.math.BigInteger dispatchedCrafts, ICraftingProvider provider) {
+        this(job, pattern, cn.dancingsnow.neoecoae.impl.crafting.ECOExactCraftingPlan.bounded(dispatchedCrafts),
+            provider, dispatchedCrafts);
+    }
 
     public ECOCraftingDispatchEvent {
         Objects.requireNonNull(job, "job");
         Objects.requireNonNull(pattern, "pattern");
         Objects.requireNonNull(provider, "provider");
-        if (dispatchedCrafts <= 0L) {
+        if (dispatchedCrafts <= 0L || exactDispatchedCrafts.signum() <= 0) {
             throw new IllegalArgumentException("dispatchedCrafts must be positive");
         }
     }

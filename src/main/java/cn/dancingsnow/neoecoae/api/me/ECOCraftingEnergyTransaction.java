@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.function.LongSupplier;
+import java.math.BigDecimal;
 
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -15,14 +16,15 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 
 /**
  * Owns the CPU's energy reservation/refund ledger without exposing transaction details to dispatch orchestration.
- * The arithmetic and failure handling intentionally mirror the former CPU-local implementation.
+ * Counts and credits remain exact; only the AE2 energy interface uses doubles.
  */
 final class ECOCraftingEnergyTransaction {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     private final Runnable markDirty;
     private final LongSupplier currentTick;
-    private double prepaidEnergyCredit;
+    // Exact credit includes interface rounding and refunds the network could not accept.
+    private BigDecimal prepaidEnergyCredit = BigDecimal.ZERO;
     private long lastAccountingFailureLogTick = Long.MIN_VALUE;
     private long lastIdleRefundAttemptTick = Long.MIN_VALUE;
 
@@ -32,99 +34,112 @@ final class ECOCraftingEnergyTransaction {
     }
 
     void readFromNBT(CompoundTag data) {
-        double restored = data.getDouble("prepaidEnergyCredit");
-        prepaidEnergyCredit = Double.isFinite(restored) && restored > 0.0D ? restored : 0.0D;
+        prepaidEnergyCredit = BigDecimal.ZERO;
+        if (data.contains("prepaidEnergyCreditExact", net.minecraft.nbt.Tag.TAG_STRING)) {
+            try {
+                prepaidEnergyCredit = new BigDecimal(data.getString("prepaidEnergyCreditExact"))
+                    .max(BigDecimal.ZERO);
+            } catch (NumberFormatException invalid) {
+                LOGGER.error("Invalid exact crafting energy credit", invalid);
+            }
+        } else {
+            double restored = data.getDouble("prepaidEnergyCredit");
+            if (Double.isFinite(restored) && restored > 0) prepaidEnergyCredit = decimal(restored);
+        }
     }
 
     void writeToNBT(CompoundTag data) {
-        if (prepaidEnergyCredit > 0.0D && Double.isFinite(prepaidEnergyCredit)) {
-            data.putDouble("prepaidEnergyCredit", prepaidEnergyCredit);
+        data.remove("prepaidEnergyCredit");
+        if (prepaidEnergyCredit.signum() > 0) {
+            data.putString("prepaidEnergyCreditExact", prepaidEnergyCredit.toString());
         } else {
-            data.remove("prepaidEnergyCredit");
+            data.remove("prepaidEnergyCreditExact");
         }
     }
 
     @Nullable
-    Reservation reserve(IEnergyService energyService, double power) {
-        if (power == 0.0D) return new Reservation(energyService, 0.0D, 0.0D);
-        if (!Double.isFinite(power) || power < 0.0D || power > 0x1.0p52) return null;
+    Reservation reserve(IEnergyService service, double power) {
+        return reserve(service, power, 1L);
+    }
 
-        double credit = Math.min(power, prepaidEnergyCredit);
-        prepaidEnergyCredit -= credit;
-        double networkPower = power - credit;
-        if (networkPower <= 0.0D) {
-            return new Reservation(energyService, credit, 0.0D);
-        }
-        try {
-            double charged = energyService.extractAEPower(networkPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            if (!Double.isFinite(charged)
-                    || charged < networkPower - 0.01D
-                    || charged > networkPower + 0.01D) {
-                restoreEnergyCredit(credit);
-                if (Double.isFinite(charged) && charged > 0.0D) {
-                    refundEnergyOrRetainCredit(energyService, charged);
-                }
-                logAccountingFailure(
-                        "reservation charged " + charged + " of " + networkPower
-                                + " after " + credit + " prepaid credit",
-                        null);
+    @Nullable
+    Reservation reserve(IEnergyService service, double perCraft, long count) {
+        return reserve(service, perCraft, java.math.BigInteger.valueOf(count));
+    }
+
+    @Nullable
+    Reservation reserve(IEnergyService service, double perCraft, java.math.BigInteger count) {
+        if (!Double.isFinite(perCraft) || perCraft < 0 || count.signum() < 0) return null;
+        var power = new BigDecimal(perCraft).multiply(new BigDecimal(count));
+        var credit = power.min(prepaidEnergyCredit);
+        var required = power.subtract(credit);
+        double request = required.doubleValue();
+        if (!Double.isFinite(request)) return null;
+        if (decimal(request).compareTo(required) < 0) request = Math.nextUp(request);
+        if (!Double.isFinite(request)) return null;
+        double charged = 0;
+        if (request > 0) {
+            try {
+                charged = service.extractAEPower(request, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            } catch (RuntimeException failure) {
+                logAccountingFailure("energy reservation failed", failure);
                 return null;
             }
-            return new Reservation(energyService, credit, charged);
-        } catch (RuntimeException failure) {
-            restoreEnergyCredit(credit);
-            logAccountingFailure("energy reservation failed", failure);
-            return null;
+            // Do not forgive an underpayment with a growing floating-point tolerance.
+            if (!Double.isFinite(charged) || charged != request) {
+                if (Double.isFinite(charged) && charged > 0) refundEnergyOrRetainCredit(service, decimal(charged));
+                logAccountingFailure("reservation charged " + charged + " of " + request, null);
+                return null;
+            }
         }
+        prepaidEnergyCredit = prepaidEnergyCredit.subtract(credit);
+        if (credit.signum() > 0) markDirty.run();
+        return new Reservation(service, credit, decimal(charged), power);
     }
 
     static long maxSafeCrafts(double perCraftEnergy) {
         return cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.maxEnergySafeCrafts(perCraftEnergy);
     }
 
-    void returnIdleCredit(IEnergyService energyService) {
-        if (prepaidEnergyCredit <= 0.0D || !Double.isFinite(prepaidEnergyCredit)) return;
+    void returnIdleCredit(IEnergyService service) {
+        if (prepaidEnergyCredit.signum() <= 0) return;
         long tick = currentTick.getAsLong();
         long elapsed = tick - lastIdleRefundAttemptTick;
-        if (lastIdleRefundAttemptTick != Long.MIN_VALUE && elapsed >= 0L && elapsed < 20L) return;
+        if (lastIdleRefundAttemptTick != Long.MIN_VALUE && elapsed >= 0 && elapsed < 20) return;
         lastIdleRefundAttemptTick = tick;
-        double offered = prepaidEnergyCredit;
-        try {
-            double overflow = energyService.injectPower(offered, Actionable.MODULATE);
-            if (!Double.isFinite(overflow) || overflow < -0.01D || overflow > offered + 0.01D) {
-                logAccountingFailure("invalid idle-credit overflow " + overflow + " of " + offered, null);
-                return;
-            }
-            double retained = Math.max(0.0D, overflow);
-            if (retained != prepaidEnergyCredit) {
-                prepaidEnergyCredit = retained;
-                markDirty.run();
-            }
-        } catch (RuntimeException failure) {
-            logAccountingFailure("idle-credit refund failed for " + offered + " energy", failure);
-        }
+        var refund = prepaidEnergyCredit;
+        prepaidEnergyCredit = BigDecimal.ZERO;
+        markDirty.run();
+        refundEnergyOrRetainCredit(service, refund);
     }
 
-    private void refundEnergyOrRetainCredit(IEnergyService energyService, double amount) {
-        if (amount <= 0.0D) return;
+    private static BigDecimal decimal(double value) {
+        return new BigDecimal(value);
+    }
+
+    private void refundEnergyOrRetainCredit(IEnergyService service, BigDecimal amount) {
+        if (amount.signum() <= 0) return;
+        // Round refunds down; retain every unrepresentable unit in the exact ledger.
+        double offered = Math.min(Double.MAX_VALUE, amount.doubleValue());
+        if (decimal(offered).compareTo(amount) > 0) offered = Math.nextDown(offered);
+        if (offered <= 0) { restoreEnergyCredit(amount); return; }
         try {
-            double overflow = energyService.injectPower(amount, Actionable.MODULATE);
-            if (!Double.isFinite(overflow) || overflow < -0.01D || overflow > amount + 0.01D) {
+            double overflow = service.injectPower(offered, Actionable.MODULATE);
+            if (!Double.isFinite(overflow) || overflow < 0 || overflow > offered) {
                 restoreEnergyCredit(amount);
-                logAccountingFailure("invalid refund overflow " + overflow + " of " + amount, null);
+                logAccountingFailure("invalid refund overflow " + overflow + " of " + offered, null);
                 return;
             }
-            restoreEnergyCredit(Math.max(0.0D, overflow));
+            restoreEnergyCredit(amount.subtract(decimal(offered)).add(decimal(overflow)));
         } catch (RuntimeException failure) {
             restoreEnergyCredit(amount);
             logAccountingFailure("refund failed for " + amount + " energy", failure);
         }
     }
 
-    private void restoreEnergyCredit(double amount) {
-        if (!Double.isFinite(amount) || amount <= 0.0D) return;
-        double updated = prepaidEnergyCredit + amount;
-        prepaidEnergyCredit = Double.isFinite(updated) ? updated : Double.MAX_VALUE;
+    private void restoreEnergyCredit(BigDecimal amount) {
+        if (amount.signum() <= 0) return;
+        prepaidEnergyCredit = prepaidEnergyCredit.add(amount);
         markDirty.run();
     }
 
@@ -142,39 +157,41 @@ final class ECOCraftingEnergyTransaction {
 
     final class Reservation implements ECOFastPathFacade.Reservation {
         private final IEnergyService energyService;
-        private final double reservedCredit;
-        private final double networkDebit;
+        private final BigDecimal reservedCredit;
+        private final BigDecimal networkDebit;
+        private final BigDecimal exactCost;
         private boolean settled;
 
-        private Reservation(IEnergyService energyService, double reservedCredit, double networkDebit) {
-            this.energyService = energyService;
-            this.reservedCredit = reservedCredit;
-            this.networkDebit = networkDebit;
+        private Reservation(IEnergyService service, BigDecimal credit,
+                BigDecimal debit, BigDecimal cost) {
+            energyService = service;
+            reservedCredit = credit;
+            networkDebit = debit;
+            exactCost = cost;
         }
 
         public void commit() {
+            if (settled) return;
             settled = true;
-            if (reservedCredit > 0.0D) markDirty.run();
+            restoreEnergyCredit(reservedCredit.add(networkDebit).subtract(exactCost));
         }
 
         public void refund() {
-            if (!settled) {
-                settled = true;
-                restoreEnergyCredit(reservedCredit);
-                refundEnergyOrRetainCredit(energyService, networkDebit);
-            }
+            if (settled) return;
+            settled = true;
+            restoreEnergyCredit(reservedCredit);
+            refundEnergyOrRetainCredit(energyService, networkDebit);
         }
 
         void refundUnaccepted(long acceptedCopies, long offeredCopies) {
-            if (offeredCopies <= 0L || acceptedCopies >= offeredCopies) {
-                commit();
-                return;
-            }
-            double fraction = Math.max(0.0D, Math.min(1.0D,
-                    (double) acceptedCopies / (double) offeredCopies));
+            if (settled) return;
+            if (offeredCopies <= 0 || acceptedCopies >= offeredCopies) { commit(); return; }
+            if (acceptedCopies <= 0) { refund(); return; }
+            // Batch reservations originate from per-copy cost * offeredCopies, so division is exact.
+            var acceptedCost = exactCost.divide(BigDecimal.valueOf(offeredCopies))
+                .multiply(BigDecimal.valueOf(acceptedCopies));
             settled = true;
-            restoreEnergyCredit(reservedCredit * (1.0D - fraction));
-            refundEnergyOrRetainCredit(energyService, networkDebit * (1.0D - fraction));
+            refundEnergyOrRetainCredit(energyService, reservedCredit.add(networkDebit).subtract(acceptedCost));
         }
     }
 }

@@ -53,7 +53,7 @@ public final class ECOExternalCpuFastPath {
                 var registration = ECOUselessDynamicOutputBridge.prepare(owner, task.getKey(), batch.craftCount());
                 if (registration == null) continue;
                 try {
-                    if (!batch.submit(amount -> energy.reserve(power, amount))) continue;
+                    if (!batch.submit(ignored -> energy.reserve(power, CraftingCpuHelper.calculatePatternPower(inputs), batch.craftCount()))) continue;
                 } catch (ECOIndeterminateBatchException failure) {
                     access.neoecoae$suspended(true);
                     markDirty.run();

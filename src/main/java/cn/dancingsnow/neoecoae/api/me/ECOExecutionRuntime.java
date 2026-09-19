@@ -243,6 +243,20 @@ public final class ECOExecutionRuntime {
     }
 
     /** Commit scheduler state only after the provider has accepted the extracted inputs. */
+    java.math.BigInteger exactAllowance(DispatchCandidate candidate, java.math.BigInteger remaining) {
+        var phase = plan.phases().get(candidate.phaseIndex());
+        boolean witnessed = phase.type() == ECOExecutionSchedule.Type.CYCLE
+            && stepCursor[candidate.phaseIndex()] < phase.steps().size()
+            || phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE
+                && hasDynamicFirings(remainingDynamicFirings.get(candidate.phaseIndex()));
+        return witnessed ? remaining.min(java.math.BigInteger.valueOf(candidate.maxDispatchCount())) : remaining;
+    }
+
+    void onAcceptedExact(DispatchCandidate candidate, java.math.BigInteger count, KeyCounter[] inputs) {
+        // Cycle witnesses are bounded by exactAllowance; unrestricted phase progress is owned by TaskProgress.
+        onAccepted(candidate, count.min(java.math.BigInteger.valueOf(candidate.maxDispatchCount())).longValueExact(), inputs);
+    }
+
     public void onAccepted(DispatchCandidate candidate, long count, KeyCounter[] inputs) {
         if (count <= 0L || count > candidate.maxDispatchCount()) {
             throw new IllegalArgumentException("Accepted dispatch exceeds scheduler allowance");
@@ -683,14 +697,23 @@ public final class ECOExecutionRuntime {
         if (protectedAmounts.isEmpty() || inputs.isEmpty()) return true;
         Map<AEKey, Long> required = new LinkedHashMap<>();
         for (GenericStack input : inputs) {
-            if (input != null && input.amount() > 0L) {
-                required.merge(input.what(), input.amount(), NEMath::saturatingAdd);
-            }
+            if (input != null && input.amount() > 0L) required.merge(input.what(), input.amount(), NEMath::saturatingAdd);
         }
         for (var entry : required.entrySet()) {
-            long available = Math.max(0L,
-                inventory.list.get(entry.getKey()) - protectedAmounts.getOrDefault(entry.getKey(), 0L));
+            long available = Math.max(0L, inventory.list.get(entry.getKey()) - protectedAmounts.getOrDefault(entry.getKey(), 0L));
             if (available < entry.getValue()) return false;
+        }
+        return true;
+    }
+
+    boolean preservesStartupSeeds(DispatchCandidate candidate, Map<AEKey, java.math.BigInteger> inputs,
+            appeng.crafting.inv.ListCraftingInventory inventory) {
+        Map<AEKey, Long> protectedAmounts = protectedStartupSeed(candidate);
+        if (protectedAmounts.isEmpty() || inputs.isEmpty()) return true;
+        for (var entry : inputs.entrySet()) {
+            var available = cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(inventory, entry.getKey())
+                .subtract(java.math.BigInteger.valueOf(protectedAmounts.getOrDefault(entry.getKey(), 0L)));
+            if (available.compareTo(entry.getValue()) < 0) return false;
         }
         return true;
     }

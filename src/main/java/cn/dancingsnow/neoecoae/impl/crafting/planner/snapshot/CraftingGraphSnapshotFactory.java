@@ -34,6 +34,15 @@ public final class CraftingGraphSnapshotFactory {
         var trace = result.trace();
         LinkedHashMap<AEKey, MutableMaterial> materials = new LinkedHashMap<>();
         AEKey rootKey = null;
+        // Early unsupported exits may contain no goal trace at all. Keep the requested item visible.
+        if (result.plan() != null) {
+            var output = result.plan().finalOutput();
+            rootKey = output.what();
+            var root = materials.computeIfAbsent(rootKey, MutableMaterial::new);
+            root.requested = Math.max(0L, output.amount());
+            root.exactRequested = PlannerAmount.of(root.requested);
+            root.unsupported = result.shouldUseNativeFallback();
+        }
         for (PlanTraceNode node : trace.nodes()) {
             if (node.key() == null || node.kind() == PlanTraceNode.Kind.PATTERN) continue;
             MutableMaterial current = materials.computeIfAbsent(node.key(), MutableMaterial::new);

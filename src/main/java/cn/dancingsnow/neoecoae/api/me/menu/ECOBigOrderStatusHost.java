@@ -9,4 +9,6 @@ public interface ECOBigOrderStatusHost {
     @Nullable ECOBigOrderProgress neoecoae$getBigOrderProgress();
     void neoecoae$clearBigOrderProgress();
     default java.math.BigInteger neoecoae$getExactPending(appeng.api.stacks.AEKey key) { return null; }
+    default java.math.BigInteger neoecoae$getExactStored(appeng.api.stacks.AEKey key) { return null; }
+    default java.math.BigInteger neoecoae$getExactActive(appeng.api.stacks.AEKey key) { return null; }
 }

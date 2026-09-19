@@ -21,7 +21,7 @@ class ECOExactCycleReservationTest {
         var result = fixture.result(total, List.of(fixture.component(397, 80_638_819_906_176L)));
         var plan = new ECOExactCraftingPlan(result, false);
         assertEquals(Long.MAX_VALUE, plan.usedItems().get(fixture.stock));
-        assertEquals(total, plan.deferredStock().get(fixture.stock));
+        assertEquals(total, plan.deferredStock().get(fixture.stock).add(BigInteger.valueOf(plan.usedItems().get(fixture.stock))));
         assertEquals(ExecutionMode.ORDERED_CYCLE, plan.execution().mode());
         assertEquals(1, plan.execution().phases().getFirst().steps().size());
         assertEquals(1L, plan.execution().phases().getFirst().initialSeed().get(fixture.stock));

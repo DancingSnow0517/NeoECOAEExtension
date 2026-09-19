@@ -171,17 +171,6 @@ final class ECOCraftingTaskScheduler {
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
-                if (current.exactOrder) {
-                    var outputAmounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
-                    for (var output : candidate.pattern().getOutputs())
-                        outputAmounts.merge(output.what(), java.math.BigInteger.valueOf(output.amount()), java.math.BigInteger::add);
-                    for (var output : outputAmounts.entrySet()) {
-                        long room = Long.MAX_VALUE - Math.max(0L, current.waitingFor.list.get(output.getKey()));
-                        room -= Math.min(room, Math.max(0L, inventory.list.get(output.getKey())));
-                        if (output.getValue().signum() > 0) allowedCount = Math.min(allowedCount,
-                            java.math.BigInteger.valueOf(room).divide(output.getValue()).longValueExact());
-                    }
-                }
                 if (allowedCount <= 0L) {
                     if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
                     continue;

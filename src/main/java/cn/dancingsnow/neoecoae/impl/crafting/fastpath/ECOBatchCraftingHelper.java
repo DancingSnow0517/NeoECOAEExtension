@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -351,20 +352,37 @@ public final class ECOBatchCraftingHelper {
         long batchSize,
         DoubleUnaryOperator simulatedExtraction
     ) {
-        double totalPower = patternPower * batchSize;
+        double totalPower = energyRequest(patternPower, batchSize);
         if (!Double.isFinite(totalPower) || totalPower < 0.0D) {
             return false;
         }
         double extracted = simulatedExtraction.applyAsDouble(totalPower);
-        return Double.isFinite(extracted) && extracted >= totalPower - 0.01D;
+        return Double.isFinite(extracted) && extracted >= totalPower;
     }
 
-    /** Keeps one nonzero energy transaction within the exact-integer range of its double ledger. */
+    /** Bounds only the AE2 interface's finite range; integer precision is handled by the energy ledger. */
     public static long maxEnergySafeCrafts(double perCraftEnergy) {
         if (!Double.isFinite(perCraftEnergy) || perCraftEnergy < 0.0D) return 0L;
-        if (perCraftEnergy == 0.0D) return Long.MAX_VALUE;
-        long count = (long) Math.min(Long.MAX_VALUE, Math.floor(0x1.0p52 / perCraftEnergy));
-        while (count > 0 && perCraftEnergy * count > 0x1.0p52) count--;
-        return count;
+        if (perCraftEnergy <= Double.MAX_VALUE / 0x1.0p63) return Long.MAX_VALUE;
+        return new BigDecimal(Double.MAX_VALUE)
+            .divideToIntegralValue(new BigDecimal(perCraftEnergy))
+            .min(BigDecimal.valueOf(Long.MAX_VALUE)).longValueExact();
+    }
+
+    /** Preserve the supplied double's exact value and the integer count before crossing the AE2 boundary. */
+    public static BigDecimal exactEnergy(double perCraftEnergy, long count) {
+        if (!Double.isFinite(perCraftEnergy) || perCraftEnergy < 0 || count < 0) {
+            throw new IllegalArgumentException("Invalid crafting energy");
+        }
+        return new BigDecimal(perCraftEnergy).multiply(BigDecimal.valueOf(count));
+    }
+
+    public static double energyRequest(double perCraftEnergy, long count) {
+        var exact = exactEnergy(perCraftEnergy, count);
+        double request = exact.doubleValue();
+        if (Double.isFinite(request) && new BigDecimal(request).compareTo(exact) < 0) {
+            request = Math.nextUp(request);
+        }
+        return request;
     }
 }

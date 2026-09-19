@@ -26,6 +26,8 @@ public interface ECOCraftConfirmMenuMode {
 
     @Nullable PlanningStatus neoecoae$getPlanningStatus();
 
+    default String neoecoae$getPlanningDiagnostic() { return ""; }
+
     List<ECOCycleItemList.Entry> neoecoae$getCycleItems();
 
     CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();

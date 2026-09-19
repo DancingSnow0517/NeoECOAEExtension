@@ -74,6 +74,68 @@ class ECOExactOrderTest {
         assertEquals(0, progress.value);
     }
 
+    @Test void exactTaskAndWaitingLedgerAcceptOneBatchBeyondLong() {
+        var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var pattern = pattern(key);
+        try (var types = mockStatic(AEKeyTypes.class)) {
+            var job = new ExecutingCraftingJob(new ECOExactCraftingPlan(
+                result(key, Map.of(pattern, PlannerAmount.of(HUGE))), false), ignored -> {}, mock(CraftingLink.class), null);
+            var waiting = (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor;
+            waiting.restore(Map.of(key, HUGE));
+            job.tasks.get(pattern).accept(HUGE.subtract(BigInteger.ONE));
+            assertEquals(BigInteger.ONE, job.tasks.get(pattern).remainingExact());
+            assertEquals(Long.MAX_VALUE, waiting.extract(key, Long.MAX_VALUE, appeng.api.config.Actionable.MODULATE));
+            assertEquals(HUGE.subtract(BigInteger.valueOf(Long.MAX_VALUE)), waiting.amount(key));
+            assertFalse(waiting.list.isEmpty());
+        }
+    }
+
+    @Test void dispatcherAccountsAnEntireExactBatchAndDoesNotOptOrdinaryJobsIn() {
+        var input = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var output = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        when(output.getAmountPerUnit()).thenReturn(1);
+        var pattern = pattern(output);
+        var provider = mock(ECOExactInventoryDispatchTest.Provider.class);
+        var inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
+        inventory.setEnabled(true);
+        inventory.restore(Map.of(input, HUGE));
+        var inputs = new KeyCounter(); inputs.add(input, 1);
+        var outputs = new KeyCounter(); outputs.add(output, 1);
+        var event = new java.util.concurrent.atomic.AtomicReference<cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingDispatchEvent>();
+        var accounting = new ECOCraftingDispatchAccounting(ignored -> {}, () -> {},
+            ignored -> new cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext(
+                mock(ECOCraftingCPU.class), UUID.randomUUID(), null, 10, 10), event::set);
+        var dispatcher = new ECOCraftingFastPathDispatcher(new Object(),
+            new ECOCraftingEnergyTransaction(() -> {}, () -> 0), accounting);
+        try (var types = mockStatic(AEKeyTypes.class);
+             var dynamic = mockStatic(cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.class)) {
+            dynamic.when(() -> cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.prepareExact(any(), any(), any()))
+                .thenReturn(mock(cn.dancingsnow.neoecoae.compat.useless.ECOUselessDynamicOutputBridge.Registration.class));
+            var plan = new ECOExactCraftingPlan(result(output, Map.of(pattern, PlannerAmount.of(HUGE))), false);
+            var execution = new ECOExecutionPlan(
+                new PlanIdentity.Signature(output, 10, Map.of(), Map.of(), Map.of(), Map.of()),
+                ExecutionMode.PHASED_DAG, List.of(task(0, pattern)), List.of(
+                    new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.DAG, List.of(0), List.of(), List.of())),
+                new ECOExecutionSchedule(List.of()));
+            var job = new ExecutingCraftingJob(plan, execution, ignored -> {}, mock(CraftingLink.class), null);
+            var candidate = job.executionRuntime.candidates().getFirst();
+            var request = new ECOCraftingDispatchRequest(job, candidate, pattern, new KeyCounter[]{inputs},
+                outputs, new KeyCounter(), Long.MAX_VALUE, inventory, null);
+            when(provider.eco$prepareExactFastPath(any(), eq(HUGE))).thenReturn(
+                new cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider.ExactPreparation(HUGE, () -> true));
+            assertEquals(HUGE, dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}));
+            assertEquals(BigInteger.ZERO, inventory.amount(input));
+            assertEquals(BigInteger.ZERO, job.tasks.get(pattern).remainingExact());
+            assertEquals(HUGE, cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(job.waitingFor, output));
+            assertEquals(HUGE, event.get().exactDispatchedCrafts());
+            assertTrue(job.executionRuntime.isComplete());
+            job.exactOrder = false;
+            clearInvocations(provider);
+            assertNull(dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}));
+            verifyNoInteractions(provider);
+        }
+    }
+
     @Test void missingInputWaitsAndRefillsOnlyTheAcceptedQuantityWithoutReplanning() {
         var input = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var output = mock(AEKey.class, RETURNS_DEEP_STUBS);
@@ -161,7 +223,7 @@ class ECOExactOrderTest {
             var restored = new ExecutingCraftingJob(job.writeToNBT(registries), registries, ignored -> {}, logic);
             assertTrue(restored.exactOrder);
             assertEquals(HUGE.subtract(BigInteger.valueOf(37)), restored.tasks.get(pattern).remainingExact());
-            assertEquals(HUGE, restored.deferredStock.get(key));
+            assertEquals(HUGE.subtract(BigInteger.valueOf(Long.MAX_VALUE)), restored.deferredStock.get(key));
             assertEquals(link.getCraftingID(), restored.link.getCraftingID());
         }
     }

@@ -24,8 +24,8 @@ class ECOBigBatchSafetyTest {
         assertEquals(Long.MAX_VALUE / 3, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
             List.of(), List.of(), List.of(new GenericStack(key, 3))));
     }
-    @Test void nonzeroEnergyIsPrecisionBoundedAndZeroEnergyDoesNotProbeTheNetwork() {
-        assertEquals(1L << 51, ECOBatchCraftingHelper.maxAffordableCrafts(2, Long.MAX_VALUE, amount -> amount));
+    @Test void nonzeroEnergyCanReachLongMaxAndZeroEnergyDoesNotProbeTheNetwork() {
+        assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.maxAffordableCrafts(2, Long.MAX_VALUE, amount -> amount));
         assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.maxAffordableCrafts(0, Long.MAX_VALUE,
             amount -> { fail("Zero-energy batches must not query the network"); return 0; }));
         assertEquals(0, ECOBatchCraftingHelper.maxAffordableCrafts(1, 100L, amount -> Double.POSITIVE_INFINITY));
@@ -40,5 +40,14 @@ class ECOBigBatchSafetyTest {
     @Test void outputAndRemainderSharingAWaitingKeyCannotOverflowTogether() {
         assertEquals(Long.MAX_VALUE / 3, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
             List.of(), List.of(new GenericStack(key, 2)), List.of(new GenericStack(key, 1))));
+    }
+    @Test void energyBoundaryDoesNotAcceptRoundedDownCostsOrInfiniteTotals() {
+        long exactBudget = 1L << 54;
+        assertEquals(exactBudget, ECOBatchCraftingHelper.maxAffordableCrafts(1, Long.MAX_VALUE,
+            amount -> Math.min(amount, (double) exactBudget)));
+        assertEquals(1L, ECOBatchCraftingHelper.maxEnergySafeCrafts(Double.MAX_VALUE));
+        assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.maxEnergySafeCrafts(Double.MIN_VALUE));
+        assertEquals(0L, ECOBatchCraftingHelper.maxAffordableCrafts(Double.MAX_VALUE, Long.MAX_VALUE,
+            amount -> 0));
     }
 }

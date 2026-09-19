@@ -73,8 +73,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     }
 
     long extractTemplates(InputTemplate template, long multiplier) {
-        long available = Math.max(0L, availableExact(template.key()) - removed.getLong(template.key()));
-        available = Math.max(0L, available - protectedAmounts.getOrDefault(template.key(), 0L));
+        long available = availableAfterReservations(template.key());
         long crafts = Math.min(multiplier, available / template.amount());
         if (crafts <= 0L) return 0L;
         removed.addTo(template.key(), Math.multiplyExact(crafts, template.amount()));
@@ -144,8 +143,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
-        long available = Math.max(0L, availableExact(key) - removed.getLong(key));
-        available = Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
+        long available = availableAfterReservations(key);
         long extracted = Math.min(amount, available);
         if (mode == Actionable.MODULATE && extracted > 0L) removed.addTo(key, extracted);
         return extracted;
@@ -169,13 +167,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
             return -1L;
         }
 
-        long available = availableExact(primary.what());
-        long removedAmount = removed.getLong(primary.what());
-        if (removedAmount >= available) return 0L;
-        available -= removedAmount;
-        long protectedAmount = protectedAmounts.getOrDefault(primary.what(), 0L);
-        if (protectedAmount >= available) return 0L;
-        available -= protectedAmount;
+        long available = availableAfterReservations(primary.what());
 
         long crafts = Math.min(multiplier, available / primary.amount());
         if (crafts <= 0L) return 0L;
@@ -200,6 +192,16 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         } catch (RuntimeException unavailable) {
             return null;
         }
+    }
+
+    private long availableAfterReservations(AEKey key) {
+        if (source instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory exact && exact.isEnabled()) {
+            return exact.amount(key).subtract(java.math.BigInteger.valueOf(removed.getLong(key)))
+                .subtract(java.math.BigInteger.valueOf(protectedAmounts.getOrDefault(key, 0L)))
+                .max(java.math.BigInteger.ZERO).min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        }
+        long available = Math.max(0L, availableExact(key) - removed.getLong(key));
+        return Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
     }
 
     private long availableExact(AEKey key) {
