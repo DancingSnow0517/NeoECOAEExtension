@@ -24,14 +24,6 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-// Development-only acceptance tests. These classes are never included in the release jar.
-sourceSets {
-    performance {
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
-    }
-}
-
 jarJar.enable()
 
 repositories {
@@ -162,7 +154,7 @@ minecraft {
             mods {
                 "${mod_id}" {
                     source sourceSets.main
-                    source sourceSets.performance
+                    source sourceSets.test
                 }
             }
         }
@@ -227,7 +219,9 @@ dependencies {
 
     testImplementation platform("org.junit:junit-bom:5.10.2")
     testImplementation "org.junit.jupiter:junit-jupiter"
+    testImplementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     testImplementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+    testImplementation "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
 
     compileOnly fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {
@@ -313,7 +307,7 @@ sourceSets.main.resources {
 sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
 
 tasks.register('prepareStorageAcceptance', Copy) {
-    from 'src/performance/gameteststructures'
+    from 'src/test/gameteststructures'
     into 'run/storage-performance/gameteststructures'
 }
 tasks.matching { it.name == 'runGameTestServer' }.configureEach {
