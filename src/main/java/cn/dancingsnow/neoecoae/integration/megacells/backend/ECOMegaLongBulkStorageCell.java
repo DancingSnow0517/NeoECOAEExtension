@@ -270,6 +270,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     @Override
+    public boolean prioritizesMarkedInserts() {
+        return true;
+    }
+
+    @Override
     public boolean canFitInsideCell() {
         return storedUnits.isEmpty();
     }

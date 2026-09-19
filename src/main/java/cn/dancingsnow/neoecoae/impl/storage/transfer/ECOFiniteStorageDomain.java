@@ -182,10 +182,20 @@ public final class ECOFiniteStorageDomain implements MEStorage {
         List<ECOStorageAllocation> allocations = new ArrayList<>();
         long remaining = amount;
         Set<Integer> visited = new HashSet<>();
+        // Explicit bulk markers take precedence even over existing stock in ordinary cells.
+        for (ECOStorageShard shard : shards) {
+            if (remaining == 0L) break;
+            if (shard.storage().prioritizesMarkedInserts()
+                && shard.storage().isPreferredStorageFor(key, source)) {
+                remaining = planInsert(shard, key, remaining, source, allocations);
+                visited.add(shard.index());
+            }
+        }
         Object2LongMap<ECOStorageShard> existing = fragments.get(key);
         if (existing != null) {
             for (ECOStorageShard shard : shards) {
-                if (!existing.containsKey(shard)) continue;
+                if (remaining == 0L) break;
+                if (!existing.containsKey(shard) || visited.contains(shard.index())) continue;
                 remaining = planInsert(shard, key, remaining, source, allocations);
                 visited.add(shard.index());
                 if (remaining == 0L) break;
