@@ -30,6 +30,39 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder("neoecoae")
 @PrefixGameTestTemplate(false)
 public final class InfiniteStorageAcceptanceGameTest {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void crossFileRestoreCommitsRealCellBeforeSourceRetirement(GameTestHelper helper) throws Exception {
+        UUID domain = UUID.randomUUID();
+        var server = helper.getLevel().getServer();
+        Path file = server.getWorldPath(LevelResource.ROOT).resolve("data/neoecoae_infinite/domain_" + domain + ".dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(
+                domain, server.overworld().getDataStorage(), file);
+        var iron = AEItemKey.of(Items.IRON_INGOT);
+        engine.insert(iron, 321, Actionable.MODULATE);
+        engine.flushAndAwait();
+        var cellStack = NEItems.ECO_ITEM_CELL_256M.asStack();
+        var cell = new ECOStorageCell(cellStack, () -> {});
+        KeyCounter planned = new KeyCounter();
+        planned.add(iron, 321);
+        var target = cell.transferSnapshot(planned);
+        helper.assertTrue(
+                cell.extract(iron, 321, Actionable.SIMULATE, IActionSource.empty()) == 0,
+                "planning mutated the destination before commit");
+        helper.assertTrue(engine.restoreTo(List.of(target)), "cross-file restore failed");
+        cell.acceptTransferSnapshot(target);
+        helper.assertTrue(
+                !ECOStorageCell.canStoreKeyInsideStorageCell(AEItemKey.of(cellStack)),
+                "filled storage cell bypassed nesting guard");
+        helper.assertTrue(engine.isEmpty(), "live source was not retired");
+        helper.assertTrue(
+                InfiniteStorageSnapshot.read(file).getList("entries", 10).isEmpty(), "source retirement not durable");
+        var targetData = cn.dancingsnow.neoecoae.impl.storage.AtomicSavedDataFile.read(target.file());
+        helper.assertTrue(
+                targetData.getList("entries", 10).getCompound(0).getLong("amount") == 321,
+                "target quantity not durable");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 1200)
     public static void sustainedIoAndWorldSave(GameTestHelper helper) throws Exception {
         UUID domain = UUID.randomUUID();
@@ -99,8 +132,9 @@ public final class InfiniteStorageAcceptanceGameTest {
         helper.runAtTickTime(402, () -> {
             try {
                 report.add(summary("20k calls/tick INCLUDING save", tickWork));
+                engine.verifyPersistence();
                 report.add(summary(
-                        "Full-inventory change commits",
+                        "World saves after net-zero I/O",
                         saves.stream().mapToLong(Long::longValue).toArray()));
                 long reading = System.nanoTime();
                 var reloaded = SavedDataInfiniteStorageEngine.load(

@@ -16,6 +16,11 @@ group = mod_group_id
 
 if (project.hasProperty('storageAcceptance')) {
     layout.buildDirectory = layout.projectDirectory.dir('build/storage-acceptance-build')
+    // GTCEu already supplies Registrate through JarJar. A second copy from JUnit's runtime
+    // has a different automatic module name and prevents the isolated Forge server from starting.
+    configurations.matching { it.name in ['runtimeClasspath', 'testRuntimeClasspath'] }.configureEach {
+        exclude group: 'com.tterrag.registrate', module: 'Registrate'
+    }
 }
 
 base {
