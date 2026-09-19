@@ -41,7 +41,14 @@ public final class ECOUselessBatchProviderBridge {
     public static ECOFastPathDispatchProvider adapt(ICraftingProvider provider) {
         if (!supports(provider)) return null;
         if (BIG_INTEGER_API != null && BIG_INTEGER_API.supports(provider)) {
-            return context -> {
+            return new ECOFastPathDispatchProvider() {
+                @Override public @Nullable ExactPreparation eco$prepareExactFastPath(
+                        ECOBatchDispatchContext context, BigInteger requested) {
+                    Object target = BIG_INTEGER_API.target(provider);
+                    return target == null ? null : new BigIntegerAdapter(BIG_INTEGER_API, target)
+                        .eco$prepareExactFastPath(context, requested);
+                }
+                @Override public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
                 // Resolve live targets for this dispatch only, never retain one across ticks.
                 Object target = BIG_INTEGER_API.target(provider);
                 if (target != null) {
@@ -50,6 +57,7 @@ public final class ECOUselessBatchProviderBridge {
                 }
                 return SCALED_API_AVAILABLE && ECOUselessScaledBatchDispatch.supports(provider)
                     ? new ECOUselessScaledBatchDispatch(provider).eco$prepareFastPath(context) : null;
+                }
             };
         }
         if (SCALED_API_AVAILABLE) return new ECOUselessScaledBatchDispatch(provider);
@@ -123,6 +131,26 @@ public final class ECOUselessBatchProviderBridge {
     /** Uses Useless's BigInteger API for the CPU's checked long-sized execution windows. */
     record BigIntegerAdapter(BigIntegerReflectionApi api, Object target) implements ECOFastPathDispatchProvider {
         @Override
+        public @Nullable ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, BigInteger requested) {
+            if (requested.signum() <= 0 || invoke(api.unwrap, null, context.pattern()) != context.pattern()) return null;
+            KeyCounter[] prototype = context.inputCounters();
+            Object capacity = invoke(api.capacity, target, context.pattern(), prototype, requested);
+            BigInteger accepted = ((BigInteger) invoke(api.accepted, capacity)).min(requested);
+            if (accepted.signum() <= 0) return null;
+            Object ticket = invoke(api.admit, target, context.pattern(), prototype, accepted, null);
+            if (ticket == null) return null;
+            BigInteger count = (BigInteger) invoke(api.count, ticket);
+            if (count.signum() <= 0 || count.compareTo(accepted) > 0) return null;
+            return new ExactPreparation(count, () -> {
+                try {
+                    return (boolean) invoke(api.commit, ticket, (Object) prototype);
+                } catch (RuntimeException | Error failure) {
+                    throw new ECOIndeterminateBatchException("Useless BigInteger commit ownership is uncertain", failure);
+                }
+            });
+        }
+
+        @Override
         public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
             KeyCounter[] prototype = context.inputCounters();
             // The native API counts unwrapped copies. Scaled wrappers retain the legacy path
@@ -148,7 +176,7 @@ public final class ECOUselessBatchProviderBridge {
                     // A throwing commit does not guarantee rejection. Do not refund/replay it.
                     throw new ECOIndeterminateBatchException("Useless BigInteger commit ownership is uncertain", failure);
                 }
-            });
+            }, true);
         }
     }
 

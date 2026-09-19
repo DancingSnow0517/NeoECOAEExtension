@@ -37,6 +37,32 @@ class ECOUselessBigIntegerDispatchTest {
             new KeyCounter(), inventory, wanted, 0, null, null, null);
     }
 
+    @Test void exactNineToOneUsesNativeReceiptAndOrdinaryDispatchRemainsLongBounded() throws Exception {
+        var api = ECOUselessBatchProviderBridge.BigIntegerReflectionApi.resolve(
+            NativeProvider.class, Target.class, Capacity.class, Ticket.class, Binding.class, Patterns.class);
+        var adapter = new ECOUselessBatchProviderBridge.BigIntegerAdapter(api, target);
+        var provider = mock(CpuProvider.class);
+        when(provider.eco$prepareFastPath(any())).thenAnswer(call -> adapter.eco$prepareFastPath(call.getArgument(0)));
+        var exact = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
+        exact.setEnabled(true);
+        for (int i = 0; i < 9; i++) exact.insert(input, Long.MAX_VALUE, appeng.api.config.Actionable.MODULATE);
+        var inputs = new KeyCounter(); inputs.add(input, 9);
+        var outputs = new KeyCounter(); outputs.add(output, 1);
+        // Even an inventory retaining a cancelled big order must not opt ordinary dispatch into bigint.
+        var ordinary = ECOFastPathFacade.prepare(provider, pattern, new KeyCounter[]{inputs}, outputs,
+            new KeyCounter(), exact, Long.MAX_VALUE, 0, null, null, null);
+        assertEquals(Long.MAX_VALUE / 9, ordinary.craftCount());
+        var batch = ECOFastPathFacade.prepare(provider, pattern, new KeyCounter[]{inputs}, outputs,
+            new KeyCounter(), exact, Long.MAX_VALUE, 0, null, null, null, true);
+        assertNotNull(batch);
+        assertEquals(Long.MAX_VALUE, batch.craftCount());
+        assertTrue(batch.submit(ignored -> energy));
+        assertEquals(BigInteger.valueOf(Long.MAX_VALUE), target.requested);
+        assertEquals(9, target.prototypeAmount);
+        assertSame(target.admittedPrototype, target.committedPrototype);
+        assertEquals(BigInteger.ZERO, exact.amount(input));
+    }
+
     @Test void trillionCopyBatchDebitsAllInputsAndCommitsOneUnscaledPrototype() throws Exception {
         long copies = 1_000_000_000_000L;
         var batch = prepare(copies, copies * 2 + 14);
@@ -52,6 +78,34 @@ class ECOUselessBigIntegerDispatchTest {
         verify(energy).commit();
         assertThrows(IllegalStateException.class, () -> batch.submit(ignored -> energy));
         assertEquals(14, inventory.list.get(input));
+    }
+
+    @Test void exactDispatchExceedsLongForCopiesInputsAndOutputsAndRollsBackRejection() throws Exception {
+        var api = ECOUselessBatchProviderBridge.BigIntegerReflectionApi.resolve(
+            NativeProvider.class, Target.class, Capacity.class, Ticket.class, Binding.class, Patterns.class);
+        var adapter = new ECOUselessBatchProviderBridge.BigIntegerAdapter(api, target);
+        var copies = BigInteger.TEN.pow(24).add(BigInteger.valueOf(17));
+        var exact = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
+        exact.setEnabled(true);
+        exact.restore(java.util.Map.of(input, copies.multiply(BigInteger.valueOf(9))));
+        var context = new cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext(pattern,
+            java.util.List.of(java.util.List.of(new appeng.api.stacks.GenericStack(input, 9))),
+            java.util.List.of(new appeng.api.stacks.GenericStack(output, 4)), java.util.List.of(), null, null);
+        var rejected = cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExactBatchCraftingExecutor.prepare(
+            adapter, context, exact, copies, java.util.Map.of());
+        target.reject = true;
+        assertFalse(rejected.submit(energy));
+        assertEquals(copies.multiply(BigInteger.valueOf(9)), exact.amount(input));
+        target.reject = false;
+        var accepted = cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExactBatchCraftingExecutor.prepare(
+            adapter, context, exact, copies, java.util.Map.of());
+        assertEquals(copies, accepted.craftCount());
+        assertEquals(copies.multiply(BigInteger.valueOf(4)), accepted.outputs().get(output));
+        assertTrue(accepted.submit(energy));
+        assertEquals(copies, target.requested);
+        assertEquals(9, target.prototypeAmount);
+        assertEquals(BigInteger.ZERO, exact.amount(input));
+        assertThrows(IllegalStateException.class, () -> accepted.submit(energy));
     }
 
     @Test void liveCapacityAndInventoryStillBoundTheBatch() throws Exception {

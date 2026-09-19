@@ -21,6 +21,22 @@ public final class ECOUselessDynamicOutputBridge {
 
     /** Returns a no-op registration for ordinary patterns, or {@code null} when Useless reports ambiguity. */
     @Nullable
+    public static Registration prepareExact(Object cpuLogic, IPatternDetails pattern, java.math.BigInteger logicalCrafts) {
+        if (API == null) return Registration.NOOP;
+        try {
+            if (API.resolve.invoke(null, pattern) == null) return Registration.NOOP;
+            // Older dynamic-output managers expose only long registration. Never truncate their receipt.
+            return prepare(cpuLogic, pattern, logicalCrafts.longValueExact());
+        } catch (ArithmeticException unsupported) {
+            // This is the important boundary: the current dynamic-output callback still stores pushed copies as long.
+            // The caller logs the reason and falls back rather than silently truncating the registration.
+            return null;
+        } catch (ReflectiveOperationException failure) {
+            throw reflectionFailure("prepare exact Useless dynamic output registration", failure);
+        }
+    }
+
+    @Nullable
     public static Registration prepare(Object cpuLogic, IPatternDetails pattern, long logicalCrafts) {
         if (API == null) return Registration.NOOP;
         try {
