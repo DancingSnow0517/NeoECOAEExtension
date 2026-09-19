@@ -6,6 +6,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import com.google.common.math.LongMath;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +45,8 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
     private final UUID storageId;
     private final DimensionDataStorage dataStorage;
     private final Path dataFile;
-    private final Map<AEKey, Long> amounts = new LinkedHashMap<>();
+    // Preserve snapshot iteration order without boxing every quantity update.
+    private final Object2LongLinkedOpenHashMap<AEKey> amounts = new Object2LongLinkedOpenHashMap<>();
     private final Map<AEKey, CompoundTag> encodedKeys = new LinkedHashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
 
@@ -170,7 +173,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             if (!ensureEncodedKey(key)) {
                 return 0L;
             }
-            long previous = amounts.getOrDefault(key, 0L);
+            long previous = amounts.getLong(key);
             long next = LongMath.saturatedAdd(previous, amount);
             amounts.put(key, next);
             visibleStacks.set(key, next);
@@ -188,7 +191,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         if (!canOperate(key, amount)) {
             return 0L;
         }
-        long previous = amounts.getOrDefault(key, 0L);
+        long previous = amounts.getLong(key);
         long extracted = Math.min(previous, amount);
         if (extracted <= 0L) {
             return 0L;
@@ -196,7 +199,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         if (mode == Actionable.MODULATE) {
             long next = previous - extracted;
             if (next == 0L) {
-                amounts.remove(key);
+                amounts.removeLong(key);
                 encodedKeys.remove(key);
                 visibleStacks.remove(key);
                 storedTypes = Math.max(0, storedTypes - 1);
@@ -212,7 +215,7 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
 
     @Override
     public synchronized long getAmount(AEKey key) {
-        return degraded || key == null ? 0L : amounts.getOrDefault(key, 0L);
+        return degraded || key == null ? 0L : amounts.getLong(key);
     }
 
     @Override
@@ -290,14 +293,14 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
             tag.putString(TAG_LEGACY_FINGERPRINT, legacyFingerprint);
         }
         ListTag entries = new ListTag();
-        for (Map.Entry<AEKey, Long> entry : amounts.entrySet()) {
+        for (Object2LongMap.Entry<AEKey> entry : amounts.object2LongEntrySet()) {
             CompoundTag encodedKey = encodedKeys.get(entry.getKey());
-            if (encodedKey == null || entry.getValue() == null || entry.getValue() <= 0L) {
+            if (encodedKey == null || entry.getLongValue() <= 0L) {
                 throw new IllegalStateException("Invalid in-memory ECO storage SavedData entry");
             }
             CompoundTag encoded = new CompoundTag();
             encoded.put(TAG_KEY, encodedKey.copy());
-            encoded.putLong(TAG_AMOUNT, entry.getValue());
+            encoded.putLong(TAG_AMOUNT, entry.getLongValue());
             entries.add(encoded);
         }
         tag.put(TAG_ENTRIES, entries);
@@ -382,8 +385,8 @@ final class SavedDataECOStorageBackend extends SavedData implements ECOStorageBa
         visibleStacks.clear();
         storedTypes = 0;
         storedAmount = 0L;
-        for (Map.Entry<AEKey, Long> entry : amounts.entrySet()) {
-            long amount = entry.getValue();
+        for (Object2LongMap.Entry<AEKey> entry : amounts.object2LongEntrySet()) {
+            long amount = entry.getLongValue();
             visibleStacks.set(entry.getKey(), amount);
             storedTypes++;
             storedAmount = LongMath.saturatedAdd(storedAmount, amount);
