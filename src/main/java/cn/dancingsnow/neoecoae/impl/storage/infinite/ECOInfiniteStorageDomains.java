@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOSavedDataPersistence;
 import cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory;
+import cn.dancingsnow.neoecoae.impl.storage.StorageTransferJournal;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -25,6 +26,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import net.minecraft.SharedConstants;
 import net.minecraft.Util;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 import net.minecraft.world.level.storage.LevelResource;
@@ -178,13 +180,16 @@ public final class ECOInfiniteStorageDomains {
             throw new IOException("Pending transfer must be recovered by restarting first");
         }
         DomainEntry entry = ENTRIES.get(keyFor(root, domainId));
-        if (entry != null && entry.delegate != null) entry.delegate.stopForReplacement();
+        if (entry != null) entry.advanceLoad(true);
+        if (entry != null && entry.delegate != null) entry.delegate.awaitPendingSnapshot();
         var snapshot = InfiniteStorageSnapshot.previousSnapshot(file);
         var storage = level.getServer().overworld().getDataStorage();
         var replacement = SavedDataInfiniteStorageEngine.load(snapshot, domainId, storage, file);
         ECOSavedDataPersistence.unregister(replacement);
         StorageFileHistory.archive(file);
         StorageFileHistory.archive(InfiniteStorageDelta.path(file));
+        StorageFileHistory.archive(InfiniteStorageSnapshot.commitMarker(file));
+        if (entry != null && entry.delegate != null) entry.delegate.stopForReplacement();
         int version = SharedConstants.getCurrentVersion().getDataVersion().getVersion();
         InfiniteStorageSnapshot.write(file, snapshot, version);
         Files.deleteIfExists(InfiniteStorageDelta.path(file));
@@ -325,6 +330,11 @@ public final class ECOInfiniteStorageDomains {
 
         @Nullable private CompletableFuture<LegacyV1Reader.Snapshot> migrationFuture;
 
+        @Nullable private CompletableFuture<CompoundTag> loadFuture;
+
+        private List<Path> loadLegacySources = List.of();
+        private boolean loadHasArchive;
+
         @Nullable private Path migrationSource;
 
         private ECOInfiniteDomainState offlineState = ECOInfiniteDomainState.LOADING;
@@ -345,6 +355,10 @@ public final class ECOInfiniteStorageDomains {
         }
 
         private synchronized void initialize(boolean createNew) {
+            if (StorageTransferJournal.isBlocked(dataFile)) {
+                quarantine("Pending transfer could not be replayed; repair disk access and restart", null);
+                return;
+            }
             try {
                 boolean hasV2Path = Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS);
                 boolean hasV2 = Files.isRegularFile(dataFile, LinkOption.NOFOLLOW_LINKS);
@@ -375,11 +389,9 @@ public final class ECOInfiniteStorageDomains {
                 }
 
                 if (hasV2) {
+                    loadLegacySources = List.copyOf(legacySources);
+                    loadHasArchive = hasArchive;
                     openV2Domain();
-                    if (delegate == null) {
-                        return;
-                    }
-                    finishInterruptedArchive(legacySources, hasArchive);
                     return;
                 }
 
@@ -424,11 +436,35 @@ public final class ECOInfiniteStorageDomains {
             Files.createDirectories(dataFile.getParent());
             // Read the authoritative file directly: the vanilla loader hides the cause and caches failed loads.
             // Only install an engine after strict decoding succeeds. Never substitute an empty inventory.
-            SavedDataInfiniteStorageEngine engine = SavedDataInfiniteStorageEngine.load(
-                    InfiniteStorageSnapshot.read(dataFile), domainId, dataStorage, dataFile);
-            dataStorage.set(savedDataName, engine);
-            delegate = engine;
-            offlineState = ECOInfiniteDomainState.READY;
+            offlineState = ECOInfiniteDomainState.LOADING;
+            loadFuture = CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            return InfiniteStorageSnapshot.read(dataFile);
+                        } catch (IOException e) {
+                            throw new CompletionException(e);
+                        }
+                    },
+                    Util.ioPool());
+        }
+
+        private synchronized boolean advanceLoad(boolean wait) {
+            if (loadFuture == null || !wait && !loadFuture.isDone()) return false;
+            var future = loadFuture;
+            loadFuture = null;
+            try {
+                // Registry-dependent AEKey decoding stays on the server thread.
+                var engine = SavedDataInfiniteStorageEngine.load(future.join(), domainId, dataStorage, dataFile);
+                dataStorage.set(savedDataName, engine);
+                delegate = engine;
+                offlineState = ECOInfiniteDomainState.READY;
+                finishInterruptedArchive(loadLegacySources, loadHasArchive);
+                loadJustCompleted = true;
+                return true;
+            } catch (Exception e) {
+                quarantine("Unable to load infinite-storage snapshot", e);
+                return false;
+            }
         }
 
         private void finishInterruptedArchive(List<Path> legacySources, boolean hasArchive) throws IOException {
@@ -486,6 +522,12 @@ public final class ECOInfiniteStorageDomains {
         }
 
         private synchronized void recover() {
+            if (offlineState == ECOInfiniteDomainState.QUARANTINED
+                    && delegate != null
+                    && delegate.getState() == ECOInfiniteDomainState.READY) {
+                ECOSavedDataPersistence.unregister(delegate);
+                delegate = null; // Recheck an archive/identity conflict instead of bypassing discovery.
+            }
             if (delegate != null) {
                 if (delegate.retryPersistence()) {
                     offlineState = ECOInfiniteDomainState.READY;
@@ -503,6 +545,7 @@ public final class ECOInfiniteStorageDomains {
         }
 
         private synchronized boolean advanceMigration(boolean wait) {
+            advanceLoad(wait);
             CompletableFuture<LegacyV1Reader.Snapshot> future = migrationFuture;
             if (future == null || (!wait && !future.isDone())) {
                 return false;

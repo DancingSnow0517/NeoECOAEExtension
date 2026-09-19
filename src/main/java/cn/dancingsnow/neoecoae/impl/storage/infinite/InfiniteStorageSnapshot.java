@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.zip.CRC32;
@@ -54,12 +53,24 @@ public final class InfiniteStorageSnapshot {
         CompoundTag marker = new CompoundTag();
         marker.putUUID("domain", snapshot.getUUID("domain"));
         marker.putLong("revision", snapshot.getLong("revision"));
-        AtomicSavedDataFile.write(commitMarker(base), marker, version);
+        // This is a small high-water mark, not an inventory generation. Its backup adds no recovery value.
+        AtomicSavedDataFile.write(commitMarker(base), marker, version, false);
     }
 
     /** Explicit rollback candidates only; normal loading must never silently choose an older quantity. */
     static CompoundTag previousSnapshot(Path path) throws IOException {
         CompoundTag best = null;
+        long currentRevision = Long.MAX_VALUE;
+        if (Files.isRegularFile(commitMarker(path))) {
+            try {
+                CompoundTag marker = AtomicSavedDataFile.read(commitMarker(path));
+                if (marker.contains("revision", Tag.TAG_LONG) && marker.getLong("revision") >= 0L) {
+                    currentRevision = marker.getLong("revision");
+                }
+            } catch (IOException | RuntimeException ignored) {
+                // Explicit recovery can use validated inventory history even when its marker is damaged.
+            }
+        }
         for (Path basePath : List.of(path, StorageFileHistory.previous(path))) {
             if (!Files.isRegularFile(basePath)) continue;
             CompoundTag base;
@@ -68,13 +79,14 @@ public final class InfiniteStorageSnapshot {
             } catch (IOException | RuntimeException e) {
                 continue;
             }
-            best = newer(best, base);
+            if (base.getLong("revision") < currentRevision) best = newer(best, base);
             for (Path deltaPath : List.of(
                     InfiniteStorageDelta.path(path), StorageFileHistory.previous(InfiniteStorageDelta.path(path)))) {
                 if (!Files.isRegularFile(deltaPath)) continue;
                 try {
                     CompoundTag delta = readSingle(deltaPath);
-                    best = newer(best, InfiniteStorageDelta.apply(base, delta));
+                    CompoundTag candidate = InfiniteStorageDelta.apply(base, delta);
+                    if (candidate.getLong("revision") < currentRevision) best = newer(best, candidate);
                 } catch (IOException | RuntimeException ignored) {
                 }
             }
@@ -147,7 +159,7 @@ public final class InfiniteStorageSnapshot {
         return buffer.toByteArray();
     }
 
-    static void validateKey(CompoundTag key) throws IOException {
+    public static void validateKey(CompoundTag key) throws IOException {
         if (!key.equals(decode(encode(key)))) {
             throw new IOException("AEKey cannot be serialized without data loss");
         }
@@ -208,7 +220,7 @@ public final class InfiniteStorageSnapshot {
             }
             // Never fall back to truncating the authoritative file on unsupported filesystems.
             StorageFileHistory.preserve(target);
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            StorageFileHistory.replace(temporary, target);
         } finally {
             Files.deleteIfExists(temporary);
         }

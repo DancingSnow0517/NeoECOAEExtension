@@ -118,6 +118,27 @@ class InfiniteStorageBenchmarkTest {
                     fullMs,
                     deltaMs,
                     Files.size(InfiniteStorageDelta.path(path))));
+            for (int i = 0; i < 64; i++) engine.insert(keys[i], 1, Actionable.MODULATE);
+            start = System.nanoTime();
+            engine.flushAndAwait();
+            report.add(String.format(
+                    Locale.ROOT,
+                    "%d keys: 64 changed quantities save %.1f ms, %d bytes",
+                    count,
+                    (System.nanoTime() - start) / 1e6,
+                    Files.size(InfiniteStorageDelta.path(path))));
+            for (int i = 0; i < count; i++) engine.insert(keys[i], 1, Actionable.MODULATE);
+            start = System.nanoTime();
+            engine.flushBudgeted(500_000L);
+            double captureMs = (System.nanoTime() - start) / 1e6;
+            engine.flushAndAwait();
+            report.add(String.format(
+                    Locale.ROOT,
+                    "%d keys: dense background capture %.1f ms; capture + durable completion %.1f ms",
+                    count,
+                    captureMs,
+                    (System.nanoTime() - start) / 1e6));
+            assertEquals(HugeAmount.of(count * 1001L + 64), engine.getStoredAmount());
             engine.closeAndFlush();
         }
         ECOSavedDataPersistence.clear();

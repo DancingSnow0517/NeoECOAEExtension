@@ -6,6 +6,12 @@ import net.minecraft.nbt.CompoundTag;
 
 public final class HugeAmount implements Comparable<HugeAmount> {
     public static final HugeAmount ZERO = new HugeAmount(0L, null);
+    private static final HugeAmount[] SMALL_VALUES = new HugeAmount[4097];
+
+    static {
+        SMALL_VALUES[0] = ZERO;
+        for (int i = 1; i < SMALL_VALUES.length; i++) SMALL_VALUES[i] = new HugeAmount(i, null);
+    }
 
     private final long longValue;
     private final BigInteger bigValue;
@@ -19,7 +25,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (value < 0L) {
             throw new IllegalArgumentException("Amount must not be negative");
         }
-        return value == 0L ? ZERO : new HugeAmount(value, null);
+        return value < SMALL_VALUES.length ? SMALL_VALUES[(int) value] : new HugeAmount(value, null);
     }
 
     public static HugeAmount of(BigInteger value) {

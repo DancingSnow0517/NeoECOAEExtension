@@ -102,13 +102,18 @@ final class SavedDataInfiniteStorageEngine extends SavedData
     @Nullable private CompletableFuture<Void> pendingSnapshot;
 
     private long nextCheckpointNanos;
+    private boolean metadataDirty;
 
     // Cumulative differences from the last full snapshot, including across delta commits.
     // Returning to the base amount removes the difference, not a previously committed receipt.
-    private final Map<AEKey, PendingChange> changedKeys = new HashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, PendingChange> changedKeys = new Object2ObjectOpenHashMap<>();
     private long baseRevision = -1L;
+    private long persistedRevision;
+    private boolean committedOverlayEmpty;
 
     private record PendingChange(CompoundTag encodedKey, HugeAmount baseAmount) {}
+
+    private record FrozenEntry(CompoundTag key, HugeAmount amount) {}
 
     private SavedDataInfiniteStorageEngine(UUID domainId, DimensionDataStorage dataStorage, Path dataFile) {
         this.domainId = domainId;
@@ -145,6 +150,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         engine.legacyTransferReceipts.addAll(parsed.legacyTransferReceipts());
         engine.transferReceipts.putAll(parsed.transferReceipts());
         engine.revision = parsed.revision();
+        engine.persistedRevision = parsed.revision();
         engine.legacyFingerprint = parsed.legacyFingerprint();
         engine.acknowledgedOrphanedFingerprint = parsed.acknowledgedOrphanedFingerprint();
         engine.lastSerializedSnapshot = tag.copy();
@@ -253,6 +259,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         HugeAmount next = amounts.add(key, amount);
         onAmountChanged(key, previous, next, amount, true);
         transferReceipts.put(transactionId, digest);
+        metadataDirty = true;
         markMutated();
         flushAndAwait();
         return state == ECOInfiniteDomainState.READY ? amount : 0L;
@@ -299,6 +306,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             onAmountChanged(key, previous, next, stack.amount(), true);
         }
         transferReceipts.put(transactionId, digest);
+        metadataDirty = true;
         markMutated();
         flushAndAwait();
         return state == ECOInfiniteDomainState.READY;
@@ -459,6 +467,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             return true;
         }
         acknowledgedOrphanedFingerprint = currentFingerprint;
+        metadataDirty = true;
         markMutated();
         flushAndAwait();
         return state == ECOInfiniteDomainState.READY;
@@ -496,6 +505,9 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             changedKeys.clear();
             revision = nextRevision;
             baseRevision = revision;
+            persistedRevision = revision;
+            committedOverlayEmpty = true;
+            metadataDirty = false;
             lastSerializedSnapshot = empty;
             rebuildIndexes();
             setDirty(false);
@@ -550,6 +562,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         setDirty(false);
     }
 
+    synchronized void awaitPendingSnapshot() {
+        finishSnapshot(true);
+    }
+
     @Override
     public synchronized ECOInfiniteDomainState getState() {
         finishSnapshot(false);
@@ -592,11 +608,22 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             return;
         }
         try {
+            if (baseRevision >= 0L && committedOverlayEmpty && changedKeys.isEmpty() && !metadataDirty) {
+                // The live revision still invalidates plans/caches, but no recoverable state has changed.
+                // A previous nonempty overlay must first be durably replaced, even when we returned to base.
+                lastSerializedSnapshot = null;
+                setDirty(false);
+                return;
+            }
             boolean incremental = baseRevision >= 0L
                     && revision > baseRevision
                     && revision < Long.MAX_VALUE
                     && changedKeys.size() <= Math.max(1024, amounts.size() / 4);
-            CompoundTag snapshot = incremental ? deltaSnapshot() : save(new CompoundTag());
+            boolean updateCommitMarker = !incremental || !changedKeys.isEmpty() || metadataDirty;
+            var frozenSnapshot = freezeSnapshot(incremental);
+            persistedRevision = revision;
+            committedOverlayEmpty = !incremental || changedKeys.isEmpty();
+            metadataDirty = false;
             // Mutations during the write are tracked relative to this frozen base, never discarded on completion.
             if (incremental) lastSerializedSnapshot = null;
             else {
@@ -609,14 +636,19 @@ final class SavedDataInfiniteStorageEngine extends SavedData
             pendingSnapshot = CompletableFuture.runAsync(
                     () -> {
                         try {
+                            CompoundTag snapshot = frozenSnapshot.get();
                             if (incremental) {
                                 InfiniteStorageSnapshot.write(
                                         InfiniteStorageDelta.path(dataFile), snapshot, dataVersion);
                             } else {
                                 InfiniteStorageSnapshot.write(dataFile, snapshot, dataVersion);
+                                cn.dancingsnow.neoecoae.impl.storage.StorageFileHistory.preserve(
+                                        InfiniteStorageDelta.path(dataFile));
                                 Files.deleteIfExists(InfiniteStorageDelta.path(dataFile));
                             }
-                            InfiniteStorageSnapshot.markCommitted(dataFile, snapshot, dataVersion);
+                            // Revision-only saves do not change any recoverable quantity or receipt.
+                            if (updateCommitMarker)
+                                InfiniteStorageSnapshot.markCommitted(dataFile, snapshot, dataVersion);
                         } catch (Exception e) {
                             throw new CompletionException(e);
                         }
@@ -641,6 +673,34 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         }
     }
 
+    private java.util.function.Supplier<CompoundTag> freezeSnapshot(boolean incremental) {
+        CompoundTag metadata = new CompoundTag();
+        writeMetadata(metadata);
+        List<FrozenEntry> frozen = new ArrayList<>(incremental ? changedKeys.size() : amounts.size());
+        if (incremental) {
+            metadata.putLong(InfiniteStorageDelta.BASE_REVISION, baseRevision);
+            changedKeys.forEach((key, change) -> frozen.add(new FrozenEntry(change.encodedKey(), amounts.get(key))));
+        } else {
+            amounts.forEach((key, amount) -> frozen.add(new FrozenEntry(encodedKeys.get(key), amount)));
+            orphanedEntries.values().forEach(entry -> frozen.add(new FrozenEntry(entry.encodedKey(), entry.amount())));
+        }
+        List<CompoundTag> retained = incremental ? List.of() : List.copyOf(retainedEntries);
+        lastSerializedSnapshot = null;
+        // Cached key NBT is immutable after publication. The worker copies it before writing and never
+        // sees an AEKey, inventory map or world object. HugeAmount values are also immutable.
+        return () -> {
+            ListTag entries = new ListTag();
+            for (FrozenEntry entry : frozen) {
+                CompoundTag encoded = amountEntry(entry.key(), entry.amount());
+                if (incremental && entry.amount().isZero()) encoded.putBoolean(InfiniteStorageDelta.DELETED, true);
+                entries.add(encoded);
+            }
+            retained.forEach(entry -> entries.add(entry.copy()));
+            metadata.put(TAG_ENTRIES, entries);
+            return metadata;
+        };
+    }
+
     @Override
     public synchronized CompoundTag save(CompoundTag tag) {
         writeMetadata(tag);
@@ -659,21 +719,6 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         retainedEntries.forEach(entry -> entries.add(entry.copy()));
         tag.put(TAG_ENTRIES, entries);
         lastSerializedSnapshot = tag.copy();
-        return tag;
-    }
-
-    private CompoundTag deltaSnapshot() {
-        CompoundTag tag = new CompoundTag();
-        writeMetadata(tag);
-        tag.putLong(InfiniteStorageDelta.BASE_REVISION, baseRevision);
-        ListTag entries = new ListTag();
-        changedKeys.forEach((key, change) -> {
-            HugeAmount amount = amounts.get(key);
-            CompoundTag entry = amountEntry(change.encodedKey(), amount);
-            if (amount.isZero()) entry.putBoolean(InfiniteStorageDelta.DELETED, true);
-            entries.add(entry);
-        });
-        tag.put(TAG_ENTRIES, entries);
         return tag;
     }
 
@@ -1042,7 +1087,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         Map<AEKey, HugeAmount> expectedAmounts = new HashMap<>();
         amounts.forEach(expectedAmounts::put);
         Map<String, OrphanedStack> expectedOrphanedEntries = new HashMap<>(orphanedEntries);
-        if (persisted.revision() != revision
+        if (persisted.revision() != persistedRevision
                 || !persisted.amounts().equals(expectedAmounts)
                 || !persisted.orphanedEntries().equals(expectedOrphanedEntries)
                 || !persisted.retainedEntries().equals(retainedEntries)
@@ -1068,6 +1113,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData
         retained.putUUID(TAG_RECEIPT_ID, transactionId);
         retained.putString("conflict", "Transfer contents differ from the original receipt");
         retainedReceipts.add(retained);
+        metadataDirty = true;
         entryFailures.add("Conflicting transfer receipt: " + transactionId);
         markMutated();
         LOGGER.error("Isolated conflicting infinite-storage transfer {} in domain {}", transactionId, domainId);

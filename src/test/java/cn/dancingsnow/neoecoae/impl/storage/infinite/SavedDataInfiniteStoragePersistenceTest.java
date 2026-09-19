@@ -125,6 +125,24 @@ class SavedDataInfiniteStoragePersistenceTest {
     }
 
     @Test
+    void explicitRecoveryCanReadInventoryWhenCommitMarkerIsCorrupt() throws Exception {
+        Path path = directory.resolve("domain.dat");
+        var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
+        var key = new InfiniteStorageTestKey(1);
+        key.cacheEncoding(engine);
+        engine.insert(key, 10, Actionable.MODULATE);
+        engine.flushAndAwait();
+        Files.write(InfiniteStorageSnapshot.commitMarker(path), new byte[] {1, 2, 3});
+        assertThrows(IOException.class, () -> InfiniteStorageSnapshot.read(path));
+        assertEquals(
+                10,
+                InfiniteStorageSnapshot.previousSnapshot(path)
+                        .getList("entries", 10)
+                        .getCompound(0)
+                        .getLong("amount_long"));
+    }
+
+    @Test
     void quarantinedEngineCannotOverwriteExistingEvidenceDuringAutosave() throws Exception {
         Path path = directory.resolve("domain.dat");
         var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
@@ -225,7 +243,7 @@ class SavedDataInfiniteStoragePersistenceTest {
     }
 
     @Test
-    void netZeroIoKeepsTheBaseAndWritesOnlyRevisionMetadata() throws Exception {
+    void netZeroIoKeepsCommittedQuantitiesWithoutRedundantDiskWrites() throws Exception {
         Path path = directory.resolve("domain.dat");
         var engine = SavedDataInfiniteStorageEngine.createNew(UUID.randomUUID(), null, path);
         var keys = new InfiniteStorageTestKey[1100];
@@ -236,6 +254,7 @@ class SavedDataInfiniteStoragePersistenceTest {
         }
         engine.flushAndAwait();
         byte[] base = Files.readAllBytes(path);
+        long committedRevision = engine.getRevision();
         for (var key : keys) {
             engine.extract(key, 64, Actionable.MODULATE);
             engine.insert(key, 64, Actionable.MODULATE);
@@ -243,10 +262,10 @@ class SavedDataInfiniteStoragePersistenceTest {
         engine.flushAndAwait();
         assertEquals(ECOInfiniteDomainState.READY, engine.getState());
         assertArrayEquals(base, Files.readAllBytes(path));
-        var delta = InfiniteStorageSnapshot.read(InfiniteStorageDelta.path(path));
-        assertTrue(delta.getList("entries", 10).isEmpty());
+        assertFalse(Files.exists(InfiniteStorageDelta.path(path)));
         var recovered = InfiniteStorageSnapshot.read(path);
-        assertEquals(engine.getRevision(), recovered.getLong("revision"));
+        assertEquals(committedRevision, recovered.getLong("revision"));
+        assertTrue(engine.getRevision() > committedRevision);
         assertEquals(keys.length, recovered.getList("entries", 10).size());
         for (var entry : recovered.getList("entries", 10)) {
             assertEquals(1000, ((CompoundTag) entry).getLong("amount_long"));
