@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
-import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -86,22 +85,22 @@ public final class NELogicalNetworkManager {
             return;
         }
         LevelState state = LEVELS.computeIfAbsent(serverLevel, ignored -> new LevelState());
-        if (!state.pendingGridRefresh.add(cluster)) {
+        state.pendingGridRefresh.add(cluster);
+    }
+
+    /** Drain after AE2's grid update, once boot, power and channel state have settled. */
+    public static void tick(ServerLevel level) {
+        LevelState state = LEVELS.get(level);
+        if (state == null || level.getServer().isStopped() || state.pendingGridRefresh.isEmpty()) {
             return;
         }
-
-        int refreshTick = serverLevel.getServer().getTickCount() + 1;
-        serverLevel.getServer().tell(new TickTask(refreshTick, () -> {
-            LevelState currentState = LEVELS.get(serverLevel);
-            if (currentState == null) {
-                return;
-            }
-            currentState.pendingGridRefresh.remove(cluster);
-            if (!serverLevel.getServer().isStopped() && !cluster.isDestroyed()
-                    && getLevel(cluster) == serverLevel) {
+        List<NECluster<?>> pending = List.copyOf(state.pendingGridRefresh);
+        state.pendingGridRefresh.clear();
+        for (NECluster<?> cluster : pending) {
+            if (!cluster.isDestroyed() && getLevel(cluster) == level) {
                 refresh(cluster);
             }
-        }));
+        }
     }
 
     public static void detachBeforeDestroy(NECluster<?> cluster) {

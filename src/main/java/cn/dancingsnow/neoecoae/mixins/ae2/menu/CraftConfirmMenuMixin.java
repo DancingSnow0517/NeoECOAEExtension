@@ -262,7 +262,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique
-    private boolean neoecoae$craftConfirmDiagnosticLogged;
+    private String neoecoae$lastStartDiagnostic;
+    @Unique private long neoecoae$nextStartDiagnosticTick;
 
     @Shadow
     private ICraftingPlan result;
@@ -312,7 +313,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
         neoecoae$originalOptions = null;
-        neoecoae$craftConfirmDiagnosticLogged = false;
+        neoecoae$lastStartDiagnostic = null;
+        neoecoae$nextStartDiagnosticTick = 0;
     }
 
     /**
@@ -629,25 +631,40 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Inject(method = "broadcastChanges", at = @At("TAIL"))
     private void logDisabledStartButton(CallbackInfo ci) {
-        if (!NEConfig.ecoCraftConfirmDebug || neoecoae$craftConfirmDiagnosticLogged || result == null) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (menu.isClientSide() || result == null
+                || !neoecoae$ecoPlannerAvailable && !NEConfig.ecoCraftConfirmDebug) {
             return;
         }
+        long tick = menu.getLevel().getGameTime();
+        if (tick < neoecoae$nextStartDiagnosticTick) return;
+        neoecoae$nextStartDiagnosticTick = tick + 20;
         PlanningStatus status = neoecoae$getPlanningStatus();
         boolean unrepresentable = status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
-        if (unrepresentable && neoecoae$bigOrderCpu) return;
-        if (!noCPU && !result.simulation() && !unrepresentable) {
+        if (unrepresentable && neoecoae$bigOrderCpu
+                || !noCPU && !result.simulation() && !unrepresentable) {
+            if (neoecoae$lastStartDiagnostic != null) {
+                NEOECOAE_LOGGER.info("[craft-confirm] Server start gate cleared: container={}", menu.containerId);
+                neoecoae$lastStartDiagnostic = null;
+            }
             return;
         }
 
-        neoecoae$craftConfirmDiagnosticLogged = true;
         IGrid grid = getGrid();
         String cpuDetails = grid != null
             && grid.getCraftingService() instanceof ECOCraftingServiceDiagnostics diagnostics
             ? diagnostics.neoecoae$describeCpuSelection(result, getActionSrc())
             : "crafting service diagnostics unavailable";
+        String reason = unrepresentable ? "NO_ELIGIBLE_ECO_CPU"
+            : noCPU ? "NO_MATCHING_CPU" : "SIMULATION_REQUIRES_FORCE";
+        String diagnostic = reason + ":" + status + ":" + result.bytes() + ":" + result.simulation()
+            + ":" + neoecoae$describeCpu(selectedCpu) + ":" + cpuDetails;
+        if (diagnostic.equals(neoecoae$lastStartDiagnostic)) return;
+        neoecoae$lastStartDiagnostic = diagnostic;
         NEOECOAE_LOGGER.warn(
-            "[craft-confirm] Start disabled: player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
+            "[craft-confirm] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
                 + "planningStatus={}, selectedCpu={}\n{}",
+            reason, menu.containerId,
             getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
             result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
             status, neoecoae$describeCpu(selectedCpu), cpuDetails);
@@ -694,11 +711,23 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             : CraftingPlanSummary.fromJob(grid, source, result);
         CraftingPlanSummary refreshed = neoecoae$recheckStoredAmounts(grid, source, current);
         plan = refreshed;
-        if (refreshed.getEntries().stream().noneMatch(entry -> entry.getMissingAmount() > 0L)) {
+        var missing = refreshed.getEntries().stream().filter(entry -> entry.getMissingAmount() > 0L)
+            .findFirst().orElse(null);
+        if (missing == null) {
             return;
         }
 
-        if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        // The ECO cycle table and graph retain the planning snapshot. Sending only a refreshed AE2
+        // summary leaves those views unchanged and makes a cancelled submission look like a dead button.
+        menu.setAutoStart(false);
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+            appeng.crafting.execution.CraftingSubmitResult.missingIngredient(
+                new appeng.api.stacks.GenericStack(missing.getWhat(), missing.getMissingAmount())));
+        NEOECOAE_LOGGER.warn(
+            "[craft-submit] Rejected: reason=INVENTORY_RECHECK, container={}, key={}, missing={}",
+            menu.containerId, missing.getWhat(), missing.getMissingAmount());
+        if (menu.getPlayer() instanceof ServerPlayer player) {
             player.connection.send(new CraftConfirmPlanPacket(refreshed));
         }
         ci.cancel();

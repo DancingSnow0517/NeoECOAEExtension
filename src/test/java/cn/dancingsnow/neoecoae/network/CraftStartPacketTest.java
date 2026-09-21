@@ -15,6 +15,8 @@ class CraftStartPacketTest {
 
     @Test void oneIntentAppliesForceFlagAndStartsTheCurrentValidMenuInOrder() {
         var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOForceCraftStartSync.class));
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+            (appeng.api.networking.crafting.ICraftingSubmitResult) null);
         var player = mock(ServerPlayer.class);
         player.containerMenu = menu;
         when(menu.stillValid(player)).thenReturn(true);
@@ -34,5 +36,26 @@ class CraftStartPacketTest {
         when(menu.stillValid(player)).thenReturn(false);
         ECOForceCraftStartFlagC2SPacket.handle(new ECOForceCraftStartFlagC2SPacket(menu.containerId, true), context);
         verify(menu, never()).startJob();
+        verify(player).closeContainer();
+    }
+
+    @Test void missingForceStartIntegrationReportsAnErrorInsteadOfIgnoringTheClick() {
+        var menu = mock(CraftConfirmMenu.class);
+        var player = mock(ServerPlayer.class);
+        player.containerMenu = menu;
+        when(menu.stillValid(player)).thenReturn(true);
+        var context = mock(IPayloadContext.class);
+        when(context.player()).thenReturn(player);
+        doAnswer(call -> {
+            ((Runnable) call.getArgument(0)).run();
+            return CompletableFuture.completedFuture(null);
+        }).when(context).enqueueWork(any(Runnable.class));
+
+        ECOForceCraftStartFlagC2SPacket.handle(new ECOForceCraftStartFlagC2SPacket(menu.containerId, false), context);
+
+        verify(menu, never()).startJob();
+        org.junit.jupiter.api.Assertions.assertEquals(
+            appeng.api.networking.crafting.CraftingSubmitErrorCode.INCOMPLETE_PLAN,
+            menu.submitError.result().errorCode());
     }
 }

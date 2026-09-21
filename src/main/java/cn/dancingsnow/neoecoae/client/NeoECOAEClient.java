@@ -37,7 +37,6 @@ import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -81,8 +80,10 @@ public class NeoECOAEClient {
                     .filter(java.util.Objects::nonNull).map(key -> (appeng.api.stacks.AEKey) key).toList();
                 PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
-            importButton.setX(screen.getGuiLeft() + 130);
-            importButton.setY(screen.getGuiTop() + 7);
+            // Keep this action on the same left rail as the cell-workbench tabs.
+            // The rail's fifth slot starts immediately below the four native tabs.
+            importButton.setX(screen.getGuiLeft() + 8);
+            importButton.setY(screen.getGuiTop() + 276);
             importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
             event.addListener(importButton);
@@ -91,6 +92,9 @@ public class NeoECOAEClient {
 
     /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
     private static final class JeiBookmarkButton extends Button {
+        private static final net.minecraft.resources.ResourceLocation ICON_TEXTURE =
+            NeoECOAE.id("textures/gui/upload.png");
+
         private JeiBookmarkButton(Component message, OnPress onPress) {
             super(0, 0, 16, 16, message, onPress, Button.DEFAULT_NARRATION);
         }
@@ -107,16 +111,8 @@ public class NeoECOAEClient {
                 .zOffset(100)
                 .blit(graphics);
 
-            Component message = getMessage();
-            int textWidth = Minecraft.getInstance().font.width(message);
-            graphics.drawString(
-                Minecraft.getInstance().font,
-                message,
-                getX() + (width - textWidth) / 2,
-                getY() + (height - 8) / 2 + yOffset,
-                0xFFFFFFFF,
-                true
-            );
+            graphics.blit(ICON_TEXTURE, getX(), getY() + 2 + yOffset,
+                200, 0, 0, 16, 16, 16, 16);
         }
     }
 

@@ -133,7 +133,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 .append(", busy=").append(busy)
                 .append(", coprocessors=").append(cpu.getCoProcessors())
                 .append(", selectionMode=").append(cpu.getSelectionMode())
-                .append(", menuSelectable=").append(!busy && storage >= plan.bytes());
+                .append(", nativeMenuSelectable=").append(!busy && storage >= plan.bytes())
+                .append(", rejection=").append(busy ? "busy" : storage < plan.bytes() ? "too_small"
+                    : cpu.getSelectionMode() == appeng.api.config.CpuSelectionMode.MACHINE_ONLY
+                        ? "player_auto_selection_excluded" : "none");
         }
 
         details.append("\nregisteredEcoClusters=").append(neoecoae$computationClusters.size());

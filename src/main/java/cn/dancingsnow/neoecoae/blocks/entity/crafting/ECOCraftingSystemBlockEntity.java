@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.ticking.IGridTickable;
@@ -573,6 +574,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         markForUpdate();
         if (cluster != null) {
             NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        if (!isServerStopping()) {
+            // Becoming online does not necessarily change the grid identity.
+            onMainNodeGridChanged();
         }
     }
 

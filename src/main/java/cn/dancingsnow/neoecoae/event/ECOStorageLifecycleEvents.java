@@ -44,6 +44,9 @@ public final class ECOStorageLifecycleEvents {
     }
 
     public static void onServerTick(ServerTickEvent.Post event) {
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            NELogicalNetworkManager.tick(level);
+        }
         ECOInfiniteStorageDomains.tick(event.getServer(), event.getServer().getTickCount());
         ECOCellMutationBatch.retry();
         PatternBusUpdateScheduler.tick(event.getServer());

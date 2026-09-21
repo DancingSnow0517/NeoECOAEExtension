@@ -61,6 +61,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private @Nullable Integer selectedCycleComponentId;
     private final long openedNanos = System.nanoTime();
     private boolean lastSubmissionForced;
+    private String lastStartGate;
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
@@ -206,6 +207,21 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             start.active = false;
             graph.active = false;
             setTextContent("plan_summary", Component.translatable("gui.neoecoae.crafting_report.loading_details"));
+        }
+        String startGate = start.active ? "READY"
+            : plan == null ? "WAITING_FOR_PLAN"
+            : (Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()
+                ? "WAITING_FOR_DIAGNOSTICS"
+            : !startable ? "PLAN_NOT_STARTABLE"
+            : bigOrder ? "NO_ELIGIBLE_ECO_CPU" : "NO_MATCHING_CPU";
+        if (!startGate.equals(lastStartGate)) {
+            lastStartGate = startGate;
+            org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                "[craft-confirm] Client start gate: container={}, reason={}, status={}, simulation={}, "
+                    + "noCPU={}, bigOrder={}, forced={}",
+                menu.containerId, startGate,
+                (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null,
+                plan == null ? null : plan.isSimulation(), menu.hasNoCPU(), bigOrder, forceStart);
         }
     }
 
