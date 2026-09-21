@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
+
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
@@ -30,9 +31,12 @@ public final class ECOInfiniteStorageDomains {
 
     private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
 
-    private ECOInfiniteStorageDomains() {}
+    private ECOInfiniteStorageDomains() {
+    }
 
-    /** Mounts one host on a domain. Every successful acquire must be paired with {@link #release}. */
+    /**
+     * Mounts one host on a domain. Every successful acquire must be paired with {@link #release}.
+     */
     public static synchronized ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
         MinecraftServer server = level.getServer();
         DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new HashMap<>())
@@ -62,8 +66,11 @@ public final class ECOInfiniteStorageDomains {
         Map<UUID, DomainEntry> engines = ENGINES.remove(server);
         if (engines != null) {
             for (var entry : engines.entrySet()) {
-                try { close(entry.getValue().engine); }
-                catch (RuntimeException e) { LOGGER.error("ECO domain {} shutdown flush failed", entry.getKey(), e); }
+                try {
+                    close(entry.getValue().engine);
+                } catch (RuntimeException e) {
+                    LOGGER.error("ECO domain {} shutdown flush failed", entry.getKey(), e);
+                }
             }
         }
     }
@@ -77,8 +84,9 @@ public final class ECOInfiniteStorageDomains {
                 DomainEntry entry = domain.getValue();
                 if (entry.mountCount == 0 && entry.idleSinceTick != Long.MIN_VALUE
                         && tick - entry.idleSinceTick >= IDLE_EVICTION_TICKS) {
-                    try { close(entry.engine); }
-                    catch (RuntimeException e) {
+                    try {
+                        close(entry.engine);
+                    } catch (RuntimeException e) {
                         LOGGER.error("ECO domain {} idle eviction flush failed", domain.getKey(), e);
                         continue;
                     }
@@ -149,6 +157,7 @@ public final class ECOInfiniteStorageDomains {
                     throw new java.io.IOException("Missing data compound in authoritative snapshot");
                 }
                 data = ECOInfiniteStorageData.load(root.getCompound("data"), registries);
+                ECOInfiniteStorageData.replayJournal(data, dataFile, registries);
             } else {
                 data = ECOInfiniteStorageData.createNew();
                 Path legacyFile = worldRoot.resolve("data").resolve(legacyName + ".dat");

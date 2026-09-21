@@ -7,7 +7,7 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
-import cn.dancingsnow.neoecoae.util.NEByteFormatter;
+import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -71,10 +71,7 @@ public class CpuSelectionListMixin {
         )
     )
     private MutableComponent wrapStorageTooltip(long storage, Operation<MutableComponent> original) {
-        if (storage >= 1L << 30) {
-            return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
-        }
-        return original.call(storage);
+        return Component.literal(NEByteFormatter.format(storage)).withStyle(Tooltips.NUMBER_TEXT);
     }
 
     @WrapOperation(

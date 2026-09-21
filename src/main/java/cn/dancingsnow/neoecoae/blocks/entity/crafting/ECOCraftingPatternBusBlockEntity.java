@@ -26,16 +26,17 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
+import cn.dancingsnow.neoecoae.api.fastpath.EcoFastpathHost;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOStatefulBatchCalculator;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLookup;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathRecipe;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathLookup;
+import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -80,12 +81,14 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
-    ECOFastPathDispatchProvider {
+    ECOFastPathDispatchProvider, EcoFastpathHost {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -105,44 +108,31 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private static final int PAGE_LABEL_WIDTH = 16;
     private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
     private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
-    private static final int PATTERN_UPDATE_QUIET_TICKS = 2;
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
-    @DescSynced
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
-    private final List<IPatternDetails> patternDetails = new ArrayList<>();
-    private final IPatternDetails[] decodedPatternDetails =
-        new IPatternDetails[NEConfig.getMaxCraftingPatternBusSlotCount()];
-    private final BitSet dirtyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
+    private final ECOCraftingPatternBusCatalog catalog;
+    private final ECOCraftingPatternBusDispatcher dispatcher;
+    private static final int EXTERNAL_NONCE_HISTORY = 1024;
+    private final Map<UUID, FastpathSubmission> externalFastpathSubmissions =
+        new LinkedHashMap<>(64, 0.75F, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<UUID, FastpathSubmission> eldest) {
+                return size() > EXTERNAL_NONCE_HISTORY;
+            }
+        };
+    private final ECOCraftingPatternBusPublisher publisher;
     public final IItemHandlerModifiable itemHandler;
     @Persisted
     @DescSynced
     private int activePages = NEConfig.getCraftingPatternBusPages();
     @DescSynced
     private int currentPage;
-    private boolean patternDetailsUpdateQueued;
-    private transient boolean immediatePatternDetailsUpdate;
-    private transient boolean patternDetailsUpdateInProgress;
-    private boolean rebuildAllPatternDetails = true;
-    private int patternDetailsUpdateTick;
-    private int highestOccupiedSlot = -1;
-    private final String[] patternSearchKeywords = new String[NEConfig.getMaxCraftingPatternBusSlotCount()];
-    private final BitSet emptyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
-    private int patternCapacitySlotCount;
-    private int patternCapacityGeneration;
-    private boolean patternCapacityIndexInitialized;
     @DescSynced
     private int patternContentRevision;
-    private transient boolean craftingProviderRefreshQueued;
-    /** The prepared pattern currently being inserted; used to avoid decoding it again in the slot filter. */
-    private transient ECOPreparedPattern activePreparedPattern;
-    private transient int patternBatchDepth;
-    private final transient BitSet patternBatchChangedSlots = new BitSet();
-    /** Ordinary one-craft dispatch follows AdvancedAE's successful-target round-robin. */
-    private int dispatchRoundRobinIndex;
 
     // ---- auxiliary pattern store (pattern disks and the like) ----------------------------------
 
@@ -344,7 +334,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             IPatternDetails details = index < auxiliaryPatternDetails.size()
                     ? auxiliaryPatternDetails.get(index)
                     : null;
-            keywords.add(buildPatternSearchKeywords(auxiliaryEncodedPatterns.get(index), details));
+            keywords.add(ECOCraftingPatternBusCatalog.buildPatternSearchKeywords(
+                    auxiliaryEncodedPatterns.get(index), details));
         }
         return keywords;
     }
@@ -353,10 +344,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public List<IPatternDetails> getAvailablePatterns() {
         refreshAuxiliaryPatterns();
         if (auxiliaryPatternDetails.isEmpty()) {
-            return patternDetails;
+            return catalog.availablePatterns();
         }
-        List<IPatternDetails> merged = new ArrayList<>(patternDetails.size() + auxiliaryPatternDetails.size());
-        merged.addAll(patternDetails);
+        List<IPatternDetails> merged = new ArrayList<>(
+            catalog.availablePatterns().size() + auxiliaryPatternDetails.size());
+        merged.addAll(catalog.availablePatterns());
         merged.addAll(auxiliaryPatternDetails);
         return merged;
     }
@@ -367,97 +359,119 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
-        Level level = getLevel();
-        ECOExtractedPatternExecution execution = level == null
-            ? ECOExtractedPatternExecution.slow(patternDetails, inputHolder)
-            : ECOExtractedPatternExecution.fromProviderPush(patternDetails, inputHolder, level);
-        return pushPattern(execution, craftingJobId);
+        return dispatcher.pushPattern(patternDetails, inputHolder, craftingJobId);
     }
 
     /** Ordinary single-craft fallback without another FastPath lookup. */
     public boolean pushPatternSlow(IPatternDetails pattern, KeyCounter[] inputs, @Nullable UUID craftingJobId) {
-        return pushPattern(ECOExtractedPatternExecution.slow(pattern, inputs), craftingJobId);
+        return dispatcher.pushPatternSlow(pattern, inputs, craftingJobId);
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
-        if (execution.molecularPattern() == null || cluster == null) {
-            return false;
-        }
-        // Match AdvancedAE's ordinary provider routing: visit reachable workers from a rotating cursor and advance
-        // only after a successful push. Batch offers use the capacity-ranked path below, but a single craft should
-        // not keep concentrating on the worker with the most free slots.
-        List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
-        if (candidates.isEmpty()) {
-            return false;
-        }
-        int start = Math.floorMod(dispatchRoundRobinIndex, candidates.size());
-        for (int offset = 0; offset < candidates.size(); offset++) {
-            int candidateIndex = (start + offset) % candidates.size();
-            ECOCraftingWorkerBlockEntity worker = candidates.get(candidateIndex);
-            // The worker performs the authoritative capacity check immediately before accepting ownership.
-            if (worker.pushPattern(execution, craftingJobId)) {
-                dispatchRoundRobinIndex = (candidateIndex + 1) % candidates.size();
-                return true;
-            }
-        }
-        return false;
+        return dispatcher.pushPattern(execution, craftingJobId);
+    }
+
+    @Override
+    public @Nullable ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, java.math.BigInteger requested) {
+        return dispatcher.prepareExactFastPath(context, requested);
     }
 
     @Override
     public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
-        var controller = getCraftingController();
-        if (controller == null || context.level() != getLevel()) return null;
-        var execution = context.execution();
-        if (!execution.canUseFastPath()) return null;
-        if (controller.isFullVirtualCraftingMode()) {
-            var offer = findVirtualFastPathOffer(execution);
-            if (offer == null || !batchRecipe(offer.recipe(), execution)) return null;
-            var recipe = offer.recipe();
-            var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
-            long capacity = calculator == null
-                ? recipe.arithmeticBatchLimit() : calculator.arithmeticBatchLimit();
-            return capacity <= 0L ? null : new Preparation(capacity, calculator, true, batch -> {
-                var verified = recipe.withVirtualBatch(batch.craftCount(), context.craftingJobId(),
-                    batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
-                return verified != null && pushVirtualBatch(verified, offer);
-            });
-        }
-        var offer = findBatchFastPathOffer(execution, Integer.MAX_VALUE);
-        if (offer == null || !batchRecipe(offer.recipe(), execution)) return null;
-        long capacity = Math.max(0, controller.getCraftingCoolantCraftLimit(
-            5, controller.getEffectiveOverclockTimes(), offer.maxBatchSize()));
-        var recipe = offer.recipe();
-        var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
-        return capacity <= 0L ? null : new Preparation(capacity, calculator, true, batch -> {
-            if (batch.craftCount() > Integer.MAX_VALUE) return false;
-            var verified = recipe.withBatch((int) batch.craftCount(), context.craftingJobId(),
-                batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
-            return verified != null && acceptVerifiedBatch(verified, offer);
-        });
+        return dispatcher.prepareFastPath(context);
     }
 
-    private static boolean batchRecipe(ECOVerifiedFastPathRecipe recipe, ECOExtractedPatternExecution execution) {
-        return recipe.isVerifiedFor(execution);
+    @Override
+    public FastpathCapability inspect(FastpathRequest request) {
+        var rejection = validateExternalRequest(request);
+        if (rejection != RejectionReason.NONE) return rejectedCapability(rejection);
+        var pattern = findExternalPattern(request);
+        if (pattern == null
+            || !ECOThunderboltBatchBridge.fastPathEligible(this, pattern)) {
+            return rejectedCapability(RejectionReason.UNSUPPORTED_PROCESSING);
+        }
+        long accepted = Math.min(request.requestedAmount(), Math.max(0, getAvailableThreadSlots()));
+        if (accepted <= 0L) return rejectedCapability(RejectionReason.BUSY);
+        var tier = externalHostTier();
+        return new FastpathCapability(API_VERSION, CAPABILITY_ID, tier, accepted,
+            tier == HostTier.F9 ? DurationClass.IMMEDIATE : DurationClass.SHORT, RejectionReason.NONE);
+    }
+
+    @Override
+    public FastpathSubmission submit(FastpathRequest request) {
+        var previous = externalFastpathSubmissions.get(request.nonce());
+        if (previous != null) return previous;
+        var capability = inspect(request);
+        if (capability.acceptedAmount() <= 0L) {
+            return rememberExternal(request.nonce(), rejectedSubmission(request, capability.rejectionReason()));
+        }
+        var pattern = findExternalPattern(request);
+        if (pattern == null || getLevel() == null) {
+            return rememberExternal(request.nonce(), rejectedSubmission(request, RejectionReason.UNSUPPORTED_PROCESSING));
+        }
+        try {
+            var inputs = request.inputsPerCraft().stream().map(slot -> {
+                var counter = new KeyCounter();
+                for (var stack : slot) counter.add(stack.what(), stack.amount());
+                return counter;
+            }).toArray(KeyCounter[]::new);
+            long leftover = ECOThunderboltBatchBridge
+                .drainFastPath(this, pattern, inputs, capability.acceptedAmount(), getLevel(), null);
+            if (leftover < 0L || leftover > capability.acceptedAmount()) leftover = capability.acceptedAmount();
+            long amount = capability.acceptedAmount() - leftover;
+            long unaccepted = request.requestedAmount() - amount;
+            var status = amount == 0L ? Status.REJECTED : unaccepted == 0L ? Status.ACCEPTED : Status.PARTIAL;
+            return rememberExternal(request.nonce(), new FastpathSubmission(status, amount, List.of(),
+                unaccepted, amount == 0L, amount == 0L ? RejectionReason.NO_CAPACITY : RejectionReason.NONE));
+        } catch (RuntimeException failure) {
+            return rememberExternal(request.nonce(), new FastpathSubmission(Status.REJECTED, 0L, List.of(),
+                request.requestedAmount(), false, RejectionReason.SUBMISSION_FAILED));
+        }
+    }
+
+    private RejectionReason validateExternalRequest(FastpathRequest request) {
+        if (request.apiVersion() != API_VERSION) return RejectionReason.VERSION_MISMATCH;
+        if (!CAPABILITY_ID.equals(request.targetCapabilityId())) return RejectionReason.CAPABILITY_MISMATCH;
+        if (!(getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread()) return RejectionReason.NOT_SERVER_THREAD;
+        return RejectionReason.NONE;
+    }
+
+    private @Nullable IPatternDetails findExternalPattern(FastpathRequest request) {
+        for (var pattern : catalog.availablePatterns()) {
+            if (pattern.getDefinition().equals(request.processingId())) return pattern;
+        }
+        return null;
+    }
+
+    private static FastpathCapability rejectedCapability(RejectionReason reason) {
+        return new FastpathCapability(API_VERSION, CAPABILITY_ID, HostTier.FASTPATH, 0L,
+            DurationClass.NORMAL, reason);
+    }
+
+    private HostTier externalHostTier() {
+        var controller = getCraftingController();
+        if (controller == null) return HostTier.FASTPATH;
+        return switch (controller.getTier().getTier()) {
+            case 4 -> HostTier.F4;
+            case 6 -> HostTier.F6;
+            case 9 -> HostTier.F9;
+            default -> HostTier.FASTPATH;
+        };
+    }
+
+    private static FastpathSubmission rejectedSubmission(FastpathRequest request, RejectionReason reason) {
+        return new FastpathSubmission(Status.REJECTED, 0L, List.of(), request.requestedAmount(),
+            reason == RejectionReason.BUSY || reason == RejectionReason.NO_CAPACITY, reason);
+    }
+
+    private FastpathSubmission rememberExternal(UUID nonce, FastpathSubmission submission) {
+        externalFastpathSubmissions.put(nonce, submission);
+        return submission;
     }
 
     public boolean acceptVerifiedBatch(ECOVerifiedFastPathExecution verified, @Nullable BatchFastPathOffer offer) {
-        if (offer == null || cluster == null) {
-            return false;
-        }
-        // The credential must be the one minted for this offer. That single reference check replaces the value
-        // comparison of three per-craft stack lists, and it also pins the batch size the offer was sized for.
-        if (verified.recipe() != offer.recipe()) {
-            return false;
-        }
-        int batchSize = verified.batchSize();
-        ECOCraftingWorkerBlockEntity worker = offer.worker();
-        if (offer.maxBatchSize() < batchSize
-            || !cluster.isDispatchCandidate(worker)
-            || worker.getAvailableThreadSlots() < batchSize
-            || getAvailableThreadSlots() < batchSize) {
-            return false;
-        }
-        return worker.pushBatch(verified);
+        return dispatcher.acceptVerifiedBatch(verified, offer);
     }
 
     /** 已更换：仅保留给旧版 Crafting Tracker 注入的兼容空函数，不再执行批量合成。 */
@@ -467,109 +481,21 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified, @Nullable VirtualFastPathOffer offer) {
-        if (offer == null || cluster == null || verified.recipe() != offer.recipe()) {
-            return false;
-        }
-        ECOCraftingWorkerBlockEntity worker = offer.worker();
-        return cluster.isDispatchCandidate(worker)
-            && worker.getAvailableBatchCapacity() > 0
-            && worker.pushVirtualBatch(verified);
+        return dispatcher.pushVirtualBatch(verified, offer);
     }
 
     @Nullable
     public VirtualFastPathOffer findVirtualFastPathOffer(ECOExtractedPatternExecution execution) {
-        ECOCraftingSystemBlockEntity controller = getCraftingController();
-        if (cluster == null || controller == null || !controller.getCapabilitySnapshot().virtualMode()) {
-            return null;
-        }
-        ECOFastPathLookup lookup = cluster.getFastPathCache().lookup(
-            execution,
-            appeng.hooks.ticking.TickHandler.instance().getCurrentTick(),
-            AE2PatternIntrospection.reloadGeneration()
-        );
-        if (!lookup.isVerified()) {
-            return null;
-        }
-        ECOCraftingPatternDispatch.Candidate best = findBestDispatchCandidate();
-        return best == null ? null : new VirtualFastPathOffer(best.worker(), lookup.recipe());
+        return dispatcher.findVirtualFastPathOffer(execution);
     }
 
     @Nullable
     public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
-        if (cluster == null || requestedBatchSize <= 0) {
-            return null;
-        }
-        int globalAvailableSlots = getAvailableThreadSlots();
-        if (globalAvailableSlots <= 0) {
-            return null;
-        }
-        // Recipe-level verification is shared knowledge, so it is resolved once for the whole search instead of
-        // once per candidate worker.
-        ECOFastPathLookup lookup = cluster.getFastPathCache().lookup(
-            execution,
-            appeng.hooks.ticking.TickHandler.instance().getCurrentTick(),
-            AE2PatternIntrospection.reloadGeneration()
-        );
-        if (!lookup.isVerified()) {
-            return null;
-        }
-        ECOVerifiedFastPathRecipe verifiedRecipe = lookup.recipe();
-        if (verifiedRecipe == null) {
-            return null;
-        }
-        ECOCraftingPatternDispatch.Candidate best = findBestDispatchCandidate();
-        if (best == null) {
-            return null;
-        }
-        // calculateBatchOfferSize is monotone in the worker's free slots, so the highest-ranked candidate also
-        // has the largest offer. Taking it keeps a batch concentrated on one worker instead of splitting it.
-        int maxBatchSize = calculateBatchOfferSize(
-            requestedBatchSize,
-            best.availableSlots(),
-            globalAvailableSlots,
-            statefulDispatchLimit(verifiedRecipe, execution)
-        );
-        if (maxBatchSize <= 0) {
-            return null;
-        }
-        return new BatchFastPathOffer(best.worker(), verifiedRecipe, maxBatchSize);
+        return dispatcher.findBatchFastPathOffer(execution, requestedBatchSize);
     }
-
-    private static long statefulDispatchLimit(
-        ECOVerifiedFastPathRecipe recipe,
-        ECOExtractedPatternExecution execution
-    ) {
-        var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
-        return calculator == null ? recipe.arithmeticBatchLimit() : calculator.arithmeticBatchLimit();
-    }
-
-    /**
-     * Finds the current highest-capacity reachable worker without building and sorting a complete ranked list.
-     *
-     * <p>The topology is re-collected here and the capacity is re-measured here: candidate membership may be
-     * reused within one dispatch, but "is this worker available right now" must never be cached, and no
-     * reference to a removed or rebuilt worker is ever retained.
-     */
-    @Nullable
-    private ECOCraftingPatternDispatch.Candidate findBestDispatchCandidate() {
-        return ECOCraftingPatternDispatch.best(cluster.collectDispatchCandidateWorkers());
-    }
-
-    @Nullable
 
     public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
-        if (cluster == null) {
-            return false;
-        }
-        // Dispatch may have crossed a Network Switch, so recovery must cover the same reachable set. Recovery is
-        // idempotent per thread, so overlapping attempts from several buses are harmless.
-        boolean recoveredAll = true;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
-            if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
-                recoveredAll = false;
-            }
-        }
-        return recoveredAll;
+        return dispatcher.recoverJobToNetwork(craftingJobId, storage);
     }
 
     public record BatchFastPathOffer(
@@ -613,21 +539,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public boolean isBusy() {
-        return cluster == null
-            || getCraftingController() == null
-            || !cluster.hasAvailableDispatchCandidate();
+        return dispatcher.isBusy();
     }
 
     public int getAvailableThreadSlots() {
-        if (cluster == null || getCraftingController() == null) {
-            return 0;
-        }
-        long available = 0L;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
-            available = cn.dancingsnow.neoecoae.util.NEMath.saturatingAdd(
-                available, worker.getAvailableBatchCapacity());
-        }
-        return (int) Math.min(Integer.MAX_VALUE, available);
+        return dispatcher.availableThreadSlots();
     }
 
     @Nullable
@@ -636,6 +552,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             return cluster.getController();
         }
         return null;
+    }
+
+    cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster getCraftingCluster() {
+        return cluster;
+    }
+
+    boolean isServerStoppingForPublisher() {
+        return isServerStopping();
     }
 
     @Override
@@ -815,16 +739,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private ECOPatternInsertionResult insertPreparedStack(ECOPreparedPattern prepared) {
-        ItemStack result;
-        activePreparedPattern = prepared;
-        try {
-            result = addPatternItems(prepared.stack());
-        } finally {
-            activePreparedPattern = null;
-        }
-        return result.isEmpty()
-            ? ECOPatternInsertionResult.INSERTED
-            : ECOPatternInsertionResult.NO_SPACE;
+        return catalog.insertPreparedPattern(prepared);
     }
 
     private boolean isValidPreparedPattern(@Nullable ECOPreparedPattern prepared) {
@@ -849,24 +764,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             }
         }
         return false;
-    }
-
-    /** Places the stack through known empty slots, preserving normal remainder semantics. */
-    private ItemStack addPatternItems(ItemStack stack) {
-        ensurePatternCapacityIndex();
-        ItemStack remaining = stack.copy();
-        while (!remaining.isEmpty()) {
-            int slot = emptyPatternSlots.nextSetBit(0);
-            if (slot < 0 || slot >= patternCapacitySlotCount) {
-                break;
-            }
-            ItemStack next = effectiveInventory.insertItem(slot, remaining, false);
-            if (next.getCount() >= remaining.getCount()) {
-                break;
-            }
-            remaining = next;
-        }
-        return remaining;
     }
 
     @Override
@@ -900,73 +797,24 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return false;
     }
 
-    private boolean isExecutablePattern(ItemStack stack) {
-        return PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
-    }
-
-    private void ensurePatternCapacityIndex() {
-        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
-        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
-            rebuildPatternCapacityIndex(slotCount);
-        }
-    }
-
-    private void rebuildPatternCapacityIndex() {
-        rebuildPatternCapacityIndex(Math.min(getPatternSlotCount(), inventory.size()));
-    }
-
-    private void rebuildPatternCapacityIndex(int slotCount) {
-        emptyPatternSlots.clear();
-        for (int slot = 0; slot < slotCount; slot++) {
-            if (inventory.getStackInSlot(slot).isEmpty()) {
-                emptyPatternSlots.set(slot);
-            }
-        }
-        patternCapacitySlotCount = slotCount;
-        patternCapacityIndexInitialized = true;
-        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
-            ? 1
-            : patternCapacityGeneration + 1;
-    }
-
-    private void updatePatternCapacitySlot(int slot) {
-        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
-        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
-            rebuildPatternCapacityIndex(slotCount);
-            return;
-        }
-        if (slot < 0 || slot >= slotCount) {
-            return;
-        }
-        boolean shouldBeEmpty = inventory.getStackInSlot(slot).isEmpty();
-        boolean wasEmpty = emptyPatternSlots.get(slot);
-        if (shouldBeEmpty == wasEmpty) {
-            return;
-        }
-        if (shouldBeEmpty) {
-            emptyPatternSlots.set(slot);
-        } else {
-            emptyPatternSlots.clear(slot);
-        }
-        patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
-            ? 1
-            : patternCapacityGeneration + 1;
-    }
-
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-            return slot >= 0
-                && slot < getPatternSlotCount()
-                && (activePreparedPattern != null
-                    ? activePreparedPattern.matches(stack)
-                    : isExecutablePattern(stack) || ownsAuxiliary(stack));
+            if (catalog.allowInsert(slot, stack)) {
+                return true;
+            }
+            // 样板磁盘这类「一格装多张样板」的容器过不了 AE2 的「一格一张可执行样板」判据，
+            // 由辅助存储声明的 owns 放行（否则磁盘根本放不进总线）。
+            return slot >= 0 && slot < getPatternSlotCount() && ownsAuxiliary(stack);
         }
     }
 
     public ECOCraftingPatternBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
         this.inventory = new AppEngInternalInventory(this, NEConfig.getMaxCraftingPatternBusSlotCount());
+        this.catalog = new ECOCraftingPatternBusCatalog(this, this.inventory);
+        this.dispatcher = new ECOCraftingPatternBusDispatcher(this);
+        this.publisher = new ECOCraftingPatternBusPublisher(this);
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
         this.getMainNode().addService(ICraftingProvider.class, this)
@@ -975,7 +823,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
-        if (patternBatchDepth > 0) {
+        if (catalog.isBatchActive()) {
             return;
         }
         this.saveChanges();
@@ -983,175 +831,24 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        if (level == null) return;
-        // The page count is derived from the highest occupied slot, and the paging decides which
-        // physical slot a visible index maps to. The server applies a write to the slot the *client*
-        // clicked, so both sides have to count the same pages. Inventory changes are the only source
-        // of that value, so track it before the client-side exit below.
-        trackHighestOccupiedSlot(slot);
-        if (level.isClientSide) return;
-        if (patternBatchDepth > 0) {
-            if (slot >= 0 && slot < inventory.size()) {
-                patternBatchChangedSlots.set(slot);
-            } else {
-                patternCapacityIndexInitialized = false;
-                rebuildAllPatternDetails = true;
-            }
-            return;
-        }
-        int previousRevision = patternContentRevision;
-        this.saveChanges();
-        incrementPatternContentRevision();
-        if (slot < 0 || slot >= inventory.size()) {
-            patternCapacityIndexInitialized = false;
-            rebuildPatternCapacityIndex();
-        } else {
-            updatePatternCapacitySlot(slot);
-        }
-        if (slot >= 0 && slot < decodedPatternDetails.length) {
-            dirtyPatternSlots.set(slot);
-        } else {
-            rebuildAllPatternDetails = true;
-        }
-        refreshPatternDetailsAfterInventoryChange(slot);
-        notifyPatternCatalog(previousRevision, new int[] { slot });
-        notifyPatternInterfaceHosts(slot);
-    }
-
-    /**
-     * Keeps the highest occupied slot in step with the inventory on both sides.
-     *
-     * <p>The page count is derived from this value, and the paging decides which physical slot a visible
-     * index maps to. The server applies a write to the slot the <em>client</em> clicked, so a client that
-     * counted fewer pages would resolve that index differently and write somewhere else entirely.</p>
-     */
-    private void trackHighestOccupiedSlot(int slot) {
-        if (slot < 0 || slot >= inventory.size()) {
-            // A negative slot means "the whole inventory changed"; anything else is out of range. Either way
-            // the tracked maximum can no longer be trusted, and the page count is derived from it — slots
-            // past a stale maximum would stop being decoded and advertised.
-            rescanHighestOccupiedSlot();
-            return;
-        }
-        if (!inventory.getStackInSlot(slot).isEmpty()) {
-            highestOccupiedSlot = Math.max(highestOccupiedSlot, slot);
-            return;
-        }
-        if (slot != highestOccupiedSlot) {
-            return;
-        }
-        highestOccupiedSlot = slot - 1;
-        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
-            highestOccupiedSlot--;
-        }
-    }
-
-    private void rescanHighestOccupiedSlot() {
-        highestOccupiedSlot = inventory.size() - 1;
-        while (highestOccupiedSlot >= 0 && inventory.getStackInSlot(highestOccupiedSlot).isEmpty()) {
-            highestOccupiedSlot--;
-        }
-    }
-
-    /**
-     * Pattern additions may share the normal quiet-window refresh, but removals and replacements must unpublish
-     * the old recipe immediately. Unknown-slot notifications require the same full refresh.
-     * Leaving a removed pattern in {@link #patternDetails} until the scheduler runs allows AE2 to keep advertising it;
-     * an unrelated batch operation such as organizing the buses then appears to be required to clear the stale entry.
-     */
-    private void refreshPatternDetailsAfterInventoryChange(int slot) {
-        if (slot < 0 || slot >= inventory.size() || inventory.getStackInSlot(slot).isEmpty()
-            || decodedPatternDetails[slot] != null) {
-            PatternBusUpdateScheduler.remove(this);
-            patternDetailsUpdateQueued = false;
-            updatePatternDetailsNow();
-            return;
-        }
-        queuePatternDetailsUpdate();
+        catalog.onChangeInventory(slot);
     }
 
     /** Starts a server-thread mutation batch. Nested callers share the outer commit. */
     public void beginPatternBatch() {
-        patternBatchDepth++;
+        catalog.beginBatch();
     }
 
     /** Writes one physical slot while retaining the exact key/space delta for the catalog commit. */
     public void setPatternDirect(int slot, ItemStack stack) {
-        if (slot < 0 || slot >= effectiveInventory.size()) {
-            return;
-        }
-        ItemStack next = stack == null ? ItemStack.EMPTY : stack;
-        ItemStack previous = inventory.getStackInSlot(slot);
-        if (ItemStack.matches(previous, next)) {
-            return;
-        }
-        if (patternBatchDepth <= 0) {
-            inventory.setItemDirect(slot, next);
-            return;
-        }
-        patternBatchChangedSlots.set(slot);
-        inventory.setItemDirect(slot, next);
+        catalog.setPatternDirect(slot, stack);
     }
 
     public void endPatternBatch() {
-        if (patternBatchDepth <= 0) {
-            throw new IllegalStateException("Pattern batch is not active");
-        }
-        if (--patternBatchDepth > 0) {
-            return;
-        }
-        if (patternBatchChangedSlots.isEmpty()) {
-            clearPatternBatchState();
-            return;
-        }
-
-        int previousRevision = patternContentRevision;
-        this.saveChanges();
-        incrementPatternContentRevision();
-        applyPatternCapacityBatch(patternBatchChangedSlots);
-        dirtyPatternSlots.or(patternBatchChangedSlots);
-
-        IGrid grid = getMainNode().getGrid();
-        if (grid != null) {
-            IECOPatternStorageService storageService = grid.getService(IECOPatternStorageService.class);
-            if (storageService != null) {
-                storageService.onPatternSlotsChanged(
-                        this, previousRevision, patternBatchChangedSlots.stream().toArray());
-            }
-        }
-        updatePatternDetailsNow();
-        patternDetailsUpdateQueued = false;
-        clearPatternBatchState();
+        catalog.endBatch();
     }
 
-    private void applyPatternCapacityBatch(BitSet changedSlots) {
-        int slotCount = Math.min(getPatternSlotCount(), inventory.size());
-        if (!patternCapacityIndexInitialized || patternCapacitySlotCount != slotCount) {
-            rebuildPatternCapacityIndex(slotCount);
-        } else {
-            for (int slot = changedSlots.nextSetBit(0);
-                 slot >= 0 && slot < slotCount;
-                 slot = changedSlots.nextSetBit(slot + 1)) {
-                emptyPatternSlots.set(slot, inventory.getStackInSlot(slot).isEmpty());
-            }
-            patternCapacityGeneration = patternCapacityGeneration == Integer.MAX_VALUE
-                    ? 1
-                    : patternCapacityGeneration + 1;
-        }
-        highestOccupiedSlot = -1;
-        for (int slot = slotCount - 1; slot >= 0; slot--) {
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                highestOccupiedSlot = slot;
-                break;
-            }
-        }
-    }
-
-    private void clearPatternBatchState() {
-        patternBatchChangedSlots.clear();
-    }
-
-    private void notifyPatternCatalog(int previousRevision, int[] changedSlots) {
+    void notifyPatternCatalog(int previousRevision, int[] changedSlots) {
         IGrid grid = getMainNode().getGrid();
         if (grid == null) {
             return;
@@ -1165,16 +862,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Override
     public void onReady() {
         super.onReady();
-        rebuildAllPatternDetails = true;
-        rebuildPatternCapacityIndex();
-        highestOccupiedSlot = -1;
-        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                highestOccupiedSlot = slot;
-                break;
-            }
-        }
-        updatePatternDetailsNow();
+        catalog.onReady();
     }
 
     @Override
@@ -1206,67 +894,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private void updatePatternDetails() {
-        if (level == null || level.isClientSide) return;
-        // Compatibility integrations historically reflectively invoked this private method when an asynchronous
-        // expansion completed. Route those calls through the same quiet-window scheduler as inventory mutations;
-        // otherwise N completion callbacks for one bus cause N full AE2 provider unmount/mount cycles. Keep this
-        // method and the requestUpdate invocation below intact because existing mixins inject at that call site.
-        if (patternDetailsUpdateInProgress) {
-            queuePatternDetailsUpdate();
-            return;
-        }
-        if (level instanceof ServerLevel && !immediatePatternDetailsUpdate) {
-            queuePatternDetailsUpdate();
-            return;
-        }
-
-        patternDetailsUpdateInProgress = true;
-        try {
-            int slotCount = getPatternSlotCount();
-            boolean refreshedAll = rebuildAllPatternDetails;
-            int[] refreshedSlots = refreshedAll ? new int[0] : dirtyPatternSlots.stream().toArray();
-            if (rebuildAllPatternDetails) {
-                Arrays.fill(decodedPatternDetails, null);
-                for (int slot = 0; slot < slotCount; slot++) {
-                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                        inventory.getStackInSlot(slot), level
-                    );
-                }
-            } else {
-                for (int slot = dirtyPatternSlots.nextSetBit(0);
-                     slot >= 0;
-                     slot = dirtyPatternSlots.nextSetBit(slot + 1)) {
-                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                        inventory.getStackInSlot(slot), level
-                    );
-                }
-            }
-            rebuildAllPatternDetails = false;
-            dirtyPatternSlots.clear();
-
-            patternDetails.clear();
-            for (int slot = 0; slot < slotCount; slot++) {
-                IPatternDetails details = decodedPatternDetails[slot];
-                patternSearchKeywords[slot] = buildPatternSearchKeywords(inventory.getStackInSlot(slot), details);
-                // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
-                // patterns as executable providers, even if their encoded item remains stored for manual removal.
-                if (details instanceof IMolecularAssemblerSupportedPattern) {
-                    ECORecipeClassifier.Classification classification = ECORecipeClassifier.classify(details);
-                    if (shouldValidateNetGrowthPatterns()) {
-                        NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
-                    }
-                    patternDetails.add(details);
-                }
-            }
-            ICraftingProvider.requestUpdate(this.getMainNode());
-            if (refreshedAll) {
-                notifyPatternInterfaceHosts(-1);
-            } else if (refreshedSlots.length > 0) {
-                notifyPatternInterfaceHosts(refreshedSlots);
-            }
-        } finally {
-            patternDetailsUpdateInProgress = false;
-        }
+        catalog.updatePatternDetails();
     }
 
     /**
@@ -1286,13 +914,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     private void updatePatternDetailsNow() {
-        boolean previous = immediatePatternDetailsUpdate;
-        immediatePatternDetailsUpdate = true;
-        try {
-            updatePatternDetails();
-        } finally {
-            immediatePatternDetailsUpdate = previous;
-        }
+        catalog.updatePatternDetailsNow();
     }
 
     /**
@@ -1300,139 +922,66 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * Repeated requests for this bus share the normal two-tick quiet window and produce one provider refresh.
      */
     public void requestPatternDetailsRefresh() {
-        queuePatternDetailsUpdate();
+        catalog.requestPatternDetailsRefresh();
     }
 
-    private boolean shouldValidateNetGrowthPatterns() {
+    boolean shouldValidateNetGrowthPatterns() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getGrid());
         return settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
-    private static String buildPatternSearchKeywords(ItemStack stack, @Nullable IPatternDetails details) {
-        if (stack.isEmpty()) {
-            return "";
-        }
-        StringBuilder keywords = new StringBuilder(stack.getHoverName().getString());
-        if (details != null) {
-            for (var output : details.getOutputs()) {
-                if (output != null) {
-                    keywords.append('\n').append(output.what().getDisplayName().getString());
-                }
-            }
-            for (var input : details.getInputs()) {
-                if (input == null) {
-                    continue;
-                }
-                for (var possible : input.getPossibleInputs()) {
-                    if (possible != null) {
-                        keywords.append('\n').append(possible.what().getDisplayName().getString());
-                    }
-                }
-            }
-        }
-        return keywords.toString().toLowerCase(Locale.ROOT);
+    public int getPatternContentRevision() {
+        return catalog.patternContentRevision();
     }
 
-    public int getPatternContentRevision() {
+    int patternContentRevisionValue() {
         return patternContentRevision;
     }
 
-    /** Precomputed after each pattern-detail refresh so opening the network browser never has to decode this slot. */
-    public String getPatternSearchKeywords(int slot) {
-        return slot >= 0 && slot < patternSearchKeywords.length ? patternSearchKeywords[slot] : "";
-    }
-
-    /** Makes the bus-owned decode cache current before catalog planning reads it. */
-    public void refreshPatternDetailsForCatalog() {
-        if (rebuildAllPatternDetails || !dirtyPatternSlots.isEmpty()) {
-            updatePatternDetailsNow();
-            patternDetailsUpdateQueued = false;
-        }
-    }
-
-    @Nullable
-    public IPatternDetails getDecodedPatternDetails(int slot) {
-        return slot >= 0 && slot < decodedPatternDetails.length ? decodedPatternDetails[slot] : null;
-    }
-
-    private void incrementPatternContentRevision() {
+    void incrementPatternContentRevision() {
         patternContentRevision = patternContentRevision == Integer.MAX_VALUE
             ? 1
             : patternContentRevision + 1;
     }
 
-    private void notifyPatternInterfaceHosts(int slot) {
-        if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
-            return;
-        }
-        for (var machineInterface : getMainNode().getGrid()
-                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
-            machineInterface.onPatternBusInventoryChanged(this, slot);
-        }
+    /** Precomputed after each pattern-detail refresh so opening the network browser never has to decode this slot. */
+    public String getPatternSearchKeywords(int slot) {
+        return catalog.patternSearchKeywords(slot);
     }
 
-    private void notifyPatternInterfaceHosts(int[] slots) {
-        if (level == null || level.isClientSide || getMainNode().getGrid() == null) {
-            return;
-        }
-        for (var machineInterface : getMainNode().getGrid()
-                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
-            machineInterface.onPatternBusInventoryChanged(this, slots);
-        }
+    /** Makes the bus-owned decode cache current before catalog planning reads it. */
+    public void refreshPatternDetailsForCatalog() {
+        catalog.refreshPatternDetailsForCatalog();
+    }
+
+    @Nullable
+    public IPatternDetails getDecodedPatternDetails(int slot) {
+        return catalog.decodedPatternDetails(slot);
+    }
+
+    void notifyPatternInterfaceHosts(int slot) {
+        publisher.notifyPatternInterfaceHosts(slot);
+    }
+
+    void notifyPatternInterfaceHosts(int[] slots) {
+        publisher.notifyPatternInterfaceHosts(slots);
     }
 
     private void notifyPatternInterfaceTopologyChanged() {
-        notifyPatternInterfaceTopologyChanged(getMainNode().getGrid());
+        publisher.notifyPatternInterfaceTopologyChanged();
     }
 
     private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
-        if (level == null || level.isClientSide || grid == null) {
-            return;
-        }
-        for (var machineInterface : grid
-                .getActiveMachines(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity.class)) {
-            machineInterface.onPatternBusTopologyChanged(this);
-        }
+        publisher.notifyPatternInterfaceTopologyChanged(grid);
     }
 
     /** Re-mount the provider after AE2 has completed a power or pathing transition. */
     private void queueCraftingProviderRefresh() {
-        if (!(level instanceof ServerLevel serverLevel)
-            || craftingProviderRefreshQueued
-            || isServerStopping()) {
-            return;
-        }
-
-        craftingProviderRefreshQueued = true;
-        var server = serverLevel.getServer();
-        int targetTick = server.getTickCount() + 1;
-
-        server.tell(new TickTask(targetTick, () -> {
-            craftingProviderRefreshQueued = false;
-
-            if (!isServerStopping()
-                && !isRemoved()
-                && level == serverLevel
-                && getMainNode().isOnline()) {
-                ICraftingProvider.requestUpdate(getMainNode());
-            }
-        }));
-    }
-
-    private void queuePatternDetailsUpdate() {
-        if (!(level instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        patternDetailsUpdateTick = serverLevel.getServer().getTickCount() + PATTERN_UPDATE_QUIET_TICKS;
-        patternDetailsUpdateQueued = true;
-        PatternBusUpdateScheduler.mark(this, patternDetailsUpdateTick);
+        publisher.queueCraftingProviderRefresh();
     }
 
     public void flushScheduledPatternDetails() {
-        if (!isRemoved()) {
-            patternDetailsUpdateQueued = false;
-            updatePatternDetailsNow();
-        }
+        catalog.flushScheduledPatternDetails();
     }
 
     @Override
@@ -1440,7 +989,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
-                markForUpdate();
             });
         }
     }
@@ -1547,22 +1095,23 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public int getPageCount() {
-        int required = highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1;
-        int pages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), required));
-        // Only on change: this is read from every slot lookup, and a getter that writes on every call is
-        // exactly what let the two sides drift apart.
+        int pages = clampPages(Math.max(
+            NEConfig.getCraftingPatternBusPages(),
+            catalog.highestOccupiedSlot() < 0 ? 1 : catalog.highestOccupiedSlot() / SLOTS_PER_PAGE + 1
+        ));
+        // 只在变化时写：本方法被每一次槽位查找调用，读一次就写一次会让这个同步字段来回改。
         if (activePages != pages) {
             activePages = pages;
         }
-        return pages;
+        currentPage = Math.clamp(currentPage, 0, activePages - 1);
+        return activePages;
     }
 
     /**
      * The page the UI is on, clamped to the pages that currently exist.
      *
-     * <p>Clamping happens on read instead of inside {@link #getPageCount()}: that method is called from
-     * every slot lookup, so folding the clamp into it let each side silently rewrite {@code currentPage}
-     * using its own page count, which is exactly how the two sides drifted apart.</p>
+     * <p>Slot lookups and the paging buttons both go through this, so a visible index always resolves to the
+     * same physical slot on either side.</p>
      */
     private int visiblePage() {
         return Math.clamp(currentPage, 0, getPageCount() - 1);

@@ -41,9 +41,7 @@ public final class MegaBulkMarkingService {
 
     public static ItemStack normalizeMarker(ItemStack stack) {
         AEItemKey key = stack == null || stack.isEmpty() ? null : AEItemKey.of(stack);
-        return key != null && !CompressionService.getChain(key).isEmpty()
-            ? stack.copyWithCount(1)
-            : ItemStack.EMPTY;
+        return key != null ? stack.copyWithCount(1) : ItemStack.EMPTY;
     }
 
     public static boolean isSameMarkerChain(ItemStack left, ItemStack right) {
@@ -51,6 +49,9 @@ public final class MegaBulkMarkingService {
         AEItemKey rightKey = right == null || right.isEmpty() ? null : AEItemKey.of(right);
         if (leftKey == null || rightKey == null) {
             return false;
+        }
+        if (leftKey.equals(rightKey)) {
+            return true;
         }
         CompressionChain leftChain = CompressionService.getChain(leftKey);
         return !leftChain.isEmpty() && leftChain.equals(CompressionService.getChain(rightKey));
@@ -117,12 +118,11 @@ public final class MegaBulkMarkingService {
         List<TargetCell> targets,
         List<Candidate> rawCandidates
     ) {
-        List<CompressionChain> occupiedChains = new ArrayList<>();
+        List<AEItemKey> occupiedMarkers = new ArrayList<>();
         for (TargetCell target : targets) {
             for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
-                CompressionChain chain = CompressionService.getChain(itemKey);
-                if (!chain.isEmpty() && !containsChain(occupiedChains, chain)) {
-                    occupiedChains.add(chain);
+                if (occupiedMarkers.stream().noneMatch(existing -> sameMarker(existing, itemKey))) {
+                    occupiedMarkers.add(itemKey);
                 }
             }
         }
@@ -148,7 +148,7 @@ public final class MegaBulkMarkingService {
         List<Candidate> accepted = new ArrayList<>();
         int alreadyMarked = 0;
         for (Candidate candidate : uniqueCandidates) {
-            if (containsChain(occupiedChains, candidate.chain())) {
+            if (occupiedMarkers.stream().anyMatch(existing -> sameMarker(existing, candidate.key()))) {
                 alreadyMarked++;
                 continue;
             }
@@ -201,8 +201,7 @@ public final class MegaBulkMarkingService {
                     if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey itemKey)) {
                         continue;
                     }
-                    CompressionChain chain = CompressionService.getChain(itemKey);
-                    ChainTarget target = findTarget(chainTargets, chain);
+                    ChainTarget target = findTarget(chainTargets, itemKey);
                     if (target != null) {
                         transferred = saturatingAdd(transferred, transfer(
                             sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
@@ -218,18 +217,17 @@ public final class MegaBulkMarkingService {
         for (TargetCell target : targets) {
             for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
                 CompressionChain chain = CompressionService.getChain(itemKey);
-                if (!chain.isEmpty() && findTarget(result, chain) == null) {
-                    result.add(new ChainTarget(chain, target.storage()));
+                if (findTarget(result, itemKey) == null) {
+                    result.add(new ChainTarget(itemKey, chain, target.storage()));
                 }
             }
         }
         return result;
     }
 
-    private static ChainTarget findTarget(List<ChainTarget> targets, CompressionChain chain) {
-        if (chain.isEmpty()) return null;
+    private static ChainTarget findTarget(List<ChainTarget> targets, AEItemKey key) {
         for (ChainTarget target : targets) {
-            if (sameChain(target.chain(), chain)) return target;
+            if (sameMarker(target.marker(), key)) return target;
         }
         return null;
     }
@@ -269,12 +267,14 @@ public final class MegaBulkMarkingService {
         return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
-    private static boolean containsChain(List<CompressionChain> chains, CompressionChain candidate) {
-        return chains.stream().anyMatch(existing -> sameChain(existing, candidate));
-    }
-
     private static boolean sameChain(CompressionChain first, CompressionChain second) {
         return !first.isEmpty() && first.equals(second);
+    }
+
+    private static boolean sameMarker(AEItemKey first, AEItemKey second) {
+        if (first.equals(second)) return true;
+        CompressionChain firstChain = CompressionService.getChain(first);
+        return !firstChain.isEmpty() && firstChain.equals(CompressionService.getChain(second));
     }
 
     private static MarkResult result(Status status) {
@@ -290,7 +290,7 @@ public final class MegaBulkMarkingService {
     private record SlotTarget(TargetCell target, int slot) {
     }
 
-    private record ChainTarget(CompressionChain chain, ECOMegaLongBulkStorageCell storage) {
+    private record ChainTarget(AEItemKey marker, CompressionChain chain, ECOMegaLongBulkStorageCell storage) {
     }
 
     private record Candidate(AEItemKey key, long amount, CompressionChain chain) {

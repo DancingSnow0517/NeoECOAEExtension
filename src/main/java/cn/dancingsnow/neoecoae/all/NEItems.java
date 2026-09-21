@@ -104,7 +104,7 @@ public class NEItems {
 
     public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = REGISTRATE
         .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
+        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
         .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -120,7 +120,7 @@ public class NEItems {
 
     public static final ItemEntry<SwordItem> ALUMINUM_SWORD = REGISTRATE
         .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
+        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -184,7 +184,7 @@ public class NEItems {
 
     public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = REGISTRATE
         .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
+        .properties(p -> p.attributes(PickaxeItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
         .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -200,7 +200,7 @@ public class NEItems {
 
     public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = REGISTRATE
         .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, p))
-        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
+        .properties(p -> p.attributes(SwordItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
         .tag(ItemTags.SWORDS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
@@ -209,7 +209,7 @@ public class NEItems {
                 .pattern("B")
                 .define('A', NETags.Items.TUNGSTEN_INGOT)
                 .define('B', Items.STICK)
-                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
                 .save(prov);
         })
         .register();

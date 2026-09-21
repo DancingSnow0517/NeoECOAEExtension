@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.network;
 
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import java.util.List;
 
 /**

@@ -45,6 +45,8 @@ public final class StorageInterfaceUI {
             layout.width(224).height(116).paddingAll(8).gapAll(6).flexDirection(FlexDirection.COLUMN);
         }).addClass("panel_bg");
 
+        var transferred = new cn.dancingsnow.neoecoae.gui.common.SampledValue<>(
+            () -> player.level().getGameTime(), storageInterface::getTransferredLastTick, 5);
         root.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.storage_interface.title")));
         UIElement contentFrame = new UIElement().layout(layout -> {
             layout.widthPercent(100).flex(1).paddingAll(8).gapAll(5).flexDirection(FlexDirection.COLUMN);
@@ -59,7 +61,7 @@ public final class StorageInterfaceUI {
                 .withColor(storageInterface.isTargetOnline() ? STATUS_CONNECTED : STATUS_DISCONNECTED))));
         contentFrame.addChild(statusLabel(() -> Component.translatable("gui.neoecoae.storage_interface.transfer_prefix")
             .append(Component.literal(NumberFormat.getIntegerInstance(Locale.ROOT)
-                .format(storageInterface.getTransferredLastTick())).withColor(INFINITE_VALUE))
+                .format(transferred.get())).withColor(INFINITE_VALUE))
             .append(Component.translatable("gui.neoecoae.storage_interface.transfer_suffix"))));
         root.addChild(contentFrame);
 

@@ -65,6 +65,12 @@
       "bottom": 28,
       "width": 50,
       "height": 20
+    },
+    "bookmarkMissing": {
+      "left": 62,
+      "bottom": 28,
+      "width": 82,
+      "height": 20
     }
   }
 }

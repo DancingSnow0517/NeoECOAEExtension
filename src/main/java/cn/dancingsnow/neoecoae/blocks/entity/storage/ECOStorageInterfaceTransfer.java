@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteStorageDomain;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOStorageSourceAdapterRegistry;
 import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOTransferScheduler;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -306,18 +306,22 @@ final class ECOStorageInterfaceTransfer {
         return cachedCombinedStorage;
     }
 
-    private record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
+    record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description)
         implements MEStorage {
-        private CombinedStorage {
+        CombinedStorage {
             inventories = List.copyOf(inventories);
         }
 
         @Override
         public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
             long inserted = 0L;
-            for (MEStorage inventory : inventories) {
-                if (inserted >= amount) break;
-                inserted += inventory.insert(key, amount - inserted, mode, source);
+            for (int pass = 0; pass < 2 && inserted < amount; pass++) {
+                for (MEStorage inventory : inventories) {
+                    if (inserted >= amount) break;
+                    boolean bulk = inventory instanceof IECOStorageCell cell && cell.prioritizesMarkedInserts();
+                    if (bulk != (pass == 0)) continue;
+                    inserted += inventory.insert(key, amount - inserted, mode, source);
+                }
             }
             return inserted;
         }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -108,6 +108,28 @@ public class NEConfig {
             "This greatly reduces repeated pattern execution overhead; disable it to fall back to the slow path if needed.",
             "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
         .define("ecoAe2FastPathEnabled", true);
+
+    static {
+        BUILDER
+            .comment(
+                "ECO 批量派发架构选择。",
+                "关闭时使用现有旧派发链；开启时使用新的 Planner → Materializer → Provider 批次链。",
+                "ECO batch-dispatch architecture selection.",
+                "When disabled, the existing dispatch chain is used; when enabled, the new Planner → Materializer → Provider batch chain is used.")
+            .push("batchDispatch");
+    }
+
+    private static final ModConfigSpec.BooleanValue ECO_NEW_BATCH_DISPATCHER_ENABLED = BUILDER
+        .comment(
+            "启用新的 ECO 批量派发链。默认关闭。",
+            "旧派发链仍然保留；启用后只切换 CPU 派发入口，不改变样板、任务和存档格式。",
+            "Enable the new ECO batch dispatcher. Disabled by default.",
+            "The legacy dispatcher remains available; this only switches the CPU dispatch entry point and does not change pattern, task or save formats.")
+        .define("ecoNewBatchDispatcherEnabled", false);
+
+    static {
+        BUILDER.pop();
+    }
 
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
@@ -223,6 +245,7 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
+    public static boolean ecoNewBatchDispatcherEnabled = false;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
     public static boolean enableSophisticatedTransferOptimization = true;
@@ -254,6 +277,7 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
+        ecoNewBatchDispatcherEnabled = ECO_NEW_BATCH_DISPATCHER_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
         enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();

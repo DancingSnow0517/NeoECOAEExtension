@@ -7,8 +7,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
@@ -34,6 +34,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     @Getter
     private final ECOCraftingCPU[] cpus;
     private final CompoundTag[] deferredInit;
+    private final java.util.BitSet packedExactInventories = new java.util.BitSet();
 
     public ECOComputationThreadingCoreBlockEntity(
         BlockEntityType<?> type,
@@ -170,6 +171,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         super.addAdditionalDrops(level, pos, drops);
         HolderLookup.Provider registries = level.registryAccess();
         for (int i = 0; i < cpus.length; i++) {
+            if (packedExactInventories.get(i)) continue;
             KeyCounter owned = new KeyCounter();
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
@@ -186,12 +188,53 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         // AE2 calls this after collecting drops (also when wrenching). Do not serialize those items again.
         prepareForPermanentRemoval();
         for (ECOCraftingCPU cpu : cpus) {
-            if (cpu != null) cpu.getLogic().getInventory().list.clear();
+            if (cpu != null) cpu.getLogic().getInventory().clear();
         }
         Arrays.fill(cpus, null);
         Arrays.fill(deferredInit, null);
         setChanged();
         super.clearContent();
+    }
+
+    /** Preserve exact-order leftovers as one portable inventory snapshot on the existing core drop. */
+    public void packExactInventories(ItemStack drop) {
+        if (level == null || level.isClientSide()) return;
+        var recovery = new CompoundTag();
+        for (int i = 0; i < cpus.length; i++) {
+            var cpu = cpus[i];
+            boolean exact = cpu != null ? cpu.getLogic().exactInventory().isEnabled()
+                : deferredInit[i] != null && (deferredInit[i].getBoolean("ecoExactInventory")
+                    || deferredInit[i].getCompound("job").getBoolean("exactOrder"));
+            if (!exact) continue;
+            CompoundTag saved;
+            if (cpu != null) {
+                cpu.getLogic().cancel();
+                saved = new CompoundTag();
+                cpu.writeToNBT(saved, level.registryAccess());
+            } else {
+                saved = deferredInit[i].copy();
+                ECOCraftingJobLifecycle.cancelPersistedJob(level, saved);
+            }
+            saved.remove("job");
+            recovery.put("CPU" + i, saved);
+            packedExactInventories.set(i);
+        }
+        if (!recovery.isEmpty()) {
+            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                drop, data -> data.put("ecoExactCpuRecovery", recovery));
+        }
+    }
+
+    public void restoreExactInventories(ItemStack stack) {
+        var data = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+            net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("ecoExactCpuRecovery");
+        for (int i = 0; i < deferredInit.length; i++) {
+            if (data.contains("CPU" + i) && cpus[i] == null && deferredInit[i] == null) {
+                deferredInit[i] = data.getCompound("CPU" + i).copy();
+            }
+        }
+        setChanged();
+        if (cluster != null) updateCluster(cluster);
     }
 
     private static void collectDeferredOwnedItems(

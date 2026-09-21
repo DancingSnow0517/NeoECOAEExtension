@@ -5,8 +5,8 @@ import appeng.menu.guisync.PacketWritable;
 import java.util.ArrayList;
 import java.util.List;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Cycle members synchronized with the crafting confirmation screen. */
@@ -23,6 +23,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     private static List<Entry> readFromPacket(RegistryFriendlyByteBuf data) {
         int size = data.readVarInt();
+        if (size < 0 || size > 100_000) throw new IllegalArgumentException("Invalid cycle item count");
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
@@ -34,6 +35,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     @Override
     public void writeToPacket(RegistryFriendlyByteBuf data) {
+        if (items.size() > 100_000) throw new IllegalArgumentException("Too many cycle items");
         data.writeVarInt(items.size());
         for (Entry item : items) {
             AEKey.writeKey(data, item.what());

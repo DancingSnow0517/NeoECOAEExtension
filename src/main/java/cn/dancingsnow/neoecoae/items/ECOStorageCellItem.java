@@ -298,6 +298,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return false;
         }
 
+        // Only the server can authoritatively inspect contents and replace the held cell.
+        if (level.isClientSide()) {
+            return true;
+        }
+
         List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
@@ -309,7 +314,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }

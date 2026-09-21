@@ -15,16 +15,17 @@ import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.snapshot.CraftingGraphSnapshot;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import cn.dancingsnow.neoecoae.client.craftinggraph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.crafting.graph.client.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
-import cn.dancingsnow.neoecoae.util.NEByteFormatter;
+import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
+import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -54,10 +55,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Button start;
     private final Button selectCPU;
     private final Button graph;
+    private final Button bookmarkMissing;
     private final Scrollbar scrollbar;
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
     private final long openedNanos = System.nanoTime();
+    private boolean lastSubmissionForced;
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
@@ -74,6 +77,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
+        bookmarkMissing = widgets.addButton("bookmarkMissing",
+            Component.translatable("gui.neoecoae.crafting_report.bookmark_missing"), this::bookmarkMissing);
+        bookmarkMissing.active = false;
         graph = addToLeftToolbar(new CraftingGraphButton(this::openGraph));
     }
 
@@ -93,14 +99,23 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
-        boolean startable = plan != null && (!plan.isSimulation() || forceStart) && !unrepresentable;
-        start.active = !menu.hasNoCPU() && startable;
+        boolean bigOrder = usesBigOrderSubmission(forceStart);
+        boolean allowed = !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
+            || mode.neoecoae$getPlanningStatus() == null
+            || mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS
+            || mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS || unrepresentable;
+        boolean startable = plan != null && (!plan.isSimulation() || allowed && (forceStart || bigOrder));
+        start.active = startable && (bigOrder
+            ? ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable() : !menu.hasNoCPU());
         selectCPU.active = startable || forceStart;
         start.setMessage(forceStart
             ? Component.translatable("gui.neoecoae.force_start") : GuiText.Start.text());
-        start.setTooltip(forceStart
-            ? net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.neoecoae.force_start"))
-            : null);
+        start.setTooltip(bigOrder && !((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
+            ? net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("tooltip.neoecoae.big_order.requires_cpu"))
+            : forceStart
+                ? net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.neoecoae.force_start"))
+                : null);
 
         Component cpuDetails = Component.empty();
         Component planSummary = Component.translatable("gui.neoecoae.crafting_report.calculating")
@@ -118,19 +133,19 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 long calculationNanos = mode.neoecoae$getCalculationNanos();
                 if (calculationNanos < 1_000_000L) {
                     var byteSummary = Component.translatable(
-                        "gui.neoecoae.crafting_report.bytes_only", NumberFormat.getInstance().format(plan.getUsedBytes()))
+                        "gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(Long.toString(plan.getUsedBytes())))
                         .withColor(AE2_TEXT_DARK);
                     if (plan.getUsedBytes() >= GIGA_BYTE) {
-                        byteSummary.append(Component.literal(" (" + usedBytes + " B)"));
+                        byteSummary.append(Component.literal(" (" + DisplayNumbers.bytes(usedBytes) + ")"));
                     }
                     planSummary = byteSummary;
                 } else {
                     planSummary = Component.literal(formatMillis(calculationNanos) + " ms")
-                        .append(Component.translatable("gui.neoecoae.crafting_report.bytes", usedBytes))
+                        .append(Component.translatable("gui.neoecoae.crafting_report.bytes", DisplayNumbers.bytes(usedBytes)))
                         .withColor(AE2_TEXT_DARK);
                 }
             } else {
-                planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", usedBytes)
+                planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(usedBytes))
                     .withColor(AE2_TEXT_DARK);
             }
             if (plan.isSimulation()) {
@@ -147,11 +162,24 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             String unrepresentableBytes = (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 ? HostText.ae2Amount(mode.neoecoae$getTheoreticalBytes())
                 : ReadableNumberConverter.format(plan.getUsedBytes(), 4);
-            planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", unrepresentableBytes)
+            planSummary = Component.translatable("gui.neoecoae.crafting_report.bytes_only", DisplayNumbers.bytes(unrepresentableBytes))
                 .withColor(AE2_TEXT_DARK)
-                .append(Component.literal("（数量超出范围）").withColor(0xFFAA3333));
-            cpuDetails = Component.literal("开始按钮已禁用；请查看材料列表或合成图")
+                .append(Component.literal("（已被扩展为超大数类型）").withColor(0xFFAA3333));
+            cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
+                ? "gui.neoecoae.big_order.segmented" : "gui.neoecoae.big_order.requires_cpu")
                 .withColor(AE2_TEXT_DARK);
+        }
+
+        if (isDiagnosticShell()) {
+            var mode = (ECOCraftConfirmMenuMode) (Object) menu;
+            cpuDetails = Component.translatable("gui.neoecoae.crafting_report.planning_failed")
+                .withColor(0xAA3333);
+            planSummary = Component.literal(formatMillis(mode.neoecoae$getCalculationNanos()) + " ms - ")
+                .append(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
+            selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal(mode.neoecoae$getPlanningStatus() + "\n" + mode.neoecoae$getPlanningDiagnostic())));
+        } else {
+            selectCPU.setTooltip(null);
         }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
@@ -173,6 +201,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
+        bookmarkMissing.active = exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
+            start.active = false;
+            graph.active = false;
+            setTextContent("plan_summary", Component.translatable("gui.neoecoae.crafting_report.loading_details"));
+        }
     }
 
     private static String formatMillis(long nanos) {
@@ -182,7 +216,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         BigDecimal millis = BigDecimal.valueOf(nanos, 6).round(TIME_PRECISION);
         int integerDigits = millis.precision() - millis.scale();
         int displayScale = Math.max(0, TIME_PRECISION.getPrecision() - integerDigits);
-        return millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString();
+        return DisplayNumbers.grouped(millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString());
     }
 
     private Component getNextCpuButtonLabel() {
@@ -276,11 +310,34 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
     private void start() {
-        if (isUnrepresentablePlan()) return;
+        if (!start.active) return;
         CraftingPlanSummary plan = menu.getPlan();
         boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
-        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(forceStart));
-        menu.startJob();
+        submit(forceStart);
+    }
+
+    /** Retry the same request, including its force flag and ECO execution path. */
+    void retrySubmission() {
+        submit(lastSubmissionForced);
+    }
+
+    private boolean usesBigOrderSubmission(boolean forceStart) {
+        return isUnrepresentablePlan() || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS;
+    }
+
+    private void submit(boolean forceStart) {
+        lastSubmissionForced = forceStart;
+        org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+            "[big-order-submit] Client start: container={}, forced={}, bigOrder={}, status={}",
+            menu.containerId, forceStart, usesBigOrderSubmission(forceStart),
+            (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);
+        if (usesBigOrderSubmission(forceStart)) {
+            PacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
+                menu.containerId, forceStart));
+            return;
+        }
+        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
     }
 
     private void openGraph() {
@@ -302,9 +359,24 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
     }
 
+    private void bookmarkMissing() {
+        if (!bookmarkMissing.active) return;
+        JeiBookmarkAccess.addMissingToBookmarks(exactMaterials().stream()
+            .filter(node -> node.missingBigInteger().signum() > 0)
+            .map(CraftingGraphSnapshot.MaterialNode::key).toList());
+    }
+
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
+        if (isDiagnosticShell()) return mode.neoecoae$getCraftingGraphSnapshot().nodes();
         return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes());
+    }
+
+    private boolean isDiagnosticShell() {
+        var plan = menu.getPlan();
+        return plan != null && (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && ECOExactMaterialTableRenderer.isDiagnosticShell(mode.neoecoae$getPlanningStatus(),
+                plan.isSimulation(), plan.getEntries().isEmpty());
     }
 
     private boolean isUnrepresentablePlan() {
@@ -313,11 +385,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     /**
-     * A failed ECO attempt can be attached to AE2's native fallback plan as explanation-only diagnostics. In that
-     * case the native planner is the source of truth for missing materials, so keep rendering its normal red
-     * missing-item rows instead of covering them with the rejected ECO attempt's exact material snapshot.
+     * A material-shortage result has authoritative graph quantities even without cycles. Unsupported attempts
+     * attached to a native fallback remain explanation-only and keep the native confirmation table.
      */
     private boolean shouldUseExactMaterialTable() {
+        if (isDiagnosticShell()) return true;
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && ECOExactMaterialTableRenderer.hasMissingMaterialSnapshot(
+                    mode.neoecoae$getPlanningStatus(), mode.neoecoae$getCraftingGraphSnapshot())) return true;
         if (isUnrepresentablePlan()) return true;
         if (!hasEcoCycleDiagnostics()) return false;
         PlanningStatus status = ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$getPlanningStatus();

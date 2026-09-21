@@ -16,9 +16,10 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import gripe._90.megacells.item.part.DecompressionModulePart;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,6 +48,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
     private final IGrid grid;
     private int installedModules;
     private int patternPriority;
+    private static final String PENDING_TAG = "neoecoae_pending_outputs";
 
     public ECOMegaDecompressionService(IGrid grid, ICraftingService craftingService) {
         this.grid = grid;
@@ -54,6 +57,15 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
 
     @Override
     public void addNode(IGridNode node, @Nullable CompoundTag savedData) {
+        if (savedData != null && savedData.contains(PENDING_TAG, 9)) {
+            var entries = savedData.getList(PENDING_TAG, 10);
+            for (var raw : entries) {
+                CompoundTag entry = (CompoundTag) raw;
+                AEKey key = AEKey.fromTagGeneric(node.getLevel().registryAccess(), entry.getCompound("key"));
+                long amount = entry.getLong("amount");
+                if (key != null && amount > 0) pendingOutputs.merge(key, amount, NEMath::saturatingAdd);
+            }
+        }
         if (node.getOwner() instanceof IChestOrDrive cellHost) {
             cellHosts.add(cellHost);
         }
@@ -86,31 +98,39 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
                 .insert(pending.getKey(), pending.getValue(), Actionable.MODULATE, IActionSource.empty());
             if (inserted >= pending.getValue()) {
                 it.remove();
+                markGridDataDirty();
             } else if (inserted > 0L) {
                 pending.setValue(pending.getValue() - inserted);
+                markGridDataDirty();
             }
         }
     }
 
     @Override
     public void onServerEndTick() {
-        syncPatternPriority();
-        patterns.clear();
         if (installedModules <= 0) {
-            grid.getCraftingService().refreshGlobalCraftingProvider(this);
+            // Withdraw previously published patterns once when the last module is removed.
+            if (!patterns.isEmpty()) {
+                patterns.clear();
+                grid.getCraftingService().refreshGlobalCraftingProvider(this);
+            }
             return;
         }
 
+        // Match the module's per-tick update cadence, including in-place cell configuration changes.
+        syncPatternPriority();
+        Set<IPatternDetails> refreshedPatterns = new LinkedHashSet<>();
         Set<StorageCell> seenCells = Collections.newSetFromMap(new IdentityHashMap<>());
         for (IChestOrDrive host : cellHosts) {
             for (int i = 0; i < host.getCellCount(); i++) {
-                addPatterns(host.getOriginalCellInventory(i), seenCells);
+                addPatterns(host.getOriginalCellInventory(i), seenCells, refreshedPatterns);
             }
         }
         for (ECODriveBlockEntity drive : ecoDrives) {
-            addPatterns(drive.getCellInventory(), seenCells);
+            addPatterns(drive.getCellInventory(), seenCells, refreshedPatterns);
         }
-
+        patterns.clear();
+        patterns.addAll(refreshedPatterns);
         grid.getCraftingService().refreshGlobalCraftingProvider(this);
     }
 
@@ -142,9 +162,18 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
             return false;
         }
 
-        for (var output : details.getOutputs()) {
-            pendingOutputs.merge(output.what(), output.amount(), NEMath::saturatingAdd);
+        Map<AEKey, Long> accepted = new LinkedHashMap<>();
+        try {
+            for (var output : details.getOutputs()) {
+                if (output.amount() <= 0) return false;
+                long current = accepted.getOrDefault(output.what(), pendingOutputs.getOrDefault(output.what(), 0L));
+                accepted.put(output.what(), Math.addExact(current, output.amount()));
+            }
+        } catch (ArithmeticException overflow) {
+            return false;
         }
+        pendingOutputs.putAll(accepted);
+        markGridDataDirty();
         return true;
     }
 
@@ -153,6 +182,25 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         long capacity = batchCapacity(context);
         return capacity <= 0L ? null : new Preparation(capacity, null, false,
             batch -> pushBatch(context, batch.craftCount()));
+    }
+
+    @Override
+    public void saveNodeData(IGridNode node, CompoundTag savedData) {
+        // Inventory-like service state must have one owner. Replicating it onto every node would
+        // duplicate pending outputs if the grid split. AE2 keeps the pivot stable and persists it.
+        if (node != grid.getPivot()) {
+            savedData.remove(PENDING_TAG);
+            return;
+        }
+        var entries = new net.minecraft.nbt.ListTag();
+        for (var pending : pendingOutputs.entrySet()) {
+            if (pending.getValue() <= 0) continue;
+            CompoundTag entry = new CompoundTag();
+            entry.put("key", pending.getKey().toTagGeneric(node.getLevel().registryAccess()));
+            entry.putLong("amount", pending.getValue());
+            entries.add(entry);
+        }
+        savedData.put(PENDING_TAG, entries);
     }
 
     private long batchCapacity(ECOBatchDispatchContext context) {
@@ -193,6 +241,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         // pattern overflows, the CPU can still roll back all extracted inputs atomically.
         batchOutputs.replaceAll((key, amount) -> Math.addExact(pendingOutputs.getOrDefault(key, 0L), amount));
         pendingOutputs.putAll(batchOutputs);
+        markGridDataDirty();
         return true;
     }
 
@@ -201,15 +250,17 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         return installedModules <= 0;
     }
 
-    private void addPatterns(@Nullable StorageCell cell, Set<StorageCell> seenCells) {
+    private void addPatterns(@Nullable StorageCell cell, Set<StorageCell> seenCells,
+                             Set<IPatternDetails> target) {
         if (!(cell instanceof ECOMegaLongBulkStorageCell bulk) || !seenCells.add(cell)) {
             return;
         }
-        for (IPatternDetails pattern : bulk.getDecompressionPatterns()) {
-            if (!patterns.contains(pattern)) {
-                patterns.add(pattern);
-            }
-        }
+        target.addAll(bulk.getDecompressionPatterns());
+    }
+
+    private void markGridDataDirty() {
+        IGridNode pivot = grid.getPivot();
+        if (pivot != null && pivot.getOwner() instanceof BlockEntity blockEntity) blockEntity.setChanged();
     }
 
 }

@@ -8,7 +8,7 @@ import java.lang.reflect.Constructor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import appeng.menu.AutoCraftingMenu;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import java.util.ArrayList;

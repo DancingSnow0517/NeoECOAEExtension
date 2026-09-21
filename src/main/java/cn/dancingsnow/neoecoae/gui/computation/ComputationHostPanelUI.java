@@ -109,7 +109,7 @@ public final class ComputationHostPanelUI {
             null));
         panel.addChild(valueBlock(
             () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
-            () -> Component.literal(Integer.toString(config.parallelCount.getAsInt())),
+            () -> Component.literal(HostText.expandedNumber(config.parallelCount.getAsInt())),
             () -> HostText.VALUE));
         panel.addChild(valueBlock(
             () -> Component.translatable("gui.neoecoae.host.computation.free_memory"),

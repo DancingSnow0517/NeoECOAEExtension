@@ -4,7 +4,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountCollector;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;

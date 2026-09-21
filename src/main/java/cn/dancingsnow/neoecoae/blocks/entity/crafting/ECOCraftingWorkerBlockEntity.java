@@ -8,11 +8,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingThread;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedFastPathExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOVerifiedVirtualExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.function.Predicate;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -179,7 +180,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void terminateRunningJobs() {
         if (!(level instanceof ServerLevel)) return;
         for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
-            cn.dancingsnow.neoecoae.api.me.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
+            cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
         }
         reconcileJobTermination();
     }
@@ -198,47 +199,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getAvailableBatchCapacity() <= 0) {
-                return false;
-            }
-            int threadObjectCapacity = controller.getThreadObjectCapacityForWorker(this);
-
-            int threadCount = craftingThreads.size();
-            if (threadCount > 0) {
-                int start = Math.floorMod(nextFreeThreadIndex, threadCount);
-                for (int offset = 0; offset < threadCount; offset++) {
-                    int index = (start + offset) % threadCount;
-                    ECOCraftingThread thread = craftingThreads.get(index);
-                    if (!thread.isFree()) {
-                        continue;
-                    }
-                    if (thread.pushPattern(execution, controller, craftingJobId)) {
-                        nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
-                        refreshDisplayedJob();
-                        return true;
-                    }
-                }
-            }
-
-            if (craftingThreads.size() >= threadObjectCapacity) {
-                return false;
-            }
-
-            ECOCraftingThread thread = new ECOCraftingThread(this);
-            craftingThreads.add(thread);
-            nextFreeThreadIndex = craftingThreads.size() % Math.max(1, threadObjectCapacity);
-            setChanged();
-            markForUpdate();
-            boolean accepted = thread.pushPattern(execution, controller, craftingJobId);
-            if (accepted) {
-                refreshDisplayedJob();
-            }
-            return accepted;
-        } else {
+        if (cluster == null || cluster.getController() == null || getAvailableBatchCapacity() <= 0) {
             return false;
         }
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        int threadObjectCapacity = controller.getThreadObjectCapacityForWorker(this);
+        return dispatchToThread(threadObjectCapacity,
+            thread -> thread.pushPattern(execution, controller, craftingJobId));
     }
 
     public boolean pushBatch(ECOVerifiedFastPathExecution verified) {
@@ -258,38 +225,18 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             || verified.batchSize() > getControllerAvailableThreadSlots(controller)) {
             return false;
         }
+        return dispatchToThread(workerThreadCapacity, thread -> thread.pushBatch(verified, controller));
+    }
 
-        int threadCount = craftingThreads.size();
-        if (threadCount > 0) {
-            int start = Math.floorMod(nextFreeThreadIndex, threadCount);
-            for (int offset = 0; offset < threadCount; offset++) {
-                int index = (start + offset) % threadCount;
-                ECOCraftingThread thread = craftingThreads.get(index);
-                if (!thread.isFree()) {
-                    continue;
-                }
-                if (thread.pushBatch(verified, controller)) {
-                    nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
-                    refreshDisplayedJob();
-                    return true;
-                }
-            }
-        }
-
-        if (craftingThreads.size() >= workerThreadCapacity) {
-            return false;
-        }
-
-        ECOCraftingThread thread = new ECOCraftingThread(this);
-        craftingThreads.add(thread);
-        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, workerThreadCapacity);
-        setChanged();
-        markForUpdate();
-        boolean accepted = thread.pushBatch(verified, controller);
-        if (accepted) {
-            refreshDisplayedJob();
-        }
-        return accepted;
+    public boolean pushExactVirtualBatch(
+            cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe recipe,
+            java.math.BigInteger count, java.util.UUID job) {
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent
+                || cluster == null || cluster.getController() == null || isWorking()) return false;
+        var controller = cluster.getController();
+        if (!controller.isFullVirtualCraftingMode() || !recipe.isIssuedBy(getFastPathCache())) return false;
+        return dispatchToThread(controller.getThreadObjectCapacityForWorker(this),
+            thread -> thread.pushExactVirtualBatch(recipe, count, job, controller));
     }
 
     public boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified) {
@@ -304,24 +251,46 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         if (!controller.isFullVirtualCraftingMode() || !verified.recipe().isIssuedBy(cache)) {
             return false;
         }
-        for (int index = 0; index < craftingThreads.size(); index++) {
-            ECOCraftingThread thread = craftingThreads.get(index);
-            if (thread.isFree() && thread.pushVirtualBatch(verified, controller)) {
+        return dispatchToThread(controller.getThreadObjectCapacityForWorker(this),
+            thread -> thread.pushVirtualBatch(verified, controller));
+    }
+
+    /**
+     * Owns the common worker-side dispatch lifecycle. The public push methods remain separate because they are
+     * integration hook points, but they now share the same round-robin and thread-creation semantics.
+     */
+    private boolean dispatchToThread(int threadCapacity, Predicate<ECOCraftingThread> submit) {
+        if (threadCapacity <= 0) {
+            return false;
+        }
+
+        int threadCount = craftingThreads.size();
+        if (threadCount > 0) {
+            int start = Math.floorMod(nextFreeThreadIndex, threadCount);
+            for (int offset = 0; offset < threadCount; offset++) {
+                int index = (start + offset) % threadCount;
+                ECOCraftingThread thread = craftingThreads.get(index);
+                if (!thread.isFree() || !submit.test(thread)) {
+                    continue;
+                }
                 nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                 refreshDisplayedJob();
                 return true;
             }
         }
-        if (craftingThreads.size() >= controller.getThreadObjectCapacityForWorker(this)) {
+
+        if (craftingThreads.size() >= threadCapacity) {
             return false;
         }
+
         ECOCraftingThread thread = new ECOCraftingThread(this);
         craftingThreads.add(thread);
-        boolean accepted = thread.pushVirtualBatch(verified, controller);
+        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, threadCapacity);
+        setChanged();
+        markForUpdate();
+        boolean accepted = submit.test(thread);
         if (accepted) {
             refreshDisplayedJob();
-            setChanged();
-            markForUpdate();
         }
         return accepted;
     }

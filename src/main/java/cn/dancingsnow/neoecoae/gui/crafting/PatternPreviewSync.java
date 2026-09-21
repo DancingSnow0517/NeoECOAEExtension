@@ -16,13 +16,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import java.util.function.Consumer;
 
 /** Menu-scoped push synchronization. No server-side viewport or client polling. */
 public final class PatternPreviewSync {
-    private static final int ENTRIES_PER_PACKET = 16;
+    private long nextSyncTick;
     private final ECOMachineInterfaceBlockEntity<?> host;
-    private final Map<UUID, AbstractContainerMenu> viewers = new HashMap<>();
+    private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final List<CompoundTag> cachedEntries = new ArrayList<>();
     private final BitSet dirtySlots = new BitSet();
     private boolean reset = true;
@@ -49,6 +50,7 @@ public final class PatternPreviewSync {
 
     public void resend(ServerPlayer player) {
         viewers.remove(player.getUUID());
+        MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
     }
 
     public void dirty(int firstSlot, int count) {
@@ -67,12 +69,13 @@ public final class PatternPreviewSync {
         List<ServerPlayer> active = level.players().stream().filter(this::isViewer).toList();
         viewers.keySet().removeIf(id -> active.stream().noneMatch(player -> player.getUUID().equals(id)));
         if (active.isEmpty()) return;
+        if (level.getGameTime() < nextSyncTick) return;
+        nextSyncTick = level.getGameTime() + MenuDataTransport.UPDATE_INTERVAL;
         host.refreshPatternCatalog();
         int size = host.getPatternInterfaceSlotCount();
         int revision = host.getPatternContentRevision();
         boolean full = reset || cachedEntries.size() != size;
-        int previousRevision = cachedRevision;
-        List<CompoundTag> changed = new ArrayList<>();
+
         if (full) {
             cachedEntries.clear();
             for (int index = 0; index < size; index++) cachedEntries.add(encode(index));
@@ -82,7 +85,7 @@ public final class PatternPreviewSync {
                 CompoundTag entry = encode(index);
                 if (!entry.equals(cachedEntries.get(index))) {
                     cachedEntries.set(index, entry);
-                    changed.add(entry);
+
                 }
             }
         }
@@ -90,10 +93,34 @@ public final class PatternPreviewSync {
         reset = false;
         dirtySlots.clear();
         for (ServerPlayer player : active) {
-            boolean newMenu = viewers.put(player.getUUID(), player.containerMenu) != player.containerMenu;
-            if (full || newMenu) send(player, true, -1, cachedEntries);
-            else if (previousRevision != revision) send(player, false, previousRevision, changed);
+            Viewer viewer = viewers.get(player.getUUID());
+            if (viewer == null || viewer.menu != player.containerMenu) {
+                MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
+                viewer = new Viewer(player.containerMenu);
+                viewers.put(player.getUUID(), viewer);
+            }
+            // Finish the immutable snapshot before diffing against it. This avoids starvation while
+            // automation keeps changing the live catalogue during a multi-tick initial transfer.
+            if (MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS)) continue;
+            boolean sendFull = viewer.revision < 0 || viewer.entries.size() != cachedEntries.size();
+            List<CompoundTag> changes = new ArrayList<>();
+            for (int index = 0; index < cachedEntries.size(); index++) {
+                if (sendFull || !cachedEntries.get(index).equals(viewer.entries.get(index)))
+                    changes.add(cachedEntries.get(index));
+            }
+            if (sendFull || viewer.revision != cachedRevision || !changes.isEmpty()) {
+                send(player, sendFull, viewer.revision, changes);
+                viewer.entries = List.copyOf(cachedEntries);
+                viewer.revision = cachedRevision;
+            }
         }
+    }
+
+    private static final class Viewer {
+        final AbstractContainerMenu menu;
+        List<CompoundTag> entries = List.of();
+        int revision = -1;
+        Viewer(AbstractContainerMenu menu) { this.menu = menu; }
     }
 
     private CompoundTag encode(int index) {
@@ -103,22 +130,20 @@ public final class PatternPreviewSync {
     }
 
     private void send(ServerPlayer player, boolean full, int baseRevision, List<CompoundTag> entries) {
-        // Bounded chunks avoid a single oversized RPC when thousands of buses are connected.
-        for (int offset = 0; offset < Math.max(1, entries.size()); offset += ENTRIES_PER_PACKET) {
-            CompoundTag payload = new CompoundTag();
-            payload.putInt("menu", player.containerMenu.containerId);
-            payload.putInt("revision", cachedRevision);
-            payload.putInt("base", baseRevision);
-            payload.putInt("size", cachedEntries.size());
-            payload.putBoolean("full", full);
-            payload.putBoolean("first", offset == 0);
-            payload.putBoolean("last", offset + ENTRIES_PER_PACKET >= entries.size());
-            ListTag batch = new ListTag();
-            for (int index = offset; index < Math.min(offset + ENTRIES_PER_PACKET, entries.size()); index++) {
-                batch.add(entries.get(index));
-            }
-            payload.put("entries", batch);
-            host.rpcToPlayer(player, "setPatternPreview", payload);
-        }
+        CompoundTag payload = new CompoundTag();
+        payload.putInt("menu", player.containerMenu.containerId);
+        payload.putInt("revision", cachedRevision);
+        payload.putInt("base", baseRevision);
+        payload.putInt("size", cachedEntries.size());
+        payload.putBoolean("full", full);
+        payload.putBoolean("first", true);
+        payload.putBoolean("last", true);
+        ListTag batch = new ListTag();
+        batch.addAll(entries);
+        payload.put("entries", batch);
+        MenuDataTransport.send(player, MenuDataTransport.Channel.PATTERNS, buf -> {
+            buf.writeBlockPos(host.getBlockPos());
+            buf.writeNbt(payload);
+        });
     }
 }

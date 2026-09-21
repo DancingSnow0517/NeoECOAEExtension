@@ -113,6 +113,8 @@ dependencies {
     testImplementation('org.junit.jupiter:junit-jupiter')
     testImplementation('org.mockito:mockito-core:5.15.2')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+    // Inspect the released optional target's bytecode without installing it in the dev runtime.
+    testRuntimeOnly("curse.maven:flux-networks-248020:6089446") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
@@ -122,10 +124,13 @@ dependencies {
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
     // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
-    compileOnly("maven.modrinth:a-useless-mod:g6crCRbB") { transitive = false }
+    compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
     compileOnly("maven.modrinth:sophisticated-core:1.21.1-1.4.90.2299")
+
+    // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }
 
     // Optional integration target. 4.11.0 is the verified 1.21.1 build (AE2 >= 19.2.15).
     compileOnly("curse.maven:mega-cells-622112:7952621") { transitive = false }
@@ -133,7 +138,12 @@ dependencies {
 
     implementation("curse.maven:omni-cells-1359517:8050965")
 
-    implementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+    def localAe2LtJar = providers.gradleProperty("ae2lt_local_jar").orNull
+    if (localAe2LtJar) {
+        implementation(files(localAe2LtJar))
+    } else {
+        implementation("curse.maven:ae2-lightning-tech-1527395:8823559") { transitive = false }
+    }
     implementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
@@ -239,41 +249,11 @@ sourceSets.main.java {
 }
 
 // ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.
-// ABI declarations only: OmniSequence's optional v1 SPI is not published as a separate API artifact.
-sourceSets {
-    omniApi {
-        java.srcDir 'src/omniApi/java'
-        compileClasspath = sourceSets.main.compileClasspath
-    }
-}
-sourceSets.main.compileClasspath += sourceSets.omniApi.output
-sourceSets.test.compileClasspath += sourceSets.omniApi.output
-sourceSets.test.runtimeClasspath += sourceSets.omniApi.output
-
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
-// Run the same compiled ECO classes against the pre-2.x Thunderbolt API, without leaking modern jars.
-configurations { thunderboltLegacyTestRuntime }
-dependencies {
-    thunderboltLegacyTestRuntime("curse.maven:thunderbolt-core-1631756:8638565") { transitive = false }
-    thunderboltLegacyTestRuntime("curse.maven:ae2-lightning-tech-1527395:8638573") { transitive = false }
-}
-tasks.register('testThunderboltLegacy', Test) {
-    group = 'verification'
-    description = 'Checks ECO compatibility with Thunderbolt 1.0.6 and AE2LT 2.0.9.'
-    useJUnitPlatform()
-    javaLauncher = tasks.named('test', Test).get().javaLauncher
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath.filter {
-        !it.name.startsWith('thunderbolt-core-1631756-') && !it.name.startsWith('ae2-lightning-tech-1527395-')
-    } + configurations.thunderboltLegacyTestRuntime
-    filter { includeTestsMatching 'cn.dancingsnow.neoecoae.compat.thunderbolt.*Test' }
-    systemProperty 'eco.test.thunderbolt.legacy', 'true'
-}
-
 sourceSets.main.resources {
-    srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    srcDirs 'src/generated/resources'
     exclude 'kubejs.plugins.txt'
 }
 
@@ -326,7 +306,7 @@ tasks.register('copyGuidebook', Copy) {
     group = 'build'
 
     from 'guidebook/'
-    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
+    into 'src/main/resources/assets/neoecoae/ae2guide'
 }
 
 tasks.named('processResources') {

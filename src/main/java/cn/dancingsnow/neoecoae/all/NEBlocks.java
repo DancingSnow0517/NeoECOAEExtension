@@ -1,5 +1,14 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
+import cn.dancingsnow.neoecoae.blocks.CasingBlock;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
+import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationInputHatch;
+import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationOutputHatch;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
+
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
@@ -71,41 +80,101 @@ public class NEBlocks {
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_NETWORK_SWITCH = networkSwitch(
         "crafting_network_switch",
         ECOCraftingNetworkSwitch::new,
+        "crafting",
+        "light",
         "ECO Crafting Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOCraftingNetworkSwitch> CRAFTING_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "crafting_high_energy_network_switch",
         ECOCraftingNetworkSwitch::new,
+        "crafting",
+        "power_light",
         "ECO Crafting Subsystem High-Energy Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_NETWORK_SWITCH = networkSwitch(
         "computation_network_switch",
         ECOComputationNetworkSwitch::new,
+        "computation",
+        "light",
         "ECO Computation Subsystem Network Switch Module"
     );
 
     public static final BlockEntry<ECOComputationNetworkSwitch> COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH = networkSwitch(
         "computation_high_energy_network_switch",
         ECOComputationNetworkSwitch::new,
+        "computation",
+        "power_light",
         "ECO Computation Subsystem High-Energy Network Switch Module"
     );
 
     private static <T extends NENetworkSwitchBlock<?>> BlockEntry<T> networkSwitch(
         String name,
         NonNullFunction<BlockBehaviour.Properties, T> factory,
+        String modelName,
+        String lightTextureName,
         String englishName
     ) {
         return REGISTRATE.block(name, factory)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate((ctx, prov) -> prov.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> ConfiguredModel.builder()
-                    .modelFile(prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())))
-                    .build(), NENetworkSwitchBlock.FORMED))
+            .recipe((ctx, prov) -> {
+                if (name.equals("crafting_network_switch")) {
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(AEItems.SINGULARITY, 2)
+                        .require(AEItems.ENGINEERING_PROCESSOR, 16)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
+                        .require(NEBlocks.CRAFTING_CASING, 8)
+                        .require(AEBlocks.MOLECULAR_ASSEMBLER, 4)
+                        .require(AEBlocks.CRAFTING_STORAGE_256K, 2)
+                        .energy(2_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                } else if (name.equals("computation_network_switch")) {
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(AEItems.SINGULARITY, 2)
+                        .require(AEItems.CALCULATION_PROCESSOR, 16)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
+                        .require(NEBlocks.COMPUTATION_CASING, 8)
+                        .require(AEBlocks.CELL_WORKBENCH, 4)
+                        .require(AEItems.CELL_COMPONENT_256K, 4)
+                        .energy(2_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                } else {
+                    boolean crafting = name.equals("crafting_high_energy_network_switch");
+                    IntegratedWorkingStationRecipe.builder()
+                        .require(crafting ? NEBlocks.CRAFTING_NETWORK_SWITCH : NEBlocks.COMPUTATION_NETWORK_SWITCH, 2)
+                        .require(AEItems.SINGULARITY, 8)
+                        .require(NEItems.SUPERCONDUCTING_PROCESSOR, 32)
+                        .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                        .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_BLOCK, 16)
+                        .require(NEItems.ECO_CELL_COMPONENT_256M, 2)
+                        .require(NEItems.CRYSTAL_MATRIX, 4)
+                        .require(AEItems.CELL_COMPONENT_256K, 64)
+                        .energy(8_000_000)
+                        .itemOutput(ctx.get())
+                        .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+                }
+            })
+            .blockstate((ctx, prov) -> {
+                ModelFile model = lightTextureName.equals("light")
+                    ? prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()))
+                    : prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/network_switch_base"))
+                        .texture("base", prov.modLoc("block/network_switch/" + modelName))
+                        .texture("light", prov.modLoc("block/network_switch/" + lightTextureName));
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStatesExcept(state -> ConfiguredModel.builder()
+                        .modelFile(model)
+                        .build(), NENetworkSwitchBlock.FORMED);
+            })
             .loot((prov, block) -> prov.dropSelf(block))
-            .simpleItem()
+            .item()
+            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/" + ctx.getName())))
+            .build()
             .lang(englishName)
             .register();
     }
@@ -543,7 +612,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_casing"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING, 4)
             .require(AEBlocks.SKY_STONE_BLOCK, 2)
@@ -555,7 +624,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(256_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Casing")
         .register();
 
@@ -564,7 +635,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_input_hatch"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.IMPORT_BUS, 2)
@@ -575,7 +646,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(128_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Fluid Input Hatch")
         .register();
 
@@ -584,7 +657,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_output_hatch"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.EXPORT_BUS, 2)
@@ -595,7 +668,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(128_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Fluid Output Hatch")
         .register();
 
@@ -604,7 +679,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/large_integrated_working_station_interface"))))
+        .blockstate((ctx, prov) -> {})
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEBlocks.INTERFACE)
@@ -615,7 +690,9 @@ public class NEBlocks {
             .itemOutput(ctx.get())
             .energy(256_000)
             .save(prov))
-        .simpleItem()
+        .item()
+        .model((ctx, prov) -> {})
+        .build()
         .lang("Large Integrated Working Station Communication Interface")
         .register();
 
@@ -634,14 +711,9 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .blockstate((ctx, prov) -> {
-            ModelFile storage = prov.models().getExistingFile(prov.modLoc("block/storage_interface"));
-            ModelFile input = prov.models().getExistingFile(prov.modLoc("block/storage_interface_input"));
-            ModelFile output = prov.models().getExistingFile(prov.modLoc("block/storage_interface_output"));
+            // The three modes share the only storage-interface model currently shipped by the resource pack.
+            ModelFile model = prov.models().getExistingFile(prov.modLoc("block/storage_interface"));
             prov.getVariantBuilder(ctx.get()).forAllStates(state -> {
-                cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode mode =
-                    state.getValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE);
-                ModelFile model = mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT
-                    ? input : mode == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT ? output : storage;
                 return ConfiguredModel.builder().modelFile(model).build();
             });
         })
@@ -1126,6 +1198,7 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
+        .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/advanced_crafting_worker")))
         .build()
         .lang("ECO - FX Monitor Core")
         .blockstate((ctx, prov) -> {
@@ -1296,13 +1369,17 @@ public class NEBlocks {
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
                 ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
                 ModelFile inputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_input"));
+                ModelFile mirroredInputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_input_mirrored"));
                 ModelFile outputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_output"));
+                ModelFile mirroredOutputModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_output_mirrored"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                ? (s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT ? inputModel
-                                    : s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT ? outputModel
+                                ? (s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.INPUT
+                                    ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredInputModel : inputModel)
+                                    : s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.OUTPUT
+                                    ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredOutputModel : outputModel)
                                     : (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel))
                                 : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)

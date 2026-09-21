@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public final class HostPanelElements {
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
-        new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.US)));
+        new DecimalFormat("#,##0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
     private HostPanelElements() {
     }
@@ -42,6 +42,6 @@ public final class HostPanelElements {
         long safeNanos = Math.max(0L, averageNanos);
         long micros = Math.round(safeNanos / 1_000.0D);
         String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
-        return micros + " us/" + millis + " ms";
+        return HostText.expandedNumber(micros) + " us/" + millis + " ms";
     }
 }

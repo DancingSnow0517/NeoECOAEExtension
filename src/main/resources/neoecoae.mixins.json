@@ -27,13 +27,16 @@
     "ae2.storage.IOPortBlockEntityMixin",
     "ae2.storage.NetworkStorageMixin",
     "ae2.storage.StoredEnergyAmountMixin",
-    "minecraft.LightningBoltMixin"
+    "ldlib.AsyncThreadDataMixin",
+    "minecraft.LightningBoltMixin",
+    "minecraft.ChunkMapAccessor"
   ],
   "client": [
     "client.accessor.MenuScreensAccessor",
     "client.ae2.CpuSelectionListMixin",
     "client.ae2.CraftConfirmScreenMixin",
     "client.ae2.CraftingCpuScreenMixin",
+    "client.ae2.CraftingStatusTableMixin",
     "client.ae2.PatternEncodingTermScreenMixin",
     "client.minecraft.ModelBakeryMixin"
   ],

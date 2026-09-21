@@ -71,7 +71,7 @@ public final class ECOCraftErrorScreen extends AESubScreen<CraftConfirmMenu, ECO
         });
         widgets.addButton("retry", GuiText.CraftErrorRetry.text(), () -> {
             returnToParent();
-            menu.startJob();
+            parent.retrySubmission();
         });
         widgets.addButton("cancel", GuiText.Cancel.text(), () -> {
             returnToParent();

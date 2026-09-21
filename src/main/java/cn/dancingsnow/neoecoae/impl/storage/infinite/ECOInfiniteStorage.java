@@ -8,8 +8,8 @@ import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmount;
-import cn.dancingsnow.neoecoae.terminal.bigamount.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 
 public final class ECOInfiniteStorage implements MEStorage, ExactAmountSource {
     private final ECOInfiniteStorageEngine engine;

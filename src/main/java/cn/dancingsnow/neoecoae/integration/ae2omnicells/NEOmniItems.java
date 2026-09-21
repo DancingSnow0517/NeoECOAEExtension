@@ -6,7 +6,6 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.wintercogs.ae2omnicells.common.init.OCItems;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
@@ -24,19 +23,19 @@ public final class NEOmniItems {
     public static final ItemEntry<MaterialItem> ECO_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_omni_cell_housing", MaterialItem::new)
         .lang("ECO Omni Storage Matrix Housing")
-        .model(ItemModelUtil.compatHousingModel("omni_cell_housing"))
+        .model((ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_COMPLEX_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_complex_omni_cell_housing", MaterialItem::new)
         .lang("ECO Complex Omni Storage Matrix Housing")
-        .model(ItemModelUtil.compatHousingModel("complex_omni_cell_housing"))
+        .model((ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_QUANTUM_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_quantum_omni_cell_housing", MaterialItem::new)
         .lang("ECO Quantum Omni Storage Matrix Housing")
-        .model(ItemModelUtil.compatHousingModel("quantum_omni_cell_housing", "quantum_omni_cell_layer"))
+        .model((ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<ECOUniversalStorageCellItem> ECO_OMNI_CELL_16M = registerCell(
@@ -119,9 +118,7 @@ public final class NEOmniItems {
                     .save(omniCellsInstalled, ctx.getId().withPrefix("integrated_working_station/"));
             })
             .lang(cellName(name, tier, totalBytes))
-            .model(hasQuantumLayer
-                ? ItemModelUtil.compatCellModel(housing, size, "quantum_omni_cell_layer")
-                : ItemModelUtil.compatCellModel(housing, size))
+            .model((ctx, prov) -> {})
             .register();
     }
 
@@ -136,7 +133,7 @@ public final class NEOmniItems {
     private static String cellName(String name, ECOTier tier, long totalBytes) {
         String family = name.contains("quantum") ? "Quantum Omni" : name.contains("complex") ? "Complex Omni" : "Omni";
         return "ECO - LE" + (tier == ECOTier.L4 ? "4" : tier == ECOTier.L6 ? "6" : "9")
-            + " Storage Matrix (" + family + ", " + (totalBytes >> 20) + " MiB)";
+            + " Storage Matrix (" + family + ")";
     }
 
     private NEOmniItems() {

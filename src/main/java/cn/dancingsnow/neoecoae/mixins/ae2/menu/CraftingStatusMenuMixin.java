@@ -4,7 +4,7 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -17,6 +17,12 @@ import java.util.ArrayList;
 
 @Mixin(CraftingStatusMenu.class)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu {
+    @org.spongepowered.asm.mixin.injection.Inject(method = "selectCpu", at = @At("HEAD"))
+    private void neoecoae$clearParentOnSelection(int serial,
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        if (isClientSide() && (Object) this instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost host)
+            host.neoecoae$clearBigOrderProgress();
+    }
 
     public CraftingStatusMenuMixin(MenuType<?> menuType, int id, Inventory ip, Object te) {
         super(menuType, id, ip, te);

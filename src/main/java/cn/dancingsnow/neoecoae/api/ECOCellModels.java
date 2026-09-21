@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api;
 
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import lombok.Getter;
@@ -44,6 +45,7 @@ public class ECOCellModels {
     }
 
     public static void runDeferredRegistration() {
+        register(AEItems.CREATIVE_CELL.asItem(), NeoECOAE.id("block/cell/storage_cell_creative"));
         deferredRegistration.forEach((itemHolder, location) -> {
             register(itemHolder.value(), location);
         });

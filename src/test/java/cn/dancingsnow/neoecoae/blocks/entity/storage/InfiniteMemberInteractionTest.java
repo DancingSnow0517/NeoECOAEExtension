@@ -10,13 +10,17 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
 import java.util.*;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class InfiniteMemberInteractionTest {
     @BeforeAll
-    static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+    }
 
     private static void field(Object target, String name, Object value) throws Exception {
         Class<?> type = ECOStorageSystemBlockEntity.class;
@@ -26,7 +30,9 @@ class InfiniteMemberInteractionTest {
                 field.setAccessible(true);
                 field.set(target, value);
                 return;
-            } catch (NoSuchFieldException e) { type = type.getSuperclass(); }
+            } catch (NoSuchFieldException e) {
+                type = type.getSuperclass();
+            }
         }
         throw new NoSuchFieldException(name);
     }
@@ -36,6 +42,7 @@ class InfiniteMemberInteractionTest {
         doReturn(true).when(host).isInfiniteMode();
         field(host, "infiniteDomainId", domain);
         field(host, "infiniteMemberIds", new HashSet<UUID>());
+        field(host, "infiniteMigrationSourceIds", new HashSet<UUID>());
         return host;
     }
 
@@ -115,5 +122,31 @@ class InfiniteMemberInteractionTest {
         assertNotNull(storage);
         assertEquals(64, storage.extract(key, 64, appeng.api.config.Actionable.SIMULATE, source));
         verify(domain).extract(key, 64, appeng.api.config.Actionable.SIMULATE, source);
+    }
+
+    @Test
+    void missingMigrationSourceIsRememberedAndCanBeInsertedAgain() throws Exception {
+        UUID domain = UUID.randomUUID();
+        var host = host(domain);
+        field(host, "hostMode",
+                cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.MIGRATING_TO_INFINITE);
+        ItemStack source = new ItemStack(Items.STONE);
+        UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
+        host.infiniteMigrationSourceIds().add(migration);
+        var cluster = mock(NEStorageCluster.class);
+        when(cluster.getDrives()).thenReturn(List.of());
+        field(host, "cluster", cluster);
+
+        assertTrue(host.canInsertStorageCell(source));
+
+        CompoundTag saved = new CompoundTag();
+        var save = ECOStorageSystemBlockEntity.class.getDeclaredMethod("saveInfiniteMembers", CompoundTag.class);
+        save.setAccessible(true);
+        save.invoke(host, saved);
+        var restored = host(domain);
+        var load = ECOStorageSystemBlockEntity.class.getDeclaredMethod("loadInfiniteMembers", CompoundTag.class);
+        load.setAccessible(true);
+        load.invoke(restored, saved);
+        assertTrue(restored.infiniteMigrationSourceIds().contains(migration));
     }
 }

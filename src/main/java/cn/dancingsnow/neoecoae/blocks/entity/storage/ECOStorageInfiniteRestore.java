@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -23,16 +23,17 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Plans and resumes durable restoration to normal cells, including safe component extraction. */
+/**
+ * Plans and resumes durable restoration to normal cells, including safe component extraction.
+ */
 final class ECOStorageInfiniteRestore {
-    private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
-    private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
     private long extractionCheckTick = Long.MIN_VALUE;
     private String extractionCheckReason;
     private RestorePlan activeRestorePlan;
@@ -57,7 +58,7 @@ final class ECOStorageInfiniteRestore {
     }
 
     void restoreInfiniteDomainToNormalStorageIfPossible() {
-        RestorePlan plan = createInfiniteRestorePlan(true);
+        RestorePlan plan = createInfiniteRestorePlan();
         if (plan.canRestore()) {
             restoreInfiniteDomainToNormalStorage(plan);
         } else {
@@ -65,8 +66,9 @@ final class ECOStorageInfiniteRestore {
         }
     }
 
-    private RestorePlan createInfiniteRestorePlan(boolean enforceMargin) {
-        if (host.getMissingInfiniteMembers() > 0) return RestorePlan.blocked("missing infinite member matrices; insert them again");
+    private RestorePlan createInfiniteRestorePlan() {
+        if (host.getMissingInfiniteMembers() > 0)
+            return RestorePlan.blocked("missing infinite member matrices; insert them again");
         if (activeRestorePlan != null) return activeRestorePlan;
         ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
         if (engine == null) {
@@ -74,7 +76,7 @@ final class ECOStorageInfiniteRestore {
         }
         if (!engine.canExitOrRestore()) {
             return RestorePlan.blocked(
-                "infinite storage domain is " + engine.status() + " and cannot be restored to normal storage");
+                    "infinite storage domain is " + engine.status() + " and cannot be restored to normal storage");
         }
         if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of());
@@ -82,10 +84,6 @@ final class ECOStorageInfiniteRestore {
         if (host.getCluster() == null || host.infiniteDomainId() == null) {
             return RestorePlan.blocked("missing storage cluster or infinite domain");
         }
-        if (engine.hasHugeStacks()) {
-            return RestorePlan.blocked("domain contains stacks larger than a normal storage cell can hold");
-        }
-
         List<RestoreTarget> targets = createRestoreTargets(host.infiniteDomainId());
         if (targets.isEmpty()) {
             return RestorePlan.blocked("no L9 storage matrices are available");
@@ -123,7 +121,7 @@ final class ECOStorageInfiniteRestore {
             long remaining = amount.toLongSaturated();
             for (RestoreTarget target : targets) {
                 UUID transactionId = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
-                    amount.toLongSaturated(), "from-domain");
+                        amount.toLongSaturated(), "from-domain");
                 long alreadyRestored = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
                 remaining -= alreadyRestored;
                 if (remaining <= 0L) {
@@ -141,9 +139,6 @@ final class ECOStorageInfiniteRestore {
             if (remaining > 0L) {
                 return RestorePlan.blocked("normal storage matrices do not have enough compatible capacity");
             }
-        }
-        if (enforceMargin && !restoreTargetsHaveMargin(targets)) {
-            return RestorePlan.blocked("normal storage matrices would exceed the reserve margin");
         }
         return RestorePlan.allowed(targets);
     }
@@ -165,8 +160,8 @@ final class ECOStorageInfiniteRestore {
             ECOInfiniteStorageMember.clearMember(simulationStack);
             IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
             if (simulatedCell instanceof IECOStorageMigrationCell
-                && simulatedCell.getTier() == ECOTier.L9
-                && simulatedCell.isInfiniteStorageEligible()) {
+                    && simulatedCell.getTier() == ECOTier.L9
+                    && simulatedCell.isInfiniteStorageEligible()) {
                 KeyCounter simulatedContents = new KeyCounter();
                 simulatedCell.getAvailableStacks(simulatedContents);
                 targets.add(new RestoreTarget(drive, simulatedCell, simulatedContents));
@@ -175,46 +170,20 @@ final class ECOStorageInfiniteRestore {
         return targets;
     }
 
-    private boolean restoreTargetsHaveMargin(List<RestoreTarget> targets) {
-        long used = 0L;
-        long total = 0L;
-        for (RestoreTarget target : targets) {
-            used = NEMath.saturatingAdd(used, getUsedBytesForRestore(target));
-            total = NEMath.saturatingAdd(total, target.simulatedCell().getTotalBytes());
-        }
-        if (total <= 0L) {
-            return false;
-        }
-        long reserved = Math.max(
-            1L,
-            total / INFINITE_RESTORE_MARGIN_DENOMINATOR
-                * (INFINITE_RESTORE_MARGIN_DENOMINATOR - INFINITE_RESTORE_MARGIN_NUMERATOR)
-        );
-        return used <= total - reserved;
-    }
-
     private long simulateInsertForRestore(
-        RestoreTarget target,
-        AEKey key,
-        long amount,
-        IActionSource source
+            RestoreTarget target,
+            AEKey key,
+            long amount,
+            IActionSource source
     ) {
         IECOStorageCell cell = target.simulatedCell();
         if (cell instanceof IECOStorageMigrationCell migrationCell) {
             return migrationCell.simulateInsertForMigration(
-                key, amount, target.simulatedContents(), target.simulatedTypes, target.simulatedAmount);
+                    key, amount, target.simulatedContents(), target.simulatedTypes, target.simulatedAmount);
         }
         // Unknown handlers must still be probed without mutation. Such handlers are allowed to return a conservative
         // capacity; the real restore below remains authoritative and verifies the final aggregate.
         return insertForRestore(cell, key, amount, Actionable.SIMULATE, source);
-    }
-
-    private long getUsedBytesForRestore(RestoreTarget target) {
-        IECOStorageCell cell = target.simulatedCell();
-        if (cell instanceof IECOStorageMigrationCell migrationCell) {
-            return migrationCell.getUsedBytesForMigration(target.simulatedContents());
-        }
-        return cell.getUsedBytes();
     }
 
     private void restoreInfiniteDomainToNormalStorage(RestorePlan plan) {
@@ -234,10 +203,10 @@ final class ECOStorageInfiniteRestore {
         for (RestoreTarget target : plan.targets()) {
             ECODriveBlockEntity drive = target.drive();
             if (drive.isRemoved() || host.getCluster() == null || !host.getCluster().getDrives().contains(drive)
-                || serverLevel.getBlockEntity(drive.getBlockPos()) != drive
-                || !ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
-                || !target.identity.equals(ECOInfiniteStorageMember.identity(drive.getCellStack()))
-                || !targetIds.add(target.identity)) {
+                    || serverLevel.getBlockEntity(drive.getBlockPos()) != drive
+                    || !ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
+                    || !target.identity.equals(ECOInfiniteStorageMember.identity(drive.getCellStack()))
+                    || !targetIds.add(target.identity)) {
                 activeRestorePlan = null;
                 restoreQueue.clear();
                 host.storageFaults().report("restore", "Restore target changed; waiting for original sealed matrices", host.getLevel().getGameTime());
@@ -264,7 +233,7 @@ final class ECOStorageInfiniteRestore {
                     long before = cell.getMigrationAmount(key);
                     long after = target.simulatedContents().get(key);
                     UUID oldReceipt = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
-                        entry.getLongValue(), "from-domain");
+                            entry.getLongValue(), "from-domain");
                     long transferred = Math.addExact(target.drive().getRestoreReceipt(oldReceipt), after - before);
                     amounts.put(target.identity, new ECOInfiniteStorageEngine.RestoreTargetAmounts(before, after, transferred));
                 }
@@ -278,14 +247,15 @@ final class ECOStorageInfiniteRestore {
             activeRestorePlan = plan;
             IStorageProvider.requestUpdate(host.getMainNode());
         }
-        while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero()) restoreQueue.removeFirst();
+        while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero())
+            restoreQueue.removeFirst();
         Map<AEKey, UUID> completed = new HashMap<>();
         java.util.Set<IECOStorageMigrationCell> changedCells = new java.util.HashSet<>();
         IActionSource source = IActionSource.ofMachine(host);
         long started = System.nanoTime();
         for (AEKey key : restoreQueue) {
             if (completed.size() >= NEConfig.storageTransferKeysPerTick
-                || (!completed.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget())) break;
+                    || (!completed.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget())) break;
             var goals = engine.restorePlan(key);
             for (RestoreTarget target : plan.targets()) {
                 var goal = goals.get(target.identity);
@@ -296,7 +266,7 @@ final class ECOStorageInfiniteRestore {
                     return;
                 }
                 UUID receipt = host.migrationTransactionId(host.infiniteDomainId(), target.drive(), key,
-                    engine.getRestoreAmount(key).toLongSaturated(), "from-domain");
+                        engine.getRestoreAmount(key).toLongSaturated(), "from-domain");
                 target.drive().putRestoreReceipt(receipt, goal.transferred());
                 changedCells.add(cell);
             }
@@ -304,7 +274,14 @@ final class ECOStorageInfiniteRestore {
         }
         if (!completed.isEmpty()) {
             for (var cell : changedCells) cell.persistMigrationContents(serverLevel);
-            serverLevel.getChunkSource().save(true);
+            List<net.minecraft.core.BlockPos> changedChunks = new ArrayList<>();
+            for (RestoreTarget target : plan.targets()) {
+                if (changedCells.contains(target.drive().getCellInventory())) {
+                    changedChunks.add(target.drive().getBlockPos());
+                }
+            }
+            changedChunks.add(host.getBlockPos());
+            ECOStorageDurability.saveChunks(serverLevel, changedChunks);
             if (!engine.finishRestores(completed)) return;
             restoreQueue.removeIf(completed::containsKey);
             host.storageFaults().recovered("restore");
@@ -317,11 +294,11 @@ final class ECOStorageInfiniteRestore {
     }
 
     private long insertForRestore(
-        IECOStorageCell cell,
-        AEKey key,
-        long amount,
-        Actionable mode,
-        IActionSource source
+            IECOStorageCell cell,
+            AEKey key,
+            long amount,
+            Actionable mode,
+            IActionSource source
     ) {
         if (cell instanceof IECOStorageMigrationCell migrationCell) {
             return migrationCell.insertForMigration(key, amount, mode, source);
@@ -341,7 +318,7 @@ final class ECOStorageInfiniteRestore {
         long tick = host.getLevel() == null ? 0L : host.getLevel().getGameTime();
         if (extractionCheckTick == Long.MIN_VALUE || tick - extractionCheckTick >= 20L) {
             extractionCheckTick = tick;
-            RestorePlan plan = createInfiniteRestorePlan(true);
+            RestorePlan plan = createInfiniteRestorePlan();
             extractionCheckReason = plan.canRestore() ? null : plan.reason();
         }
         return extractionCheckReason;
@@ -354,6 +331,7 @@ final class ECOStorageInfiniteRestore {
         private final UUID identity;
         private long simulatedTypes;
         private long simulatedAmount;
+
         private RestoreTarget(ECODriveBlockEntity drive, IECOStorageCell cell, KeyCounter contents) {
             this.drive = drive;
             this.simulatedCell = cell;
@@ -367,9 +345,19 @@ final class ECOStorageInfiniteRestore {
                 }
             }
         }
-        private ECODriveBlockEntity drive() { return drive; }
-        private IECOStorageCell simulatedCell() { return simulatedCell; }
-        private KeyCounter simulatedContents() { return simulatedContents; }
+
+        private ECODriveBlockEntity drive() {
+            return drive;
+        }
+
+        private IECOStorageCell simulatedCell() {
+            return simulatedCell;
+        }
+
+        private KeyCounter simulatedContents() {
+            return simulatedContents;
+        }
+
         private void addSimulated(AEKey key, long amount) {
             if (amount <= 0L) return;
             if (simulatedContents.get(key) == 0L) simulatedTypes++;
@@ -419,8 +407,8 @@ final class ECOStorageInfiniteRestore {
             }
             ItemStack current = delegate.getStackInSlot(slot);
             if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
-                && host.hasRequiredInfiniteComponents(current)
-                && !host.hasRequiredInfiniteComponents(stack)) {
+                    && host.hasRequiredInfiniteComponents(current)
+                    && !host.hasRequiredInfiniteComponents(stack)) {
                 return;
             }
             // ItemHandlerSlot.getMaxStackSize() temporarily clears and restores the slot while
@@ -454,7 +442,7 @@ final class ECOStorageInfiniteRestore {
                 return ItemStack.EMPTY;
             }
 
-            RestorePlan plan = createInfiniteRestorePlan(true);
+            RestorePlan plan = createInfiniteRestorePlan();
             if (!plan.canRestore()) {
                 return ItemStack.EMPTY;
             }

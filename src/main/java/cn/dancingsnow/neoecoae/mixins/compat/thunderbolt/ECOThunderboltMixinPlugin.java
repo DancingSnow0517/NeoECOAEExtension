@@ -11,9 +11,10 @@ public final class ECOThunderboltMixinPlugin implements IMixinConfigPlugin {
     public void onLoad(String mixinPackage) {}
     public String getRefMapperConfig() { return null; }
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        boolean modern = present("com/moakiee/thunderbolt/api/crafting/batch/IBatchCraftingProvider.class");
-        if (mixinClassName.endsWith(".ECOThunderboltProviderMixin")) return modern;
-        return !modern && present("com/moakiee/thunderbolt/ae2/batch/NeoEcoPatternBusBatchBridge.class");
+        // NeoECO exposes its own FastPath facade. External CPUs opt into that API explicitly;
+        // never make an ECO host implement a foreign provider contract at runtime.
+        if (mixinClassName.endsWith(".ECOThunderboltProviderMixin")) return false;
+        return false;
     }
     private boolean present(String resource) {
         return getClass().getClassLoader().getResource(resource) != null;

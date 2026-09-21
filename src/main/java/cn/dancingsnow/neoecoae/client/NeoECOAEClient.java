@@ -5,25 +5,21 @@ import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
-import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
+import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
-import cn.dancingsnow.neoecoae.mixins.client.accessor.MenuScreensAccessor;
 import appeng.init.client.InitScreens;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
-import appeng.client.gui.style.StyleManager;
-import appeng.menu.me.crafting.CraftConfirmMenu;
-import net.minecraft.client.gui.screens.MenuScreens;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -33,6 +29,17 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import appeng.client.gui.implementations.CellWorkbenchScreen;
+import appeng.menu.implementations.CellWorkbenchMenu;
+import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
+import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -55,12 +62,67 @@ public class NeoECOAEClient {
             NEBlockEntities.ECO_DRIVE.get(),
             new ECODriveRenderer()
         );
-        event.enqueueWork(() -> {
-            MenuScreens.ScreenConstructor<CraftConfirmMenu, ECOCraftConfirmRouterScreen> constructor =
-                (menu, inventory, title) -> new ECOCraftConfirmRouterScreen(
-                    menu, inventory, title, StyleManager.loadStyleDoc("/screens/craft_confirm.json"));
-            MenuScreensAccessor.neoecoae$getScreens().put(CraftConfirmMenu.TYPE, constructor);
-        });
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        cn.dancingsnow.neoecoae.network.MenuDataTransport.retainClientMenu(player == null ? null : player.containerMenu);
+    }
+
+    @SubscribeEvent
+    public static void onScreenInitPost(ScreenEvent.Init.Post event) {
+        ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
+        if (event.getScreen() instanceof CellWorkbenchScreen screen
+                && screen.getMenu() instanceof CellWorkbenchMenu menu) {
+            Button importButton = new JeiBookmarkButton(Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
+                var keys = JeiBookmarkAccess.itemBookmarks().stream()
+                    .map(stack -> appeng.api.stacks.AEItemKey.of(stack))
+                    .filter(java.util.Objects::nonNull).map(key -> (appeng.api.stacks.AEKey) key).toList();
+                PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
+            });
+            importButton.setX(screen.getGuiLeft() + 130);
+            importButton.setY(screen.getGuiTop() + 7);
+            importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
+            event.addListener(importButton);
+        }
+    }
+
+    /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
+    private static final class JeiBookmarkButton extends Button {
+        private JeiBookmarkButton(Component message, OnPress onPress) {
+            super(0, 0, 16, 16, message, onPress, Button.DEFAULT_NARRATION);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int yOffset = isHovered() ? 1 : 0;
+            Icon background = isHovered()
+                ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
+                : Icon.TOOLBAR_BUTTON_BACKGROUND;
+            background.getBlitter()
+                .dest(getX() - 1, getY(), 18, 20)
+                .zOffset(100)
+                .blit(graphics);
+
+            Component message = getMessage();
+            int textWidth = Minecraft.getInstance().font.width(message);
+            graphics.drawString(
+                Minecraft.getInstance().font,
+                message,
+                getX() + (width - textWidth) / 2,
+                getY() + (height - 8) / 2 + yOffset,
+                0xFFFFFFFF,
+                true
+            );
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+        ECOCraftConfirmScreenIntegration.onScreenRenderPost(event);
     }
 
     @SubscribeEvent
@@ -77,7 +139,7 @@ public class NeoECOAEClient {
     public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
         // RenderSection reuses a mutable origin; snapshot it before the async rebuild runs.
         BlockPos sectionOrigin = event.getSectionOrigin().immutable();
-        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, sectionOrigin));
+        event.addRenderer(context -> FixedBlockEntityRenderers.render(context, sectionOrigin));
     }
 
     @SubscribeEvent

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.command;
 import static net.minecraft.commands.Commands.literal;
 
 import appeng.api.networking.IGrid;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -20,6 +20,11 @@ public final class NECommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(literal("neoecoae")
             .requires(source -> source.hasPermission(2))
+            .then(literal("network_report").executes(context -> {
+                context.getSource().sendSuccess(() -> Component.literal(
+                    cn.dancingsnow.neoecoae.network.MenuDataTransport.report()), false);
+                return 1;
+            }))
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
             .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
                 .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())

@@ -165,11 +165,16 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    /**
+     * AEBaseBlockEntity overrides getUpdateTag without calling BlockEntity#getUpdateTag, so LDLib's
+     * BlockEntity mixin cannot append the initial values of our managed sync fields. Keep the bridge
+     * here so clients receive cell, multiblock and orientation data before section geometry is built.
+     */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
-        if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
+        if (this instanceof ISyncMangedHolder syncManagedHolder) {
+            tag.put(syncManagedHolder.getSyncTag(), syncManagedHolder.serializeInitialData(registries));
         }
         return tag;
     }

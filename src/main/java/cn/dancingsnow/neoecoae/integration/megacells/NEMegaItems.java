@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaItemStorageCell
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.MegaCellHousingItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
@@ -40,7 +39,7 @@ public final class NEMegaItems {
     public static final ItemEntry<Item> ECO_MEGA_UPGRADE_CARD =
         REGISTRATE.item("eco_mega_upgrade_card", Upgrades::createUpgradeCardItem)
             .lang("ECO MEGA Upgrade Card")
-            .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/eco_mega_upgrade_card")))
+            .model((ctx, prov) -> {})
             .register();
 
     public static final ItemEntry<ECOMegaItemStorageCellItem> ECO_MEGA_ITEM_CELL_4G =
@@ -52,14 +51,14 @@ public final class NEMegaItems {
                 p -> new ECOMegaLongBulkStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9,
                     NEMegaCellTypes.MEGA_ITEM))
             .lang("ECO MEGA Bulk Storage Matrix")
-            .model(ItemModelUtil.compatCellModel("mega_item_cell_housing", "256m"))
+            .model((ctx, prov) -> {})
             .register();
 
     static ItemEntry<Item> housing(String family, String displayFamily) {
         return REGISTRATE.<Item>item(family + "_cell_housing",
                 p -> new MegaCellHousingItem(p, "cell_type.neoecoae." + family))
             .lang("ECO MEGA Storage Matrix Housing (" + displayFamily + ")")
-            .model(ItemModelUtil.compatHousingModel(family + "_cell_housing"))
+            .model((ctx, prov) -> {})
             .register();
     }
 
@@ -68,7 +67,7 @@ public final class NEMegaItems {
                 p -> new ECOMegaItemStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
                     NEMegaCellTypes.MEGA_ITEM, capacity))
             .lang(cellName("Mega Item", capacity))
-            .model(ItemModelUtil.compatCellModel("mega_item_cell_housing", "256m"))
+            .model((ctx, prov) -> {})
             .register();
     }
 
@@ -77,7 +76,7 @@ public final class NEMegaItems {
                 p -> new ECOMegaFluidStorageCellItem(p.stacksTo(1).rarity(rarity), ECOTier.L9,
                     NEMegaCellTypes.MEGA_FLUID, capacity))
             .lang(cellName("Mega Fluid", capacity))
-            .model(ItemModelUtil.compatCellModel("mega_fluid_cell_housing", "256m"))
+            .model((ctx, prov) -> {})
             .register();
     }
 
@@ -88,12 +87,12 @@ public final class NEMegaItems {
         return REGISTRATE.item("eco_" + family + "_cell_" + size,
                 p -> factory.create(p.stacksTo(1).rarity(rarity), tier, type, capacity))
             .lang(cellName(displayFamily, capacity))
-            .model(ItemModelUtil.compatCellModel(family + "_cell_housing", "256m"))
+            .model((ctx, prov) -> {})
             .register();
     }
 
     private static String cellName(String family, long capacity) {
-        return "ECO - LE9 Storage Matrix (" + family + ", " + (capacity >> 30) + " GiB)";
+        return "ECO - LE9 Storage Matrix (" + family + ")";
     }
 
     @FunctionalInterface

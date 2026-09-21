@@ -132,7 +132,7 @@ public final class CraftingInterfaceUI {
         ProgressBar progressBar = new ProgressBar();
         progressBar.label(label -> label.setText(""));
         progressBar.barContainer(element -> element.layout(layout -> layout.paddingAll(1)));
-        progressBar.bind(DataBindingBuilder.floatValS2C(craftingInterface::getPatternTransferProgress).build());
+        progressBar.bind(DataBindingBuilder.floatValS2C(() -> Math.round(craftingInterface.getPatternTransferProgress() * 100.0F) / 100.0F).build());
         progressBar.addClass("eco-pattern-transfer-progress");
         progressBar.layout(layout -> layout.widthPercent(100).height(7));
         container.addChild(progressBar);

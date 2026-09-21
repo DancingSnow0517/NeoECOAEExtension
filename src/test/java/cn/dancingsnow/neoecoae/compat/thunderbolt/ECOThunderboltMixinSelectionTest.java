@@ -11,10 +11,10 @@ class ECOThunderboltMixinSelectionTest {
     private static final String PACKAGE = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
     private static final String PLUGIN = PACKAGE + "ECOThunderboltMixinPlugin";
 
-    @Test void oldApiOnlySelectsLegacyBridge() throws Exception { check(false, true, false, true); }
-    @Test void modernApiOnlySelectsModernProvider() throws Exception { check(true, false, true, false); }
+    @Test void oldApiIsExplicitlyUnsupported() throws Exception { check(false, true, false, false); }
+    @Test void modernApiDoesNotInjectAProviderContract() throws Exception { check(true, false, false, false); }
     @Test void absentModSelectsNeither() throws Exception { check(false, false, false, false); }
-    @Test void modernApiTakesPrecedenceOverLegacyResources() throws Exception { check(true, true, true, false); }
+    @Test void mixedApisDoNotInjectAProviderContract() throws Exception { check(true, true, false, false); }
 
     private void check(boolean modern, boolean legacy, boolean expectModern, boolean expectLegacy) throws Exception {
         ClassLoader parent = getClass().getClassLoader();

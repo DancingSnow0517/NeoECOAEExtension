@@ -10,9 +10,9 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingExecutor;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingExecutor;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
 import java.util.UUID;
 import java.util.Objects;
@@ -20,7 +20,9 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Synchronous CPU integration boundary. Prepare and submit on the owning server thread in the same tick.
+ * NeoECO-owned synchronous CPU integration boundary. Prepare and submit on the owning server thread
+ * in the same tick. External CPUs integrate with this facade directly; providers are not required to
+ * implement an API owned by the calling CPU or its infrastructure library.
  * Input slots describe one copy and are previews: all physical inputs must still be in the CPU inventory.
  * The facade owns extraction and rollback. The CPU must never extract or refund those inputs itself.
  * Provider verification and stateful material calculations remain in the provider's preparation contract.
@@ -47,10 +49,20 @@ public final class ECOFastPathFacade {
     public static PreparedBatch prepare(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
             long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId) {
+        return prepare(provider, pattern, inputs, outputs, remainders, inventory, maxCrafts,
+            singlePower, energy, level, jobId, false);
+    }
+
+    /** Explicit opt-in from the owning CPU's exact-order flag, never inferred from an amount or inventory. */
+    @Nullable
+    public static PreparedBatch prepare(ICraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, KeyCounter outputs, KeyCounter remainders, ListCraftingInventory inventory,
+            long maxCrafts, double singlePower, IEnergyService energy, Level level, @Nullable UUID jobId,
+            boolean exactOrder) {
         var target = resolveProvider(provider);
         if (target == null) return null;
         var batch = ECOBatchCraftingExecutor.prepare(target, pattern, inputs, outputs, remainders,
-            inventory, maxCrafts, singlePower, energy, level, jobId);
+            inventory, maxCrafts, singlePower, energy, level, jobId, exactOrder);
         return batch == null ? null : new PreparedBatch(batch, inventory);
     }
 
@@ -78,7 +90,7 @@ public final class ECOFastPathFacade {
         if (!(provider instanceof ECOFastPathDispatchProvider) || allocatedCopies <= 0) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier.Type.NORMAL) {
+                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL) {
             return null;
         }
         long bounded = Math.min(allocatedCopies, execution.arithmeticBatchLimit());
@@ -106,6 +118,9 @@ public final class ECOFastPathFacade {
         public long craftCount() { return batch.craftCount(); }
         public double power() { return batch.power(); }
         public List<GenericStack> inputTotal() { return batch.inputTotal(); }
+        public java.util.Map<appeng.api.stacks.AEKey, java.math.BigInteger> exactInputTotal() {
+            return batch.exactInputTotal();
+        }
         public List<GenericStack> outputs() { return batch.outputs(); }
         public List<GenericStack> remainders() { return batch.remainders(); }
 

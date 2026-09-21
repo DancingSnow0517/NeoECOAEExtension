@@ -2,52 +2,65 @@ package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
+import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECORecipeClassifier;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
-/** Both Thunderbolt API generations delegate allocated inputs to the same ECO execution path. */
+/**
+ * Thunderbolt/time-wheel adapter. The caller already extracted a homogeneous batch and owns energy
+ * accounting; this only reports how many of those copies the F-series host actually accepted.
+ */
 public final class ECOThunderboltBatchBridge {
     private ECOThunderboltBatchBridge() {}
 
     public static long capacity(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern) {
-        return !bus.isBusy() && pattern instanceof appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern
-            && ECORecipeClassifier.classify(pattern).type() == ECORecipeClassifier.Type.NORMAL
-            ? Long.MAX_VALUE : 0;
+        if (!fastPathEligible(bus, pattern)) return 0L;
+        int slots = bus.getAvailableThreadSlots();
+        return slots > 1 ? slots : 0L;
     }
 
     public static long push(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
             KeyCounter[] oneCopy, long maxCraft, Level level, @Nullable UUID jobId) {
-        var batch = ECOFastPathFacade.prepareAllocated(bus, pattern, oneCopy, maxCraft, level, jobId);
-        if (batch == null) return maxCraft;
-        // The calling CPU owns reservation, energy accounting and reinsertion of unaccepted copies.
-        boolean accepted = batch.submit(amount -> new ECOFastPathFacade.Reservation() {
-            public void commit() {}
-            public void refund() {}
-        });
-        return accepted ? maxCraft - batch.craftCount() : maxCraft;
+        if (maxCraft <= 0L) return 0L;
+        long leftover = drainFastPath(bus, pattern, oneCopy, maxCraft, level, jobId);
+        if (leftover == maxCraft && bus.pushPattern(pattern, oneCopy, jobId)) {
+            leftover--;
+        }
+        return leftover;
     }
 
-    public static long pushLegacy(ECOCraftingPatternBusBlockEntity bus, Object context) {
-        // Decode before dispatch: never turn an exception after submission into a retry of the same inputs.
-        final IPatternDetails pattern;
-        final KeyCounter[] inputs;
-        final long copies;
-        final Level level;
-        final UUID jobId;
-        try {
-            Class<?> type = context.getClass();
-            pattern = (IPatternDetails) type.getMethod("details").invoke(context);
-            inputs = (KeyCounter[]) type.getMethod("oneCopyTemplate").invoke(context);
-            copies = (long) type.getMethod("maxCraft").invoke(context);
-            level = (Level) type.getMethod("level").invoke(context);
-            jobId = (UUID) type.getMethod("craftingJobId").invoke(context);
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("Unsupported legacy Thunderbolt batch context", failure);
+    /**
+     * Fills every currently free FX lane that can accept this pattern, not just the highest-ranked
+     * worker. Time-wheel CPUs count one {@code pushBatch} as one successful dispatch, so a single-lane
+     * drain would leave half of a two-FX host idle until the next tick.
+     */
+    public static long drainFastPath(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
+            KeyCounter[] oneCopy, long maxCraft, Level level, @Nullable UUID jobId) {
+        if (maxCraft <= 0L) return 0L;
+        long leftover = maxCraft;
+        while (leftover > 0L) {
+            var batch = ECOFastPathFacade.prepareAllocated(bus, pattern, oneCopy, leftover, level, jobId);
+            if (batch == null) break;
+            long accepted = batch.craftCount();
+            if (accepted <= 0L || accepted > leftover) break;
+            if (!batch.submit(amount -> new ECOFastPathFacade.Reservation() {
+                @Override public void commit() {}
+                @Override public void refund() {}
+            })) {
+                break;
+            }
+            leftover -= accepted;
         }
-        return push(bus, pattern, inputs, copies, level, jobId);
+        return leftover;
+    }
+
+    public static boolean fastPathEligible(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern) {
+        if (bus.isBusy() || !(pattern instanceof IMolecularAssemblerSupportedPattern)) return false;
+        var classification = ECORecipeClassifier.classify(pattern);
+        return classification.type() == ECORecipeClassifier.Type.NORMAL && classification.supported();
     }
 }

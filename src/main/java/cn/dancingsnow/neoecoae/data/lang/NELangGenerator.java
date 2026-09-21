@@ -4,6 +4,26 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.big_order.reason.output_storage", "Waiting for output storage");
+        provider.add("gui.neoecoae.big_order.reason.child_incomplete", "Incomplete segment; further planning stopped");
+        provider.add("gui.neoecoae.big_order.planning", "Planning");
+        provider.add("gui.neoecoae.big_order.running_child", "Running segment");
+        provider.add("gui.neoecoae.big_order.waiting_materials", "Waiting for materials");
+        provider.add("gui.neoecoae.big_order.waiting_capacity", "Waiting for capacity");
+        provider.add("gui.neoecoae.big_order.completed", "Completed");
+        provider.add("gui.neoecoae.big_order.cancelled", "Cancelled");
+        provider.add("gui.neoecoae.big_order.failed", "Failed");
+        provider.add("gui.neoecoae.big_order.reason.capacity", "CPU capacity unavailable");
+        provider.add("gui.neoecoae.big_order.reason.materials", "Missing materials");
+        provider.add("gui.neoecoae.big_order.reason.source_unavailable", "Waiting for network or requesting player");
+        provider.add("gui.neoecoae.big_order.reason.planner_busy", "Planner busy");
+        provider.add("gui.neoecoae.big_order.reason.planning_failed", "Planning failed");
+        provider.add("gui.neoecoae.big_order.total", "Total %s");
+        provider.add("gui.neoecoae.big_order.done", "Completed %s");
+        provider.add("gui.neoecoae.big_order.remaining", "Remaining %s");
+        provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");
+        provider.add("gui.neoecoae.big_order.requires_cpu", "BigInt orders require an ECO CPU");
+        provider.add("gui.neoecoae.big_order.segmented", "ECO CPU: replan after each segment");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
@@ -56,11 +76,6 @@ public class NELangGenerator {
         provider.add("category.neoecoae.cooling.max_overclock", "Max Overclock: %d");
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
-        provider.add("block.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
-        provider.add("block.neoecoae.large_integrated_working_station_casing", "Large Integrated Working Station Casing");
-        provider.add("block.neoecoae.large_integrated_working_station_input_hatch", "Large Integrated Working Station Input Hatch");
-        provider.add("block.neoecoae.large_integrated_working_station_output_hatch", "Large Integrated Working Station Output Hatch");
-        provider.add("block.neoecoae.large_integrated_working_station_interface", "Large Integrated Working Station Interface");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
@@ -182,6 +197,8 @@ public class NELangGenerator {
             "Parallel count increases the processing numbers per crafting task for all threading cores"
         );
         provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
+        provider.add("tooltip.neoecoae.computation_cell.install",
+            "Right-click a computation subsystem host to install directly");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
         provider.add("neoecoae.unknow_cell_type", "Unknown cell type");

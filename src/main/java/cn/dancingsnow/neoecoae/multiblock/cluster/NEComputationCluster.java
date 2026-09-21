@@ -13,7 +13,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
@@ -21,7 +21,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
-import cn.dancingsnow.neoecoae.util.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -60,6 +60,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private NEComputationNetworkCluster networkCluster;
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
+    /** BigInt child plans are segmented by the controller and must not consume the finite CPU byte reservation. */
+    private final Map<ICraftingPlan, Boolean> bigOrderPlans = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -360,9 +362,23 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         this.availableStorage = Math.max(0, totalStorage - getActiveJobBytes());
     }
 
+    /** Server-thread atomic reservation replacement for a parent's next complete long segment. */
+    public boolean replaceBigOrderPlan(ECOCraftingCPU cpu, ICraftingPlan next) {
+        ICraftingPlan previous = cpu.getPlan();
+        if (previous == null || activeCpus.get(previous) != cpu || next.bytes() < 0) return false;
+        activeCpus.remove(previous);
+        bigOrderPlans.remove(previous);
+        cpu.setBigOrderChildPlan(next);
+        activeCpus.put(next, cpu);
+        bigOrderPlans.put(next, Boolean.TRUE);
+        recalculateRemainingStorage();
+        return activeCpus.get(next) == cpu;
+    }
+
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {
+            if (bigOrderPlans.containsKey(plan)) continue;
             usedStorage = NEMath.saturatingAdd(
                 usedStorage,
                 Math.max(0L, plan.bytes())
@@ -418,6 +434,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void deactivate(@Nullable ICraftingPlan plan) {
         ECOCraftingCPU cpu = this.activeCpus.remove(plan);
+        this.bigOrderPlans.remove(plan);
         this.recalculateRemainingStorage();
         this.updateGridForChangedCpu();
         if (cpu != null && cpu.getOwner() != null) {
@@ -448,6 +465,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 cpu.getOwner().deactivate(cpu);
             }
             this.activeCpus.remove(plan);
+            this.bigOrderPlans.remove(plan);
         }
         if (recalculate) {
             this.recalculateRemainingStorage();

@@ -7,22 +7,26 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+
 import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
 
-/** Bounded finite-to-infinite transfer. The sealed source stays intact until the destination is durable. */
+/**
+ * Bounded finite-to-infinite transfer. The sealed source stays intact until the destination is durable.
+ */
 public final class ECOInfiniteStorageTransfer {
     private final Map<UUID, Cursor> cursors = new HashMap<>();
 
     public static boolean isEligible(IECOStorageCell cell) {
         return cell instanceof IECOStorageMigrationCell && cell.isInfiniteStorageEligible()
-            && cell.getTier() == ECOTier.L9;
+                && cell.getTier() == ECOTier.L9;
     }
 
     /**
@@ -61,9 +65,11 @@ public final class ECOInfiniteStorageTransfer {
             }
             if (cursor.amount > 0) {
                 UUID legacy = legacyReceipt.apply(cursor.key, cursor.amount);
-                UUID transaction = engine.hasMigrationReceipt(legacy) ? legacy
-                    : UUID.nameUUIDFromBytes((migration + ":" + cursor.key.toTagGeneric(registries)).getBytes(StandardCharsets.UTF_8));
-                if (engine.insertOnce(transaction, cursor.key, cursor.amount) != cursor.amount) return false;
+                UUID sealed = UUID.nameUUIDFromBytes(
+                        (migration + ":" + cursor.key.toTagGeneric(registries)).getBytes(StandardCharsets.UTF_8));
+                if (engine.insertOnce(java.util.Set.of(legacy, sealed), cursor.key, cursor.amount) != cursor.amount) {
+                    return false;
+                }
             }
             cursor.key = null;
             visited++;
@@ -74,9 +80,13 @@ public final class ECOInfiniteStorageTransfer {
         return true;
     }
 
-    public void reset() { cursors.clear(); }
+    public void reset() {
+        cursors.clear();
+    }
 
-    /** Reconciles a target against a durable plan, including a write whose chunk receipt was not saved yet. */
+    /**
+     * Reconciles a target against a durable plan, including a write whose chunk receipt was not saved yet.
+     */
     public static boolean restoreTarget(IECOStorageMigrationCell cell, AEKey key,
                                         ECOInfiniteStorageEngine.RestoreTargetAmounts goal, IActionSource source) {
         long current = cell.getMigrationAmount(key);
@@ -95,6 +105,7 @@ public final class ECOInfiniteStorageTransfer {
         private final Iterator<Object2LongMap.Entry<AEKey>> entries;
         private AEKey key;
         private long amount;
+
         private Cursor(Object source, IECOStorageMigrationCell cell, Iterator<Object2LongMap.Entry<AEKey>> entries) {
             this.source = source;
             this.cell = cell;

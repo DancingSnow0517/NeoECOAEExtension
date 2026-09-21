@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Supplier;
 
-/** Attached selector and partition editor for ECO MEGA long bulk cells. */
+/** Attached selector and partition editor for cells supporting manual MEGA marking. */
 public final class StorageMegaPanelUI {
     private static final int WIDTH = 103;
     private static final int HEIGHT = 130;
@@ -73,7 +73,7 @@ public final class StorageMegaPanelUI {
             panel.addChild(bulkMarkingButton);
         }
         panel.addChild(cellControls(host));
-        UIElement pageControls = HostElements.syncedDisplay(host::hasEcoMegaUpgradeCard);
+        UIElement pageControls = HostElements.syncedDisplay(() -> host.getEcoMegaPageCount() > 1);
         pageControls.layout(layout -> layout
             .positionType(TaffyPosition.ABSOLUTE)
             .left(CONTROLS_LEFT)
@@ -110,7 +110,7 @@ public final class StorageMegaPanelUI {
 
     private static UIElement pageControls(ECOStorageSystemBlockEntity host) {
         return controlsRow(
-            () -> Component.literal((host.getSelectedEcoMegaPage() + 1) + "/2"),
+            () -> Component.literal((host.getSelectedEcoMegaPage() + 1) + "/" + host.getEcoMegaPageCount()),
             () -> host.changeSelectedEcoMegaPage(-1),
             () -> host.changeSelectedEcoMegaPage(1)
         );
@@ -193,7 +193,13 @@ public final class StorageMegaPanelUI {
                 slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
                 slot.slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
                 slot.layout(layout -> layout.width(SLOT_SIZE).height(SLOT_SIZE));
-                row.addChild(slot);
+                UIElement slotWrapper = new UIElement()
+                    .layout(layout -> layout.width(SLOT_SIZE).height(SLOT_SIZE));
+                UIElement availableSlot = HostElements.syncedDisplay(
+                    () -> host.isEcoMegaFilterSlotAvailable(slotIndex));
+                availableSlot.addChild(slot);
+                slotWrapper.addChild(availableSlot);
+                row.addChild(slotWrapper);
             }
             grid.addChild(row);
         }

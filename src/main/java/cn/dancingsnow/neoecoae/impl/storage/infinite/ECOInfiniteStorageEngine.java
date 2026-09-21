@@ -4,12 +4,14 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
+
 import java.util.Collection;
 import java.math.BigInteger;
 import java.util.UUID;
 
 public interface ECOInfiniteStorageEngine {
-    record TypeStats(AEKeyType keyType, long storedTypes, HugeAmount storedAmount) {}
+    record TypeStats(AEKeyType keyType, long storedTypes, HugeAmount storedAmount) {
+    }
 
     long insert(AEKey key, long amount, Actionable mode);
 
@@ -21,6 +23,16 @@ public interface ECOInfiniteStorageEngine {
      */
     default long insertOnce(UUID transactionId, AEKey key, long amount) {
         return insert(key, amount, Actionable.MODULATE);
+    }
+
+    /**
+     * Records equivalent transaction identities atomically. This lets migration retries be
+     * recognized both from the disk's seal id and from its original controller slot.
+     */
+    default long insertOnce(java.util.Set<UUID> transactionIds, AEKey key, long amount) {
+        UUID transactionId = transactionIds == null || transactionIds.isEmpty()
+                ? null : transactionIds.iterator().next();
+        return insertOnce(transactionId, key, amount);
     }
 
     long extract(AEKey key, long amount, Actionable mode);
@@ -60,32 +72,50 @@ public interface ECOInfiniteStorageEngine {
 
     boolean hasHugeStacks();
 
-    default boolean hasMigrationReceipt(UUID transactionId) { return false; }
+    default boolean hasMigrationReceipt(UUID transactionId) {
+        return false;
+    }
 
     /**
-     * Writes the domain to disk right away. Ordinary inserts and extracts only mark the world data dirty and are
-     * saved with the world; this is reserved for the boundaries of a migration, where the same items briefly exist
-     * in both the domain and a storage cell.
+     * Writes the domain snapshot to disk right away. Ordinary inserts and extracts are protected by the
+     * write-ahead journal; this full snapshot commit is reserved for migration boundaries, where inventory,
+     * receipts, and restore plans must advance together.
      */
-    record CommitResult(boolean successful, long durableRevision, String failure) {}
+    record CommitResult(boolean successful, long durableRevision, String failure) {
+    }
 
     CommitResult commit();
 
-    default long revision() { return 0L; }
+    default long revision() {
+        return 0L;
+    }
 
-    default boolean reserveRestore(AEKey key, UUID transaction) { return false; }
+    default boolean reserveRestore(AEKey key, UUID transaction) {
+        return false;
+    }
 
-    default boolean reserveRestore(AEKey key, UUID transaction, java.util.Set<UUID> targets) { return false; }
+    default boolean reserveRestore(AEKey key, UUID transaction, java.util.Set<UUID> targets) {
+        return false;
+    }
 
-    default java.util.Set<UUID> restoreTargetIds(AEKey key) { return java.util.Set.of(); }
+    default java.util.Set<UUID> restoreTargetIds(AEKey key) {
+        return java.util.Set.of();
+    }
 
-    default UUID restoreTransaction(AEKey key) { return null; }
+    default UUID restoreTransaction(AEKey key) {
+        return null;
+    }
 
-    default boolean hasPendingRestore() { return false; }
+    default boolean hasPendingRestore() {
+        return false;
+    }
 
-    default void failRestore(AEKey key, String reason) {}
+    default void failRestore(AEKey key, String reason) {
+    }
 
-    default boolean finishRestore(AEKey key, UUID transaction) { return false; }
+    default boolean finishRestore(AEKey key, UUID transaction) {
+        return false;
+    }
 
     record RestoreTargetAmounts(long before, long after, long transferred) {
         public RestoreTargetAmounts {
@@ -96,14 +126,18 @@ public interface ECOInfiniteStorageEngine {
     }
 
     boolean reserveRestores(java.util.Map<AEKey, UUID> transactions, java.util.Set<UUID> targets,
-        java.util.Map<AEKey, java.util.Map<UUID, RestoreTargetAmounts>> plans);
+                            java.util.Map<AEKey, java.util.Map<UUID, RestoreTargetAmounts>> plans);
 
     java.util.Map<UUID, RestoreTargetAmounts> restorePlan(AEKey key);
 
     boolean finishRestores(java.util.Map<AEKey, UUID> transactions);
 
-    default HugeAmount getRestoreAmount(AEKey key) { return getAmount(key); }
+    default HugeAmount getRestoreAmount(AEKey key) {
+        return getAmount(key);
+    }
 
-    default void getRestoreStacks(KeyCounter out) { getAvailableStacks(out); }
+    default void getRestoreStacks(KeyCounter out) {
+        getAvailableStacks(out);
+    }
 
 }
