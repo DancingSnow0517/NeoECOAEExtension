@@ -141,6 +141,12 @@ final class ECOCraftingTaskScheduler {
         stallDiagnostics.beginDispatch(ordinaryLimit, probeLimit);
 
         int totalPushed = 0;
+        // A CPU callback may advance several independent ready tasks. Keep the existing
+        // operation limit as the task-start budget so verified provider batches cannot
+        // turn one callback into an unbounded walk over the whole execution graph.
+        int taskDispatchLimit = Math.max(1, Math.min(MAX_CANDIDATE_INSPECTIONS_PER_EXECUTE,
+                Math.max(0, maxPatterns)));
+        int acceptedDispatches = 0;
         BitSet blockedOrderedPhases = new BitSet();
         while (jobStillActive.getAsBoolean()) {
             var candidates = current.executionRuntime == null
@@ -274,9 +280,11 @@ final class ECOCraftingTaskScheduler {
                         normalPush);
                 if (dispatch.accepted()) {
                     totalPushed = addPushed(totalPushed, dispatch.acceptedCrafts());
-                    if (dispatch.fastPath()) {
-                        resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
-                    }
+                    // Rebuild the candidate list after every accepted task. This commits
+                    // progress and newly available inputs before another independent task
+                    // is selected, while the runtime still gates true dependencies.
+                    resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
+                    acceptedDispatches++;
                     acceptedInPass = true;
                     if (failedCandidateKey != null) missingInputFailures.remove(failedCandidateKey);
                     break;
@@ -289,8 +297,9 @@ final class ECOCraftingTaskScheduler {
                 resumeDispatchPattern = candidates.get((start + inspected) % candidates.size()).pattern();
             }
             if (!acceptedInPass) break;
-            // Preserve the existing one-accepted-dispatch pass boundary. The CPU tick invokes this method again.
-            break;
+            if (acceptedDispatches >= taskDispatchLimit) break;
+            // Re-enter with a fresh candidate snapshot so independent tasks can advance
+            // in the same CPU callback without allowing an old dependency snapshot to leak.
         }
 
         lastPass = new DispatchPassResult(totalPushed, budget.normalProbes(), budget.acceptedNormalPushes());

@@ -28,16 +28,28 @@ import org.jetbrains.annotations.Nullable;
 final class ECOProcessingPatternDispatcher {
     private static final long TICK_BUDGET = 1_000_000L;
     private static final long FAIR_SHARE = 50_000L;
+    private static final long ELIGIBILITY_CACHE_TICKS = 10L;
+    private static final long SCALE_PROBE_INTERVAL_TICKS = 5L;
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
     private final Map<ICraftingProvider, IdentityHashMap<IPatternDetails, ProbeState>> states = new IdentityHashMap<>();
+    private final Map<ICraftingProvider, IdentityHashMap<IPatternDetails, Eligibility>> eligibility = new IdentityHashMap<>();
     private long tick = Long.MIN_VALUE, used;
 
     ECOProcessingPatternDispatcher(ECOCraftingCPULogic owner, ECOCraftingEnergyTransaction energy,
             ECOCraftingDispatchAccounting accounting) { this.owner = owner; this.energy = energy; this.accounting = accounting; }
     void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; } }
-    void reset() { states.clear(); tick = Long.MIN_VALUE; used = 0; }
+    void reset() { states.clear(); eligibility.clear(); tick = Long.MIN_VALUE; used = 0; }
+    boolean supportsScaledDispatchCached(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        IdentityHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
+                ignored -> new IdentityHashMap<>());
+        Eligibility cached = byPattern.get(request.pattern());
+        if (cached != null && tick - cached.tick() < ELIGIBILITY_CACHE_TICKS) return cached.supported();
+        boolean supported = supportsScaledDispatch(request, provider);
+        byPattern.put(request.pattern(), new Eligibility(tick, supported));
+        return supported;
+    }
     boolean supports(ICraftingProvider provider, @Nullable IPatternDetails pattern) {
         return Contract.forProvider(provider) != null
                 && (pattern == null || ECOProviderPatternIntrospection.unwrap(pattern) instanceof AEProcessingPattern);
@@ -110,7 +122,7 @@ final class ECOProcessingPatternDispatcher {
     @Nullable ECOCraftingDispatchResult tryScaledDispatch(ECOCraftingDispatchRequest request,
             ICraftingProvider provider, double onePower, IEnergyService service,
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
-        if (!supportsScaledDispatch(request, provider)) return null;
+        if (!supportsScaledDispatchCached(request, provider)) return null;
         long budget = TICK_BUDGET - used;
         if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>())
@@ -123,7 +135,7 @@ final class ECOProcessingPatternDispatcher {
         limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit,
                 n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
         limit = ECOExtendedAEPlusScaling.cap(request.pattern(), limit);
-        var ramp = state.beginRun();
+        var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
         while (ramp.owned < limit && !provider.isBusy()) {
             long offer = ramp.offer(limit - ramp.owned);
             List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
@@ -152,7 +164,7 @@ final class ECOProcessingPatternDispatcher {
                     return null;
                 }
                 if (!accepted) {
-                    if (ramp.record(offer, 0, false)) continue;
+                    if (ramp.record(offer, 0, false, tick)) continue;
                     break;
                 }
                 inputTransaction.transferOwnership();
@@ -160,7 +172,7 @@ final class ECOProcessingPatternDispatcher {
                 used += offer;
                 // Record each owned chunk before attempting another; a later exception cannot lose it.
                 accounting.apply(request, scaledResult(request, offer), () -> {}, provider);
-                if (!ramp.record(offer, offer, fullyInserted(provider))) break;
+                if (!ramp.record(offer, offer, fullyInserted(provider), tick)) break;
             } catch (RuntimeException failure) {
                 if (accepted) request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
                 throw failure;
@@ -301,37 +313,62 @@ final class ECOProcessingPatternDispatcher {
     private static final class AmbiguousDispatchException extends RuntimeException {
         private AmbiguousDispatchException(Throwable cause) { super(cause); }
     }
+    private record Eligibility(long tick, boolean supported) { }
     /** History survives visits; growth/recovery flags belong only to the current visit. */
     static final class ProbeState {
         long remembered = 1;
+        long nextProbeTick = Long.MIN_VALUE;
+        boolean probed;
 
-        Run beginRun() { return new Run(); }
+        Run beginRun(long currentTick, long probeInterval) {
+            boolean probe = currentTick >= nextProbeTick;
+            long target = probe
+                    ? (probed ? Math.min(Integer.MAX_VALUE, Math.max(remembered + 1L, remembered * 2L)) : remembered)
+                    : remembered;
+            return new Run(target, probe, probed && target > remembered, probeInterval);
+        }
 
         final class Run {
             long next = remembered;
             long owned;
-            boolean fullChunkAccepted;
-            boolean backingOff;
+            final long target;
+            final boolean probe;
+            final boolean growthProbe;
+            final long probeInterval;
+
+            private Run(long target, boolean probe, boolean growthProbe, long probeInterval) {
+                this.target = target;
+                this.next = target;
+                this.probe = probe;
+                this.growthProbe = growthProbe;
+                this.probeInterval = probeInterval;
+            }
 
             long offer(long remaining) { return Math.min(next, remaining); }
 
             /** Returns whether this visit should try another chunk. */
-            boolean record(long offered, long accepted, boolean fullyInserted) {
+            boolean record(long offered, long accepted, boolean fullyInserted, long currentTick) {
                 if (accepted <= 0) {
-                    if (fullChunkAccepted) return false;
                     remembered = next = Math.max(1, offered / 2);
-                    backingOff = true;
-                    return offered > 1;
+                    if (probe) nextProbeTick = currentTick + probeInterval;
+                    return false;
                 }
                 owned += accepted;
                 if (accepted != offered || !fullyInserted) {
-                    if (!fullChunkAccepted) remembered = Math.max(1, offered / 2);
+                    remembered = Math.max(1, offered / 2);
+                    if (probe) nextProbeTick = currentTick + probeInterval;
                     return false;
                 }
-                fullChunkAccepted = true;
-                if (offered == next) remembered = offered;
-                if (backingOff || offered == Integer.MAX_VALUE) return false;
-                next = Math.min(owned, Integer.MAX_VALUE);
+                if (probe && offered == target) {
+                    remembered = offered;
+                    probed = true;
+                    nextProbeTick = currentTick + probeInterval;
+                    next = remembered;
+                    return !growthProbe;
+                }
+                // Between upward probes, reuse the last proven chunk size without
+                // repeatedly re-running the expensive eligibility/scale decision.
+                next = remembered;
                 return true;
             }
         }

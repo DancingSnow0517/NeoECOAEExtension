@@ -57,7 +57,10 @@ public final class BoundedCycleSolver implements CycleSolver {
     /** Exact ring counts use exponential pivot growth, so this is independent of the requested craft amount. */
     private static final int MAX_EXACT_RING_PIVOT_STEPS = 128;
     /** Protects compact witness construction for pathologically weak net-growth ratios. */
-    private static final int MAX_EXACT_RING_MACRO_STEPS = 8_192;
+    // A neutral ring may need one alternating batch per lap (for example A+fuel -> B, B -> A+product).
+    // Keep this high enough for ordinary player requests; the witness remains compact in the execution plan
+    // and the hard planner budgets still protect the general search path.
+    private static final int MAX_EXACT_RING_MACRO_STEPS = 1_000_000;
     private final int greedyTopK;
     private final int maxGreedyCandidateEvaluations;
     private final int maxGreedyLookaheadNodes;
@@ -491,7 +494,12 @@ public final class BoundedCycleSolver implements CycleSolver {
             totalConsumedRatio = totalConsumedRatio.multiply(consumed[position]);
             totalProducedRatio = totalProducedRatio.multiply(produced[position]);
         }
-        if (totalProducedRatio.compareTo(totalConsumedRatio) <= 0) return null;
+        // A cycle does not have to multiply its feedback stock to be useful.  The common
+        // player-written form is an inventory-neutral loop that consumes a boundary ingredient
+        // and emits the requested product on every lap (A + fuel -> B, B -> A + product).
+        // Such a loop is still exactly solvable; only a contracting internal ring needs the
+        // unbounded search because its closure pivot can never converge.
+        if (totalProducedRatio.compareTo(totalConsumedRatio) < 0) return null;
 
         PlannerAmount[] base = zeroes(transitionCount);
         for (int key = 0; key < model.keyCount(); key++) {

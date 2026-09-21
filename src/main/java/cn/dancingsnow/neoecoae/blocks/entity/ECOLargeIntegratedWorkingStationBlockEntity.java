@@ -128,7 +128,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
             serverLevel.getServer().executeIfPossible(() -> {
-                if (!isRemoved() && level == serverLevel) rebuildMultiblock();
+                if (!isRemoved() && level == serverLevel) {
+                    rebuildMultiblock();
+                    // A restored batch is loaded before the AE2 grid finishes booting.  Re-forming the
+                    // multiblock therefore does not necessarily register a tick immediately; explicitly
+                    // wake the node after the deferred rebuild so persisted work can resume on the first
+                    // server tick after a reconnect.
+                    if (!pendingBatches.isEmpty()) {
+                        getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+                        requestCommunicationProviderUpdate();
+                    }
+                }
             });
         }
     }

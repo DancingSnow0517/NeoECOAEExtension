@@ -90,7 +90,7 @@ final class ECOCraftingProviderDispatcher {
                 return parallelResult;
             }
 
-            if (ECOProcessingPatternDispatcher.supportsScaledDispatch(request, provider)) {
+            if (processing.supportsScaledDispatchCached(request, provider)) {
                 var scaledProcessingResult = processing.tryScaledDispatch(
                         request, provider, singlePower, energyService, markProviderAttempt, normalPush);
                 if (scaledProcessingResult != null) {
