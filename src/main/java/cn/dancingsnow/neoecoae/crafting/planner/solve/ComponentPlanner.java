@@ -220,6 +220,10 @@ public final class ComponentPlanner {
                 ? CycleExecutionDisposition.NOT_REQUIRED : CycleExecutionDisposition.BLOCKED;
             Map<AEKey, Long> stockReservations = existingComponentReservations(
                 requiredOutputs, acyclic.state(), attributedCycleReservations);
+            LOGGER.debug("[ECO-CYCLE] begin component={} members={} patterns={} requiredOutputs={} "
+                    + "cyclePlanningEnabled={} stockReservations={}",
+                cycle.componentId(), cycle.members().size(), cycle.patterns().size(), exactRequiredOutputs,
+                cyclePlanningEnabled, stockReservations);
             if (exactRequiredOutputs.isEmpty()) {
                 cycleStatus = CyclePlanningStatus.NOT_REQUIRED;
             } else if (!cyclePlanningEnabled) {
@@ -243,6 +247,19 @@ public final class ComponentPlanner {
                         cancellation);
                     cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                     diagnostic = cycleResult.summary();
+                    if (cycleResult.status() == CycleSolveStatus.SUCCESS) {
+                        LOGGER.debug("[ECO-CYCLE] solve component={} status={} firings={} seed={} "
+                                + "externalDemand={} shortfall={} metrics={}",
+                            cycle.componentId(), cycleResult.status(), cycleResult.plannerTotalFirings(),
+                            cycleResult.requiredSeed(), cycleResult.externalDemand(),
+                            cycleResult.seedShortfall(), cycleResult.metrics());
+                    } else {
+                        LOGGER.warn("[ECO-CYCLE] solve component={} status={} targets={} stock={} "
+                                + "seed={} externalDemand={} shortfall={} diagnostics={}",
+                            cycle.componentId(), cycleResult.status(), solveTargets, stock,
+                            cycleResult.requiredSeed(), cycleResult.externalDemand(),
+                            cycleResult.seedShortfall(), cycleResult.diagnostics());
+                    }
                     if (cycleStatus == CyclePlanningStatus.UNREPRESENTABLE) amountUnrepresentable = true;
                     trace.addDiagnostic(new PlannerDiagnostic(diagnosticCode(cycleStatus), diagnostic));
                 }
@@ -267,6 +284,10 @@ public final class ComponentPlanner {
                         ignorePatternSubstitutions, cancellation);
                     externalDemandStatus = external.status();
                     externalMissingItems = external.missingLeaves();
+                    LOGGER.warn("[ECO-CYCLE] startup recovery component={} externalStatus={} demands={} "
+                            + "missingLeaves={} diagnostic={}",
+                        cycle.componentId(), external.status(), recoveryDemands,
+                        externalMissingItems, external.diagnostic());
                     trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
                         external.diagnostic()));
                     if (external.solved()) {
@@ -305,6 +326,16 @@ public final class ComponentPlanner {
                             ignorePatternSubstitutions, cancellation);
                         externalDemandStatus = external.status();
                         externalMissingItems = external.missingLeaves();
+                        if (!external.solved()) {
+                            LOGGER.warn("[ECO-CYCLE] external demand failed component={} status={} "
+                                    + "missingLeaves={} diagnostic={}",
+                                cycle.componentId(), external.status(), externalMissingItems, external.diagnostic());
+                        } else {
+                            LOGGER.debug("[ECO-CYCLE] external demand solved component={} status={} "
+                                    + "delegated={} directReservations={}",
+                                cycle.componentId(), external.status(), external.delegatedCycleDemands(),
+                                external.directReservations());
+                        }
                         trace.addDiagnostic(new PlannerDiagnostic(externalDiagnosticCode(external.status()),
                             external.diagnostic()));
                     }
@@ -429,6 +460,16 @@ public final class ComponentPlanner {
                     && disposition != CycleExecutionDisposition.NOT_REQUIRED) {
                 stockReservations.forEach((key, reserved) ->
                     attributedCycleReservations.merge(key, reserved, Math::addExact));
+            }
+            if (cycleStatus != CyclePlanningStatus.SOLVED && cycleStatus != CyclePlanningStatus.NOT_REQUIRED) {
+                LOGGER.warn("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
+                        + "externalStatus={} missingLeaves={} diagnostic={}",
+                    cycle.componentId(), cycleStatus, disposition, requiredOutputs,
+                    externalDemandStatus, externalMissingItems, diagnostic);
+            } else {
+                LOGGER.debug("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
+                        + "reservations={}",
+                    cycle.componentId(), cycleStatus, disposition, requiredOutputs, stockReservations);
             }
             cycleDiagnostics.add(diagnostic(cycle, inventory, cycleResult, trace));
         }

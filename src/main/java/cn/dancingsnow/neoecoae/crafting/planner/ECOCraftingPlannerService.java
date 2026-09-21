@@ -130,6 +130,10 @@ public final class ECOCraftingPlannerService {
                 attach(result);
                 return result;
             } catch (RuntimeException e) {
+                LOGGER.error("[ECO-PLANNER] calculation failed goal={} amount={} simulation={} "
+                        + "cyclePlanningEnabled={} ignorePatternSubstitutions={} fuzzyItems={}",
+                    goal, amount, simulation, cyclePlanningEnabled, ignorePatternSubstitutions,
+                    fuzzyPlanningItemIds, e);
                 ECOPlanTrace trace = new ECOPlanTrace();
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     e.getClass().getSimpleName() + ": " + e.getMessage()));

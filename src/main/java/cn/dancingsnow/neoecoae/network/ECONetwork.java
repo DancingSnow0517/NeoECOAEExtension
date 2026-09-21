@@ -15,5 +15,7 @@ public final class ECONetwork {
             ECOBigOrderProgressS2CPacket.STREAM_CODEC, ECOBigOrderProgressS2CPacket::handle);
         registrar.playToServer(ECOForceCraftStartFlagC2SPacket.TYPE,
             ECOForceCraftStartFlagC2SPacket.STREAM_CODEC, ECOForceCraftStartFlagC2SPacket::handle);
+        registrar.playToServer(ECOImportJeiBookmarksC2SPacket.TYPE,
+            ECOImportJeiBookmarksC2SPacket.STREAM_CODEC, ECOImportJeiBookmarksC2SPacket::handle);
     }
 }

@@ -534,25 +534,36 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     // MaterialNode is built from the final executable plan. PatternNode firing counts are only
                     // structural cycle metadata and can legitimately be zero for a populated plan.
                     CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, key);
-                    cycleItems.putIfAbsent(key, new ECOCycleItemList.Entry(key,
+                    var entry = new ECOCycleItemList.Entry(key,
                         material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
                         neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key),
                         material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
                         cycle.executionCountKnowledge(),
-                        cycle.solveStatus(), cycle.componentId()));
+                        cycle.solveStatus(), cycle.componentId());
+                    // An unresolved structural cycle has no authoritative total. Do not project
+                    // the ordinary plan's consumed/produced fields into the cycle list: doing so
+                    // makes an unused cycle look as if it consumed a real amount and falls back
+                    // to the misleading "quantity unknown" row. Keep concrete startup shortages,
+                    // which remain actionable even when the cycle itself was not solved.
+                    if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
+                        cycleItems.putIfAbsent(key, entry);
+                    }
                 }
                 // A cycle can be unresolved before it produces any output. Keep its required startup seeds in
                 // the left-hand list so the report remains actionable instead of showing an empty plan.
                 for (var seed : cycle.requiredSeed()) {
                     CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, seed.key());
-                    cycleItems.putIfAbsent(seed.key(), new ECOCycleItemList.Entry(seed.key(),
+                    var entry = new ECOCycleItemList.Entry(seed.key(),
                         material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
                         material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
                         material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
-                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId()));
+                        cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId());
+                    if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
+                        cycleItems.putIfAbsent(seed.key(), entry);
+                    }
                 }
             }
             neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));

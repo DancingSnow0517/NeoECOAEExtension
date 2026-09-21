@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.crafting.graph.client.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
+import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -54,6 +55,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Button start;
     private final Button selectCPU;
     private final Button graph;
+    private final Button bookmarkMissing;
     private final Scrollbar scrollbar;
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
@@ -75,6 +77,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         selectCPU.active = false;
         widgets.addButton("cancel", GuiText.Cancel.text(), menu::goBack);
+        bookmarkMissing = widgets.addButton("bookmarkMissing",
+            Component.translatable("gui.neoecoae.crafting_report.bookmark_missing"), this::bookmarkMissing);
+        bookmarkMissing.active = false;
         graph = addToLeftToolbar(new CraftingGraphButton(this::openGraph));
     }
 
@@ -196,6 +201,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
+        bookmarkMissing.active = exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
             start.active = false;
             graph.active = false;
@@ -351,6 +357,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .map(ECOCycleItemList.Entry::what).orElse(null);
         }
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
+    }
+
+    private void bookmarkMissing() {
+        if (!bookmarkMissing.active) return;
+        JeiBookmarkAccess.addMissingToBookmarks(exactMaterials().stream()
+            .filter(node -> node.missingBigInteger().signum() > 0)
+            .map(CraftingGraphSnapshot.MaterialNode::key).toList());
     }
 
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {

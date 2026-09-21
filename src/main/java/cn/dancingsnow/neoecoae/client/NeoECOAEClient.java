@@ -30,6 +30,13 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import appeng.client.gui.implementations.CellWorkbenchScreen;
+import appeng.menu.implementations.CellWorkbenchMenu;
+import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
+import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -63,6 +70,18 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onScreenInitPost(ScreenEvent.Init.Post event) {
         ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
+        if (event.getScreen() instanceof CellWorkbenchScreen screen
+                && screen.getMenu() instanceof CellWorkbenchMenu menu) {
+            Button importButton = Button.builder(Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
+                var keys = JeiBookmarkAccess.itemBookmarks().stream()
+                    .map(stack -> appeng.api.stacks.AEItemKey.of(stack))
+                    .filter(java.util.Objects::nonNull).map(key -> (appeng.api.stacks.AEKey) key).toList();
+                PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
+            }).bounds(screen.getGuiLeft() + 130, screen.getGuiTop() + 7, 20, 20).build();
+            importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
+            event.addListener(importButton);
+        }
     }
 
     @SubscribeEvent
