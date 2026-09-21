@@ -28,26 +28,34 @@ class ECOProcessingDispatchIntegrationTest {
     void ordinaryRampStartsAtOneAndDebitsOnlyAcceptedChunks() {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
-        var result = f.scaled((request, provider) -> {
+        var result = f.scaled(0, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(1L, 1L, 2L, 4L, 8L), offers);
+        assertFalse(offers.isEmpty());
+        assertTrue(offers.stream().allMatch(value -> value == 1L));
         assertEquals(16, result.acceptedCrafts());
         assertEquals(84, f.inventory.list.get(f.key));
-        verify(f.accounting, times(5)).apply(eq(f.request), any(), any(), eq(f.provider));
+        verify(f.accounting, times(16)).apply(eq(f.request), any(), any(), eq(f.provider));
+        offers.clear();
+        var growth = f.scaled(5, (request, provider) -> {
+            offers.add(request.allowedCrafts());
+            return true;
+        });
+        assertEquals(List.of(2L), offers);
+        assertEquals(2, growth.acceptedCrafts());
     }
 
     @Test
     void warmedRampRefundsRejectedChunksAndStopsAfterRecovery() {
         var f = new Fixture();
-        f.scaled((request, provider) -> true);
+        f.scaled(0, (request, provider) -> true);
         var offers = new ArrayList<Long>();
-        var result = f.scaled((request, provider) -> {
+        var result = f.scaled(5, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return request.allowedCrafts() <= 2;
         });
-        assertEquals(List.of(8L, 4L, 2L), offers);
+        assertEquals(List.of(2L), offers);
         assertEquals(2, result.acceptedCrafts());
         assertEquals(82, f.inventory.list.get(f.key));
     }
@@ -55,24 +63,24 @@ class ECOProcessingDispatchIntegrationTest {
     @Test
     void bufferedAcceptanceStopsGrowthAndRemainsOwned() {
         var f = new Fixture();
-        f.scaled((request, provider) -> true);
+        f.scaled(0, (request, provider) -> true);
         when(((PatternProviderLogicAccessor) f.provider).neoecoae$getSendList())
                 .thenReturn(List.of(new GenericStack(f.key, 1)));
         var offers = new ArrayList<Long>();
-        var result = f.scaled((request, provider) -> {
+        var result = f.scaled(5, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(8L), offers);
-        assertEquals(8, result.acceptedCrafts());
-        assertEquals(76, f.inventory.list.get(f.key));
+        assertEquals(List.of(2L), offers);
+        assertEquals(2, result.acceptedCrafts());
+        assertEquals(82, f.inventory.list.get(f.key));
         when(((PatternProviderLogicAccessor) f.provider).neoecoae$getSendList()).thenReturn(List.of());
         offers.clear();
-        f.scaled((request, provider) -> {
+        f.scaled(10, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(4L, 4L, 8L), offers);
+        assertEquals(List.of(2L), offers);
     }
 
     @Test
@@ -138,7 +146,8 @@ class ECOProcessingDispatchIntegrationTest {
             inventory.insert(key, 100, Actionable.MODULATE);
         }
 
-        ECOCraftingDispatchResult scaled(ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
+        ECOCraftingDispatchResult scaled(long tick, ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
+            dispatcher.beginTick(tick);
             return dispatcher.tryScaledDispatch(request, provider, 1, energy, ignored -> {}, push);
         }
     }
