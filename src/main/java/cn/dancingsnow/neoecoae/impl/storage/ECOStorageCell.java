@@ -333,6 +333,16 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         return innerInsert(what, amount, mode);
     }
 
+    /** Marks an in-memory mutation from a specialised cell implementation. */
+    protected final void markContentChanged() {
+        contentRevision = contentRevision == Long.MAX_VALUE ? 0L : contentRevision + 1L;
+    }
+
+    /** Joins the current controller mutation batch, if one is active. */
+    protected final boolean deferMutationBatch() {
+        return ECOCellMutationBatch.defer(this);
+    }
+
     @Override
     public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
         return insertForMigration(what, amount, mode);

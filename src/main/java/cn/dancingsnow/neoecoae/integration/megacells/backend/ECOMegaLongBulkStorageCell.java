@@ -5,10 +5,12 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
@@ -55,9 +57,15 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     private boolean persisted = true;
     private long availableStacksSignature = Long.MIN_VALUE;
     private KeyCounter availableStacksCache;
+    @Nullable
+    private LookupContext cachedLookupContext;
 
     /** Operation-local decoded state; avoids rebuilding component-backed inventories in loops. */
     private final class LookupContext {
+        private final long fingerprint;
+        private LookupContext(long fingerprint) {
+            this.fingerprint = fingerprint;
+        }
         private final boolean compressionCard = hasCompressionCard();
         private final Map<AEItemKey, CompressionChain> chains = new HashMap<>();
         private final long typeLimit = getTotalItemTypes();
@@ -70,7 +78,27 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private LookupContext lookupContext() {
-        return new LookupContext();
+        long fingerprint = lookupFingerprint();
+        LookupContext cached = cachedLookupContext;
+        if (cached != null && cached.fingerprint == fingerprint) {
+            return cached;
+        }
+        LookupContext created = new LookupContext(fingerprint);
+        cachedLookupContext = created;
+        return created;
+    }
+
+    private long lookupFingerprint() {
+        long value = 1L;
+        var config = getConfigInventory();
+        value = 31L * value + config.size();
+        for (int i = 0; i < config.size(); i++) {
+            GenericStack stack = config.getStack(i);
+            value = 31L * value + (stack == null || stack.what() == null ? 0L : stack.what().hashCode());
+        }
+        value = 31L * value + (hasCompressionCard() ? 1L : 0L);
+        value = 31L * value + getTotalItemTypes();
+        return value;
     }
 
     public ECOMegaLongBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
@@ -337,6 +365,10 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         } else {
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
         }
+        // MEGA cells participate in the finite transfer domain as ordinary ECO cells. Keep the
+        // same unleased generation barrier as ECOStorageCell so recovery snapshots can detect
+        // content changes made through this specialised persistence path.
+        ECOFiniteCellMetadata.bumpGenerationIfUnleased(stack);
         persisted = true;
     }
 
@@ -541,10 +573,15 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     protected void saveChanges() {
+        markContentChanged();
         persisted = false;
+        cachedLookupContext = null;
         availableStacksCache = null;
         availableStacksSignature = Long.MIN_VALUE;
         if (isPersistenceDeferred()) {
+            return;
+        }
+        if (deferMutationBatch()) {
             return;
         }
         persist();

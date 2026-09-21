@@ -279,6 +279,9 @@ public final class ECOFiniteStorageDomain implements MEStorage {
             long request = Math.min(remaining, allocation.amount());
             ECOStorageShard shard = shards.get(allocation.shardIndex());
             long actual = shard.extract(plan.key(), request, Actionable.MODULATE, source);
+            if (actual < 0L || actual > request) {
+                throw new IllegalStateException("Invalid shard extraction acknowledgement");
+            }
             extracted = NEMath.saturatingAdd(extracted, actual);
             updateShardAmount(plan.key(), shard, Math.max(0L, shardAmount(plan.key(), shard) - actual));
             remaining -= actual;
