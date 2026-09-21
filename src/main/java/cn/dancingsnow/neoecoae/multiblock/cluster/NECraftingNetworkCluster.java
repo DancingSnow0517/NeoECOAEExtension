@@ -422,7 +422,8 @@ public class NECraftingNetworkCluster {
 
     /**
      * Exactly 8 members, all at max tier, max structural build length, and high-energy switches -
-     * the unconditional endgame override. No cooling-controller precondition.
+     * the physical topology required by the endgame virtual mode. Runtime mode switches are checked
+     * separately by {@link CraftingCapabilitySnapshot#calculate(CraftingCapabilitySnapshot.Input)}.
      */
     public boolean isEndgameEligible() {
         List<CraftingCapabilitySnapshot.VirtualHost> topology = new ArrayList<>(members.size());

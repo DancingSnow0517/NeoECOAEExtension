@@ -61,7 +61,10 @@ public record CraftingCapabilitySnapshot(
         boolean exchange = normalHosts + highEnergyHosts >= 2 && multiplier > 0;
 
         boolean virtualEligible = input.virtualTopologyEligible();
-        boolean virtualMode = virtualEligible;
+        // Unlimited virtual crafting is an explicitly enabled endgame mode: the complete physical
+        // topology is necessary but not sufficient.  Both controls must be on so the mode cannot
+        // silently bypass the player's overclock/cooling choice.
+        boolean virtualMode = virtualEligible && input.overclocked() && input.activeCooling();
         Capacity batchPerFx;
         Capacity totalCapacity;
         if (virtualMode) {

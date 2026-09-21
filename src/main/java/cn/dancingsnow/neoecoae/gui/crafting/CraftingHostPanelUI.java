@@ -91,6 +91,7 @@ public final class CraftingHostPanelUI {
 
     public record Config(
         Supplier<Component> title,
+        Supplier<Component> virtualModeReason,
         IntSupplier networkMultiplier,
         BooleanSupplier networkConnected,
         BooleanSupplier formed,
@@ -151,12 +152,18 @@ public final class CraftingHostPanelUI {
         titleBlock.addChild(HostNetworkStatusElement.createWithTrailing(
             config.networkMultiplier,
             config.networkConnected,
-            () -> Component.translatable("gui.neoecoae.machine.formed")
+            () -> {
+                Component formed = Component.translatable("gui.neoecoae.machine.formed")
                 .append(": ")
                 .append(Component.translatable(config.formed.getAsBoolean()
                     ? "gui.neoecoae.common.yes"
                     : "gui.neoecoae.common.no")
-                    .withColor(config.formed.getAsBoolean() ? PANEL_SUCCESS : PANEL_WARNING))));
+                    .withColor(config.formed.getAsBoolean() ? PANEL_SUCCESS : PANEL_WARNING));
+                Component reason = config.virtualModeReason.get();
+                return reason == null || reason.getString().isEmpty()
+                    ? formed
+                    : formed.append(" - ").append(reason);
+            }));
 
         header.addChild(titleBlock);
         return header;

@@ -738,6 +738,61 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             .append(")");
     }
 
+    private Component getVirtualCraftingModeReason() {
+        if (!formed || getCapabilitySnapshot().virtualMode()) {
+            return Component.empty();
+        }
+        List<Component> reasons = new ArrayList<>();
+        if (!isOverclocked()) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.overclock"));
+        }
+        if (!isActiveCooling()) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.cooling"));
+        }
+
+        NECraftingNetworkCluster network = cluster == null ? null : cluster.getNetworkCluster();
+        List<NECraftingCluster> members = network == null ? List.of() : network.getMembers();
+        if (members.size() != NEFrequencyAllocator.HOST_LIMIT) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.host_count", members.size(),
+                NEFrequencyAllocator.HOST_LIMIT));
+        }
+        boolean missingHighEnergySwitch = false;
+        boolean wrongTier = false;
+        boolean shortHost = false;
+        if (network != null) {
+            for (NECraftingCluster member : members) {
+                ECOCraftingSystemBlockEntity controller = member.getController();
+                if (controller == null) {
+                    continue;
+                }
+                missingHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
+                wrongTier |= controller.getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+                shortHost |= member.getWorkers().size() != controller.getMaxBuildLength();
+            }
+        } else {
+            missingHighEnergySwitch = !hasHighEnergyNetworkSwitch();
+            wrongTier = getTier().getTier() != cn.dancingsnow.neoecoae.api.ECOTier.L9.getTier();
+            shortHost = cluster == null || cluster.getWorkers().size() != getMaxBuildLength();
+        }
+        if (wrongTier) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.f9"));
+        }
+        if (missingHighEnergySwitch) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.high_energy_switch"));
+        }
+        if (shortHost) {
+            reasons.add(Component.translatable("gui.neoecoae.crafting.virtual_reason.max_length"));
+        }
+        if (reasons.isEmpty()) {
+            return Component.translatable("gui.neoecoae.crafting.virtual_reason.topology");
+        }
+        Component result = reasons.getFirst();
+        for (int i = 1; i < reasons.size(); i++) {
+            result = result.copy().append("、").append(reasons.get(i));
+        }
+        return result;
+    }
+
     public int getDisplayedCoolantAmount() {
         return cluster != null && cluster.getNetworkCluster() != null
             ? cluster.getNetworkCluster().getCoolantAmount() : coolant;
@@ -834,6 +889,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
+            this::getVirtualCraftingModeReason,
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
