@@ -1,6 +1,6 @@
 # Neo ECO AE Extension developer documentation
 
-Documentation snapshot: `21.2.0-beta4`, Minecraft `1.21.1`, NeoForge `21.1.233`, AE2 `19.2.17`.
+Documentation snapshot: `21.2.0-beta4`, source reviewed `2026-09-21`, Minecraft `1.21.1`, NeoForge `21.1.233`, AE2 `19.2.17`.
 
 | Document | English | 简体中文 |
 | --- | --- | --- |

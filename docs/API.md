@@ -1,6 +1,6 @@
 # API integration guide
 
-> Source snapshot: Neo ECO AE Extension `21.2.0-beta4`, 2026-09-16. This describes the current source tree, not a permanent compatibility promise.
+> Source snapshot: Neo ECO AE Extension `21.2.0-beta4`, 2026-09-21. This describes the current source tree, not a permanent compatibility promise.
 
 ## 1. Integration status
 
@@ -163,6 +163,16 @@ The commit predicate receives total inputs, outputs, and remainders. It returns 
 `ECOBatchCapacityProvider` is deprecated. Implement `ECOFastPathDispatchProvider` directly.
 
 `ECOFastPathFacade` is the advanced boundary for a non-ECO CPU. Prepare and submit synchronously on that CPU's owning server thread in the same tick. A `PreparedBatch` is single-use, including rejection. The caller owns exactly-once accounting after success; the facade owns extraction/rollback during submission. Do not use this API unless the caller has a durable energy reservation and reconciliation strategy.
+
+### Adaptive batch dispatch (internal behavior, no new API)
+
+The new batch architecture also contains interface scaffolding: `crafting.execution.batch.ECOBatchProvider#eco$prepareBatch` and `ECOStatefulBatchProvider#eco$prepareStatefulBatch`, both taking `ECOBatchDispatchRequest` and returning `ECOBatchAdmission`. No executor currently calls these interfaces. `ecoNewBatchDispatcherEnabled` defaults to false and is not yet read by the dispatch entry point. Implementing these interfaces or enabling the option therefore does not activate the new chain; they are not a connected third-party integration API yet.
+
+Adaptive/dynamic batching for ordinary processing patterns is currently performed by the ECO CPU's internal executor. It does not add a registration point or a new provider interface. The executor remembers a safe batch size per provider and pattern from live acceptance results, then periodically probes a larger batch on later ticks. Rejection, partial acceptance, provider busy state, or a non-empty send buffer backs off or pauses that probe. Eligibility checks are also cached briefly to avoid repeating the same reflective inspection for a provider/pattern pair.
+
+Use `ECOParallelCraftingProvider` for ordinary batch processing. Use `ECOFastPathDispatchProvider` only for verified synchronous FastPath execution, never for ordinary processing patterns. Internal adaptive scaling separately checks observable provider logic/send buffers, an unwrapped single-input `AEProcessingPattern`, no remainders, external inventory push support, and compatible blocking/directional modes. Implementing an existing interface does not itself opt a provider into that scaling path.
+
+Do not depend directly on internal adaptive-dispatch classes, probe sizes, cache lifetimes, or probe intervals. A successful scaled push transfers the entire batch to the provider, even when some inputs remain buffered; a non-empty send buffer is not proof of capacity for a larger batch. Rejection must leave inputs and provider state unchanged.
 
 ## 7. Output, progress, and mixin bridges
 

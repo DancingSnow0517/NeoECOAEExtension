@@ -97,7 +97,7 @@ Neo ECO AE Extension 是 AE2 附属 Mod，包含三类大型多方块：
 
 ### 5.2 调度路径
 
-普通调度探测 AE2 Provider，可通过 `ECOParallelCraftingProvider` 原子接收多个 craft。已验证 FastPath 会分类/物化配方，计算安全的算术或有状态批次，抽取输入、预留能量，再通过 `ECOFastPathDispatchProvider` 提交。
+普通调度探测 AE2 Provider，可通过 `ECOParallelCraftingProvider` 原子接收多个 craft。CPU 内部的自适应路径会按 Provider/样板记住安全批次，并周期性探测增长；探测状态和资格缓存属于实现细节。已验证 FastPath 会分类/物化配方，计算安全的算术或有状态批次，抽取输入、预留能量，再通过 `ECOFastPathDispatchProvider` 提交。
 
 禁止把处理样板静默送入仅限 FastPath 的契约。提交结果未知时禁止改用另一个 Provider 重试。接收成功后、可观察完成前必须完成恰好一次的记账。
 

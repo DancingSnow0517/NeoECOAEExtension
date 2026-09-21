@@ -1,6 +1,6 @@
 # API 接入指南
 
-> 源码快照：Neo ECO AE Extension `21.2.0-beta4`，2026-09-16。本文描述当前源码，不代表永久兼容承诺。
+> 源码快照：Neo ECO AE Extension `21.2.0-beta4`，2026-09-21。本文描述当前源码，不代表永久兼容承诺。
 
 ## 1. 当前接入状态
 
@@ -163,6 +163,16 @@ ECOPatternInsertionResult result = service.insertPreparedPattern(prepared);
 `ECOBatchCapacityProvider` 已弃用，应直接实现 `ECOFastPathDispatchProvider`。
 
 `ECOFastPathFacade` 是非 ECO CPU 的高级边界。必须在该 CPU 所属服务端线程的同一 tick 内完成 prepare 和 submit。`PreparedBatch` 只能使用一次，拒绝也算使用。成功后调用方负责恰好一次的记账；提交阶段的抽取和回滚由 facade 负责。没有持久化能量预留和对账方案时不要使用此 API。
+
+### 动态批量发配（内部行为，不是新增 API）
+
+另有新批量架构的接口骨架 `crafting.execution.batch.ECOBatchProvider#eco$prepareBatch` 和 `ECOStatefulBatchProvider#eco$prepareStatefulBatch`，二者接收 `ECOBatchDispatchRequest` 并返回 `ECOBatchAdmission`。当前源码尚无执行器调用这两个接口；`ecoNewBatchDispatcherEnabled` 默认关闭，且尚未被调度入口读取。因此，仅实现这些接口或打开配置不会启用新链路，目前不能把它们当作已接通的第三方 API。
+
+普通处理样板的动态/自适应批量发配目前由 ECO CPU 内部执行器完成，不提供新的注册接口或 Provider 接口。执行器会按 Provider 的实时接受结果记住每个样板的安全批次，在后续 tick 周期性探测更大的批次；拒绝、部分接收、忙碌状态和发送缓冲区未清空都会降低或暂停本次探测。资格判断也会短时间缓存，以避免在同一 Provider/样板上重复反射检查。
+
+外部 Mod 接入普通批量处理时，使用上面的 `ECOParallelCraftingProvider`；只有已验证的同步 FastPath 才使用 `ECOFastPathDispatchProvider`，不能用它接入普通处理样板。内置自适应缩放则另行检查 Provider 逻辑和发送缓冲区是否可观察、样板是否为未包装的单输入 `AEProcessingPattern`、是否无返还物、是否允许外部库存推送，以及阻挡和方向模式是否兼容。实现现有接口不等于启用这条缩放路径。
+
+不要直接依赖内部动态发配类或探测大小、缓存时长和探测间隔。缩放推送返回成功代表 Provider 接管整个批次，即使仍有内容留在发送缓冲区；缓冲区未清空时不能把本次接收视为扩大批次的容量证明。返回拒绝必须不改变输入或 Provider 状态。
 
 ## 7. 产物、进度与 Mixin 桥接
 
