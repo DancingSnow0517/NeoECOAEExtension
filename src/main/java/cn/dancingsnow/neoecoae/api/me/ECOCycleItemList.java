@@ -23,6 +23,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     private static List<Entry> readFromPacket(FriendlyByteBuf data) {
         int size = data.readVarInt();
+        if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid cycle item count");
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             items.add(new Entry(
@@ -40,6 +41,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     @Override
     public void writeToPacket(FriendlyByteBuf data) {
+        if (items.size() > 1_000_000) throw new IllegalArgumentException("Too many cycle items");
         data.writeVarInt(items.size());
         for (Entry item : items) {
             AEKey.writeKey(data, item.what());

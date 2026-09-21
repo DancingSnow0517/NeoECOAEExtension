@@ -25,7 +25,7 @@ class CraftingMenuSyncCompatibilityTest {
         collectIds("appeng/menu/me/crafting/CraftConfirmMenu", used);
         int previous = used.size();
         collectIds("cn/dancingsnow/neoecoae/mixins/CraftConfirmMenuMixin", used);
-        assertEquals(previous + 8, used.size());
+        assertEquals(previous + 6, used.size());
     }
 
     private static void collectIds(String name, HashSet<Integer> used) throws Exception {

@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.sync.too_large": "显示数据过大或同步队列繁忙。请关闭并重新打开界面重试。",
+  "gui.neoecoae.sync.loading": "正在加载显示数据…",
   "gui.neoecoae.exact_stored_amount": "库存：%s",
   "gui.neoecoae.planning.overflow_title": "溢出 · ECO快速合成 · %s ms · %s",
   "gui.neoecoae.planning.title": "合成计划",

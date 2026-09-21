@@ -7,7 +7,7 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 /** Client-synchronized ECO state for the AE2 crafting confirmation menu. */
-public interface ECOCraftConfirmMenuMode {
+public interface ECOCraftConfirmMenuMode extends cn.dancingsnow.neoecoae.network.NetworkMenu {
     boolean neoecoae$isMissingCraftAvailable();
 
     boolean neoecoae$shouldShowFastPlannerReport();
@@ -23,4 +23,6 @@ public interface ECOCraftConfirmMenuMode {
     List<ECOCycleItemList.Entry> neoecoae$getCycleItems();
 
     CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();
+
+    boolean neoecoae$isGraphLoaded();
 }

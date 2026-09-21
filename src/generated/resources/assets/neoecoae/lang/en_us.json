@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.sync.too_large": "Display data is too large or the sync queue is busy. Close and reopen this screen to retry.",
+  "gui.neoecoae.sync.loading": "Loading display data...",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",

@@ -59,13 +59,16 @@ public record CraftingGraphSnapshot(
 
     @Override
     public void writeToPacket(FriendlyByteBuf data) {
-        var raw = new FriendlyByteBuf(Unpooled.buffer());
+        var raw = new FriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES));
         try {
             writeRaw(raw);
             byte[] uncompressed = new byte[raw.readableBytes()];
             raw.getBytes(0, uncompressed);
+            byte[] compressed = compress(uncompressed);
+            if (compressed.length > MAX_COMPRESSED_BYTES)
+                throw new IllegalArgumentException("Graph exceeds sync budget");
             data.writeVarInt(uncompressed.length);
-            data.writeByteArray(compress(uncompressed));
+            data.writeByteArray(compressed);
         } finally {
             raw.release();
         }
@@ -549,6 +552,7 @@ public record CraftingGraphSnapshot(
 
     private static List<Integer> readIntList(FriendlyByteBuf data) {
         int size = data.readVarInt();
+        if (size < 0 || size > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
         List<Integer> result = new ArrayList<>(size);
         for (int i = 0; i < size; i++) result.add(data.readVarInt());
         return result;

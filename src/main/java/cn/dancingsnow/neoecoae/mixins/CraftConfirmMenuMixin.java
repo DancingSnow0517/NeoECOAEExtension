@@ -23,10 +23,15 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.network.BoundedData;
+import cn.dancingsnow.neoecoae.network.MenuDataSync;
+import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -64,11 +69,50 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique @GuiSync(29002)
     private int neoecoae$planningStatusCode;
 
-    @Unique @GuiSync(29003)
-    public ECOCycleItemList neoecoae$cycleItems = ECOCycleItemList.EMPTY;
+    @Unique public ECOCycleItemList neoecoae$cycleItems = ECOCycleItemList.EMPTY;
 
-    @Unique @GuiSync(29004)
-    public CraftingGraphSnapshot neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
+    @Unique public CraftingGraphSnapshot neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
+
+    @Unique private final MenuDataSync neoecoae$dataSync = new MenuDataSync();
+
+    @Unique private boolean neoecoae$graphLoaded;
+
+    @Override
+    public MenuDataSync neoecoae$dataSync() {
+        return neoecoae$dataSync;
+    }
+
+    @Override
+    public boolean neoecoae$isGraphLoaded() {
+        return neoecoae$graphLoaded;
+    }
+
+    @Override
+    public void neoecoae$resetData() {
+        neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
+        neoecoae$cycleItems = ECOCycleItemList.EMPTY;
+        neoecoae$graphLoaded = false;
+    }
+
+    @Override
+    public void neoecoae$receiveData(int kind, byte[] data) {
+        var buffer = new FriendlyByteBuf(Unpooled.wrappedBuffer(data));
+        try {
+            var snapshot = new CraftingGraphSnapshot(buffer);
+            if (kind == MenuDataSync.REPORT) {
+                var cycles = new ECOCycleItemList(buffer);
+                if (buffer.isReadable()) throw new IllegalArgumentException("Trailing report bytes");
+                neoecoae$cycleItems = cycles;
+                if (!neoecoae$graphLoaded) neoecoae$craftingGraph = snapshot;
+            } else if (kind == MenuDataSync.GRAPH) {
+                if (buffer.isReadable()) throw new IllegalArgumentException("Trailing graph bytes");
+                neoecoae$craftingGraph = snapshot;
+                neoecoae$graphLoaded = true;
+            }
+        } finally {
+            buffer.release();
+        }
+    }
 
     /** Server-side result paired with the plan whose confirmation page the player actually saw. */
     @Unique private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
@@ -109,6 +153,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
+        neoecoae$dataSync.invalidate();
+        neoecoae$graphLoaded = false;
     }
 
     // This Minecraft override uses its SRG name in production; AE2-owned methods remain unmapped.
@@ -117,6 +163,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             at = @At("TAIL"),
             require = 1)
     private void capturePlannerDiagnostics(CallbackInfo ci) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (!(menu.getPlayer() instanceof ServerPlayer player)) return;
+        if (neoecoae$confirmedPlanningResult != null) {
+            neoecoae$dataSync.tick(player, menu, MenuDataSync.REPORT);
+        }
         neoecoae$missingCraftAvailable = result != null
                 && result.simulation()
                 && (neoecoae$findMissingCraftCpu(result) != null || neoecoae$hasUsableTransfiniteCraftCpu(result));
@@ -130,6 +181,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             return;
         }
 
+        neoecoae$dataSync.invalidate();
         neoecoae$confirmedPlanningResult = planningResult;
         neoecoae$calculationNanos = planningResult.calculationNanos();
         neoecoae$theoreticalBytes = planningResult.theoreticalBytes().toString();
@@ -195,6 +247,24 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             }
         }
         neoecoae$cycleItems = new ECOCycleItemList(List.copyOf(cycleItems.values()));
+        // The report needs exact materials and cycle summaries, but no graph topology.
+        var report = new CraftingGraphSnapshot(
+                snapshot.rootNodeId(),
+                snapshot.nodes(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                snapshot.summary());
+        var cycles = neoecoae$cycleItems;
+        neoecoae$dataSync.asynchronousSource(
+                MenuDataSync.REPORT,
+                () -> BoundedData.encode(BoundedData.MAX_BYTES, buf -> {
+                    report.writeToPacket(buf);
+                    cycles.writeToPacket(buf);
+                }));
+        neoecoae$dataSync.asynchronousSource(
+                MenuDataSync.GRAPH, () -> BoundedData.encode(BoundedData.MAX_BYTES, snapshot::writeToPacket));
     }
 
     @Inject(method = "startJob", at = @At("HEAD"))

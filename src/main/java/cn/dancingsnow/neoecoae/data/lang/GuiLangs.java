@@ -4,6 +4,10 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add(
+                "gui.neoecoae.sync.too_large",
+                "Display data is too large or the sync queue is busy. Close and reopen this screen to retry.");
+        provider.add("gui.neoecoae.sync.loading", "Loading display data...");
         // common UI labels
         provider.add("gui.neoecoae.common.input", "Input");
         provider.add("gui.neoecoae.common.output", "Output");

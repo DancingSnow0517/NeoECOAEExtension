@@ -59,6 +59,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private @Nullable PlanningStatus materialStatus;
     private boolean materialHasCycleItems;
     private boolean useExactMaterialTable;
+    private boolean awaitingGraph;
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials = List.of();
     private final long openedNanos = System.nanoTime();
 
@@ -143,6 +144,17 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("plan_summary", planSummary);
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            if (!mode.neoecoae$dataSync().error().isEmpty()) {
+                setTextContent(
+                        "plan_summary",
+                        Component.translatable(mode.neoecoae$dataSync().error()));
+            } else if (awaitingGraph
+                    || (mode.neoecoae$getPlanningStatus() != null
+                            && mode.neoecoae$getCraftingGraphSnapshot() == CraftingGraphSnapshot.EMPTY)) {
+                setTextContent("plan_summary", Component.translatable("gui.neoecoae.sync.loading"));
+            }
+        }
         setTextContent("cycle_status", Component.empty());
         setTextContent("cpu_status", cpuDetails);
         int size = shouldUseExactMaterialTable()
@@ -161,7 +173,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
-                        || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
+                        || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0
+                        || !mode.neoecoae$getCycleItems().isEmpty())
+                && mode.neoecoae$dataSync().error().isEmpty();
+        if (awaitingGraph && (Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            if (mode.neoecoae$isGraphLoaded()) {
+                awaitingGraph = false;
+                openGraph();
+            } else if (!mode.neoecoae$dataSync().error().isEmpty()) awaitingGraph = false;
+        }
     }
 
     private static String formatMillis(long nanos) {
@@ -290,6 +310,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void openGraph() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return;
+        if (!mode.neoecoae$isGraphLoaded()) {
+            awaitingGraph = true;
+            mode.neoecoae$dataSync().requestFromClient(menu, cn.dancingsnow.neoecoae.network.MenuDataSync.GRAPH);
+            return;
+        }
         CraftingGraphSnapshot snapshot = mode.neoecoae$getCraftingGraphSnapshot();
         if (snapshot.rootNodeId() < 0 && snapshot.cycleGroups().isEmpty()) return;
 
