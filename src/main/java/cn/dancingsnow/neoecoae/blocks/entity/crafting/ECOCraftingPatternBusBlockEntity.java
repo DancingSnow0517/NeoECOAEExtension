@@ -1095,9 +1095,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     }
 
     public int getPageCount() {
+        // catalog 在构造器体里才赋值，而本方法会被构造期路径间接触发（字段初始化器算 getPatternSlotCount），
+        // 那时只可能知道配置页数——构造期还没有磁盘可读，配置值就是当时唯一正确的答案。
+        int highestOccupiedSlot = catalog == null ? -1 : catalog.highestOccupiedSlot();
         int pages = clampPages(Math.max(
             NEConfig.getCraftingPatternBusPages(),
-            catalog.highestOccupiedSlot() < 0 ? 1 : catalog.highestOccupiedSlot() / SLOTS_PER_PAGE + 1
+            highestOccupiedSlot < 0 ? 1 : highestOccupiedSlot / SLOTS_PER_PAGE + 1
         ));
         // 只在变化时写：本方法被每一次槽位查找调用，读一次就写一次会让这个同步字段来回改。
         if (activePages != pages) {
@@ -1238,7 +1241,13 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     protected long terminalViewRevision = Long.MIN_VALUE;
 
-    private TerminalPatternInventory terminalPatternInventory = new TerminalPatternInventory();
+    /**
+     * 由取值器按 revision 懒建（见 {@code getTerminalPatternInventory}）。不能在字段初始化器里建：这份视图的
+     * 槽位数来自 {@code getPatternSlotCount()}，它经 {@code getPageCount()} 读 {@code catalog}，而 {@code catalog}
+     * 是构造器体里赋的——字段初始化器先于构造器体执行，于是拿到 null 直接 NPE（ECO 的 {@code onCommonSetup} 会
+     * 在 setup 期构造一次块实体，所以这是必崩路径）。懒建也让「槽位数冻在视图被建的那一刻」这句注释真正成立。
+     */
+    private TerminalPatternInventory terminalPatternInventory;
 
     protected final class TerminalPatternInventory extends BaseInternalInventory
             implements cn.dancingsnow.neoecoae.util.WritablePrefix {
