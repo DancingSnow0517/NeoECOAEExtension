@@ -36,6 +36,7 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,7 +154,7 @@ public final class CraftingHostPanelUI {
             config.networkMultiplier,
             config.networkConnected,
             () -> {
-                Component formed = Component.translatable("gui.neoecoae.machine.formed")
+                MutableComponent formed = Component.translatable("gui.neoecoae.machine.formed")
                 .append(": ")
                 .append(Component.translatable(config.formed.getAsBoolean()
                     ? "gui.neoecoae.common.yes"
