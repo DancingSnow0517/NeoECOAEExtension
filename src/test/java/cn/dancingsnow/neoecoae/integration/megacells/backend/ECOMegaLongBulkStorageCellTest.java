@@ -61,6 +61,83 @@ class ECOMegaLongBulkStorageCellTest {
         assertIngotStock(AEItemKey.of(Items.IRON_NUGGET));
     }
 
+    @Test
+    void ordinaryItemsRoundTripAtLongLimitAndKeepComponents() throws Exception {
+        var named = new ItemStack(Items.STICK);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("Marked stick"));
+        var key = AEItemKey.of(named);
+        var cell = ordinaryCell(key);
+        var constructor = CompressionChain.class.getDeclaredConstructor(List.class);
+        constructor.setAccessible(true);
+        var empty = constructor.newInstance(List.of());
+        try (var compression = mockStatic(CompressionService.class)) {
+            compression.when(() -> CompressionService.getChain(any(AEItemKey.class))).thenReturn(empty);
+            assertEquals(Long.MAX_VALUE, cell.insert(key, Long.MAX_VALUE, Actionable.SIMULATE, null));
+            assertEquals(0, cell.getStoredItemCount());
+            assertEquals(0, cell.insert(AEItemKey.of(Items.STICK), 1, Actionable.MODULATE, null));
+            assertEquals(Long.MAX_VALUE, cell.insert(key, Long.MAX_VALUE, Actionable.MODULATE, null));
+            assertEquals(0, cell.insert(key, 1, Actionable.MODULATE, null));
+            assertEquals(Long.MAX_VALUE, cell.getAvailableStacks().get(key));
+            assertEquals(Long.MAX_VALUE, cell.getStoredItemCount());
+
+            var stackField = ECOMegaLongBulkStorageCell.class.getDeclaredField("stack");
+            stackField.setAccessible(true);
+            var restored = ordinaryCell(key);
+            stackField.set(restored, ((ItemStack) stackField.get(cell)).copy());
+            var load = ECOMegaLongBulkStorageCell.class.getDeclaredMethod("loadStoredUnits");
+            load.setAccessible(true);
+            load.invoke(restored);
+            assertEquals(Long.MAX_VALUE, restored.extract(key, Long.MAX_VALUE, Actionable.MODULATE, null));
+            assertEquals(0, restored.getStoredItemCount());
+            assertTrue(restored.getAvailableStacks().isEmpty());
+        }
+    }
+
+    @Test
+    void changingMarkersCannotBypassTypeLimitButOldStockRemainsExtractable() throws Exception {
+        var oldKey = AEItemKey.of(Items.STICK);
+        var newKey = AEItemKey.of(Items.PAPER);
+        var cell = ordinaryCell(oldKey);
+        doReturn(1L).when(cell).getTotalItemTypes();
+        var constructor = CompressionChain.class.getDeclaredConstructor(List.class);
+        constructor.setAccessible(true);
+        var empty = constructor.newInstance(List.of());
+        try (var compression = mockStatic(CompressionService.class)) {
+            compression.when(() -> CompressionService.getChain(any(AEItemKey.class))).thenReturn(empty);
+            assertEquals(10, cell.insert(oldKey, 10, Actionable.MODULATE, null));
+            assertEquals(1, cell.insert(oldKey, 1, Actionable.SIMULATE, null));
+            cell.getConfigInventory().setStack(0, new GenericStack(newKey, 0));
+            assertEquals(0, cell.insert(newKey, 1, Actionable.SIMULATE, null));
+            assertEquals(0, cell.insert(newKey, 1, Actionable.MODULATE, null));
+            assertFalse(cell.isPreferredStorageFor(newKey, null));
+            assertEquals(0, cell.getRemainingItemCount());
+            assertEquals(0, cell.insert(oldKey, 1, Actionable.MODULATE, null));
+            assertEquals(10, cell.extract(oldKey, 10, Actionable.MODULATE, null));
+            assertTrue(cell.isPreferredStorageFor(newKey, null));
+            assertEquals(1, cell.insert(newKey, 1, Actionable.MODULATE, null));
+        }
+    }
+
+    private static ECOMegaLongBulkStorageCell ordinaryCell(AEItemKey marker) throws Exception {
+        var cell = mock(ECOMegaLongBulkStorageCell.class, CALLS_REAL_METHODS);
+        ConfigInventory config;
+        try (var keyTypes = mockStatic(AEKeyTypes.class)) {
+            keyTypes.when(AEKeyTypes::getAll).thenReturn(Set.of(AEKeyType.items()));
+            config = ConfigInventory.configTypes(1).build();
+        }
+        config.setStack(0, new GenericStack(marker, 0));
+        doReturn(config).when(cell).getConfigInventory();
+        doReturn(mock(IUpgradeInventory.class)).when(cell).getUpgradesInventory();
+        doReturn(false).when(cell).hasEcoMegaUpgradeCard();
+        var units = ECOMegaLongBulkStorageCell.class.getDeclaredField("storedUnits");
+        units.setAccessible(true);
+        units.set(cell, new LinkedHashMap<AEItemKey, Long>());
+        var stack = ECOMegaLongBulkStorageCell.class.getDeclaredField("stack");
+        stack.setAccessible(true);
+        stack.set(cell, new ItemStack(Items.PAPER));
+        return cell;
+    }
+
     private static void assertIngotStock(AEItemKey persistedKey) throws Exception {
         var constructor = CompressionChain.class.getDeclaredConstructor(List.class);
         constructor.setAccessible(true);
@@ -82,12 +159,16 @@ class ECOMegaLongBulkStorageCellTest {
         var units = new LinkedHashMap<AEItemKey, Long>();
         // Exactly 111 blocks: the old block listing reported zero ingots despite being extractable.
         units.put(persistedKey, 8_991L);
+        doReturn(1L).when(cell).getTotalItemTypes();
         var field = ECOMegaLongBulkStorageCell.class.getDeclaredField("storedUnits");
         field.setAccessible(true);
         field.set(cell, units);
 
         try (var compression = mockStatic(CompressionService.class)) {
             compression.when(() -> CompressionService.getChain(any(AEItemKey.class))).thenReturn(chain);
+            assertEquals(0, cell.getRemainingItemTypes());
+            assertEquals(1, cell.insert(AEItemKey.of(Items.IRON_BLOCK), 1, Actionable.SIMULATE, null),
+                "A variant of the occupied chain must not require another type slot");
             assertEquals(999L, cell.extract(ingot, Long.MAX_VALUE, Actionable.SIMULATE, null));
             assertEquals(999L, cell.getAvailableStacks().get(ingot));
             assertEquals(999L, cell.getAvailableStacks().get(ingot), "Cached listing must retain stock");

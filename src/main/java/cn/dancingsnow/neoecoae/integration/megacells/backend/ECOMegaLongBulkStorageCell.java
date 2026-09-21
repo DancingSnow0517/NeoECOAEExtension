@@ -59,10 +59,12 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     /** Operation-local decoded state; avoids rebuilding component-backed inventories in loops. */
     private final class LookupContext {
         private final boolean compressionCard = hasCompressionCard();
-        private final List<AEItemKey> filters = readFilters(compressionCard);
         private final Map<AEItemKey, CompressionChain> chains = new HashMap<>();
+        private final long typeLimit = getTotalItemTypes();
+        private final List<AEItemKey> filters = readFilters(this);
 
         private CompressionChain chain(AEItemKey key) {
+            // Keep this cache operation-local so datapack reloads cannot leave stale chains.
             return chains.computeIfAbsent(key, CompressionService::getChain);
         }
     }
@@ -93,10 +95,11 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     @Override
     public long getStoredItemCount() {
+        LookupContext context = lookupContext();
         long total = 0L;
         for (Map.Entry<AEItemKey, Long> entry : storedUnits.entrySet()) {
-            AEItemKey storageForm = storageFormFor(entry.getKey());
-            long factor = unitFactor(entry.getKey(), storageForm);
+            AEItemKey storageForm = storageFormFor(entry.getKey(), context);
+            long factor = unitFactor(entry.getKey(), storageForm, context);
             total = NEMath.saturatingAdd(total, entry.getValue() / factor);
         }
         return total;
@@ -119,7 +122,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
                     break;
                 }
             }
-            if (!occupied) {
+            if (!occupied && storedUnits.size() < context.typeLimit) {
                 return MAX_UNITS;
             }
         }
@@ -257,7 +260,7 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
                 chain.initStacks(BigInteger.valueOf(units), cutoffFor(chain, storageForm), storageForm)
                     .forEach(computed::add);
             } else if (!chain.isEmpty()) {
-                computed.add(storedKey, units / unitFactor(storedKey, storedKey));
+                computed.add(storedKey, units / unitFactor(storedKey, storedKey, context));
             } else {
                 computed.add(storedKey, units);
             }
@@ -338,15 +341,15 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
     }
 
     private List<AEItemKey> readFilters() {
-        return readFilters(hasCompressionCard());
+        return lookupContext().filters;
     }
 
-    private List<AEItemKey> readFilters(boolean compressionCard) {
+    private List<AEItemKey> readFilters(LookupContext context) {
         List<AEItemKey> result = new ArrayList<>();
         var config = getConfigInventory();
-        int activeSlots = Math.min(config.size(), (int) getTotalItemTypes());
+        int activeSlots = Math.min(config.size(), (int) context.typeLimit);
         for (int i = 0; i < activeSlots; i++) {
-            if (config.getKey(i) instanceof AEItemKey item && !hasFilterForChain(result, item)) {
+            if (config.getKey(i) instanceof AEItemKey item && !hasFilterForChain(result, item, context)) {
                 result.add(item);
             }
         }
@@ -357,9 +360,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      * Keeps the first configured variant as the representative of its compression chain. A later
      * variant from the same chain must not consume another type slot or create a second storage entry.
      */
-    private boolean hasFilterForChain(List<AEItemKey> configured, AEItemKey candidate) {
+    private boolean hasFilterForChain(List<AEItemKey> configured, AEItemKey candidate, LookupContext context) {
         for (AEItemKey existing : configured) {
-            if (sameCompressionChain(existing, candidate)) {
+            if (sameCompressionChain(existing, candidate, context)) {
                 return true;
             }
         }
@@ -422,7 +425,9 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
             }
         }
         for (AEItemKey filter : context.filters) {
-            if (matches(filter, item, context) && (allowEmpty || storedUnits.containsKey(filter))) {
+            // Removed markers retain their old stock and still consume physical type slots.
+            if (matches(filter, item, context) && (storedUnits.containsKey(filter)
+                || allowEmpty && storedUnits.size() < context.typeLimit)) {
                 return filter;
             }
         }
@@ -447,20 +452,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
      * or changed to another chain while the cell was non-empty, the persisted key remains the
      * fallback so that the old contents can still be recovered.
      */
-    private AEItemKey storageFormFor(AEItemKey storedKey) {
-        // Amounts are recorded in the chain's smallest units, not in units of the persisted key.
-        // Keep that key stable for persistence, but publish stock in the current marker's form so
-        // crafting snapshots see the same material the player selected and can extract.
-        if (hasCompressionCard()) {
-            for (AEItemKey filter : configuredFilters()) {
-                if (sameCompressionChain(filter, storedKey)) {
-                    return filter;
-                }
-            }
-        }
-        return storedKey;
-    }
-
     private AEItemKey storageFormFor(AEItemKey storedKey, LookupContext context) {
         if (context.compressionCard) {
             for (AEItemKey filter : context.filters) {
@@ -481,13 +472,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return !firstChain.isEmpty() && firstChain.equals(context.chain(second));
     }
 
-    private boolean sameCompressionChain(AEItemKey first, AEItemKey second) {
-        if (first.equals(second)) {
-            return true;
-        }
-        CompressionChain firstChain = chainFor(first);
-        return !firstChain.isEmpty() && firstChain.equals(chainFor(second));
-    }
 
     /**
      * The configured marker is the storage unit for this chain. Variants above it must be folded
@@ -505,12 +489,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return Math.max(0, chain.size() - 1);
     }
 
-    private CompressionChain chainFor(AEItemKey key) {
-        // CompressionService rebuilds and invalidates its cache on server start and datapack
-        // reload. Do not add a per-cell cache here, or cells loaded before that event will retain
-        // an empty chain and never expose their decompression patterns.
-        return CompressionService.getChain(key);
-    }
 
     /**
      * The Drive caches this inventory instance, while the cell configuration can change in place
@@ -536,7 +514,8 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
 
     /** One representative per occupied chain, without expanding compression variants. */
     public List<AEItemKey> getStoredChainFilters() {
-        return storedUnits.keySet().stream().map(this::storageFormFor).toList();
+        LookupContext context = lookupContext();
+        return storedUnits.keySet().stream().map(key -> storageFormFor(key, context)).toList();
     }
 
     /** Returns the persisted storage entries for the item tooltip. */
@@ -552,9 +531,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         return CompressionChain.clamp(context.chain(configured).unitFactor(item), MAX_UNITS);
     }
 
-    private long unitFactor(AEItemKey configured, AEItemKey item) {
-        return CompressionChain.clamp(chainFor(configured).unitFactor(item), MAX_UNITS);
-    }
 
     private static long divideSaturated(long value, long divisor) {
         if (divisor <= 1L) {
