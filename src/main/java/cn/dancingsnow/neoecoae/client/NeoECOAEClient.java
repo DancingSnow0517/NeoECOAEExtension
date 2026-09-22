@@ -30,7 +30,6 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
-import appeng.client.gui.implementations.CellWorkbenchScreen;
 import appeng.menu.implementations.CellWorkbenchMenu;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
@@ -72,22 +71,19 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onScreenInitPost(ScreenEvent.Init.Post event) {
         ECOCraftConfirmScreenIntegration.onScreenInitPost(event);
-        if (event.getScreen() instanceof CellWorkbenchScreen screen
-                && screen.getMenu() instanceof CellWorkbenchMenu menu) {
-            Button importButton = new JeiBookmarkButton(Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
+    }
+
+    public static Button createJeiBookmarkButton(CellWorkbenchMenu menu) {
+        Button importButton = new JeiBookmarkButton(
+            Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
                 var keys = JeiBookmarkAccess.itemBookmarks().stream()
                     .map(stack -> appeng.api.stacks.AEItemKey.of(stack))
                     .filter(java.util.Objects::nonNull).map(key -> (appeng.api.stacks.AEKey) key).toList();
                 PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
-            // Keep this action on the same left rail as the cell-workbench tabs.
-            // The rail's fifth slot starts immediately below the four native tabs.
-            importButton.setX(screen.getGuiLeft() + 8);
-            importButton.setY(screen.getGuiTop() + 276);
-            importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
-            event.addListener(importButton);
-        }
+        importButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("gui.neoecoae.import_jei_bookmarks.tooltip")));
+        return importButton;
     }
 
     /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
