@@ -164,7 +164,7 @@ public final class ECOUselessBatchProviderBridge {
             long count = accepted.max(BigInteger.ZERO).min(requested).longValueExact();
             if (count <= 0) return null;
             return new Preparation(count, null, false, batch -> {
-                // ECOBatchCraftingExecutor has already debited ALL copies. Useless consumes
+                // ECOStatefulBatchPlanner has already debited ALL copies. Useless consumes
                 // only this single-copy receipt; never scale it or debit the CPU a second time.
                 BigInteger copies = BigInteger.valueOf(batch.craftCount());
                 Object ticket = invoke(api.admit, target, context.pattern(), prototype, copies, null);

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.execution.batch;
 
-/** Contract for ordinary providers that can accept a complete linear batch. */
+/** Synchronous adapter called after inputs and energy are reserved. Rejection owns nothing.
+ * An accepted prefix must leave the remaining linear copies untouched. Exceptions have uncertain ownership. */
+@FunctionalInterface
 public interface ECOBatchProvider {
-    ECOBatchAdmission eco$prepareBatch(ECOBatchDispatchRequest request);
+    ECOBatchAdmission eco$dispatchBatch(ECOBatchDispatchRequest request);
 }

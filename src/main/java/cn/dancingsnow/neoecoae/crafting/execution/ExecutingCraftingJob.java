@@ -109,6 +109,12 @@ public class ExecutingCraftingJob {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
         }
+        // EAEP's vanilla/quantum mixins do not run on ECO's independent executor.
+        // Use the normal persisted ledger so missing inputs survive reload and follow normal insertion/cancellation.
+        for (var entry : cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.manualMissing(plan)) {
+            waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
+            timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
+        }
         for (var entry : plan.patternTimes().entrySet()) {
             tasks.computeIfAbsent(entry.getKey(), p -> new TaskProgress()).value += entry.getValue();
             for (var output : entry.getKey().getOutputs()) {

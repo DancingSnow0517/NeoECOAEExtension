@@ -36,7 +36,7 @@ class ECOExactInventoryDispatchTest {
         var slots = new KeyCounter[9];
         for (int i = 0; i < 9; i++) { slots[i] = new KeyCounter(); slots[i].add(input, 1); }
         var outputs = new KeyCounter(); outputs.add(output, 1);
-        return ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), slots, outputs,
+        return ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class, RETURNS_DEEP_STUBS), slots, outputs,
             new KeyCounter(), inventory, Long.MAX_VALUE, 9, energy, null, null, inventory.isEnabled());
     }
 
@@ -168,7 +168,7 @@ class ECOExactInventoryDispatchTest {
 
     @Test void protectedSeedIsSubtractedBeforeSaturatingThePreview() {
         fill();
-        var pattern = mock(IPatternDetails.class);
+        var pattern = mock(IPatternDetails.class, RETURNS_DEEP_STUBS);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
         var preview = new ECOCraftingInputPreview(inventory, pattern, Map.of(input, Long.MAX_VALUE));
         assertEquals(9, preview.extract(input, 9, Actionable.MODULATE));

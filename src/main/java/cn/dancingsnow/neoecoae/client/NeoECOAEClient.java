@@ -103,7 +103,7 @@ public class NeoECOAEClient {
                 : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
                 : Icon.TOOLBAR_BUTTON_BACKGROUND;
             background.getBlitter()
-                .dest(getX() - 1, getY(), 18, 20)
+                .dest(getX() - 1, getY() + yOffset, 18, 20)
                 .zOffset(100)
                 .blit(graphics);
 

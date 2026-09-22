@@ -11,13 +11,25 @@ import net.minecraft.world.level.Level;
 
 /** Converts one pure plan into one disposable physical dispatch attempt. */
 public final class ECOBatchMaterializer {
+    /** Verified stateful totals are already calculated; never multiply reusable tools again. */
+    public ECOBatchInputLease materializePrepared(ListCraftingInventory inventory, List<GenericStack> inputs,
+            java.util.Map<appeng.api.stacks.AEKey, java.math.BigInteger> exactInputs) {
+        return exactInputs.isEmpty() ? ECOBatchInputLease.acquire(inventory, inputs)
+                : ECOBatchInputLease.acquireExact(
+                        (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory, exactInputs);
+    }
+
     public ECOBatchMaterialized materialize(ECOBatchPlan plan, KeyCounter[] perCraftInputs,
             KeyCounter perCraftOutputs, KeyCounter perCraftRemainders, ListCraftingInventory inventory, Level level) {
+        if (plan.mode() == ECOBatchMode.STATEFUL_FAST_PATH) {
+            throw new IllegalArgumentException("Stateful batches require verified prepared totals");
+        }
         long count = plan.craftCount();
         KeyCounter[] inputs = scaleCounters(perCraftInputs, count);
         KeyCounter outputs = scaleCounter(perCraftOutputs, count);
         KeyCounter remainders = scaleCounter(perCraftRemainders, count);
-        List<GenericStack> physicalInputs = flatten(inputs);
+        // Aggregate equal keys across slots before debiting; each key has one physical owner.
+        List<GenericStack> physicalInputs = ECOBatchCraftingHelper.multiply(flatten(inputs), 1L);
         ECOBatchInputLease lease = ECOBatchInputLease.acquire(inventory, physicalInputs);
         if (lease == null) return null;
         try {

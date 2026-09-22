@@ -338,8 +338,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private boolean usesBigOrderSubmission(boolean forceStart) {
+        // Ordinary shortages use the selected CPU and the shared force-start protocol. A missing
+        // cycle has no executable phase schedule yet and must be replanned by an ECO parent order.
         return isUnrepresentablePlan() || forceStart && (Object) menu instanceof ECOCraftConfirmMenuMode mode
-            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS;
+            && mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS
+            && !mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty();
     }
 
     private void submit(boolean forceStart) {

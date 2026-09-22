@@ -36,7 +36,7 @@ final class ECOCraftingDispatchAccounting {
      * dynamic-output registration order.
      */
     void applyExact(ECOCraftingDispatchRequest request,
-            cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExactBatchCraftingExecutor.PreparedBatch batch,
+            cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner.PreparedBatch batch,
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         if (!job.exactOrder) throw new IllegalStateException("Exact dispatch requires a big order");

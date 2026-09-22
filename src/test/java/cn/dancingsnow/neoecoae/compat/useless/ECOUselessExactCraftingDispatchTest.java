@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExactBatchCraftingExecutor;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner;
 import com.sorrowmist.useless.content.blockentities.multiblock.MultiblockAlloyFurnaceCoreBlockEntity;
 import com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.OmniversalBigIntegerTarget;
 import java.math.BigInteger;
@@ -46,7 +46,7 @@ class ECOUselessExactCraftingDispatchTest {
             ECOUselessExactCraftingDispatch.prepare(target, call.getArgument(0), call.getArgument(1)));
         var energy = mock(ECOFastPathFacade.Reservation.class);
 
-        var rejected = ECOExactBatchCraftingExecutor.prepare(provider, context, inventory, copies, Map.of());
+        var rejected = ECOExactBatchPlanner.prepare(provider, context, inventory, copies, Map.of());
         assertNotNull(rejected);
         assertEquals(copies, rejected.craftCount());
         assertFalse(rejected.submit(energy));
@@ -60,7 +60,7 @@ class ECOUselessExactCraftingDispatchTest {
             receipt[0].clear();
             return true;
         });
-        var accepted = ECOExactBatchCraftingExecutor.prepare(provider, context, inventory, copies, Map.of());
+        var accepted = ECOExactBatchPlanner.prepare(provider, context, inventory, copies, Map.of());
         assertTrue(accepted.submit(energy));
         assertEquals(copies, accepted.outputs().get(output));
         assertEquals(BigInteger.ZERO, inventory.amount(input));

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.execution.batch;
 
-/** Contract for stateful or non-linear providers; this is the only new FastPath lane. */
+/** Prepared atomic commit for stateful, verified linear or exact batches. Ordinary exceptions
+ * guarantee rejection; uncertain acceptance must throw ECOIndeterminateBatchException. */
+@FunctionalInterface
 public interface ECOStatefulBatchProvider {
-    ECOBatchAdmission eco$prepareStatefulBatch(ECOBatchDispatchRequest request);
+    boolean eco$dispatchPreparedBatch();
 }

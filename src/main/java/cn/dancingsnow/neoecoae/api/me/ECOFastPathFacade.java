@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingExecutor;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
@@ -61,7 +61,7 @@ public final class ECOFastPathFacade {
             boolean exactOrder) {
         var target = resolveProvider(provider);
         if (target == null) return null;
-        var batch = ECOBatchCraftingExecutor.prepare(target, pattern, inputs, outputs, remainders,
+        var batch = ECOStatefulBatchPlanner.prepare(target, pattern, inputs, outputs, remainders,
             inventory, maxCrafts, singlePower, energy, level, jobId, exactOrder);
         return batch == null ? null : new PreparedBatch(batch, inventory);
     }
@@ -106,11 +106,11 @@ public final class ECOFastPathFacade {
     }
 
     public static final class PreparedBatch {
-        private final ECOBatchCraftingExecutor.PreparedBatch batch;
+        private final ECOStatefulBatchPlanner.PreparedBatch batch;
         private final ListCraftingInventory inventory;
         private boolean submitted;
 
-        private PreparedBatch(ECOBatchCraftingExecutor.PreparedBatch batch, ListCraftingInventory inventory) {
+        private PreparedBatch(ECOStatefulBatchPlanner.PreparedBatch batch, ListCraftingInventory inventory) {
             this.batch = batch;
             this.inventory = inventory;
         }
@@ -135,17 +135,7 @@ public final class ECOFastPathFacade {
             submitted = true;
             var reservation = energy.reserve(power());
             if (reservation == null) return false;
-            boolean retained = false;
-            try {
-                retained = batch.push(inventory);
-                return retained;
-            } catch (ECOIndeterminateBatchException failure) {
-                retained = true;
-                throw failure;
-            } finally {
-                if (retained) reservation.commit();
-                else reservation.refund();
-            }
+            return batch.submit(inventory, reservation);
         }
     }
 }

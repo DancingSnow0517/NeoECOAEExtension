@@ -126,7 +126,7 @@ class ECOProcessingDispatchIntegrationTest {
             var keyType = mock(AEKeyType.class);
             when(key.getType()).thenReturn(keyType);
             when(keyType.getId()).thenReturn(ResourceLocation.fromNamespaceAndPath("test", "input"));
-            var pattern = mock(AEProcessingPattern.class);
+            var pattern = mock(AEProcessingPattern.class, RETURNS_DEEP_STUBS);
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});
             when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
             when(pattern.supportsPushInputsToExternalInventory()).thenReturn(true);
@@ -137,12 +137,14 @@ class ECOProcessingDispatchIntegrationTest {
             var plan = mock(ICraftingPlan.class);
             when(plan.finalOutput()).thenReturn(new GenericStack(key, 16));
             when(plan.emittedItems()).thenReturn(new KeyCounter());
+            var link = mock(CraftingLink.class);
+            when(link.getCraftingID()).thenReturn(java.util.UUID.randomUUID());
             ExecutingCraftingJob job;
             try (var trackers = mockConstruction(ElapsedTimeTracker.class)) {
-                job = new ExecutingCraftingJob(plan, ignored -> {}, mock(CraftingLink.class), null);
+                job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             }
             request = new ECOCraftingDispatchRequest(job, null, pattern, new KeyCounter[]{inputs},
-                    inputs, new KeyCounter(), 16, inventory, null);
+                    inputs, new KeyCounter(), 16, inventory, mock(net.minecraft.world.level.Level.class));
             inventory.insert(key, 100, Actionable.MODULATE);
         }
 

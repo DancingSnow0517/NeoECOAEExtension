@@ -1,4 +1,7 @@
-package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
+package cn.dancingsnow.neoecoae.crafting.execution.batch;
+
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.*;
+import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import java.util.List;
 import java.util.Map;
@@ -8,7 +11,6 @@ import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.concurrent.atomic.AtomicBoolean;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -26,10 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Prepares a batch for the selected provider; job accounting remains owned by the CPU. */
-public final class ECOBatchCraftingExecutor {
+public final class ECOStatefulBatchPlanner {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
-    private ECOBatchCraftingExecutor() {}
+    private ECOStatefulBatchPlanner() {}
 
     @Nullable
     public static PreparedBatch prepare(
@@ -56,8 +58,8 @@ public final class ECOBatchCraftingExecutor {
             var perCopy = context.inputItems();
             var statefulCalculator = preparation.statefulCalculator();
             if (preparation.statefulCalculatorRequired()
-                    && context.execution().fastPathType() != ECORecipeClassifier.Type.NORMAL
-                    && statefulCalculator == null) {
+                    && statefulCalculator == null
+                    && context.execution().fastPathType() != ECORecipeClassifier.Type.NORMAL) {
                 return null;
             }
             boolean exactInputs = exactOrder && inventory instanceof ECOExactInventory exact && exact.isEnabled()
@@ -66,8 +68,12 @@ public final class ECOBatchCraftingExecutor {
                 ? ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(
                     exactInputs ? List.of() : perCopy, context.outputs(), context.containerItems())
                 : statefulCalculator.arithmeticBatchLimit();
-            long requested = Math.min(maxCrafts, Math.min(capacity,
-                materialLimit));
+            var identity = ECOPatternIdentity.of(pattern, provider);
+            var mode = statefulCalculator == null ? ECOBatchMode.LINEAR : ECOBatchMode.STATEFUL_FAST_PATH;
+            var initialPlan = new ECOBatchPlanner().plan(new ECOBatchPlanRequest(identity,
+                    maxCrafts, Long.MAX_VALUE, capacity, Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE,
+                    materialLimit, Long.MAX_VALUE, materialLimit, mode));
+            long requested = initialPlan == null ? 0L : initialPlan.craftCount();
             if (requested <= 0) return null;
             ECOStatefulBatchCalculator.BatchContract statefulBatch = null;
             if (statefulCalculator == null) {
@@ -83,7 +89,11 @@ public final class ECOBatchCraftingExecutor {
             }
             long size = ECOBatchCraftingHelper.maxAffordableCrafts(power, requested,
                 amount -> energyService.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-            if (size <= 0) return null;
+            var plan = new ECOBatchPlanner().plan(new ECOBatchPlanRequest(identity,
+                    maxCrafts, requested, capacity, size, Long.MAX_VALUE, Long.MAX_VALUE,
+                    materialLimit, Long.MAX_VALUE, requested, mode));
+            if (plan == null) return null;
+            size = plan.craftCount();
             if (statefulCalculator != null && size != requested) {
                 statefulBatch = statefulCalculator.prepareBatch(inventory, size);
                 if (statefulBatch == null || statefulBatch.craftCount() != size) return null;
@@ -136,25 +146,10 @@ public final class ECOBatchCraftingExecutor {
             };
         }
 
-        /** Extract the prepared input total once and restore that exact total on rejection. */
-        public boolean push(ListCraftingInventory inventory) {
-            ECOExactInventory exact = exactInputs.isEmpty() ? null : (ECOExactInventory) inventory;
-            if (!(exact == null ? ECOBatchCraftingHelper.extractExact(inventory, inputTotal) : exact.debit(exactInputs))) {
-                return false;
-            }
-            boolean accepted = false;
-            try {
-                accepted = dispatch.getAsBoolean();
-                return accepted;
-            } catch (ECOIndeterminateBatchException failure) {
-                accepted = true;
-                throw failure;
-            } finally {
-                if (!accepted) {
-                    if (exact == null) ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
-                    else exact.restore(exactInputs);
-                }
-            }
+        /** All physical ownership and rollback are handled by the shared batch executor. */
+        public boolean submit(ListCraftingInventory inventory, ECOFastPathFacade.Reservation energy) {
+            return ECOBatchExecutor.executePrepared(inventory, inputTotal, exactInputs, energy,
+                    dispatch::getAsBoolean);
         }
     }
 }

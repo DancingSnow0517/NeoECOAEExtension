@@ -701,6 +701,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     )
     private void neoecoae$refreshMissingIngredientsBeforeStart(CallbackInfo ci) {
         if (!neoecoae$ownsPlan(result) || result.simulation()
+                || cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.isForced(result)
                 || ((Object) this instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync force
                     && force.neoecoae$isForceCraftStartActive())) {
             return;
@@ -768,7 +769,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         ECOPlanningResult boundResult = planningResult;
         ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
-        if (NEConfig.ecoCraftConfirmDebug && !submitResult.successful()) {
+        if (!submitResult.successful() && (NEConfig.ecoCraftConfirmDebug
+                || cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.isForced(submittedPlan))) {
             String cpuDetails = service instanceof ECOCraftingServiceDiagnostics diagnostics
                 ? diagnostics.neoecoae$describeCpuSelection(submittedPlan, source)
                 : "crafting service diagnostics unavailable";

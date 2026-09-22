@@ -11,7 +11,7 @@ import appeng.api.stacks.KeyCounter;
  *
  * <p>The CPU only needs to know how many crafts were accepted and which output/remainder
  * stacks must enter {@code waitingFor}. Batch capacity, extraction, and rollback stay
- * inside the FastPath dispatcher.</p>
+ * inside the batch planner, materializer and executor.</p>
  */
 record ECOCraftingDispatchResult(long acceptedCrafts, List<GenericStack> outputs,
         List<GenericStack> remainders) {

@@ -157,7 +157,7 @@ final class ECOCraftingEnergyTransaction {
         }
     }
 
-    final class Reservation implements ECOFastPathFacade.Reservation {
+    final class Reservation implements cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchExecutor.LinearEnergy {
         private final IEnergyService energyService;
         private final BigDecimal reservedCredit;
         private final BigDecimal networkDebit;
@@ -185,7 +185,7 @@ final class ECOCraftingEnergyTransaction {
             refundEnergyOrRetainCredit(energyService, networkDebit);
         }
 
-        void refundUnaccepted(long acceptedCopies, long offeredCopies) {
+        public void refundUnaccepted(long acceptedCopies, long offeredCopies) {
             if (settled) return;
             if (offeredCopies <= 0 || acceptedCopies >= offeredCopies) { commit(); return; }
             if (acceptedCopies <= 0) { refund(); return; }

@@ -29,7 +29,7 @@ class ECOFastPathFacadeTest {
         input.add(key, 1);
         var output = new KeyCounter();
         output.add(key, 2);
-        var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), new KeyCounter[]{input},
+        var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class, RETURNS_DEEP_STUBS), new KeyCounter[]{input},
             output, new KeyCounter(), inventory, Long.MAX_VALUE, 0, null, null, null);
         assertNotNull(batch);
         assertEquals(Long.MAX_VALUE / 2, batch.craftCount());
@@ -54,7 +54,7 @@ class ECOFastPathFacadeTest {
             input.add(key, 1);
             var output = new KeyCounter();
             output.add(key, 1);
-            var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), new KeyCounter[]{input},
+            var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class, RETURNS_DEEP_STUBS), new KeyCounter[]{input},
                 output, new KeyCounter(), inventory, Long.MAX_VALUE, 2, energy, null, null);
             assertNotNull(batch);
             assertEquals(Long.MAX_VALUE, batch.craftCount());
@@ -82,7 +82,7 @@ class ECOFastPathFacadeTest {
         input.add(key, 2);
         var output = new KeyCounter();
         output.add(key, 3);
-        var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class), new KeyCounter[]{input},
+        var batch = ECOFastPathFacade.prepare(provider, mock(IPatternDetails.class, RETURNS_DEEP_STUBS), new KeyCounter[]{input},
             output, new KeyCounter(), inventory, 7, 4, energy, null, null);
         assertNotNull(batch);
         return batch;
@@ -159,7 +159,7 @@ class ECOFastPathFacadeTest {
         when(execution.arithmeticBatchLimit()).thenReturn(100L);
         when(execution.inputItems()).thenReturn(java.util.List.of(new appeng.api.stacks.GenericStack(key, 2)));
         when(execution.expectedOutputs()).thenReturn(java.util.List.of(new appeng.api.stacks.GenericStack(key, 3)));
-        var pattern = mock(IPatternDetails.class);
+        var pattern = mock(IPatternDetails.class, RETURNS_DEEP_STUBS);
         var input = new KeyCounter();
         input.add(key, 2);
         var slots = new KeyCounter[]{input};

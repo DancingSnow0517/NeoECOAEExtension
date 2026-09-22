@@ -44,8 +44,14 @@ public final class ECOBatchMaterialized {
         settled = true;
     }
 
-    public void rollback() {
+    public void commitLinear(long accepted) {
         ensureOpen();
+        inputLease.commitLinear(accepted, craftCount);
+        settled = true;
+    }
+
+    public void rollback() {
+        if (settled) return;
         inputLease.rollback();
         settled = true;
     }

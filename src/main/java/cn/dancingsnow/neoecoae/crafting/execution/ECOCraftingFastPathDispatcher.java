@@ -81,7 +81,7 @@ final class ECOCraftingFastPathDispatcher {
             request.inputs(), request.outputs(), request.remainders(), request.level(), request.job().link.getCraftingID());
         var energyAllowance = requested;
         var materialAllowance = new java.math.BigInteger[1];
-        var batch = cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExactBatchCraftingExecutor.prepare(
+        var batch = cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner.prepare(
             target, context, inventory, requested,
             runtime == null ? java.util.Map.of() : runtime.protectedStartupSeed(request.candidate()),
             amount -> {

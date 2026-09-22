@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import appeng.api.config.Actionable;
-import appeng.api.config.PowerMultiplier;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
@@ -65,51 +65,43 @@ final class ECOProcessingPatternDispatcher {
                 request.job().finalOutput == null ? null : request.job().finalOutput.what());
         if (!overload.canDispatch()) return null;
         long cap = c.inspect(request.pattern(), request.inputs(), request.allowedCrafts());
-        long budget = TICK_BUDGET - used;
-        if (cap <= 0 || budget <= 0) return null;
-        long limit = Math.min(request.allowedCrafts(), Math.min(cap, c.unbounded(provider, request.pattern()) ? budget : Math.min(budget, FAIR_SHARE)));
-        var perCraftInputs = ECOFastPathStacks.copyCounters(request.inputs());
-        limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(perCraftInputs,
-                ECOFastPathStacks.copyCounter(request.outputs()), ECOFastPathStacks.copyCounter(request.remainders())));
-        limit = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), perCraftInputs, limit);
-        limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit, n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-        if (limit <= 0) return null;
-        // Give the provider the entire allowance, once. It owns target probing and recovery.
-        List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(perCraftInputs, limit);
-        if (!ECOBatchCraftingHelper.extractExact(request.inventory(), consumed)) return null;
-        var reservation = energy.reserve(service, onePower, limit);
-        if (reservation == null) {
-            ECOBatchCraftingHelper.insertAll(request.inventory(), consumed);
-            return null;
-        }
-        mark.accept(provider);
-        long leftover;
+        long budget = Math.max(0L, TICK_BUDGET - used);
+        long quota = c.unbounded(provider, request.pattern()) ? budget : Math.min(budget, FAIR_SHARE);
+        var plan = ECOBatchDispatchPlanning.plan(request, provider, cap, quota, onePower, service, ECOBatchMode.LINEAR);
+        if (plan == null) return null;
+        ECOBatchAdmission admission;
         try {
-            leftover = c.push(request.pattern(), request.inputs(), limit);
-        } catch (AmbiguousDispatchException failure) {
+            admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
+                    request.inventory(), request.level(), request.job().link.getCraftingID(),
+                    () -> energy.reserve(service, onePower, plan.craftCount()), batch -> {
+                        mark.accept(provider);
+                        // Native APIs take one-copy counters plus a count; the materializer owns the total debit.
+                        var prototype = new KeyCounter[request.inputs().length];
+                        for (int i = 0; i < prototype.length; i++) {
+                            prototype[i] = new KeyCounter();
+                            prototype[i].addAll(request.inputs()[i]);
+                        }
+                        long leftover = c.push(batch.identity().originalPattern(), prototype, batch.craftCount());
+                        if (leftover < 0 || leftover > batch.craftCount()) return ECOBatchAdmission.indeterminate();
+                        long accepted = batch.craftCount() - leftover;
+                        return accepted == 0 ? ECOBatchAdmission.rejected()
+                                : ECOBatchAdmission.accepted(accepted, leftover == 0);
+                    });
+        } catch (ECOIndeterminateBatchException failure) {
             request.job().failPermanently("AMBIGUOUS_PROCESSING_PROVIDER_OWNERSHIP");
-            reservation.commit();
             return null;
-        }
-        if (leftover < 0 || leftover > limit) {
-            request.job().failPermanently("INVALID_PROCESSING_PROVIDER_OWNERSHIP");
-            reservation.commit();
-            return null;
-        }
-        long totalAccepted = limit - leftover;
-        if (leftover > 0) ECOBatchCraftingHelper.insertAll(request.inventory(),
-                ECOBatchCraftingHelper.multiply(perCraftInputs, leftover));
-        if (totalAccepted <= 0) { reservation.refund(); return null; }
-        try {
-            overload.registerAccepted(totalAccepted);
-            reservation.refundUnaccepted(totalAccepted, limit);
         } catch (RuntimeException failure) {
-            request.job().failPermanently("POST_ACCEPT_PROCESSING_REGISTRATION_FAILURE");
+            request.job().failPermanently("PROCESSING_BATCH_SETTLEMENT_FAILURE");
             throw failure;
         }
+        if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) return null;
+        long totalAccepted = admission.acceptedCrafts();
         used += totalAccepted;
-        var result = ECOCraftingDispatchResult.batch(totalAccepted, ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted), ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
+        var result = ECOCraftingDispatchResult.batch(totalAccepted,
+                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted),
+                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
         try {
+            overload.registerAccepted(totalAccepted);
             accounting.apply(request, result, () -> {}, provider);
         } catch (RuntimeException failure) {
             request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
@@ -127,61 +119,52 @@ final class ECOProcessingPatternDispatcher {
         if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new IdentityHashMap<>())
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
-        var per = ECOFastPathStacks.copyCounters(request.inputs());
-        long limit = Math.min(request.allowedCrafts(), budget);
-        limit = Math.min(limit, ECOBatchCraftingHelper.maxBatchSizeForPerCraftStacks(per,
-                ECOFastPathStacks.copyCounter(request.outputs()), ECOFastPathStacks.copyCounter(request.remainders())));
-        limit = ECOBatchCraftingHelper.maxCraftsFromInventory(request.inventory(), per, limit);
-        limit = ECOBatchCraftingHelper.maxAffordableCrafts(onePower, limit,
-                n -> service.extractAEPower(n, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-        limit = ECOExtendedAEPlusScaling.cap(request.pattern(), limit);
+        long limit = ECOExtendedAEPlusScaling.cap(request.pattern(), Math.min(request.allowedCrafts(), budget));
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
         while (ramp.owned < limit && !provider.isBusy()) {
             long offer = ramp.offer(limit - ramp.owned);
-            List<appeng.api.stacks.GenericStack> consumed = ECOBatchCraftingHelper.multiply(per, offer);
-            var inputTransaction = ECOProviderInputTransaction.begin(request.inventory(), consumed);
-            if (inputTransaction == null) break;
-            var reservation = energy.reserve(service, onePower, offer);
-            if (reservation == null) { inputTransaction.rollback(); break; }
-            boolean accepted = false;
-            boolean ownershipUncertain = false;
+            var plan = ECOBatchDispatchPlanning.plan(request, provider, offer, limit - ramp.owned,
+                    onePower, service, ECOBatchMode.LINEAR);
+            if (plan == null) break;
+            offer = plan.craftCount();
+            ECOBatchAdmission admission;
             try {
-                mark.accept(provider);
-                IPatternDetails scaled = offer == 1 ? request.pattern() :
-                        java.util.Objects.requireNonNullElse(
-                            ECOExtendedAEPlusScaling.scale(request.pattern(), offer),
-                            new ScaledProcessingPattern(request.pattern(), offer));
-                KeyCounter[] counters = ECOCraftingDispatchStacks.scaleCounters(request.inputs(), offer);
-                var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled, counters,
-                        request.outputs(), request.remainders(), offer, request.inventory(), request.level());
-                try {
-                    accepted = normalPush.push(scaledRequest, provider);
-                } catch (RuntimeException failure) {
-                    ownershipUncertain = true;
-                    inputTransaction.transferOwnership();
-                    request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
-                    reservation.commit();
-                    return null;
-                }
-                if (!accepted) {
-                    if (ramp.record(offer, 0, false, tick)) continue;
-                    break;
-                }
-                inputTransaction.transferOwnership();
-                reservation.commit();
-                used += offer;
-                // Record each owned chunk before attempting another; a later exception cannot lose it.
-                accounting.apply(request, scaledResult(request, offer), () -> {}, provider);
-                if (!ramp.record(offer, offer, fullyInserted(provider), tick)) break;
+                admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
+                        request.inventory(), request.level(), request.job().link.getCraftingID(),
+                        () -> energy.reserve(service, onePower, plan.craftCount()), batch -> {
+                            mark.accept(provider);
+                            // Only this external API boundary needs an AE2 pattern-shaped execution view.
+                            // The task, plan and accounting retain the original pattern identity.
+                            IPatternDetails scaled = batch.craftCount() == 1 ? batch.identity().originalPattern() :
+                                    java.util.Objects.requireNonNullElse(
+                                        ECOExtendedAEPlusScaling.scale(batch.identity().originalPattern(), batch.craftCount()),
+                                        new ScaledProcessingPattern(batch.identity().originalPattern(), batch.craftCount()));
+                            var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), scaled,
+                                    batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
+                                    batch.craftCount(), request.inventory(), request.level());
+                            return normalPush.push(scaledRequest, provider)
+                                    ? ECOBatchAdmission.accepted(batch.craftCount(), fullyInserted(provider))
+                                    : ECOBatchAdmission.rejected();
+                        });
+            } catch (ECOIndeterminateBatchException failure) {
+                request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
+                return null;
             } catch (RuntimeException failure) {
-                if (accepted) request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
+                request.job().failPermanently("SCALED_BATCH_SETTLEMENT_FAILURE");
                 throw failure;
-            } finally {
-                if (!accepted && !ownershipUncertain) {
-                    inputTransaction.rollback();
-                    reservation.refund();
-                }
             }
+            if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) {
+                if (ramp.record(offer, 0, false, tick)) continue;
+                break;
+            }
+            used += admission.acceptedCrafts();
+            try {
+                accounting.apply(request, scaledResult(request, admission.acceptedCrafts()), () -> {}, provider);
+            } catch (RuntimeException failure) {
+                request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
+                throw failure;
+            }
+            if (!ramp.record(offer, admission.acceptedCrafts(), admission.canContinue(), tick)) break;
         }
         return ramp.owned > 0 ? scaledResult(request, ramp.owned) : null;
     }
