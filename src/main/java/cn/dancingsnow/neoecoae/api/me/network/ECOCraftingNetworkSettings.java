@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me.network;
 
 import appeng.api.networking.IGrid;
+
 import java.util.Set;
+
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,14 +21,26 @@ public interface ECOCraftingNetworkSettings {
 
     void neoecoae$setFastPlannerEnabled(boolean enabled);
 
-    /** Whether an unavoidable cyclic component may be offered to the cycle solver. */
+    /**
+     * Whether an unavoidable cyclic component may be offered to the cycle solver.
+     */
     boolean neoecoae$isCyclePlanningEnabled();
 
     void neoecoae$setCyclePlanningEnabled(boolean enabled);
 
+    boolean neoecoae$isPlanningLogEnabled();
+
+    void neoecoae$setPlanningLogEnabled(boolean enabled);
+
+    boolean neoecoae$isSubmissionLogEnabled();
+
+    void neoecoae$setSubmissionLogEnabled(boolean enabled);
+
     boolean neoecoae$hasComputationHost();
 
-    /** Item ids selected by computation interfaces for component-insensitive planning. */
+    /**
+     * Item ids selected by computation interfaces for component-insensitive planning.
+     */
     Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds();
 
     /**

@@ -758,6 +758,24 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             boolean prioritizePower,
             IActionSource source,
             Operation<ICraftingSubmitResult> original) {
+        if (service instanceof ECOCraftingNetworkSettings settings
+                && settings.neoecoae$isSubmissionLogEnabled()) {
+            ECOPlanningResult attached = submittedPlan instanceof ECOCraftingPlanDiagnostics diagnostics
+                    ? diagnostics.neoecoae$getPlanningResult() : null;
+            NEOECOAE_LOGGER.info(
+                    "[craft-submit-trace] stage=menu-dispatch container={} plan={}@{} simulation={} bytes={} "
+                            + "output={} diagnostics={} target={}",
+                    ((CraftConfirmMenu) (Object) this).containerId,
+                    submittedPlan.getClass().getName(),
+                    Integer.toHexString(System.identityHashCode(submittedPlan)),
+                    submittedPlan.simulation(), submittedPlan.bytes(), submittedPlan.finalOutput(),
+                    attached == null ? "none"
+                            : attached.planningId() + "/" + attached.status() + "/"
+                            + attached.executionRequirement(),
+                    target == null ? "<automatic>"
+                            : target.getClass().getName() + "@"
+                            + Integer.toHexString(System.identityHashCode(target)));
+        }
         ECOPlanningResult planningResult = result instanceof ECOCraftingPlanDiagnostics diagnostics
             ? diagnostics.neoecoae$getPlanningResult()
             : null;

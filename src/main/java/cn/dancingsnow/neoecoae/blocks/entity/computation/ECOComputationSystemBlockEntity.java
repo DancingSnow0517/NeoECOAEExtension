@@ -56,7 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputationCluster, ECOComputationSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host {
+        implements ISyncPersistRPCBlockEntity, MultiBlockBuildController.Host {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -83,6 +83,12 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private boolean cyclePlanningEnabled;
+    @Persisted
+    @DescSynced
+    private boolean planningLogEnabled;
+    @Persisted
+    @DescSynced
+    private boolean submissionLogEnabled;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -91,10 +97,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private boolean mirrored;
 
     public ECOComputationSystemBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState,
+            IECOTier tier
     ) {
         super(type, pos, blockState, NEComputationClusterCalculator::new);
         this.tier = tier;
@@ -112,9 +118,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 BlockState newState = state.setValue(ECOComputationSystem.MIRRORED, formed && mirrored);
                 if (newState != state) {
                     level.setBlock(
-                        worldPosition,
-                        newState,
-                        Block.UPDATE_CLIENTS
+                            worldPosition,
+                            newState,
+                            Block.UPDATE_CLIENTS
                     );
                 }
             }
@@ -130,34 +136,34 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig(holder.player);
 
         UIElement root = new UIElement().layout(layout -> layout
-            .width(340)
-            .height(242)
-            .flexDirection(FlexDirection.COLUMN))
-            .addClasses("panel_bg", "eco-computation-host");
+                        .width(340)
+                        .height(242)
+                        .flexDirection(FlexDirection.COLUMN))
+                .addClasses("panel_bg", "eco-computation-host");
 
         UIElement header = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(28)
-            .flexDirection(FlexDirection.ROW)
-            .alignItems(AlignItems.CENTER));
+                .widthPercent(100)
+                .height(28)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.CENTER));
         UIElement titleBlock = new UIElement().layout(layout -> layout.flex(1).height(24)
-            .flexDirection(FlexDirection.COLUMN).gapAll(2));
+                .flexDirection(FlexDirection.COLUMN).gapAll(2));
         titleBlock.addChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-            .layout(layout -> layout.widthPercent(100).height(10)));
+                .setText(getItemFromBlockEntity().getDescription())
+                .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
+                .layout(layout -> layout.widthPercent(100).height(10)));
         titleBlock.addChild(HostNetworkStatusElement.create(
-            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
-            () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
+                () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+                () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
         header.addChild(titleBlock);
         root.addChild(header);
 
         UIElement panels = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(ComputationHostPanelUI.PANEL_HEIGHT)
-            .flexDirection(FlexDirection.ROW)
-            .alignItems(AlignItems.STRETCH)
-            .gapAll(10));
+                .widthPercent(100)
+                .height(ComputationHostPanelUI.PANEL_HEIGHT)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.STRETCH)
+                .gapAll(10));
         UIElement leftColumn = new UIElement().layout(layout -> {
             layout.width(ComputationHostPanelUI.LEFT_PANEL_WIDTH);
             layout.height(ComputationHostPanelUI.PANEL_HEIGHT);
@@ -171,13 +177,15 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
         root.addChild(panels);
         root.addChild(HostSideButtonBar.left(
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
-            MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
-            ComputationHostPanelUI.createPlanningModeButton(panelConfig),
-            ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
-            ComputationHostPanelUI.createFastPlannerButton(panelConfig),
-            ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
+                GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
+                MultiblockBuilderUI.createInlineOpenButton(buildWindow),
+                ComputationHostPanelUI.createCpuSelectionButton(panelConfig),
+                ComputationHostPanelUI.createPlanningModeButton(panelConfig),
+                ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
+                ComputationHostPanelUI.createFastPlannerButton(panelConfig),
+                ComputationHostPanelUI.createPlanningLogButton(panelConfig),
+                ComputationHostPanelUI.createSubmissionLogButton(panelConfig),
+                ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
@@ -189,27 +197,31 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     private ComputationHostPanelUI.Config createComputationPanelConfig(Player player) {
         return new ComputationHostPanelUI.Config(
-            this::getUsedComputationBytes,
-            this::getTotalBytes,
-            this::getAvailableBytes,
-            this::getUsedThread,
-            this::getTotalThread,
-            this::getParallelCount,
-            this::getCpuSelectionMode,
-            delta -> adjustCpuSelectionMode(player, delta),
-            this::getRegistryAccessForUi,
-            this::getActiveTaskEntries,
-            this::isIgnoringPatternSubstitutions,
-            this::getSubstitutionPatternCount,
-            () -> toggleIgnoringPatternSubstitutions(player),
-            this::isCyclePlanningEnabled,
-            () -> toggleCyclePlanning(player),
-            this::isFastCraftingPlannerEnabled,
-            () -> toggleFastCraftingPlanner(player),
-            this::getNetworkFrequency,
-            delta -> {
-                if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
-            }
+                this::getUsedComputationBytes,
+                this::getTotalBytes,
+                this::getAvailableBytes,
+                this::getUsedThread,
+                this::getTotalThread,
+                this::getParallelCount,
+                this::getCpuSelectionMode,
+                delta -> adjustCpuSelectionMode(player, delta),
+                this::getRegistryAccessForUi,
+                this::getActiveTaskEntries,
+                this::isIgnoringPatternSubstitutions,
+                this::getSubstitutionPatternCount,
+                () -> toggleIgnoringPatternSubstitutions(player),
+                this::isCyclePlanningEnabled,
+                () -> toggleCyclePlanning(player),
+                this::isFastCraftingPlannerEnabled,
+                () -> toggleFastCraftingPlanner(player),
+                this::isPlanningLogEnabled,
+                () -> togglePlanningLog(player),
+                this::isSubmissionLogEnabled,
+                () -> toggleSubmissionLog(player),
+                this::getNetworkFrequency,
+                delta -> {
+                    if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
+                }
         );
     }
 
@@ -227,8 +239,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     private boolean isIgnoringPatternSubstitutions() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
-            ? settings.neoecoae$isIgnoringPatternSubstitutions()
-            : ignorePatternSubstitutions;
+                ? settings.neoecoae$isIgnoringPatternSubstitutions()
+                : ignorePatternSubstitutions;
     }
 
     private int getSubstitutionPatternCount() {
@@ -241,7 +253,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         if (settings != null) {
             settings.neoecoae$setIgnoringPatternSubstitutions(
-                !settings.neoecoae$isIgnoringPatternSubstitutions());
+                    !settings.neoecoae$isIgnoringPatternSubstitutions());
         } else {
             applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
         }
@@ -269,11 +281,63 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         markForUpdate();
     }
 
+    public boolean isLocallyPlanningLogEnabled() {
+        return planningLogEnabled;
+    }
+
+    public void applyNetworkPlanningLogEnabled(boolean enabled) {
+        if (planningLogEnabled == enabled) return;
+        planningLogEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
+    private boolean isPlanningLogEnabled() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null ? settings.neoecoae$isPlanningLogEnabled() : planningLogEnabled;
+    }
+
+    private void togglePlanningLog(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setPlanningLogEnabled(!settings.neoecoae$isPlanningLogEnabled());
+        } else {
+            applyNetworkPlanningLogEnabled(!planningLogEnabled);
+        }
+    }
+
+    public boolean isLocallySubmissionLogEnabled() {
+        return submissionLogEnabled;
+    }
+
+    public void applyNetworkSubmissionLogEnabled(boolean enabled) {
+        if (submissionLogEnabled == enabled) return;
+        submissionLogEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
+    private boolean isSubmissionLogEnabled() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null ? settings.neoecoae$isSubmissionLogEnabled() : submissionLogEnabled;
+    }
+
+    private void toggleSubmissionLog(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setSubmissionLogEnabled(!settings.neoecoae$isSubmissionLogEnabled());
+        } else {
+            applyNetworkSubmissionLogEnabled(!submissionLogEnabled);
+        }
+    }
+
     public boolean isFastCraftingPlannerEnabled() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
-            ? settings.neoecoae$isFastPlannerEnabled()
-            : fastCraftingPlannerEnabled;
+                ? settings.neoecoae$isFastPlannerEnabled()
+                : fastCraftingPlannerEnabled;
     }
 
     private void toggleFastCraftingPlanner(Player player) {
@@ -289,8 +353,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     public boolean isCyclePlanningEnabled() {
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
-            ? settings.neoecoae$isCyclePlanningEnabled()
-            : cyclePlanningEnabled;
+                ? settings.neoecoae$isCyclePlanningEnabled()
+                : cyclePlanningEnabled;
     }
 
     private void toggleCyclePlanning(Player player) {
@@ -350,7 +414,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         return hasNetworkFrequency() ? networkFrequency : NEFrequencyAllocator.DEFAULT_FREQUENCY;
     }
 
-    /** Manager-only: assigns a frequency to a newly-eligible host that has none yet. */
+    /**
+     * Manager-only: assigns a frequency to a newly-eligible host that has none yet.
+     */
     public void assignNetworkFrequency(int frequency) {
         if (hasNetworkFrequency()) {
             return;
@@ -370,7 +436,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         setNetworkFrequency(NEFrequencyAllocator.normalize(current + delta));
     }
 
-    /** Player-facing: manually reassigns this host's frequency, splitting/rejoining groups. */
+    /**
+     * Player-facing: manually reassigns this host's frequency, splitting/rejoining groups.
+     */
     public void setNetworkFrequency(int frequency) {
         this.networkFrequency = NEFrequencyAllocator.normalize(frequency);
         setChanged();
@@ -401,10 +469,10 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             return level.registryAccess();
         }
         return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
-            .getServerResources()
-            .managers()
-            .fullRegistries()
-            .get();
+                .getServerResources()
+                .managers()
+                .fullRegistries()
+                .get();
     }
 
     private List<ComputationTaskEntry> getActiveTaskEntries() {
@@ -454,23 +522,23 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         long total = Math.max(1L, tracker.getSyntheticStartItemCount());
         long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
         ComputationTaskEntry.Status status = !logic.hasJob() || logic.isCantStoreItems() || logic.isJobSuspended()
-            ? ComputationTaskEntry.Status.WAITING_OUTPUT
-            : ComputationTaskEntry.Status.RUNNING;
+                ? ComputationTaskEntry.Status.WAITING_OUTPUT
+                : ComputationTaskEntry.Status.RUNNING;
         return new ComputationTaskEntry(
-            computationTaskId(cpu, finalOutput, index),
-            output,
-            remainingAmount,
-            1L,
-            total,
-            remaining,
-            status,
-            index + 1,
-            cpu.getName(),
-            cpu.getAvailableStorage(),
-            cpu.getCoProcessors(),
-            cpu.getSelectionMode(),
-            Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
-            tracker.getElapsedTime()
+                computationTaskId(cpu, finalOutput, index),
+                output,
+                remainingAmount,
+                1L,
+                total,
+                remaining,
+                status,
+                index + 1,
+                cpu.getName(),
+                cpu.getAvailableStorage(),
+                cpu.getCoProcessors(),
+                cpu.getSelectionMode(),
+                Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
+                tracker.getElapsedTime()
         );
     }
 
@@ -537,16 +605,16 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
         return MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
-            holder.player,
-            () -> selectedBuildLength,
-            () -> mirrorBuild,
-            mirror -> buildController.setMirrorBuild(holder.player, mirror),
-            () -> buildController.decreaseBuildLength(holder.player),
-            () -> buildController.increaseBuildLength(holder.player),
-            () -> buildController.autoBuild(holder.player),
-            () -> formed,
-            () -> buildInProgress,
-            buildController::createLocalPreviewPlan
+                holder.player,
+                () -> selectedBuildLength,
+                () -> mirrorBuild,
+                mirror -> buildController.setMirrorBuild(holder.player, mirror),
+                () -> buildController.decreaseBuildLength(holder.player),
+                () -> buildController.increaseBuildLength(holder.player),
+                () -> buildController.autoBuild(holder.player),
+                () -> formed,
+                () -> buildInProgress,
+                buildController::createLocalPreviewPlan
         ));
     }
 
@@ -573,37 +641,59 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     @Override
-    public Level getBuildLevel() { return level; }
+    public Level getBuildLevel() {
+        return level;
+    }
 
     @Override
-    public BlockPos getBuildPosition() { return worldPosition; }
+    public BlockPos getBuildPosition() {
+        return worldPosition;
+    }
 
     @Override
-    public BlockState getBuildState() { return getBlockState(); }
+    public BlockState getBuildState() {
+        return getBlockState();
+    }
 
     @Override
-    public int getSelectedBuildLength() { return selectedBuildLength; }
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
 
     @Override
-    public void setSelectedBuildLength(int length) { selectedBuildLength = length; }
+    public void setSelectedBuildLength(int length) {
+        selectedBuildLength = length;
+    }
 
     @Override
-    public boolean isMirrorBuild() { return mirrorBuild; }
+    public boolean isMirrorBuild() {
+        return mirrorBuild;
+    }
 
     @Override
-    public void setMirrorBuild(boolean mirrorBuild) { this.mirrorBuild = mirrorBuild; }
+    public void setMirrorBuild(boolean mirrorBuild) {
+        this.mirrorBuild = mirrorBuild;
+    }
 
     @Override
-    public boolean isBuildInProgress() { return buildInProgress; }
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
 
     @Override
-    public void setBuildInProgress(boolean buildInProgress) { this.buildInProgress = buildInProgress; }
+    public void setBuildInProgress(boolean buildInProgress) {
+        this.buildInProgress = buildInProgress;
+    }
 
     @Override
-    public boolean isFormed() { return formed; }
+    public boolean isFormed() {
+        return formed;
+    }
 
     @Override
-    public void rebuildAfterBuild() { rebuildMultiblock(); }
+    public void rebuildAfterBuild() {
+        rebuildMultiblock();
+    }
 
     @Override
     public void buildStateChanged() {

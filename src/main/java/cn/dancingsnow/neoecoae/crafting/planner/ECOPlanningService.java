@@ -9,7 +9,9 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+
 import java.util.concurrent.Future;
+
 import net.minecraft.world.level.Level;
 
 /**
@@ -23,15 +25,16 @@ public final class ECOPlanningService {
     }
 
     public static Future<ICraftingPlan> begin(Level level, IGrid grid, IActionSource source, AEKey goal,
-            long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
+                                              long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
         var inventory = ECOPlannerInventory.capture(grid);
         ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
-            options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
+                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds(),
+                options.planningLogEnabled());
         return ECOPlanningExecutor.submit(() -> plan(session, goal, amount, strategy));
     }
 
     private static ICraftingPlan plan(ECOCraftingPlannerService.Session session, AEKey goal, long requestedAmount,
-            CalculationStrategy strategy) throws InterruptedException {
+                                      CalculationStrategy strategy) throws InterruptedException {
         if (requestedAmount <= 0L) {
             return session.plan(requestedAmount, true, ECOPlanningService::checkpoint).plan();
         }
