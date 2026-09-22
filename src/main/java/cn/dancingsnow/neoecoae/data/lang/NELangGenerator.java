@@ -131,7 +131,6 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.members_return", "Please insert them again");
         provider.add("jade.neoecoae.storage.infinite_enabled", "Infinite storage enabled");
         provider.add("tooltip.neoecoae.storage.infinite_migration_locked", "Cannot remove this matrix while infinite storage migration is in progress");
-        provider.add("tooltip.neoecoae.storage.finite_transfer_locked", "Cannot remove matrices while storage transfer or recovery is active. Switch the interface to storage mode and wait for recovery to finish.");
         provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage: Activation Requirements");
         provider.add("tooltip.neoecoae.infinite_component.components",
             "Component slots: 64 infinite storage components in the storage host");

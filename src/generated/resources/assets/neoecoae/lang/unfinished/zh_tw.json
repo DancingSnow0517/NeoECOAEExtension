@@ -658,7 +658,6 @@
   "tooltip.neoecoae.power_multiply_l4": "功耗倍率: x%d [L4]",
   "tooltip.neoecoae.power_multiply_l6": "功耗倍率: x%d [L6]",
   "tooltip.neoecoae.power_multiply_l9": "功耗倍率: x%d [L9]",
-  "tooltip.neoecoae.storage.finite_transfer_locked": "儲存傳輸或還原期間無法取出矩陣；請將介面切回儲存模式，並等待還原完成。",
   "tooltip.neoecoae.storage.infinite_component_locked": "無法取出無限組件：目前內容無法安全回落到普通矩陣",
   "tooltip.neoecoae.storage.infinite_member": "由存儲主機統一管理",
   "tooltip.neoecoae.storage.infinite_member_locked": "無限模式遷移或恢復期間不能取出成員儲存矩陣；模式完成後可以取出，但退出前必須插回。",

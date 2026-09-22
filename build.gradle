@@ -127,7 +127,6 @@ dependencies {
     compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
-    compileOnly("maven.modrinth:sophisticated-core:1.21.1-1.4.90.2299")
 
     // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
     compileOnly("curse.maven:omnisequence-transfinite-1624558:8622739") { transitive = false }

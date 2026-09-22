@@ -659,7 +659,6 @@
   "tooltip.neoecoae.power_multiply_l4": "Power Multiply: x%d [L4]",
   "tooltip.neoecoae.power_multiply_l6": "Power Multiply: x%d [L6]",
   "tooltip.neoecoae.power_multiply_l9": "Power Multiply: x%d [L9]",
-  "tooltip.neoecoae.storage.finite_transfer_locked": "Cannot remove matrices while storage transfer or recovery is active. Switch the interface to storage mode and wait for recovery to finish.",
   "tooltip.neoecoae.storage.infinite_component_locked": "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices",
   "tooltip.neoecoae.storage.infinite_member": "Managed by the storage host",
   "tooltip.neoecoae.storage.infinite_member_locked": "Infinite storage matrices cannot be removed while the storage host is in infinite mode",

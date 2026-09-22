@@ -446,7 +446,6 @@
   "gui.neoecoae.crafting.performance": "效",
   "tooltip.neoecoae.storage.infinite_component_locked": "不可取無限件：所藏未能安歸常矩",
   "tooltip.neoecoae.storage.infinite_migration_locked": "藏矩正遷無限藏，暫不可取",
-  "tooltip.neoecoae.storage.finite_transfer_locked": "藏物傳輸或復原未竟，藏矩不可取；請切介面為儲存式，候復原畢。",
   "gui.neoecoae.storage.members_missing": "缺成員盤%s枚",
   "gui.neoecoae.storage.members_return": "請歸其盤",
   "jade.neoecoae.storage.infinite_enabled": "無限藏已啟",

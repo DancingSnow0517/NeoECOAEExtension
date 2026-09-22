@@ -166,7 +166,9 @@ ECOPatternInsertionResult result = service.insertPreparedPattern(prepared);
 
 ### 动态批量发配（内部行为，不是新增 API）
 
-另有新批量架构的接口骨架 `crafting.execution.batch.ECOBatchProvider#eco$prepareBatch` 和 `ECOStatefulBatchProvider#eco$prepareStatefulBatch`，二者接收 `ECOBatchDispatchRequest` 并返回 `ECOBatchAdmission`。当前源码尚无执行器调用这两个接口；`ecoNewBatchDispatcherEnabled` 默认关闭，且尚未被调度入口读取。因此，仅实现这些接口或打开配置不会启用新链路，目前不能把它们当作已接通的第三方 API。
+CPU 的全部发配分支现已接入 `crafting.execution.batch`。线性批量和单次适配器由 `ECOBatchPlanner` 汇总实时限制，经 `ECOBatchMaterializer` 获取实际材料，再由 `ECOBatchExecutor` 提交。`ECOBatchProvider#eco$dispatchBatch` 返回资源接收结果：拒绝时全额回滚，明确部分接收时仅退还未接收的线性批次，接收状态不明时保留资源并暂停任务。规划同时限制待收产物的剩余计数空间，并保护其他执行阶段预留的启动种子。
+
+已验证 FastPath 和有状态配方使用 `ECOStatefulBatchPlanner`，任意精度大订单使用 `ECOExactBatchPlanner`；二者都通过同一执行器和材料管理器提交预先计算的总量，避免重复乘算可复用工具或把精确数量截断到 `long`。`ECOStatefulBatchProvider#eco$dispatchPreparedBatch` 是内部原子提交适配器。CPU 在资源结算成功后才更新任务和产物记账。这些属于内部执行契约，不是新增的第三方注册 API；现有 Provider API 会适配到该链路，不再提供新旧发配切换配置。
 
 普通处理样板的动态/自适应批量发配目前由 ECO CPU 内部执行器完成，不提供新的注册接口或 Provider 接口。执行器会按 Provider 的实时接受结果记住每个样板的安全批次，在后续 tick 周期性探测更大的批次；拒绝、部分接收、忙碌状态和发送缓冲区未清空都会降低或暂停本次探测。资格判断也会短时间缓存，以避免在同一 Provider/样板上重复反射检查。
 

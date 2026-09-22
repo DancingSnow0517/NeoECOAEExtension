@@ -446,7 +446,6 @@
   "gui.neoecoae.crafting.performance": "性能",
   "tooltip.neoecoae.storage.infinite_component_locked": "無法取出無限組件：目前內容無法安全回落到普通矩陣",
   "tooltip.neoecoae.storage.infinite_migration_locked": "此儲存矩陣正在遷移至無限儲存，暫時無法取出",
-  "tooltip.neoecoae.storage.finite_transfer_locked": "儲存傳輸或還原期間無法取出矩陣；請將介面切回儲存模式，並等待還原完成。",
   "gui.neoecoae.storage.members_missing": "缺少%s個成員碟",
   "gui.neoecoae.storage.members_return": "請插回",
   "jade.neoecoae.storage.infinite_enabled": "已開啟無限模式",

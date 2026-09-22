@@ -9,7 +9,6 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
-    public static final long MAX_STORAGE_TRANSFER_RATE = Long.MAX_VALUE;
     public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
     public static final int PATTERN_BUS_MIN_PAGES = 1;
     public static final int PATTERN_BUS_MAX_PAGES = 8;
@@ -109,28 +108,6 @@ public class NEConfig {
             "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
         .define("ecoAe2FastPathEnabled", true);
 
-    static {
-        BUILDER
-            .comment(
-                "ECO 批量派发架构选择。",
-                "关闭时使用现有旧派发链；开启时使用新的 Planner → Materializer → Provider 批次链。",
-                "ECO batch-dispatch architecture selection.",
-                "When disabled, the existing dispatch chain is used; when enabled, the new Planner → Materializer → Provider batch chain is used.")
-            .push("batchDispatch");
-    }
-
-    private static final ModConfigSpec.BooleanValue ECO_NEW_BATCH_DISPATCHER_ENABLED = BUILDER
-        .comment(
-            "启用新的 ECO 批量派发链。默认关闭。",
-            "旧派发链仍然保留；启用后只切换 CPU 派发入口，不改变样板、任务和存档格式。",
-            "Enable the new ECO batch dispatcher. Disabled by default.",
-            "The legacy dispatcher remains available; this only switches the CPU dispatch entry point and does not change pattern, task or save formats.")
-        .define("ecoNewBatchDispatcherEnabled", false);
-
-    static {
-        BUILDER.pop();
-    }
-
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
@@ -153,42 +130,6 @@ public class NEConfig {
             ECOCraftingFastPathCache.MIN_CACHE_SIZE,
             ECOCraftingFastPathCache.MAX_CACHE_SIZE
         );
-
-    private static final ModConfigSpec.BooleanValue ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION = BUILDER
-        .comment(
-            "启用 Sophisticated Storage 的可选 ECO 持续传输优化。",
-            "遇到整合包兼容冲突时可关闭；关闭后使用 AE2 通用路径和 200 tick 对账。",
-            "Enable the optional Sophisticated Storage ECO transfer optimization.",
-            "Disable this if a modpack encounters a compatibility conflict; AE2's generic path remains available.")
-        .define("enableSophisticatedTransferOptimization", true);
-
-    private static final ModConfigSpec.LongValue STORAGE_TRANSFER_RATE = BUILDER
-        .comment(
-            "有限存储域每 tick 的最大转移数量。",
-            "默认值为 Long.MAX_VALUE；可设置为 1 到 Long.MAX_VALUE。",
-            "Maximum amount transferred by a finite storage domain per tick.",
-            "Defaults to Long.MAX_VALUE; valid range is 1 to Long.MAX_VALUE.")
-        .defineInRange("storageTransferRate", Integer.MAX_VALUE, 1L, MAX_STORAGE_TRANSFER_RATE);
-
-    private static final ModConfigSpec.IntValue STORAGE_TRANSFER_KEYS = BUILDER
-        .comment("Maximum distinct keys visited per controller tick; also bounded by the time budget.")
-        .defineInRange("storageTransferKeysPerTick", 256, 1, 4096);
-    private static final ModConfigSpec.LongValue STORAGE_TRANSFER_NANOS = BUILDER
-        .comment("Cooperative time budget per storage controller, in nanoseconds. Third-party calls cannot be preempted.")
-        .defineInRange("storageTransferNanosPerTick", 2_000_000L, 100_000L, 20_000_000L);
-    private static final ModConfigSpec.LongValue STORAGE_SERVER_NANOS = BUILDER
-        .comment("Shared storage controller time budget per server tick, in nanoseconds.")
-        .defineInRange("storageServerNanosPerTick", 4_000_000L, 100_000L, 40_000_000L);
-    private static final ModConfigSpec.LongValue INFINITE_MAX_SNAPSHOT_BYTES = BUILDER
-        .comment(
-            "Maximum accounted size of one infinite-storage shard snapshot while loading.",
-            "This protects recovery from corrupt or hostile NBT without limiting the logical amount of an item.")
-        .defineInRange("infiniteStorageMaxSnapshotBytes", 2L * 1024 * 1024 * 1024, 64L * 1024 * 1024, 16L * 1024 * 1024 * 1024);
-    private static final ModConfigSpec.IntValue INFINITE_MAX_SNAPSHOT_ENTRIES = BUILDER
-        .comment(
-            "Maximum number of entries in one shard snapshot during recovery.",
-            "This is a corruption/OOM guard, not an item-amount capacity limit.")
-        .defineInRange("infiniteStorageMaxSnapshotEntries", 4_000_000, 1_024, 16_000_000);
 
     static {
         BUILDER.pop();
@@ -245,16 +186,8 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
-    public static boolean ecoNewBatchDispatcherEnabled = false;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
-    public static boolean enableSophisticatedTransferOptimization = true;
-    public static long storageTransferRate = Integer.MAX_VALUE;
-    public static int storageTransferKeysPerTick = 256;
-    public static long storageTransferNanosPerTick = 2_000_000L;
-    public static long storageServerNanosPerTick = 4_000_000L;
-    public static long infiniteStorageMaxSnapshotBytes = 2L * 1024 * 1024 * 1024;
-    public static int infiniteStorageMaxSnapshotEntries = 4_000_000;
     public static boolean ecoDispatchWatchdogDebug = false;
     public static boolean ecoCraftingOutputDeliveryDebug = false;
     public static boolean ecoCraftConfirmDebug = false;
@@ -277,16 +210,8 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
-        ecoNewBatchDispatcherEnabled = ECO_NEW_BATCH_DISPATCHER_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
-        enableSophisticatedTransferOptimization = ENABLE_SOPHISTICATED_TRANSFER_OPTIMIZATION.get();
-        storageTransferRate = Math.clamp(STORAGE_TRANSFER_RATE.get(), 1L, MAX_STORAGE_TRANSFER_RATE);
-        storageTransferKeysPerTick = STORAGE_TRANSFER_KEYS.get();
-        storageTransferNanosPerTick = STORAGE_TRANSFER_NANOS.get();
-        storageServerNanosPerTick = STORAGE_SERVER_NANOS.get();
-        infiniteStorageMaxSnapshotBytes = INFINITE_MAX_SNAPSHOT_BYTES.get();
-        infiniteStorageMaxSnapshotEntries = INFINITE_MAX_SNAPSHOT_ENTRIES.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
         ecoCraftingOutputDeliveryDebug = ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG.get();
         ecoCraftConfirmDebug = ECO_CRAFT_CONFIRM_DEBUG.get();

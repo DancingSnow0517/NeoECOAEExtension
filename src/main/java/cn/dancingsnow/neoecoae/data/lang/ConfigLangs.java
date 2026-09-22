@@ -51,18 +51,6 @@ public class ConfigLangs {
                 "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics."
         );
 
-        provider.add("neoecoae.configuration.batchDispatch", "Batch Dispatch Architecture");
-        provider.add(
-            "neoecoae.configuration.batchDispatch.tooltip",
-            "Select the ECO batch-dispatch architecture.\n" +
-                "The legacy dispatcher remains available as a safe fallback."
-        );
-        provider.add("neoecoae.configuration.ecoNewBatchDispatcherEnabled", "Enable New Batch Dispatcher");
-        provider.add(
-            "neoecoae.configuration.ecoNewBatchDispatcherEnabled.tooltip",
-            "Use the new Planner -> Materializer -> Provider batch-dispatch chain.\n" +
-                "Disabled by default; the legacy dispatch chain remains available."
-        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
