@@ -29,6 +29,8 @@ public final class SpecialPatternResolver {
     private final boolean ignorePatternSubstitutions;
     private final Set<AEKey> resolving = new LinkedHashSet<>();
     private final Map<AEKey, PlannerAmount> reusableStock = new java.util.LinkedHashMap<>();
+    private CompiledPattern specialOwner;
+    private int specialSlot = -1;
 
     SpecialPatternResolver(CompiledNetwork network, SolveState state, Map<AEKey, Integer> choices,
             ECOCancellation cancellation, boolean ignorePatternSubstitutions) {
@@ -48,30 +50,39 @@ public final class SpecialPatternResolver {
         Map<AEKey, PlannerAmount> simultaneous = new java.util.LinkedHashMap<>();
         for (var requirement : pattern.specialAnalysis().requirements()) {
             cancellation.checkpoint();
-            if (consumeStoredExactReusableAlternative(pattern, requirement, simultaneous)) {
-                continue;
-            }
-            if (requirement.type() == SpecialPatternAnalysis.Type.DURABILITY) {
-                resolveDurability(pattern, requirement, times);
-            } else if (requirement.type() == SpecialPatternAnalysis.Type.REUSABLE) {
-                DurabilityChoice fallback = findDurabilityAlternative(requirement.input());
-                if (fallback != null) {
-                    resolveDurability(pattern, fallback, times);
-                } else {
-                    AEKey key = requirement.input().key();
-                    PlannerAmount needed = simultaneous.merge(key, requirement.input().amountPerPattern(), PlannerAmount::add);
-                    PlannerAmount reserved = reusableStock.getOrDefault(key, PlannerAmount.ZERO);
-                    if (needed.compareTo(reserved) > 0) {
-                        resolveSpecialKey(pattern, key, needed.subtract(reserved), requirement.input().ignoresComponents());
-                        reusableStock.put(key, needed);
-                    }
+            CompiledPattern previousOwner = specialOwner;
+            int previousSlot = specialSlot;
+            specialOwner = pattern;
+            specialSlot = pattern.inputs().indexOf(requirement.input());
+            try {
+                if (consumeStoredExactReusableAlternative(pattern, requirement, simultaneous)) {
+                    continue;
                 }
-            } else {
-                PlannerAmount count = requirement.type() == SpecialPatternAnalysis.Type.CONTAINER
-                    ? requirement.input().amountPerPattern().multiply(times)
-                    : requirement.input().amountPerPattern();
-                resolveSpecialKey(pattern, requirement.input().key(), count,
-                    requirement.input().ignoresComponents());
+                if (requirement.type() == SpecialPatternAnalysis.Type.DURABILITY) {
+                    resolveDurability(pattern, requirement, times);
+                } else if (requirement.type() == SpecialPatternAnalysis.Type.REUSABLE) {
+                    DurabilityChoice fallback = findDurabilityAlternative(requirement.input());
+                    if (fallback != null) {
+                        resolveDurability(pattern, fallback, times);
+                    } else {
+                        AEKey key = requirement.input().key();
+                        PlannerAmount needed = simultaneous.merge(key, requirement.input().amountPerPattern(), PlannerAmount::add);
+                        PlannerAmount reserved = reusableStock.getOrDefault(key, PlannerAmount.ZERO);
+                        if (needed.compareTo(reserved) > 0) {
+                            resolveSpecialKey(pattern, key, needed.subtract(reserved), requirement.input().ignoresComponents());
+                            reusableStock.put(key, needed);
+                        }
+                    }
+                } else {
+                    PlannerAmount count = requirement.type() == SpecialPatternAnalysis.Type.CONTAINER
+                        ? requirement.input().amountPerPattern().multiply(times)
+                        : requirement.input().amountPerPattern();
+                    resolveSpecialKey(pattern, requirement.input().key(), count,
+                        requirement.input().ignoresComponents());
+                }
+            } finally {
+                specialOwner = previousOwner;
+                specialSlot = previousSlot;
             }
         }
     }
@@ -244,15 +255,8 @@ public final class SpecialPatternResolver {
             CompiledInput input = owner.inputs().get(i);
             if (input.key().equals(key)) { slot = i; break; }
         }
-        // The demand id remains unique for a transformed durability alternative.
-        if (slot < 0) {
-            for (int i = 0; i < owner.inputs().size(); i++) {
-                if (owner.specialAnalysis().excludesFromCycleGraph(owner.inputs().get(i))) {
-                    slot = i;
-                    break;
-                }
-            }
-        }
+        // A transformed durability alternative still belongs to its original requirement's slot.
+        if (slot < 0 && owner == specialOwner) slot = specialSlot;
         if (slot < 0) throw new IllegalStateException("Special input has no consumer slot: " + key);
         MaterialDemand demand = MaterialDemand.input(owner.details(), slot, key, amount);
         state.provenance.register(demand);

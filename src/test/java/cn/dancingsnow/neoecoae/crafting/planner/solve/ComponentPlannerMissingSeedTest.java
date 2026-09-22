@@ -54,6 +54,9 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingAmounts().isEmpty());
+        outcome.state().executionProvenance().requireComplete();
+        cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule.from(outcome.components(),
+            outcome.executionComponentOrder(), outcome.state().patternTimes(), outcome.state().executionProvenance());
         assertTrue(outcome.state().plannerPatternTimes().get(growth.details()).signum() > 0);
         var cycle = outcome.components().stream()
             .filter(component -> component.type() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
@@ -159,6 +162,9 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(0L, outcome.state().usedItems().get(crystal));
         assertEquals(100_004L, outcome.state().patternTimes().get(unpack.details()));
         assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
+        outcome.state().executionProvenance().requireComplete();
+        cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule.from(outcome.components(),
+            outcome.executionComponentOrder(), outcome.state().patternTimes(), outcome.state().executionProvenance());
     }
 
     private static CompiledPattern staticPattern(int id, AEKey outputKey, long outputAmount,

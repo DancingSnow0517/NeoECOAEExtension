@@ -227,7 +227,7 @@ public final class AcyclicCraftingSolver {
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
         for (AEKey key : route.keys()) {
             cancellation.checkpoint();
-            PlannerAmount requested = state.demand.getOrDefault(key, PlannerAmount.ZERO);
+            PlannerAmount requested = state.provenance.pendingAmount(key);
             if (requested.signum() <= 0) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
             boolean ignoreComponents = false;
@@ -272,6 +272,7 @@ public final class AcyclicCraftingSolver {
             CompiledPattern pattern = fast.get(choice);
             state.selected.put(key, pattern);
             if (deferredPatterns.contains(pattern.details())) {
+                state.deferredSuppliers.put(key, pattern.details());
                 // The untouched demand becomes a required output of the owning cycle component.
                 state.provenance.allocatePending(key, key,
                     new MaterialSource.PatternOutput(pattern.details(), true), requested);

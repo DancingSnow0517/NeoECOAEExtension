@@ -419,7 +419,10 @@ public final class ComponentPlanner {
                                     delegatedCycleDemands
                                             .computeIfAbsent(supplier.componentId(), ignored -> new LinkedHashMap<>())
                                             .merge(key, PlannerAmount.of(demand), PlannerAmount::add);
-                                    acyclic.state().provenance.supplied(key,
+                                    var boundary = cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand
+                                            .boundary(cycle.componentId(), key, PlannerAmount.of(demand));
+                                    acyclic.state().provenance.register(boundary);
+                                    acyclic.state().provenance.allocate(boundary, key,
                                             new cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource.CycleOutput(
                                                     supplier.componentId()), PlannerAmount.of(demand));
                                 });

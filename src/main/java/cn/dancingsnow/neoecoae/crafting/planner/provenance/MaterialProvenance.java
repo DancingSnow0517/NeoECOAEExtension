@@ -83,6 +83,21 @@ public final class MaterialProvenance {
         return copy;
     }
 
+    /** Resolves a deferred numeric promise after the owning cycle has selected its physical work. */
+    public void resolveDeferred(AEKey key, IPatternDetails pattern, MaterialSource resolved) {
+        for (int i = 0; i < allocations.size(); i++) {
+            SupplyAllocation allocation = allocations.get(i);
+            if (!allocation.material().equals(key)
+                    || !(allocation.source() instanceof MaterialSource.PatternOutput output)
+                    || !output.primary() || output.pattern() != pattern) continue;
+            Map<MaterialSource, PlannerAmount> sources = suppliers.get(key);
+            PlannerAmount left = sources.get(allocation.source()).subtract(allocation.amount());
+            if (left.isZero()) sources.remove(allocation.source()); else sources.put(allocation.source(), left);
+            sources.merge(resolved, allocation.amount(), PlannerAmount::add);
+            allocations.set(i, new SupplyAllocation(allocation.demandId(), key, resolved, allocation.amount()));
+        }
+    }
+
     /** The material may be a concrete component-sensitive alternative to the demand's key. */
     public void allocate(MaterialDemand demand, AEKey material, MaterialSource source, PlannerAmount amount) {
         SupplyAllocation allocation = new SupplyAllocation(demand.id(), material, source, amount);

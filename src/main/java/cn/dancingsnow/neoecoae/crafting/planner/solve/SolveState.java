@@ -31,6 +31,7 @@ public final class SolveState {
     final Map<IPatternDetails, PlannerAmount> patternTimes = new LinkedHashMap<>();
     final Map<AEKey, IPatternDetails> demandProducers = new HashMap<>();
     final Map<AEKey, CompiledPattern> selected = new HashMap<>();
+    final Map<AEKey, IPatternDetails> deferredSuppliers = new LinkedHashMap<>();
     final Map<AEKey, Set<AEKey>> parents = new HashMap<>();
     final Set<AEKey> unsupported = new LinkedHashSet<>();
     PlannerAmount bytes = PlannerAmount.ZERO;
@@ -180,6 +181,12 @@ public final class SolveState {
                 if (entry.getValue() < 0) return false;
                 candidate.patternTimes.merge(entry.getKey(), PlannerAmount.of(entry.getValue()), PlannerAmount::add);
             }
+            for (AEKey key : requiredOutputs.keySet()) {
+                IPatternDetails deferred = candidate.deferredSuppliers.remove(key);
+                if (deferred != null) candidate.provenance.resolveDeferred(key, deferred,
+                    cycle.plannerTotalFirings().signum() > 0
+                        ? new MaterialSource.CycleOutput(componentId) : MaterialSource.Stock.INSTANCE);
+            }
             if (cycle.plannerTotalFirings().signum() > 0) {
                 for (var entry : requiredOutputs.entrySet()) {
                     PlannerAmount pending = candidate.provenance.pendingAmount(entry.getKey())
@@ -206,6 +213,7 @@ public final class SolveState {
         copy.missing.replaceFrom(missing);
         copy.demand.putAll(demand); copy.patternTimes.putAll(patternTimes); copy.demandProducers.putAll(demandProducers);
         copy.selected.putAll(selected);
+        copy.deferredSuppliers.putAll(deferredSuppliers);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
         copy.unsupported.addAll(unsupported); copy.bytes = bytes;
         copy.provenance.replaceWith(provenance);
@@ -220,6 +228,7 @@ public final class SolveState {
         external.patternTimes.forEach((key, value) -> patternTimes.merge(key, value, PlannerAmount::add));
         demandProducers.putAll(external.demandProducers);
         selected.putAll(external.selected);
+        deferredSuppliers.putAll(external.deferredSuppliers);
         external.parents.forEach((key, value) -> parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
         // External surplus is not imported into crafted, so only its consumed-source attribution is mergeable.
         provenance.mergeSuppliersFrom(external.provenance.forCycleBoundary(componentId));
@@ -232,6 +241,7 @@ public final class SolveState {
         demand.clear(); demand.putAll(source.demand); patternTimes.clear(); patternTimes.putAll(source.patternTimes);
         demandProducers.clear(); demandProducers.putAll(source.demandProducers);
         selected.clear(); selected.putAll(source.selected); parents.clear();
+        deferredSuppliers.clear(); deferredSuppliers.putAll(source.deferredSuppliers);
         source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
         unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;
         provenance.replaceWith(source.provenance);
