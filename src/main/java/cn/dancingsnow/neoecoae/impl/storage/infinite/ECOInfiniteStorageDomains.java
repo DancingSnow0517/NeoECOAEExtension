@@ -28,6 +28,7 @@ public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
     private static final String DATA_NAME_PREFIX = "neoecoae_infinite_";
     private static final long IDLE_EVICTION_TICKS = 20L * 60L;
+    private static final long ENERGY_FLUSH_INTERVAL_TICKS = 20L;
 
     private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
 
@@ -82,6 +83,10 @@ public final class ECOInfiniteStorageDomains {
             while (iterator.hasNext()) {
                 var domain = iterator.next();
                 DomainEntry entry = domain.getValue();
+                if (tick % ENERGY_FLUSH_INTERVAL_TICKS == 0
+                        && entry.engine instanceof SavedDataInfiniteStorageEngine saved) {
+                    saved.flushBufferedEnergy();
+                }
                 if (entry.mountCount == 0 && entry.idleSinceTick != Long.MIN_VALUE
                         && tick - entry.idleSinceTick >= IDLE_EVICTION_TICKS) {
                     try {

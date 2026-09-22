@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.integration.appflux.FluxStorageKeys;
 
 import java.math.BigInteger;
 import java.nio.file.Path;
@@ -44,7 +45,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     public long insert(AEKey key, long amount, Actionable mode) {
         if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
         if (mode == Actionable.MODULATE) {
-            if (!data.appendJournalChange(dataFile.toFile(), registries, key, amount, true)) return 0;
+            boolean accepted = FluxStorageKeys.isEnergy(key)
+                    ? data.bufferEnergyChange(key, amount, true)
+                    : data.appendJournalChange(dataFile.toFile(), registries, key, amount, true);
+            if (!accepted) return 0;
             change(key, amount, true);
         }
         return amount;
@@ -79,7 +83,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         long extracted = Math.min(amount, data.amounts.visible(key));
         if (mode == Actionable.SIMULATE || extracted == 0) return extracted;
         if (!data.canWrite(key)) return 0;
-        if (!data.appendJournalChange(dataFile.toFile(), registries, key, extracted, false)) return 0;
+        boolean accepted = FluxStorageKeys.isEnergy(key)
+                ? data.bufferEnergyChange(key, extracted, false)
+                : data.appendJournalChange(dataFile.toFile(), registries, key, extracted, false);
+        if (!accepted) return 0;
         change(key, extracted, false);
         return extracted;
     }
@@ -188,6 +195,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
                 throw new IllegalStateException("Cannot close infinite domain journal", exception);
             }
         }
+    }
+
+    void flushBufferedEnergy() {
+        data.flushBufferedEnergy(dataFile.toFile(), registries);
     }
 
     public List<String> failures() {

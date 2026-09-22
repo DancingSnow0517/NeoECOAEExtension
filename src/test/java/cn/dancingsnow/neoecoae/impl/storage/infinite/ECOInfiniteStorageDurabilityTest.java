@@ -64,6 +64,86 @@ class ECOInfiniteStorageDurabilityTest {
     }
 
     @Test
+    void bufferedEnergyCoalescesWithoutForcingEveryTransfer(@TempDir Path directory) throws Exception {
+        var key = AEItemKey.of(Items.STONE);
+        var other = AEItemKey.of(Items.DIRT);
+        var snapshot = directory.resolve("domain.dat");
+        var empty = ECOInfiniteStorageData.createNew().save(new CompoundTag(), RegistryAccess.EMPTY);
+        var live = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        var engine = new SavedDataInfiniteStorageEngine(live, RegistryAccess.EMPTY, snapshot);
+        try {
+            assertTrue(live.bufferEnergyChange(key, 100, true));
+            live.add(key, 100);
+            assertTrue(live.bufferEnergyChange(key, 20, false));
+            live.subtract(key, 20);
+            assertFalse(Files.exists(directory.resolve("domain.dat.journal")));
+
+            assertEquals(3, engine.insert(other, 3, Actionable.MODULATE));
+            live.flushBufferedEnergy(snapshot.toFile(), RegistryAccess.EMPTY);
+            var recovered = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+            ECOInfiniteStorageData.replayJournal(recovered, snapshot, RegistryAccess.EMPTY);
+            assertEquals(HugeAmount.of(80), recovered.getAmount(key));
+            assertEquals(HugeAmount.of(3), recovered.getAmount(other));
+            assertEquals(2, recovered.save(new CompoundTag(), RegistryAccess.EMPTY).getLong("journalSequence"));
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void interruptedBufferedTailKeepsPreviouslyForcedRecords(@TempDir Path directory) throws Exception {
+        var key = AEItemKey.of(Items.STONE);
+        var snapshot = directory.resolve("domain.dat");
+        var empty = ECOInfiniteStorageData.createNew().save(new CompoundTag(), RegistryAccess.EMPTY);
+        var live = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        assertTrue(live.appendJournalChange(snapshot.toFile(), RegistryAccess.EMPTY, key, 10, true));
+        live.closeJournal();
+        try (var out = new DataOutputStream(Files.newOutputStream(directory.resolve("domain.dat.journal"),
+                java.nio.file.StandardOpenOption.APPEND))) {
+            out.writeInt(100);
+            out.writeByte(1);
+        }
+        var recovered = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        ECOInfiniteStorageData.replayJournal(recovered, snapshot, RegistryAccess.EMPTY);
+        assertEquals(HugeAmount.of(10), recovered.getAmount(key));
+    }
+
+    @Test
+    void snapshotIncludesUnflushedEnergy(@TempDir Path directory) throws Exception {
+        var key = AEItemKey.of(Items.STONE);
+        var snapshot = directory.resolve("domain.dat");
+        var empty = ECOInfiniteStorageData.createNew().save(new CompoundTag(), RegistryAccess.EMPTY);
+        var live = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        assertTrue(live.bufferEnergyChange(key, 42, true));
+        live.add(key, 42);
+        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
+        assertFalse(Files.exists(directory.resolve("domain.dat.journal")));
+        var root = NbtIo.readCompressed(snapshot, net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+        var recovered = ECOInfiniteStorageData.load(root.getCompound("data"), RegistryAccess.EMPTY, ITEM_CODEC);
+        assertEquals(HugeAmount.of(42), recovered.getAmount(key));
+    }
+
+    @Test
+    void bufferedEnergySplitsNetChangesAboveLongMax(@TempDir Path directory) throws Exception {
+        var key = AEItemKey.of(Items.STONE);
+        var snapshot = directory.resolve("domain.dat");
+        var empty = ECOInfiniteStorageData.createNew().save(new CompoundTag(), RegistryAccess.EMPTY);
+        var live = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        assertTrue(live.bufferEnergyChange(key, Long.MAX_VALUE, true));
+        live.add(key, Long.MAX_VALUE);
+        assertTrue(live.bufferEnergyChange(key, 5, true));
+        live.add(key, 5);
+        live.flushBufferedEnergy(snapshot.toFile(), RegistryAccess.EMPTY);
+        live.closeJournal();
+
+        var recovered = ECOInfiniteStorageData.load(empty, RegistryAccess.EMPTY, ITEM_CODEC);
+        ECOInfiniteStorageData.replayJournal(recovered, snapshot, RegistryAccess.EMPTY);
+        assertEquals(HugeAmount.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(5))),
+                recovered.getAmount(key));
+        assertEquals(2, recovered.save(new CompoundTag(), RegistryAccess.EMPTY).getLong("journalSequence"));
+    }
+
+    @Test
     void repeatedTransfersReplayBeforeCloseAndSurviveSnapshotRotation(@TempDir Path directory) throws Exception {
         var key = AEItemKey.of(Items.STONE);
         var snapshot = directory.resolve("domain.dat");
