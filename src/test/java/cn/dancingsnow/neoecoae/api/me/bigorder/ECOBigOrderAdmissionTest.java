@@ -1,10 +1,47 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
 import java.math.BigInteger;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ECOBigOrderAdmissionTest {
+    @Test void unrepresentableCycleStartsAsParentCarrierInsteadOfAnIncompleteExecutionPlan() {
+        var goal = org.mockito.Mockito.mock(appeng.api.stacks.AEKey.class);
+        var intermediate = org.mockito.Mockito.mock(appeng.api.stacks.AEKey.class);
+        var projection = new appeng.crafting.CraftingPlan(
+            new appeng.api.stacks.GenericStack(goal, 5_000_000_000_000_000_000L), 0, true, false,
+            new appeng.api.stacks.KeyCounter(), new appeng.api.stacks.KeyCounter(),
+            new appeng.api.stacks.KeyCounter(), Map.of());
+        var trace = new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace();
+        trace.addNode(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode(
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Kind.MATERIAL,
+            intermediate, null, 0, 0, 0, 0, 0,
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Selection.UNSUPPORTED, null)
+            .withExact(BigInteger.TEN.pow(20), BigInteger.ZERO, BigInteger.TEN.pow(20),
+                BigInteger.ZERO, BigInteger.ZERO));
+        var cycle = new cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult(1,
+            cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC,
+            cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNREPRESENTABLE,
+            Map.of(), Set.of(), Set.of(),
+            cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.UNREPRESENTABLE,
+            null, Map.of(), "amount exceeds long", null,
+            cn.dancingsnow.neoecoae.crafting.planner.result.CycleExecutionDisposition.BLOCKED, Map.of());
+        var result = new cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult(
+            cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+            projection, trace, List.of(), List.of(cycle), List.of(1), 0L);
+        var options = new cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions(true, false, Set.of());
+
+        var request = ECOBigOrderRequest.fromPlanningResult(result, false, options);
+
+        assertEquals(BigInteger.valueOf(5_000_000_000_000_000_000L), request.requested());
+        assertEquals(BigInteger.TEN.pow(20), request.pendingPreview().get(intermediate));
+        assertSame(request, request.submit(carrier -> ECOBigOrderRequest.forSubmission(carrier)));
+        assertNull(ECOBigOrderRequest.forSubmission(request.carrier()));
+    }
+
     @Test void unresolvedAndUnemittedCyclesRemainRejectedEvenWhenForced() {
         for (var status : java.util.List.of(
                 cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.UNRESOLVED,

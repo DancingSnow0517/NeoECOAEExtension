@@ -229,18 +229,20 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 }
             }
         }
-        final cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan completePlan;
+        final cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest admission;
         try {
-            completePlan = new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, forced);
+            admission = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest.fromPlanningResult(
+                exact, forced, neoecoae$originalOptions);
         } catch (RuntimeException invalid) {
-            NEOECOAE_LOGGER.warn("[big-order-submit] Complete execution plan rejected", invalid);
-            neoecoae$rejectBigOrder("EXACT_EXECUTION_PLAN_INVALID",
+            NEOECOAE_LOGGER.warn("[big-order-submit] Parent order rejected", invalid);
+            neoecoae$rejectBigOrder("PARENT_ORDER_INVALID",
                 appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
         NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, cpu={}",
             menu.containerId, result.finalOutput(), forced, neoecoae$describeCpu(cpu));
-        var submitted = cpu.getCluster().submitJob(grid, completePlan, getActionSrc(), null);
+        var submitted = admission.submit(carrier ->
+            cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
         menu.setAutoStart(false);
         if (submitted.successful()) {
             NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());

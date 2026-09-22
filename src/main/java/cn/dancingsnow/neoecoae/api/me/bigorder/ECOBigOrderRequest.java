@@ -7,7 +7,9 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import java.math.BigInteger;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Parent metadata is deliberately separate from AE2's long-only ICraftingPlan. */
@@ -16,6 +18,22 @@ public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean force
     public ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean forced, ECOPlannerOptions options) {
         this(goal, requested, forced, options, Map.of());
     }
+
+    /** Creates a waiting parent order; executable task vectors are planned later as bounded child segments. */
+    public static ECOBigOrderRequest fromPlanningResult(ECOPlanningResult result, boolean forced,
+            ECOPlannerOptions options) {
+        java.util.Objects.requireNonNull(result, "result");
+        if (result.plan() == null) throw new IllegalArgumentException("Missing planning projection");
+        Map<AEKey, BigInteger> preview = new LinkedHashMap<>();
+        result.trace().nodes().forEach(node -> {
+            if (node.key() != null && node.exactToCraft().signum() > 0) {
+                preview.merge(node.key(), node.exactToCraft(), BigInteger::max);
+            }
+        });
+        var output = result.plan().finalOutput();
+        return new ECOBigOrderRequest(output.what(), BigInteger.valueOf(output.amount()), forced, options, preview);
+    }
+
     private static final ThreadLocal<Submission> SUBMISSION = new ThreadLocal<>();
     private record Submission(ICraftingPlan carrier, ECOBigOrderRequest request) {}
 
