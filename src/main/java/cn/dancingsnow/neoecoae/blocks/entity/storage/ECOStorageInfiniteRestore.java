@@ -4,7 +4,6 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
@@ -252,10 +251,8 @@ final class ECOStorageInfiniteRestore {
         Map<AEKey, UUID> completed = new HashMap<>();
         java.util.Set<IECOStorageMigrationCell> changedCells = new java.util.HashSet<>();
         IActionSource source = IActionSource.ofMachine(host);
-        long started = System.nanoTime();
         for (AEKey key : restoreQueue) {
-            if (completed.size() >= NEConfig.storageTransferKeysPerTick
-                    || (!completed.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget())) break;
+            if (completed.size() >= ECOInfiniteStorageTransfer.KEYS_PER_TICK) break;
             var goals = engine.restorePlan(key);
             for (RestoreTarget target : plan.targets()) {
                 var goal = goals.get(target.identity);

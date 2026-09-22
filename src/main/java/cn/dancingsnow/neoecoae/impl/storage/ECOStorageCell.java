@@ -22,7 +22,6 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
@@ -34,7 +33,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +63,6 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     public long contentRevision() { return contentRevision; }
     private boolean isPersisted = true;
-    private boolean persistenceDeferred;
     @Getter
     private final IECOTier tier;
 
@@ -253,16 +250,12 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         this.storedItems = actualTypes;
 
         this.storedItemCount = itemCount;
-        ECOFiniteCellMetadata.bumpGenerationIfUnleased(cellStack);
         this.isPersisted = true;
     }
 
     protected void saveChanges() {
         contentRevision++;
         this.isPersisted = false;
-        if (persistenceDeferred) {
-            return;
-        }
         if (ECOCellMutationBatch.defer(this)) return;
         flushBatchedChanges();
     }
@@ -274,26 +267,6 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
         if (this.container != null) {
             this.container.saveChanges();
         }
-    }
-
-    /**
-     * Keeps logical mutations in memory while a controller finite-storage domain is active. The caller must invoke
-     * {@link #materializeDeferredChanges(UUID, long)} before the cell stack can leave the controller.
-     */
-    public void deferPersistence() {
-        persistenceDeferred = true;
-    }
-
-    protected boolean isPersistenceDeferred() {
-        return persistenceDeferred;
-    }
-
-    /** Writes deferred contents and records the durable handoff generation on the cell stack. */
-    public void materializeDeferredChanges(UUID domainId, long expectedGeneration) {
-        persistenceDeferred = false;
-        persist();
-        ECOFiniteCellMetadata.commit(cellStack, domainId, expectedGeneration);
-        if (container != null) container.saveChanges();
     }
 
     @Override

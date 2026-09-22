@@ -222,24 +222,17 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
-        Object server = level.getServer();
-        stageRunner.beginTick(server, level.getGameTime());
-        if (!stageRunner.hasBudget()) return;
         try (var cellBatch = cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch.open()) {
             if (!stageRunner.run("migration", this::updateInfiniteStorageMode)) return;
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 if (!stageRunner.run("transfer", () -> {
-                    interfaceTransfer.updateFiniteTransferDomain(storageInterface);
                     storageInterface.recordStorageInterfaceTransfer(interfaceTransfer.transferStorageInterfaceContents(storageInterface));
                 })) return;
-            } else if (isFiniteTransferDomainLocked()) {
-                if (!stageRunner.run("materialization", this::materializeFiniteTransferDomain)) return;
             }
             stageRunner.run("construction", () -> buildController.tick(level));
         } finally {
             long elapsed = System.nanoTime() - startNanos;
-            stageRunner.finishTick(server, elapsed);
             recordPerformanceSample(elapsed);
         }
     }
@@ -384,7 +377,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private net.minecraft.network.chat.Component storageDiagnostics() {
         var text = net.minecraft.network.chat.Component.empty();
-        interfaceTransfer.appendDiagnostics(text);
         for (var fault : stageRunner.failures()) {
             text.append(fault.component() + " [" + fault.id() + "]\n" + fault.reason() + "\n");
         }
@@ -503,10 +495,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
-        if (!materializeFiniteTransferDomain()) {
-            LOGGER.error("Refusing to release storage-controller contents at {} while finite recovery is unresolved", pos);
-            return;
-        }
         super.addAdditionalDrops(level, pos, drops);
         ItemStack infiniteComponent = infiniteComponentInventory.getStackInSlot(0);
         if (!infiniteComponent.isEmpty()) {
@@ -661,9 +649,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             level.setBlockAndUpdate(worldPosition, level.getBlockState(worldPosition)
                     .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
         }
-        if (storageInterface != null) {
-            interfaceTransfer.updateFiniteTransferDomain(storageInterface);
-        }
         refreshDriveStorageProviders();
         setChanged();
         markForUpdate();
@@ -702,17 +687,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    protected void onMainNodeGridChanged() {
-        // The scheduler captures the grid inventory and optional source bindings; rebuild both for a new epoch.
-        interfaceTransfer.resetFiniteTransferScheduler();
-    }
-
-    @Override
     public void updateCluster(@Nullable NEStorageCluster nextCluster) {
         rememberInfiniteMembers();
-        if (nextCluster == null && isFiniteTransferDomainLocked()) {
-            materializeFiniteTransferDomain();
-        }
         if (nextCluster == null) {
             infiniteModeController.release();
         }
@@ -721,14 +697,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void onChunkUnloaded() {
-        materializeFiniteTransferDomain();
         infiniteModeController.release();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
-        materializeFiniteTransferDomain();
         infiniteModeController.release();
         super.setRemoved();
     }
@@ -745,24 +719,20 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);
-        interfaceTransfer.saveHaltedTransfers(data, registries);
         data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
         }
         saveInfiniteMembers(data);
-        interfaceTransfer.saveDomain(data, registries);
     }
 
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
-        interfaceTransfer.loadHaltedTransfers(data, registries);
         loadLegacyInfiniteComponentInventory(data, registries);
         hostMode = ECOStorageHostMode.fromId(data.getString("infiniteHostMode"));
         infiniteDomainId = data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null;
         loadInfiniteMembers(data);
-        interfaceTransfer.loadDomain(data);
     }
 
     private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {
@@ -800,10 +770,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     Map<String, Long> storageStageRetryTicks() {
         return stageRunner.retryTicks();
-    }
-
-    long currentStorageBudget() {
-        return stageRunner.remainingBudget();
     }
 
     ECOStorageHostMode storageHostMode() {
@@ -883,14 +849,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     void selectEcoMegaPage(int page) {
         selectedEcoMegaPage = page;
-    }
-
-    public boolean isFiniteTransferDomainLocked() {
-        return interfaceTransfer.isFiniteTransferDomainLocked();
-    }
-
-    public boolean materializeFiniteTransferDomain() {
-        return interfaceTransfer.materializeFiniteTransferDomain();
     }
 
     @Override

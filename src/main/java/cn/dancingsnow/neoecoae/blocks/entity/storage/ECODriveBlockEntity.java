@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -101,9 +100,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        if (isLockedByFiniteTransferDomain()) {
-            return false;
-        }
         ECOStorageSystemBlockEntity controller = getStorageController();
         if (controller != null && !controller.canInsertStorageCell(stack)) return false;
         return ECOStorageCells.isCellHandled(stack);
@@ -123,17 +119,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             || !getStorageController().isFormedInfiniteMode())) {
             return CellExtractionBlockReason.INFINITE_MEMBER;
         }
-        if (isLockedByFiniteTransferDomain()) {
-            return CellExtractionBlockReason.FINITE_TRANSFER;
-        }
         return CellExtractionBlockReason.NONE;
     }
 
     public enum CellExtractionBlockReason {
         NONE(""),
         INFINITE_MIGRATION("tooltip.neoecoae.storage.infinite_migration_locked"),
-        INFINITE_MEMBER("tooltip.neoecoae.storage.infinite_member_locked"),
-        FINITE_TRANSFER("tooltip.neoecoae.storage.finite_transfer_locked");
+        INFINITE_MEMBER("tooltip.neoecoae.storage.infinite_member_locked");
 
         private final String translationKey;
 
@@ -144,15 +136,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         public String translationKey() {
             return translationKey;
         }
-    }
-
-    public boolean isLockedByFiniteTransferDomain() {
-        ECOFiniteCellMetadata.State metadata = cellStack == null || cellStack.isEmpty()
-            ? null : ECOFiniteCellMetadata.read(cellStack);
-        return metadata != null && metadata.leaseId() != null && !metadata.leaseCommitted()
-            || cluster instanceof NEStorageCluster storageCluster
-            && storageCluster.getController() != null
-            && storageCluster.getController().isFiniteTransferDomainLocked();
     }
 
     public boolean isLockedByInfiniteMode() {
@@ -188,10 +171,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null
-            && !storageCluster.getController().materializeFiniteTransferDomain()) {
-            return;
-        }
         super.addAdditionalDrops(level, pos, drops);
         if (cellStack != null) {
             drops.add(cellStack);

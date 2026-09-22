@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -137,7 +136,6 @@ final class ECOInfiniteStorageModeController {
                 && host.getTier() == ECOTier.L9
                 && host.isFormed()
                 && host.getCluster() != null
-                && !host.storageInterfaceTransfer().blocksInfiniteMigration()
                 && !host.isStorageInterfaceTransferMode()
                 && targetInfiniteMode
                 && countMigrationSources() >= MINIMUM_MIGRATION_SOURCES
@@ -294,9 +292,7 @@ final class ECOInfiniteStorageModeController {
                     }
                 },
                 () -> drive.convertCellToInfiniteMember(domainId),
-                (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"),
-                NEConfig.storageTransferKeysPerTick,
-                host.currentStorageBudget());
+                (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"));
         if (!finished) {
             return;
         }
@@ -315,12 +311,8 @@ final class ECOInfiniteStorageModeController {
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
         Set<UUID> prepared = new HashSet<>();
         List<net.minecraft.core.BlockPos> changedChunks = new ArrayList<>();
-        long started = System.nanoTime();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (prepared.size() >= NEConfig.storageTransferKeysPerTick
-                    || !prepared.isEmpty() && System.nanoTime() - started >= host.currentStorageBudget()) {
-                break;
-            }
+            if (prepared.size() >= ECOInfiniteStorageTransfer.KEYS_PER_TICK) break;
             String stage = "migration drive " + drive.getBlockPos();
             if (host.getLevel().getGameTime() < host.storageStageRetryTicks().getOrDefault(stage, Long.MIN_VALUE)) {
                 continue;

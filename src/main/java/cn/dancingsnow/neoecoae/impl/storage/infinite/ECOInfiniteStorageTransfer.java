@@ -22,6 +22,7 @@ import net.minecraft.world.item.ItemStack;
  * Bounded finite-to-infinite transfer. The sealed source stays intact until the destination is durable.
  */
 public final class ECOInfiniteStorageTransfer {
+    public static final int KEYS_PER_TICK = 5;
     private final Map<UUID, Cursor> cursors = new HashMap<>();
 
     public static boolean isEligible(IECOStorageCell cell) {
@@ -35,18 +36,16 @@ public final class ECOInfiniteStorageTransfer {
      */
     public boolean step(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
                         ECOInfiniteStorageEngine engine, HolderLookup.Provider registries,
-                        Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt,
-                        int keyLimit, long budgetNanos) {
-        if (!isEligible(cell) || !engine.isHealthy() || keyLimit <= 0 || budgetNanos <= 0) return false;
+                        Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
+        if (!isEligible(cell) || !engine.isHealthy()) return false;
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
-        return step(migration, source, cell, engine, registries, persistSeal, complete, legacyReceipt, keyLimit, budgetNanos);
+        return step(migration, source, cell, engine, registries, persistSeal, complete, legacyReceipt);
     }
 
     boolean step(UUID migration, Object source, IECOStorageMigrationCell cell,
                  ECOInfiniteStorageEngine engine, HolderLookup.Provider registries,
-                 Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt,
-                 int keyLimit, long budgetNanos) {
-        if (!cell.isInfiniteStorageEligible() || !engine.isHealthy() || keyLimit <= 0 || budgetNanos <= 0) return false;
+                 Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
+        if (!cell.isInfiniteStorageEligible() || !engine.isHealthy()) return false;
         Cursor cursor = cursors.get(migration);
         if (cursor == null || cursor.source != source || cursor.cell != cell) {
             cell.persist();
@@ -54,9 +53,8 @@ public final class ECOInfiniteStorageTransfer {
             cursor = new Cursor(source, cell, cell.migrationEntries());
             cursors.put(migration, cursor);
         }
-        long started = System.nanoTime();
         int visited = 0;
-        while (visited < keyLimit && System.nanoTime() - started < budgetNanos) {
+        while (visited < KEYS_PER_TICK) {
             if (cursor.key == null) {
                 if (!cursor.entries.hasNext()) break;
                 var entry = cursor.entries.next();

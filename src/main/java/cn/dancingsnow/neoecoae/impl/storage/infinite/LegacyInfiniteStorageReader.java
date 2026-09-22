@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -150,18 +149,13 @@ final class LegacyInfiniteStorageReader {
     }
 
     private static CompoundTag readSnapshot(Path file) throws IOException {
-        long limit = Math.max(1, NEConfig.infiniteStorageMaxSnapshotBytes);
-        if (Files.size(file) > limit) throw new IOException("Legacy snapshot exceeds size limit");
-        CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.create(limit));
+        CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
         if (tag.getInt("format") != 2 || !tag.contains("sequence", Tag.TAG_LONG) || tag.getLong("sequence") < 0) {
             throw new IOException("Invalid legacy snapshot format");
         }
         validateList(tag, "entries", Tag.TAG_COMPOUND);
         validateList(tag, "rawEntries", Tag.TAG_COMPOUND);
         validateList(tag, "migrations", Tag.TAG_INT_ARRAY);
-        long size = (long) tag.getList("entries", Tag.TAG_COMPOUND).size()
-            + tag.getList("rawEntries", Tag.TAG_COMPOUND).size() + tag.getList("migrations", Tag.TAG_INT_ARRAY).size();
-        if (size > NEConfig.infiniteStorageMaxSnapshotEntries) throw new IOException("Legacy snapshot exceeds entry limit");
         return tag;
     }
 

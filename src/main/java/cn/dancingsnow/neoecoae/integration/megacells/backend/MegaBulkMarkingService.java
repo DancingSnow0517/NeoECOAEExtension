@@ -65,7 +65,7 @@ public final class MegaBulkMarkingService {
             || !serverLevel.getServer().isSameThread()) {
             return result(Status.BUSY);
         }
-        if (host.isFiniteTransferDomainLocked() || host.isInfiniteMode()) {
+        if (host.isInfiniteMode()) {
             return result(Status.BUSY);
         }
 

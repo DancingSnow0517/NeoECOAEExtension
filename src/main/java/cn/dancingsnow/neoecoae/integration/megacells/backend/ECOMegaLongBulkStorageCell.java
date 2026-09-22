@@ -10,7 +10,6 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOFiniteCellMetadata;
 import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
@@ -365,10 +364,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         } else {
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
         }
-        // MEGA cells participate in the finite transfer domain as ordinary ECO cells. Keep the
-        // same unleased generation barrier as ECOStorageCell so recovery snapshots can detect
-        // content changes made through this specialised persistence path.
-        ECOFiniteCellMetadata.bumpGenerationIfUnleased(stack);
         persisted = true;
     }
 
@@ -578,9 +573,6 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell {
         cachedLookupContext = null;
         availableStacksCache = null;
         availableStacksSignature = Long.MIN_VALUE;
-        if (isPersistenceDeferred()) {
-            return;
-        }
         if (deferMutationBatch()) {
             return;
         }
