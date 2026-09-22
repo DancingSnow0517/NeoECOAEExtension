@@ -20,6 +20,11 @@ public final class ECOIOPortTransfer {
     private MEStorage previousSource;
 
     public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost, IActionSource source) {
+        return transfer(grid, hostStorage, fillHost, false, source);
+    }
+
+    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
+                         boolean ignoreCreativeInput, IActionSource source) {
         MEStorage networkStorage = grid.getStorageService().getInventory();
         MEStorage from;
         MEStorage destination;
@@ -60,7 +65,9 @@ public final class ECOIOPortTransfer {
                 continue;
             }
 
-            long extracted = from.extract(key, possible, Actionable.MODULATE, source);
+            long extracted = fillHost && ignoreCreativeInput
+                ? ECOCreativeExtractionFilter.extract(from, key, possible, source)
+                : from.extract(key, possible, Actionable.MODULATE, source);
             if (extracted <= 0L) {
                 continue;
             }
@@ -84,4 +91,5 @@ public final class ECOIOPortTransfer {
     private void enqueue(AEKey key) {
         if (queued.add(key)) queue.addLast(key);
     }
+
 }

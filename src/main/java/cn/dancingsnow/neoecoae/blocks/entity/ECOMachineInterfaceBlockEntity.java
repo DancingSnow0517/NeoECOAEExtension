@@ -88,6 +88,9 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @DescSynced
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
     @Persisted
+    @DescSynced
+    private boolean ignoreCreativeStorageInput;
+    @Persisted
     private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
         this, FUZZY_PLANNING_SLOT_COUNT, 1
     );
@@ -163,6 +166,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return storageInterfaceMode == null ? ECOStorageInterfaceMode.STORAGE : storageInterfaceMode;
     }
     public long getTransferredLastTick() { return transferredLastTick; }
+    public boolean isIgnoringCreativeStorageInput() { return ignoreCreativeStorageInput; }
+
+    public void toggleIgnoreCreativeStorageInput() {
+        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
+        ignoreCreativeStorageInput = !ignoreCreativeStorageInput;
+        setChanged();
+        markForUpdate();
+    }
     public boolean isStorageInputMode() { return getStorageInterfaceMode() == ECOStorageInterfaceMode.INPUT; }
     public boolean isStorageTransferMode() { return getStorageInterfaceMode() != ECOStorageInterfaceMode.STORAGE; }
     public boolean isInfiniteTransferAvailable() {

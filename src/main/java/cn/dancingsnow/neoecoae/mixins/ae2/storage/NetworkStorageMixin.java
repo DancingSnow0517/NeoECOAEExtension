@@ -14,6 +14,17 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(NetworkStorage.class)
 public class NetworkStorageMixin {
     @WrapOperation(
+        method = "extract",
+        at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
+    )
+    private long neoecoae$filterCreativeInput(MEStorage storage, appeng.api.stacks.AEKey key, long amount,
+            appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
+            Operation<Long> original) {
+        return cn.dancingsnow.neoecoae.impl.storage.transfer.ECOCreativeExtractionFilter.extractSource(
+            storage, key, mode, () -> original.call(storage, key, amount, mode, source));
+    }
+
+    @WrapOperation(
         method = "getAvailableStacks",
         at = @At(
             value = "INVOKE",

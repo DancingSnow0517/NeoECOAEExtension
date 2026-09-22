@@ -44,6 +44,11 @@ public final class StorageInterfaceUI {
         UIElement root = new UIElement().layout(layout -> {
             layout.width(224).height(116).paddingAll(8).gapAll(6).flexDirection(FlexDirection.COLUMN);
         }).addClass("panel_bg");
+        root.setOverflowVisible(true);
+        root.addChild(cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar.left(
+            cn.dancingsnow.neoecoae.gui.common.CreativeStorageInputButton.create(
+                storageInterface::isIgnoringCreativeStorageInput,
+                storageInterface::toggleIgnoreCreativeStorageInput)));
 
         var transferred = new cn.dancingsnow.neoecoae.gui.common.SampledValue<>(
             () -> player.level().getGameTime(), storageInterface::getTransferredLastTick, 5);

@@ -46,6 +46,7 @@ final class ECOStorageInterfaceTransfer {
             grid,
             hostStorage,
             storageInterface.isStorageInputMode(),
+            storageInterface.isIgnoringCreativeStorageInput(),
             IActionSource.ofMachine(storageInterface)
         );
         if (moved > 0L) {
