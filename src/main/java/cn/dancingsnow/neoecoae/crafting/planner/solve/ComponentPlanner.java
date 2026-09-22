@@ -219,7 +219,7 @@ public final class ComponentPlanner {
             CycleExecutionDisposition disposition = exactRequiredOutputs.isEmpty()
                 ? CycleExecutionDisposition.NOT_REQUIRED : CycleExecutionDisposition.BLOCKED;
             Map<AEKey, Long> stockReservations = existingComponentReservations(
-                requiredOutputs, acyclic.state(), attributedCycleReservations);
+                exactRequiredOutputs, acyclic.state(), attributedCycleReservations);
             LOGGER.debug("[ECO-CYCLE] begin component={} members={} patterns={} requiredOutputs={} "
                     + "cyclePlanningEnabled={} stockReservations={}",
                 cycle.componentId(), cycle.members().size(), cycle.patterns().size(), exactRequiredOutputs,
@@ -714,15 +714,19 @@ public final class ComponentPlanner {
     }
 
     /** Stock already consumed by the acyclic pass for a deferred cycle output. This is a projection, not a write. */
-    private static Map<AEKey, Long> existingComponentReservations(Map<AEKey, Long> required,
+    private static Map<AEKey, Long> existingComponentReservations(Map<AEKey, PlannerAmount> required,
             SolveState state, Map<AEKey, Long> alreadyAttributed) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         required.forEach((key, amount) -> {
-            if (amount == null || amount <= 0L) return;
+            if (amount == null || amount.signum() <= 0) return;
             PlannerAmount used = state.usedAmounts().getOrDefault(key, PlannerAmount.ZERO);
             if (used.signum() <= 0) return;
-            long available = Math.max(0L, used.longValueExact() - alreadyAttributed.getOrDefault(key, 0L));
-            if (available > 0L) result.put(key, Math.min(amount, available));
+            PlannerAmount available = used.subtract(
+                PlannerAmount.of(alreadyAttributed.getOrDefault(key, 0L))).max(PlannerAmount.ZERO);
+            PlannerAmount reserved = amount.min(available);
+            if (reserved.signum() > 0) {
+                result.put(key, reserved.fitsLong() ? reserved.longValueExact() : Long.MAX_VALUE);
+            }
         });
         return Map.copyOf(result);
     }

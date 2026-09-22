@@ -68,6 +68,35 @@ class ComponentPlannerMissingSeedTest {
     }
 
     @Test
+    void wideCycleDemandRetainsConsumedStockAsStartupSeed() throws Exception {
+        AEKey product = mock(AEKey.class);
+        AEKey seed = mock(AEKey.class);
+        for (AEKey key : List.of(product, seed)) when(key.getAmountPerByte()).thenReturn(8);
+        var consumer = staticPattern(0, product, 1L, seed, 2L);
+        var growth = staticPattern(1, seed, 2L, seed, 1L);
+        var network = new CompiledNetwork(product,
+            Map.of(product, List.of(consumer), seed, List.of(growth)), Set.of(), 2, 3);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var stock = new KeyCounter();
+        stock.add(seed, 221_670L);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, Long.MAX_VALUE, true, ECOCancellation.NONE);
+
+        assertEquals(PlannerAmount.of(221_670L), outcome.state().usedAmounts().get(seed));
+        var cycle = outcome.components().stream()
+            .filter(candidate -> candidate.type()
+                == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
+            .findFirst().orElseThrow().cycleResult();
+        assertEquals(CycleSolveStatus.UNREPRESENTABLE, cycle.status(), cycle.diagnostics().toString());
+        assertTrue(cycle.seedShortfall().isEmpty(), cycle.diagnostics().toString());
+        assertTrue(cycle.diagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.code() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK));
+    }
+
+    @Test
     void compressedStockSuppliesLargeDownstreamDemandWithoutLooseSeed() throws Exception {
         AEKey product = mock(AEKey.class);
         AEKey crystal = mock(AEKey.class);
