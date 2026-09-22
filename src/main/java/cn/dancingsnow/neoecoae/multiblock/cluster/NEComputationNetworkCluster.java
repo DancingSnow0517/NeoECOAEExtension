@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
@@ -15,6 +16,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.ToLongFunction;
 
@@ -30,6 +32,30 @@ public class NEComputationNetworkCluster {
     public void configure(List<NEComputationCluster> newMembers) {
         this.members.clear();
         this.members.addAll(newMembers);
+        this.members.sort(Comparator.comparing(
+            member -> member.getController().getBlockPos(),
+            Comparator.<net.minecraft.core.BlockPos>comparingInt(pos -> pos.getX())
+                .thenComparingInt(pos -> pos.getY())
+                .thenComparingInt(pos -> pos.getZ())
+        ));
+        synchronizeSelectionMode();
+    }
+
+    /** Uses the stable leader's persisted value when a logical computation network is (re)formed. */
+    private void synchronizeSelectionMode() {
+        if (members.isEmpty()) {
+            return;
+        }
+        CpuSelectionMode mode = members.getFirst().getSelectionMode();
+        for (NEComputationCluster member : members) {
+            member.applyNetworkSelectionMode(mode);
+        }
+    }
+
+    public void setSelectionMode(CpuSelectionMode mode) {
+        for (NEComputationCluster member : members) {
+            member.applyNetworkSelectionMode(mode);
+        }
     }
 
     public List<NEComputationCluster> getMembers() {

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.network;
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IManagedGridNode;
@@ -73,6 +74,40 @@ class NELogicalNetworkManagerTest {
         clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(reason));
         NELogicalNetworkManager.tick(level);
         assertEquals(8, clusters.getFirst().getNetworkCluster().getMembers().size());
+    }
+
+    @org.junit.jupiter.api.Test
+    void computationSelectionModeIsSharedAcrossNetworkMembers() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        List<NEComputationCluster> clusters = new ArrayList<>();
+        List<ECOComputationSystemBlockEntity> controllers = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            var controller = controller(ECOComputationSystemBlockEntity.class, level, node, i);
+            when(controller.hasNetworkSwitch()).thenReturn(true);
+            when(controller.hasNetworkFrequency()).thenReturn(true);
+            when(controller.getNetworkFrequency()).thenReturn(4);
+            when(controller.getCpuSelectionMode()).thenReturn(
+                i == 0 ? CpuSelectionMode.PLAYER_ONLY : CpuSelectionMode.MACHINE_ONLY);
+            var cluster = new NEComputationCluster(BlockPos.ZERO, BlockPos.ZERO);
+            doCallRealMethod().when(controller).updateCluster(cluster);
+            controller.updateCluster(cluster);
+            cluster.addBlockEntity(controller);
+            cluster.updateFormed(true);
+            NELogicalNetworkManager.attach(cluster);
+            clusters.add(cluster);
+            controllers.add(controller);
+        }
+
+        var network = clusters.getFirst().getNetworkCluster();
+        assertNotNull(network);
+        clusters.forEach(cluster -> assertEquals(CpuSelectionMode.PLAYER_ONLY, cluster.getSelectionMode()));
+
+        clusters.getLast().setSelectionMode(CpuSelectionMode.ANY);
+
+        clusters.forEach(cluster -> assertEquals(CpuSelectionMode.ANY, cluster.getSelectionMode()));
+        controllers.forEach(controller -> verify(controller).setCpuSelectionMode(CpuSelectionMode.ANY));
     }
 
     @ParameterizedTest

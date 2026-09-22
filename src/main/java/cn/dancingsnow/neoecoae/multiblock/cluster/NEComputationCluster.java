@@ -256,6 +256,14 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void setSelectionMode(CpuSelectionMode mode) {
+        if (networkCluster != null) {
+            networkCluster.setSelectionMode(mode);
+            return;
+        }
+        applyNetworkSelectionMode(mode);
+    }
+
+    void applyNetworkSelectionMode(CpuSelectionMode mode) {
         if (this.selectionMode == mode) {
             return;
         }
