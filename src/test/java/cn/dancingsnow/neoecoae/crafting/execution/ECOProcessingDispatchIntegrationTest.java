@@ -11,6 +11,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
@@ -18,32 +19,33 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class ECOProcessingDispatchIntegrationTest {
     @Test
-    void ordinaryRampStartsAtOneAndDebitsOnlyAcceptedChunks() {
+    void ordinaryRampGrowsWithinColdVisitAndDebitsOnlyAcceptedChunks() {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
         var result = f.scaled(0, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertFalse(offers.isEmpty());
-        assertTrue(offers.stream().allMatch(value -> value == 1L));
+        assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
         assertEquals(16, result.acceptedCrafts());
         assertEquals(84, f.inventory.list.get(f.key));
-        verify(f.accounting, times(16)).apply(eq(f.request), any(), any(), eq(f.provider));
+        verify(f.accounting, times(5)).apply(eq(f.request), any(), any(), eq(f.provider));
         offers.clear();
         var growth = f.scaled(5, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(2L), offers);
-        assertEquals(2, growth.acceptedCrafts());
+        assertEquals(List.of(16L), offers);
+        assertEquals(16, growth.acceptedCrafts());
     }
 
     @Test
@@ -55,7 +57,7 @@ class ECOProcessingDispatchIntegrationTest {
             offers.add(request.allowedCrafts());
             return request.allowedCrafts() <= 2;
         });
-        assertEquals(List.of(2L), offers);
+        assertEquals(List.of(16L, 8L, 4L, 2L), offers);
         assertEquals(2, result.acceptedCrafts());
         assertEquals(82, f.inventory.list.get(f.key));
     }
@@ -71,16 +73,16 @@ class ECOProcessingDispatchIntegrationTest {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(2L), offers);
-        assertEquals(2, result.acceptedCrafts());
-        assertEquals(82, f.inventory.list.get(f.key));
+        assertEquals(List.of(16L), offers);
+        assertEquals(16, result.acceptedCrafts());
+        assertEquals(68, f.inventory.list.get(f.key));
         when(((PatternProviderLogicAccessor) f.provider).neoecoae$getSendList()).thenReturn(List.of());
         offers.clear();
         f.scaled(10, (request, provider) -> {
             offers.add(request.allowedCrafts());
             return true;
         });
-        assertEquals(List.of(2L), offers);
+        assertEquals(List.of(16L), offers);
     }
 
     @Test
@@ -123,10 +125,12 @@ class ECOProcessingDispatchIntegrationTest {
         final ECOCraftingDispatchRequest request;
 
         Fixture() {
+            InventoryTestBootstrap.initialize();
             var keyType = mock(AEKeyType.class);
             when(key.getType()).thenReturn(keyType);
             when(keyType.getId()).thenReturn(ResourceLocation.fromNamespaceAndPath("test", "input"));
-            var pattern = mock(AEProcessingPattern.class, RETURNS_DEEP_STUBS);
+            var pattern = mock(AEProcessingPattern.class);
+            when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});
             when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
             when(pattern.supportsPushInputsToExternalInventory()).thenReturn(true);

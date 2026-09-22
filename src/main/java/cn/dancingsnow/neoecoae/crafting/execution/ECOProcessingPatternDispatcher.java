@@ -58,8 +58,9 @@ final class ECOProcessingPatternDispatcher {
     @Nullable ECOCraftingDispatchResult tryDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider,
             double onePower, IEnergyService service, Consumer<ICraftingProvider> mark) {
         Contract c = Contract.forProvider(provider);
+        if (c == null) return null;
         IPatternDetails base = ECOProviderPatternIntrospection.unwrap(request.pattern());
-        if (c == null || !(base instanceof AEProcessingPattern)) return null;
+        if (!(base instanceof AEProcessingPattern)) return null;
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
                 request.job().finalOutput == null ? null : request.job().finalOutput.what());
@@ -305,10 +306,11 @@ final class ECOProcessingPatternDispatcher {
 
         Run beginRun(long currentTick, long probeInterval) {
             boolean probe = currentTick >= nextProbeTick;
+            boolean coldStart = !probed && remembered == 1;
             long target = probe
                     ? (probed ? Math.min(Integer.MAX_VALUE, Math.max(remembered + 1L, remembered * 2L)) : remembered)
                     : remembered;
-            return new Run(target, probe, probed && target > remembered, probeInterval);
+            return new Run(target, probe, probed && target > remembered, coldStart, probeInterval);
         }
 
         final class Run {
@@ -317,13 +319,16 @@ final class ECOProcessingPatternDispatcher {
             final long target;
             final boolean probe;
             final boolean growthProbe;
+            final boolean coldStart;
             final long probeInterval;
+            boolean backingOff;
 
-            private Run(long target, boolean probe, boolean growthProbe, long probeInterval) {
+            private Run(long target, boolean probe, boolean growthProbe, boolean coldStart, long probeInterval) {
                 this.target = target;
                 this.next = target;
                 this.probe = probe;
                 this.growthProbe = growthProbe;
+                this.coldStart = coldStart;
                 this.probeInterval = probeInterval;
             }
 
@@ -334,13 +339,26 @@ final class ECOProcessingPatternDispatcher {
                 if (accepted <= 0) {
                     remembered = next = Math.max(1, offered / 2);
                     if (probe) nextProbeTick = currentTick + probeInterval;
-                    return false;
+                    backingOff = offered > 1 && (owned > 0 || growthProbe);
+                    return backingOff;
                 }
                 owned += accepted;
                 if (accepted != offered || !fullyInserted) {
                     remembered = Math.max(1, offered / 2);
                     if (probe) nextProbeTick = currentTick + probeInterval;
                     return false;
+                }
+                if (backingOff) {
+                    remembered = Math.max(remembered, offered);
+                    probed = true;
+                    return false;
+                }
+                if (coldStart) {
+                    remembered = Math.max(remembered, offered);
+                    probed = true;
+                    nextProbeTick = currentTick + probeInterval;
+                    next = Math.min(Integer.MAX_VALUE, Math.max(offered + 1L, offered * 2L));
+                    return offered < Integer.MAX_VALUE;
                 }
                 if (probe && offered == target) {
                     remembered = offered;

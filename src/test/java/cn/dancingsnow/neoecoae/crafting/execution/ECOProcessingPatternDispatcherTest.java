@@ -50,9 +50,12 @@ class ECOProcessingPatternDispatcherTest {
         assertTrue(run.record(8, 8, true, 0));
         var probe = state.beginRun(5, 5);
         assertEquals(16, probe.offer(100));
-        assertFalse(probe.record(16, 0, false, 5));
+        assertTrue(probe.record(16, 0, false, 5));
         assertEquals(8, state.remembered);
         assertEquals(0, probe.owned);
+        assertEquals(8, probe.offer(100));
+        assertFalse(probe.record(8, 8, true, 5));
+        assertEquals(8, probe.owned);
     }
 
     @Test
