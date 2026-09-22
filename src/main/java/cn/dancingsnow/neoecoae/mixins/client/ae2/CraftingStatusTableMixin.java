@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.mixins.client.ae2;
 import appeng.client.gui.me.crafting.CraftingStatusTableRenderer;
 import appeng.menu.me.crafting.CraftingStatusEntry;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -35,14 +36,14 @@ public class CraftingStatusTableMixin {
         if (entry.getActiveAmount() > 0) lines.add(appeng.core.localization.GuiText.Crafting.text(
             formatExact(exactActive(entry), entry, entry.getActiveAmount(), true)));
         if (amount != null && amount.signum() > 0) lines.add(appeng.core.localization.GuiText.Scheduled.text(
-            java.text.NumberFormat.getIntegerInstance(java.util.Locale.ROOT).format(amount)));
+            BigNumberFormatter.format(amount, 1, true)));
         cir.setReturnValue(lines);
     }
     @org.spongepowered.asm.mixin.Unique
     private static String formatExact(java.math.BigInteger amount, CraftingStatusEntry entry, long fallback, boolean full) {
         if (amount == null) return entry.getWhat().formatAmount(fallback,
             full ? appeng.api.stacks.AmountFormat.FULL : appeng.api.stacks.AmountFormat.SLOT);
-        return full ? java.text.NumberFormat.getIntegerInstance(java.util.Locale.ROOT).format(amount)
+        return full ? BigNumberFormatter.format(amount, 1, true)
             : cn.dancingsnow.neoecoae.gui.common.HostText.ae2Amount(amount);
     }
     @org.spongepowered.asm.mixin.Unique

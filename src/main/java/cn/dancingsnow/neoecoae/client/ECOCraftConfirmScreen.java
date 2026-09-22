@@ -167,7 +167,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .withColor(AE2_TEXT_DARK)
                 .append(Component.literal("（已被扩展为超大数类型）").withColor(0xFFAA3333));
             cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
-                ? "gui.neoecoae.big_order.segmented" : "gui.neoecoae.big_order.requires_cpu")
+                ? "gui.neoecoae.big_order.single_task" : "gui.neoecoae.big_order.requires_cpu")
                 .withColor(AE2_TEXT_DARK);
         }
 

@@ -9,11 +9,10 @@ import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
-import java.text.NumberFormat;
 import java.util.List;
-import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
@@ -111,7 +110,7 @@ final class ECOCycleItemListRenderer {
 
     private static String formatAmount(BigInteger amount, AmountFormat format) {
         return format == AmountFormat.FULL
-            ? NumberFormat.getIntegerInstance(Locale.ROOT).format(amount)
+            ? BigNumberFormatter.format(amount, 1, true)
             : HostText.ae2Amount(amount);
     }
 

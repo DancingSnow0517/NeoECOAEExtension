@@ -6,13 +6,10 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
-import cn.dancingsnow.neoecoae.crafting.display.format.ExtendedDecimalUnits;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import java.math.BigInteger;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -45,7 +42,6 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             && !snapshot.nodes().isEmpty();
     }
 
-    private static final BigDecimal THOUSAND_DECIMAL = BigDecimal.valueOf(1000);
     private static final int MISSING_OVERLAY = 0x1AFF0000;
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
@@ -105,7 +101,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.FULL)));
         }
         lines.add(Component.translatable("gui.neoecoae.crafting_report.requested_exact",
-            NumberFormat.getNumberInstance(java.util.Locale.US).format(new BigInteger(entry.exactRequested()))));
+            BigNumberFormatter.format(new BigInteger(entry.exactRequested()), 1, true)));
         return lines;
     }
 
@@ -143,34 +139,11 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             return DisplayNumbers.grouped(key.formatAmount(amount.longValue(), format));
         }
         int amountPerUnit = Math.max(1, key.getAmountPerUnit());
-        BigDecimal displayAmount = new BigDecimal(amount)
-            .divide(BigDecimal.valueOf(amountPerUnit), 6, RoundingMode.DOWN);
+        String formatted = BigNumberFormatter.format(amount, amountPerUnit, format == AmountFormat.FULL);
         if (format == AmountFormat.FULL) {
-            String formatted = DisplayNumbers.grouped(displayAmount.stripTrailingZeros().toPlainString());
             String unit = key.getUnitSymbol();
             return unit == null ? formatted : formatted + " " + unit;
         }
-        return compact(displayAmount, format == AmountFormat.SLOT_LARGE_FONT ? 3 : 4);
-    }
-
-    /** Mirrors AE2's decimal SI formatter while accepting an arbitrary-precision value. */
-    private static String compact(BigDecimal value, int maxWidth) {
-        if (value.signum() == 0) return "0";
-        int suffix = 0;
-        BigDecimal scaled = value;
-        while (scaled.compareTo(THOUSAND_DECIMAL) >= 0) {
-            scaled = scaled.divide(THOUSAND_DECIMAL, 6, RoundingMode.DOWN);
-            suffix++;
-        }
-        String unit = ExtendedDecimalUnits.suffix(suffix);
-        int decimals = Math.max(0, maxWidth - integerDigits(scaled) - unit.length() - 1);
-        String result = scaled.setScale(Math.min(2, decimals), RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + unit;
-        if (result.length() <= maxWidth) return result;
-        return scaled.setScale(0, RoundingMode.DOWN).toPlainString() + unit;
-    }
-
-    private static int integerDigits(BigDecimal value) {
-        return Math.max(1, value.precision() - value.scale());
+        return formatted;
     }
 }

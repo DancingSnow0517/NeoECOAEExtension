@@ -29,6 +29,11 @@ import net.minecraft.core.HolderLookup;
 import org.junit.jupiter.api.Test;
 
 class ECOExactOrderTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void bootstrap() {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+    }
+
     private static final BigInteger HUGE = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN);
 
     @Test void completeOrderIsSubmittedOnceAndAllRecipesRemainInTheSameLedger() {

@@ -213,8 +213,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             for (var node : exact.trace().nodes()) {
                 if (node.key() == null || node.exactFromInventory().signum() <= 0) continue;
                 var required = node.exactFromInventory();
-                // A parent order may reserve more than long from a creative source. Each child still
-                // validates and extracts its bounded inputs through the normal submission path.
+                // Validate the full order; the exact ledger owns deferred inputs beyond long.
                 if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.hasStoredAmount(
                         required, inventory.isUnbounded(node.key()), amount ->
                             grid.getStorageService().getInventory().extract(node.key(), amount,
@@ -229,20 +228,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 }
             }
         }
-        final cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest admission;
+        final cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan admission;
         try {
-            admission = cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest.fromPlanningResult(
-                exact, forced, neoecoae$originalOptions);
+            admission = new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, forced);
         } catch (RuntimeException invalid) {
-            NEOECOAE_LOGGER.warn("[big-order-submit] Parent order rejected", invalid);
-            neoecoae$rejectBigOrder("PARENT_ORDER_INVALID",
+            NEOECOAE_LOGGER.warn("[big-order-submit] Exact order rejected", invalid);
+            neoecoae$rejectBigOrder("EXACT_ORDER_INVALID",
                 appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
         }
         NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, cpu={}",
             menu.containerId, result.finalOutput(), forced, neoecoae$describeCpu(cpu));
-        var submitted = admission.submit(carrier ->
-            cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
+        var submitted = cpu.getCluster().submitJob(grid, admission, getActionSrc(), null);
         menu.setAutoStart(false);
         if (submitted.successful()) {
             NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());

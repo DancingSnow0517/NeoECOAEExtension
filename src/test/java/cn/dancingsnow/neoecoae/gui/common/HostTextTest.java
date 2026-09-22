@@ -12,8 +12,9 @@ class HostTextTest {
         assertEquals("1KQ", HostText.ae2Amount(BigInteger.TEN.pow(33)));
         assertEquals("1MQ", HostText.ae2Amount(BigInteger.TEN.pow(36)));
         assertEquals("1QQ", HostText.ae2Amount(BigInteger.TEN.pow(60)));
-        assertEquals("1KQQ", HostText.ae2Amount(BigInteger.TEN.pow(63)));
-        assertEquals("1KQQQQ", HostText.ae2Amount(BigInteger.TEN.pow(123)));
+        assertEquals("1×10^63", HostText.ae2Amount(BigInteger.TEN.pow(63)));
+        assertEquals("1×10^123", HostText.ae2Amount(BigInteger.TEN.pow(123)));
         assertEquals("476PQ", HostText.ae2Amount(new BigInteger("476900530596182289").multiply(BigInteger.TEN.pow(30))));
+        assertEquals("1×10^63", HostText.expandedStorageBytes(BigInteger.TEN.pow(63)));
     }
 }

@@ -20,6 +20,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ECOExactInventoryDispatchTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void bootstrap() {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+    }
+
     private static final BigInteger MAX = BigInteger.valueOf(Long.MAX_VALUE);
     private final AEKey input = mock(AEKey.class, RETURNS_DEEP_STUBS);
     private final AEKey output = mock(AEKey.class, RETURNS_DEEP_STUBS);

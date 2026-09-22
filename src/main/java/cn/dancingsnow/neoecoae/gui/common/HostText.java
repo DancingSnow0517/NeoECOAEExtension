@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.crafting.display.format.ExtendedDecimalUnits;
+import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.network.chat.Component;
 
@@ -82,7 +82,7 @@ public final class HostText {
 
     public static String expandedStorageBytes(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return NUMBER_FORMAT.get().format(safe);
+        return BigNumberFormatter.format(safe, 1, true);
     }
 
     public static String compactStorageBytes(BigInteger value) {
@@ -314,36 +314,7 @@ public final class HostText {
         if (safe.bitLength() < Long.SIZE) {
             return ae2Amount(safe.longValue());
         }
-        return ae2AmountArbitraryPrecision(safe, 4);
-    }
-
-    /**
-     * Arbitrary-precision counterpart of AE2's {@link ReadableNumberConverter}. The normal long range is delegated
-     * to AE2 verbatim; this continuation exists so exact planner diagnostics do not lose the familiar 100M-style
-     * presentation merely because their mathematical value exceeds {@link Long#MAX_VALUE}.
-     */
-    private static String ae2AmountArbitraryPrecision(BigInteger value, int width) {
-        String digits = value.toString();
-        if (digits.length() <= width) return digits;
-
-        BigInteger base = value;
-        BigInteger last = value.multiply(BigInteger.valueOf(1000));
-        int suffixIndex = -1;
-        int formattedLength = digits.length();
-        while (formattedLength > width && base.compareTo(BigInteger.valueOf(1000)) >= 0) {
-            last = base;
-            base = base.divide(BigInteger.valueOf(1000));
-            suffixIndex++;
-            formattedLength = base.toString().length() + ExtendedDecimalUnits.suffix(suffixIndex + 1).length();
-        }
-        if (suffixIndex < 0) return digits;
-
-        String suffix = ExtendedDecimalUnits.suffix(suffixIndex + 1);
-        String withPrecision = new BigDecimal(last)
-            .divide(BigDecimal.valueOf(1000), 1, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + suffix;
-        String withoutPrecision = base + suffix;
-        return withPrecision.length() <= width ? withPrecision : withoutPrecision;
+        return BigNumberFormatter.format(safe, 1, false);
     }
 
     private static String compactTaskAmount(long value) {

@@ -20,7 +20,7 @@ class ECOExactMaterialTableRendererTest {
         AEKey key = mock(AEKey.class);
         when(key.getAmountPerUnit()).thenReturn(1);
         int[] exponents = {30, 33, 36, 60, 63, 123};
-        String[] expected = {"1Q", "1KQ", "1MQ", "1QQ", "1KQQ", "1KQQQQ"};
+        String[] expected = {"1Q", "1KQ", "1MQ", "1QQ", "1×10^63", "1×10^123"};
         for (int i = 0; i < exponents.length; i++) {
             assertEquals(expected[i], formatAmount.invoke(null, key,
                 java.math.BigInteger.TEN.pow(exponents[i]), AmountFormat.SLOT));
