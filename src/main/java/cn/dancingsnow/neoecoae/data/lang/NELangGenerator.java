@@ -23,7 +23,10 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.big_order.remaining", "Remaining %s");
         provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");
         provider.add("gui.neoecoae.big_order.requires_cpu", "BigInt orders require an ECO CPU");
-        provider.add("gui.neoecoae.big_order.segmented", "ECO CPU: replan after each segment");
+        provider.add("gui.neoecoae.big_order.single_task", "ECO CPU: execute the complete order as one task");
+        provider.add("gui.neoecoae.storage_interface.ignore_creative.on", "Ignore creative cell input: On");
+        provider.add("gui.neoecoae.storage_interface.ignore_creative.off", "Ignore creative cell input: Off");
+        provider.add("gui.neoecoae.storage_interface.ignore_creative.description", "Input mode only: skip resources whose stored amount does not change after extraction");
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
@@ -41,6 +44,7 @@ public class NELangGenerator {
 
         // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
+        provider.add("config.jade.plugin_neoecoae.eco_computation_drive", "ECO Computation Drive");
         provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
@@ -48,6 +52,8 @@ public class NELangGenerator {
 
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");
+        provider.add("jade.neoecoae.storage_matrix_tier_too_high", "Storage matrix tier exceeds host tier");
+        provider.add("jade.neoecoae.computation_cell_tier_too_high", "Computation cell tier exceeds host tier");
         provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
         provider.add("jade.neoecoae.worker_network_x2", "Connected to %d Network Exchange x2 host(s)");
         provider.add("jade.neoecoae.worker_network_x8", "Connected to %d Network Exchange x8 host(s)");
