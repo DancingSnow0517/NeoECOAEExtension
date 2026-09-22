@@ -89,12 +89,7 @@ class ECOProcessingDispatchIntegrationTest {
     void nativeProviderReceivesFullAllowanceOnceAndRefundsLeftover() throws Exception {
         var f = new Fixture();
         var offers = new ArrayList<Long>();
-        Class<?> contract;
-        try {
-            contract = Class.forName("com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
-        } catch (ClassNotFoundException legacy) {
-            contract = Class.forName("com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider");
-        }
+        Class<?> contract = thunderboltBatchContract();
         var nativeProvider = (ICraftingProvider) mock(contract, invocation -> {
             return switch (invocation.getMethod().getName()) {
                 case "getBatchCapacity" -> 100L;
@@ -111,6 +106,49 @@ class ECOProcessingDispatchIntegrationTest {
         assertEquals(90, f.inventory.list.get(f.key));
         verify(f.energy).injectPower(6, Actionable.MODULATE);
         verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 10), any(), eq(nativeProvider));
+    }
+
+    @Test
+    void mekEnergisticsSmartMultiplicationUsesThunderboltAndSettlesPhysicalAcceptance() throws Exception {
+        var f = new Fixture();
+        var offers = new ArrayList<Long>();
+        Class<?> contract = thunderboltBatchContract();
+        var mekEnergisticsProvider = (ICraftingProvider) mock(contract, invocation -> {
+            return switch (invocation.getMethod().getName()) {
+                // Mek-E advertises an unbounded accounting mode, then applies its physical input
+                // capacity atomically in pushBatch and returns every unaccepted copy.
+                case "getBatchCapacity" -> Long.MAX_VALUE;
+                case "getBatchDispatchMode" -> enumConstant(invocation.getMethod().getReturnType(), "UNBOUNDED");
+                case "pushBatch" -> {
+                    long offered = invocation.getArgument(2);
+                    offers.add(offered);
+                    yield offered - Math.min(offered, 4L);
+                }
+                default -> RETURNS_DEFAULTS.answer(invocation);
+            };
+        });
+
+        var result = f.dispatcher.tryDispatch(f.request, mekEnergisticsProvider, 1, f.energy, ignored -> {});
+
+        assertEquals(List.of(16L), offers);
+        assertEquals(4L, result.acceptedCrafts());
+        assertEquals(96L, f.inventory.list.get(f.key));
+        verify(f.energy).injectPower(12, Actionable.MODULATE);
+        verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == 4), any(),
+                eq(mekEnergisticsProvider));
+    }
+
+    private static Class<?> thunderboltBatchContract() throws ClassNotFoundException {
+        try {
+            return Class.forName("com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
+        } catch (ClassNotFoundException legacy) {
+            return Class.forName("com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider");
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Object enumConstant(Class<?> type, String name) {
+        return Enum.valueOf((Class<? extends Enum>) type.asSubclass(Enum.class), name);
     }
 
     private static final class Fixture {

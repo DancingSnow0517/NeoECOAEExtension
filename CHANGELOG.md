@@ -20,7 +20,7 @@
 - 大型集成工作站：统一流体存储访问与方块属性，修复相关方块掉落和配方数据。
 
 ### 兼容性
-- Thunderbolt / AE2 Lightning Tech：同时支持 Thunderbolt Core 1.0.6 与 2.x API、AE2LT 2.0.9 与 2.1 系列；兼容时间轮 CPU、超载样板语义及新旧批处理桥接。
+- Thunderbolt / AE2 Lightning Tech：同时支持 Thunderbolt Core 1.0.6 与 2.x API、AE2LT 2.0.9 与 2.1 系列；兼容时间轮 CPU、超载样板语义及新旧批处理桥接，并通过 Thunderbolt 兼容 Mek-Energistics 的智能翻倍。
 - 依赖：更新 Thunderbolt、AE2 Lightning Tech、Mekanism、Extended Pattern Provider、AdvancedAE 与 Jade，并限制 MEGA Cells 的兼容版本范围。
 
 ---
