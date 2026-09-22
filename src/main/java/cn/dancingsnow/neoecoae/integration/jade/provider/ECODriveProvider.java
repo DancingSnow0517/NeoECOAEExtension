@@ -23,6 +23,10 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag serverData = blockAccessor.getServerData();
+        if (serverData.getBoolean("tierMismatch")) {
+            iTooltip.add(Component.translatable("jade.neoecoae.storage_matrix_tier_too_high")
+                .withStyle(ChatFormatting.RED));
+        }
         if (serverData.getBoolean("infiniteMember")) {
             iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
@@ -88,6 +92,9 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             compoundTag.putBoolean("mounted", be.isMounted());
             IECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {
+                var controller = be.getStorageController();
+                compoundTag.putBoolean("tierMismatch", controller != null
+                    && !controller.getTier().supportsComponentTier(cellInventory.getTier()));
                 compoundTag.putLong("usedBytes", cellInventory.getUsedBytes());
                 compoundTag.putLong("totalBytes", cellInventory.getTotalBytes());
                 compoundTag.putLong("storedItemTypes", cellInventory.getStoredItemTypes());

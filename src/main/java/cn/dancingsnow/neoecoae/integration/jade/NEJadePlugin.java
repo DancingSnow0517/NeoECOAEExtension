@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.integration.jade;
 
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
@@ -11,6 +13,7 @@ import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOComputationSystemProvider;
+import cn.dancingsnow.neoecoae.integration.jade.provider.ECOComputationDriveProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingSystemProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECOCraftingWorkerProvider;
 import cn.dancingsnow.neoecoae.integration.jade.provider.ECODriveProvider;
@@ -26,6 +29,7 @@ public class NEJadePlugin implements IWailaPlugin {
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.INSTANCE, cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity.class);
         registration.registerBlockDataProvider(ECODriveProvider.INSTANCE, ECODriveBlockEntity.class);
+        registration.registerBlockDataProvider(ECOComputationDriveProvider.INSTANCE, ECOComputationDriveBlockEntity.class);
         registration.registerBlockDataProvider(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterfaceBlockEntity.class);
         registration.registerBlockDataProvider(
             ECOComputationSystemProvider.INSTANCE, ECOComputationSystemBlockEntity.class);
@@ -37,6 +41,7 @@ public class NEJadePlugin implements IWailaPlugin {
     public void registerClient(IWailaClientRegistration registration) {
         registration.registerBlockComponent(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.INSTANCE, cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock.class);
         registration.registerBlockComponent(ECODriveProvider.INSTANCE, ECODriveBlock.class);
+        registration.registerBlockComponent(ECOComputationDriveProvider.INSTANCE, ECOComputationDrive.class);
         registration.registerBlockComponent(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterface.class);
         registration.registerBlockComponent(ECOComputationSystemProvider.INSTANCE, ECOComputationSystem.class);
         registration.registerBlockComponent(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorker.class);
