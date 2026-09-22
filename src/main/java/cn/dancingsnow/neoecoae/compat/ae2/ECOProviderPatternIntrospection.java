@@ -14,6 +14,12 @@ public final class ECOProviderPatternIntrospection {
     private static final String[] WRAPPER_METHODS = {
         "wrappedPatternDetails", "getWrappedPatternDetails", "wrappedPattern", "delegate"
     };
+    private static final ClassValue<WrapperAccessors> ACCESSORS = new ClassValue<>() {
+        @Override
+        protected WrapperAccessors computeValue(Class<?> type) {
+            return WrapperAccessors.discover(type);
+        }
+    };
 
     private ECOProviderPatternIntrospection() {
     }
@@ -24,37 +30,71 @@ public final class ECOProviderPatternIntrospection {
         Object current = original;
         while (current != null && seen.add(current)) {
             result.add(current);
-            Object next = invoke(current, "providerLookupPattern");
-            if (next == null || next == current) next = invokeFirst(current, WRAPPER_METHODS);
-            current = next;
+            current = ACCESSORS.get(current.getClass()).next(current);
         }
         return List.copyOf(result);
     }
 
     @Nullable
     public static IPatternDetails unwrap(IPatternDetails original) {
-        List<Object> chain = wrapperChain(original);
-        if (chain.isEmpty()) return null;
-        Object last = chain.getLast();
+        if (original == null) return null;
+        WrapperAccessors accessors = ACCESSORS.get(original.getClass());
+        if (accessors.isEmpty()) return original;
+
+        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        Object current = original;
+        Object last = null;
+        while (current != null && seen.add(current)) {
+            last = current;
+            current = accessors.next(current);
+            if (current != null) accessors = ACCESSORS.get(current.getClass());
+        }
         return last instanceof IPatternDetails pattern ? pattern : null;
     }
 
     @Nullable
-    private static Object invokeFirst(Object target, String[] names) {
-        for (String name : names) {
-            Object result = invoke(target, name);
-            if (result != null) return result;
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Object invoke(Object target, String name) {
+    private static Object invoke(Object target, @Nullable Method method) {
+        if (method == null) return null;
         try {
-            Method method = target.getClass().getMethod(name);
             return method.invoke(target);
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
             return null;
+        }
+    }
+
+    private record WrapperAccessors(@Nullable Method providerLookup, Method[] wrappers) {
+        static WrapperAccessors discover(Class<?> type) {
+            Method providerLookup = find(type, "providerLookupPattern");
+            List<Method> wrappers = new ArrayList<>(WRAPPER_METHODS.length);
+            for (String name : WRAPPER_METHODS) {
+                Method method = find(type, name);
+                if (method != null) wrappers.add(method);
+            }
+            return new WrapperAccessors(providerLookup, wrappers.toArray(Method[]::new));
+        }
+
+        boolean isEmpty() {
+            return providerLookup == null && wrappers.length == 0;
+        }
+
+        @Nullable
+        Object next(Object target) {
+            Object next = invoke(target, providerLookup);
+            if (next != null && next != target) return next;
+            for (Method wrapper : wrappers) {
+                Object candidate = invoke(target, wrapper);
+                if (candidate != null) return candidate;
+            }
+            return next;
+        }
+
+        @Nullable
+        private static Method find(Class<?> type, String name) {
+            try {
+                return type.getMethod(name);
+            } catch (NoSuchMethodException | SecurityException unavailable) {
+                return null;
+            }
         }
     }
 }
