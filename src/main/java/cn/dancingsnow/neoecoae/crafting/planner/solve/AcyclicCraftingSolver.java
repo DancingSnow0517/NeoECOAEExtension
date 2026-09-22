@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
+import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
 import cn.dancingsnow.neoecoae.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceEdge;
@@ -220,6 +221,7 @@ public final class AcyclicCraftingSolver {
         SolveState state = new SolveState(workspace.inventory());
         state.stored.set(network.goal(), PlannerAmount.ZERO); // AE2 ignores stored final output during planning.
         state.demand.put(network.goal(), PlannerAmount.of(amount));
+        state.provenance.register(MaterialDemand.goal(network.goal(), PlannerAmount.of(amount)));
         state.bytes = PlannerAmount.of(route.keys().size()).multiply(8L);
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
@@ -251,7 +253,7 @@ public final class AcyclicCraftingSolver {
             if (requested.isZero()) continue;
             if (network.emittable().contains(key)) {
                 addCounter(state.emitted, key, requested);
-                state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
+                state.provenance.allocatePending(key, key, MaterialSource.Emitted.INSTANCE, requested);
                 continue;
             }
             List<CompiledPattern> fast = network.fastProducersOf(key);
@@ -271,11 +273,11 @@ public final class AcyclicCraftingSolver {
             state.selected.put(key, pattern);
             if (deferredPatterns.contains(pattern.details())) {
                 // The untouched demand becomes a required output of the owning cycle component.
-                state.provenance.supplied(key,
+                state.provenance.allocatePending(key, key,
                     new MaterialSource.PatternOutput(pattern.details(), true), requested);
                 continue;
             }
-            state.provenance.supplied(key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
+            state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
             PlannerAmount oldTimes = state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
             state.patternTimes.put(pattern.details(), oldTimes.add(times));
@@ -291,14 +293,17 @@ public final class AcyclicCraftingSolver {
                 if (available.signum() > 0) state.creditCrafted(output.getKey(), pattern.details(), available);
             }
             specialResolver.resolve(pattern, times);
-            for (CompiledInput input : pattern.inputs()) {
+            for (int slot = 0; slot < pattern.inputs().size(); slot++) {
+                CompiledInput input = pattern.inputs().get(slot);
                 if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
                 // Legacy semantic adapters may still express reusable stock without the special analyzer.
                 PlannerAmount required = input.reusable()
                     ? input.amountPerPattern()
                     : input.amountPerPattern().multiply(times);
+                MaterialDemand inputDemand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
+                state.provenance.register(inputDemand);
                 if (input.ignoresComponents() && input.key() instanceof AEItemKey) {
-                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true);
+                    PlannerAmount available = consumeStoredForInput(state, input.key(), required, true, inputDemand);
                     required = required.subtract(available);
                 }
                 PlannerAmount old = state.demand.getOrDefault(input.key(), PlannerAmount.ZERO);
@@ -312,13 +317,19 @@ public final class AcyclicCraftingSolver {
 
     private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
             boolean ignoreComponents) {
+        return consumeStoredForInput(state, key, requested, ignoreComponents, null);
+    }
+
+    private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,
+            boolean ignoreComponents, MaterialDemand demand) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount exact = state.stored.available(key, requested);
             if (exact.signum() > 0) {
                 state.stored.remove(key, exact);
                 addCounter(state.used, key, exact);
-                state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, exact);
+                if (demand == null) state.provenance.allocatePending(key, key, MaterialSource.Stock.INSTANCE, exact);
+                else state.provenance.allocate(demand, key, MaterialSource.Stock.INSTANCE, exact);
             }
             return exact;
         }
@@ -331,7 +342,8 @@ public final class AcyclicCraftingSolver {
             if (take.signum() <= 0) continue;
             state.stored.remove(entry.getKey(), take);
             addCounter(state.used, entry.getKey(), take);
-            state.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE, take);
+            if (demand == null) state.provenance.allocatePending(key, entry.getKey(), MaterialSource.Stock.INSTANCE, take);
+            else state.provenance.allocate(demand, entry.getKey(), MaterialSource.Stock.INSTANCE, take);
             consumed = consumed.add(take);
             remaining = remaining.subtract(take);
         }

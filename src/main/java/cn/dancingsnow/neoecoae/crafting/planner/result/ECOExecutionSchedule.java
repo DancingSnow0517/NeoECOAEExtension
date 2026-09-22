@@ -165,40 +165,53 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         int[] indegree = new int[phases.size()];
         Map<PhaseDependency, Set<String>> edgeKeys = new LinkedHashMap<>();
         for (int i = 0; i < phases.size(); i++) outgoing.add(new LinkedHashSet<>());
-        for (int consumer = 0; consumer < phases.size(); consumer++) {
-            int consumerPhase = consumer;
-            for (IPatternDetails pattern : phases.get(consumer).patternSet()) {
-                PatternSemantics semantics = semantic(pattern);
-                for (var input : semantics.consumedInputs()) {
-                    AEKey key = input.key();
-                    if (provenance == null || !provenance.covers(key)) {
+        if (provenance != null) {
+            provenance.requireComplete();
+            for (var allocation : provenance.allocations()) {
+                var demand = provenance.demands().get(allocation.demandId());
+                Integer consumer = switch (demand.kind()) {
+                    case GOAL -> null;
+                    case INPUT -> matchingPhase(demand.consumer(), phaseOfPattern);
+                    case CYCLE_BOUNDARY -> phaseOfComponent.get(demand.componentId());
+                };
+                if (demand.kind() == cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand.Kind.GOAL)
+                    continue;
+                if (consumer == null) {
+                    throw new IllegalStateException("Attributed consumer has no phase: demand=" + demand);
+                }
+                MaterialSource source = allocation.source();
+                Integer producer;
+                if (source instanceof MaterialSource.PatternOutput output) {
+                    producer = matchingPhase(output.pattern(), phaseOfPattern);
+                } else if (source instanceof MaterialSource.CycleOutput output) {
+                    producer = phaseOfComponent.get(output.componentId());
+                } else {
+                    continue; // Stock and emitted resources have no recipe predecessor.
+                }
+                if (producer == null) {
+                    throw new IllegalStateException("Attributed supplier has no phase: demand=" + demand
+                        + " allocation=" + allocation);
+                }
+                if (producer.equals(consumer) && phases.get(consumer).type() == Type.DAG) {
+                    throw new IllegalStateException("Unresolved selected task self-cycle: demand=" + demand
+                        + " allocation=" + allocation);
+                }
+                addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumer,
+                    demand.consumer(), allocation.material(), null, allocation.toString());
+            }
+        } else {
+            // Compatibility only for old callers without numeric provenance.
+            for (int consumer = 0; consumer < phases.size(); consumer++) {
+                for (IPatternDetails pattern : phases.get(consumer).patternSet()) {
+                    PatternSemantics semantics = semantic(pattern);
+                    for (var input : semantics.consumedInputs()) {
+                        AEKey key = input.key();
                         Set<Integer> fallbackProducers = primaryProducersByKey.getOrDefault(
                             key, producersByKey.getOrDefault(key, Set.of()));
                         for (int producer : fallbackProducers) {
-                            addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumerPhase,
-                                pattern, key, semantics, "fallback");
+                            addAttributedDependency(phases, outgoing, indegree, edgeKeys, producer, consumer,
+                                pattern, key, semantics, "legacy");
                         }
-                        continue;
-                    }
-                    for (MaterialSource source : provenance.suppliersOf(key)) {
-                        Integer producer = null;
-                        String kind;
-                        if (source instanceof MaterialSource.PatternOutput output) {
-                            producer = matchingPhase(output.pattern(), phaseOfPattern);
-                            kind = output.primary() ? "primary of " + output.pattern()
-                                : "byproduct of " + output.pattern();
-                            if (producer == null && plannedTasks.hasPlannedTask(output.pattern())) {
-                                throw new IllegalStateException("Attributed supplier has no phase: key=" + key
-                                    + " pattern=" + output.pattern());
-                            }
-                        } else if (source instanceof MaterialSource.CycleOutput output) {
-                            producer = phaseOfComponent.get(output.componentId());
-                            kind = "cycle " + output.componentId();
-                        } else {
-                            continue;
-                        }
-                        if (producer != null) addAttributedDependency(phases, outgoing, indegree, edgeKeys,
-                            producer, consumerPhase, pattern, key, semantics, kind);
                     }
                 }
             }

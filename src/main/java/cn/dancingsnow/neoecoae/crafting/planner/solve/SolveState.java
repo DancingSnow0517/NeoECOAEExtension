@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialProvenance;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
+import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,8 +84,20 @@ public final class SolveState {
     }
 
     void consumeCrafted(AEKey key, PlannerAmount amount) {
-        provenance.consumeCredit(key, amount);
+        provenance.consumePendingCredit(key, amount);
         crafted.remove(key, amount);
+    }
+
+    void consumeCrafted(MaterialDemand demand, AEKey key, PlannerAmount amount) {
+        provenance.consumeCredit(demand, key, amount);
+        crafted.remove(key, amount);
+    }
+
+    private void reserveBoundary(int componentId, AEKey key, PlannerAmount amount) {
+        if (amount.isZero()) return;
+        MaterialDemand boundary = MaterialDemand.boundary(componentId, key, amount);
+        provenance.register(boundary);
+        provenance.allocate(boundary, key, MaterialSource.Stock.INSTANCE, amount);
     }
 
     /**
@@ -156,23 +169,23 @@ public final class SolveState {
             for (var entry : additionalCycleReservations.entrySet()) {
                 if (entry.getValue() < 0) return false;
                 candidate.used.add(entry.getKey(), entry.getValue());
-                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
-                    PlannerAmount.of(entry.getValue()));
+                candidate.reserveBoundary(componentId, entry.getKey(), PlannerAmount.of(entry.getValue()));
             }
             for (var entry : directExternalReservations) {
                 candidate.used.add(entry.getKey(), entry.getLongValue());
-                candidate.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE,
-                    PlannerAmount.of(entry.getLongValue()));
+                candidate.reserveBoundary(componentId, entry.getKey(), PlannerAmount.of(entry.getLongValue()));
             }
-            for (SolveState external : externalStates) candidate.mergeExternal(external);
+            for (SolveState external : externalStates) candidate.mergeExternal(external, componentId);
             for (var entry : cycle.patternTimes().entrySet()) {
                 if (entry.getValue() < 0) return false;
                 candidate.patternTimes.merge(entry.getKey(), PlannerAmount.of(entry.getValue()), PlannerAmount::add);
             }
             if (cycle.plannerTotalFirings().signum() > 0) {
                 for (var entry : requiredOutputs.entrySet()) {
-                    if (entry.getValue() > 0L) candidate.provenance.supplied(entry.getKey(),
-                        new MaterialSource.CycleOutput(componentId), PlannerAmount.of(entry.getValue()));
+                    PlannerAmount pending = candidate.provenance.pendingAmount(entry.getKey())
+                        .min(PlannerAmount.of(entry.getValue()));
+                    if (pending.signum() > 0) candidate.provenance.allocatePending(entry.getKey(), entry.getKey(),
+                        new MaterialSource.CycleOutput(componentId), pending);
                 }
             }
             for (var entry : candidate.used) {
@@ -199,7 +212,7 @@ public final class SolveState {
         return copy;
     }
 
-    private void mergeExternal(SolveState external) {
+    private void mergeExternal(SolveState external, int componentId) {
         if (!external.missing.isEmpty() || !external.unsupported.isEmpty()) throw new IllegalArgumentException();
         for (var entry : external.used) used.add(entry.getKey(), entry.getValue());
         for (var entry : external.emitted) emitted.add(entry.getKey(), entry.getValue());
@@ -209,7 +222,7 @@ public final class SolveState {
         selected.putAll(external.selected);
         external.parents.forEach((key, value) -> parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).addAll(value));
         // External surplus is not imported into crafted, so only its consumed-source attribution is mergeable.
-        provenance.mergeSuppliersFrom(external.provenance);
+        provenance.mergeSuppliersFrom(external.provenance.forCycleBoundary(componentId));
         bytes = bytes.add(external.bytes);
     }
 

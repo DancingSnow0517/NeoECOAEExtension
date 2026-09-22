@@ -20,6 +20,9 @@ class SpecialPatternResolverTest {
         var requirement = new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Requirement(
             input, key, cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Type.REUSABLE, 0, 0);
         var pattern = org.mockito.Mockito.mock(cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern.class);
+        org.mockito.Mockito.when(pattern.inputs()).thenReturn(java.util.List.of(input));
+        org.mockito.Mockito.when(pattern.details()).thenReturn(
+            org.mockito.Mockito.mock(appeng.api.crafting.IPatternDetails.class));
         org.mockito.Mockito.when(pattern.specialAnalysis()).thenReturn(
             new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis(java.util.List.of(requirement)));
         var stock = new appeng.api.stacks.KeyCounter();

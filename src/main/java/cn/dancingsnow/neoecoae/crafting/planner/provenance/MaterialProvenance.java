@@ -31,6 +31,58 @@ public final class MaterialProvenance {
         return demand.amount().subtract(allocated.getOrDefault(demand.id(), PlannerAmount.ZERO));
     }
 
+    public PlannerAmount pendingAmount(AEKey key) {
+        PlannerAmount result = PlannerAmount.ZERO;
+        for (MaterialDemand demand : demands.values()) {
+            if (demand.key().equals(key)) result = result.add(remaining(demand));
+        }
+        return result;
+    }
+
+    /** Apportions an aggregated numeric draw to the original demands in registration order. */
+    public void allocatePending(AEKey key, AEKey material, MaterialSource source, PlannerAmount amount) {
+        requirePositive(amount);
+        if (pendingAmount(key).compareTo(amount) < 0) {
+            throw new IllegalStateException("Supply exceeds pending demand: " + key + " amount=" + amount);
+        }
+        PlannerAmount left = amount;
+        for (MaterialDemand demand : demands.values()) {
+            if (!demand.key().equals(key)) continue;
+            PlannerAmount take = remaining(demand).min(left);
+            if (take.signum() > 0) allocate(demand, material, source, take);
+            left = left.subtract(take);
+            if (left.isZero()) break;
+        }
+    }
+
+    public void consumePendingCredit(AEKey key, PlannerAmount amount) {
+        requirePositive(amount);
+        if (pendingAmount(key).compareTo(amount) < 0) {
+            throw new IllegalStateException("Credit exceeds pending demand: " + key);
+        }
+        MaterialProvenance candidate = copy();
+        Map<IPatternDetails, PlannerAmount> consumed = candidate.consumeCredit(key, amount);
+        // The diagnostic draw was already recorded. Remove it before allocating the exact portions.
+        consumed.forEach((pattern, count) -> {
+            MaterialSource source = new MaterialSource.PatternOutput(pattern, false);
+            Map<MaterialSource, PlannerAmount> sources = candidate.suppliers.get(key);
+            PlannerAmount left = sources.get(source).subtract(count);
+            if (left.isZero()) sources.remove(source); else sources.put(source, left);
+            candidate.allocatePending(key, key, source, count);
+        });
+        replaceWith(candidate);
+    }
+
+    /** An external solve's root demand belongs to its requesting cycle, not to the player's final output. */
+    public MaterialProvenance forCycleBoundary(int componentId) {
+        MaterialProvenance copy = copy();
+        copy.demands.replaceAll((id, demand) -> demand.kind() == MaterialDemand.Kind.GOAL
+            ? new MaterialDemand(id, MaterialDemand.Kind.CYCLE_BOUNDARY, null, -1, componentId,
+                demand.key(), demand.amount())
+            : demand);
+        return copy;
+    }
+
     /** The material may be a concrete component-sensitive alternative to the demand's key. */
     public void allocate(MaterialDemand demand, AEKey material, MaterialSource source, PlannerAmount amount) {
         SupplyAllocation allocation = new SupplyAllocation(demand.id(), material, source, amount);

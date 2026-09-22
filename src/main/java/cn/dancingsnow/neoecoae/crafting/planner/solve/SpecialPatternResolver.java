@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
+import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,7 +48,7 @@ public final class SpecialPatternResolver {
         Map<AEKey, PlannerAmount> simultaneous = new java.util.LinkedHashMap<>();
         for (var requirement : pattern.specialAnalysis().requirements()) {
             cancellation.checkpoint();
-            if (consumeStoredExactReusableAlternative(requirement, simultaneous)) {
+            if (consumeStoredExactReusableAlternative(pattern, requirement, simultaneous)) {
                 continue;
             }
             if (requirement.type() == SpecialPatternAnalysis.Type.DURABILITY) {
@@ -99,7 +100,8 @@ public final class SpecialPatternResolver {
             if (tools.signum() <= 0) continue;
             state.stored.remove(entry.getKey(), tools);
             state.used.add(entry.getKey(), tools);
-            state.provenance.supplied(entry.getKey(), MaterialSource.Stock.INSTANCE, tools);
+            MaterialDemand demand = inputDemand(owner, choice.key(), tools);
+            state.provenance.allocate(demand, entry.getKey(), MaterialSource.Stock.INSTANCE, tools);
             uses = uses.subtract(tools.multiply(capacity)).max(PlannerAmount.ZERO);
         }
         if (uses.isZero()) return;
@@ -114,7 +116,7 @@ public final class SpecialPatternResolver {
     }
 
     /** Prefer any accepted ingredient that the recipe returns byte-for-byte unchanged. */
-    private boolean consumeStoredExactReusableAlternative(SpecialPatternAnalysis.Requirement requirement,
+    private boolean consumeStoredExactReusableAlternative(CompiledPattern owner, SpecialPatternAnalysis.Requirement requirement,
             Map<AEKey, PlannerAmount> simultaneous) {
         CompiledInput input = requirement.input();
         IPatternDetails.IInput source = input.source();
@@ -133,7 +135,10 @@ public final class SpecialPatternResolver {
                 PlannerAmount reserved = reusableStock.getOrDefault(possible.what(), PlannerAmount.ZERO);
                 PlannerAmount additional = needed.subtract(reserved).max(PlannerAmount.ZERO);
                 if (availableStored(possible.what(), input.ignoresComponents(), additional).compareTo(additional) < 0) continue;
-                consumeStored(possible.what(), additional, input.ignoresComponents());
+                if (additional.signum() > 0) {
+                    MaterialDemand demand = inputDemand(owner, input.key(), additional);
+                    consumeStored(possible.what(), additional, input.ignoresComponents(), demand);
+                }
                 reusableStock.put(possible.what(), reserved.max(needed));
                 simultaneous.put(possible.what(), needed);
                 return true;
@@ -187,17 +192,18 @@ public final class SpecialPatternResolver {
         state.demandProducers.put(key, owner.details());
         state.parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(owner.producedKey());
 
-        PlannerAmount stored = consumeStored(key, requested, ignoreComponents);
+        MaterialDemand demand = inputDemand(owner, key, requested);
+        PlannerAmount stored = consumeStored(key, requested, ignoreComponents, demand);
         requested = requested.subtract(stored);
         PlannerAmount crafted = requested.min(state.craftedAmount(key));
         if (crafted.signum() > 0) {
-            state.consumeCrafted(key, crafted);
+            state.consumeCrafted(demand, key, crafted);
             requested = requested.subtract(crafted);
         }
         if (requested.isZero()) return;
         if (network.emittable().contains(key)) {
             state.emitted.add(key, requested);
-            state.provenance.supplied(key, MaterialSource.Emitted.INSTANCE, requested);
+            state.provenance.allocate(demand, key, MaterialSource.Emitted.INSTANCE, requested);
             return;
         }
         if (!resolving.add(key)) {
@@ -212,7 +218,7 @@ public final class SpecialPatternResolver {
                 return;
             }
             state.selected.put(key, producer);
-            state.provenance.supplied(key, new MaterialSource.PatternOutput(producer.details(), true), requested);
+            state.provenance.allocate(demand, key, new MaterialSource.PatternOutput(producer.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(producer.outputPerPattern());
             state.patternTimes.merge(producer.details(), times, PlannerAmount::add);
             state.bytes = state.bytes.add(times);
@@ -230,6 +236,27 @@ public final class SpecialPatternResolver {
         } finally {
             resolving.remove(key);
         }
+    }
+
+    private MaterialDemand inputDemand(CompiledPattern owner, AEKey key, PlannerAmount amount) {
+        int slot = -1;
+        for (int i = 0; i < owner.inputs().size(); i++) {
+            CompiledInput input = owner.inputs().get(i);
+            if (input.key().equals(key)) { slot = i; break; }
+        }
+        // The demand id remains unique for a transformed durability alternative.
+        if (slot < 0) {
+            for (int i = 0; i < owner.inputs().size(); i++) {
+                if (owner.specialAnalysis().excludesFromCycleGraph(owner.inputs().get(i))) {
+                    slot = i;
+                    break;
+                }
+            }
+        }
+        if (slot < 0) throw new IllegalStateException("Special input has no consumer slot: " + key);
+        MaterialDemand demand = MaterialDemand.input(owner.details(), slot, key, amount);
+        state.provenance.register(demand);
+        return demand;
     }
 
     private CompiledPattern selectedPattern(AEKey key) {
@@ -251,11 +278,12 @@ public final class SpecialPatternResolver {
         return available;
     }
 
-    private PlannerAmount consumeStored(AEKey key, PlannerAmount requested, boolean ignoreComponents) {
+    private PlannerAmount consumeStored(AEKey key, PlannerAmount requested, boolean ignoreComponents,
+            MaterialDemand demand) {
         if (requested.signum() <= 0) return PlannerAmount.ZERO;
         if (!ignoreComponents || !(key instanceof AEItemKey wanted)) {
             PlannerAmount exact = state.stored.available(key, requested);
-            if (exact.signum() > 0) consumeExact(key, exact);
+            if (exact.signum() > 0) consumeExact(demand, key, exact);
             return exact;
         }
         PlannerAmount remaining = requested;
@@ -265,16 +293,16 @@ public final class SpecialPatternResolver {
                     || candidate.getItem() != wanted.getItem()) continue;
             PlannerAmount take = state.stored.available(entry.getKey(), remaining);
             if (take.signum() <= 0) continue;
-            consumeExact(entry.getKey(), take);
+            consumeExact(demand, entry.getKey(), take);
             consumed = consumed.add(take);
             remaining = remaining.subtract(take);
         }
         return consumed;
     }
 
-    private void consumeExact(AEKey key, PlannerAmount amount) {
+    private void consumeExact(MaterialDemand demand, AEKey key, PlannerAmount amount) {
         state.stored.remove(key, amount);
         state.used.add(key, amount);
-        state.provenance.supplied(key, MaterialSource.Stock.INSTANCE, amount);
+        state.provenance.allocate(demand, key, MaterialSource.Stock.INSTANCE, amount);
     }
 }
