@@ -118,6 +118,7 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         }
 
         // Match the module's per-tick update cadence, including in-place cell configuration changes.
+        int previousPriority = patternPriority;
         syncPatternPriority();
         Set<IPatternDetails> refreshedPatterns = new LinkedHashSet<>();
         Set<StorageCell> seenCells = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -129,9 +130,11 @@ public final class ECOMegaDecompressionService implements IGridService, IGridSer
         for (ECODriveBlockEntity drive : ecoDrives) {
             addPatterns(drive.getCellInventory(), seenCells, refreshedPatterns);
         }
-        patterns.clear();
-        patterns.addAll(refreshedPatterns);
-        grid.getCraftingService().refreshGlobalCraftingProvider(this);
+        if (previousPriority != patternPriority || !new LinkedHashSet<>(patterns).equals(refreshedPatterns)) {
+            patterns.clear();
+            patterns.addAll(refreshedPatterns);
+            grid.getCraftingService().refreshGlobalCraftingProvider(this);
+        }
     }
 
     @Override

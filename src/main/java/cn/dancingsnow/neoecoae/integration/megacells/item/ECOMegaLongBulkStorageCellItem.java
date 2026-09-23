@@ -184,6 +184,19 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
     }
 
     @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+            List<net.minecraft.network.chat.Component> lines, net.minecraft.world.item.TooltipFlag flag) {
+        super.appendHoverText(stack, context, lines, flag);
+        lines.add(net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.mega_filter.cutoff_hint"));
+        if (getCellInventory(stack) instanceof ECOMegaLongBulkStorageCell cell
+                && cell.getUnresolvedEntryCount() > 0) {
+            lines.add(net.minecraft.network.chat.Component.translatable(
+                "tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount())
+                .withStyle(net.minecraft.ChatFormatting.RED));
+        }
+    }
+
+    @Override
     protected ECOStorageCell createCellInventory(ItemStack stack, ISaveProvider host) {
         return new ECOMegaLongBulkStorageCell(stack, host);
     }

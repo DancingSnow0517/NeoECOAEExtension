@@ -193,6 +193,25 @@ final class ECOStorageMegaController {
         return EcoMegaFilterResult.SUCCESS;
     }
 
+    @Nullable
+    AEItemKey cycleCutoff(int driveIndex, int page, int visualSlot) {
+        if (visualSlot < 0 || visualSlot >= ECO_MEGA_SLOTS_PER_PAGE
+                || page < 0 || page >= ECO_MEGA_PAGE_COUNT) return null;
+        List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
+        if (driveIndex < 0 || driveIndex >= drives.size()) return null;
+        ECODriveBlockEntity drive = drives.get(driveIndex);
+        ItemStack stack = drive.getCellStack();
+        int slot = page * ECO_MEGA_SLOTS_PER_PAGE + visualSlot;
+        if (slot >= getActiveMarkerSlots(stack)
+                || !(stack.getItem() instanceof IECOBulkMarkableCellItem cellItem)
+                || !(drive.getCellInventory() instanceof cn.dancingsnow.neoecoae.api.storage.IECOBulkDisplayCell cell)) return null;
+        if (!(cellItem.getConfigInventory(stack).getKey(slot) instanceof AEItemKey marker)) return null;
+        AEItemKey selected = cell.cycleCompressionCutoff(marker);
+        drive.onCellConfigurationChanged();
+        host.notifyStorageConfigurationChanged();
+        return selected;
+    }
+
     enum EcoMegaFilterResult {
         SUCCESS,
         NOT_COMPRESSIBLE,

@@ -226,7 +226,11 @@ public final class StorageMegaPanelUI {
             }).remoteSetter(value -> setValue(value, false)).build());
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
                 if (event.button == 1 && !getValue().isEmpty()) {
-                    setValue(ItemStack.EMPTY, true);
+                    if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
+                        host.cycleEcoMegaCutoffFromClient(visualSlot);
+                    } else {
+                        setValue(ItemStack.EMPTY, true);
+                    }
                     event.hasHandler = true;
                     event.stopImmediatePropagation();
                     return;

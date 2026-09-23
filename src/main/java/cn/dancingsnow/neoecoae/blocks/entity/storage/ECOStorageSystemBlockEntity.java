@@ -375,6 +375,24 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
+    public void cycleEcoMegaCutoffFromClient(int visualSlot) {
+        if (level != null && level.isClientSide) {
+            rpcToServer("cycleEcoMegaCutoff", getSelectedEcoMegaBulkCell(), getSelectedEcoMegaPage(), visualSlot);
+        }
+    }
+
+    @RPCMethod
+    public void cycleEcoMegaCutoff(RPCSender sender, int driveIndex, int page, int visualSlot) {
+        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
+        ServerPlayer player = sender.asPlayer();
+        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
+        var selected = megaController.cycleCutoff(driveIndex, page, visualSlot);
+        if (selected != null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "gui.neoecoae.storage.mega_filter.cutoff", selected.toStack().getHoverName()), true);
+        }
+    }
+
     private net.minecraft.network.chat.Component storageDiagnostics() {
         var text = net.minecraft.network.chat.Component.empty();
         for (var fault : stageRunner.failures()) {
