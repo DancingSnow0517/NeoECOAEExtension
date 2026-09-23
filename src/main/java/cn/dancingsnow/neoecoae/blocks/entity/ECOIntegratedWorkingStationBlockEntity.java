@@ -823,11 +823,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
         root.addChild(HostSideButtonBar.rightSlots(upgradeSlots));
 
-        root.addChild(HostSideButtonBar.left(
+        List<UIElement> sideButtons = new ArrayList<>(List.of(
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/integrated_working_station.md"),
             createAutoExportButton(),
             createOutputSidesButton(allowOutputWindow)
         ));
+        if (this instanceof ECOLargeIntegratedWorkingStationBlockEntity workstation) {
+            sideButtons.add(workstation.createAutoBuildButton(holder.player));
+        }
+        root.addChild(HostSideButtonBar.left(sideButtons));
 
         root.addChild(new TextElement()
             .setText("container.inventory", true)

@@ -1,6 +1,18 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.config.Actionable;
+import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
@@ -1177,45 +1189,86 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         TextElement title = staticLabel("block.neoecoae.large_integrated_working_station", 8, 4, 106, 10);
         title.textStyle(style -> style.fontSize(8));
         root.addChild(title);
-        root.addChild(staticLabel("container.inventory", 42, 94, 92, 9));
+        root.addChild(staticLabel("container.inventory", 8, 85, 160, 9));
 
-        root.addChild(syncedLabel(this::getEnergyText, 42, 20, 128, 9));
-        root.addChild(syncedLabel(this::getTaskText, 42, 30, 128, 9));
-        root.addChild(syncedLabel(this::getRecipeText, 42, 40, 128, 18, TextWrap.NONE));
-        root.addChild(syncedLabel(this::getOverclockSettingsText, 42, 59, 128, 8));
-        root.addChild(syncedLabel(this::getCoolingTierText, 42, 67, 128, 8));
-        root.addChild(syncedLabel(this::getBatchSettingsText, 42, 75, 128, 8));
-        root.addChild(syncedLabel(this::getPauseReasonText, 42, 83, 128, 8));
+        // Keep all status text inside the 96x54 inset in the background texture.
+        root.addChild(syncedLabel(this::getEnergyText, 42, 25, 92, 8));
+        root.addChild(syncedLabel(this::getTaskText, 42, 35, 92, 8));
+        root.addChild(syncedLabel(this::getCoolingTierText, 42, 45, 92, 8));
+        root.addChild(syncedLabel(this::getBatchSettingsText, 42, 55, 92, 8));
+        root.addChild(syncedLabel(this::getPauseReasonText, 42, 65, 92, 8));
 
-        Button overclockButton = new Button();
-        overclockButton.setText(Component.translatable("gui.neoecoae.large_integrated_working_station.overclock_button"));
-        overclockButton.setOnServerClick(event -> toggleOverclocked());
-        overclockButton.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE).left(118).top(3).width(25).height(13));
-        root.addChild(overclockButton);
-
-        Button coolingButton = new Button();
-        coolingButton.setText(Component.translatable("gui.neoecoae.large_integrated_working_station.cooling_button"));
-        coolingButton.setOnServerClick(event -> toggleActiveCooling());
-        coolingButton.layout(layout -> layout
-            .positionType(TaffyPosition.ABSOLUTE).left(146).top(3).width(25).height(13));
-        root.addChild(coolingButton);
+        // Resolve through the controller on every sync, so a rebuilt cluster cannot leave
+        // an open screen displaying a detached hatch's tank.
+        IFluidHandler fluids = getFluidCombined();
+        root.addChild(fluidGauge(fluids, 0, 8));
+        root.addChild(fluidGauge(fluids, 1, 150));
 
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 9; col++) {
                 int index = row == 3 ? col : 9 + row * 9 + col;
                 int x = 7 + col * 18;
-                int y = row == 3 ? 162 : 104 + row * 18;
+                int y = row == 3 ? 153 : 95 + row * 18;
                 root.addChild(new ItemSlot(new net.minecraft.world.inventory.Slot(holder.player.getInventory(), index, 0, 0))
                     .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
                     .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(18).height(18)));
             }
         }
         root.addChild(HostSideButtonBar.left(
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/large_integrated_working_station.md")
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/large_integrated_working_station.md"),
+            settingButton(Icon.POWER_UNIT_AE, this::toggleOverclocked, () -> Component.translatable(
+                overclocked ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
+            settingButton(Icon.TYPE_FILTER_ALL, this::toggleActiveCooling, () -> Component.translatable(
+                activeCooling ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
         ));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(
             cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets.ECO))), holder.player);
+    }
+
+    private static UIElement fluidGauge(IFluidHandler fluids, int tank, int left) {
+        return new FluidSlot().bind(fluids, tank)
+            .setAllowClickFilled(false)
+            .setAllowClickDrained(false)
+            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY))
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                .left(left).top(20).width(18).height(60));
+    }
+
+    private static Button settingButton(Icon icon, Runnable action, java.util.function.Supplier<Component> tooltip) {
+        Button button = HostSideButtonBar.createButton().noText()
+            .addPostIcon(AETextures.icon(icon)).setOnServerClick(event -> action.run());
+        BindableValue<Component> text = new BindableValue<>(tooltip.get());
+        text.bind(DataBindingBuilder.componentS2C(tooltip).build());
+        text.setDisplay(false);
+        button.addChild(text);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(text.getValue()));
+        return button;
+    }
+
+    public Button createAutoBuildButton(Player player) {
+        return settingButton(Icon.CRAFT_HAMMER, () -> autoBuild(player),
+            () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
+    }
+
+    private void autoBuild(Player player) {
+        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)
+            || player.level() != level || player.distanceToSqr(worldPosition.getCenter()) > 64
+            || isRemoved() || formed || !player.mayBuild() || !level.mayInteract(player, worldPosition)) return;
+        var plan = MultiBlockPlacementService.preview(level, worldPosition, getBlockState(),
+            NEMultiBlocks.LARGE_INTEGRATED_WORKING_STATION, 1, false);
+        if (!plan.getConflictPositions().isEmpty()) {
+            player.displayClientMessage(Component.translatable("gui.neoecoae.multiblock.status.conflicts_detected"), true);
+            return;
+        }
+        if (!player.isCreative() && !MultiBlockPlacementService.hasRequiredItems(player, plan.getRequiredItems())) {
+            player.displayClientMessage(Component.translatable("gui.neoecoae.multiblock.status.not_enough_items"), true);
+            return;
+        }
+        if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) return;
+        rebuildMultiblock();
+        if (formed) BlockUIMenuType.openUI(serverPlayer, worldPosition);
     }
 
     private static TextElement staticLabel(String translationKey, int left, int top, int width, int height) {
@@ -1225,7 +1278,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 .fontSize(6)
                 .adaptiveWidth(false)
                 .textWrap(TextWrap.HOVER_ROLL)
-                .adaptiveHeight(true)
+                .adaptiveHeight(false)
                 .textShadow(false)
                 .textColor(0x403E53));
         label.layout(layout -> layout
@@ -1252,7 +1305,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         Label label = new Label();
         label.setText(supplier.get());
         label.bind(DataBindingBuilder.componentS2C(supplier).build());
-        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(textWrap).adaptiveHeight(true).textShadow(false).textColor(0x403E53));
+        label.textStyle(style -> style.fontSize(6).adaptiveWidth(false).textWrap(textWrap).adaptiveHeight(false).textShadow(false).textColor(0x403E53));
         label.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(left).top(top).width(width).height(height));
         return label;
     }
