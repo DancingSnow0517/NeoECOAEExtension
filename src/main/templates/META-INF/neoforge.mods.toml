@@ -171,6 +171,22 @@ file="META-INF/accesstransformer.cfg"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="appliedenhancements"
+    type="optional"
+    versionRange="[1.0.9,)"
+    ordering="AFTER"
+    side="BOTH"
+    reason="Applied Enhancements 1.0.9 or newer is required when this mod is installed."
+
+[[dependencies.${mod_id}]]
+    modId="molecularmanipulator"
+    type="optional"
+    versionRange="[2.0.5,),[2.0.5-fix]"
+    ordering="AFTER"
+    side="BOTH"
+    reason="OmniSequence: Transfinite 2.0.5 or newer is required when this mod is installed. Version 2.0.5-fix is also supported."
+
+[[dependencies.${mod_id}]]
     modId="useless_mod"
     type="optional"
     versionRange="[1.21.1-2.3.4,)"

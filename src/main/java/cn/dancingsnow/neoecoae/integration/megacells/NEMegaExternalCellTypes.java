@@ -8,8 +8,6 @@ import net.minecraft.network.chat.Component;
 import java.util.function.Supplier;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
-import static cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities.MEGA_4G_TYPE_LIMIT;
-
 /** Lazily registers each channel type only when that channel's integration is present. */
 final class NEMegaExternalCellTypes {
     private NEMegaExternalCellTypes() {
@@ -39,7 +37,7 @@ final class NEMegaExternalCellTypes {
         REGISTRATE.addLang("cell_type", NeoECOAE.id(id), name);
         return REGISTRATE.cellType(id)
             .desc(Component.translatable("cell_type.neoecoae." + id).withColor(color))
-            .typeCount(MEGA_4G_TYPE_LIMIT)
+            .typeCount(1)
             .register();
     }
 

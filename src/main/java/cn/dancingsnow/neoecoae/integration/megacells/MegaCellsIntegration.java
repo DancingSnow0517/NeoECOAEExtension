@@ -92,9 +92,6 @@ public final class MegaCellsIntegration {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", false);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", false);
         registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", false);
-        for (var cell : NEMegaBaseItems.cells()) {
-            registerCellModel(cell, familyForBaseCell(cell), tierForBaseCell(cell), false);
-        }
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", false);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
         registerExternalModels(false);
@@ -104,9 +101,6 @@ public final class MegaCellsIntegration {
         registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", true);
         registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", true);
         registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", true);
-        for (var cell : NEMegaBaseItems.cells()) {
-            registerCellModel(cell, familyForBaseCell(cell), tierForBaseCell(cell), true);
-        }
         if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", true);
         if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
         registerExternalModels(true);

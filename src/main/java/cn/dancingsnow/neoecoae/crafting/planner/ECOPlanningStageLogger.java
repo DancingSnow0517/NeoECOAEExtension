@@ -26,6 +26,13 @@ public final class ECOPlanningStageLogger {
         return NEXT_REQUEST_ID.incrementAndGet();
     }
 
+    public static void logRoute(boolean enabled, String path, String reason, AEKey goal, long amount) {
+        if (!enabled) return;
+        LOGGER.info(
+                "[ECO-PLANNER-ROUTE] path={} reason={} goal={} amount={}",
+                path, normalize(reason), goal, amount);
+    }
+
     public static Scope open(boolean enabled, long requestId, AEKey goal, long amount, boolean simulation) {
         Context previous = CURRENT.get();
         if (enabled) {

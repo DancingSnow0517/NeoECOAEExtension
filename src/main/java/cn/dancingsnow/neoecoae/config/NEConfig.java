@@ -154,8 +154,10 @@ public class NEConfig {
     private static final ModConfigSpec.BooleanValue ECO_PLANNING_STAGE_DEBUG = BUILDER
         .comment(
             "记录 ECO 快速规划的每个计算阶段，包括非循环规划与循环规划。",
+            "同时记录每次规划请求实际选择 ECO 快速规划还是 AE2 原版规划及原因。",
             "日志包含阶段耗时、成功状态、失败原因、目标物品和请求数量。",
             "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.",
+            "Also log whether each request selects ECO fast planning or the native AE2 planner, and why.",
             "Logs stage duration, success state, failure reason, target item and requested amount.")
         .define("ecoPlanningStageDebug", false);
 

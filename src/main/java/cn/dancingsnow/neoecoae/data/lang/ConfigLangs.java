@@ -78,6 +78,7 @@ public class ConfigLangs {
         provider.add(
             "neoecoae.configuration.ecoPlanningStageDebug.tooltip",
             "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.\n" +
+                "Also logs whether each request selects ECO fast planning or the native AE2 planner, and why.\n" +
                 "Includes stage duration, success state, failure reason, target item and requested amount."
         );
         provider.add("neoecoae.configuration.ecoCraftSubmissionDebug", "Enable ECO Craft Submission Detail Logs");

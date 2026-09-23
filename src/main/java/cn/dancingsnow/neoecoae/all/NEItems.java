@@ -997,6 +997,7 @@ public class NEItems {
             })
             .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")
             .model(ItemModelUtil.cellModel("bulk_item", size))
+            .removeTab(NECreativeTabs.ECO.getKey())
             .register();
     }
 

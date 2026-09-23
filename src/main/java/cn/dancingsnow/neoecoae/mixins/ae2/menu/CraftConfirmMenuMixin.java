@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
@@ -347,12 +348,16 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             ? ecoSettings
             : null;
         boolean fastPlannerEnabled = settings != null && settings.neoecoae$isFastPlannerEnabled();
-        boolean hasComputationHost = fastPlannerEnabled && settings.neoecoae$hasComputationHost();
-        if (NEConfig.ecoCraftSubmissionDebug && settings != null && !fastPlannerEnabled) {
-            hasComputationHost = settings.neoecoae$hasComputationHost();
-        }
+        boolean hasComputationHost = settings != null && settings.neoecoae$hasComputationHost();
         boolean useEco = fastPlannerEnabled && hasComputationHost;
         neoecoae$ecoPlannerAvailable = useEco;
+        String routeReason = settings == null
+            ? "CRAFTING_SERVICE_HAS_NO_ECO_SETTINGS"
+            : !fastPlannerEnabled
+                ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
+                : !hasComputationHost ? "NO_FORMED_ONLINE_COMPUTATION_HOST" : "ELIGIBLE";
+        ECOPlanningStageLogger.logRoute(NEConfig.ecoPlanningStageDebug,
+            useEco ? "ECO_FAST" : "AE2_NATIVE", routeReason, what, amount);
         if (NEConfig.ecoCraftSubmissionDebug) {
             neoecoae$logEcoScreenRouting(settings, fastPlannerEnabled, hasComputationHost, useEco, what, amount);
         }
