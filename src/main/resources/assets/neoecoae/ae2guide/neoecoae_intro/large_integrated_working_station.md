@@ -41,3 +41,19 @@ The controller has **Overclock** and **Active Cooling** switches. Both must be o
 Each processing tick that advances an overclocked batch consumes 100 mB of coolant, regardless of batch size. The input and output hatches each hold 1,024,000 mB. Water produces steam and sodium produces superheated sodium when Mekanism is installed; without Mekanism, water has no byproduct. Cryotheum Solution has no byproduct.
 
 An overclocked batch pauses if overclock or active cooling is turned off, coolant is missing or below the batch's locked tier, power is insufficient, or the byproduct output is full. It resumes when the missing condition is restored. Idle or paused ticks do not consume coolant.
+
+## Additional machine recipes
+
+A formed Large Integrated Working Station also processes the following recipe types from installed mods:
+
+- AE2 Lightning Tech Reborn: all Overload Processing Factory, Lightning Assembly Chamber, and Lightning Simulation Chamber recipes.
+- AE2 Crystal Science: Circuit Etcher and Crystal Aggregator recipes.
+- Applied Generators: Genesis Synthesizer recipes.
+- AdvancedAE: Reaction Chamber recipes, including fluid products.
+- ExtendedAE Plus: all Super Crystal Assembler recipes, including inherited ExtendedAE Crystal Assembler recipes.
+
+Encode a processing pattern with the complete item/fluid inputs and outputs, and place it in the large workstation's communication interface. JEI and EMI list these recipes under **Large Integrated Working Station**. The single-block workstation cannot process these additional recipes. The recipes follow the active datapacks, including additions, replacements, and removals on reload.
+
+AE2LT recipes retain their original lightning tier and quantity. The controller draws the required lightning from the connected ME network; it does not need to be added to the processing pattern. If lightning is missing, the batch pauses until that tier is available. Lightning scales with the number of crafts, without the overclock energy multiplier, and high-voltage lightning does not substitute for extreme-high-voltage lightning. Pending withdrawals survive save/reload, and cancelling an unfinished tracked crafting job returns the resources already withdrawn.
+
+Recipe energy is paid in AE. AE2LT's FE costs are converted using AE2's FE/AE ratio; the other integrations retain their AE cost. Super Crystal Assembler recipes use 2,000 AE per craft (200 progress × 10 AE). The existing overclock and coolant rules also apply to these recipes.

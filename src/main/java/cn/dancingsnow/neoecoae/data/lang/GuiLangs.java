@@ -4,6 +4,12 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
+        provider.add("emi.category.neoecoae.large_integrated_working_station", "Large Integrated Working Station");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.lightning_missing", "Paused: Missing lightning");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_cost", "ME: %s \u00d7 %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Lightning from ME: %s");
+        provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
         provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");

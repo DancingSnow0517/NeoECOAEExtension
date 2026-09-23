@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +33,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
     private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
     private List<IPatternDetails> compatiblePatterns = List.of();
     private boolean compatiblePatternsDirty = true;
+    private Object lastRecipes;
     @Nullable
     private ECOLargeIntegratedWorkingStationBlockEntity lastController;
 
@@ -71,7 +73,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
             compatiblePatterns = List.of();
             return List.of();
         }
-        if (!compatiblePatternsDirty && lastController == controller) return compatiblePatterns;
+        Object recipes = LargeWorkstationRecipes.getAll(host.getLevel());
+        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes) return compatiblePatterns;
         List<IPatternDetails> result = new ArrayList<>();
         for (var pattern : super.getAvailablePatterns()) {
             if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
@@ -79,6 +82,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         compatiblePatterns = List.copyOf(result);
         compatiblePatternsDirty = false;
         lastController = controller;
+        lastRecipes = recipes;
         return compatiblePatterns;
     }
 

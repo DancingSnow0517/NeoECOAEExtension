@@ -3,6 +3,10 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
+import appeng.api.stacks.GenericStack;
+import dev.emi.emi.api.recipe.EmiRecipeCategory;
+import net.minecraft.resources.ResourceLocation;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
@@ -18,10 +22,25 @@ import java.util.List;
 public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
 
     private final IntegratedWorkingStationRecipe recipe;
+    private final long energy;
+    private final List<GenericStack> extraInputs;
 
     public IntegrationWorkingStationEmiRecipe(RecipeHolder<IntegratedWorkingStationRecipe> holder) {
-        super(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), 168, 75);
-        this.recipe = holder.value();
+        this(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), holder.value(), holder.value().energy(), List.of(), false);
+    }
+
+    public IntegrationWorkingStationEmiRecipe(LargeWorkstationRecipe recipe) {
+        this(NeoECOAEEmiPlugin.LARGE_WORKING_STATION,
+            NeoECOAE.id("/large_workstation/" + recipe.id().getNamespace() + "/" + recipe.id().getPath()),
+            recipe.display(), recipe.energy(), recipe.extraInputs(), true);
+    }
+
+    private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
+        IntegratedWorkingStationRecipe recipe, long energy, List<GenericStack> extraInputs, boolean large) {
+        super(category, id, 168, large ? 103 : 75);
+        this.recipe = recipe;
+        this.energy = energy;
+        this.extraInputs = extraInputs;
 
         // item inputs
         for (SizedIngredient inputItem : recipe.inputItems()) {
@@ -52,8 +71,16 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         widgets.addTexture(NeoECOAE.id("textures/gui/jei/integration_working_station.png"), 0, 0, 168, 75, 0, 0, 168, 75, 168, 75);
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
-        Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
+        Component text = category == NeoECOAEEmiPlugin.LARGE_WORKING_STATION
+            ? Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_energy", energy)
+            : Component.translatable("gui.neoecoae.integrated_working_station.energy", energy / 1000);
         widgets.addText(text, 24, 66, 0x403e53, false);
+        if (!extraInputs.isEmpty()) {
+            var extra = extraInputs.getFirst();
+            widgets.addText(Component.translatable("gui.neoecoae.large_integrated_working_station.lightning_amount",
+                extra.amount()), 0, 79, 0x403e53, false);
+            widgets.addText(extra.what().getDisplayName(), 0, 91, 0x403e53, false);
+        }
 
         // input fluid
         SizedFluidIngredient inputFluid = recipe.inputFluid();

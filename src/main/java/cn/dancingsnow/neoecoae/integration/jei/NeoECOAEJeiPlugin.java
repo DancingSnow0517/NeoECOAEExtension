@@ -8,6 +8,11 @@ import cn.dancingsnow.neoecoae.integration.jei.multiblock.MultiBlockRecipeTransf
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationCategory;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
+import net.minecraft.client.Minecraft;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -26,6 +31,8 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     private static volatile IJeiRuntime runtime;
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
     public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
+    public static final RecipeType<LargeWorkstationRecipe> LARGE_WORKING_STATION_TYPE = new RecipeType<>(
+        NeoECOAE.id("large_integrated_working_station"), LargeWorkstationRecipe.class);
 
     public static final RecipeType<MultiBlockInfoWrapper> MULTIBLOCK_TYPE = new RecipeType<>(
         NeoECOAE.id("multiblock"),
@@ -43,6 +50,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         registration.addRecipeCategories(new CoolingCategory(guiHelper));
         registration.addRecipeCategories(new MultiBlockInfoCategory(guiHelper));
         registration.addRecipeCategories(new IntegrationWorkingStationCategory(guiHelper));
+        registration.addRecipeCategories(new LargeWorkingStationCategory(guiHelper));
     }
 
     @Override
@@ -50,6 +58,8 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         CoolingCategory.registerRecipes(registration);
         MultiBlockInfoCategory.registerRecipes(registration);
         IntegrationWorkingStationCategory.registerRecipes(registration);
+        var level = Minecraft.getInstance().level;
+        if (level != null) registration.addRecipes(LARGE_WORKING_STATION_TYPE, LargeWorkstationRecipes.getAll(level));
     }
 
     @Override
@@ -57,6 +67,8 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         CoolingCategory.registerRecipeCatalysts(registration);
         MultiBlockInfoCategory.registerRecipeCatalysts(registration);
         IntegrationWorkingStationCategory.registerRecipeCatalysts(registration);
+        registration.addRecipeCatalysts(LARGE_WORKING_STATION_TYPE,
+            NEBlocks.INTEGRATED_WORKING_STATION, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE);
     }
 
     @Override

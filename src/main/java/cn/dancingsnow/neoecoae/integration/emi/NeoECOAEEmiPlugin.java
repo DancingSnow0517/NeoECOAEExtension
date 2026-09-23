@@ -10,6 +10,8 @@ import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import net.minecraft.client.Minecraft;
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
@@ -30,6 +32,8 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
     public static final EmiRecipeCategory MULTIBLOCK = new EmiRecipeCategory(NeoECOAE.id("multiblock"), EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
     public static final EmiRecipeCategory INTEGRATED_WORKING_STATION = new EmiRecipeCategory(NeoECOAE.id("integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
     public static final EmiRecipeCategory COOLING = new EmiRecipeCategory(NeoECOAE.id("cooling"), EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+    public static final EmiRecipeCategory LARGE_WORKING_STATION = new EmiRecipeCategory(
+        NeoECOAE.id("large_integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
     @Override
     public void register(EmiRegistry registry) {
@@ -54,6 +58,17 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
         for (RecipeHolder<IntegratedWorkingStationRecipe> holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             registry.addRecipe(new IntegrationWorkingStationEmiRecipe(holder));
+        }
+
+        // large integrated working station
+        registry.addCategory(LARGE_WORKING_STATION);
+        registry.addWorkstation(LARGE_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+        registry.addWorkstation(LARGE_WORKING_STATION, EmiStack.of(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE));
+        var level = Minecraft.getInstance().level;
+        if (level != null) {
+            for (var recipe : LargeWorkstationRecipes.getAll(registry.getRecipeManager(), level.registryAccess())) {
+                registry.addRecipe(new IntegrationWorkingStationEmiRecipe(recipe));
+            }
         }
 
         // cooling

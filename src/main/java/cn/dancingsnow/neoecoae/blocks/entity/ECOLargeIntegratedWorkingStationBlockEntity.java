@@ -48,6 +48,7 @@ import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -99,7 +100,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     extends ECOIntegratedWorkingStationBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IAEMultiBlock<NEIntegratedWorkingStationCluster> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOLargeIntegratedWorkingStationBlockEntity.class);
-    private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     /** Processing steps available per formed-controller tick; energy still limits actual progress. */
     public static final int PARALLELISM = 1024;
@@ -433,6 +433,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (batch.recipe != null || level == null) return batch.recipe;
 
         if (batch.recipeId != null) {
+            for (var adapted : LargeWorkstationRecipes.getAll(level)) {
+                if (adapted.id().equals(batch.recipeId)) {
+                    batch.recipe = adapted.display();
+                    return batch.recipe;
+                }
+            }
             var holder = level.getRecipeManager().byKey(batch.recipeId).orElse(null);
             if (holder != null && holder.value() instanceof IntegratedWorkingStationRecipe recipe) {
                 batch.recipe = recipe;
@@ -523,7 +529,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public Component getRecipeText() {
         IntegratedWorkingStationRecipe task = getTask();
         if (task == null) return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_empty");
-        int itemCount = task.inputItems().stream().mapToInt(it -> it.count()).sum();
+        long itemCount = task.inputItems().stream().mapToLong(it -> it.count()).sum();
         int fluidAmount = task.inputFluid().ingredient().isEmpty() ? 0 : task.inputFluid().amount();
         return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe",
             itemCount, fluidAmount);
@@ -670,6 +676,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             setPauseReason(delivered ? PauseReason.NONE : PauseReason.OUTPUT_BLOCKED);
             setChanged();
             return delivered ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
+        }
+
+        if (!acquireExtraInputs(batch)) {
+            setPauseReason(PauseReason.LIGHTNING_MISSING);
+            return TickRateModulation.SLOWER;
         }
 
         int remainingProgress = MAX_PROCESSING_STEPS - batch.progress;
@@ -935,6 +946,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
+    /** Partial extractions remain owned and persisted, so retries and cancellation cannot double-charge. */
+    private boolean acquireExtraInputs(PendingBatch batch) {
+        if (isCounterEmpty(batch.missingExtras)) return true;
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) return false;
+        return LargeWorkstationExtraInputs.acquire(batch.missingExtras, batch.inputTotal,
+            grid.getStorageService().getInventory(), IActionSource.ofMachine(this), this::setChanged);
+    }
+
     private boolean recoverCounterToNetwork(KeyCounter counter) {
         if (isCounterEmpty(counter)) return true;
         IGrid grid = getMainNode().getGrid();
@@ -960,64 +980,33 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable UUID craftingJobId,
         @Nullable GenericStack unlockStack
     ) {
+        if (!formed || level == null || pattern == null) return null;
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
-        if (level == null || pattern == null || !profile.acceptsCraftCount(craftCount)) return null;
+        if (!profile.acceptsCraftCount(craftCount)) return null;
         KeyCounter totalInputs = collectInputTotals(pattern, holders);
         if (totalInputs == null || isCounterEmpty(totalInputs)) return null;
         KeyCounter perCraftInputs = divideCounter(totalInputs, craftCount);
         if (perCraftInputs == null) return null;
 
-        IntegratedWorkingStationRecipe.Input recipeInput = createRecipeInput(perCraftInputs);
-        if (recipeInput == null) return null;
-        FluidStack fluid = recipeInput.fluid() == null ? FluidStack.EMPTY : recipeInput.fluid();
-        long totalItems = 0L;
-        for (var entry : perCraftInputs) {
-            AEKey key = entry.getKey();
-            long amount = entry.getLongValue();
-            if (key == null || amount <= 0L) return null;
-            if (key instanceof AEItemKey) {
-                totalItems = Math.addExact(totalItems, amount);
-            } else if (!(key instanceof AEFluidKey)) {
-                return null;
-            }
-        }
-
-        RecipeHolder<IntegratedWorkingStationRecipe> recipeHolder = level.getRecipeManager().getRecipeFor(
-            NERecipeTypes.INTEGRATED_WORKING_STATION.get(), recipeInput, level
-        ).orElse(null);
-        IntegratedWorkingStationRecipe recipe = recipeHolder == null ? null : recipeHolder.value();
-        if (recipe == null
-            || totalItems != recipe.inputItems().stream().mapToLong(it -> it.count()).sum()
-            || fluid.getAmount() != (recipe.inputFluid().ingredient().isEmpty() ? 0 : recipe.inputFluid().amount())
-            || !recipe.inputFluid().ingredient().isEmpty() && !recipe.inputFluid().test(fluid)) {
-            return null;
-        }
-
         KeyCounter outputPerCraft = collectPatternOutputs(pattern);
         if (outputPerCraft == null) return null;
-        KeyCounter outputCheck = copyCounter(outputPerCraft);
-        if (recipe.hasItemOutput()) {
-            GenericStack output = GenericStack.fromItemStack(recipe.itemOutput());
-            if (output == null) return null;
-            outputCheck.add(output.what(), -output.amount());
-        }
-        if (recipe.hasFluidOutput()) {
-            GenericStack output = GenericStack.fromFluidStack(recipe.fluidOutput());
-            if (output == null) return null;
-            outputCheck.add(output.what(), -output.amount());
-        }
-        for (var entry : outputCheck) {
-            if (entry.getLongValue() != 0L) return null;
-        }
+        var adapted = LargeWorkstationRecipes.find(level, perCraftInputs, outputPerCraft);
+        if (adapted == null) return null;
 
         KeyCounter remainderTotal = collectRemainderTotals(pattern, holders);
         if (remainderTotal == null) return null;
         KeyCounter outputTotal = scaleCounter(outputPerCraft, craftCount);
         outputTotal.addAll(remainderTotal);
         if (isCounterEmpty(outputTotal)) return null;
-        return new PendingBatch(
-            craftCount, recipe.energy(), profile.coolingTier(), profile.energyMultiplier(), totalInputs, outputTotal,
-            craftingJobId, recipeHolder.id(), recipe, unlockStack, level.getGameTime());
+        PendingBatch batch = new PendingBatch(
+            craftCount, adapted.energy(), profile.coolingTier(), profile.energyMultiplier(), totalInputs, outputTotal,
+            craftingJobId, adapted.id(), adapted.display(), unlockStack, level.getGameTime());
+        for (var extra : adapted.extraInputs()) {
+            if (perCraftInputs.get(extra.what()) == 0) {
+                batch.missingExtras.add(extra.what(), Math.multiplyExact(extra.amount(), craftCount));
+            }
+        }
+        return batch;
     }
 
     @Nullable
@@ -1138,12 +1127,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         for (var entry : source) {
             result.add(entry.getKey(), Math.multiplyExact(entry.getLongValue(), multiplier));
         }
-        return result;
-    }
-
-    private static KeyCounter copyCounter(KeyCounter source) {
-        KeyCounter result = new KeyCounter();
-        result.addAll(source);
         return result;
     }
 
@@ -1345,7 +1328,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         COOLANT_INSUFFICIENT("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient"),
         COOLANT_OUTPUT_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked"),
         POWER_MISSING("gui.neoecoae.large_integrated_working_station.pause.power_missing"),
-        OUTPUT_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.output_blocked");
+        OUTPUT_BLOCKED("gui.neoecoae.large_integrated_working_station.pause.output_blocked"),
+        LIGHTNING_MISSING("gui.neoecoae.large_integrated_working_station.pause.lightning_missing");
 
         private final String translationKey;
 
@@ -1359,12 +1343,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private static final class PendingBatch {
         private final long craftCount;
-        private final int energyPerCraft;
+        private final long energyPerCraft;
         private final int coolingTier;
         private final int energyMultiplier;
         private final KeyCounter inputTotal = new KeyCounter();
         private final KeyCounter outputTotal = new KeyCounter();
         private final KeyCounter pendingOutput = new KeyCounter();
+        private final KeyCounter missingExtras = new KeyCounter();
         private final long createdTick;
         @Nullable
         private final UUID craftingJobId;
@@ -1379,7 +1364,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         private PendingBatch(
             long craftCount,
-            int energyPerCraft,
+            long energyPerCraft,
             int coolingTier,
             int energyMultiplier,
             KeyCounter inputTotal,
@@ -1406,7 +1391,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         private CompoundTag save(HolderLookup.Provider registries) {
             CompoundTag tag = new CompoundTag();
             tag.putLong("craftCount", craftCount);
-            tag.putInt("energyPerCraft", energyPerCraft);
+            tag.putLong("energyPerCraft", energyPerCraft);
             tag.putInt("coolingTier", coolingTier);
             tag.putInt("energyMultiplier", energyMultiplier);
             tag.putInt("progress", progress);
@@ -1416,6 +1401,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             long saveStackCount = countStackEntries(inputTotal)
                 + countStackEntries(outputTotal)
                 + countStackEntries(pendingOutput)
+                + countStackEntries(missingExtras)
                 + (unlockStack == null ? 0L : 1L);
             if (saveStackCount > MAX_SAVE_STACKS) {
                 LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
@@ -1423,9 +1409,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 tag.putBoolean("pendingStateTooLarge", true);
                 return tag;
             }
-            tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(inputTotal)));
-            tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(outputTotal)));
-            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, counterEntries(pendingOutput)));
+            tag.put("inputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(inputTotal)));
+            tag.put("missingExtras", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(missingExtras)));
+            tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(outputTotal)));
+            tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(pendingOutput)));
             if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(registries, unlockStack));
             return tag;
         }
@@ -1437,7 +1424,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 return null;
             }
             long craftCount = tag.getLong("craftCount");
-            int energyPerCraft = tag.getInt("energyPerCraft");
+            long energyPerCraft = tag.getLong("energyPerCraft");
             int coolingTier = tag.contains("coolingTier", Tag.TAG_INT) ? tag.getInt("coolingTier") : 0;
             int energyMultiplier = tag.contains("energyMultiplier", Tag.TAG_INT) ? tag.getInt("energyMultiplier") : 1;
             int progress = tag.getInt("progress");
@@ -1449,9 +1436,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             KeyCounter inputTotal = readCounter(registries, tag, "inputTotal", false);
             KeyCounter outputTotal = readCounter(registries, tag, "outputTotal", true);
             KeyCounter pendingOutput = readCounter(registries, tag, "pendingOutput", false);
-            if (inputTotal == null || outputTotal == null || pendingOutput == null
-                || progress < MAX_PROCESSING_STEPS && isCounterEmpty(inputTotal)
-                || progress >= MAX_PROCESSING_STEPS && isCounterEmpty(pendingOutput)) {
+            KeyCounter missingExtras = readCounter(registries, tag, "missingExtras", false);
+            if (inputTotal == null || outputTotal == null || pendingOutput == null || missingExtras == null
+                || progress > 0 && !missingExtras.isEmpty()
+                || progress < MAX_PROCESSING_STEPS && inputTotal.isEmpty()
+                || progress >= MAX_PROCESSING_STEPS && pendingOutput.isEmpty()) {
                 return null;
             }
             UUID craftingJobId = tag.hasUUID("craftingJobId") ? tag.getUUID("craftingJobId") : null;
@@ -1465,6 +1454,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 craftCount, energyPerCraft, profile.coolingTier(), profile.energyMultiplier(), inputTotal, outputTotal,
                 craftingJobId, recipeId, null, unlockStack, createdTick);
             batch.pendingOutput.addAll(pendingOutput);
+            batch.missingExtras.addAll(missingExtras);
             batch.progress = progress;
             return batch;
         }
@@ -1484,16 +1474,23 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             String name,
             boolean requireNonEmpty
         ) {
-            var decoded = ECOFastPathStacks.readValidatedBatchInputStacks(
-                registries,
-                tag.getList(name, Tag.TAG_COMPOUND),
-                requireNonEmpty,
-                ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT
-            );
-            if (decoded.isEmpty()) return null;
-            KeyCounter result = new KeyCounter();
-            for (GenericStack stack : decoded.get()) result.add(stack.what(), stack.amount());
-            return result;
+            ListTag entries = tag.getList(name, Tag.TAG_COMPOUND);
+            if (entries.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
+                || requireNonEmpty && entries.isEmpty()) return null;
+            try {
+                KeyCounter result = new KeyCounter();
+                for (int i = 0; i < entries.size(); i++) {
+                    GenericStack stack = GenericStack.readTag(registries, entries.getCompound(i));
+                    if (stack == null || stack.amount() <= 0
+                        || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
+                    long total = result.get(stack.what());
+                    if (total > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT - stack.amount()) return null;
+                    result.add(stack.what(), stack.amount());
+                }
+                return result;
+            } catch (RuntimeException failure) {
+                return null;
+            }
         }
     }
 }
