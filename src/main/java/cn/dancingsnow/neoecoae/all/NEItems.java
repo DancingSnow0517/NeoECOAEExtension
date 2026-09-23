@@ -869,6 +869,26 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Item)")
+        .model(ItemModelUtil.importedCellModel("eco_item_cell_housing"))
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_BULK_ITEM_CELL_HOUSING = REGISTRATE
+        .item("eco_bulk_item_cell_housing", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("B B")
+                .pattern("CCC")
+                .define('A', NEItems.CRYSTAL_MATRIX)
+                .define('B', Tags.Items.DUSTS_REDSTONE)
+                .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
+                .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
+                .unlockedBy("has_aluminum_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .save(prov);
+        })
+        .lang("ECO Storage Matrix Housing (Bulk Item)")
+        .model(ItemModelUtil.importedCellModel("eco_bulk_item_cell_housing"))
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
@@ -887,6 +907,7 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Fluid)")
+        .model(ItemModelUtil.importedCellModel("eco_fluid_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
@@ -948,6 +969,36 @@ public class NEItems {
         .lang("ECO - LE9 Storage Matrix (Item)")
         .model(ItemModelUtil.cellModel("item", "256m"))
         .register();
+
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_16M = bulkItemCell(
+        "eco_bulk_item_cell_16m", ECOTier.L4, "16m", ECO_CELL_COMPONENT_16M, Rarity.UNCOMMON);
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_64M = bulkItemCell(
+        "eco_bulk_item_cell_64m", ECOTier.L6, "64m", ECO_CELL_COMPONENT_64M, Rarity.RARE);
+    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_256M = bulkItemCell(
+        "eco_bulk_item_cell_256m", ECOTier.L9, "256m", ECO_CELL_COMPONENT_256M, Rarity.EPIC);
+
+    private static ItemEntry<ECOStorageCellItem> bulkItemCell(
+        String name, ECOTier tier, String size, ItemEntry<?> component, Rarity rarity
+    ) {
+        long capacity = tier.getStorageTotalBytes();
+        String level = tier.name().substring(1);
+        return REGISTRATE.item(name, p -> new ECOStorageCellItem(
+                p.stacksTo(1).rarity(rarity), tier, AEKeyType.items(), NECellTypes.BULK_ITEM,
+                capacity, Math.toIntExact(capacity), (double) capacity / (1L << 20)))
+            .recipe((ctx, prov) -> {
+                ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                    .requires(ECO_BULK_ITEM_CELL_HOUSING)
+                    .requires(component)
+                    .unlockedBy("has_component", RegistrateRecipeProvider.has(component))
+                    .save(prov);
+                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
+                    ctx.get(), List.of(ECO_BULK_ITEM_CELL_HOUSING.asStack(), component.asStack()));
+                prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+            })
+            .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")
+            .model(ItemModelUtil.cellModel("bulk_item", size))
+            .register();
+    }
 
     /**
      * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set

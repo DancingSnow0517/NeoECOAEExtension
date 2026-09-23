@@ -24,6 +24,10 @@ public class ECOCellModels {
         register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_item"));
         register(NEItems.ECO_INFINITE_ITEM_CELL, NeoECOAE.id("block/cell/storage_cell_l9_infinite_item"));
 
+        register(NEItems.ECO_BULK_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_bulk"));
+        register(NEItems.ECO_BULK_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_bulk"));
+
         register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
         register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
         register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fluid"));

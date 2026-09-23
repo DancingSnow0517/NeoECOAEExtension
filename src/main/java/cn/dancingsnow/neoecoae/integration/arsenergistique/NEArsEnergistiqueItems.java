@@ -50,6 +50,7 @@ public class NEArsEnergistiqueItems {
             arsengInstalled.accept(ctx.getId().withPrefix("enchanting_apparatus/"), recipe, null);
         })
         .lang("ECO Storage Matrix Housing (Source)")
+        .model(ItemModelUtil.importedCellModel("eco_source_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_16M = REGISTRATE

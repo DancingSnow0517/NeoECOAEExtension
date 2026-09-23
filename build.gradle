@@ -108,7 +108,25 @@ repositories {
     maven { url "https://maven.minecraftforge.net/" }
 }
 
+configurations {
+    curiosDevMod
+    devMods
+}
+
 dependencies {
+    curiosDevMod("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1") { transitive = false }
+    devMods("curse.maven:applied-pneumatics-1355087:8812885") { transitive = false }
+    devMods("curse.maven:pneumaticcraft-repressurized-281849:8519226") { transitive = false }
+    devMods("curse.maven:applied-experienced-1157608:7705498") { transitive = false }
+    devMods("curse.maven:applied-soul-1337114:8711537") { transitive = false }
+    devMods("curse.maven:soulplied-energistics-1143614:8333758") { transitive = false }
+    devMods("curse.maven:experiencelib-1156551:7705470") { transitive = false }
+    devMods("curse.maven:industrial-foregoing-266515:6473752") { transitive = false }
+    devMods("curse.maven:industrial-foregoing-souls-904394:6235883") { transitive = false }
+    devMods("curse.maven:titanium-287342:7951516") { transitive = false }
+    devMods("curse.maven:patchouli-306770:7730942") { transitive = false }
+    devMods("curse.maven:jade-324717:8591319") { transitive = false }
+    devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')
     testImplementation('org.mockito:mockito-core:5.15.2')
@@ -146,8 +164,6 @@ dependencies {
     implementation("curse.maven:thunderbolt-core-1631756:8844639") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
-    runtimeOnly("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1")
-
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
     compileOnly("org.appliedenergistics.yoga:yoga:${yoga_version}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
@@ -165,9 +181,11 @@ dependencies {
     // but only add the implementation to NeoForge's client runtime.
     compileOnly("curse.maven:jade-324717:8591319") { transitive = false }
 
-    // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
-    // implementation("curse.maven:applied-botanics-addon-610632:7234122")
-    // implementation(name: "appbot-1.6.0")
+    if (enableAppBotIntegration) {
+        // Compile the Mana cell integration against the same Botania/AppBot pair used by runClient.
+        compileOnly("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
+        compileOnly("curse.maven:applied-botanics-addon-610632:8298277") { transitive = false }
+    }
 
     implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182") {
         // The Ars Nouveau POM pins an older JEI build; use the project-wide client version instead.
@@ -175,6 +193,7 @@ dependencies {
         // Jade is supplied separately by the client run configuration; do not let Ars Nouveau
         // pin an older CurseForge build into runtimeClasspath's consistent-resolution set.
         exclude group: "curse.maven", module: "jade-324717"
+        exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
     }
     implementation("curse.maven:ars-energistique-905641:6203425")
 
@@ -203,12 +222,6 @@ neoForge {
     runs {
         client {
             client()
-            additionalRuntimeClasspathConfiguration.dependencies.add(
-                project.dependencies.create("curse.maven:jade-324717:8591319") { transitive = false }
-            )
-            additionalRuntimeClasspathConfiguration.dependencies.add(
-                project.dependencies.create("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
-            )
         }
 
         aeGuide {
@@ -261,6 +274,17 @@ sourceSets.main.resources {
 
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+}
+
+// The dev launcher discovers Curios only when its JAR is in run/mods. Keep it
+// off the Java module path to avoid loading the same module twice.
+def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
+    from(configurations.curiosDevMod, configurations.devMods)
+    into(layout.projectDirectory.dir("run/mods"))
+}
+
+tasks.named("runClient").configure {
+    dependsOn(installCuriosDevMod)
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

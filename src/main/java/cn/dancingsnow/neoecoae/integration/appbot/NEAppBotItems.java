@@ -38,6 +38,7 @@ public class NEAppBotItems {
             appBotInstalled.accept(ctx.getId().withPrefix("mana_infusion/"), recipe, null);
         })
         .lang("ECO Storage Matrix Housing (Mana)")
+        .model(ItemModelUtil.importedCellModel("eco_mana_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_16M = REGISTRATE

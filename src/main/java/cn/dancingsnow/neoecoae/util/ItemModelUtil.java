@@ -13,12 +13,13 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ItemModelUtil {
     public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> cellModel(String type, String size) {
-        return (ctx, prov) -> prov.generated(
-            ctx::get,
-            prov.modLoc("item/eco_%s_cell_housing".formatted(type)),
-            prov.modLoc("item/eco_cell_light_" + size),
-            prov.modLoc("item/eco_cell_status_light")
-        );
+        String assetType = type.equals("fe") ? "energy" : type;
+        return importedCellModel("eco_%s_cell_%s".formatted(assetType, size));
+    }
+
+    /** Uses one of the imported, family-specific item models in {@code models/item/cell}. */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelProvider> importedCellModel(String model) {
+        return (ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("item/cell/" + model));
     }
 
     /**

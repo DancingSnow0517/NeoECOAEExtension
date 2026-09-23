@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaDecompressio
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import gripe._90.megacells.definition.MEGAItems;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import java.util.List;
 public final class MegaCellsIntegration {
     private boolean energyEnabled;
     private boolean chemicalEnabled;
+    private final List<MegaExternalCell> externalCells = new ArrayList<>();
 
     public void apply() {
         StorageBulkMarkingIntegration.register(
@@ -34,6 +36,7 @@ public final class MegaCellsIntegration {
         GridServices.register(ECOMegaDecompressionService.class, ECOMegaDecompressionService.class);
         NEMegaCellTypes.register();
         NEMegaItems.register();
+        NEMegaBaseItems.register();
         energyEnabled = MegaCellsBackend.isEnergyAvailable();
         chemicalEnabled = MegaCellsBackend.isChemicalAvailable();
         if (energyEnabled) {
@@ -44,6 +47,7 @@ public final class MegaCellsIntegration {
             NEMegaChemicalCellType.register();
             NEMegaChemicalItems.register();
         }
+        registerExternalCells();
 
         registerDeferredModels();
         NeoECOAE.MOD_BUS.addListener(this::commonSetup);
@@ -52,6 +56,7 @@ public final class MegaCellsIntegration {
     public void applyClient() {
         energyEnabled = MegaCellsBackend.isEnergyAvailable();
         chemicalEnabled = MegaCellsBackend.isChemicalAvailable();
+        registerExternalCells();
         registerResolvedModels();
     }
 
@@ -76,32 +81,87 @@ public final class MegaCellsIntegration {
             NEMegaItems.ECO_MEGA_ITEM_CELL_4G, NEMegaItems.ECO_MEGA_FLUID_CELL_4G,
             NEMegaItems.ECO_MEGA_LONG_BULK_CELL
         ));
+        cells.addAll(NEMegaBaseItems.cells());
         if (energyEnabled) cells.addAll(NEMegaEnergyItems.cells());
         if (chemicalEnabled) cells.addAll(NEMegaChemicalItems.cells());
+        for (MegaExternalCell externalCell : externalCells) cells.add(externalCell.cell());
         return cells;
     }
 
     private void registerDeferredModels() {
-        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "mega_item", false);
-        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "mega_fluid", false);
-        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "mega_item", false);
-        if (energyEnabled) registerCellModel(NEMegaEnergyItems.CELL_4G, "mega_energy", false);
-        if (chemicalEnabled) registerCellModel(NEMegaChemicalItems.CELL_4G, "mega_chemical", false);
+        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", false);
+        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", false);
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", false);
+        for (var cell : NEMegaBaseItems.cells()) {
+            registerCellModel(cell, familyForBaseCell(cell), tierForBaseCell(cell), false);
+        }
+        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", false);
+        if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", false);
+        registerExternalModels(false);
     }
 
     private void registerResolvedModels() {
-        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "mega_item", true);
-        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "mega_fluid", true);
-        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "mega_item", true);
-        if (energyEnabled) registerCellModel(NEMegaEnergyItems.CELL_4G, "mega_energy", true);
-        if (chemicalEnabled) registerCellModel(NEMegaChemicalItems.CELL_4G, "mega_chemical", true);
+        registerCellModel(NEMegaItems.ECO_MEGA_ITEM_CELL_4G, "item", "l9", true);
+        registerCellModel(NEMegaItems.ECO_MEGA_FLUID_CELL_4G, "fluid", "l9", true);
+        registerCellModel(NEMegaItems.ECO_MEGA_LONG_BULK_CELL, "item", "l9", true);
+        for (var cell : NEMegaBaseItems.cells()) {
+            registerCellModel(cell, familyForBaseCell(cell), tierForBaseCell(cell), true);
+        }
+        if (energyEnabled) registerTieredModels(NEMegaEnergyItems.cells(), "energy", true);
+        if (chemicalEnabled) registerTieredModels(NEMegaChemicalItems.cells(), "chemical", true);
+        registerExternalModels(true);
     }
 
-    private static void registerCellModel(ItemEntry<? extends ECOStorageCellItem> cell, String family, boolean resolved) {
-        if (resolved) {
-            ECOCellModels.register(cell.get(), NeoECOAE.id("block/cell/storage_cell_l9_" + family));
-        } else {
-            ECOCellModels.register(cell, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
+    private void registerExternalCells() {
+        if (ModList.get().isLoaded("appliedpneumatics")) {
+            addExternalCells("air", NEMegaExternalItems.registerAir());
         }
+        if (ModList.get().isLoaded("appex")) {
+            addExternalCells("experience", NEMegaExternalItems.registerExperience());
+        }
+        if (ModList.get().isLoaded("appliedsoul") && ModList.get().isLoaded("soulplied_energistics")) {
+            addExternalCells("soul", NEMegaExternalItems.registerSoul());
+        }
+        if (ModList.get().isLoaded("appbot")) {
+            addExternalCells("mana", NEMegaExternalItems.registerMana());
+        }
+        if (ModList.get().isLoaded("arseng")) {
+            addExternalCells("source", NEMegaExternalItems.registerSource());
+        }
+    }
+
+    private void addExternalCells(String family, List<ItemEntry<ECOStorageCellItem>> cells) {
+        for (int i = 0; i < cells.size(); i++) {
+            externalCells.add(new MegaExternalCell(cells.get(i), family, "l9"));
+        }
+    }
+
+    private void registerExternalModels(boolean resolved) {
+        for (MegaExternalCell externalCell : externalCells) {
+            var model = NeoECOAE.id("block/cell/storage_cell_mega_" + externalCell.tier() + "_" + externalCell.family());
+            if (resolved) {
+                ECOCellModels.register(externalCell.cell().get(), model);
+            } else {
+                ECOCellModels.register(externalCell.cell(), model);
+            }
+        }
+    }
+
+    private void registerTieredModels(List<? extends ItemEntry<? extends ECOStorageCellItem>> cells, String family, boolean resolved) {
+        for (int i = 0; i < cells.size(); i++) {
+            registerCellModel(cells.get(i), family, "l9", resolved);
+        }
+    }
+
+    private static void registerCellModel(ItemEntry<? extends ECOStorageCellItem> cell, String family, String tier, boolean resolved) {
+        var model = NeoECOAE.id("block/cell/storage_cell_mega_" + tier + "_" + family);
+        if (resolved) {
+            ECOCellModels.register(cell.get(), model);
+        } else {
+            ECOCellModels.register(cell, model);
+        }
+    }
+
+    private record MegaExternalCell(ItemEntry<ECOStorageCellItem> cell, String family, String tier) {
     }
 }

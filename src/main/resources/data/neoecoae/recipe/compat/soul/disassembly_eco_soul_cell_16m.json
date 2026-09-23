@@ -1,0 +1,24 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appliedsoul"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "soulplied_energistics"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_soul_cell_16m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_soul_cell_housing"
+    },
+    {
+      "count": 1,
+      "id": "neoecoae:eco_cell_component_16m"
+    }
+  ]
+}

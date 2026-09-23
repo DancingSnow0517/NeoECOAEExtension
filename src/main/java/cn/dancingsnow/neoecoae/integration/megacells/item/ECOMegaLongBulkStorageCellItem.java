@@ -14,12 +14,9 @@ import cn.dancingsnow.neoecoae.integration.megacells.MegaCellCapacities;
 import cn.dancingsnow.neoecoae.integration.megacells.NEMegaItems;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.ECOMegaLongBulkStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.ItemLike;
 
 import java.util.ArrayList;
@@ -191,28 +188,4 @@ public final class ECOMegaLongBulkStorageCellItem extends ECOStorageCellItem imp
         return new ECOMegaLongBulkStorageCell(stack, host);
     }
 
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
-        super.appendHoverText(stack, context, lines, flag);
-        MegaCellTooltips.append(this, lines);
-        ECOMegaLongBulkStorageCell cell = (ECOMegaLongBulkStorageCell) getCellInventory(stack);
-        if (cell == null) {
-            return;
-        }
-
-        lines.add(Component.translatable("gui.tooltips.megacells.Compression",
-                Component.translatable(cell.isCompressionEnabled()
-                    ? "gui.tooltips.megacells.Enabled" : "gui.tooltips.megacells.Disabled")
-                    .withStyle(cell.isCompressionEnabled() ? ChatFormatting.GREEN : ChatFormatting.RED)));
-
-        List<appeng.api.stacks.AEItemKey> storedFilters = cell.getStoredChainFilters();
-        List<appeng.api.stacks.AEItemKey> configuredFilters = cell.getEffectiveConfiguredFilters();
-        long mismatchedCount = storedFilters.stream()
-            .filter(storedFilter -> !configuredFilters.contains(storedFilter))
-            .count();
-        if (!storedFilters.isEmpty() && (configuredFilters.isEmpty() || mismatchedCount > 0)) {
-            lines.add(Component.literal("过滤不匹配 " + mismatchedCount + " 种物品")
-                .withStyle(ChatFormatting.DARK_RED));
-        }
-    }
 }

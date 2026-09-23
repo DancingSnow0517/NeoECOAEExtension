@@ -1,0 +1,28 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appliedsoul"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "soulplied_energistics"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_mega_soul_cell_4g",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:mega_soul_cell_housing"
+    },
+    {
+      "count": 10,
+      "id": "megacells:cell_component_256m"
+    }
+  ]
+}
