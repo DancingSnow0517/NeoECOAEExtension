@@ -83,12 +83,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private boolean cyclePlanningEnabled;
-    @Persisted
-    @DescSynced
-    private boolean planningLogEnabled;
-    @Persisted
-    @DescSynced
-    private boolean submissionLogEnabled;
     @DescSynced
     private boolean buildInProgress;
     private final MultiBlockBuildController buildController = new MultiBlockBuildController(this);
@@ -183,8 +177,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 ComputationHostPanelUI.createPlanningModeButton(panelConfig),
                 ComputationHostPanelUI.createCyclePlanningButton(panelConfig),
                 ComputationHostPanelUI.createFastPlannerButton(panelConfig),
-                ComputationHostPanelUI.createPlanningLogButton(panelConfig),
-                ComputationHostPanelUI.createSubmissionLogButton(panelConfig),
                 ComputationHostPanelUI.createNetworkFrequencyButton(panelConfig)
         ));
         root.addChild(buildWindow);
@@ -214,10 +206,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 () -> toggleCyclePlanning(player),
                 this::isFastCraftingPlannerEnabled,
                 () -> toggleFastCraftingPlanner(player),
-                this::isPlanningLogEnabled,
-                () -> togglePlanningLog(player),
-                this::isSubmissionLogEnabled,
-                () -> toggleSubmissionLog(player),
                 this::getNetworkFrequency,
                 delta -> {
                     if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
@@ -279,58 +267,6 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         cyclePlanningEnabled = enabled;
         setChanged();
         markForUpdate();
-    }
-
-    public boolean isLocallyPlanningLogEnabled() {
-        return planningLogEnabled;
-    }
-
-    public void applyNetworkPlanningLogEnabled(boolean enabled) {
-        if (planningLogEnabled == enabled) return;
-        planningLogEnabled = enabled;
-        setChanged();
-        markForUpdate();
-    }
-
-    private boolean isPlanningLogEnabled() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings != null ? settings.neoecoae$isPlanningLogEnabled() : planningLogEnabled;
-    }
-
-    private void togglePlanningLog(Player player) {
-        if (!canPlayerInteract(player)) return;
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        if (settings != null) {
-            settings.neoecoae$setPlanningLogEnabled(!settings.neoecoae$isPlanningLogEnabled());
-        } else {
-            applyNetworkPlanningLogEnabled(!planningLogEnabled);
-        }
-    }
-
-    public boolean isLocallySubmissionLogEnabled() {
-        return submissionLogEnabled;
-    }
-
-    public void applyNetworkSubmissionLogEnabled(boolean enabled) {
-        if (submissionLogEnabled == enabled) return;
-        submissionLogEnabled = enabled;
-        setChanged();
-        markForUpdate();
-    }
-
-    private boolean isSubmissionLogEnabled() {
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        return settings != null ? settings.neoecoae$isSubmissionLogEnabled() : submissionLogEnabled;
-    }
-
-    private void toggleSubmissionLog(Player player) {
-        if (!canPlayerInteract(player)) return;
-        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
-        if (settings != null) {
-            settings.neoecoae$setSubmissionLogEnabled(!settings.neoecoae$isSubmissionLogEnabled());
-        } else {
-            applyNetworkSubmissionLogEnabled(!submissionLogEnabled);
-        }
     }
 
     public boolean isFastCraftingPlannerEnabled() {

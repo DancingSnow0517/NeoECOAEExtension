@@ -28,8 +28,7 @@ public final class ECOPlanningService {
                                               long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
         var inventory = ECOPlannerInventory.capture(grid);
         ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
-                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds(),
-                options.planningLogEnabled());
+                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
         return ECOPlanningExecutor.submit(() -> plan(session, goal, amount, strategy));
     }
 

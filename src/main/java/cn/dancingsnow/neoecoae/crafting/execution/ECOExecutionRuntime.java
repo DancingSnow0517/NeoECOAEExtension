@@ -142,6 +142,52 @@ public final class ECOExecutionRuntime {
         }
     }
 
+    String describeSchedulingState() {
+        var text = new StringBuilder("completedPhases=")
+            .append(completedPhases.cardinality()).append('/').append(plan.phases().size()).append(" pending=[");
+        int included = 0;
+        for (var phase : plan.phases()) {
+            int phaseIndex = phase.index();
+            if (completedPhases.get(phaseIndex)) continue;
+            if (included >= 16) {
+                text.append(",...");
+                break;
+            }
+            if (included++ > 0) text.append(',');
+            text.append(phaseIndex).append(':').append(phase.type())
+                .append(" dependencies=").append(remainingDependencies[phaseIndex])
+                .append(" unfinishedTasks=").append(unfinishedTasksByPhase[phaseIndex])
+                .append(" startupSeedKeys=").append(startupSeedRemainingByPhase.get(phaseIndex).size());
+            if (phase.type() == ECOExecutionSchedule.Type.CYCLE) {
+                text.append(" cycleStep=").append(stepCursor[phaseIndex]).append('/').append(phase.steps().size());
+            } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+                text.append(" dynamicFirings=").append(remainingDynamicFirings.get(phaseIndex));
+            }
+        }
+        text.append(']');
+        return text.length() <= 2048 ? text.toString() : text.substring(0, 2048) + "...";
+    }
+
+    String describeDispatchState(DispatchCandidate candidate) {
+        int phaseIndex = candidate.phaseIndex();
+        if (phaseIndex < 0 || phaseIndex >= plan.phases().size()) return "phase=<invalid>";
+        var phase = plan.phases().get(phaseIndex);
+        var text = new StringBuilder("phase=").append(phaseIndex).append(':').append(phase.type())
+            .append(" completed=").append(completedPhases.get(phaseIndex))
+            .append(" dependencies=").append(remainingDependencies[phaseIndex])
+            .append(" unfinishedTasks=").append(unfinishedTasksByPhase[phaseIndex])
+            .append(" startupSeeds=").append(startupSeedRemainingByPhase.get(phaseIndex));
+        if (phase.type() == ECOExecutionSchedule.Type.CYCLE) {
+            text.append(" cycleStep=").append(stepCursor[phaseIndex]).append('/').append(phase.steps().size());
+            if (stepCursor[phaseIndex] < remainingSteps.get(phaseIndex).length) {
+                text.append(" stepRemaining=").append(remainingSteps.get(phaseIndex)[stepCursor[phaseIndex]]);
+            }
+        } else if (phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE) {
+            text.append(" dynamicFirings=").append(remainingDynamicFirings.get(phaseIndex));
+        }
+        return text.length() <= 2048 ? text.toString() : text.substring(0, 2048) + "...";
+    }
+
     /**
      * Returns all currently legal candidates in deterministic phase/task order.
      *

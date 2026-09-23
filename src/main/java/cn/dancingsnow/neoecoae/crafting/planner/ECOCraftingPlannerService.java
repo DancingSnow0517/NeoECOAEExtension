@@ -25,6 +25,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.solve.ECOPlanMaterialValidator;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 
 import java.util.List;
 import java.util.Set;
@@ -54,7 +55,6 @@ public final class ECOCraftingPlannerService {
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
         private final Set<ResourceLocation> fuzzyPlanningItemIds;
-        private final boolean planningLogEnabled;
         private final long planningRequestId = ECOPlanningStageLogger.nextRequestId();
         private volatile CompiledNetwork compiled;
         private volatile CondensationGraph condensation;
@@ -65,26 +65,12 @@ public final class ECOCraftingPlannerService {
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                         Set<ResourceLocation> fuzzyPlanningItemIds) {
             this(craftingService, goal, PlannerInventorySnapshot.of(inventory), cyclePlanningEnabled,
-                    ignorePatternSubstitutions, fuzzyPlanningItemIds, false);
-        }
-
-        private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
-                        boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                        Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
-            this(craftingService, goal, PlannerInventorySnapshot.of(inventory), cyclePlanningEnabled,
-                    ignorePatternSubstitutions, fuzzyPlanningItemIds, planningLogEnabled);
+                    ignorePatternSubstitutions, fuzzyPlanningItemIds);
         }
 
         private Session(ICraftingService craftingService, AEKey goal, PlannerInventorySnapshot inventory,
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                         Set<ResourceLocation> fuzzyPlanningItemIds) {
-            this(craftingService, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                    fuzzyPlanningItemIds, false);
-        }
-
-        private Session(ICraftingService craftingService, AEKey goal, PlannerInventorySnapshot inventory,
-                        boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                        Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
             this.craftingService = craftingService;
             this.goal = goal;
             this.inventorySnapshot = inventory;
@@ -92,14 +78,13 @@ public final class ECOCraftingPlannerService {
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
             this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
-            this.planningLogEnabled = planningLogEnabled;
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
                 throws InterruptedException {
             long startedNanos = System.nanoTime();
             try (var ignored = ECOPlanningStageLogger.open(
-                    planningLogEnabled, planningRequestId, goal, amount, simulation)) {
+                    NEConfig.ecoPlanningStageDebug, planningRequestId, goal, amount, simulation)) {
                 try {
                     ensureCompiled(cancellation);
                     ComponentPlanner.Outcome solved;
@@ -303,11 +288,13 @@ public final class ECOCraftingPlannerService {
                 fuzzyPlanningItemIds);
     }
 
+    /** @deprecated Planning logs are controlled by the global debug configuration. */
+    @Deprecated
     public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                  Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                fuzzyPlanningItemIds, planningLogEnabled);
+        return createSession(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
+                fuzzyPlanningItemIds);
     }
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
@@ -327,11 +314,13 @@ public final class ECOCraftingPlannerService {
                 fuzzyPlanningItemIds);
     }
 
+    /** @deprecated Planning logs are controlled by the global debug configuration. */
+    @Deprecated
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                  Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                fuzzyPlanningItemIds, planningLogEnabled);
+                fuzzyPlanningItemIds);
     }
 
 }

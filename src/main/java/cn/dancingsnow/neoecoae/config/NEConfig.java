@@ -143,15 +143,43 @@ public class NEConfig {
             .push("debug");
     }
 
+    static {
+        BUILDER
+            .comment(
+                "ECO 合成计算与发配诊断。",
+                "ECO crafting calculation and dispatch diagnostics.")
+            .push("calculating");
+    }
+
+    private static final ModConfigSpec.BooleanValue ECO_PLANNING_STAGE_DEBUG = BUILDER
+        .comment(
+            "记录 ECO 快速规划的每个计算阶段，包括非循环规划与循环规划。",
+            "日志包含阶段耗时、成功状态、失败原因、目标物品和请求数量。",
+            "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.",
+            "Logs stage duration, success state, failure reason, target item and requested amount.")
+        .define("ecoPlanningStageDebug", false);
+
+    private static final ModConfigSpec.BooleanValue ECO_CRAFT_SUBMISSION_DEBUG = BUILDER
+        .comment(
+            "诊断合成确认界面的开始按钮无法启用或提交延迟/失败的问题。",
+            "记录开始按钮状态、计划与 CPU 选择、提交路由和提交耗时。",
+            "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.",
+            "Logs the Start-button state, plan and CPU selection, submission route and submission duration.")
+        .define("ecoCraftSubmissionDebug", false);
+
     private static final ModConfigSpec.BooleanValue ECO_DISPATCH_WATCHDOG_DEBUG = BUILDER
         .comment(
-            "启用 ECO 合成发配停滞诊断日志。",
-            "当合成连续 200 tick 没有实际进展时记录任务、阶段、材料、供电和样板供应器状态，之后每 1200 tick 再次记录。",
-            "此选项只收集诊断信息，不会自动重同步、重放输入或修改合成状态。",
-            "Enable ECO crafting dispatch stall diagnostic logs.",
-            "Logs job, phase, input, power and pattern-provider state after 200 ticks without real progress, then every 1200 ticks.",
-            "This option only collects diagnostics; it never resynchronizes, replays inputs or changes crafting state.")
+            "记录 ECO 发配候选原因及发配前后的任务记账状态。",
+            "连续 200 tick 没有实际进展时记录汇总诊断，之后每 1200 tick 再次记录。",
+            "日志可能较多；此选项只收集诊断信息，不会修改合成状态。",
+            "Log ECO dispatch candidate reasons and task accounting before and after dispatch.",
+            "Logs an aggregated diagnostic after 200 ticks without real progress, then every 1200 ticks.",
+            "This may produce many logs and only collects diagnostics; it does not change crafting state.")
         .define("ecoDispatchWatchdogDebug", false);
+
+    static {
+        BUILDER.pop();
+    }
 
     private static final ModConfigSpec.BooleanValue ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG = BUILDER
         .comment(
@@ -162,16 +190,6 @@ public class NEConfig {
             "Logs one aggregated warning per job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.",
             "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
         .define("ecoCraftingOutputDeliveryDebug", false);
-
-    private static final ModConfigSpec.BooleanValue ECO_CRAFT_CONFIRM_DEBUG = BUILDER
-        .comment(
-            "启用合成确认界面的开始按钮诊断日志。",
-            "当计划没有缺料但仍无法开始时，记录计划状态、已选 CPU、AE2 发布的全部 CPU，以及 ECO 运算集群的筛选原因。",
-            "每个确认计划只记录一次；提交失败时会额外记录错误码。",
-            "Enable crafting-confirm start-button diagnostic logs.",
-            "When a plan cannot start, logs its state, selected CPU, every CPU advertised by AE2, and ECO computation-cluster selection reasons.",
-            "Each confirmation plan is logged once; submission failures are logged separately.")
-        .define("ecoCraftConfirmDebug", false);
 
     static {
         BUILDER.pop();
@@ -188,9 +206,10 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static int ecoCpuPushTickLimit = MAX_ECO_CPU_PUSH_TICK_LIMIT;
     public static int ecoFastPathCacheSize = 512;
+    public static boolean ecoPlanningStageDebug = false;
+    public static boolean ecoCraftSubmissionDebug = false;
     public static boolean ecoDispatchWatchdogDebug = false;
     public static boolean ecoCraftingOutputDeliveryDebug = false;
-    public static boolean ecoCraftConfirmDebug = false;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -212,9 +231,10 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         ecoCpuPushTickLimit = Math.clamp(ECO_CPU_PUSH_TICK_LIMIT.get(), 1, MAX_ECO_CPU_PUSH_TICK_LIMIT);
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+        ecoPlanningStageDebug = ECO_PLANNING_STAGE_DEBUG.get();
+        ecoCraftSubmissionDebug = ECO_CRAFT_SUBMISSION_DEBUG.get();
         ecoDispatchWatchdogDebug = ECO_DISPATCH_WATCHDOG_DEBUG.get();
         ecoCraftingOutputDeliveryDebug = ECO_CRAFTING_OUTPUT_DELIVERY_DEBUG.get();
-        ecoCraftConfirmDebug = ECO_CRAFT_CONFIRM_DEBUG.get();
     }
 
     public static int getCraftingPatternBusPages() {

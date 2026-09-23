@@ -9,6 +9,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Immutable options captured for one explicit ECO planning request.
+ *
+ * <p>The legacy {@code planningLogEnabled} component remains for compatibility, but stage logging is now controlled
+ * by the global {@code Debug > Calculating} configuration.</p>
  */
 public record ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
@@ -23,10 +26,9 @@ public record ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatt
 
     public static ECOPlannerOptions from(@Nullable ECOCraftingNetworkSettings settings) {
         if (settings == null) {
-            return new ECOPlannerOptions(false, false, Set.of(), false);
+            return new ECOPlannerOptions(false, false, Set.of());
         }
         return new ECOPlannerOptions(settings.neoecoae$isCyclePlanningEnabled(),
-                settings.neoecoae$isIgnoringPatternSubstitutions(), settings.neoecoae$getFuzzyPlanningItemIds(),
-                settings.neoecoae$isPlanningLogEnabled());
+                settings.neoecoae$isIgnoringPatternSubstitutions(), settings.neoecoae$getFuzzyPlanningItemIds());
     }
 }

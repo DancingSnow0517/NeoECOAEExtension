@@ -47,8 +47,8 @@ public final class ECOCraftConfirmScreenIntegration {
         }
 
         ScreenStyle style = StyleManager.loadStyleDoc("/screens/eco_craft_confirm.json");
-        if (NEConfig.ecoCraftConfirmDebug) {
-            LOGGER.info("[craft-confirm-route] Client opening ECO screen directly; plannerAvailable={}, reportReady={}",
+        if (NEConfig.ecoCraftSubmissionDebug) {
+            LOGGER.info("[ECO-CRAFT-SUBMIT] Client opening ECO screen directly; plannerAvailable={}, reportReady={}",
                 mode.neoecoae$isEcoPlannerAvailable(), mode.neoecoae$isEcoReportReady());
         }
         Minecraft.getInstance().setScreen(new ECOCraftConfirmScreen(

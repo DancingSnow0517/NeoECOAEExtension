@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
@@ -87,12 +88,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private static final String NEOECOAE_CYCLE_PLANNING_ENABLED_KEY =
             "neoecoaeCyclePlanningEnabled";
-    @Unique
-    private static final String NEOECOAE_PLANNING_LOG_ENABLED_KEY =
-            "neoecoaePlanningLogEnabled";
-    @Unique
-    private static final String NEOECOAE_SUBMISSION_LOG_ENABLED_KEY =
-            "neoecoaeSubmissionLogEnabled";
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
                     NEComputationCluster::getPooledParallelism)
@@ -192,14 +187,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private boolean neoecoae$cyclePlanningInitialized;
     @Unique
-    private boolean neoecoae$planningLogEnabled;
-    @Unique
-    private boolean neoecoae$planningLogInitialized;
-    @Unique
-    private boolean neoecoae$submissionLogEnabled;
-    @Unique
-    private boolean neoecoae$submissionLogInitialized;
-    @Unique
     private long neoecoae$substitutionPatternCountVersion = Long.MIN_VALUE;
     @Unique
     private int neoecoae$substitutionPatternCount;
@@ -288,18 +275,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$cyclePlanningEnabled = savedData.getBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY);
             neoecoae$cyclePlanningInitialized = true;
         }
-        if (!neoecoae$planningLogInitialized
-                && savedData != null
-                && savedData.contains(NEOECOAE_PLANNING_LOG_ENABLED_KEY, Tag.TAG_BYTE)) {
-            neoecoae$planningLogEnabled = savedData.getBoolean(NEOECOAE_PLANNING_LOG_ENABLED_KEY);
-            neoecoae$planningLogInitialized = true;
-        }
-        if (!neoecoae$submissionLogInitialized
-                && savedData != null
-                && savedData.contains(NEOECOAE_SUBMISSION_LOG_ENABLED_KEY, Tag.TAG_BYTE)) {
-            neoecoae$submissionLogEnabled = savedData.getBoolean(NEOECOAE_SUBMISSION_LOG_ENABLED_KEY);
-            neoecoae$submissionLogInitialized = true;
-        }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
                 && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
@@ -321,12 +296,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$initializeOrSyncCyclePlanning(
                     computationHost.isLocallyCyclePlanningEnabled(),
                     computationHost::applyNetworkCyclePlanningEnabled);
-            neoecoae$initializeOrSyncPlanningLog(
-                    computationHost.isLocallyPlanningLogEnabled(),
-                    computationHost::applyNetworkPlanningLogEnabled);
-            neoecoae$initializeOrSyncSubmissionLog(
-                    computationHost.isLocallySubmissionLogEnabled(),
-                    computationHost::applyNetworkSubmissionLogEnabled);
         }
     }
 
@@ -337,8 +306,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                 neoecoae$ignorePatternSubstitutions);
         savedData.putBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY, neoecoae$fastPlannerEnabled);
         savedData.putBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY, neoecoae$cyclePlanningEnabled);
-        savedData.putBoolean(NEOECOAE_PLANNING_LOG_ENABLED_KEY, neoecoae$planningLogEnabled);
-        savedData.putBoolean(NEOECOAE_SUBMISSION_LOG_ENABLED_KEY, neoecoae$submissionLogEnabled);
     }
 
     @Unique
@@ -369,28 +336,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$cyclePlanningInitialized = true;
         } else {
             apply.accept(neoecoae$cyclePlanningEnabled);
-        }
-    }
-
-    @Unique
-    private void neoecoae$initializeOrSyncPlanningLog(boolean persistedValue,
-                                                      java.util.function.Consumer<Boolean> apply) {
-        if (!neoecoae$planningLogInitialized) {
-            neoecoae$planningLogEnabled = persistedValue;
-            neoecoae$planningLogInitialized = true;
-        } else {
-            apply.accept(neoecoae$planningLogEnabled);
-        }
-    }
-
-    @Unique
-    private void neoecoae$initializeOrSyncSubmissionLog(boolean persistedValue,
-                                                         java.util.function.Consumer<Boolean> apply) {
-        if (!neoecoae$submissionLogInitialized) {
-            neoecoae$submissionLogEnabled = persistedValue;
-            neoecoae$submissionLogInitialized = true;
-        } else {
-            apply.accept(neoecoae$submissionLogEnabled);
         }
     }
 
@@ -454,34 +399,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         neoecoae$cyclePlanningEnabled = enabled;
         for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkCyclePlanningEnabled(enabled);
-        }
-    }
-
-    @Override
-    public boolean neoecoae$isPlanningLogEnabled() {
-        return neoecoae$planningLogEnabled;
-    }
-
-    @Override
-    public void neoecoae$setPlanningLogEnabled(boolean enabled) {
-        neoecoae$planningLogInitialized = true;
-        neoecoae$planningLogEnabled = enabled;
-        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
-            host.applyNetworkPlanningLogEnabled(enabled);
-        }
-    }
-
-    @Override
-    public boolean neoecoae$isSubmissionLogEnabled() {
-        return neoecoae$submissionLogEnabled;
-    }
-
-    @Override
-    public void neoecoae$setSubmissionLogEnabled(boolean enabled) {
-        neoecoae$submissionLogInitialized = true;
-        neoecoae$submissionLogEnabled = enabled;
-        for (ECOComputationSystemBlockEntity host : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
-            host.applyNetworkSubmissionLogEnabled(enabled);
         }
     }
 
@@ -630,9 +547,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir
     ) {
-        if (!neoecoae$submissionLogEnabled) return;
+        if (!NEConfig.ecoCraftSubmissionDebug) return;
         NEOECOAE_SUBMISSION_LOGGER.info(
-                "[craft-submit-trace] stage=entry plan={} target={} requester={} prioritizePower={} player={}",
+                "[ECO-CRAFT-SUBMIT] stage=entry plan={} target={} requester={} prioritizePower={} player={}",
                 neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionTarget(target),
                 requestingMachine == null ? "<standalone>" : requestingMachine.getClass().getName(),
                 prioritizePower, src.player().map(player -> player.getName().getString()).orElse("<machine>"));
@@ -647,10 +564,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir
     ) {
-        if (!neoecoae$submissionLogEnabled) return;
+        if (!NEConfig.ecoCraftSubmissionDebug) return;
         ICraftingSubmitResult result = cir.getReturnValue();
         NEOECOAE_SUBMISSION_LOGGER.info(
-                "[craft-submit-trace] stage=return plan={} target={} result={}",
+                "[ECO-CRAFT-SUBMIT] stage=return plan={} target={} result={}",
                 neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionTarget(target),
                 neoecoae$describeSubmissionResult(result));
     }
@@ -687,9 +604,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private void neoecoae$traceSubmissionRoute(String route, ICraftingPlan job,
                                                 ICraftingSubmitResult result) {
-        if (!neoecoae$submissionLogEnabled) return;
+        if (!NEConfig.ecoCraftSubmissionDebug) return;
         NEOECOAE_SUBMISSION_LOGGER.info(
-                "[craft-submit-trace] stage=eco-route route={} plan={} result={}",
+                "[ECO-CRAFT-SUBMIT] stage=eco-route route={} plan={} result={}",
                 route, neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionResult(result));
     }
 
@@ -708,9 +625,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             CallbackInfoReturnable<ICraftingSubmitResult> cir,
             @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        if (neoecoae$submissionLogEnabled) {
+        if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_SUBMISSION_LOGGER.info(
-                    "[craft-submit-trace] stage=post-native-selection plan={} target={} nativeUnsuitable={}",
+                    "[ECO-CRAFT-SUBMIT] stage=post-native-selection plan={} target={} nativeUnsuitable={}",
                     neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionTarget(target),
                     unsuitableCpusResult.getValue());
         }
@@ -740,9 +657,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                     return;
                 }
             }
-            if (neoecoae$submissionLogEnabled) {
+            if (NEConfig.ecoCraftSubmissionDebug) {
                 NEOECOAE_SUBMISSION_LOGGER.info(
-                        "[craft-submit-trace] stage=eco-route route=explicit-non-eco-fallthrough plan={} target={}",
+                        "[ECO-CRAFT-SUBMIT] stage=eco-route route=explicit-non-eco-fallthrough plan={} target={}",
                         neoecoae$describeSubmissionPlan(job), neoecoae$describeSubmissionTarget(target));
             }
             return;
@@ -755,9 +672,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
             neoecoae$traceSubmissionRoute("automatic-eco-cluster", job, result);
             cir.setReturnValue(result);
-        } else if (neoecoae$submissionLogEnabled) {
+        } else if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_SUBMISSION_LOGGER.info(
-                    "[craft-submit-trace] stage=eco-route route=no-eco-candidate-fallthrough plan={} unsuitable={}",
+                    "[ECO-CRAFT-SUBMIT] stage=eco-route route=no-eco-candidate-fallthrough plan={} unsuitable={}",
                     neoecoae$describeSubmissionPlan(job), unsuitableCpusResult.getValue());
         }
         // Fall through to other providers and AE2's normal result when ECO has no candidate.

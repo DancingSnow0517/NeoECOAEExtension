@@ -21,12 +21,17 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingDispatchPolicyRegistry;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Owns candidate/phase traversal and input resolution. It deliberately exposes only a small pass result to the CPU
  * logic; provider algorithms and FastPath internals live behind {@link ECOCraftingProviderDispatcher}.
  */
 final class ECOCraftingTaskScheduler {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
     private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
     // A large exact order can contain thousands of task candidates. Walking every
     // candidate in one CPU callback turns a temporary provider stall into a multi-
@@ -44,6 +49,8 @@ final class ECOCraftingTaskScheduler {
 
     private long physicalInsertGeneration;
     private IPatternDetails resumeDispatchPattern;
+    private String lastDispatchReasonSignature;
+    private long lastDispatchReasonTick = Long.MIN_VALUE;
     private int sharedRemainingNormalProbes = -1;
     private DispatchPassResult lastPass = DispatchPassResult.EMPTY;
 
@@ -63,6 +70,8 @@ final class ECOCraftingTaskScheduler {
         providerDispatcher.reset();
         sharedRemainingNormalProbes = -1;
         lastPass = DispatchPassResult.EMPTY;
+        lastDispatchReasonSignature = null;
+        lastDispatchReasonTick = Long.MIN_VALUE;
         stallDiagnostics.reset();
     }
 
@@ -154,6 +163,9 @@ final class ECOCraftingTaskScheduler {
                     : current.executionRuntime.candidates();
             stallDiagnostics.candidates(candidates.size());
             if (candidates.isEmpty()) {
+                logReason(current, null, "no-runnable-candidates",
+                        current.executionRuntime == null ? "legacy scheduler has no pending candidate"
+                                : current.executionRuntime.describeSchedulingState());
                 if (stallDiagnostics.isActive()) {
                     stallDiagnostics.noCandidates(current.executionRuntime != null && hasPendingTasks(current));
                 }
@@ -173,11 +185,15 @@ final class ECOCraftingTaskScheduler {
 
                 var progress = current.tasks.get(candidate.pattern());
                 if (progress == null || progress.value <= 0L) {
+                    logReason(current, candidate, progress == null ? "task-progress-missing" : "task-already-complete",
+                            "taskRemaining=" + (progress == null ? "<missing>" : progress.value));
                     providerCursor.forget(candidate.pattern());
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
                 if (allowedCount <= 0L) {
+                    logReason(current, candidate, "dispatch-allowance-empty",
+                            "candidateMax=" + candidate.maxDispatchCount() + " taskRemaining=" + progress.value);
                     if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
                     continue;
                 }
@@ -185,6 +201,7 @@ final class ECOCraftingTaskScheduler {
                 var pattern = candidate.pattern();
                 // The explicit execution runtime owns phase/cycle gating. Legacy jobs retain the growth barrier.
                 if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
+                    logReason(current, candidate, "legacy-growth-barrier", "pattern is blocked by growth ordering");
                     stallDiagnostics.phaseBarrier();
                     continue;
                 }
@@ -199,6 +216,8 @@ final class ECOCraftingTaskScheduler {
                     var previousFailure = missingInputFailures.get(failedCandidateKey);
                     if (previousFailure != null && availabilityUnchanged(previousFailure, dependencyKeys,
                             current.executionRuntime, preciseFailureEpoch)) {
+                        logReason(current, candidate, "input-resolution-failed-same-availability",
+                                "dependencies=" + dependencyKeys);
                         stallDiagnostics.repeatedFailureSameEpoch();
                         if (candidate.blocksOrderedPhase()) {
                             stallDiagnostics.phaseBarrier();
@@ -220,6 +239,7 @@ final class ECOCraftingTaskScheduler {
                         (providerCandidate, busy) -> ECOCraftingDispatchPolicyRegistry.isProviderAvailable(
                                 cpuContext, providerCandidate, busy));
                 if (providers.isEmpty()) {
+                    logReason(current, candidate, "no-ready-provider", "provider availability or dispatch policy rejected all providers");
                     stallDiagnostics.noReadyProvider();
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
@@ -241,6 +261,8 @@ final class ECOCraftingTaskScheduler {
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
                         pattern, inputInventory, level, outputs, remainders, remainderCache);
                 if (inputs == null) {
+                    logReason(current, candidate, "required-inputs-unavailable",
+                            "dependencies=" + dependencyKeys + " protectedStartupSeed=" + protectedStartupSeed);
                     stallDiagnostics.resolveFailure();
                     if (failedCandidateKey != null) {
                         boolean stable = physicalGenerationBeforeResolve == physicalInsertGeneration
@@ -289,6 +311,8 @@ final class ECOCraftingTaskScheduler {
                     if (failedCandidateKey != null) missingInputFailures.remove(failedCandidateKey);
                     break;
                 }
+                logReason(current, candidate, "provider-dispatch-not-accepted",
+                        "providersTried=" + providers.size() + " allowedCrafts=" + allowedCount);
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
             if (!acceptedInPass && inspected > 0 && inspected < candidates.size()) {
@@ -304,6 +328,26 @@ final class ECOCraftingTaskScheduler {
 
         lastPass = new DispatchPassResult(totalPushed, budget.normalProbes(), budget.acceptedNormalPushes());
         return lastPass;
+    }
+
+    private void logReason(ExecutingCraftingJob job,
+            @Nullable ECOExecutionRuntime.DispatchCandidate candidate, String reason, String details) {
+        // Repeated stuck states are summarized once per second per job/reason, while changes log immediately.
+        // Accepted-ledger before/after records remain one pair per actual dispatch.
+        if (!NEConfig.ecoDispatchWatchdogDebug) return;
+        long tick = TickHandler.instance().getCurrentTick();
+        String signature = job.link.getCraftingID() + "/" + reason + "/"
+            + (candidate == null ? "-" : candidate.phaseIndex() + "/" + candidate.taskId()) + "/" + details;
+        if (signature.equals(lastDispatchReasonSignature) && tick >= lastDispatchReasonTick
+                && tick - lastDispatchReasonTick < 20L) return;
+        lastDispatchReasonSignature = signature;
+        lastDispatchReasonTick = tick;
+        LOGGER.info(
+            "[ECO-DISPATCH-REASON] stage=candidate job={} reason={} phase={} task={} pattern={} details={}",
+            job.link.getCraftingID(), reason,
+            candidate == null ? "<none>" : candidate.phaseIndex(),
+            candidate == null ? "<none>" : candidate.taskId(),
+            candidate == null ? "<none>" : candidate.pattern().getDefinition(), details);
     }
 
     private int resumeIndex(List<ECOExecutionRuntime.DispatchCandidate> candidates) {

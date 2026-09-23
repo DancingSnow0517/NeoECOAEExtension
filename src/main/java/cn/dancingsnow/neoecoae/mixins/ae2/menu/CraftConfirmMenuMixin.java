@@ -107,6 +107,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
     @Unique private CraftingGraphSnapshot neoecoae$sentGraph;
     @Unique private ECOCycleItemList neoecoae$sentCycles;
+    @Unique private long neoecoae$startButtonAttemptStartedNanos;
 
     @Override public boolean neoecoae$diagnosticsReady() {
         return !((CraftConfirmMenu) (Object) this).isClientSide()
@@ -347,12 +348,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             : null;
         boolean fastPlannerEnabled = settings != null && settings.neoecoae$isFastPlannerEnabled();
         boolean hasComputationHost = fastPlannerEnabled && settings.neoecoae$hasComputationHost();
-        if (NEConfig.ecoCraftConfirmDebug && settings != null && !fastPlannerEnabled) {
+        if (NEConfig.ecoCraftSubmissionDebug && settings != null && !fastPlannerEnabled) {
             hasComputationHost = settings.neoecoae$hasComputationHost();
         }
         boolean useEco = fastPlannerEnabled && hasComputationHost;
         neoecoae$ecoPlannerAvailable = useEco;
-        if (NEConfig.ecoCraftConfirmDebug) {
+        if (NEConfig.ecoCraftSubmissionDebug) {
             neoecoae$logEcoScreenRouting(settings, fastPlannerEnabled, hasComputationHost, useEco, what, amount);
         }
         if (useEco) {
@@ -379,9 +380,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$applyPlannerDiagnostics(result);
             neoecoae$showFastPlannerReport = true;
             neoecoae$ecoReportReady = true;
-            if (NEConfig.ecoCraftConfirmDebug) {
+            if (NEConfig.ecoCraftSubmissionDebug) {
                 NEOECOAE_LOGGER.info(
-                    "[craft-confirm-route] ECO report ready; client may switch to the ECO screen: output={}, "
+                    "[ECO-CRAFT-SUBMIT] ECO report ready; client may switch to the ECO screen: output={}, "
                         + "resultType={}",
                     result.finalOutput(), result.getClass().getName());
             }
@@ -391,9 +392,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$showFastPlannerReport = false;
             neoecoae$ecoReportReady = false;
             neoecoae$confirmedPlanningResult = null;
-            if (NEConfig.ecoCraftConfirmDebug && neoecoae$ecoPlannerAvailable) {
+            if (NEConfig.ecoCraftSubmissionDebug && neoecoae$ecoPlannerAvailable) {
                 NEOECOAE_LOGGER.warn(
-                    "[craft-confirm-route] ECO screen unavailable: reason=ECO_ROUTED_RESULT_HAS_NO_DIAGNOSTICS, "
+                    "[ECO-CRAFT-SUBMIT] ECO screen unavailable: reason=ECO_ROUTED_RESULT_HAS_NO_DIAGNOSTICS, "
                         + "resultType={}, output={}",
                     result == null ? "<null>" : result.getClass().getName(),
                     result == null ? "<null>" : result.finalOutput());
@@ -414,7 +415,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             .orElse("<machine>");
         if (settings == null) {
             NEOECOAE_LOGGER.warn(
-                "[craft-confirm-route] ECO screen unavailable: reason=CRAFTING_SERVICE_HAS_NO_ECO_SETTINGS, "
+                "[ECO-CRAFT-SUBMIT] ECO screen unavailable: reason=CRAFTING_SERVICE_HAS_NO_ECO_SETTINGS, "
                     + "player={}, output={}, amount={}, serviceType={}",
                 player, what, amount, getGrid().getCraftingService().getClass().getName());
             return;
@@ -431,7 +432,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 ? (hasComputationHost ? "FAST_PLANNER_DISABLED" : "FAST_PLANNER_DISABLED_AND_NO_ELIGIBLE_HOST")
                 : "NO_FORMED_ONLINE_COMPUTATION_HOST";
             NEOECOAE_LOGGER.warn(
-                "[craft-confirm-route] ECO screen unavailable: reason={}, player={}, output={}, amount={}, "
+                "[ECO-CRAFT-SUBMIT] ECO screen unavailable: reason={}, player={}, output={}, amount={}, "
                     + "fastPlannerEnabled={}, computationHosts(total/formed/online/eligible)={}/{}/{}/{}",
                 reason, player, what, amount, fastPlannerEnabled, hosts.size(), formedHosts, onlineHosts,
                 eligibleHosts);
@@ -439,7 +440,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
 
         NEOECOAE_LOGGER.info(
-            "[craft-confirm-route] ECO planner selected; waiting for an ECO-owned result: player={}, output={}, "
+            "[ECO-CRAFT-SUBMIT] ECO planner selected; waiting for an ECO-owned result: player={}, output={}, "
                 + "amount={}",
             player, what, amount);
     }
@@ -472,9 +473,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (planningResult != null && plan instanceof ECOCraftingPlanDiagnostics diagnostics) {
             diagnostics.neoecoae$setPlanningResult(planningResult);
         }
-        if (recoverySource != null && NEConfig.ecoCraftConfirmDebug) {
+        if (recoverySource != null && NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_LOGGER.info(
-                "[craft-confirm-route] Restored ECO planning diagnostics at menu boundary: source={}, "
+                "[ECO-CRAFT-SUBMIT] Restored ECO planning diagnostics at menu boundary: source={}, "
                     + "resultType={}, output={}",
                 recoverySource, plan.getClass().getName(), plan.finalOutput());
         }
@@ -502,7 +503,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 if (neoecoae$planningDiagnostic.length() > 4096) {
                     neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
                 }
-                NEOECOAE_LOGGER.warn("[craft-confirm] ECO diagnostic: status={}, output={}, diagnostics={}",
+                NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
                     planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
             }
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
@@ -632,7 +633,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private void logDisabledStartButton(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide() || result == null
-                || !neoecoae$ecoPlannerAvailable && !NEConfig.ecoCraftConfirmDebug) {
+                || !neoecoae$ecoPlannerAvailable && !NEConfig.ecoCraftSubmissionDebug) {
             return;
         }
         long tick = menu.getLevel().getGameTime();
@@ -643,7 +644,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (unrepresentable && neoecoae$bigOrderCpu
                 || !noCPU && !result.simulation() && !unrepresentable) {
             if (neoecoae$lastStartDiagnostic != null) {
-                NEOECOAE_LOGGER.info("[craft-confirm] Server start gate cleared: container={}", menu.containerId);
+                NEOECOAE_LOGGER.info("[ECO-CRAFT-SUBMIT] Server start gate cleared: container={}", menu.containerId);
                 neoecoae$lastStartDiagnostic = null;
             }
             return;
@@ -661,7 +662,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (diagnostic.equals(neoecoae$lastStartDiagnostic)) return;
         neoecoae$lastStartDiagnostic = diagnostic;
         NEOECOAE_LOGGER.warn(
-            "[craft-confirm] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
+            "[ECO-CRAFT-SUBMIT] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
                 + "planningStatus={}, selectedCpu={}\n{}",
             reason, menu.containerId,
             getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
@@ -758,12 +759,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             boolean prioritizePower,
             IActionSource source,
             Operation<ICraftingSubmitResult> original) {
-        if (service instanceof ECOCraftingNetworkSettings settings
-                && settings.neoecoae$isSubmissionLogEnabled()) {
+        long startedNanos = System.nanoTime();
+        if (NEConfig.ecoCraftSubmissionDebug) {
             ECOPlanningResult attached = submittedPlan instanceof ECOCraftingPlanDiagnostics diagnostics
                     ? diagnostics.neoecoae$getPlanningResult() : null;
             NEOECOAE_LOGGER.info(
-                    "[craft-submit-trace] stage=menu-dispatch container={} plan={}@{} simulation={} bytes={} "
+                    "[ECO-CRAFT-SUBMIT] stage=menu-dispatch container={} plan={}@{} simulation={} bytes={} "
                             + "output={} diagnostics={} target={}",
                     ((CraftConfirmMenu) (Object) this).containerId,
                     submittedPlan.getClass().getName(),
@@ -784,17 +785,49 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         ECOPlanningResult boundResult = planningResult;
         ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
             () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
-        if (!submitResult.successful() && (NEConfig.ecoCraftConfirmDebug
+        if (NEConfig.ecoCraftSubmissionDebug) {
+            NEOECOAE_LOGGER.info(
+                "[ECO-CRAFT-SUBMIT] stage=service-submit-return elapsedMs={} successful={} error={} detail={} output={} amount={} target={}",
+                Math.max(0L, System.nanoTime() - startedNanos) / 1_000_000.0D,
+                submitResult.successful(), submitResult.errorCode(), submitResult.errorDetail(),
+                submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), neoecoae$describeCpu(target));
+        }
+        if (!submitResult.successful() && (NEConfig.ecoCraftSubmissionDebug
                 || cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.isForced(submittedPlan))) {
             String cpuDetails = service instanceof ECOCraftingServiceDiagnostics diagnostics
                 ? diagnostics.neoecoae$describeCpuSelection(submittedPlan, source)
                 : "crafting service diagnostics unavailable";
             NEOECOAE_LOGGER.warn(
-                "[craft-confirm] Submission failed: output={}, amount={}, bytes={}, target={}, error={}, detail={}\n{}",
+                "[ECO-CRAFT-SUBMIT] Submission failed: output={}, amount={}, bytes={}, target={}, error={}, detail={}\n{}",
                 submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), submittedPlan.bytes(),
                 neoecoae$describeCpu(target), submitResult.errorCode(), submitResult.errorDetail(), cpuDetails);
         }
         return submitResult;
+    }
+
+    @Inject(method = "startJob", at = @At("HEAD"))
+    private void neoecoae$logStartButtonClick(CallbackInfo ci) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        if (menu.isClientSide() || !NEConfig.ecoCraftSubmissionDebug || result == null) return;
+        neoecoae$startButtonAttemptStartedNanos = System.nanoTime();
+        NEOECOAE_LOGGER.info(
+            "[ECO-CRAFT-SUBMIT] stage=start-button container={} player={} output={} amount={} bytes={} simulation={} noCPU={} selectedCpu={}",
+            menu.containerId,
+            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
+            result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
+            neoecoae$describeCpu(selectedCpu));
+    }
+
+    @Inject(method = "startJob", at = @At("RETURN"))
+    private void neoecoae$logStartButtonReturn(CallbackInfo ci) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        long startedNanos = neoecoae$startButtonAttemptStartedNanos;
+        neoecoae$startButtonAttemptStartedNanos = 0L;
+        if (menu.isClientSide() || !NEConfig.ecoCraftSubmissionDebug || startedNanos == 0L) return;
+        NEOECOAE_LOGGER.info(
+            "[ECO-CRAFT-SUBMIT] stage=start-button-return container={} elapsedMs={} error={}",
+            menu.containerId, Math.max(0L, System.nanoTime() - startedNanos) / 1_000_000.0D,
+            String.valueOf(menu.submitError));
     }
 
     @Unique

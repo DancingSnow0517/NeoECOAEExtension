@@ -7,9 +7,14 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingDispatchEvent;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Applies an accepted ordinary or batch result to the CPU-owned job ledger. */
 final class ECOCraftingDispatchAccounting {
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
+
     private final Consumer<AEKey> postChange;
     private final Runnable markDirty;
     private final Function<ExecutingCraftingJob, ECOCraftingJobContext> contextFactory;
@@ -40,19 +45,21 @@ final class ECOCraftingDispatchAccounting {
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         if (!job.exactOrder) throw new IllegalStateException("Exact dispatch requires a big order");
-        var waiting = (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor;
-        waiting.restore(batch.outputs());
-        waiting.restore(batch.remainders());
-        batch.remainders().forEach((key, amount) -> job.timeTracker.addMaxItems(amount, key.getType()));
-        job.tasks.get(request.pattern()).accept(batch.craftCount());
-        if (job.executionRuntime != null)
-            job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftCount(), request.inputs());
-        beforeNotifications.run();
-        dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
-            batch.craftCount(), provider));
-        batch.outputs().keySet().forEach(postChange);
-        batch.remainders().keySet().forEach(postChange);
-        markDirty.run();
+        audit(request, batch.craftCount(), batch.outputs(), batch.remainders(), "exact-batch", () -> {
+            var waiting = (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor;
+            waiting.restore(batch.outputs());
+            waiting.restore(batch.remainders());
+            batch.remainders().forEach((key, amount) -> job.timeTracker.addMaxItems(amount, key.getType()));
+            job.tasks.get(request.pattern()).accept(batch.craftCount());
+            if (job.executionRuntime != null)
+                job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftCount(), request.inputs());
+            beforeNotifications.run();
+            dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
+                batch.craftCount(), provider));
+            batch.outputs().keySet().forEach(postChange);
+            batch.remainders().keySet().forEach(postChange);
+            markDirty.run();
+        });
     }
 
     void apply(ECOCraftingDispatchRequest request, ECOCraftingDispatchResult result,
@@ -64,26 +71,65 @@ final class ECOCraftingDispatchAccounting {
     void apply(ECOCraftingDispatchRequest request, ECOCraftingDispatchResult result,
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
-        for (var output : result.outputs()) {
-            job.waitingFor.insert(output.what(), output.amount(), appeng.api.config.Actionable.MODULATE);
-        }
-        for (var remainder : result.remainders()) {
-            job.waitingFor.insert(remainder.what(), remainder.amount(), appeng.api.config.Actionable.MODULATE);
-            job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
-        }
+        audit(request, result.acceptedCrafts(), result.outputs(), result.remainders(), "dispatch", () -> {
+            for (var output : result.outputs()) {
+                job.waitingFor.insert(output.what(), output.amount(), appeng.api.config.Actionable.MODULATE);
+            }
+            for (var remainder : result.remainders()) {
+                job.waitingFor.insert(remainder.what(), remainder.amount(), appeng.api.config.Actionable.MODULATE);
+                job.timeTracker.addMaxItems(remainder.amount(), remainder.what().getType());
+            }
 
-        request.job().tasks.get(request.pattern()).accept(result.acceptedCrafts());
-        if (job.executionRuntime != null) {
-            job.executionRuntime.onAccepted(request.candidate(), result.acceptedCrafts(), request.inputs());
+            job.tasks.get(request.pattern()).accept(result.acceptedCrafts());
+            if (job.executionRuntime != null) {
+                job.executionRuntime.onAccepted(request.candidate(), result.acceptedCrafts(), request.inputs());
+            }
+            beforeNotifications.run();
+            if (provider != null) {
+                dispatchEvent.accept(new ECOCraftingDispatchEvent(
+                        contextFactory.apply(request.job()), request.pattern(), result.acceptedCrafts(), provider));
+            }
+            for (var output : request.pattern().getOutputs()) {
+                postChange.accept(output.what());
+            }
+            markDirty.run();
+        });
+    }
+
+    private static void audit(ECOCraftingDispatchRequest request, Object acceptedCrafts,
+            Object outputs, Object remainders, String path, Runnable accounting) {
+        if (!NEConfig.ecoDispatchWatchdogDebug) {
+            accounting.run();
+            return;
         }
-        beforeNotifications.run();
-        if (provider != null) {
-            dispatchEvent.accept(new ECOCraftingDispatchEvent(
-                    contextFactory.apply(request.job()), request.pattern(), result.acceptedCrafts(), provider));
+        String before = accountingState(request);
+        LOGGER.info(
+            "[ECO-DISPATCH-REASON] stage=accounting-before path={} job={} phase={} task={} pattern={} acceptedCrafts={} taskRemaining={} jobRemaining={} outputs={} remainders={} state={}",
+            path, request.job().link.getCraftingID(), request.candidate().phaseIndex(), request.candidate().taskId(),
+            request.pattern().getDefinition(), acceptedCrafts, remainingTask(request), request.job().remainingAmount,
+            outputs, remainders, before);
+        try {
+            accounting.run();
+        } catch (RuntimeException | Error failure) {
+            LOGGER.error(
+                "[ECO-DISPATCH-REASON] stage=accounting-failed path={} job={} phase={} task={} acceptedCrafts={} state={}",
+                path, request.job().link.getCraftingID(), request.candidate().phaseIndex(),
+                request.candidate().taskId(), acceptedCrafts, accountingState(request), failure);
+            throw failure;
         }
-        for (var output : request.pattern().getOutputs()) {
-            postChange.accept(output.what());
-        }
-        markDirty.run();
+        LOGGER.info(
+            "[ECO-DISPATCH-REASON] stage=accounting-after path={} job={} phase={} task={} acceptedCrafts={} taskRemaining={} jobRemaining={} state={}",
+            path, request.job().link.getCraftingID(), request.candidate().phaseIndex(), request.candidate().taskId(),
+            acceptedCrafts, remainingTask(request), request.job().remainingAmount, accountingState(request));
+    }
+
+    private static long remainingTask(ECOCraftingDispatchRequest request) {
+        var progress = request.job().tasks.get(request.pattern());
+        return progress == null ? -1L : progress.value;
+    }
+
+    private static String accountingState(ECOCraftingDispatchRequest request) {
+        var runtime = request.job().executionRuntime;
+        return runtime == null ? "legacy-runtime" : runtime.describeDispatchState(request.candidate());
     }
 }

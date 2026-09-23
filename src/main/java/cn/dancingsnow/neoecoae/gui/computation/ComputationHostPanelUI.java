@@ -82,10 +82,6 @@ public final class ComputationHostPanelUI {
             Runnable toggleCyclePlanning,
             BooleanSupplier fastPlannerEnabled,
             Runnable toggleFastPlanner,
-            BooleanSupplier planningLogEnabled,
-            Runnable togglePlanningLog,
-            BooleanSupplier submissionLogEnabled,
-            Runnable toggleSubmissionLog,
             IntSupplier networkFrequency,
             IntConsumer adjustNetworkFrequency
     ) {
@@ -228,54 +224,6 @@ public final class ComputationHostPanelUI {
                         Boolean.TRUE.equals(syncedEnabled.getValue())
                                 ? "gui.neoecoae.crafting.fast_planner.on"
                                 : "gui.neoecoae.crafting.fast_planner.off")));
-        return button;
-    }
-
-    public static Button createPlanningLogButton(Config config) {
-        Button button = HostSideButtonBar.createButton()
-                .noText()
-                .addPreIcon(AETextures.icon(Icon.CRAFT_HAMMER));
-        button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
-        button.addClass("eco-host-planning-log-button");
-        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
-        button.setOnServerClick(event -> config.togglePlanningLog.run());
-
-        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.planningLogEnabled.getAsBoolean());
-        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.planningLogEnabled::getAsBoolean).build());
-        syncedEnabled.setDisplay(false);
-        button.addChild(syncedEnabled);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
-                        Boolean.TRUE.equals(syncedEnabled.getValue())
-                                ? "gui.neoecoae.crafting.planning_log.on"
-                                : "gui.neoecoae.crafting.planning_log.off")));
-        return button;
-    }
-
-    public static Button createSubmissionLogButton(Config config) {
-        Button button = HostSideButtonBar.createButton()
-                .noText()
-                .addPreIcon(AETextures.icon(Icon.SCHEDULING_ROUND_ROBIN));
-        button.buttonStyle(style -> style
-                .baseTexture(Sprites.RECT_RD)
-                .hoverTexture(Sprites.RECT_RD_LIGHT)
-                .pressedTexture(Sprites.RECT_RD_DARK));
-        button.addClass("eco-host-submission-log-button");
-        button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
-        button.setOnServerClick(event -> config.toggleSubmissionLog.run());
-
-        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.submissionLogEnabled.getAsBoolean());
-        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.submissionLogEnabled::getAsBoolean).build());
-        syncedEnabled.setDisplay(false);
-        button.addChild(syncedEnabled);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
-                        Boolean.TRUE.equals(syncedEnabled.getValue())
-                                ? "gui.neoecoae.crafting.submission_log.on"
-                                : "gui.neoecoae.crafting.submission_log.off")));
         return button;
     }
 

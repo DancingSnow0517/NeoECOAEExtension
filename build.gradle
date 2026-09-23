@@ -172,6 +172,9 @@ dependencies {
     implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182") {
         // The Ars Nouveau POM pins an older JEI build; use the project-wide client version instead.
         exclude group: "mezz.jei", module: "jei-${minecraft_version}-neoforge"
+        // Jade is supplied separately by the client run configuration; do not let Ars Nouveau
+        // pin an older CurseForge build into runtimeClasspath's consistent-resolution set.
+        exclude group: "curse.maven", module: "jade-324717"
     }
     implementation("curse.maven:ars-energistique-905641:6203425")
 

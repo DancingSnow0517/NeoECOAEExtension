@@ -69,12 +69,29 @@ public class ConfigLangs {
             "neoecoae.configuration.debug.tooltip",
             "Troubleshooting options. Keep these disabled during normal play."
         );
-        provider.add("neoecoae.configuration.ecoDispatchWatchdogDebug", "ECO Dispatch Watchdog Debug");
+        provider.add("neoecoae.configuration.calculating", "Calculating");
+        provider.add(
+            "neoecoae.configuration.calculating.tooltip",
+            "ECO crafting calculation and dispatch diagnostics."
+        );
+        provider.add("neoecoae.configuration.ecoPlanningStageDebug", "Enable ECO Fast Planning Stage Logs");
+        provider.add(
+            "neoecoae.configuration.ecoPlanningStageDebug.tooltip",
+            "Log every ECO fast-planning calculation stage, including acyclic and cyclic planning.\n" +
+                "Includes stage duration, success state, failure reason, target item and requested amount."
+        );
+        provider.add("neoecoae.configuration.ecoCraftSubmissionDebug", "Enable ECO Craft Submission Detail Logs");
+        provider.add(
+            "neoecoae.configuration.ecoCraftSubmissionDebug.tooltip",
+            "Diagnose why the crafting-confirm Start button is unavailable or why submission is delayed or fails.\n" +
+                "Includes Start-button state, plan and CPU selection, submission route and elapsed time."
+        );
+        provider.add("neoecoae.configuration.ecoDispatchWatchdogDebug", "Log ECO Dispatch Reasons");
         provider.add(
             "neoecoae.configuration.ecoDispatchWatchdogDebug.tooltip",
-            "Log detailed crafting dispatch diagnostics after 200 ticks without real progress, then every 1200 ticks.\n" +
-                "Includes phase, task, input, power and pattern-provider state.\n" +
-                "This option never resynchronizes the scheduler, replays inputs or changes crafting state."
+            "Log ECO dispatch candidate reasons and task accounting before and after dispatch.\n" +
+                "Also logs an aggregated diagnostic after 200 ticks without real progress, then every 1200 ticks.\n" +
+                "This option only collects diagnostics and does not change crafting state."
         );
         provider.add("neoecoae.configuration.ecoCraftingOutputDeliveryDebug", "ECO Output Delivery Debug");
         provider.add(
@@ -82,13 +99,6 @@ public class ConfigLangs {
             "Log one aggregated warning per crafting job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.\n" +
                 "A recovery message is logged when the wait ends.\n" +
                 "This option only controls logging and never changes output ownership, retry or recovery behavior."
-        );
-        provider.add("neoecoae.configuration.ecoCraftConfirmDebug", "Craft Confirm Start Debug");
-        provider.add(
-            "neoecoae.configuration.ecoCraftConfirmDebug.tooltip",
-            "Log one diagnostic report when a completed crafting plan cannot be started.\n" +
-                "Includes the plan state, selected CPU, all CPUs advertised by AE2, and ECO computation-cluster selection reasons.\n" +
-                "Submission failures are logged separately."
         );
     }
 }

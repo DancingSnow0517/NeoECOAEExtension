@@ -28,13 +28,27 @@ public interface ECOCraftingNetworkSettings {
 
     void neoecoae$setCyclePlanningEnabled(boolean enabled);
 
-    boolean neoecoae$isPlanningLogEnabled();
+    /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
+    @Deprecated
+    default boolean neoecoae$isPlanningLogEnabled() {
+        return false;
+    }
 
-    void neoecoae$setPlanningLogEnabled(boolean enabled);
+    /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
+    @Deprecated
+    default void neoecoae$setPlanningLogEnabled(boolean enabled) {
+    }
 
-    boolean neoecoae$isSubmissionLogEnabled();
+    /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
+    @Deprecated
+    default boolean neoecoae$isSubmissionLogEnabled() {
+        return false;
+    }
 
-    void neoecoae$setSubmissionLogEnabled(boolean enabled);
+    /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
+    @Deprecated
+    default void neoecoae$setSubmissionLogEnabled(boolean enabled) {
+    }
 
     boolean neoecoae$hasComputationHost();
 
