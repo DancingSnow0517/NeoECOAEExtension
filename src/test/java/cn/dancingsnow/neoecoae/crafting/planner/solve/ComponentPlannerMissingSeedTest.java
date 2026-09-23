@@ -29,12 +29,52 @@ import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 
 import cn.dancingsnow.neoecoae.crafting.planner.result.CycleExecutionDisposition;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ComponentPlannerMissingSeedTest {
+    @Test
+    void missingReusableCatalystOutsideCycleGraphReachesMissingSummary() throws Exception {
+        AEKey seed = mock(AEKey.class);
+        AEKey catalyst = mock(AEKey.class);
+        for (AEKey key : List.of(seed, catalyst)) when(key.getAmountPerByte()).thenReturn(8);
+        var catalystInput = new CompiledInput(null, catalyst, 1L, true, null, catalyst, 1L);
+        var outputs = List.of(new GenericStack(seed, 2L));
+        IPatternDetails details = mock(IPatternDetails.class);
+        when(details.getOutputs()).thenReturn(outputs);
+        var semantics = new PatternSemantics(details, null, List.of(), outputs,
+            List.of(new GenericStack(catalyst, 1L)), List.of(), PatternSemantics.MatchingMode.EXACT,
+            PatternSemantics.ExecutionRestriction.NONE, true, true, null);
+        var special = new SpecialPatternAnalysis(List.of(new SpecialPatternAnalysis.Requirement(
+            catalystInput, catalyst, SpecialPatternAnalysis.Type.REUSABLE, 0, 0)));
+        var growth = new CompiledPattern(0, details, seed, PlannerAmount.of(2L),
+            List.of(new CompiledInput(null, seed, 1L, true, null), catalystInput), outputs,
+            true, null, false, semantics, special);
+        var network = new CompiledNetwork(seed,
+            Map.of(seed, List.of(growth), catalyst, List.of()), Set.of(), 1, 2);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        assertFalse(condensation.source().nodes().containsKey(catalyst));
+        var stock = new KeyCounter();
+        stock.add(seed, 1L);
+
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
+            .plan(network, condensation, stock, 10L, true, ECOCancellation.NONE);
+
+        assertEquals(1L, outcome.state().missingItems().get(catalyst));
+        assertTrue(outcome.state().patternTimes().isEmpty(), "Blocked cycle must remain uncommitted");
+        var plan = new AE2CraftingPlanBridge().partial(seed, 10L, false, outcome.state());
+        var summary = CraftingPlanSummary.fromJob(mock(IGrid.class, RETURNS_DEEP_STUBS),
+            mock(IActionSource.class), plan);
+        assertTrue(summary.isSimulation());
+        assertEquals(1L, summary.getEntries().stream().filter(entry -> entry.getWhat().equals(catalyst))
+            .findFirst().orElseThrow().getMissingAmount());
+    }
+
     @Test
     void stockedSelfGrowthUsesOneSeedInsteadOfMissingTheWholeDemand() throws Exception {
         AEKey product = mock(AEKey.class);

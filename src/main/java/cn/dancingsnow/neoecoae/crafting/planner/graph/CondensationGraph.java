@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 
 /** SCC contraction result. Its component graph is validated and topologically ordered. */
 public final class CondensationGraph {
@@ -102,7 +103,11 @@ public final class CondensationGraph {
 
     public CraftingDependencyGraph source() { return source; }
     public Map<Integer, PlanningComponent> components() { return components; }
-    public PlanningComponent componentFor(AEKey key) { return components.get(componentByKey.get(key)); }
+    /** Special inputs such as reusable catalysts may be absent from the structural graph. */
+    public @Nullable PlanningComponent componentFor(AEKey key) {
+        Integer componentId = componentByKey.get(key);
+        return componentId == null ? null : components.get(componentId);
+    }
     public List<ComponentDependency> dependencies() { return dependencies; }
     public List<PlanningComponent> topologicalOrder() { return topologicalOrder; }
     /** Execution order follows supplier -> consumer, opposite of producer->required-input edges. */
