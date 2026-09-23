@@ -40,7 +40,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.force_start", "Force Start");
         provider.add("tooltip.neoecoae.storage.bulk_unresolved", "%s bulk entries are preserved but unavailable. Restore missing items or the original recipes before recovery.");
         provider.add("gui.neoecoae.storage.mega_filter.cutoff", "Compression display: %s");
-        provider.add("gui.neoecoae.storage.mega_filter.cutoff_hint", "Shift + right-click a marker to cycle its compression display");
+        provider.add("gui.neoecoae.storage.mega_filter.cutoff_hint", "Shift + left-click raises, Shift + right-click lowers the compression display; the marker changes too");
         provider.add("gui.neoecoae.storage.mega_filter.duplicate_chain", "This compression chain is already configured in another marking slot of this storage host");
         provider.add("gui.neoecoae.storage.mega_filter.not_compressible", "Only items belonging to a MEGA compression chain can be marked");
         provider.add("jade.neoecoae.overclock_status", "Theoretical / Effective Overclock: %d/%d");

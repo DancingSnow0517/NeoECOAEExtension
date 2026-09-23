@@ -14,8 +14,9 @@ to represent are rejected. Aggregate tooltip statistics may saturate across chai
 
 - Markers select accepted chains; they do not select the display denomination.
 - New cells display the highest representable denomination plus lower remainders.
-- In the storage host's marking panel, **Shift + right-click** a marker to cycle that
-  chain's display cutoff. The selected item is reported in the action bar.
+- In the storage host's marking panel, **Shift + left-click** raises and **Shift + right-click**
+  lowers that chain's display cutoff. The marker item changes to the selected denomination,
+  which is reported in the action bar.
 - Changing a cutoff does not transfer items, alter the marker or change the balance.
 - Removing a marker stops insertion but retains existing inventory and conversion paths.
 - Without a compression card, insertion accepts only the exact configured item.

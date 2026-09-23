@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Immutable planning answer. Its execution plan is interpreted at most once, on first access when needed. */
 public final class ECOPlanningResult {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ECOPlanningResult.class);
     private final PlanningStatus status;
     private final @Nullable CraftingPlan plan;
     private final ECOPlanTrace trace;
@@ -91,6 +92,8 @@ public final class ECOPlanningResult {
                     built = null;
                 }
             } catch (RuntimeException failure) {
+                // The UI diagnostic is length-limited; keep the complete demand/allocation in the log.
+                LOGGER.error("[ECO-EXECUTION-PLAN] Failed to build execution plan planningId={}", planningId, failure);
                 error = "EXECUTION_PLAN_BUILD_FAILED:" + failure.getClass().getSimpleName()
                     + (failure.getMessage() == null ? "" : ":" + failure.getMessage());
             }

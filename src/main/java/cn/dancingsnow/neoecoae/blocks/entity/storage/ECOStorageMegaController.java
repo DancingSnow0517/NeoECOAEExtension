@@ -194,7 +194,7 @@ final class ECOStorageMegaController {
     }
 
     @Nullable
-    AEItemKey cycleCutoff(int driveIndex, int page, int visualSlot) {
+    AEItemKey cycleCutoff(int driveIndex, int page, int visualSlot, int delta) {
         if (visualSlot < 0 || visualSlot >= ECO_MEGA_SLOTS_PER_PAGE
                 || page < 0 || page >= ECO_MEGA_PAGE_COUNT) return null;
         List<ECODriveBlockEntity> drives = getEcoMegaBulkDrives();
@@ -206,7 +206,8 @@ final class ECOStorageMegaController {
                 || !(stack.getItem() instanceof IECOBulkMarkableCellItem cellItem)
                 || !(drive.getCellInventory() instanceof cn.dancingsnow.neoecoae.api.storage.IECOBulkDisplayCell cell)) return null;
         if (!(cellItem.getConfigInventory(stack).getKey(slot) instanceof AEItemKey marker)) return null;
-        AEItemKey selected = cell.cycleCompressionCutoff(marker);
+        AEItemKey selected = cell.cycleCompressionCutoff(marker, delta);
+        cellItem.getConfigInventory(stack).setStack(slot, new GenericStack(selected, 0L));
         drive.onCellConfigurationChanged();
         host.notifyStorageConfigurationChanged();
         return selected;

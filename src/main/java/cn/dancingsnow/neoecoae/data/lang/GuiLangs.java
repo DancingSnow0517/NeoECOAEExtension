@@ -11,6 +11,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.lightning_amount", "Lightning from ME: %s");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy", "Energy: %s AE");
         provider.add("gui.neoecoae.large_integrated_working_station.auto_build", "Auto-build Large Integrated Working Station");
+        provider.add("gui.neoecoae.large_integrated_working_station.return_inputs", "Return Stored Inputs");
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");

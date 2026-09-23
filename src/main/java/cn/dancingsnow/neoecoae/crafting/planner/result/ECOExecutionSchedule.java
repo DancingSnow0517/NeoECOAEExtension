@@ -79,6 +79,7 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         var phases = new ArrayList<ComponentExecutionPhase>();
+        int syntheticId = components.stream().mapToInt(ComponentPlanningResult::componentId).max().orElse(-1) + 1;
         PatternIndex assignedPatterns = new PatternIndex();
         for (int id : executionOrder) {
             var c = byId.get(id);
@@ -96,6 +97,20 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 assignedPatterns.add(executable);
             }
             if (patterns.isEmpty()) continue;
+
+            // A structural DAG component may also own locally resolved tool/catalyst producers.
+            // With exact attribution, each physical task needs its own phase: a dependency between
+            // two such tasks is not a self-loop, and an outside task may need to run between them.
+            // Keep solved cycles atomic so their witness and seed contracts remain intact.
+            if (type == Type.DAG && provenance != null) {
+                boolean first = true;
+                for (IPatternDetails pattern : patterns) {
+                    phases.add(new ComponentExecutionPhase(first ? id : syntheticId++, type,
+                        Set.of(pattern), List.of()));
+                    first = false;
+                }
+                continue;
+            }
 
             List<IPatternDetails> witness = new ArrayList<>();
             if (type == Type.CYCLE && c.cycleResult() != null) {
@@ -120,11 +135,8 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 throw new IllegalStateException(
                     "Execution schedule does not cover " + unassigned.size() + " planned pattern(s)");
             }
-            int syntheticId = components.stream().mapToInt(ComponentPlanningResult::componentId).max().orElse(-1) + 1;
             for (IPatternDetails pattern : unassigned) {
                 Set<IPatternDetails> patterns = Set.of(pattern);
-                // synthetic phase, no debug log
-                // synthetic phase, no debug log
                 phases.add(new ComponentExecutionPhase(syntheticId++, Type.DAG, patterns, List.of()));
                 assignedPatterns.add(pattern);
             }

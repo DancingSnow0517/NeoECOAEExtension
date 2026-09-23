@@ -67,6 +67,87 @@ class DemandAttributedScheduleTest {
     }
 
     @Test
+    void groupedAcyclicProducersAreOrderedInsteadOfReportedAsSelfCycles() throws Exception {
+        var raw = AEItemKey.of(Items.IRON_INGOT);
+        var tool = AEItemKey.of(Items.GLASS_BOTTLE);
+        var goal = AEItemKey.of(Items.DIAMOND);
+        var supplier = pattern(0, tool, List.of(new GenericStack(tool, 1)), raw);
+        var consumer = pattern(1, goal, List.of(new GenericStack(goal, 1)), tool);
+        var network = new CompiledNetwork(goal, Map.of(goal, List.of(consumer),
+            tool, List.of(supplier), raw, List.of()), Set.of(), 3, 2);
+        var inventory = new KeyCounter();
+        inventory.add(raw, 1);
+        var outcome = new AcyclicCraftingSolver().solve(network, new AcyclicRoutePlan(List.of()),
+            inventory, 1, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status());
+        // Local tool/catalyst producer chains are collected in the goal's structural component.
+        var component = acyclicComponent(0, Set.of(consumer.details(), supplier.details()));
+        var schedule = ECOExecutionSchedule.from(List.of(component), List.of(0),
+            outcome.state().patternTimes(), outcome.state().executionProvenance());
+        assertBefore(schedule, supplier.details(), consumer.details());
+        assertEquals(2, schedule.phases().size());
+        assertEquals(List.of(new ECOExecutionSchedule.PhaseDependency(0, 1)), schedule.dependencies());
+        assertEquals(2, schedule.phases().stream().map(p -> p.componentId()).distinct().count());
+    }
+
+    @Test
+    void locallyCraftedReusableToolBuildsAValidComponentSchedule() throws Exception {
+        var raw = AEItemKey.of(Items.IRON_INGOT);
+        var tool = AEItemKey.of(Items.GLASS_BOTTLE);
+        var goal = AEItemKey.of(Items.DIAMOND);
+        var supplier = pattern(0, tool, List.of(new GenericStack(tool, 1)), raw);
+        var base = pattern(1, goal, List.of(new GenericStack(goal, 1)), tool);
+        var input = base.inputs().getFirst();
+        when(input.source().getRemainingKey(tool)).thenReturn(tool);
+        var special = new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis(List.of(
+            new cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Requirement(input, tool,
+                cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis.Type.REUSABLE, 0, 0)));
+        var consumer = new CompiledPattern(base.id(), base.details(), goal, PlannerAmount.ONE,
+            base.inputs(), base.outputs(), true, null, false, base.semantics(), special);
+        var network = new CompiledNetwork(goal, Map.of(goal, List.of(consumer),
+            tool, List.of(supplier), raw, List.of()), Set.of(), 3, 2);
+        var graph = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
+            .build(network, ECOCancellation.NONE);
+        var condensation = cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph.build(graph,
+            new cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer()
+                .analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var inventory = new KeyCounter();
+        inventory.add(raw, 1);
+        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(),
+            new cn.dancingsnow.neoecoae.crafting.planner.cycle.BoundedCycleSolver())
+                .plan(network, condensation, inventory, 1, true, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.components().stream().anyMatch(component ->
+            component.executionPatterns().containsAll(Set.of(supplier.details(), consumer.details()))));
+        var schedule = ECOExecutionSchedule.from(outcome.components(), outcome.executionComponentOrder(),
+            outcome.state().patternTimes(), outcome.state().executionProvenance());
+        assertBefore(schedule, supplier.details(), consumer.details());
+    }
+
+    @Test
+    void groupedMutualCycleStillFailsClosed() {
+        var a = AEItemKey.of(Items.GLASS_BOTTLE);
+        var b = AEItemKey.of(Items.HONEY_BOTTLE);
+        var first = pattern(0, a, List.of(new GenericStack(a, 1)), b);
+        var second = pattern(1, b, List.of(new GenericStack(b, 1)), a);
+        var ledger = new MaterialProvenance();
+        var firstInput = MaterialDemand.input(first.details(), 0, b, PlannerAmount.ONE);
+        var secondInput = MaterialDemand.input(second.details(), 0, a, PlannerAmount.ONE);
+        ledger.register(firstInput);
+        ledger.register(secondInput);
+        ledger.allocate(firstInput, b, new MaterialSource.PatternOutput(second.details(), true), PlannerAmount.ONE);
+        ledger.allocate(secondInput, a, new MaterialSource.PatternOutput(first.details(), true), PlannerAmount.ONE);
+        var component = acyclicComponent(0, Set.of(first.details(), second.details()));
+        assertThrows(IllegalStateException.class, () -> ECOExecutionSchedule.from(List.of(component), List.of(0),
+            Map.of(first.details(), 1L, second.details(), 1L), ledger.freeze()));
+    }
+
+    private static ComponentPlanningResult acyclicComponent(int id, Set<IPatternDetails> patterns) {
+        return new ComponentPlanningResult(id, ComponentPlanningResult.Type.ACYCLIC,
+            ComponentPlanningResult.Status.PLANNED, Map.of(), patterns, null, null, Map.of(), null, null);
+    }
+
+    @Test
     void missingDemandAttributionIsAnInvariantError() {
         var key = AEItemKey.of(Items.GLASS_BOTTLE);
         var pattern = pattern(0, key, List.of(new GenericStack(key, 1)));

@@ -225,10 +225,15 @@ public final class StorageMegaPanelUI {
                 return stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
             }).remoteSetter(value -> setValue(value, false)).build());
             addEventListener(UIEvents.MOUSE_DOWN, event -> {
+                if ((event.button == 0 || event.button == 1) && !getValue().isEmpty()
+                        && net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
+                    host.cycleEcoMegaCutoffFromClient(visualSlot, event.button == 0 ? 1 : -1);
+                    event.hasHandler = true;
+                    event.stopImmediatePropagation();
+                    return;
+                }
                 if (event.button == 1 && !getValue().isEmpty()) {
-                    if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
-                        host.cycleEcoMegaCutoffFromClient(visualSlot);
-                    } else {
+                    if (!net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
                         setValue(ItemStack.EMPTY, true);
                     }
                     event.hasHandler = true;

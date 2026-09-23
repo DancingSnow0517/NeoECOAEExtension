@@ -326,9 +326,10 @@ public final class ECOMegaLongBulkStorageCell extends ECOStorageCell implements 
     }
 
     @Override
-    public AEItemKey cycleCompressionCutoff(AEItemKey chainItem) {
+    public AEItemKey cycleCompressionCutoff(AEItemKey chainItem, int delta) {
         BulkUnits units = lookupContext().units(chainItem);
-        int next = (units.cutoff(getCompressionCutoff(chainItem)) + 1) % units.items().size();
+        int current = units.cutoff(getCompressionCutoff(chainItem));
+        int next = Math.floorMod(current + delta, units.items().size());
         AEItemKey selected = units.items().get(next);
         setCompressionCutoff(chainItem, selected);
         return selected;

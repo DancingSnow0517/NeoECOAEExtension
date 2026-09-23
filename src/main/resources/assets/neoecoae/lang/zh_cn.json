@@ -303,7 +303,7 @@
   "gui.neoecoae.storage.bulk_mark.result.unavailable": "MEGA 大宗存储盘集成不可用",
   "tooltip.neoecoae.storage.bulk_unresolved": "%s 条大宗库存数据已保留但暂不可用。请恢复缺失物品或原有配方后再进行恢复。",
   "gui.neoecoae.storage.mega_filter.cutoff": "压缩显示：%s",
-  "gui.neoecoae.storage.mega_filter.cutoff_hint": "Shift + 右键标记可切换该链的压缩显示层级",
+  "gui.neoecoae.storage.mega_filter.cutoff_hint": "Shift + 左键上调、Shift + 右键下调压缩显示层级，并同步更换标记物品",
   "gui.neoecoae.storage.mega_filter.duplicate_chain": "该压缩链已在此存储主机的其他标记槽中配置",
   "gui.neoecoae.storage.mega_filter.not_compressible": "只能标记属于 MEGA 压缩链的物品",
   "gui.neoecoae.storage_priority.close": "关闭优先级面板",

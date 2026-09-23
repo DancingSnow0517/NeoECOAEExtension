@@ -983,6 +983,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!formed || level == null || pattern == null) return null;
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
         if (!profile.acceptsCraftCount(craftCount)) return null;
+        // Inputs delivered by AE2 are retained in the workstation's unbounded ledger while
+        // the batch runs.  Recipe lookup is performed against one craft's actual input set,
+        // while the owned ledger keeps the complete scaled amount for cancellation/refund.
         KeyCounter totalInputs = collectInputTotals(pattern, holders);
         if (totalInputs == null || isCounterEmpty(totalInputs)) return null;
         KeyCounter perCraftInputs = divideCounter(totalInputs, craftCount);
@@ -1001,6 +1004,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         PendingBatch batch = new PendingBatch(
             craftCount, adapted.energy(), profile.coolingTier(), profile.energyMultiplier(), totalInputs, outputTotal,
             craftingJobId, adapted.id(), adapted.display(), unlockStack, level.getGameTime());
+        // Compatibility-only inputs (for example AE2LT lightning) are not represented by
+        // ordinary AE2 pattern holders.  Keep them in the pending ledger so the actual
+        // adapted recipe still charges them from the ME network before processing.
         for (var extra : adapted.extraInputs()) {
             if (perCraftInputs.get(extra.what()) == 0) {
                 batch.missingExtras.add(extra.what(), Math.multiplyExact(extra.amount(), craftCount));
@@ -1199,6 +1205,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         root.addChild(HostSideButtonBar.left(
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/large_integrated_working_station.md"),
+            settingButton(Icon.ARROW_LEFT, this::returnStoredInputs, () -> Component.translatable(
+                "gui.neoecoae.large_integrated_working_station.return_inputs")),
             settingButton(Icon.POWER_UNIT_AE, this::toggleOverclocked, () -> Component.translatable(
                 overclocked ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
             settingButton(Icon.TYPE_FILTER_ALL, this::toggleActiveCooling, () -> Component.translatable(
@@ -1233,6 +1241,33 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public Button createAutoBuildButton(Player player) {
         return settingButton(Icon.CRAFT_HAMMER, () -> autoBuild(player),
             () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
+    }
+
+    /** Returns inputs still owned by incomplete batches to the ME network. */
+    public void returnStoredInputs() {
+        if (level == null || level.isClientSide) return;
+        var batches = new ArrayList<>(pendingBatches);
+        for (PendingBatch batch : batches) {
+            if (batch.progress >= MAX_PROCESSING_STEPS) continue;
+            if (!recoverCounterToNetwork(batch.inputTotal)
+                || !recoverCounterToNetwork(batch.missingExtras)) {
+                setPauseReason(PauseReason.OUTPUT_BLOCKED);
+                setChanged();
+                return;
+            }
+            if (batch.craftingJobId != null) {
+                ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
+            }
+            notifyPatternAborted(batch.unlockStack);
+            pendingBatches.remove(batch);
+        }
+        PendingBatch first = pendingBatches.peekFirst();
+        setProcessingTime(first == null ? 0 : first.progress);
+        setWorking(first != null);
+        cachedTask = null;
+        setPauseReason(PauseReason.NONE);
+        setChanged();
+        requestCommunicationProviderUpdate();
     }
 
     private void autoBuild(Player player) {
