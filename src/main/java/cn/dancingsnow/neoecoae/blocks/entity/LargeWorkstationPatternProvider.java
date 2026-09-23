@@ -95,14 +95,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic 
         return accepted;
     }
 
-    /** One ordinary dispatch transfers one complete 1024-craft input batch when the controller has backpressure room. */
+    /** One ordinary dispatch transfers one batch up to the current coolant-supported limit. */
     @Override
     public int eco$getAvailableParallelSlots() {
         var controller = controller();
         return controller == null || !host.getMainNode().isActive() || !controller.canAcceptPattern()
                 || isCraftingLocked()
                 || getAvailablePatterns().isEmpty()
-            ? 0 : ECOLargeIntegratedWorkingStationBlockEntity.PARALLELISM;
+            ? 0 : controller.getMaxBatchParallelism();
     }
 
     @Override

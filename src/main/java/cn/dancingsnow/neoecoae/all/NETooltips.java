@@ -61,6 +61,15 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength)
             );
         }
+        if (stack.is(NEBlocks.INTEGRATED_WORKING_STATION.asItem())) {
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.water"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.sodium"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.cryotheum"),
+                Component.translatable("tooltip.neoecoae.large_integrated_working_station.coolant_tick")
+            );
+        }
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
             addTooltips(tooltip, flags,

@@ -28,4 +28,16 @@ item_ids:
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="2" y="1" z="1"></Block>
 </GameScene>
 
-The Large Integrated Working Station uses a large multiblock structure to deliver high-efficiency, 1024-parallel processing for advanced recipes.
+The Large Integrated Working Station uses a large multiblock structure to process advanced recipes in batches. With overclocking off, it keeps the existing 1,024-craft batch limit and recipe energy cost.
+
+The controller has **Overclock** and **Active Cooling** switches. Both must be on when a batch is accepted for that batch to use overclocking:
+
+| Coolant | Maximum crafts in one batch | Energy per recipe |
+| --- | ---: | ---: |
+| Water | 16,384 | 8× |
+| Sodium | 65,536 | 32× |
+| Cryotheum Solution | 262,144 | 64× |
+
+Each processing tick that advances an overclocked batch consumes 100 mB of coolant, regardless of batch size. The input and output hatches each hold 1,024,000 mB. Water produces steam and sodium produces superheated sodium when Mekanism is installed; without Mekanism, water has no byproduct. Cryotheum Solution has no byproduct.
+
+An overclocked batch pauses if active cooling is turned off, coolant is missing or below the batch's locked tier, power is insufficient, or the byproduct output is full. It resumes when the missing condition is restored. Idle or paused ticks do not consume coolant.

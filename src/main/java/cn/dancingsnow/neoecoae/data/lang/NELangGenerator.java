@@ -161,6 +161,12 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.storage.status.unavailable", "Infinite storage is unavailable");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
+        provider.add("tooltip.neoecoae.large_integrated_working_station",
+            "Large integrated workstation overclocking requires both overclock and active cooling");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.water", "Water: 16,384 parallel, x8 recipe energy");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.sodium", "Sodium: 65,536 parallel, x32 recipe energy");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.cryotheum", "Cryotheum solution: 262,144 parallel, x64 recipe energy");
+        provider.add("tooltip.neoecoae.large_integrated_working_station.coolant_tick", "Consumes 100 mB coolant for each processing tick");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");
         provider.add("tooltip.neoecoae.max_parallel_count", "Max parallel count +%d");
         provider.add("tooltip.neoecoae.overclocked", "When enabling overclocking:");

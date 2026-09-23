@@ -419,6 +419,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
+        .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
         .register();
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
@@ -428,6 +429,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
+        .serverTicker(ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::tick)
         .register();
 
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
