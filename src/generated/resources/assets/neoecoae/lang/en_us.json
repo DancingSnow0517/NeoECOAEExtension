@@ -128,6 +128,7 @@
   "gui.neoecoae.common.yes": "Yes",
   "gui.neoecoae.computation_interface.hint": "Mark items to ignore component differences when planning",
   "gui.neoecoae.crafting.active_cooling.off": "Enable Active Cooling",
+  "gui.neoecoae.crafting.mode_switch_blocked": "Cannot switch while a crafting task is running",
   "gui.neoecoae.crafting.active_cooling.on": "Disable Active Cooling",
   "gui.neoecoae.crafting.capability.batch_per_fx": "Batch per FX: %s",
   "gui.neoecoae.crafting.capability.ft_parallel": "FT Parallel Capacity: %s",

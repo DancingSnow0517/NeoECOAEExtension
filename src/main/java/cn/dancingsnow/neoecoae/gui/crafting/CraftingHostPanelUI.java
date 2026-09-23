@@ -93,6 +93,7 @@ public final class CraftingHostPanelUI {
     public record Config(
         Supplier<Component> title,
         Supplier<Component> virtualModeReason,
+        Supplier<Component> statusNotice,
         IntSupplier networkMultiplier,
         BooleanSupplier networkConnected,
         BooleanSupplier formed,
@@ -150,7 +151,7 @@ public final class CraftingHostPanelUI {
         title.addClass("eco-host-title");
         title.layout(layout -> layout.widthPercent(100).height(10));
         titleBlock.addChild(title);
-        titleBlock.addChild(HostNetworkStatusElement.createWithTrailing(
+        titleBlock.addChild(HostNetworkStatusElement.createWithNotice(
             config.networkMultiplier,
             config.networkConnected,
             () -> {
@@ -164,7 +165,8 @@ public final class CraftingHostPanelUI {
                 return reason == null || reason.getString().isEmpty()
                     ? formed
                     : formed.append(" - ").append(reason);
-            }));
+            },
+            config.statusNotice));
 
         header.addChild(titleBlock);
         return header;

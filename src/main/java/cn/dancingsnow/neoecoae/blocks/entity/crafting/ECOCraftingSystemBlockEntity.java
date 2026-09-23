@@ -51,6 +51,7 @@ import lombok.AccessLevel;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -80,6 +81,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int VIRTUAL_COOLANT_PER_LANE_TICK = 10_000;
+    private static final long MODE_SWITCH_NOTICE_DURATION_MS = 3_000L;
     /** Highest overclock level the progress model can represent: 10 + 9 * 10 == MAX_PROGRESS. */
     static final int MAX_OVERCLOCK_TIMES = 9;
 
@@ -115,6 +117,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Getter(AccessLevel.NONE)
     private int runningThreadCount = 0;
+    private long modeSwitchBlockedNoticeUntilMs = 0L;
 
     @Getter(AccessLevel.NONE)
     private int threadCount = 0;
@@ -863,6 +866,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        clearExpiredModeSwitchBlockedNotice();
         long startNanos = System.nanoTime();
         try {
             buildController.tick(level);
@@ -890,6 +894,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
             this::getVirtualCraftingModeReason,
+            this::getModeSwitchBlockedNotice,
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             () -> formed,
@@ -952,8 +957,30 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return getRunningThreadCount() > 0;
     }
 
+    private Component getModeSwitchBlockedNotice() {
+        return Util.getMillis() < modeSwitchBlockedNoticeUntilMs
+            ? Component.translatable("gui.neoecoae.crafting.mode_switch_blocked")
+            : Component.empty();
+    }
+
+    private void clearExpiredModeSwitchBlockedNotice() {
+        if (modeSwitchBlockedNoticeUntilMs != 0L && Util.getMillis() >= modeSwitchBlockedNoticeUntilMs) {
+            modeSwitchBlockedNoticeUntilMs = 0L;
+            markForUpdate();
+        }
+    }
+
+    private void showModeSwitchBlockedNotice() {
+        modeSwitchBlockedNoticeUntilMs = Util.getMillis() + MODE_SWITCH_NOTICE_DURATION_MS;
+        markForUpdate();
+    }
+
     private void setOverclocked(Player player, boolean overclocked) {
-        if (!canPlayerInteract(player) || hasRunningCrafting()) return;
+        if (!canPlayerInteract(player)) return;
+        if (hasRunningCrafting()) {
+            showModeSwitchBlockedNotice();
+            return;
+        }
         if (cluster != null && cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().setOverclocked(overclocked);
         } else {
@@ -962,7 +989,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private void setActiveCooling(Player player, boolean activeCooling) {
-        if (!canPlayerInteract(player) || hasRunningCrafting()) return;
+        if (!canPlayerInteract(player)) return;
+        if (hasRunningCrafting()) {
+            showModeSwitchBlockedNotice();
+            return;
+        }
         if (cluster != null && cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().setActiveCooling(activeCooling);
         } else {

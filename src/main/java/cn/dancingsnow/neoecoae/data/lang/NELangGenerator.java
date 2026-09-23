@@ -30,6 +30,7 @@ public class NELangGenerator {
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
+        provider.add("gui.neoecoae.crafting.mode_switch_blocked", "Cannot switch while a crafting task is running");
         provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
         provider.add("tooltip.neoecoae.infinite_component.unlock", "Insert 64 components and install 12 L9 storage matrices to enable infinite storage");
         provider.add("gui.ae2.ConfirmCraftCpuStatus", "Storage: %s; Co-Processing Units: %s");

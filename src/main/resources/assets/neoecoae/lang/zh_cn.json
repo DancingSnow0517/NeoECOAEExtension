@@ -600,6 +600,7 @@
   "gui.neoecoae.crafting.overclock.off": "开启超频",
   "gui.neoecoae.crafting.active_cooling.on": "关闭主动冷却",
   "gui.neoecoae.crafting.active_cooling.off": "开启主动冷却",
+  "gui.neoecoae.crafting.mode_switch_blocked": "正处于工作状态不可切换",
   "gui.neoecoae.crafting.planning.ignore_substitutions.on": "关闭忽略样板替代模式",
   "gui.neoecoae.crafting.planning.ignore_substitutions.off": "开启忽略样板替代模式",
   "gui.neoecoae.crafting.planning.substitution_pattern_count": "当前有 %d 个开启替代的样板",

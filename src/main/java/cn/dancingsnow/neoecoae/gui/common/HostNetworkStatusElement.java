@@ -20,26 +20,36 @@ public final class HostNetworkStatusElement {
     private static final int CONNECTED_COLOR = 0xFF20A94B;
     private static final int DISCONNECTED_COLOR = 0xFFE03B45;
     private static final int SEPARATOR_COLOR = 0xFF77727F;
+    private static final int NOTICE_COLOR = 0xFFFF6A75;
 
     private HostNetworkStatusElement() {
     }
 
     public static UIElement create(IntSupplier multiplier, BooleanSupplier connected) {
-        return inline(multiplier, connected, null);
+        return inline(multiplier, connected, null, null);
     }
 
     public static UIElement createWithTrailing(
         IntSupplier multiplier,
         BooleanSupplier connected,
         Supplier<Component> trailingText) {
-        return inline(multiplier, connected, trailingText);
+        return inline(multiplier, connected, trailingText, null);
+    }
+
+    public static UIElement createWithNotice(
+        IntSupplier multiplier,
+        BooleanSupplier connected,
+        Supplier<Component> trailingText,
+        Supplier<Component> statusNotice) {
+        return inline(multiplier, connected, trailingText, statusNotice);
     }
 
     private static UIElement inline(
         IntSupplier multiplier,
         BooleanSupplier connected,
-        Supplier<Component> trailingText) {
-        return new InlineStatusElement(multiplier, connected, trailingText)
+        Supplier<Component> trailingText,
+        Supplier<Component> statusNotice) {
+        return new InlineStatusElement(multiplier, connected, trailingText, statusNotice)
             .layout(layout -> layout.widthPercent(100).height(12));
     }
 
@@ -81,16 +91,19 @@ public final class HostNetworkStatusElement {
 
     private static final class InlineStatusElement extends UIElement {
         private Component trailingText;
+        private Component statusNotice;
         private int multiplier;
         private boolean connected;
 
         private InlineStatusElement(
             IntSupplier multiplier,
             BooleanSupplier connected,
-            Supplier<Component> trailingText) {
+            Supplier<Component> trailingText,
+            Supplier<Component> statusNotice) {
             this.multiplier = multiplier.getAsInt();
             this.connected = connected.getAsBoolean();
             this.trailingText = trailingText == null ? null : trailingText.get();
+            this.statusNotice = statusNotice == null ? Component.empty() : statusNotice.get();
 
             BindableValue<Integer> syncedMultiplier = new BindableValue<>(this.multiplier);
             syncedMultiplier.bind(DataBindingBuilder.intValS2C(multiplier::getAsInt).build());
@@ -112,6 +125,15 @@ public final class HostNetworkStatusElement {
                 syncedTrailingText.setDisplay(false);
                 addChild(syncedTrailingText);
             }
+
+            if (statusNotice != null) {
+                BindableValue<Component> syncedStatusNotice = new BindableValue<>(this.statusNotice);
+                syncedStatusNotice.bind(DataBindingBuilder.componentS2C(statusNotice).build());
+                syncedStatusNotice.registerValueListener(value ->
+                    this.statusNotice = value == null ? Component.empty() : value);
+                syncedStatusNotice.setDisplay(false);
+                addChild(syncedStatusNotice);
+            }
         }
 
         @Override
@@ -121,16 +143,20 @@ public final class HostNetworkStatusElement {
             long now = Util.getMillis();
             float x = getPositionX();
             float baseY = getPositionY() + 2.0F;
-            String mode = Component.translatable(modeTranslationKey(multiplier)).getString();
 
             context.graphics.pose().pushPose();
             context.graphics.pose().scale(TEXT_SCALE, TEXT_SCALE, 1.0F);
-            x = drawMode(context, font, mode, x, baseY, now);
-            x = drawSeparator(context, font, x, baseY);
-            x = drawComponent(context, font, connectionText(connected), x, baseY, DISCONNECTED_COLOR);
-            if (trailingText != null) {
+            if (!statusNotice.getString().isEmpty()) {
+                drawComponent(context, font, statusNotice, x, baseY, NOTICE_COLOR);
+            } else {
+                String mode = Component.translatable(modeTranslationKey(multiplier)).getString();
+                x = drawMode(context, font, mode, x, baseY, now);
                 x = drawSeparator(context, font, x, baseY);
-                drawComponent(context, font, trailingText, x, baseY, SEPARATOR_COLOR);
+                x = drawComponent(context, font, connectionText(connected), x, baseY, DISCONNECTED_COLOR);
+                if (trailingText != null) {
+                    x = drawSeparator(context, font, x, baseY);
+                    drawComponent(context, font, trailingText, x, baseY, SEPARATOR_COLOR);
+                }
             }
             context.graphics.pose().popPose();
         }
