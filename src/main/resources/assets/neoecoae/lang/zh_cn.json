@@ -779,6 +779,7 @@
   "gui.neoecoae.large_integrated_working_station.tier.cryotheum": "凛冰溶液",
   "gui.neoecoae.large_integrated_working_station.parallel_and_energy": "单批上限：%s；每次配方耗电：×%s",
   "gui.neoecoae.large_integrated_working_station.pause.none": "暂停原因：无",
+  "gui.neoecoae.large_integrated_working_station.pause.overclock_disabled": "暂停：超频已关闭",
   "gui.neoecoae.large_integrated_working_station.pause.cooling_disabled": "暂停：主动冷却已关闭",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_missing": "暂停：没有可用的冷却液",
   "gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low": "暂停：冷却液档位低于接单档位",

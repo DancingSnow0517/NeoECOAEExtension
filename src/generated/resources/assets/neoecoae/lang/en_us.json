@@ -326,6 +326,7 @@
   "gui.neoecoae.large_integrated_working_station.pause.cooling_disabled": "Paused: Active cooling is off",
   "gui.neoecoae.large_integrated_working_station.pause.none": "Pause: None",
   "gui.neoecoae.large_integrated_working_station.pause.output_blocked": "Paused: Recipe output is blocked",
+  "gui.neoecoae.large_integrated_working_station.pause.overclock_disabled": "Paused: Overclock is off",
   "gui.neoecoae.large_integrated_working_station.pause.power_missing": "Paused: Not enough power",
   "gui.neoecoae.large_integrated_working_station.recipe": "Crafting Task: %s items, %s mB fluid",
   "gui.neoecoae.large_integrated_working_station.recipe_empty": "Crafting Task: Waiting for input",

@@ -28,6 +28,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.tier.cryotheum", "Cryotheum Solution");
         provider.add("gui.neoecoae.large_integrated_working_station.parallel_and_energy", "Batch limit: %s; recipe energy: x%s");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.none", "Pause: None");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.overclock_disabled", "Paused: Overclock is off");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.cooling_disabled", "Paused: Active cooling is off");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_missing", "Paused: No supported coolant");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low", "Paused: Coolant tier is too low");

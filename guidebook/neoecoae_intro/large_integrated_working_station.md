@@ -40,4 +40,4 @@ The controller has **Overclock** and **Active Cooling** switches. Both must be o
 
 Each processing tick that advances an overclocked batch consumes 100 mB of coolant, regardless of batch size. The input and output hatches each hold 1,024,000 mB. Water produces steam and sodium produces superheated sodium when Mekanism is installed; without Mekanism, water has no byproduct. Cryotheum Solution has no byproduct.
 
-An overclocked batch pauses if active cooling is turned off, coolant is missing or below the batch's locked tier, power is insufficient, or the byproduct output is full. It resumes when the missing condition is restored. Idle or paused ticks do not consume coolant.
+An overclocked batch pauses if overclock or active cooling is turned off, coolant is missing or below the batch's locked tier, power is insufficient, or the byproduct output is full. It resumes when the missing condition is restored. Idle or paused ticks do not consume coolant.

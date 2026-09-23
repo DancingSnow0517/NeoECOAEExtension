@@ -16,6 +16,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.networking.energy.IEnergySource;
+import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -115,6 +116,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private boolean activeCooling;
     @DescSynced
     private int pauseReasonId;
+    private double pendingPowerRefund;
 
     public ECOLargeIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -357,7 +359,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getBatchSettingsText() {
         PendingBatch batch = pendingBatches.peekFirst();
-        LargeWorkstationOverclock profile = batch != null && batch.coolingTier > 0
+        LargeWorkstationOverclock profile = batch != null
             ? LargeWorkstationOverclock.fromPersisted(batch.coolingTier, batch.energyMultiplier)
             : getCurrentBatchProfile();
         if (profile == null) profile = LargeWorkstationOverclock.NORMAL;
@@ -466,6 +468,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);
+        if (pendingPowerRefund > 0.0D) data.putDouble("pendingPowerRefund", pendingPowerRefund);
         ListTag batches = new ListTag();
         for (PendingBatch batch : pendingBatches) {
             batches.add(batch.save(registries));
@@ -476,6 +479,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        double restoredRefund = data.getDouble("pendingPowerRefund");
+        pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
@@ -519,6 +524,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        retryPendingPowerRefund();
         if (!formed) return super.tickingRequest(node, ticksSinceLastCall);
         transferStoredFluid(inputTank, getInputTank());
         transferStoredFluid(outputTank, getOutputTank());
@@ -710,20 +716,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             required = energyPerBatch * advance / MAX_PROCESSING_STEPS;
         }
 
-        double extracted = source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
-        if (required > 0.0D && extracted + 0.001D < required) {
-            advance = (int) Math.min(
-                (long) advance,
-                Math.max(0L, (long) Math.floor(extracted * MAX_PROCESSING_STEPS / energyPerBatch))
-            );
-        }
-        if (advance <= 0) {
-            setPauseReason(PauseReason.POWER_MISSING);
-            return TickRateModulation.SLOWER;
-        }
-
-        if (coolingPlan != null && !consumeCoolingTick(coolingPlan)) {
-            setPauseReason(PauseReason.COOLANT_OUTPUT_BLOCKED);
+        IEnergySource paymentSource = source;
+        CoolingTickPlan tickCoolingPlan = coolingPlan;
+        LargeWorkstationTickPayment.Result payment = LargeWorkstationTickPayment.commit(
+            paymentSource,
+            required,
+            () -> tickCoolingPlan == null || consumeCoolingTick(tickCoolingPlan),
+            amount -> refundProcessingPower(paymentSource, amount)
+        );
+        if (payment != LargeWorkstationTickPayment.Result.PAID) {
+            setPauseReason(payment == LargeWorkstationTickPayment.Result.POWER_MISSING
+                ? PauseReason.POWER_MISSING : PauseReason.COOLANT_OUTPUT_BLOCKED);
             return TickRateModulation.SLOWER;
         }
 
@@ -744,7 +747,37 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return TickRateModulation.URGENT;
     }
 
+    private void refundProcessingPower(IEnergySource source, double amount) {
+        double remaining = source instanceof IEnergyService network
+            ? network.injectPower(amount, Actionable.MODULATE)
+            : injectAEPower(amount, Actionable.MODULATE);
+        if (remaining > 0.0D && source != this) {
+            remaining = injectAEPower(remaining, Actionable.MODULATE);
+        } else if (remaining > 0.0D) {
+            IGrid grid = getMainNode().getGrid();
+            if (grid != null) remaining = grid.getEnergyService().injectPower(remaining, Actionable.MODULATE);
+        }
+        if (remaining > 0.0D) {
+            pendingPowerRefund += remaining;
+            setChanged();
+        }
+    }
+
+    private void retryPendingPowerRefund() {
+        if (pendingPowerRefund <= 0.0D) return;
+        double remaining = injectAEPower(pendingPowerRefund, Actionable.MODULATE);
+        if (remaining > 0.0D) {
+            IGrid grid = getMainNode().getGrid();
+            if (grid != null) remaining = grid.getEnergyService().injectPower(remaining, Actionable.MODULATE);
+        }
+        if (remaining != pendingPowerRefund) {
+            pendingPowerRefund = remaining;
+            setChanged();
+        }
+    }
+
     private PauseReason getCoolingPauseReason(PendingBatch batch) {
+        if (!overclocked) return PauseReason.OVERCLOCK_DISABLED;
         if (!activeCooling) return PauseReason.COOLING_DISABLED;
 
         CoolingRecipe recipe = getCoolingRecipeForInput();
@@ -1179,7 +1212,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             }
         }
         root.addChild(HostSideButtonBar.left(
-            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/integrated_working_station.md")
+            GuideButton.create(holder.player, "neoecoae:neoecoae_intro/large_integrated_working_station.md")
         ));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(
             cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets.ECO))), holder.player);
@@ -1252,6 +1285,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private enum PauseReason {
         NONE("gui.neoecoae.large_integrated_working_station.pause.none"),
+        OVERCLOCK_DISABLED("gui.neoecoae.large_integrated_working_station.pause.overclock_disabled"),
         COOLING_DISABLED("gui.neoecoae.large_integrated_working_station.pause.cooling_disabled"),
         COOLANT_MISSING("gui.neoecoae.large_integrated_working_station.pause.coolant_missing"),
         COOLANT_TIER_LOW("gui.neoecoae.large_integrated_working_station.pause.coolant_tier_low"),
