@@ -83,12 +83,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
             "neoecoaeIgnorePatternSubstitutions";
     @Unique
-    private static final String NEOECOAE_FAST_PLANNER_ENABLED_KEY =
-            "neoecoaeFastPlannerEnabled";
-    @Unique
-    private static final String NEOECOAE_CYCLE_PLANNING_ENABLED_KEY =
-            "neoecoaeCyclePlanningEnabled";
-    @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
                     NEComputationCluster::getPooledParallelism)
             .reversed()
@@ -263,18 +257,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
                     NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
             neoecoae$planningModeInitialized = true;
         }
-        if (!neoecoae$fastPlannerInitialized
-                && savedData != null
-                && savedData.contains(NEOECOAE_FAST_PLANNER_ENABLED_KEY, Tag.TAG_BYTE)) {
-            neoecoae$fastPlannerEnabled = savedData.getBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY);
-            neoecoae$fastPlannerInitialized = true;
-        }
-        if (!neoecoae$cyclePlanningInitialized
-                && savedData != null
-                && savedData.contains(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY, Tag.TAG_BYTE)) {
-            neoecoae$cyclePlanningEnabled = savedData.getBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY);
-            neoecoae$cyclePlanningInitialized = true;
-        }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
                 && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
@@ -290,6 +272,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             neoecoae$initializeOrSyncPlanningMode(
                     computationHost.isLocallyIgnoringPatternSubstitutions(),
                     computationHost::applyNetworkIgnoringPatternSubstitutions);
+            // Planner flags live on the computation host's persisted block-entity fields. Do not
+            // restore them from arbitrary grid-node data: an unrelated node may load first with an
+            // older per-node snapshot and overwrite the host's current settings.
             neoecoae$initializeOrSyncFastPlanner(
                     computationHost.isLocallyFastCraftingPlannerEnabled(),
                     computationHost::applyNetworkFastCraftingPlannerEnabled);
@@ -304,8 +289,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         savedData.putBoolean(
                 NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
                 neoecoae$ignorePatternSubstitutions);
-        savedData.putBoolean(NEOECOAE_FAST_PLANNER_ENABLED_KEY, neoecoae$fastPlannerEnabled);
-        savedData.putBoolean(NEOECOAE_CYCLE_PLANNING_ENABLED_KEY, neoecoae$cyclePlanningEnabled);
     }
 
     @Unique
