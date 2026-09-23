@@ -27,6 +27,9 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class ECOProcessingDispatchIntegrationTest {
+    @org.junit.jupiter.api.BeforeAll static void bootstrap() {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+    }
     @Test
     void ordinaryRampGrowsWithinColdVisitAndDebitsOnlyAcceptedChunks() {
         var f = new Fixture();

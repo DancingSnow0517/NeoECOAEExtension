@@ -72,8 +72,17 @@ final class ECOCraftingDispatchAccounting {
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         audit(request, result.acceptedCrafts(), result.outputs(), result.remainders(), "dispatch", () -> {
+            boolean virtual = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusVirtualCrafting
+                    .isEnabled(provider) && !job.exactOrder && hasTerminalVirtualOutput(request);
             for (var output : result.outputs()) {
-                job.waitingFor.insert(output.what(), output.amount(), appeng.api.config.Actionable.MODULATE);
+                boolean virtualOutput = virtual && output.what().equals(job.finalOutput.what());
+                long virtualAmount = virtualOutput
+                        ? Math.min(output.amount(), Math.max(0L, job.remainingAmount)) : 0L;
+                job.remainingAmount -= virtualAmount;
+                if (virtualAmount > 0L) job.timeTracker.decrementItems(virtualAmount, output.what().getType());
+                // Virtual final products need no return. Intermediate products and containers still do.
+                if (!virtualOutput) job.waitingFor.insert(output.what(), output.amount(),
+                        appeng.api.config.Actionable.MODULATE);
             }
             for (var remainder : result.remainders()) {
                 job.waitingFor.insert(remainder.what(), remainder.amount(), appeng.api.config.Actionable.MODULATE);
@@ -94,6 +103,21 @@ final class ECOCraftingDispatchAccounting {
             }
             markDirty.run();
         });
+    }
+
+    private static boolean hasTerminalVirtualOutput(ECOCraftingDispatchRequest request) {
+        var job = request.job();
+        if (job.finalOutput == null) return false;
+        var key = job.finalOutput.what();
+        // Never virtually consume a product used as a dependency or a cycle seed in this plan.
+        for (var pattern : job.tasks.keySet()) {
+            for (var input : pattern.getInputs()) {
+                for (var possible : input.getPossibleInputs()) {
+                    if (key.equals(possible.what())) return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static void audit(ECOCraftingDispatchRequest request, Object acceptedCrafts,

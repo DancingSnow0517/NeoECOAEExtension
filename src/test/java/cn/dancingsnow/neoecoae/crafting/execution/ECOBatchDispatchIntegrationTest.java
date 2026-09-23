@@ -24,6 +24,9 @@ import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class ECOBatchDispatchIntegrationTest {
+    @org.junit.jupiter.api.BeforeAll static void bootstrap() {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+    }
     interface Parallel extends ICraftingProvider, ECOParallelCraftingProvider {}
 
     final AEKey input = mock(AEKey.class, RETURNS_DEEP_STUBS);

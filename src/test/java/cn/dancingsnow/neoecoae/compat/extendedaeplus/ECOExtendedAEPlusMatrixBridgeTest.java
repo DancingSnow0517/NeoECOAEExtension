@@ -23,8 +23,19 @@ class ECOExtendedAEPlusMatrixBridgeTest {
     @Test void superMatrixDispatchesScaledPatternAndCopiedTotalSlots() { dispatch(SuperAssemblerMatrixBlockEntity.class); }
     @Test void ultimateMatrixUsesSameProviderSuperclass() { dispatch(UltimateProvider.class); }
 
-    private void dispatch(Class<? extends SuperAssemblerMatrixBlockEntity> type) {
+    @Test void attachedPatternCoreUsesSuperMatrixQueueButOrdinaryCoreDoesNot() {
+        var core = mock(com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity.class);
+        assertFalse(ECOExtendedAEPlusMatrixBridge.supportsProvider(core));
+        when(core.eap$getSuperMatrixCluster()).thenReturn(new Object());
+        assertTrue(ECOExtendedAEPlusMatrixBridge.supportsProvider(core));
+        dispatch(com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity.class);
+    }
+
+    private void dispatch(Class<? extends appeng.api.networking.crafting.ICraftingProvider> type) {
         var provider = mock(type);
+        if (provider instanceof com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity core) {
+            when(core.eap$getSuperMatrixCluster()).thenReturn(new Object());
+        }
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var input = mock(IPatternDetails.IInput.class);
         when(input.getPossibleInputs()).thenReturn(new GenericStack[]{new GenericStack(key, 2)});
@@ -51,6 +62,14 @@ class ECOExtendedAEPlusMatrixBridgeTest {
                 List.of(new GenericStack(key, 5)), List.of());
             assertTrue(preparation.push(batch));
             assertEquals(2, context.inputCounters()[0].get(key));
+            when(provider.isBusy()).thenReturn(true);
+            assertFalse(preparation.push(batch));
+            when(provider.isBusy()).thenReturn(false);
+            if (provider instanceof com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity core) {
+                when(core.eap$getSuperMatrixCluster()).thenReturn(null);
+                assertFalse(preparation.push(batch));
+                when(core.eap$getSuperMatrixCluster()).thenReturn(new Object());
+            }
             doReturn(false).when(provider).pushPattern(any(), any());
             assertFalse(preparation.push(batch));
             doThrow(new IllegalStateException("after enqueue")).when(provider).pushPattern(any(), any());

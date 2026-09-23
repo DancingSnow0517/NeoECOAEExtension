@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
@@ -30,7 +31,7 @@ public final class ECOExtendedAEPlusMatrixBridge {
 
     public static boolean supportsProvider(ICraftingProvider provider) {
         // EAP represents both normal and ultimate structures with this same provider superclass.
-        return API != null && API.matrixProviderType().isInstance(provider);
+        return API != null && (API.matrixProviderType().isInstance(provider) || API.isSuperPatternCore(provider));
     }
 
     @Nullable
@@ -40,6 +41,8 @@ public final class ECOExtendedAEPlusMatrixBridge {
             if (!supports(provider, context.pattern()) || provider.isBusy()
                     || !context.containerItems().isEmpty() || !verify(context)) return null;
             return new ECOFastPathDispatchProvider.Preparation(Long.MAX_VALUE, null, false, batch -> {
+                // A pattern core can move back to an ordinary ExtendedAE matrix after preparation.
+                if (!supports(provider, context.pattern()) || provider.isBusy()) return false;
                 IPatternDetails scaled = batch.craftCount() == 1 ? context.pattern()
                     : scale(context.pattern(), batch.craftCount());
                 KeyCounter[] inputs = multiplyInputHolder(context.inputCounters(), batch.craftCount());
@@ -77,7 +80,7 @@ public final class ECOExtendedAEPlusMatrixBridge {
     /** Returns whether this provider/pattern pair can use the EAP counted dispatch contract. */
     public static boolean supports(ICraftingProvider provider, IPatternDetails pattern) {
         if (API == null || provider == null || pattern == null
-                || !API.matrixProviderType().isInstance(provider)
+                || !supportsProvider(provider)
                 || !(pattern instanceof IMolecularAssemblerSupportedPattern)
                 || API.scaledPatternType().isInstance(pattern)) {
             return false;
@@ -151,7 +154,17 @@ public final class ECOExtendedAEPlusMatrixBridge {
     private record ReflectionApi(
             Class<?> matrixProviderType,
             Class<?> scaledPatternType,
-            Constructor<?> scaledPatternConstructor) {
+            Constructor<?> scaledPatternConstructor,
+            @Nullable Method patternCoreCluster) {
+        boolean isSuperPatternCore(Object provider) {
+            if (patternCoreCluster == null || !patternCoreCluster.getDeclaringClass().isInstance(provider)) return false;
+            try {
+                return patternCoreCluster.invoke(provider) != null;
+            } catch (ReflectiveOperationException | RuntimeException unavailable) {
+                return false;
+            }
+        }
+
         @Nullable
         private static ReflectionApi load() {
             try {
@@ -164,7 +177,15 @@ public final class ECOExtendedAEPlusMatrixBridge {
                     "com.extendedae_plus.api.crafting.ScaledMolecularAssemblerPattern",
                     false, loader);
                 Constructor<?> constructor = scaledPattern.getConstructor(molecularPattern, long.class);
-                return new ReflectionApi(matrixProvider, scaledPattern, constructor);
+                Method patternCoreCluster = null;
+                try {
+                    patternCoreCluster = Class.forName(
+                        "com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity", false, loader)
+                        .getMethod("eap$getSuperMatrixCluster");
+                } catch (ReflectiveOperationException | LinkageError unavailable) {
+                    // Older EAEP versions only expose the controller provider.
+                }
+                return new ReflectionApi(matrixProvider, scaledPattern, constructor, patternCoreCluster);
             } catch (ReflectiveOperationException | LinkageError unavailable) {
                 return null;
             }
