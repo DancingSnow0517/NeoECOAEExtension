@@ -182,8 +182,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
 
     public static boolean canStoreKeyInsideStorageCell(AEKey what) {
         if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-            var cellInv = StorageCells.getCellInventory(stack, null);
+            // Only probed, never mutated: skip the per-insert ItemStack copy.
+            var cellInv = StorageCells.getCellInventory(itemKey.getReadOnlyStack(), null);
             return cellInv == null || cellInv.canFitInsideCell();
         }
         return true;

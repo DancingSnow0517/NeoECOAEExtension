@@ -6,10 +6,8 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.impl.storage.StorageByteAccounting;
-import cn.dancingsnow.neoecoae.integration.appflux.FluxStorageKeys;
 
 import java.math.BigInteger;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -17,23 +15,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import net.minecraft.core.HolderLookup;
-
 /**
- * Server-thread facade: primitive quantities, incremental statistics, world-save persistence.
+ * Server-thread facade: primitive quantities, incremental statistics. Changes stay in memory and reach disk through
+ * the vanilla SavedData cycle, like every other world-owned inventory.
  */
 public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageEngine {
     private final ECOInfiniteStorageData data;
-    private final HolderLookup.Provider registries;
-    private final Path dataFile;
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private List<TypeStats> snapshot = List.of();
     private boolean statisticsDirty = true;
 
-    public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data, HolderLookup.Provider registries, Path dataFile) {
+    public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data) {
         this.data = data;
-        this.registries = registries;
-        this.dataFile = dataFile;
         data.amounts.forEach((key, amount) -> {
             MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
             stats.types++;
@@ -44,13 +37,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public long insert(AEKey key, long amount, Actionable mode) {
         if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
-        if (mode == Actionable.MODULATE) {
-            boolean accepted = FluxStorageKeys.isEnergy(key)
-                    ? data.bufferEnergyChange(key, amount, true)
-                    : data.appendJournalChange(dataFile.toFile(), registries, key, amount, true);
-            if (!accepted) return 0;
-            change(key, amount, true);
-        }
+        if (mode == Actionable.MODULATE) change(key, amount, true);
         return amount;
     }
 
@@ -83,10 +70,6 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         long extracted = Math.min(amount, data.amounts.visible(key));
         if (mode == Actionable.SIMULATE || extracted == 0) return extracted;
         if (!data.canWrite(key)) return 0;
-        boolean accepted = FluxStorageKeys.isEnergy(key)
-                ? data.bufferEnergyChange(key, extracted, false)
-                : data.appendJournalChange(dataFile.toFile(), registries, key, extracted, false);
-        if (!accepted) return 0;
         change(key, extracted, false);
         return extracted;
     }
@@ -97,9 +80,13 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (added) data.add(key, amount);
         else data.subtract(key, amount);
         boolean empty = data.amounts.visible(key) == 0;
-        stats.types += (wasEmpty ? 0 : -1) + (empty ? 0 : 1);
         stats.total = added ? stats.total.add(amount) : stats.total.subtract(amount);
-        if (stats.types == 0) typeStats.remove(key.getType());
+        if (wasEmpty != empty) {
+            stats.types += empty ? -1 : 1;
+            if (stats.types == 0) typeStats.remove(key.getType());
+            // A key appearing or vanishing is a structural change: refresh revision-keyed views right away.
+            data.setDirty();
+        }
         statisticsDirty = true;
     }
 
@@ -111,6 +98,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (!data.canRead()) return;
+        if (!data.hasPendingRestore()) {
+            data.amounts.visitVisible((key, amount) -> addVisible(out, key, amount));
+            return;
+        }
         data.amounts.visitVisible((key, amount) -> {
             if (data.canRead(key)) addVisible(out, key, amount);
         });
@@ -179,26 +170,8 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public CommitResult commit() {
-        data.save(dataFile.toFile(), registries);
-        return new CommitResult(data.canWrite() && !data.isDirty(), data.durableRevision(), data.lastFailureReason());
-    }
-
-    public void close() {
-        try {
-            if (data.isDirty() && !commit().successful()) {
-                throw new IllegalStateException("Infinite domain snapshot is still unsaved: " + data.lastFailureReason());
-            }
-        } finally {
-            try {
-                data.closeJournal();
-            } catch (java.io.IOException exception) {
-                throw new IllegalStateException("Cannot close infinite domain journal", exception);
-            }
-        }
-    }
-
-    void flushBufferedEnergy() {
-        data.flushBufferedEnergy(dataFile.toFile(), registries);
+        data.setDirty();
+        return new CommitResult(data.canWrite(), data.revision(), data.lastFailureReason());
     }
 
     public List<String> failures() {
@@ -206,7 +179,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     public String persistenceSummary() {
-        return "SavedData revision: " + data.revision() + "; saved revision: " + data.durableRevision();
+        return "SavedData revision: " + data.revision() + "; unsaved changes: " + data.isDirty();
     }
 
     @Override

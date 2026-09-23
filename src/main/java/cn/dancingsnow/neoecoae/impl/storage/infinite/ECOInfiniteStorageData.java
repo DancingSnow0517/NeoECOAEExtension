@@ -7,13 +7,8 @@ import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,10 +25,12 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.neoforged.neoforge.common.IOUtilities;
 import org.slf4j.LoggerFactory;
 
 /**
- * World-owned inventory and transfer receipts, saved together in one atomic snapshot.
+ * World-owned inventory and transfer receipts, saved together in one atomic snapshot by the vanilla
+ * {@link net.minecraft.world.level.storage.DimensionDataStorage} cycle (autosave, {@code /save-all}, shutdown).
  */
 public final class ECOInfiniteStorageData extends SavedData {
     public static final int CURRENT_VERSION = 3;
@@ -57,22 +54,45 @@ public final class ECOInfiniteStorageData extends SavedData {
     private CompoundTag unresolvedMetadata = new CompoundTag();
     private boolean unreadable;
     private boolean incompleteLegacy;
-    private boolean writeFailed;
     private String failure;
+    // Written by the IO worker when an asynchronous snapshot write fails; the next save retries.
+    private volatile String writeFailure;
     private long revision;
-    private long durableRevision;
+    // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
     private KeyCodec codec;
-    // One bounded hot-key cache per domain, typically the repeatedly transferred FE key.
-    private AEKey journalKey;
-    private HolderLookup.Provider journalRegistries;
-    private InfiniteStorageJournalRecord journalRecord;
-    private Path openJournalPath;
-    private FileChannel journalChannel;
-    private final Map<AEKey, BigInteger> bufferedEnergyChanges = new HashMap<>();
 
     public static ECOInfiniteStorageData createNew() {
         return new ECOInfiniteStorageData();
+    }
+
+    /**
+     * Vanilla load path. The deserializer runs only when {@code dataFile} was read successfully; if vanilla failed to
+     * read an existing file, the constructor fallback leaves the domain unreadable so that file is never overwritten.
+     */
+    public static SavedData.Factory<ECOInfiniteStorageData> factory(Path dataFile,
+                                                                    java.util.function.Supplier<ECOInfiniteStorageData> fresh) {
+        return new SavedData.Factory<>(() -> {
+            if (Files.exists(dataFile)) {
+                ECOInfiniteStorageData data = createNew();
+                data.markUnreadable("Cannot read authoritative domain snapshot " + dataFile.getFileName()
+                        + "; original file retained");
+                return data;
+            }
+            return fresh.get();
+        }, (tag, registries) -> {
+            ECOInfiniteStorageData data = load(tag, registries);
+            if (data.canRead()) {
+                try {
+                    // Upgrade worlds written by the old write-ahead journal; the next save folds it in.
+                    replayJournal(data, dataFile, registries);
+                } catch (IOException | RuntimeException e) {
+                    data = createNew();
+                    data.markUnreadable("Cannot replay legacy domain journal; original files retained: " + e);
+                }
+            }
+            return data;
+        });
     }
 
     public static ECOInfiniteStorageData load(CompoundTag tag, HolderLookup.Provider registries) {
@@ -201,43 +221,41 @@ public final class ECOInfiniteStorageData extends SavedData {
         return tag;
     }
 
+    /**
+     * Same contract as vanilla {@link SavedData#save(File, HolderLookup.Provider)}: serialize on the server thread,
+     * write atomically on the IO worker. Unreadable or partially imported domains are never written, and a failed
+     * write keeps the domain due for the next save.
+     */
     @Override
     public void save(File file, HolderLookup.Provider registries) {
+        if (unreadable || incompleteLegacy) return;
+        if (!isDirty() && writeFailure == null) return;
+        CompoundTag root = new CompoundTag();
         try {
-            // Windows cannot delete/replace an open journal. Also release the descriptor
-            // at every snapshot boundary, including clean saves and failed snapshots.
-            closeJournal();
-            if (unreadable || incompleteLegacy) return;
-            if (isDirty()) {
-                var target = file.toPath().toAbsolutePath();
-                Files.createDirectories(target.getParent());
-                var temp = target.resolveSibling(target.getFileName() + ".temp");
-                CompoundTag root = new CompoundTag();
-                root.put("data", save(new CompoundTag(), registries));
-                NbtUtils.addCurrentDataVersion(root);
-                NbtIo.writeCompressed(root, temp);
-                try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
-                    channel.force(true);
-                }
-                // An unsupported atomic replacement is a save failure, never permission to destroy the old file.
-                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                // The snapshot records journalSequence, so retaining an old journal after a crash is
-                // harmless. Delete it only after the authoritative snapshot replacement succeeds.
-                Files.deleteIfExists(journalPath(target));
-                bufferedEnergyChanges.clear();
-                durableRevision = revision;
-                setDirty(false);
-            }
-            writeFailed = false;
-            failure = null;
-        } catch (IOException | RuntimeException e) {
-            if (!writeFailed)
-                LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
-            writeFailed = true;
-            failure = e.toString();
+            root.put("data", save(new CompoundTag(), registries));
+        } catch (RuntimeException e) {
+            LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
+            writeFailure = e.toString();
+            return;
         }
+        NbtUtils.addCurrentDataVersion(root);
+        Path target = file.toPath();
+        IOUtilities.withIOWorker(() -> {
+            try {
+                IOUtilities.writeNbtCompressed(root, target);
+                // The snapshot records journalSequence, so a journal left behind by a crash here is harmless.
+                Files.deleteIfExists(journalPath(target.toAbsolutePath()));
+                writeFailure = null;
+            } catch (IOException | RuntimeException e) {
+                if (writeFailure == null)
+                    LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
+                writeFailure = e.toString();
+            }
+        });
+        setDirty(false);
     }
 
+    /** Structural change: also advances {@link #revision()} so revision-keyed caches refresh. */
     @Override
     public void setDirty() {
         revision++;
@@ -248,12 +266,9 @@ public final class ECOInfiniteStorageData extends SavedData {
         return revision;
     }
 
-    public long durableRevision() {
-        return durableRevision;
-    }
-
     public String lastFailureReason() {
-        return failure;
+        String write = writeFailure;
+        return write != null ? write : failure;
     }
 
     public HugeAmount getAmount(AEKey key) {
@@ -273,7 +288,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canWrite() {
-        return !unreadable && !incompleteLegacy && !writeFailed;
+        return !unreadable && !incompleteLegacy;
     }
 
     public boolean canWrite(AEKey key) {
@@ -281,21 +296,24 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canExitOrRestore() {
-        return canWrite() && rawEntries.isEmpty() && unresolvedMetadata.isEmpty();
+        // Leaving infinite mode relies on the next snapshot landing; wait until a failed write has recovered.
+        return canWrite() && writeFailure == null && rawEntries.isEmpty() && unresolvedMetadata.isEmpty();
     }
 
     public boolean canMigrate() {
         return canExitOrRestore();
     }
 
+    // Quantity changes only mark the snapshot due; they leave revision() alone so hot FE/item transfers don't
+    // invalidate revision-keyed caches every operation. Callers bump the revision for structural changes.
     void add(AEKey key, long amount) {
         amounts.add(key, amount);
-        setDirty();
+        setDirty(true);
     }
 
     void subtract(AEKey key, long amount) {
         amounts.subtract(key, amount);
-        setDirty();
+        setDirty(true);
     }
 
     public boolean hasMigrationReceipt(UUID transaction) {
@@ -312,93 +330,6 @@ public final class ECOInfiniteStorageData extends SavedData {
             if (transaction != null) changed |= migrationReceipts.add(transaction);
         }
         if (changed) setDirty();
-    }
-
-    boolean appendJournalChange(File snapshot, HolderLookup.Provider registries, AEKey key, long amount, boolean added) {
-        if (!canWrite() || key == null || amount <= 0L) return false;
-        try {
-            long sequence = Math.incrementExact(journalSequence);
-            writeJournalRecord(snapshot, registries, key, amount, added, sequence);
-            // Acknowledged transfers must remain durable before inventory changes.
-            // Never coalesce/defer this force without a different transaction contract.
-            journalChannel.force(true);
-            journalSequence = sequence;
-            return true;
-        } catch (IOException | RuntimeException exception) {
-            failJournal(snapshot, exception);
-            return false;
-        }
-    }
-
-    boolean bufferEnergyChange(AEKey key, long amount, boolean added) {
-        if (!canWrite(key) || key == null || amount <= 0L) return false;
-        BigInteger delta = BigInteger.valueOf(amount);
-        bufferedEnergyChanges.merge(key, added ? delta : delta.negate(), BigInteger::add);
-        if (bufferedEnergyChanges.get(key).signum() == 0) bufferedEnergyChanges.remove(key);
-        return true;
-    }
-
-    void flushBufferedEnergy(File snapshot, HolderLookup.Provider registries) {
-        if (bufferedEnergyChanges.isEmpty() || !canWrite()) return;
-        try {
-            long sequence = journalSequence;
-            for (var entry : bufferedEnergyChanges.entrySet()) {
-                BigInteger remaining = entry.getValue().abs();
-                boolean added = entry.getValue().signum() > 0;
-                while (remaining.signum() > 0) {
-                    long chunk = remaining.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
-                    sequence = Math.incrementExact(sequence);
-                    writeJournalRecord(snapshot, registries, entry.getKey(), chunk, added, sequence);
-                    remaining = remaining.subtract(BigInteger.valueOf(chunk));
-                }
-            }
-            journalChannel.force(true);
-            journalSequence = sequence;
-            bufferedEnergyChanges.clear();
-        } catch (IOException | RuntimeException exception) {
-            failJournal(snapshot, exception);
-        }
-    }
-
-    private void writeJournalRecord(File snapshot, HolderLookup.Provider registries, AEKey key,
-                                    long amount, boolean added, long sequence) throws IOException {
-        InfiniteStorageJournalRecord record = journalRecord;
-        if (record == null || !key.equals(journalKey) || registries != journalRegistries) {
-            record = new InfiniteStorageJournalRecord(
-                    codec == null ? key.toTagGeneric(registries) : codec.encode(key));
-            journalRecord = record.size() <= 64 * 1024 ? record : null;
-            journalKey = journalRecord == null ? null : key;
-            journalRegistries = journalRecord == null ? null : registries;
-        }
-        ByteBuffer framed = record.prepare(sequence, amount, added);
-        Path path = journalPath(snapshot.toPath().toAbsolutePath());
-        if (journalChannel == null || !path.equals(openJournalPath)) {
-            closeJournal();
-            Files.createDirectories(path.getParent());
-            journalChannel = FileChannel.open(path, StandardOpenOption.CREATE,
-                    StandardOpenOption.WRITE, StandardOpenOption.APPEND);
-            openJournalPath = path;
-        }
-        while (framed.hasRemaining()) journalChannel.write(framed);
-    }
-
-    private void failJournal(File snapshot, Exception exception) {
-        try {
-            closeJournal();
-        } catch (IOException closeFailure) {
-            exception.addSuppressed(closeFailure);
-        }
-        writeFailed = true;
-        failure = "Cannot append infinite-domain journal: " + exception;
-        LoggerFactory.getLogger(ECOInfiniteStorageData.class)
-                .error("Cannot append infinite-domain journal {}", snapshot, exception);
-    }
-
-    void closeJournal() throws IOException {
-        FileChannel channel = journalChannel;
-        journalChannel = null;
-        openJournalPath = null;
-        if (channel != null) channel.close();
     }
 
     static void replayJournal(ECOInfiniteStorageData data, Path snapshot, HolderLookup.Provider registries)
@@ -453,14 +384,16 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public DomainStatus status() {
         if (unreadable) return DomainStatus.UNAVAILABLE;
-        if (writeFailed || incompleteLegacy) return DomainStatus.RECOVERY_READ_ONLY;
-        if (!rawEntries.isEmpty() || !unresolvedMetadata.isEmpty()
+        if (incompleteLegacy) return DomainStatus.RECOVERY_READ_ONLY;
+        if (writeFailure != null || !rawEntries.isEmpty() || !unresolvedMetadata.isEmpty()
                 || restores.values().stream().anyMatch(r -> !r.failure().isEmpty())) return DomainStatus.DEGRADED;
         return DomainStatus.HEALTHY;
     }
 
     public List<String> failures() {
         List<String> result = new ArrayList<>();
+        String write = writeFailure;
+        if (write != null) result.add("Last snapshot write failed, retrying on next save: " + write);
         if (failure != null) result.add(failure);
         if (!rawEntries.isEmpty()) result.add("Unresolved entries retained: " + rawEntries.size());
         if (!unresolvedMetadata.isEmpty()) result.add("Unresolved transfer metadata retained");

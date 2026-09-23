@@ -19,7 +19,7 @@ public final class ECOStorageLifecycleEvents {
     }
 
     /**
-     * Drain pending journals and checkpoints before releasing integrated-server state.
+     * Release integrated-server state. World data, including infinite domains, was already saved by vanilla shutdown.
      */
     public static void onServerStopped(ServerStoppedEvent event) {
         MinecraftServer server = event.getServer();
@@ -43,7 +43,6 @@ public final class ECOStorageLifecycleEvents {
         for (ServerLevel level : event.getServer().getAllLevels()) {
             NELogicalNetworkManager.tick(level);
         }
-        ECOInfiniteStorageDomains.tick(event.getServer(), event.getServer().getTickCount());
         ECOCellMutationBatch.retry();
         PatternBusUpdateScheduler.tick(event.getServer());
         if (!FMLEnvironment.production) {

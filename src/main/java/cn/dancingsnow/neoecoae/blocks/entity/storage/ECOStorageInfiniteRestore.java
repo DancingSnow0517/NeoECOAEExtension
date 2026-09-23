@@ -271,14 +271,11 @@ final class ECOStorageInfiniteRestore {
         }
         if (!completed.isEmpty()) {
             for (var cell : changedCells) cell.persistMigrationContents(serverLevel);
-            List<net.minecraft.core.BlockPos> changedChunks = new ArrayList<>();
+            // Mark the target chunks unsaved; the vanilla world save persists them with the domain.
             for (RestoreTarget target : plan.targets()) {
-                if (changedCells.contains(target.drive().getCellInventory())) {
-                    changedChunks.add(target.drive().getBlockPos());
-                }
+                if (changedCells.contains(target.drive().getCellInventory())) target.drive().setChanged();
             }
-            changedChunks.add(host.getBlockPos());
-            ECOStorageDurability.saveChunks(serverLevel, changedChunks);
+            host.setChanged();
             if (!engine.finishRestores(completed)) return;
             restoreQueue.removeIf(completed::containsKey);
             host.storageFaults().recovered("restore");

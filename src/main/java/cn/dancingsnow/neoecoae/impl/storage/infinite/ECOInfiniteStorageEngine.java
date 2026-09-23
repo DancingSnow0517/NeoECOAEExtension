@@ -77,11 +77,11 @@ public interface ECOInfiniteStorageEngine {
     }
 
     /**
-     * Writes the domain snapshot to disk right away. Ordinary inserts and extracts are protected by the
-     * write-ahead journal; this full snapshot commit is reserved for migration boundaries, where inventory,
-     * receipts, and restore plans must advance together.
+     * Marks a migration boundary: inventory, receipts and restore plans have advanced together and are handed to the
+     * vanilla SavedData cycle, which writes them in one snapshot on the next world save. No I/O happens here;
+     * {@code successful} only reports whether the domain accepts the change.
      */
-    record CommitResult(boolean successful, long durableRevision, String failure) {
+    record CommitResult(boolean successful, long revision, String failure) {
     }
 
     CommitResult commit();

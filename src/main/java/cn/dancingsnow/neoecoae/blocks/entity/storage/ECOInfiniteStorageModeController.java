@@ -301,16 +301,13 @@ final class ECOInfiniteStorageModeController {
         host.infiniteMigrationSourceIds().remove(migration);
         IStorageProvider.requestUpdate(drive.getMainNode());
         host.invalidateStorageStatistics();
+        drive.setChanged();
         host.setChanged();
         host.markForUpdate();
-        if (host.getLevel() instanceof ServerLevel serverLevel) {
-            ECOStorageDurability.saveChunks(serverLevel, List.of(drive.getBlockPos(), host.getBlockPos()));
-        }
     }
 
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
         Set<UUID> prepared = new HashSet<>();
-        List<net.minecraft.core.BlockPos> changedChunks = new ArrayList<>();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             if (prepared.size() >= ECOInfiniteStorageTransfer.KEYS_PER_TICK) break;
             String stage = "migration drive " + drive.getBlockPos();
@@ -335,15 +332,14 @@ final class ECOInfiniteStorageModeController {
                 drive.setChanged();
                 IStorageProvider.requestUpdate(drive.getMainNode());
                 prepared.add(migration);
-                changedChunks.add(drive.getBlockPos());
             } catch (RuntimeException exception) {
                 host.storageStageRetryTicks().put(stage, host.getLevel().getGameTime() + 200L);
                 host.storageFaults().report(stage, exception.toString(), host.getLevel().getGameTime(), exception);
             }
         }
         if (!prepared.isEmpty()) {
-            changedChunks.add(host.getBlockPos());
-            ECOStorageDurability.saveChunks(serverLevel, changedChunks);
+            // Chunks and the domain are saved together by the next vanilla world save; receipts make a replay safe.
+            host.setChanged();
             preparedSourceSeals.addAll(prepared);
         }
     }
