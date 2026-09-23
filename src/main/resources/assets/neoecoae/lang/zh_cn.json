@@ -812,6 +812,7 @@
   "item.neoecoae.eco_data_storage_cell_64m": "ECO - LE6 存储矩阵（数据）",
   "item.neoecoae.eco_data_storage_cell_256m": "ECO - LE9 存储矩阵（数据）",
   "gui.neoecoae.large_integrated_working_station.auto_build": "自动搭建大型集成工作站",
+  "gui.neoecoae.large_integrated_working_station.return_inputs": "返还已存储输入",
   "category.neoecoae.large_integrated_working_station": "大型集成工作站",
   "emi.category.neoecoae.large_integrated_working_station": "大型集成工作站",
   "gui.neoecoae.large_integrated_working_station.pause.lightning_missing": "暂停：闪电不足",
